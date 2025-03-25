@@ -1,18 +1,19 @@
+// /src/views/ManageEventRequests.vue (Bootstrap styling)
 <template>
-    <div>
+    <div class="container">
       <h2>Manage Event Requests</h2>
       <div v-if="loading">Loading...</div>
       <div v-else-if="eventRequests.length === 0">No event requests.</div>
       <div v-else>
-        <ul>
-          <li v-for="request in eventRequests" :key="request.id">
+        <ul class="list-group">
+          <li v-for="request in eventRequests" :key="request.id" class="list-group-item">
             <div>
               <strong>{{ request.eventName }}</strong> ({{ request.eventType }}) -
               Requested by: {{ request.requester }} - Status: {{ request.status }}
               <p>Description: {{ request.description }}</p>
               <p>Desired Dates: {{ formatDate(request.desiredStartDate) }} - {{ formatDate(request.desiredEndDate) }}</p>
-              <button v-if="request.status === 'Pending'" @click="approveRequest(request.id)">Approve</button>
-               <button v-if="request.status === 'Pending'" @click="rejectRequest(request.id)">Reject</button>
+              <button v-if="request.status === 'Pending'" @click="approveRequest(request.id)" class="btn btn-success btn-sm">Approve</button>
+               <button v-if="request.status === 'Pending'" @click="rejectRequest(request.id)" class="btn btn-danger btn-sm">Reject</button>
             </div>
           </li>
         </ul>

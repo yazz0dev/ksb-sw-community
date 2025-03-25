@@ -1,7 +1,8 @@
+// /src/views/PortfolioView.vue (Bootstrap styling)
 <template>
-    <div>
+    <div class="container">
       <h2>My Portfolio</h2>
-      <button @click="generatePdf">Generate PDF</button>
+      <button @click="generatePdf" class="btn btn-primary">Generate PDF</button>
     </div>
   </template>
  

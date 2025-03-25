@@ -1,39 +1,43 @@
+// /src/views/ManageResource.vue (Bootstrap styling, error handling, cancel button)
 <template>
-    <div>
+    <div class="container">
         <h2>Manage Resources</h2>
-         <div v-if="message" :class="{'success': !isError, 'error': isError }">
+         <div v-if="message" :class="{'alert alert-success': !isError, 'alert alert-danger': isError }">
                 {{message}}
             </div>
         <form @submit.prevent="editingId ? updateResource() : addResource()">
-            <div>
-                <label>Title</label>
-                <input type="text" v-model="currentResource.title" required>
+            <div class="mb-3">
+                <label class="form-label">Title</label>
+                <input type="text" v-model="currentResource.title" required class="form-control">
             </div>
-             <div>
-                <label>Category:</label>
-                <input type="text" v-model="currentResource.category" required />
+             <div class="mb-3">
+                <label class="form-label">Category:</label>
+                <input type="text" v-model="currentResource.category" required class="form-control" />
               </div>
-            <div>
-                <label>Type</label>
-                <select v-model="currentResource.type" required>
+            <div class="mb-3">
+                <label class="form-label">Type</label>
+                <select v-model="currentResource.type" required class="form-select">
                     <option value="Download">Download</option>
                     <option value="Guide">Guide</option>
                     <option value="Link">Link</option>
                 </select>
             </div>
-            <div>
-                <label>Content</label>
-                <input type="text" v-model="currentResource.content" required>
+            <div class="mb-3">
+                <label class="form-label">Content</label>
+                <input type="text" v-model="currentResource.content" required class="form-control">
             </div>
-            <button type="submit">{{editingId ? 'Update Resource' : 'Add Resource'}}</button>
-             <button type="button" @click="clearForm" v-if="editingId">Cancel</button>
+            <button type="submit" class="btn btn-primary">{{editingId ? 'Update Resource' : 'Add Resource'}}</button>
+             <button type="button" @click="clearForm" v-if="editingId" class="btn btn-secondary">Cancel</button>
         </form>
 
-        <ul>
-            <li v-for="resource in resources" :key="resource.id">
+        <ul class="list-group mt-4">
+            <li v-for="resource in resources" :key="resource.id" class="list-group-item d-flex justify-content-between align-items-center">
                {{ resource.title }} ({{ resource.category }}) - {{ resource.type }}
-                <button @click="editResource(resource)">Edit</button>
-                <button @click="deleteResource(resource.id)">Delete</button>
+                <div>
+                  <button @click="editResource(resource)" class="btn btn-warning btn-sm me-2">Edit</button>
+                  <button @click="deleteResource(resource.id)" class="btn btn-danger btn-sm">Delete</button>
+                </div>
+
             </li>
         </ul>
     </div>
@@ -126,12 +130,3 @@
         }
     }
 </script>
-
-<style scoped>
-    .success{
-        color:green;
-    }
-    .error{
-        color:red;
-    }
-</style>

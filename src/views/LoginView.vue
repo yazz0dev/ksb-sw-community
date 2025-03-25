@@ -1,11 +1,17 @@
+// /src/views/LoginView.vue (Bootstrap styling, error handling)
 <template>
-    <div>
+    <div class="container">
       <h2>Login</h2>
+       <div v-if="errorMessage" class="alert alert-danger" role="alert">
+         {{ errorMessage }}
+       </div>
       <form @submit.prevent="signIn">
-        <label for="registerNumber">Register Number:</label>
-        <input type="text" id="registerNumber" v-model="registerNumber" required pattern="KMC24MCA-.{4}" title="KMC24MCA-XXXX Format" />
-        <button type="submit">Login</button>
-        <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+       <div class="mb-3">
+        <label for="registerNumber" class="form-label">Register Number:</label>
+        <input type="text" id="registerNumber" v-model="registerNumber" required pattern="KMC24MCA-.{4}" title="KMC24MCA-XXXX Format" class="form-control" />
+       </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+
       </form>
     </div>
   </template>
@@ -48,9 +54,3 @@
     },
   };
   </script>
-  
-  <style scoped>
-  .error {
-    color: red;
-  }
-  </style>

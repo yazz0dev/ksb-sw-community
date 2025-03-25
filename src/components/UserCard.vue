@@ -1,5 +1,6 @@
+// /src/components/UserCard.vue (Bootstrap styling)
 <template>
-    <div class="user-card">
+    <div class="list-group-item">
       <p>
           {{ userId }}
            <span v-if="averageRating !== null">

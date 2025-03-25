@@ -1,5 +1,6 @@
+// /src/views/UserProfile.vue (Bootstrap styling, error handling, cancel button)
 <template>
-    <div>
+    <div class="container">
       <h2>User Profile</h2>
       <div v-if="loading">Loading...</div>
       <div v-else-if="user">
@@ -10,13 +11,13 @@
 
         <h3>Projects</h3>
         <div v-if="user.projects && user.projects.length > 0">
-          <ul>
-            <li v-for="(project, index) in user.projects" :key="index">
+          <ul class="list-group">
+            <li v-for="(project, index) in user.projects" :key="index"  class="list-group-item">
               {{ project.projectName }} -
               <a :href="project.githubLink" target="_blank">{{ project.githubLink }}</a>
               <p>{{ project.description }}</p>
-              <button @click="editProject(index)">Edit</button>
-              <button @click="deleteProject(index)">Delete</button>
+              <button @click="editProject(index)" class="btn btn-warning btn-sm">Edit</button>
+              <button @click="deleteProject(index)" class="btn btn-danger btn-sm">Delete</button>
             </li>
           </ul>
         </div>
@@ -27,27 +28,27 @@
         <!-- Add Project Form -->
          <h4>{{ editingIndex === null ? 'Add Project' : 'Edit Project' }}</h4>
          <div v-if="showProjectForm">
-          <form @submit.prevent="editingIndex === null ? addProject() : updateProject()">
-            <div>
-              <label for="projectName">Project Name:</label>
-              <input type="text" id="projectName" v-model="currentProject.projectName" required />
+          <form @submit.prevent="editingIndex === null ? submitProject() : updateProject()">
+            <div class="mb-3">
+              <label for="projectName" class="form-label">Project Name:</label>
+              <input type="text" id="projectName" v-model="currentProject.projectName" required  class="form-control"/>
             </div>
-            <div>
-              <label for="githubLink">GitHub Link:</label>
-              <input type="url" id="githubLink" v-model="currentProject.githubLink" required />
+            <div class="mb-3">
+              <label for="githubLink" class="form-label">GitHub Link:</label>
+              <input type="url" id="githubLink" v-model="currentProject.githubLink" required  class="form-control"/>
             </div>
-            <div>
-              <label for="projectDescription">Description:</label>
-              <textarea id="projectDescription" v-model="currentProject.description"></textarea>
+            <div class="mb-3">
+              <label for="projectDescription" class="form-label">Description:</label>
+              <textarea id="projectDescription" v-model="currentProject.description"  class="form-control"></textarea>
             </div>
-            <button type="submit">{{ editingIndex === null ? 'Add' : 'Update' }}</button>
-             <button type="button" @click="cancelEdit">Cancel</button>
+            <button type="submit" class="btn btn-primary">{{ editingIndex === null ? 'Add' : 'Update' }}</button>
+             <button type="button" @click="cancelEdit" class="btn btn-secondary">Cancel</button>
           </form>
-           <div v-if="projectMessage" :class="{'success': !projectError, 'error': projectError }">
+           <div v-if="projectMessage" :class="{'alert alert-success': !projectError, 'alert alert-danger': projectError }">
                {{projectMessage}}
            </div>
          </div>
-           <button v-if="!showProjectForm" @click="addProject">Add project</button>
+           <button v-if="!showProjectForm" @click="addProject" class="btn btn-info">Add project</button>
       </div>
       <div v-else>
         <p>User not found.</p>
@@ -202,13 +203,3 @@
     },
   };
   </script>
-
-<style scoped>
-.success {
-   color: green;
- }
-
- .error {
-   color: red;
- }
-</style>

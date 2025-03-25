@@ -1,32 +1,34 @@
+// /src/views/RatingForm.vue (Bootstrap styling, error handling)
+
 <template>
-    <div>
+    <div class="container">
       <h2>Rate Team: {{ teamId }} (Event: {{ eventId }})</h2>
-       <div v-if="errorMessage" class="error">{{ errorMessage }}</div>
+       <div v-if="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
       <form @submit.prevent="submitRating">
         <div v-for="(member, index) in members" :key="index">
             <p>Rating For: {{member}}</p>
-          <div>
-            <label>Design:</label>
+          <div class="mb-3">
+            <label class="form-label">Design:</label>
             <vue3-star-ratings v-model="ratings[index].design" :star-size="30" :show-rating="false" :increment="1"/>
           </div>
-          <div>
-            <label>Presentation:</label>
+          <div class="mb-3">
+            <label class="form-label">Presentation:</label>
              <vue3-star-ratings v-model="ratings[index].presentation" :star-size="30" :show-rating="false" :increment="1"/>
           </div>
-          <div>
-            <label>Problem Solving:</label>
+          <div class="mb-3">
+            <label class="form-label">Problem Solving:</label>
              <vue3-star-ratings v-model="ratings[index].problemSolving" :star-size="30" :show-rating="false" :increment="1"/>
           </div>
-          <div>
-            <label>Execution:</label>
-            <vue3-star-ratings v-model="ratings[index].execution" :star-size="30" :show-rating="false" :increment="1"/>
+          <div class="mb-3">
+            <label class="form-label">Execution:</label>
+             <vue3-star-ratings v-model="ratings[index].execution" :star-size="30" :show-rating="false" :increment="1"/>
           </div>
-          <div>
-            <label>Technology:</label>
+          <div class="mb-3">
+            <label class="form-label">Technology:</label>
             <vue3-star-ratings v-model="ratings[index].technology" :star-size="30" :show-rating="false" :increment="1"/>
           </div>
         </div>
-        <button type="submit">Submit Rating</button>
+        <button type="submit" class="btn btn-primary">Submit Rating</button>
       </form>
     </div>
   </template>
@@ -135,9 +137,3 @@
     },
   };
   </script>
-  
-  <style scoped>
-  .error{
-      color: red;
-  }
-  </style>

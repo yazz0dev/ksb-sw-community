@@ -1,3 +1,5 @@
+// /src/store/modules/resources.js (Error handling, namespacing)
+
 import { db } from '../../firebase';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
@@ -61,7 +63,7 @@ const mutations = {
 };
 
 export default {
-    namespaced: true, // Good practice for modules
+  namespaced: true,
   state,
   getters,
   actions,

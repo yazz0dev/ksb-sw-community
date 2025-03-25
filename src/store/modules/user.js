@@ -1,4 +1,5 @@
-// src/store/modules/user.js
+// /src/store/modules/user.js (Error handling, arrayUnion, refetching, namespacing)
+
 import { db } from '../../firebase';
 import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
@@ -205,6 +206,7 @@ const mutations = {
 };
 
 export default {
+  namespaced: true, // ADDED NAMESPACING
   state,
   getters,
   actions,

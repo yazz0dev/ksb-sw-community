@@ -1,9 +1,10 @@
+// /src/views/ResourcesView.vue (Bootstrap styling, Font Awesome)
 <template>
-    <div>
+    <div class="container">
       <h2>Resources</h2>
-      <ul>
-        <li v-for="resource in resources" :key="resource.id">
-          <a :href="resource.type === 'Download' || resource.type === 'Link' ? resource.content : '#'" @click.prevent="handleResourceClick(resource)">
+      <ul class="list-group">
+        <li v-for="resource in resources" :key="resource.id" class="list-group-item">
+          <a :href="resource.type === 'Download' || resource.type === 'Link' ? resource.content : '#'" @click.prevent="handleResourceClick(resource)" class="text-decoration-none">
             {{ resource.title }} ({{ resource.category }})
               <!-- Show icon -->
             <span v-if="resource.type === 'Download'">
@@ -25,8 +26,8 @@
   import { ref, onMounted } from 'vue';
   import { collection, getDocs } from 'firebase/firestore';
   import { db } from '../firebase';
-   // Font Awesome (for icons)
-  import '@fortawesome/fontawesome-free/css/all.css';
+   // Font Awesome (for icons) -  MAKE SURE THIS IS INSTALLED: npm install @fortawesome/fontawesome-free
+  import '@fortawesome/fontawesome-free/css/all.css'; //  IMPORT IT HERE
   
   export default {
     setup() {

@@ -1,3 +1,4 @@
+// /src/views/EventDetails.vue (Bootstrap styling, error handling, computed property)
 <template>
     <div v-if="loading">Loading...</div>
     <div v-else-if="event">
@@ -18,7 +19,7 @@
           <p>No teams assigned yet.</p>
         </div>
         <!--Manage team button-->
-        <button v-if="isOrganizer" @click="goToManageTeams">Manage Teams</button>
+        <button v-if="isOrganizer" @click="goToManageTeams"  class="btn btn-primary">Manage Teams</button>
     </div>
 
     <div v-else>
@@ -70,7 +71,8 @@
       const formatDate = (timestamp) => {
         if(timestamp && timestamp.seconds)
         {
-            return new Date(timestamp.seconds * 1000).toLocaleDateString();
+// /src/views/EventDetails.vue (continued)
+return new Date(timestamp.seconds * 1000).toLocaleDateString();
         }
         return '';
 

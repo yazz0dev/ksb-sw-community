@@ -1,23 +1,30 @@
+// /src/views/ManageTeams.vue (Bootstrap styling, error handling)
 <template>
-    <div>
+    <div class="container">
       <h2>Manage Teams for Event: {{ eventId }}</h2>
-        <div v-if="errorMessage" class="error">{{ errorMessage }}</div>
+        <div v-if="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
       <form @submit.prevent="addTeam">
-        <label for="teamName">Team Name:</label>
-        <input type="text" id="teamName" v-model="teamName" required />
+       <div class="mb-3">
+        <label for="teamName" class="form-label">Team Name:</label>
+        <input type="text" id="teamName" v-model="teamName" required class="form-control" />
+       </div>
 
-        <label>Select Students:</label>
-        <div v-for="student in students" :key="student.registerNumber">
+       <div class="mb-3">
+        <label class="form-label">Select Students:</label>
+        <div v-for="student in students" :key="student.registerNumber" class="form-check">
           <input
             type="checkbox"
             :id="student.registerNumber"
             :value="student.registerNumber"
             v-model="selectedStudents"
+            class="form-check-input"
           />
-          <label :for="student.registerNumber">{{ student.name }} ({{ student.registerNumber }})</label>
+          <label :for="student.registerNumber" class="form-check-label">{{ student.name }} ({{ student.registerNumber }})</label>
         </div>
+       </div>
 
-        <button type="submit">Add Team</button>
+
+        <button type="submit" class="btn btn-primary">Add Team</button>
       </form>
     </div>
   </template>
@@ -88,8 +95,3 @@
     },
   };
   </script>
-<style scoped>
-    .error{
-        color:red;
-    }
-</style>

@@ -1,15 +1,16 @@
+//src/components/EventCard.vue 
 <template>
-  <div class="event-card">
-    <h3>{{ event.eventName }}</h3>
-    <p>Type: {{ event.eventType }}</p>
-    <p>
-      Start Date:
-      {{
-        new Date(event.startDate.seconds * 1000).toLocaleDateString()
-      }}
-    </p>
-    <p>Status: {{ event.status }}</p>
-    <router-link :to="'/event/' + event.id">View Details</router-link>
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title">{{ event.eventName }}</h5>
+      <p class="card-text">Type: {{ event.eventType }}</p>
+      <p class="card-text">
+        Start Date:
+        {{ new Date(event.startDate.seconds * 1000).toLocaleDateString() }}
+      </p>
+      <p class="card-text">Status: {{ event.status }}</p>
+      <router-link :to="'/event/' + event.id" class="btn btn-primary">View Details</router-link>
+    </div>
   </div>
 </template>
 
@@ -23,11 +24,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-.event-card {
-  border: 1px solid #ccc;
-  padding: 10px;
-  margin-bottom: 10px;
-}
-</style>

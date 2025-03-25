@@ -1,29 +1,30 @@
+// /src/views/RequestEvent.vue (Bootstrap styling, error handling)
 <template>
-    <div>
+    <div class="container">
       <h2>Request New Event</h2>
-      <div v-if="errorMessage" class="error">{{ errorMessage }}</div>
+      <div v-if="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
       <form @submit.prevent="submitRequest">
-        <div>
-          <label for="eventName">Event Name:</label>
-          <input type="text" id="eventName" v-model="eventName" required />
+        <div class="mb-3">
+          <label for="eventName" class="form-label">Event Name:</label>
+          <input type="text" id="eventName" v-model="eventName" required class="form-control" />
         </div>
-        <div>
-          <label for="eventType">Event Type:</label>
-          <input type="text" id="eventType" v-model="eventType" required />
+        <div class="mb-3">
+          <label for="eventType" class="form-label">Event Type:</label>
+          <input type="text" id="eventType" v-model="eventType" required class="form-control" />
         </div>
-        <div>
-          <label for="description">Description:</label>
-          <textarea id="description" v-model="description" required></textarea>
+        <div class="mb-3">
+          <label for="description" class="form-label">Description:</label>
+          <textarea id="description" v-model="description" required class="form-control"></textarea>
         </div>
-        <div>
-          <label for="desiredStartDate">Desired Start Date:</label>
-          <input type="date" id="desiredStartDate" v-model="desiredStartDate" required />
+        <div class="mb-3">
+          <label for="desiredStartDate" class="form-label">Desired Start Date:</label>
+          <input type="date" id="desiredStartDate" v-model="desiredStartDate" required class="form-control" />
         </div>
-        <div>
-          <label for="desiredEndDate">Desired End Date:</label>
-          <input type="date" id="desiredEndDate" v-model="desiredEndDate" required />
+        <div class="mb-3">
+          <label for="desiredEndDate" class="form-label">Desired End Date:</label>
+          <input type="date" id="desiredEndDate" v-model="desiredEndDate" required class="form-control" />
         </div>
-        <button type="submit">Submit Request</button>
+        <button type="submit" class="btn btn-primary">Submit Request</button>
       </form>
     </div>
   </template>
@@ -77,8 +78,3 @@
     },
   };
   </script>
-  <style scoped>
-  .error {
-      color: red;
-  }
-  </style>

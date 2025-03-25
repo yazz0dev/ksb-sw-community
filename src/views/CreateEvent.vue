@@ -1,29 +1,33 @@
+// /src/views/CreateEvent.vue (Bootstrap styling, error handling)
 <template>
-    <div>
+    <div class="container">
       <h2>Create Event</h2>
+       <div v-if="errorMessage" class="alert alert-danger" role="alert">
+         {{ errorMessage }}
+       </div>
       <form @submit.prevent="createEvent">
-        <div>
-          <label for="eventName">Event Name:</label>
-          <input type="text" id="eventName" v-model="eventName" required />
+        <div class="mb-3">
+          <label for="eventName" class="form-label">Event Name:</label>
+          <input type="text" id="eventName" v-model="eventName" required class="form-control"/>
         </div>
-        <div>
-          <label for="eventType">Event Type:</label>
-          <input type="text" id="eventType" v-model="eventType" required />
+        <div  class="mb-3">
+          <label for="eventType" class="form-label">Event Type:</label>
+          <input type="text" id="eventType" v-model="eventType" required  class="form-control"/>
         </div>
-        <div>
-          <label for="description">Description:</label>
-          <textarea id="description" v-model="description" required></textarea>
+        <div  class="mb-3">
+          <label for="description" class="form-label">Description:</label>
+          <textarea id="description" v-model="description" required  class="form-control"></textarea>
         </div>
-        <div>
-          <label for="startDate">Start Date:</label>
-          <input type="date" id="startDate" v-model="startDate" required />
+        <div  class="mb-3">
+          <label for="startDate" class="form-label">Start Date:</label>
+          <input type="date" id="startDate" v-model="startDate" required  class="form-control"/>
         </div>
-        <div>
-          <label for="endDate">End Date:</label>
-          <input type="date" id="endDate" v-model="endDate" required />
+        <div  class="mb-3">
+          <label for="endDate" class="form-label">End Date:</label>
+          <input type="date" id="endDate" v-model="endDate" required  class="form-control"/>
         </div>
-        <button type="submit">Create Event</button>
-        <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+        <button type="submit" class="btn btn-primary">Create Event</button>
+
       </form>
     </div>
   </template>
@@ -55,7 +59,7 @@
             startDate: startDate.value,
             endDate: endDate.value,
           };
-          await store.dispatch('createEvent', eventData);
+          await store.dispatch('events/createEvent', eventData); //namespaced
             router.push('/');  //redirect to home
         } catch (error) {
             errorMessage.value = error.message || 'Failed to create event';
@@ -74,8 +78,3 @@
     },
   };
   </script>
-<style scoped>
-.error{
-    color:red;
-}
-</style>

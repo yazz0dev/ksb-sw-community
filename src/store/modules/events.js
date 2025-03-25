@@ -1,4 +1,5 @@
-// src/store/modules/events.js
+// /src/store/modules/events.js 
+
 import { db } from '../../firebase';
 import { collection, addDoc, getDocs, doc, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 
@@ -48,7 +49,7 @@ const actions = {
       console.error('Error fetching events:', error);
     }
   },
-  async fetchEventDetails(eventId) 
+  async fetchEventDetails(eventId)
   {
     try{
         const docRef = doc(db, "events", eventId);

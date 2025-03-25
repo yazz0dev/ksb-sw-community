@@ -1,9 +1,10 @@
+// /src/views/LeaderBoard.vue (Bootstrap styling)
 <template>
-    <div>
+    <div class="container">
       <h2>Leaderboard</h2>
-      <div>
-        <label for="roleFilter">Filter by Role:</label>
-        <select id="roleFilter" v-model="selectedRole">
+      <div class="mb-3">
+        <label for="roleFilter" class="form-label">Filter by Role:</label>
+        <select id="roleFilter" v-model="selectedRole" class="form-select">
           <option value="Overall">Overall</option>
           <option value="Fullstack">Fullstack</option>
           <option value="Presenter">Presenter</option>
@@ -12,8 +13,8 @@
         </select>
       </div>
   
-      <ul>
-        <li v-for="(user, index) in filteredUsers" :key="user.registerNumber">
+      <ul class="list-group">
+        <li v-for="(user, index) in filteredUsers" :key="user.registerNumber" class="list-group-item">
           {{ index + 1 }}. {{ user.name }} - XP: {{ user.xp }}
         </li>
       </ul>
