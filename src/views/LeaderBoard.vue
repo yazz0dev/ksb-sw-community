@@ -14,7 +14,7 @@
       </div>
   
       <ul class="list-group">
-        <li v-for="(user, index) in filteredUsers" :key="user.registerNumber" class="list-group-item">
+        <li v-for="(user, index) in filteredUsers" :key="user.uid" class="list-group-item"> <!-- Use UID -->
           {{ index + 1 }}. {{ user.name }} - XP: {{ user.xp }}
         </li>
       </ul>
@@ -32,13 +32,13 @@
       const users = ref([]);
   
       onMounted(async () => {
-        // Fetch users with role 'Student', ordered by XP
-        const q = query(collection(db, 'users'), where('role', '==', 'Student'), orderBy('xp', 'desc'));
+        // Fetch users, ordered by XP
+        const q = query(collection(db, 'users'), orderBy('xp', 'desc')); //order by xp
         const querySnapshot = await getDocs(q);
         users.value = querySnapshot.docs.map(doc => ({
-          registerNumber: doc.id,
+          uid: doc.id, // Use UID
           ...doc.data(),
-        }));
+        })).filter(user => !user.role || user.role === 'Student'); //filter for students
       });
   
       const filteredUsers = computed(() => {

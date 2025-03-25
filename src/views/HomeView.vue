@@ -1,4 +1,3 @@
-// /src/views/HomeView.vue (Bootstrap styling, responsive layout)
 <template>
   <div class="container">
     <h2>Upcoming Events</h2>
@@ -11,8 +10,10 @@
         </div>
       </div>
     </div>
-    <button v-if="userRole === 'Teacher'" @click="goToCreateEvent" class="btn btn-success mt-3">Create Event</button>
-     <router-link v-if="userRole === 'Student'" to="/request-event" class="btn btn-info mt-3">Request Event</router-link>
+    <!-- Use isTeacher getter -->
+    <!-- Removed create event button -->
+    <router-link v-if="!isTeacher" to="/request-event" class="btn btn-info mt-3">Request Event</router-link>
+     <router-link v-if="isAdmin" to="/manage-requests" class="btn btn-info mt-3">Manage Requests</router-link>
   </div>
 </template>
 
@@ -28,24 +29,24 @@ export default {
   },
   setup() {
     const store = useStore();
-    const events = computed(() => store.getters.allEvents);
+    const events = computed(() => store.getters['events/allEvents']); //namespaced
     const loading = ref(true);
     const router = useRouter();
-    const userRole = computed(() => store.getters.getUserRole);
+     // Use isTeacher getter from the user module
+    const isTeacher = computed(() => store.getters['user/isTeacher']); //namespaced
+    const isAdmin = computed(() => store.getters['user/getUser'].role === 'Admin'); //check admin
 
     onMounted(async () => {
-      await store.dispatch('fetchEvents');
+      await store.dispatch('events/fetchEvents'); //namespaced
       loading.value = false;
     });
-    const goToCreateEvent = () => {
-      router.push('/create-event');
-    };
+
 
     return {
       events,
       loading,
-      goToCreateEvent,
-      userRole,
+      isTeacher, // Expose isTeacher
+      isAdmin
     };
   },
 };

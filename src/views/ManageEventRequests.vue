@@ -12,6 +12,7 @@
               Requested by: {{ request.requester }} - Status: {{ request.status }}
               <p>Description: {{ request.description }}</p>
               <p>Desired Dates: {{ formatDate(request.desiredStartDate) }} - {{ formatDate(request.desiredEndDate) }}</p>
+              <!-- Only show buttons if status is Pending -->
               <button v-if="request.status === 'Pending'" @click="approveRequest(request.id)" class="btn btn-success btn-sm">Approve</button>
                <button v-if="request.status === 'Pending'" @click="rejectRequest(request.id)" class="btn btn-danger btn-sm">Reject</button>
             </div>
@@ -20,26 +21,26 @@
       </div>
     </div>
   </template>
-  
+
   <script>
   import { computed, onMounted, ref } from 'vue';
   import { useStore } from 'vuex';
-  
+
   export default {
     setup() {
       const store = useStore();
       const loading = ref(true);
       const eventRequests = computed(() => store.getters['events/allEventRequests']); // Use namespaced getter
-  
+
          const formatDate = (dateString) => {
           return new Date(dateString).toLocaleDateString();
         };
-  
+
       onMounted(async () => {
         await store.dispatch('events/fetchEventRequests'); // Use namespaced action
         loading.value = false;
       });
-  
+
       const approveRequest = async (requestId) => {
         try {
           await store.dispatch('events/approveEventRequest', requestId); // Use namespaced action
@@ -55,7 +56,7 @@
               console.error("Error:", error);
             }
         }
-  
+
       return {
         eventRequests,
         loading,

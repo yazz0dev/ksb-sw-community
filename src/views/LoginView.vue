@@ -1,56 +1,102 @@
-// /src/views/LoginView.vue (Bootstrap styling, error handling)
+// /src/views/LoginView.vue
 <template>
-    <div class="container">
-      <h2>Login</h2>
-       <div v-if="errorMessage" class="alert alert-danger" role="alert">
-         {{ errorMessage }}
-       </div>
-      <form @submit.prevent="signIn">
-       <div class="mb-3">
-        <label for="registerNumber" class="form-label">Register Number:</label>
-        <input type="text" id="registerNumber" v-model="registerNumber" required pattern="KMC24MCA-.{4}" title="KMC24MCA-XXXX Format" class="form-control" />
-       </div>
-        <button type="submit" class="btn btn-primary">Login</button>
-
-      </form>
+  <div class="container mt-5">
+    <div class="row justify-content-center">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h2>Login</h2>
+          </div>
+          <div class="card-body">
+            <div v-if="errorMessage" class="alert alert-danger" role="alert">
+              {{ errorMessage }}
+            </div>
+            <form @submit.prevent="signIn">
+              <div class="mb-3">
+                <label for="email" class="form-label">Email:</label>
+                <input
+                  type="email"
+                  id="email"
+                  v-model="email"
+                  required
+                  class="form-control"
+                  placeholder="Enter your email"
+                />
+              </div>
+              <div class="mb-3">
+                <label for="password" class="form-label">Password:</label>
+                <input
+                  type="password"
+                  id="password"
+                  v-model="password"
+                  required
+                  class="form-control"
+                  placeholder="Enter your password"
+                />
+              </div>
+              <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+             <div class="mt-3">
+              <router-link to="/forgot-password">Forgot Password?</router-link> <!-- Added forgot password link -->
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  </template>
-  
-  <script>
-  import { ref } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { useStore } from 'vuex';
-  
-  
-  export default {
-    setup() {
-      const registerNumber = ref('');
-      const errorMessage = ref('');
-      const router = useRouter();
-      const store = useStore();
-  
-      const signIn = async () => {
-          errorMessage.value = ''; // Reset error message
-        try {
-  
-          await store.dispatch('fetchUserData', registerNumber.value);
-            //Check User authenticated
-          if(store.getters.isAuthenticated)
-          {
-              router.push('/'); // Redirect to home page
-          }else{
-              errorMessage.value = "Invalid User";
-          }
-        } catch (error) {
-            errorMessage.value = `Login failed: ${error.message}` || 'Login failed';
+  </div>
+</template>
+
+<script>
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'; // Import Firebase auth functions
+
+export default {
+  setup() {
+    const email = ref('');
+    const password = ref('');
+    const errorMessage = ref('');
+    const router = useRouter();
+
+    const signIn = async () => {
+      errorMessage.value = ''; // Reset error message
+      try {
+        const auth = getAuth();
+        const userCredential = await signInWithEmailAndPassword(auth, email.value, password.value);
+        // User signed in successfully
+        console.log('User signed in:', userCredential.user);
+        router.push('/'); // Redirect to home page
+      } catch (error) {
+        // Handle errors here.  Provide specific error messages.
+        console.error("Login Error:", error);
+        switch (error.code) {
+          case 'auth/invalid-email':
+            errorMessage.value = 'Invalid email address.';
+            break;
+          case 'auth/user-disabled':
+            errorMessage.value = 'This user account has been disabled.';
+            break;
+          case 'auth/user-not-found':
+            errorMessage.value = 'No user found with this email.';
+            break;
+          case 'auth/wrong-password':
+            errorMessage.value = 'Incorrect password.';
+            break;
+          case 'auth/too-many-requests':
+             errorMessage.value = 'Too many login attempts. Please try again later.';
+              break;
+          default:
+            errorMessage.value =  error.message || 'Login failed. Please try again.';
         }
-      };
-  
-      return {
-        registerNumber,
-        errorMessage,
-        signIn,
-      };
-    },
-  };
-  </script>
+      }
+    };
+
+    return {
+      email,
+      password,
+      errorMessage,
+      signIn,
+    };
+  },
+};
+</script>

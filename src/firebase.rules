@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+   function isTeacher() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["Teacher", "Admin"];
+    }
+    // NEW: Function to check if the user is an admin
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false;
+
+      match /projects/{projectId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      // No direct creation, only through requests
+      //allow create: if isTeacher(); // REMOVED
+
+      // Organizer or Admin can update/delete
+      allow update, delete: if (
+        isAuthenticated() &&
+        (resource.data.organizer == request.auth.uid || isAdmin())
+      );
+
+        match /teams/{teamId} {
+          allow read: if isAuthenticated();
+          // Only the event organizer or admin can create/update/delete teams
+          allow write: if isAuthenticated() &&
+                         (get(/databases/$(database)/documents/events/$(eventId)).data.organizer == request.auth.uid || isAdmin());
+        }
+    }
+
+    match /resources/{resourceId} {
+      allow read: if true;
+      allow write: if isTeacher();
+    }
+
+    match /eventRequests/{requestId} {
+      // Teachers and admins can read requests
+      allow read: if isTeacher() || isAdmin();
+      // Students and admins can create requests
+      allow create: if isAuthenticated() && (!isTeacher()); // Simplified condition
+      // Only teachers and admins can update (approve/reject)
+      allow update: if isTeacher() || isAdmin();
+      allow delete: if false;
+    }
+  }
+}

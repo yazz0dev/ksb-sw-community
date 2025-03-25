@@ -20,7 +20,7 @@ export default {
         vue3StarRatings
     },
     props: {
-        userId: {
+        userId: { // This is now the UID
             type: String,
             required: true,
         },
@@ -38,9 +38,10 @@ export default {
         const averageRating = ref(null);
 
         onMounted(async () => {
+            // Dispatch with UID
             averageRating.value = await store.dispatch('calculateWeightedAverageRating', {
                 eventId: props.eventId,
-                userId: props.userId
+                userId: props.userId // Pass the UID
             });
         });
 

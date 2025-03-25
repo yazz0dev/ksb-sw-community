@@ -11,15 +11,15 @@
 
        <div class="mb-3">
         <label class="form-label">Select Students:</label>
-        <div v-for="student in students" :key="student.registerNumber" class="form-check">
+        <div v-for="student in students" :key="student.uid" class="form-check">  <!-- Use UID -->
           <input
             type="checkbox"
-            :id="student.registerNumber"
-            :value="student.registerNumber"
+            :id="student.uid"          <!-- Use UID -->
+            :value="student.uid"        <!-- Use UID -->
             v-model="selectedStudents"
             class="form-check-input"
           />
-          <label :for="student.registerNumber" class="form-check-label">{{ student.name }} ({{ student.registerNumber }})</label>
+          <label :for="student.uid" class="form-check-label">{{ student.name }} ({{ student.uid }})</label> <!-- Display UID -->
         </div>
        </div>
 
@@ -45,21 +45,21 @@
     },
     setup(props) {
       const teamName = ref('');
-      const selectedStudents = ref([]);
+      const selectedStudents = ref([]); // Store UIDs of selected students
       const students = ref([]);
       const errorMessage = ref('');
       const store = useStore();
       const router = useRouter(); // Use useRouter
 
       onMounted(async () => {
-        // Fetch all students
+        // Fetch all students (users without a 'role' or with 'role' === 'Student')
         try {
-          const q = query(collection(db, 'users'), where('role', '==', 'Student'));
+          const q = query(collection(db, 'users')); // Query all users
           const querySnapshot = await getDocs(q);
           students.value = querySnapshot.docs.map((doc) => ({
-            registerNumber: doc.id,
+            uid: doc.id, // Use UID as the key
             ...doc.data(),
-          }));
+          })).filter(user => !user.role || user.role === 'Student'); // Filter for students
         } catch (error) {
           console.error('Error fetching students:', error);
         }
@@ -72,13 +72,13 @@
             errorMessage.value = 'Please enter a team name and select at least one student.';
             return;
           }
-          //Add team
-          await store.dispatch('addTeamToEvent', {
+
+          await store.dispatch('events/addTeamToEvent', { //namespaced
             eventId: props.eventId,
             teamName: teamName.value,
-            members: selectedStudents.value,
+            members: selectedStudents.value, // Array of UIDs
           });
-          router.back(); // Navigate back after adding the team
+          router.back(); // Navigate back
         } catch (error) {
             errorMessage.value = error.message || "Error occured on adding team";
 

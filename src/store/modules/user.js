@@ -1,48 +1,46 @@
-// /src/store/modules/user.js (Error handling, arrayUnion, refetching, namespacing)
-
+// /src/store/modules/user.js
 import { db } from '../../firebase';
 import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 const state = {
-  registerNumber: null,
+  uid: null,
   name: null,
-  role: null,
+  role: null, // Keep role for UI purposes, even if not used in rules
   xp: 0,
-  ratings: [],
-  projects: [],
-  skills: [],
-  preferredRoles: [],
+  projects: [], // Keep projects
+  skills:[],
+  preferredRoles:[],
   isAuthenticated: false,
 };
 
 const getters = {
-    isAuthenticated: state => state.isAuthenticated,
-    getUserRole: state => state.role, // Add a getter for user role
-    getUser: state => {   //getter for all userdata
-        return {
-            registerNumber: state.registerNumber,
-            name: state.name,
-            role: state.role,
-            xp: state.xp,
-            ratings: state.ratings,
-            projects: state.projects,
-            skills:state.skills,
-            preferredRoles:state.preferredRoles
-
-        }
-    }
+  isAuthenticated: state => state.isAuthenticated,
+  getUserRole: state => state.role, // Keep for UI display
+  getUser: state => {
+    return {
+      uid: state.uid,
+      name: state.name,
+      role: state.role,
+      xp: state.xp,
+      projects: state.projects,
+        skills: state.skills,
+      preferredRoles: state.preferredRoles
+    };
+  },
+  // Check if the user is a teacher in the getter (for UI logic)
+    isTeacher: state => state.role === 'Teacher' || state.role === 'Admin',
 };
 
 const actions = {
-  async fetchUserData({ commit }, registerNumber) {
+  async fetchUserData({ commit }, uid) {
     try {
-      const userDocRef = doc(db, 'users', registerNumber);
+      const userDocRef = doc(db, 'users', uid);
       const userDocSnap = await getDoc(userDocRef);
 
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
         commit('setUserData', {
-          registerNumber,
+          uid,
           ...userData,
           isAuthenticated: true,
         });
@@ -54,121 +52,239 @@ const actions = {
       commit('clearUserData');
     }
   },
+
   clearUserData({ commit }) {
     commit('clearUserData');
   },
-async calculateWeightedAverageRating(_, { eventId, userId }) {
-    try {
-      const userDocRef = doc(db, 'users', userId);
-      const userDocSnap = await getDoc(userDocRef);
 
-      if (!userDocSnap.exists()) return 0.0;
-
-      const ratings = userDocSnap.data().ratings || [];
-      if (ratings.length === 0) return 0.0;
-
-      let totalTeacherRating = 0;
-      let teacherRatingCount = 0;
-      let totalStudentRating = 0;
-      let studentRatingCount = 0;
-
-      for (const ratingEntry of ratings) {
-        if (ratingEntry.eventId === eventId) {
-          const rating = ratingEntry.rating;
-          const overallRating =
-            (rating.design +
-              rating.presentation +
-              rating.problemSolving +
-              rating.execution +
-              rating.technology) /
-            5.0;
-
-          if (rating.isTeacherRating) {
-            totalTeacherRating += overallRating;
-            teacherRatingCount++;
-          } else {
-            totalStudentRating += overallRating;
-            studentRatingCount++;
-          }
-        }
-      }
-
-      const averageTeacherRating =
-        teacherRatingCount > 0 ? totalTeacherRating / teacherRatingCount : 0;
-      const averageStudentRating =
-        studentRatingCount > 0 ? totalStudentRating / studentRatingCount : 0;
-
-      return 0.7 * averageTeacherRating + 0.3 * averageStudentRating;
-    } catch (error) {
-      console.error('Error calculating weighted average:', error);
-      return 0.0;
-    }
-  },
-
-  async updateXP({ dispatch, state }, { userId, eventId }) { // Include state
-    try {
-      const weightedAverage = await dispatch('calculateWeightedAverageRating', { eventId, userId });
-      const xpGain = Math.floor(weightedAverage * 10);
-
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        xp: (state.xp || 0) + xpGain, // Ensure xp is initialized
-      });
-       // Refetch user data to update XP in the state.  CRITICAL!
-       if(state.registerNumber)
+  // Calculate XP based on *all* ratings the user has received (across all events)
+  async calculateUserXP({ commit, state, dispatch }) { // Add dispatch
+    try{
+      if(!state.uid) return; //No user.
+ 
+      const eventsSnapshot = await getDocs(collection(db, "events"));
+      let totalXp = 0;
+      for(const eventDoc of eventsSnapshot.docs)
+      {
+       const event = eventDoc.data();
+         //Check if the event is completed
+         if(event.status !== 'Completed') continue;
+ 
+       //Team Event
+       if(event.isTeamEvent)
        {
-            await dispatch('fetchUserData', state.registerNumber);
+           //Check the team exist and current user is a member
+           if(event.teams && event.teams.length > 0)
+           {
+               const team = event.teams.find((team) => team.members.includes(state.uid)); //Find user's team
+               if(team) //If user is member
+               {
+                   //calculate xp for team
+                  const teamXp = await dispatch('calculateTeamXP', {eventId: eventDoc.id, team});
+                  totalXp += teamXp; //add it
+ 
+               }
+           }
+       }else{
+           //Individual Event
+           if(event.participants && event.participants.includes(state.uid))
+           {
+               const individualXp = await dispatch('calculateIndividualXP', {eventId: eventDoc.id, userId: state.uid});
+               totalXp += individualXp;
+           }
        }
-    } catch (error) {
-      console.error('Error updating XP:', error);
-    }
-  },
-  async submitRating({ dispatch, state }, { eventId, teamId, members, ratingData }) {
+ 
+        // Add bonus XP if the user is a winner
+         if (event.winners && event.winners.includes(state.uid)) {
+             totalXp += 100; // Add 100 bonus XP (or whatever amount you choose)
+         }
+      }
+ 
+      //Update xp
+       const userRef = doc(db, 'users', state.uid);
+       await updateDoc(userRef, {
+         xp: totalXp,
+       });
+       // Refetch user data to update XP in the state.
+       await dispatch('fetchUserData', state.uid); //use uid
+ 
+     }catch(error){
+       console.error("Error: ", error);
+     }
+   },
 
+    async calculateTeamXP(_,{eventId, team})
+    {
+        try{
+            const eventRef = doc(db, "events", eventId);
+            const eventSnap = await getDoc(eventRef);
+
+            if(!eventSnap.exists()) return 0;
+
+            const event = eventSnap.data();
+
+            if(!event.isTeamEvent) return 0;
+
+            if(!team || !team.ratings || team.ratings.length === 0) return 0;
+
+
+          let totalTeacherRating = 0;
+          let teacherRatingCount = 0;
+          let totalStudentRating = 0;
+          let studentRatingCount = 0;
+
+          for (const ratingEntry of team.ratings) { // Use team rating
+              const rating = ratingEntry.rating;
+              const overallRating =
+                (rating.design +
+                  rating.presentation +
+                  rating.problemSolving +
+                  rating.execution +
+                  rating.technology) /
+                5.0;
+
+              if (ratingEntry.isTeacherRating) {
+                totalTeacherRating += overallRating;
+                teacherRatingCount++;
+              } else {
+                totalStudentRating += overallRating;
+                studentRatingCount++;
+              }
+          }
+
+          const averageTeacherRating =
+            teacherRatingCount > 0 ? totalTeacherRating / teacherRatingCount : 0;
+          const averageStudentRating =
+            studentRatingCount > 0 ? totalStudentRating / studentRatingCount : 0;
+
+          const weightedAverage =  0.7 * averageTeacherRating + 0.3 * averageStudentRating;
+          return Math.floor(weightedAverage * 10);;
+
+        }catch(error)
+        {
+          console.error("Error: ", error);
+          return 0;
+        }
+    },
+
+     async calculateIndividualXP(_,{eventId, userId}){ //userId = UID
+      try{
+            const eventRef = doc(db, "events", eventId);
+            const eventSnap = await getDoc(eventRef);
+
+            if(!eventSnap.exists()) return 0;
+
+            const event = eventSnap.data();
+            //Check event is not team event
+            if(event.isTeamEvent) return 0;
+            if(!event.ratings || event.ratings.length === 0) return 0; //No ratings
+
+
+          let totalTeacherRating = 0;
+          let teacherRatingCount = 0;
+          let totalStudentRating = 0;
+          let studentRatingCount = 0;
+
+          for (const ratingEntry of event.ratings) {
+              //Check the rating is given to this user
+              if(ratingEntry.ratedTo === userId)
+              {
+                  const rating = ratingEntry.rating;
+                  const overallRating =
+                    (rating.design +
+                      rating.presentation +
+                      rating.problemSolving +
+                      rating.execution +
+                      rating.technology) /
+                    5.0;
+
+                  if (ratingEntry.isTeacherRating) {
+                    totalTeacherRating += overallRating;
+                    teacherRatingCount++;
+                  } else {
+                    totalStudentRating += overallRating;
+                    studentRatingCount++;
+                  }
+              }
+
+          }
+
+          const averageTeacherRating =
+            teacherRatingCount > 0 ? totalTeacherRating / teacherRatingCount : 0;
+          const averageStudentRating =
+            studentRatingCount > 0 ? totalStudentRating / studentRatingCount : 0;
+
+            const weightedAverage =  0.7 * averageTeacherRating + 0.3 * averageStudentRating;
+            return Math.floor(weightedAverage * 10);;
+
+        }catch(error)
+        {
+          console.error("Error: ", error);
+          return 0;
+        }
+    },
+      async submitRating({ dispatch, state }, { eventId, teamId, members, ratingData }) {
         try {
-          const eventDocRef = doc(db, 'events', eventId);
-          const eventDocSnap = await getDoc(eventDocRef);
-
-          if (!eventDocSnap.exists()) {
-            throw new Error('Event not found.');
-          }
-
-          if (teamId) {
-            const teams = eventDocSnap.data().teams || [];
-            const teamExists = teams.some((team) => team.teamName === teamId);
-            if (!teamExists) {
-              throw new Error('Team not found.');
+            const eventDocRef = doc(db, 'events', eventId);
+            const eventDocSnap = await getDoc(eventDocRef);
+            if (!eventDocSnap.exists()) {
+                throw new Error('Event not found.');
             }
-          }
+            const eventData = eventDocSnap.data();
+             // If it's a team event, add the rating to the team
+            if (eventData.isTeamEvent) {
+              if (!teamId) {
+                throw new Error('Team ID is required for team events.');
+              }
+              const teamIndex = eventData.teams.findIndex(t => t.teamName === teamId);
+              if (teamIndex === -1) {
+                throw new Error('Team not found.');
+              }
 
-          for (const memberRegisterNumber of members) {
-            const userRef = doc(db, 'users', memberRegisterNumber);
-            await updateDoc(userRef, {
-              ratings: arrayUnion({ eventId, rating: ratingData }),
-            });
+              const updatedTeams = [...eventData.teams];
+              updatedTeams[teamIndex] = {
+                ...updatedTeams[teamIndex],
+                ratings: updatedTeams[teamIndex].ratings ? [...updatedTeams[teamIndex].ratings, { ratedBy: state.uid, isTeacherRating: store.getters.isTeacher, rating: ratingData }] : [{ ratedBy: state.uid, isTeacherRating: store.getters.isTeacher, rating: ratingData }],
+              };
 
-            await dispatch('updateXP', { userId: memberRegisterNumber, eventId });
-          }
-          //Refetch Userdata
-          await dispatch('fetchUserData', state.registerNumber);
+              await updateDoc(eventDocRef, { teams: updatedTeams });
+              //Recalculate Xp of the users.
+              await dispatch('calculateUserXP');
+            } else {
+              // If it's an individual event, add the rating to the event's ratings array
+              const updatedRatings = eventData.ratings ? [...eventData.ratings]: [];
 
+              //add rating for each participants
+              for(const member of members)
+              {
+                  updatedRatings.push({
+                    ratedBy: state.uid,
+                    ratedTo: member, // Add who got rated
+                    isTeacherRating: store.getters.isTeacher,
+                    rating: ratingData,
+                  });
+              }
+
+              await updateDoc(eventDocRef, { ratings: updatedRatings });
+               //Recalculate Xp of the users.
+              await dispatch('calculateUserXP');
+            }
 
         } catch (error) {
           console.error('Error submitting rating:', error);
-            throw error; // Re-throw the error for the component to handle
-
+            throw error;
         }
    },
    async refreshUserData({commit, state})
    {
-        if(state.registerNumber)
+        if(state.uid)
         {
-            const userDocRef = doc(db, 'users', state.registerNumber);
+            const userDocRef = doc(db, 'users', state.uid);
             const userDocSnap = await getDoc(userDocRef);
             if (userDocSnap.exists()) {
                 const userData = userDocSnap.data();
                 commit('setUserData', {
-                  registerNumber : state.registerNumber,
+                  uid : state.uid,
                   ...userData,
                   isAuthenticated: true,
                 });
@@ -177,36 +293,33 @@ async calculateWeightedAverageRating(_, { eventId, userId }) {
             }
         }
    }
-
 };
 
 const mutations = {
   setUserData(state, userData) {
-    state.registerNumber = userData.registerNumber;
+    state.uid = userData.uid;
     state.name = userData.name;
     state.role = userData.role;
     state.xp = userData.xp;
-    state.ratings = userData.ratings;
     state.projects = userData.projects;
-      state.skills = userData.skills || [];  //handle null
-    state.preferredRoles = userData.preferredRoles || []; //handle null
+    state.skills = userData.skills || [];
+    state.preferredRoles = userData.preferredRoles || [];
     state.isAuthenticated = userData.isAuthenticated;
   },
   clearUserData(state) {
-    state.registerNumber = null;
+    state.uid = null;
     state.name = null;
     state.role = null;
     state.xp = 0;
-    state.ratings = [];
     state.projects = [];
-    state.skills = [];
+     state.skills = [];
     state.preferredRoles = [];
     state.isAuthenticated = false;
   },
 };
 
 export default {
-  namespaced: true, // ADDED NAMESPACING
+  namespaced: true,
   state,
   getters,
   actions,

@@ -9,13 +9,14 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav">
-            <li class="nav-item">
-              <router-link to="/" class="nav-link">Home</router-link>
+            <!-- Conditional links based on authentication -->
+             <li class="nav-item" v-if="isAuthenticated">
+              <router-link to="/home" class="nav-link">Home</router-link>
             </li>
              <li class="nav-item" v-if="isAuthenticated">
               <router-link to="/profile" class="nav-link">Profile</router-link>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" v-if="isAuthenticated">
               <router-link to="/leaderboard" class="nav-link">Leaderboard</router-link>
             </li>
             <li class="nav-item">
@@ -30,6 +31,7 @@
 
           </ul>
            <ul class="navbar-nav ms-auto">
+              <!-- Show Login if NOT authenticated, Logout if authenticated -->
               <li class="nav-item" v-if="!isAuthenticated">
                 <router-link to="/login" class="nav-link">Login</router-link>
               </li>
@@ -49,16 +51,23 @@
 <script>
 import { computed } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
+import {getAuth} from 'firebase/auth';
 
 export default {
   setup() {
     const store = useStore();
-    const isAuthenticated = computed(() => store.getters.isAuthenticated);
+    const isAuthenticated = computed(() => store.getters['user/isAuthenticated']); // Use namespaced getter
+    const router = useRouter();
+
 
      const logout = () => {
-       store.dispatch('clearUserData');
-        // Redirect to login or home page
-        this.$router.push('/login');
+       const auth = getAuth();
+        auth.signOut().then(()=>{
+            store.dispatch('user/clearUserData'); //namespaced
+            // Redirect to login or home page
+            router.push('/login');
+        })
       };
 
     return {

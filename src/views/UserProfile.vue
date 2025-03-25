@@ -1,11 +1,12 @@
-// /src/views/UserProfile.vue (Bootstrap styling, error handling, cancel button)
+// /src/views/UserProfile.vue
 <template>
     <div class="container">
       <h2>User Profile</h2>
       <div v-if="loading">Loading...</div>
       <div v-else-if="user">
         <p>Name: {{ user.name }}</p>
-        <p>Register Number: {{ user.registerNumber }}</p>
+        <!-- Display UID instead of Register Number -->
+        <p>UID: {{ user.uid }}</p>
         <p>Role: {{ user.role }}</p>
         <p>XP: {{ user.xp }}</p>
 
@@ -49,6 +50,9 @@
            </div>
          </div>
            <button v-if="!showProjectForm" @click="addProject" class="btn btn-info">Add project</button>
+
+            <!-- Display User's Event Requests -->
+            <UserRequests />
       </div>
       <div v-else>
         <p>User not found.</p>
@@ -61,12 +65,16 @@
   import { useStore } from 'vuex';
    import {doc, updateDoc} from 'firebase/firestore';
    import {db} from '../firebase';
+   import UserRequests from '../components/UserRequests.vue'; // Import the component
 
   export default {
+      components: {
+        UserRequests, // Register the component
+    },
     setup() {
       const store = useStore();
       const loading = ref(true);
-      const user = computed(()=> store.getters.getUser); // Access user data via getter
+      const user = computed(()=> store.getters['user/getUser']); // Access user data via getter
        const showProjectForm = ref(false);
        const currentProject = ref({ projectName: '', githubLink: '', description: '' });
        const editingIndex = ref(null); // null means adding, number is index of editing project
@@ -112,11 +120,11 @@
            updatedProjects[editingIndex.value] = { ...currentProject.value }; //update
 
            try{
-               const userRef = doc(db, 'users', user.value.registerNumber);
+               const userRef = doc(db, 'users', user.value.uid); // Use UID
                await updateDoc(userRef, {projects: updatedProjects});
 
                //Update store
-               await store.dispatch('refreshUserData'); //refresh from firebase.
+               await store.dispatch('user/refreshUserData'); //refresh from firebase.
                showProjectForm.value = false;
                editingIndex.value = null;
                 projectMessage.value = 'Project updated successfully!';
@@ -135,11 +143,11 @@
            updatedProjects.splice(index, 1); // Remove the project at the given index
 
             try{
-               const userRef = doc(db, 'users', user.value.registerNumber);
+               const userRef = doc(db, 'users', user.value.uid); // Use UID
                await updateDoc(userRef, {projects: updatedProjects});
 
                //Update store
-               await store.dispatch('refreshUserData'); //refresh from firebase.
+               await store.dispatch('user/refreshUserData'); //refresh from firebase.
 
                projectMessage.value = "Project deleted successfully!";
 
@@ -168,11 +176,11 @@
              newProjects.push(currentProject.value);
 
            try{
-               const userRef = doc(db, 'users', user.value.registerNumber);
+               const userRef = doc(db, 'users', user.value.uid); // Use UID
                await updateDoc(userRef, { projects: newProjects});
 
                //Update store
-               await store.dispatch('refreshUserData'); //refresh from firebase.
+               await store.dispatch('user/refreshUserData'); //refresh from firebase.
 
                showProjectForm.value = false; // Hide form after successful update
                projectMessage.value = "Project Added successfully!"
