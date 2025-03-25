@@ -1,11 +1,12 @@
-// /src/components/UserCard.vue (Bootstrap styling)
+// /src/components/UserCard.vue
 <template>
-    <div class="list-group-item">
+    <!-- Use a specific class for styling -->
+    <div class="list-group-item user-card-item">
       <p>
           {{ userId }}
-           <span v-if="averageRating !== null">
-               - <vue3-star-ratings :rating="averageRating" :star-size="20" :read-only="true"/>
-            </span>
+          <span v-if="averageRating !== null">
+               - <vue3-star-ratings :rating="averageRating" :star-size="18" :read-only="true" :show-rating="false"/>
+          </span>
       </p>
     </div>
 </template>
@@ -30,7 +31,7 @@ export default {
         },
         teamId: {
             type: String,
-            required: false
+            required: false // TeamId might not always be relevant here
         }
     },
     setup(props) {
@@ -38,11 +39,17 @@ export default {
         const averageRating = ref(null);
 
         onMounted(async () => {
-            // Dispatch with UID
-            averageRating.value = await store.dispatch('calculateWeightedAverageRating', {
-                eventId: props.eventId,
-                userId: props.userId // Pass the UID
-            });
+             try {
+                // Dispatch action to get the average rating for this specific user in this event context
+                const ratingResult = await store.dispatch('user/calculateWeightedAverageRating', { // Ensure this action exists and calculates correctly
+                    eventId: props.eventId,
+                    userId: props.userId
+                });
+                 averageRating.value = ratingResult; // Assuming the action returns the calculated average
+             } catch (error) {
+                console.error(`Error fetching rating for user ${props.userId} in event ${props.eventId}:`, error);
+                averageRating.value = null; // Set to null on error
+             }
         });
 
         return {
@@ -51,3 +58,18 @@ export default {
     }
 };
 </script>
+
+<!-- Scoped styles can refine positioning if needed -->
+<style scoped>
+.user-card-item p {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* Space between ID and stars */
+    margin-bottom: 0;
+}
+ /* Adjust star rating vertical alignment if necessary */
+.vue3-star-ratings {
+    display: inline-block;
+    vertical-align: middle;
+}
+</style>

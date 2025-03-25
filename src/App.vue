@@ -1,15 +1,17 @@
-// /src/App.vue (Bootstrap styling)
+// /src/App.vue
 <template>
   <div id="app">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-      <div class="container-fluid">
+    <nav class="navbar navbar-expand-lg"> 
+      <div class="container">
         <router-link to="/" class="navbar-brand">KSB MCA S/W Community</router-link>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav">
-            <!-- Conditional links based on authentication -->
+
+         
+          <ul class="navbar-nav main-nav">
+
              <li class="nav-item" v-if="isAuthenticated">
               <router-link to="/home" class="nav-link">Home</router-link>
             </li>
@@ -19,32 +21,40 @@
             <li class="nav-item" v-if="isAuthenticated">
               <router-link to="/leaderboard" class="nav-link">Leaderboard</router-link>
             </li>
+
             <li class="nav-item">
               <router-link to="/resources" class="nav-link">Resources</router-link>
             </li>
             <li class="nav-item">
               <router-link to="/transparency" class="nav-link">Transparency</router-link>
             </li>
-            <li class="nav-item" v-if="isAuthenticated">
-              <router-link to="/portfolio" class="nav-link">My Portfolio</router-link>
-            </li>
-
+            
+             <li class="nav-item" v-if="isTeacherOrAdmin">
+                <router-link to="/manage-requests" class="nav-link">Manage Requests</router-link>
+             </li>
+             <li class="nav-item" v-if="isTeacherOrAdmin">
+                <router-link to="/manage-resources" class="nav-link">Manage Resources</router-link>
+             </li>
           </ul>
-           <ul class="navbar-nav ms-auto">
-              <!-- Show Login if NOT authenticated, Logout if authenticated -->
+
+
+           <ul class="navbar-nav auth-nav">
+
               <li class="nav-item" v-if="!isAuthenticated">
                 <router-link to="/login" class="nav-link">Login</router-link>
               </li>
                <li class="nav-item" v-if="isAuthenticated">
-                  <a href="#" @click.prevent="logout" class="nav-link">Logout</a>
+                  
+                  <a href="#" @click.prevent="logout" class="nav-link logout-link">Logout</a>
                 </li>
             </ul>
         </div>
       </div>
     </nav>
-    <div class="container mt-4">
+
+    <main class="container main-content mt-4">
       <router-view />
-    </div>
+    </main>
   </div>
 </template>
 
@@ -57,23 +67,42 @@ import {getAuth} from 'firebase/auth';
 export default {
   setup() {
     const store = useStore();
-    const isAuthenticated = computed(() => store.getters['user/isAuthenticated']); // Use namespaced getter
+    const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
+    // Add getter check for Teacher/Admin for conditional links
+    const isTeacherOrAdmin = computed(() => store.getters['user/isTeacher'] || store.getters['user/getUserRole'] === 'Admin');
     const router = useRouter();
-
 
      const logout = () => {
        const auth = getAuth();
         auth.signOut().then(()=>{
-            store.dispatch('user/clearUserData'); //namespaced
-            // Redirect to login or home page
-            router.push('/login');
+            store.dispatch('user/clearUserData');
+            router.push('/login'); // Redirect to login after logout
         })
       };
 
     return {
       isAuthenticated,
+      isTeacherOrAdmin, // Expose the new computed property
       logout
     };
   },
 };
 </script>
+
+<style scoped> 
+.main-content {
+  /* padding-top removed as navbar is sticky, not fixed */
+  /* Add some bottom space */
+  padding-bottom: var(--space-12);
+}
+
+/* Optional: Add a subtle transition for router-view changes */
+.router-view-enter-active,
+.router-view-leave-active {
+  transition: opacity 0.2s ease;
+}
+.router-view-enter-from,
+.router-view-leave-to {
+  opacity: 0;
+}
+</style>

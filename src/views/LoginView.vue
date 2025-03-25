@@ -1,9 +1,8 @@
-// /src/views/LoginView.vue
 <template>
-  <div class="container mt-5">
+  <div class="container mt-5"> 
     <div class="row justify-content-center">
-      <div class="col-md-6">
-        <div class="card">
+      <div class="col-md-6 col-lg-5"> 
+        <div class="card login-card">
           <div class="card-header">
             <h2>Login</h2>
           </div>
@@ -11,8 +10,9 @@
             <div v-if="errorMessage" class="alert alert-danger" role="alert">
               {{ errorMessage }}
             </div>
-            <form @submit.prevent="signIn">
-              <div class="mb-3">
+            
+            <form @submit.prevent="signIn" class="space-y-6">
+              <div> 
                 <label for="email" class="form-label">Email:</label>
                 <input
                   type="email"
@@ -23,7 +23,7 @@
                   placeholder="Enter your email"
                 />
               </div>
-              <div class="mb-3">
+              <div> 
                 <label for="password" class="form-label">Password:</label>
                 <input
                   type="password"
@@ -34,10 +34,10 @@
                   placeholder="Enter your password"
                 />
               </div>
-              <button type="submit" class="btn btn-primary">Login</button>
+              <button type="submit" class="btn btn-primary w-100">Login</button> 
             </form>
-             <div class="mt-3">
-              <router-link to="/forgot-password">Forgot Password?</router-link> <!-- Added forgot password link -->
+             <div class="mt-3 text-center"> 
+              <router-link to="/forgot-password">Forgot Password?</router-link>
             </div>
           </div>
         </div>
@@ -45,6 +45,11 @@
     </div>
   </div>
 </template>
+
+<style>
+  /* Optional: Add w-100 if not globally defined */
+  .w-100 { width: 100% !important; }
+</style>
 
 <script>
 import { ref } from 'vue';
@@ -65,7 +70,7 @@ export default {
         const userCredential = await signInWithEmailAndPassword(auth, email.value, password.value);
         // User signed in successfully
         console.log('User signed in:', userCredential.user);
-        router.push('/'); // Redirect to home page
+        router.push('/home'); // Redirect to home page
       } catch (error) {
         // Handle errors here.  Provide specific error messages.
         console.error("Login Error:", error);

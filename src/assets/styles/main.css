@@ -1,0 +1,836 @@
+/* src/assets/styles/main.css - Modern Overhaul */
+
+/* --- Fonts (Example: Inter - Add via Google Fonts or local import) --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* --- CSS Variables (Modern Palette) --- */
+:root {
+  /* Colors */
+  --color-primary: #3B82F6; /* Blue 500 (Tailwind) */
+  --color-primary-hover: #2563EB; /* Blue 600 */
+  --color-primary-light: #EFF6FF; /* Blue 50 */
+  --color-secondary: #10B981; /* Emerald 500 */
+  --color-secondary-hover: #059669; /* Emerald 600 */
+  --color-text: #1F2937; /* Gray 800 */
+  --color-text-secondary: #6B7280; /* Gray 500 */
+  --color-text-muted: #9CA3AF; /* Gray 400 */
+  --color-background: #F9FAFB; /* Gray 50 */
+  --color-surface: #FFFFFF; /* White */
+  --color-border: #E5E7EB; /* Gray 200 */
+  --color-input-bg: #FFFFFF;
+  --color-danger: #EF4444; /* Red 500 */
+  --color-success: #10B981; /* Emerald 500 */
+  --color-warning: #F59E0B; /* Amber 500 */
+  --color-info: #3B82F6; /* Blue 500 */
+
+  /* Typography */
+  --font-family-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-size-base: 1rem; /* 16px */
+  --font-size-sm: 0.875rem; /* 14px */
+  --font-size-lg: 1.125rem; /* 18px */
+  --line-height-base: 1.6;
+
+  /* Spacing (adjust base unit as needed) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  /* Borders & Radius */
+  --border-radius: 0.5rem; /* Slightly more rounded */
+  --border-width: 1px;
+  --border-color-default: var(--color-border);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  --shadow-focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.3); /* Primary color focus */
+}
+
+/* --- Global Resets & Base Styles --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: var(--font-size-base);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family-sans);
+  line-height: var(--line-height-base);
+  color: var(--color-text);
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-bottom: var(--space-4);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text); /* Darker default headings */
+}
+
+h1 { font-size: 2.25rem; } /* 36px */
+h2 { font-size: 1.875rem; } /* 30px */
+h3 { font-size: 1.5rem; }   /* 24px */
+h4 { font-size: 1.25rem; }  /* 20px */
+h5 { font-size: 1.125rem; } /* 18px */
+h6 { font-size: 1rem; }     /* 16px */
+
+p {
+  margin-bottom: var(--space-4);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+a:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+ul, ol {
+    list-style-position: inside;
+    margin-bottom: var(--space-4);
+}
+li {
+    margin-bottom: var(--space-2);
+}
+
+img, svg, video, canvas, audio, iframe, embed, object {
+    display: block;
+    max-width: 100%;
+}
+
+/* Remove bootstrap outlines */
+:focus {
+    outline: none;
+}
+/* Use a custom focus ring */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+  border-radius: var(--border-radius); /* Match element rounding */
+}
+/* Apply focus ring slightly differently to inputs */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    border-color: var(--color-primary); /* Highlight border */
+    box-shadow: var(--shadow-focus-ring);
+}
+
+
+/* --- Bootstrap Grid & Base (Keep these or similar) --- */
+.container, .container-fluid {
+    width: 100%;
+    padding-right: var(--space-4);
+    padding-left: var(--space-4);
+    margin-right: auto;
+    margin-left: auto;
+}
+@media (min-width: 576px) { .container { max-width: 540px; } }
+@media (min-width: 768px) { .container { max-width: 720px; } }
+@media (min-width: 992px) { .container { max-width: 960px; } }
+@media (min-width: 1200px) { .container { max-width: 1140px; } }
+@media (min-width: 1400px) { .container { max-width: 1320px; } }
+
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: calc(var(--space-4) * -0.5); /* Adjust gutter based on spacing */
+    margin-left: calc(var(--space-4) * -0.5);
+}
+/* Basic column padding - adjust as needed */
+.col, .col-1, .col-2, .col-3, .col-4, .col-5, .col-6, .col-7, .col-8, .col-9, .col-10, .col-11, .col-12,
+.col-sm, .col-sm-1, .col-sm-2, .col-sm-3, .col-sm-4, .col-sm-5, .col-sm-6, .col-sm-7, .col-sm-8, .col-sm-9, .col-sm-10, .col-sm-11, .col-sm-12,
+/* Add md, lg, xl, xxl */
+.col-md, .col-md-1, .col-md-2, .col-md-3, .col-md-4, .col-md-5, .col-md-6, .col-md-7, .col-md-8, .col-md-9, .col-md-10, .col-md-11, .col-md-12,
+.col-lg, .col-lg-1, .col-lg-2, .col-lg-3, .col-lg-4, .col-lg-5, .col-lg-6, .col-lg-7, .col-lg-8, .col-lg-9, .col-lg-10, .col-lg-11, .col-lg-12,
+.col-xl, .col-xl-1, .col-xl-2, .col-xl-3, .col-xl-4, .col-xl-5, .col-xl-6, .col-xl-7, .col-xl-8, .col-xl-9, .col-xl-10, .col-xl-11, .col-xl-12,
+.col-xxl, .col-xxl-1, .col-xxl-2, .col-xxl-3, .col-xxl-4, .col-xxl-5, .col-xxl-6, .col-xxl-7, .col-xxl-8, .col-xxl-9, .col-xxl-10, .col-xxl-11, .col-xxl-12 {
+    position: relative;
+    width: 100%;
+    padding-right: calc(var(--space-4) * 0.5); /* Gutter */
+    padding-left: calc(var(--space-4) * 0.5);
+}
+
+/* --- Component Styling Overrides --- */
+
+/* === Navbar - Modern Sticky === */
+.navbar {
+    background-color: var(--color-surface);
+    border-bottom: none; /* Remove Bootstrap border */
+    box-shadow: var(--shadow); /* Use standard shadow */
+    padding: 0; /* Remove default padding */
+    height: 64px; /* Consistent height */
+    position: sticky; /* Make it stick */
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030; /* Ensure it's above most content */
+    display: flex; /* Ensure flex behavior */
+    align-items: center; /* Vertically center content */
+  }
+  
+  /* Container within Navbar */
+  .navbar .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+    width: 100%;
+    padding-left: var(--space-6); /* Adjust padding as needed */
+    padding-right: var(--space-6);
+    margin-left: auto; /* Center container */
+    margin-right: auto;
+  }
+  
+  /* Navbar Brand */
+  .navbar-brand {
+    font-weight: 600;
+    color: var(--color-text) !important; /* Use variable, !important to override BS */
+    font-size: 1.15rem; /* Slightly larger */
+    padding: 0; /* Remove padding */
+    margin-right: var(--space-8); /* Space after brand */
+    display: flex;
+    align-items: center;
+    height: 100%; /* Fill height */
+    white-space: nowrap; /* Prevent wrapping */
+  }
+  
+  /* Navbar Toggler (Mobile) */
+  .navbar-toggler {
+    border: none;
+    background: transparent;
+    padding: var(--space-2);
+    border-radius: var(--border-radius);
+    /* Use custom focus ring from :focus-visible */
+  }
+  .navbar-toggler:focus {
+    box-shadow: none; /* Remove Bootstrap's default focus */
+  }
+  .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(31, 41, 55, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e"); /* Darker icon */
+    width: 1.5em; /* Slightly larger */
+    height: 1.5em;
+  }
+  
+  /* Navbar Nav Container */
+  .navbar-collapse {
+    /* On desktop, allow items to flow */
+    flex-grow: 1;
+    display: flex;
+    justify-content: space-between; /* Pushes main-nav and auth-nav apart */
+  }
+  
+  /* General Nav List Styles */
+  .navbar-nav {
+    display: flex;
+    align-items: center;
+    height: 100%; /* Ensure vertical alignment works */
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+  }
+  
+  
+  /* Authentication Links (Right) */
+  .navbar-nav.auth-nav {
+    margin-left: auto; /* Pushes auth links to the right */
+  }
+  
+  /* Individual Nav Item */
+  .nav-item {
+    display: flex; /* Use flex for vertical alignment */
+    align-items: center;
+    height: 100%;
+  }
+  
+  /* Nav Link Styling */
+  .nav-link {
+    color: var(--color-text-secondary) !important;
+    font-weight: 500;
+    font-size: var(--font-size-sm); /* Smaller nav links */
+    padding: 0 var(--space-4) !important; /* Consistent horizontal padding, vertical controlled by height */
+    margin: 0 var(--space-1); /* Small gap between items */
+    border-radius: var(--border-radius);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    text-decoration: none;
+    display: flex; /* Vertically center text/icons */
+    align-items: center;
+    height: calc(100% - var(--space-4)); /* Slightly smaller than full height for visual padding */
+    line-height: 1; /* Prevent extra space */
+    white-space: nowrap; /* Prevent link text wrapping */
+  }
+  
+  /* Nav Link Hover/Active State */
+  .nav-link:hover,
+  .nav-link.router-link-active.router-link-exact-active { /* Style for active route */
+    color: var(--color-primary) !important;
+    background-color: var(--color-primary-light);
+    text-decoration: none;
+  }
+  
+  .nav-link.logout-link:hover {
+    color: var(--color-danger) !important;
+    background-color: rgba(239, 68, 68, 0.1); /* Light red background */
+  }
+  
+  /* === Mobile Navbar Styles === */
+  @media (max-width: 991.98px) {
+    .navbar {
+      height: auto; /* Allow height to adjust */
+      padding-top: var(--space-3);
+      padding-bottom: var(--space-3);
+    }
+  
+    .navbar .container {
+      padding-left: var(--space-4); /* Less padding on mobile */
+      padding-right: var(--space-4);
+      flex-wrap: wrap; /* Allow toggler to wrap */
+    }
+  
+    /* Collapsed Menu Container */
+    .navbar-collapse {
+      /* Becomes the dropdown */
+      width: 100%; /* Full width */
+      margin-top: var(--space-3); /* Space below toggler row */
+      max-height: calc(100vh - 80px); /* Limit height */
+      overflow-y: auto; /* Allow scrolling if needed */
+      background-color: var(--color-surface);
+      border-top: var(--border-width) solid var(--color-border);
+      padding: var(--space-2) 0; /* Padding top/bottom */
+      box-shadow: var(--shadow-md);
+      /* Reset desktop flex behavior */
+      justify-content: flex-start;
+      flex-direction: column;
+    }
+  
+    /* Nav Lists on Mobile */
+    .navbar-nav {
+      flex-direction: column; /* Stack vertically */
+      width: 100%;
+      height: auto; /* Reset height */
+      align-items: stretch; /* Stretch items full width */
+    }
+  
+    /* Space between main and auth nav on mobile */
+    .navbar-nav.auth-nav {
+      margin-left: 0; /* Reset desktop margin */
+      margin-top: var(--space-4);
+      padding-top: var(--space-4);
+      border-top: var(--border-width) solid var(--color-border);
+    }
+  
+    /* Nav Items on Mobile */
+    .nav-item {
+      height: auto; /* Reset height */
+      width: 100%;
+    }
+  
+    /* Nav Links on Mobile */
+    .nav-link {
+      padding: var(--space-3) var(--space-6) !important; /* Vertical padding */
+      justify-content: flex-start; /* Align text left */
+      height: auto; /* Reset height */
+      border-radius: 0; /* No radius in list */
+      margin: 0;
+      width: 100%;
+      border-bottom: var(--border-width) solid var(--color-border); /* Separator */
+    }
+    .nav-item:last-child .nav-link {
+      border-bottom: none; /* Remove border on last item of each nav section */
+    }
+  
+    /* Hover/Active on Mobile */
+    .nav-link:hover,
+    .nav-link.router-link-active.router-link-exact-active {
+       /* Keep the same visual style */
+       color: var(--color-primary) !important;
+       background-color: var(--color-primary-light);
+    }
+  }
+
+/* Buttons */
+.btn {
+  display: inline-flex; /* Better alignment with icons */
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) var(--space-6); /* Generous padding */
+  font-weight: 500;
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid transparent;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+.btn:hover {
+    box-shadow: var(--shadow);
+    transform: translateY(-1px);
+}
+.btn:active {
+    transform: translateY(0px);
+    box-shadow: var(--shadow-inner);
+}
+
+.btn-sm {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-sm);
+}
+
+.btn-lg {
+    padding: var(--space-4) var(--space-8);
+    font-size: var(--font-size-lg);
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-surface);
+}
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+  color: var(--color-surface);
+}
+
+.btn-secondary {
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+.btn-secondary:hover {
+  background-color: var(--color-background);
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.btn-success { background-color: var(--color-success); color: var(--color-surface); }
+.btn-success:hover { background-color: var(--color-secondary-hover); color: var(--color-surface); }
+
+.btn-danger { background-color: var(--color-danger); color: var(--color-surface); }
+.btn-danger:hover { background-color: darken(var(--color-danger), 10%); color: var(--color-surface); }
+
+.btn-warning { background-color: var(--color-warning); color: var(--color-text); }
+.btn-warning:hover { background-color: darken(var(--color-warning), 10%); color: var(--color-text); }
+
+.btn-info { background-color: var(--color-info); color: var(--color-surface); }
+.btn-info:hover { background-color: var(--color-primary-hover); color: var(--color-surface); }
+
+/* Button spacing in forms/cards */
+.btn + .btn {
+    margin-left: var(--space-3);
+}
+
+/* Cards */
+.card {
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow);
+  margin-bottom: var(--space-6); /* Consistent bottom margin */
+  overflow: hidden; /* Ensure child elements respect border-radius */
+}
+
+
+.card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-text-muted);
+}
+
+
+.card-header {
+  background-color: var(--color-background);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: var(--border-width) solid var(--color-border);
+  font-weight: 600;
+  margin: 0; /* Remove margin */
+}
+.card-header h1, .card-header h2, .card-header h3, .card-header h4 {
+    margin-bottom: 0;
+    font-size: var(--font-size-lg); /* Consistent header size */
+}
+
+.card-body {
+  padding: var(--space-6); /* Generous padding */
+}
+
+.card-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: var(--space-3); /* Space below title */
+  color: var(--color-text);
+}
+
+.card-text {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+}
+.card-text:last-child {
+  margin-bottom: 0;
+}
+
+/* Forms */
+.form-label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.form-control,
+.form-select {
+  display: block;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  line-height: 1.5;
+  color: var(--color-text);
+  background-color: var(--color-input-bg);
+  background-clip: padding-box;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.form-control::placeholder {
+    color: var(--color-text-muted);
+    opacity: 1;
+}
+/* Focus state handled by global :focus-visible */
+
+.form-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: 1.25em 1.25em;
+  padding-right: calc(var(--space-3) * 2.5); /* Space for arrow */
+}
+
+textarea.form-control {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.form-check {
+  display: flex; /* Use flex for alignment */
+  align-items: center;
+  margin-bottom: var(--space-4);
+  padding-left: 0; /* Remove default padding */
+}
+.form-check-input {
+  width: 1.15em;
+  height: 1.15em;
+  margin-top: 0; /* Reset margin */
+  margin-right: var(--space-2);
+  vertical-align: top;
+  background-color: var(--color-input-bg);
+  border: var(--border-width) solid var(--color-border);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  flex-shrink: 0; /* Prevent shrinking */
+  border-radius: 0.25em; /* Slightly less rounded for checkboxes */
+  box-shadow: var(--shadow-sm);
+}
+.form-check-input[type="radio"] {
+  border-radius: 50%;
+}
+.form-check-input:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+  background-size: 75% 75%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.form-check-input[type="radio"]:checked {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e");
+}
+.form-check-label {
+  margin-bottom: 0; /* Reset margin */
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+/* Form groups */
+.mb-3 { /* Replace Bootstrap margin utility */
+    margin-bottom: var(--space-6) !important;
+}
+
+
+/* Alerts */
+.alert {
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+  border-left: 4px solid; /* Use left border for emphasis */
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+}
+.alert-icon { /* Add an optional icon class */
+    margin-right: var(--space-3);
+    font-size: 1.25em;
+    flex-shrink: 0;
+}
+
+.alert-success {
+  background-color: lighten(var(--color-success), 55%);
+  color: darken(var(--color-success), 20%);
+  border-color: var(--color-success);
+}
+.alert-danger {
+  background-color: lighten(var(--color-danger), 45%);
+  color: darken(var(--color-danger), 20%);
+  border-color: var(--color-danger);
+}
+.alert-warning {
+  background-color: lighten(var(--color-warning), 50%);
+  color: darken(var(--color-warning), 30%);
+  border-color: var(--color-warning);
+}
+.alert-info {
+  background-color: lighten(var(--color-info), 55%);
+  color: darken(var(--color-info), 20%);
+  border-color: var(--color-info);
+}
+
+/* List Groups */
+.list-group {
+  border-radius: var(--border-radius);
+  overflow: hidden; /* Clip children */
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-6);
+}
+
+.list-group-item {
+  position: relative;
+  display: block;
+  padding: var(--space-4) var(--space-6);
+  background-color: var(--color-surface);
+  border-bottom: var(--border-width) solid var(--color-border); /* Use bottom border for separation */
+  /* Remove other borders */
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+}
+.list-group-item:last-child {
+  border-bottom: 0; /* No border on last item */
+}
+.list-group-item:hover {
+    background-color: var(--color-background); /* Subtle hover */
+}
+.list-group-item a {
+    text-decoration: none; /* No underline within list items usually */
+    color: inherit; /* Inherit text color */
+}
+.list-group-item a:hover {
+    color: var(--color-primary);
+}
+
+/* --- Specific Component/View Styles --- */
+
+/* Event Card */
+.event-card .card-body {
+    padding: var(--space-6);
+}
+.event-card .card-title {
+    color: var(--color-text); /* Less prominent title color */
+    font-weight: 600;
+}
+.event-card .card-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-2);
+}
+.event-card .btn {
+    margin-top: var(--space-4);
+}
+
+/* Team List / User Card */
+.team-card .card-title {
+    margin-bottom: var(--space-4);
+}
+.team-card .list-group {
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-4);
+    border: none; /* Remove border around inner list */
+    box-shadow: none;
+}
+.user-card-item {
+    padding: var(--space-3) 0; /* Less padding */
+    border-bottom: var(--border-width) solid var(--color-border);
+    background: none; /* Transparent bg */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.user-card-item:last-child { border-bottom: none; }
+.user-card-item:hover { background: none; } /* No hover on user item */
+
+.user-card-item p {
+    margin-bottom: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+}
+.user-card-item .vue3-star-ratings {
+    margin-left: var(--space-2);
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1; /* Align stars better */
+}
+
+/* Login View Card */
+.login-card .card-header {
+    text-align: center;
+    padding: var(--space-6);
+}
+.login-card .card-body {
+    padding: var(--space-8);
+}
+.login-card form .btn {
+    width: 100%;
+    margin-top: var(--space-4);
+}
+.login-card .mt-3 { /* Forgot password link */
+    text-align: center;
+    margin-top: var(--space-6) !important;
+    font-size: var(--font-size-sm);
+}
+
+/* User Profile */
+.profile-section {
+    margin-bottom: var(--space-8);
+    padding-bottom: var(--space-6);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+.profile-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+.profile-section h3 {
+    margin-bottom: var(--space-6);
+    font-size: 1.35rem; /* Slightly smaller sub-headings */
+}
+.profile-info p {
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-base);
+}
+.profile-info p strong {
+    color: var(--color-text);
+    margin-right: var(--space-2);
+}
+/* Project List Items */
+.project-item {
+    padding: var(--space-4) 0;
+}
+.project-item p {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-2);
+}
+.project-item strong {
+    font-weight: 500;
+    color: var(--color-text);
+}
+.project-item .btn-group {
+    margin-top: var(--space-3);
+}
+
+/* Star Ratings */
+.vue3-star-ratings__wrapper {
+    padding: 0 !important; /* Override library padding */
+    margin: 0;
+    display: block; /* Ensure it behaves predictably */
+}
+.vue3-star-ratings .stars {
+    display: flex !important; /* Override library styles if needed */
+    align-items: center;
+}
+.vue3-star-ratings svg {
+    width: 24px !important; /* Adjust size */
+    height: 24px !important;
+    color: var(--color-warning); /* Use theme color */
+    margin-right: var(--space-1); /* Space between stars */
+}
+.vue3-star-ratings .stars-active svg {
+     color: var(--color-warning);
+}
+.vue3-star-ratings .stars-inactive svg {
+     color: var(--color-border); /* Muted color for inactive */
+}
+
+/* --- Utility Classes (Optional, inspired by Tailwind) --- */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+
+.block { display: block; }
+.inline-block { display: inline-block; }
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.grid { display: grid; }
+
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-start { justify-content: flex-start; }
+.justify-end { justify-content: flex-end; }
+
+.space-x-2 > * + * { margin-left: var(--space-2); }
+.space-x-4 > * + * { margin-left: var(--space-4); }
+/* Add more space utilities as needed */
+.space-y-2 > * + * { margin-top: var(--space-2); }
+.space-y-4 > * + * { margin-top: var(--space-4); }
+.space-y-6 > * + * { margin-top: var(--space-6); }
+
+.rounded { border-radius: var(--border-radius); }
+.rounded-full { border-radius: 9999px; }
+
+.shadow-sm { box-shadow: var(--shadow-sm); }
+.shadow { box-shadow: var(--shadow); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+
+/* Add more padding/margin utilities using --space variables if needed */
+.p-4 { padding: var(--space-4); }
+.py-2 { padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.px-4 { padding-left: var(--space-4); padding-right: var(--space-4); }
+/* ... etc */
+.mt-4 { margin-top: var(--space-4); }
+.mb-6 { margin-bottom: var(--space-6); }
+/* ... etc */

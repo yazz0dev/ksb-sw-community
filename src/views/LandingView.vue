@@ -1,6 +1,7 @@
 // src/views/LandingView.vue
 <template>
-  <div class="container">
+  <!-- Use the specific landing container class -->
+  <div class="landing-container container">
     <h1>Welcome to the KSB MCA S/W Community!</h1>
     <p>
       This platform is for managing events, collaborating on projects, and
@@ -20,8 +21,8 @@
       <li>View a leaderboard of top contributors.</li>
       <li>Generate a portfolio of your achievements.</li>
     </ul>
-    <p>
-        This site is managed by the MCA department of KMCT College of Engineering for Women.
+    <p class="mt-3">
+        <small>This site is managed by the MCA department of KMCT School Of Buisiness.</small>
     </p>
   </div>
 </template>
@@ -31,11 +32,3 @@ export default {
   name: 'LandingView',
 };
 </script>
-
-<style scoped>
-/* Add some basic styling if you want */
-.container {
-  text-align: center;
-  margin-top: 50px;
-}
-</style>
