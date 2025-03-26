@@ -1,4 +1,3 @@
-// /src/views/ManageTeams.vue (Bootstrap styling, error handling)
 <template>
     <div class="container">
       <h2>Manage Teams for Event: {{ eventId }}</h2>
@@ -14,8 +13,8 @@
         <div v-for="student in students" :key="student.uid" class="form-check">  <!-- Use UID -->
           <input
             type="checkbox"
-            :id="student.uid"          <!-- Use UID -->
-            :value="student.uid"        <!-- Use UID -->
+            :id="student.uid"          
+            :value="student.uid"        
             v-model="selectedStudents"
             class="form-check-input"
           />
@@ -29,69 +28,57 @@
     </div>
   </template>
 
-  <script>
-  import { ref, onMounted } from 'vue';
-  import { useStore } from 'vuex';
-  import { useRouter } from 'vue-router'; // Import useRouter
-  import { collection, getDocs, query, where } from 'firebase/firestore';
-  import { db } from '../firebase';
+<script setup>
+import { ref, onMounted } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter, useRoute } from 'vue-router';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebase';
 
-  export default {
-    props: {
-      eventId: {
-        type: String,
-        required: true,
-      },
-    },
-    setup(props) {
-      const teamName = ref('');
-      const selectedStudents = ref([]); // Store UIDs of selected students
-      const students = ref([]);
-      const errorMessage = ref('');
-      const store = useStore();
-      const router = useRouter(); // Use useRouter
+const route = useRoute();
+const router = useRouter();
+const store = useStore();
 
-      onMounted(async () => {
-        // Fetch all students (users without a 'role' or with 'role' === 'Student')
-        try {
-          const q = query(collection(db, 'users')); // Query all users
-          const querySnapshot = await getDocs(q);
-          students.value = querySnapshot.docs.map((doc) => ({
-            uid: doc.id, // Use UID as the key
-            ...doc.data(),
-          })).filter(user => !user.role || user.role === 'Student'); // Filter for students
-        } catch (error) {
-          console.error('Error fetching students:', error);
-        }
-      });
+// Get eventId from route params
+const eventId = route.params.id;
 
-      const addTeam = async () => {
-          errorMessage.value = '';
-        try {
-          if (!teamName.value.trim() || selectedStudents.value.length === 0) {
-            errorMessage.value = 'Please enter a team name and select at least one student.';
-            return;
-          }
+const teamName = ref('');
+const selectedStudents = ref([]);
+const students = ref([]);
+const errorMessage = ref('');
 
-          await store.dispatch('events/addTeamToEvent', { //namespaced
-            eventId: props.eventId,
-            teamName: teamName.value,
-            members: selectedStudents.value, // Array of UIDs
-          });
-          router.back(); // Navigate back
-        } catch (error) {
-            errorMessage.value = error.message || "Error occured on adding team";
+onMounted(async () => {
+  try {
+    const q = query(collection(db, 'users'));
+    const querySnapshot = await getDocs(q);
+    students.value = querySnapshot.docs
+      .map((doc) => ({
+        uid: doc.id,
+        ...doc.data(),
+      }))
+      .filter(user => !user.role || user.role === 'Student');
+  } catch (error) {
+    console.error('Error fetching students:', error);
+    errorMessage.value = 'Failed to load students';
+  }
+});
 
-        }
-      };
+const addTeam = async () => {
+  errorMessage.value = '';
+  try {
+    if (!teamName.value.trim() || selectedStudents.value.length === 0) {
+      errorMessage.value = 'Please enter a team name and select at least one student.';
+      return;
+    }
 
-      return {
-        teamName,
-        selectedStudents,
-        students,
-        addTeam,
-        errorMessage
-      };
-    },
-  };
-  </script>
+    await store.dispatch('events/addTeamToEvent', {
+      eventId,
+      teamName: teamName.value,
+      members: selectedStudents.value,
+    });
+    router.back();
+  } catch (error) {
+    errorMessage.value = error.message || "Error occurred while adding team";
+  }
+};
+</script>

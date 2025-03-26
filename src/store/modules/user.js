@@ -28,7 +28,7 @@ const getters = {
       skills: state.skills ? [...state.skills] : [], // Return copy
       preferredRoles: state.preferredRoles ? [...state.preferredRoles] : [], // Return copy
   }),
-  isTeacher: state => state.role === 'Teacher' || state.role === 'Admin', // Keep Admin check here too
+  isAdmin: state => state.role === 'Admin',
    // Getter to check if initial user data fetch is complete
   hasFetchedUserData: state => state.hasFetched,
 };
@@ -277,7 +277,7 @@ const actions = {
              }
 
 
-            const isTeacherRating = rootGetters['user/isTeacher']; // Use rootGetter correctly
+            const isAdminRating = rootGetters['user/isAdmin']; // Use rootGetter correctly
 
             if (eventData.isTeamEvent) {
                 if (!teamId) throw new Error('Team ID is required for team events.');
@@ -287,7 +287,7 @@ const actions = {
 
                 const ratingEntry = {
                     ratedBy: state.uid,
-                    isTeacherRating: isTeacherRating, // Correctly use the getter result
+                    isAdminRating: isAdminRating, // Correctly use the getter result
                     rating: { ...ratingData }, // Ensure it's a copy
                     timestamp: Timestamp.now() // Add timestamp
                 };
@@ -308,7 +308,7 @@ const actions = {
                 const ratingEntry = {
                     ratedBy: state.uid,
                     ratedTo: ratedToUID,
-                    isTeacherRating: isTeacherRating, // Correctly use the getter result
+                    isAdminRating: isAdminRating, // Correctly use the getter result
                     rating: { ...ratingData }, // Ensure it's a copy
                     timestamp: Timestamp.now() // Add timestamp
                 };

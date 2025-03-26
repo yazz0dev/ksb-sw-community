@@ -15,13 +15,15 @@
              <li class="nav-item" v-if="isAuthenticated">
               <router-link to="/home" class="nav-link">Home</router-link>
             </li>
-             <li class="nav-item" v-if="isAuthenticated">
+            <li class="nav-item" v-if="isAdmin">
+                <router-link to="/manage-requests" class="nav-link">Manage Requests</router-link>
+             </li>
+             <li class="nav-item" v-if="isAuthenticated && !isAdmin">
               <router-link to="/profile" class="nav-link">Profile</router-link>
             </li>
             <li class="nav-item" v-if="isAuthenticated">
               <router-link to="/leaderboard" class="nav-link">Leaderboard</router-link>
             </li>
-
             <li class="nav-item">
               <router-link to="/resources" class="nav-link">Resources</router-link>
             </li>
@@ -29,12 +31,6 @@
               <router-link to="/transparency" class="nav-link">Transparency</router-link>
             </li>
             
-             <li class="nav-item" v-if="isTeacherOrAdmin">
-                <router-link to="/manage-requests" class="nav-link">Manage Requests</router-link>
-             </li>
-             <li class="nav-item" v-if="isTeacherOrAdmin">
-                <router-link to="/manage-resources" class="nav-link">Manage Resources</router-link>
-             </li>
           </ul>
 
 
@@ -68,21 +64,20 @@ export default {
   setup() {
     const store = useStore();
     const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-    // Add getter check for Teacher/Admin for conditional links
-    const isTeacherOrAdmin = computed(() => store.getters['user/isTeacher'] || store.getters['user/getUserRole'] === 'Admin');
+    const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
     const router = useRouter();
 
      const logout = () => {
        const auth = getAuth();
         auth.signOut().then(()=>{
             store.dispatch('user/clearUserData');
-            router.push('/login'); // Redirect to login after logout
+            router.replace('/login'); // Changed to replace instead of push
         })
       };
 
     return {
       isAuthenticated,
-      isTeacherOrAdmin, // Expose the new computed property
+      isAdmin,
       logout
     };
   },

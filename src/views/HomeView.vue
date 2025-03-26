@@ -10,10 +10,9 @@
         </div>
       </div>
     </div>
-    <!-- Use isTeacher getter -->
-    <!-- Removed create event button -->
-    <router-link v-if="!isTeacher" to="/request-event" class="btn btn-info mt-3">Request Event</router-link>
-     <router-link v-if="isAdmin" to="/manage-requests" class="btn btn-info mt-3">Manage Requests</router-link>
+    <!-- Use isAdmin getter -->
+    <router-link v-if="!isAdmin" to="/request-event" class="btn btn-info mt-3">Request Event</router-link>
+    <router-link v-if="isAdmin" to="/manage-requests" class="btn btn-info mt-3">Manage Requests</router-link>
   </div>
 </template>
 
@@ -32,20 +31,16 @@ export default {
     const events = computed(() => store.getters['events/allEvents']); //namespaced
     const loading = ref(true);
     const router = useRouter();
-     // Use isTeacher getter from the user module
-    const isTeacher = computed(() => store.getters['user/isTeacher']); //namespaced
-    const isAdmin = computed(() => store.getters['user/getUser'].role === 'Admin'); //check admin
+    const isAdmin = computed(() => store.getters['user/isAdmin']); //check admin
 
     onMounted(async () => {
       await store.dispatch('events/fetchEvents'); //namespaced
       loading.value = false;
     });
 
-
     return {
       events,
       loading,
-      isTeacher, // Expose isTeacher
       isAdmin
     };
   },

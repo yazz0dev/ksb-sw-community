@@ -1,56 +1,133 @@
-// /src/views/ResourcesView.vue (Bootstrap styling, Font Awesome)
 <template>
     <div class="container">
-      <h2>Resources</h2>
-      <ul class="list-group">
-        <li v-for="resource in resources" :key="resource.id" class="list-group-item">
-          <a :href="resource.type === 'Download' || resource.type === 'Link' ? resource.content : '#'" @click.prevent="handleResourceClick(resource)" class="text-decoration-none">
-            {{ resource.title }} ({{ resource.category }})
-              <!-- Show icon -->
-            <span v-if="resource.type === 'Download'">
-              <i class="fas fa-download"></i>
-            </span>
-              <span v-if="resource.type === 'Guide'">
-               <i class="fas fa-book"></i>
-             </span>
-              <span v-if="resource.type === 'Link'">
-                 <i class="fas fa-link"></i>
-             </span>
-          </a>
-        </li>
-      </ul>
+        <h2>Resources</h2>
+        
+        <div class="resource-categories">
+            <div v-for="(category, index) in resources" :key="index" class="card mb-4">
+                <div class="card-header">
+                    <h3>{{ category.title }}</h3>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li v-for="(resource, rIndex) in category.items" 
+                        :key="rIndex" 
+                        class="list-group-item">
+                        <a :href="resource.content" 
+                           target="_blank" 
+                           rel="noopener noreferrer" 
+                           class="text-decoration-none">
+                            {{ resource.title }}
+                            <span v-if="resource.type === 'Download'">
+                                <i class="fas fa-download"></i>
+                            </span>
+                            <span v-if="resource.type === 'Guide'">
+                                <i class="fas fa-book"></i>
+                            </span>
+                            <span v-if="resource.type === 'Link'">
+                                <i class="fas fa-link"></i>
+                            </span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
     </div>
-  </template>
-  
-  <script>
-  import { ref, onMounted } from 'vue';
-  import { collection, getDocs } from 'firebase/firestore';
-  import { db } from '../firebase';
-   // Font Awesome (for icons) -  MAKE SURE THIS IS INSTALLED: npm install @fortawesome/fontawesome-free
-  import '@fortawesome/fontawesome-free/css/all.css'; //  IMPORT IT HERE
-  
-  export default {
-    setup() {
-      const resources = ref([]);
-  
-      onMounted(async () => {
-        const querySnapshot = await getDocs(collection(db, 'resources'));
-        resources.value = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-      });
-  
-        const handleResourceClick = (resource) => {
-          if (resource.type === 'Download' || resource.type === 'Link') {
-            window.open(resource.content, '_blank'); // Open in a new tab/window
-          }
-        };
-  
-      return {
-        resources,
-          handleResourceClick
-      };
+</template>
+
+<script>
+import '@fortawesome/fontawesome-free/css/all.css';
+
+const predefinedResources = [
+    {
+        title: "Getting Started",
+        items: [
+            {
+                title: "Student Handbook",
+                type: "Download",
+                content: "https://example.com/handbook.pdf"
+            },
+            {
+                title: "Code of Conduct",
+                type: "Guide",
+                content: "https://example.com/code-of-conduct"
+            }
+        ]
     },
-  };
-  </script>
+    {
+        title: "Development Tools",
+        items: [
+            {
+                title: "Git Installation Guide",
+                type: "Guide",
+                content: "https://git-scm.com/downloads"
+            },
+            {
+                title: "VS Code Editor",
+                type: "Link",
+                content: "https://code.visualstudio.com/"
+            },
+            {
+                title: "Node.js Setup",
+                type: "Guide",
+                content: "https://nodejs.org/en/learn/getting-started/introduction-to-nodejs"
+            }
+        ]
+    },
+    {
+        title: "Learning Materials",
+        items: [
+            {
+                title: "JavaScript Fundamentals",
+                type: "Link",
+                content: "https://javascript.info/"
+            },
+            {
+                title: "Vue.js Documentation",
+                type: "Link",
+                content: "https://vuejs.org/guide/introduction.html"
+            },
+            {
+                title: "Web Development Roadmap",
+                type: "Guide",
+                content: "https://roadmap.sh/frontend"
+            }
+        ]
+    }
+];
+
+export default {
+    name: 'ResourcesView',
+    setup() {
+        return {
+            resources: predefinedResources
+        };
+    }
+};
+</script>
+
+<style scoped>
+.resource-categories {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.list-group-item a {
+    color: var(--color-text);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list-group-item a:hover {
+    color: var(--color-primary);
+}
+
+.list-group-item i {
+    margin-left: 1rem;
+    color: var(--color-text-secondary);
+}
+</style>
