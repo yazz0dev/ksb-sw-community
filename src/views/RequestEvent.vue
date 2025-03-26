@@ -22,11 +22,22 @@
             <label for="eventType" class="form-label">Event Type:</label>
             <select id="eventType" v-model="eventType" required class="form-select">
               <option value="Hackathon">Hackathon</option>
+              <option value="Ideathon">Ideathon</option>
               <option value="Debate">Debate</option>
-              <option value="Presentation">Presentation</option>
-              <option value="Workshop">Workshop</option>
-              <option value="Seminar">Seminar</option>
-              <option value="Coding Competition">Coding Competition</option>
+              <option value="Topic Presentation">Topic Presentation</option>
+              <option value="Debug competition">Debug competition</option>
+              <option value="Discussion session">Discussion session</option>
+              <option value="Design Competition">Design Competition</option>
+              <option value="Testing">Testing</option>
+              <option value="Treasure hunt">Treasure hunt</option>
+              <option value="Open Source">Open Source</option>
+              <option value="Hands-on Presentation">Hands-on Presentation</option>
+              <option value="Quiz">Quiz</option>
+              <option value="Program logic solver">Program logic solver</option>
+              <option value="Google Search">Google Search</option>
+              <option value="Typing competition">Typing competition</option>
+              <option value="Tech Business plan">Tech Business plan</option>
+              <option value="Algorithm writing">Algorithm writing</option>
               <option value="Other">Other</option>
             </select>
           </div>
@@ -109,7 +120,7 @@ export default {
 
     // --- ADDED: Check user role ---
     const currentUserRole = computed(() => store.getters['user/getUser']?.role);
-    const isAdminOrTeacher = computed(() => currentUserRole.value === 'Admin' || currentUserRole.value === 'Teacher');
+    const isAdmin = computed(() => currentUserRole.value === 'Admin' );
     // ---
 
     const minDate = computed(() => {
@@ -121,7 +132,7 @@ export default {
         loadingCheck.value = true;
         try {
             // Only check for existing *requests* if the user is NOT an admin/teacher
-            if (!isAdminOrTeacher.value) {
+            if (!isAdmin.value) {
                 hasActiveRequest.value = await store.dispatch('events/checkExistingRequests');
             } else {
                  hasActiveRequest.value = false; // Admins/Teachers bypass this check
@@ -174,7 +185,7 @@ export default {
 
         // --- Conditional Dispatch Logic ---
         try {
-            if (isAdminOrTeacher.value) {
+            if (isAdmin.value) {
                 // --- Auto-Approve: Call createEvent directly ---
                 console.log("Admin/Teacher submitting - Auto-approving event.");
                 const eventData = {
@@ -237,7 +248,7 @@ export default {
       errorMessage,
       hasActiveRequest,
       loadingCheck,
-      isAdminOrTeacher, // Expose for conditional UI if needed (though logic is in submit)
+      isAdmin, 
       minDate,
       submitRequest,
     };

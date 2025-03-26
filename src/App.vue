@@ -15,9 +15,6 @@
              <li class="nav-item" v-if="isAuthenticated">
               <router-link to="/home" class="nav-link">Home</router-link>
             </li>
-            <li class="nav-item" v-if="isAdmin">
-                <router-link to="/manage-requests" class="nav-link">Manage Requests</router-link>
-             </li>
              <li class="nav-item" v-if="isAuthenticated && !isAdmin">
               <router-link to="/profile" class="nav-link">Profile</router-link>
             </li>
