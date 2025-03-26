@@ -1,65 +1,58 @@
 // src/main.js
-import { createApp } from 'vue';
+import { createApp, ref, watch } from 'vue'; // Import ref, watch
 import App from './App.vue';
 import router from './router';
 import store from './store';
-import './firebase'; // Import Firebase
+import './firebase';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import "vue3-star-ratings";
+import vue3StarRatings from "vue3-star-ratings"; // Correct import
 
-// Import Bootstrap CSS (Keep for grid/base components unless completely replacing)
+// Import Bootstrap CSS & JS
 import 'bootstrap/dist/css/bootstrap.min.css';
-// Import Bootstrap JS Bundle (Needed for dropdowns, toggles, etc.)
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 // --- IMPORT YOUR CUSTOM GLOBAL STYLES ---
 import './assets/styles/main.css';
 
-// Font Awesome (if needed, e.g., for ResourcesView)
+// Font Awesome
 import '@fortawesome/fontawesome-free/css/all.css';
 
 const auth = getAuth();
+let appInstance = null;
+const isAuthReady = ref(false); // Ref to track auth state readiness
 
-let app;
-
-onAuthStateChanged(auth, (user) => {
-  // ... (rest of your existing auth logic)
-  if (user) {
-    store.dispatch('user/fetchUserData', user.uid)
-      .finally(() => { // Use finally to ensure app mounts
-          if(!app){
-            app = createApp(App);
-            app.use(router);
-            app.use(store);
-            app.mount('#app');
-          }
-      });
-  } else {
-      store.dispatch('user/clearUserData');
-      if(!app) {
-          app = createApp(App);
-          app.use(router);
-          app.use(store);
-          app.mount('#app');
-      } else {
-           // If app already exists, maybe force navigation if needed
-           // e.g., if current route requires auth, redirect
-           if (router.currentRoute.value.meta.requiresAuth) {
-               router.push('/login');
-           }
-      }
-  }
-});
-
-// Fallback mount if auth state change takes too long or doesn't fire initially
-if (!app) {
-    setTimeout(() => {
-        if (!app) {
-            console.warn("Auth state change timeout, mounting app.");
-            app = createApp(App);
-            app.use(router);
-            app.use(store);
-            app.mount('#app');
-        }
-    }, 1500); // Adjust timeout as needed
+function mountApp() {
+    if (!appInstance) {
+        appInstance = createApp(App);
+        appInstance.use(router);
+        appInstance.use(store);
+         // Register vue3-star-ratings globally if needed, or import in components
+        // appInstance.component('vue3-star-ratings', vue3StarRatings); // Example global registration
+        appInstance.mount('#app');
+        console.log("Vue app mounted.");
+    }
 }
+
+// Listen for auth state changes
+onAuthStateChanged(auth, async (user) => {
+    console.log("Auth state changed. User:", user ? user.uid : 'null');
+    try {
+        if (user) {
+            // User is signed in, fetch their data
+            await store.dispatch('user/fetchUserData', user.uid);
+        } else {
+            // User is signed out, clear their data
+            await store.dispatch('user/clearUserData');
+        }
+    } catch (error) {
+        console.error("Error handling auth state change:", error);
+         // Even if fetch fails, proceed to mount/route logic
+         if (!store.getters['user/hasFetchedUserData']) {
+              store.commit('user/setHasFetched', true); // Ensure fetch state is marked complete
+         }
+    } finally {
+         isAuthReady.value = true; // Mark auth as ready regardless of user state
+         console.log("Auth marked as ready.");
+         mountApp(); // Ensure app is mounted after auth check completes
+    }
+});

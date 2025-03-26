@@ -4,7 +4,7 @@
 
 <script setup>
 import { defineProps } from 'vue';
-import { jsPDF } from 'jspdf'; // Ensure jsPDF is installed: npm install jspdf
+import { jsPDF } from 'jspdf'; 
 
 // Define the props this component accepts
 const props = defineProps({
@@ -13,7 +13,8 @@ const props = defineProps({
     required: true,
     validator: (value) => {
       // Basic validation to ensure expected properties exist
-      return value && value.uid && value.name && value.xp;
+      // --- FIX: Check typeof xp explicitly ---
+      return value && value.uid && value.name && typeof value.xp === 'number';
     }
   }
 });
