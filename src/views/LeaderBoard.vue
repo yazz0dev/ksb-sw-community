@@ -29,9 +29,10 @@
           <li v-for="(user, index) in filteredUsers" :key="user.uid" class="list-group-item d-flex justify-content-between align-items-center">
               <span>
                   {{ index + 1 }}.
-                  <router-link :to="{ name: 'PublicProfile', params: { userId: user.uid }}">
-                      {{ user.name }}
-                  </router-link>
+                  <!-- Link to public profile -->
+                   <router-link :to="{ name: 'PublicProfile', params: { userId: user.uid }}">
+                       {{ user.name }}
+                   </router-link>
               </span>
               <!-- Display the calculated displayXp -->
               <span class="badge bg-primary rounded-pill">XP: {{ user.displayXp }}</span>
@@ -45,10 +46,13 @@ import { ref, computed, onMounted } from 'vue';
 import { collection, getDocs, query } from 'firebase/firestore'; // Removed orderBy for client-side sort
 import { db } from '../firebase';
 
+// Function to convert display role name to xpByRole key
 const getRoleKey = (roleName) => {
   if (!roleName) return '';
   const lower = roleName.toLowerCase();
+  if (lower === 'overall') return 'overall'; // Special case
   if (lower === 'problem solver') return 'problemSolver';
+  // Simple conversion for others (e.g., 'Fullstack' -> 'fullstack')
   return lower.charAt(0) + lower.slice(1).replace(/\s+/g, '');
 };
 
@@ -65,16 +69,16 @@ export default {
       onMounted(async () => {
           loading.value = true;
           try {
-              // Fetch all users, sorting will happen client-side
               const q = query(collection(db, 'users'));
               const querySnapshot = await getDocs(q);
-              users.value = querySnapshot.docs.map(doc => ({
-                  uid: doc.id,
-                  ...doc.data(),
-                  role: doc.data().role || 'Student'
-              }));
-               // Optional: Filter for students
-               // users.value = users.value.filter(user => user.role === 'Student');
+              // Filter out Admins immediately after fetching
+              users.value = querySnapshot.docs
+                  .map(doc => ({
+                      uid: doc.id,
+                      ...doc.data(),
+                      role: doc.data().role || 'Student' // Ensure role default
+                  }))
+                  .filter(user => user.role !== 'Admin'); // <-- FILTER ADMINS HERE
           } catch (error) {
               console.error("Error fetching leaderboard users:", error);
           } finally {
@@ -82,38 +86,27 @@ export default {
           }
       });
 
-      // --- UPDATED COMPUTED PROPERTY ---
       const filteredUsers = computed(() => {
-          let filtered = users.value;
-
-          // 1. Filter by preferredRole if needed
-          if (selectedRole.value !== 'Overall') {
-              const roleLower = selectedRole.value.toLowerCase();
-              filtered = users.value.filter(user =>
-                  user.preferredRoles?.some(prefRole => prefRole.toLowerCase() === roleLower)
-              );
-          }
-
-          // 2. Map to include displayXp and sort
           const roleKey = getRoleKey(selectedRole.value);
 
-          return filtered.map(user => {
-              let displayXp = 0;
-              const userXpMap = user.xpByRole || {}; // Ensure map exists
+          return users.value
+              // Map users to include the XP relevant to the selected filter
+              .map(user => {
+                  let displayXp = 0;
+                  const userXpMap = user.xpByRole || {}; // Ensure map exists
 
-              if (selectedRole.value === 'Overall') {
-                  // Calculate sum from the map
-                  displayXp = Object.values(userXpMap).reduce((sum, val) => sum + (val || 0), 0);
-              } else {
-                  // Get specific role XP
-                  displayXp = userXpMap[roleKey] ?? 0;
-              }
-              return { ...user, displayXp };
-          })
-          // 3. Sort based on displayXp
-          .sort((a, b) => b.displayXp - a.displayXp);
+                  if (roleKey === 'overall') {
+                      // Calculate sum from the map for Overall
+                      displayXp = Object.values(userXpMap).reduce((sum, val) => sum + (val || 0), 0);
+                  } else {
+                      // Get specific role XP using the calculated key
+                      displayXp = userXpMap[roleKey] ?? 0; // Use ?? 0 to handle missing keys
+                  }
+                  return { ...user, displayXp }; // Return user data with the calculated XP for sorting
+              })
+              // Sort based on the calculated displayXp
+              .sort((a, b) => b.displayXp - a.displayXp);
       });
-      // --- END UPDATED COMPUTED PROPERTY ---
 
       const selectRoleFilter = (role) => {
           selectedRole.value = role;

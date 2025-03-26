@@ -3,12 +3,11 @@
   <div id="app">
     <nav class="navbar navbar-expand-lg"> 
       <div class="container">
-        <router-link to="/" class="navbar-brand">KSB MCA S/W Community</router-link>
+        <router-link to="/" class="navbar-brand" @click="closeNavbar">KSB MCA S/W Community</router-link>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-
+        <div class="collapse navbar-collapse" id="navbarNav" ref="navbarCollapse">
          
           <ul class="navbar-nav main-nav">
 
@@ -52,30 +51,71 @@
 </template>
 
 <script>
-import { computed } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import {getAuth} from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
+import { Collapse } from 'bootstrap';
 
 export default {
   setup() {
     const store = useStore();
+    const router = useRouter();
+    const navbarCollapse = ref(null);
+    let collapseInstance = null;
+
+    onMounted(() => {
+      // Initialize collapse instance
+      if (navbarCollapse.value) {
+        collapseInstance = new Collapse(navbarCollapse.value, {
+          toggle: false
+        });
+
+        // Add click event listener to close navbar when clicking outside
+        document.addEventListener('click', closeNavbarOnClickOutside);
+      }
+
+      // Add route change handler to close navbar
+      router.afterEach(() => {
+        closeNavbar();
+      });
+    });
+
+    onUnmounted(() => {
+      document.removeEventListener('click', closeNavbarOnClickOutside);
+    });
+
+    const closeNavbarOnClickOutside = (event) => {
+      if (navbarCollapse.value && !navbarCollapse.value.contains(event.target) 
+          && !event.target.closest('.navbar-toggler')) {
+        closeNavbar();
+      }
+    };
+
+    const closeNavbar = () => {
+      if (collapseInstance && window.innerWidth < 992) { // 992px is Bootstrap's lg breakpoint
+        collapseInstance.hide();
+      }
+    };
+
     const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
     const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
-    const router = useRouter();
 
-     const logout = () => {
-       const auth = getAuth();
-        auth.signOut().then(()=>{
-            store.dispatch('user/clearUserData');
-            router.replace('/login'); // Changed to replace instead of push
-        })
-      };
+    const logout = () => {
+      const auth = getAuth();
+      auth.signOut().then(() => {
+        store.dispatch('user/clearUserData');
+        router.replace('/login');
+        closeNavbar(); // Close navbar after logout
+      });
+    };
 
     return {
       isAuthenticated,
       isAdmin,
-      logout
+      logout,
+      navbarCollapse,
+      closeNavbar
     };
   },
 };

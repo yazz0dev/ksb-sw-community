@@ -25,7 +25,7 @@
 
   /* Typography */
   --font-family-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-size-base: 1rem; /* 16px */
+  --font-size-base: 0.9375rem; /* 15px on mobile */
   --font-size-sm: 0.875rem; /* 14px */
   --font-size-lg: 1.125rem; /* 18px */
   --line-height-base: 1.6;
@@ -34,14 +34,14 @@
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
-  --space-4: 1rem;
+  --space-4: 0.875rem; /* Slightly tighter spacing on mobile */
   --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
   --space-12: 3rem;
 
   /* Borders & Radius */
-  --border-radius: 0.5rem; /* Slightly more rounded */
+  --border-radius: 0.375rem; /* Slightly smaller radius on mobile */
   --border-width: 1px;
   --border-color-default: var(--color-border);
 
@@ -52,6 +52,18 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
   --shadow-focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.3); /* Primary color focus */
+
+  /* Touch-friendly sizing */
+  --touch-target-size: 44px; /* Minimum touch target size */
+}
+
+/* Restore desktop sizes at larger breakpoints */
+@media (min-width: 768px) {
+  :root {
+    --font-size-base: 1rem; /* 16px on desktop */
+    --space-4: 1rem;
+    --border-radius: 0.5rem;
+  }
 }
 
 /* --- Global Resets & Base Styles --- */
@@ -223,6 +235,8 @@ textarea:focus-visible {
     background: transparent;
     padding: var(--space-2);
     border-radius: var(--border-radius);
+    min-height: var(--touch-target-size);
+    min-width: var(--touch-target-size);
     /* Use custom focus ring from :focus-visible */
   }
   .navbar-toggler:focus {
@@ -280,6 +294,8 @@ textarea:focus-visible {
     height: calc(100% - var(--space-4)); /* Slightly smaller than full height for visual padding */
     line-height: 1; /* Prevent extra space */
     white-space: nowrap; /* Prevent link text wrapping */
+    min-height: var(--touch-target-size);
+    min-width: var(--touch-target-size);
   }
   
   /* Nav Link Hover/Active State */
@@ -385,6 +401,8 @@ textarea:focus-visible {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
   white-space: nowrap;
   box-shadow: var(--shadow-sm);
+  min-height: var(--touch-target-size);
+  min-width: var(--touch-target-size);
 }
 .btn:hover {
     box-shadow: var(--shadow);
@@ -440,6 +458,37 @@ textarea:focus-visible {
 /* Button spacing in forms/cards */
 .btn + .btn {
     margin-left: var(--space-3);
+}
+
+/* Improved Mobile Form Controls */
+@media (max-width: 767px) {
+  .form-control,
+  .form-select,
+  .btn {
+    font-size: 16px; /* Prevent iOS zoom on focus */
+    padding: 0.625rem 1rem;
+  }
+  
+  /* Stack buttons on mobile */
+  .btn + .btn {
+    margin-left: 0;
+    margin-top: var(--space-3);
+  }
+  
+  /* Full width buttons on mobile */
+  .btn {
+    width: 100%;
+  }
+  
+  /* Adjust card padding */
+  .card-body {
+    padding: var(--space-4);
+  }
+  
+  /* Stack form groups closer */
+  .mb-3 {
+    margin-bottom: var(--space-4) !important;
+  }
 }
 
 /* Cards */
@@ -515,6 +564,8 @@ textarea:focus-visible {
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-sm);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: var(--touch-target-size);
+  min-width: var(--touch-target-size);
 }
 .form-control::placeholder {
     color: var(--color-text-muted);
@@ -768,27 +819,119 @@ textarea.form-control {
     margin-top: var(--space-3);
 }
 
-/* Star Ratings */
+/* Star Ratings Overrides (Optional - Adjust if needed) */
 .vue3-star-ratings__wrapper {
-    padding: 0 !important; /* Override library padding */
-    margin: 0;
-    display: block; /* Ensure it behaves predictably */
+  padding: 0 !important;
+  margin: 0;
+  display: flex !important; /* Ensure flex */
+  justify-content: center !important; /* Ensure center */
+  align-items: center !important;
+  gap: 0.25rem; /* Consistent gap */
+  width: auto !important; /* Override potential width issues */
 }
+
 .vue3-star-ratings .stars {
-    display: flex !important; /* Override library styles if needed */
-    align-items: center;
+  display: flex !important;
+  align-items: center;
 }
+
 .vue3-star-ratings svg {
-    width: 24px !important; /* Adjust size */
-    height: 24px !important;
-    color: var(--color-warning); /* Use theme color */
-    margin-right: var(--space-1); /* Space between stars */
+  width: 30px !important; /* Example: Adjust size if default is too small/large */
+  height: 30px !important;
+  color: var(--color-warning) !important; /* Use theme color */
+  margin: 0 var(--space-1) !important; /* Adjust horizontal spacing */
+  /* vertical-align: middle; */ /* May not be needed with flex */
 }
+
 .vue3-star-ratings .stars-active svg {
-     color: var(--color-warning);
+   color: var(--color-warning) !important;
 }
+
 .vue3-star-ratings .stars-inactive svg {
-     color: var(--color-border); /* Muted color for inactive */
+   color: var(--color-border) !important; /* Muted color for inactive */
+}
+
+/* Fix for the rating form specific wrapper if the global isn't enough */
+.rating-stars-wrapper .vue3-star-ratings svg {
+   width: 35px !important; /* Size from RatingForm */
+   height: 35px !important;
+}
+
+/* Style for Event Type Select Dropdown */
+#eventType.form-select[size] {
+  min-height: 75px; /* Adjust as needed */
+  max-height: 150px; /* Limit height */
+  overflow-y: auto; /* Add scroll */
+}
+
+/* Better table handling on mobile */
+@media (max-width: 767px) {
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Optional: Make tables stack on mobile */
+  .table-stack-mobile {
+    thead {
+      display: none;
+    }
+    tr {
+      display: block;
+      margin-bottom: var(--space-4);
+    }
+    td {
+      display: block;
+      text-align: right;
+      padding-left: 50%;
+      position: relative;
+    }
+    td::before {
+      content: attr(data-label);
+      position: absolute;
+      left: var(--space-4);
+      font-weight: 600;
+    }
+  }
+}
+
+/* Improved mobile grid handling */
+@media (max-width: 767px) {
+  .container {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  
+  .row {
+    margin-left: calc(var(--space-2) * -1);
+    margin-right: calc(var(--space-2) * -1);
+  }
+  
+  [class^="col-"] {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+}
+
+/* Better handling of fixed position elements on mobile */
+.modal,
+.navbar-fixed-top {
+  position: fixed;
+  /* Prevent content shift on iOS */
+  width: 100%;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+@media (hover: none) {
+  .btn:hover,
+  .nav-link:hover {
+    /* Remove hover styles for touch devices */
+    transform: none;
+    box-shadow: none;
+  }
 }
 
 /* --- Utility Classes (Optional, inspired by Tailwind) --- */

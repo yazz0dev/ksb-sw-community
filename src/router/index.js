@@ -54,33 +54,26 @@ const router = createRouter({
   routes,
 });
 
-// --- CORRECTED NAVIGATION GUARD ---
-router.beforeEach((to, from, next) => {
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
-  const guestOnly = to.matched.some(record => record.meta.guestOnly);
-  const noAdmin = to.matched.some(record => record.meta.noAdmin);
-
+router.beforeEach(async (to, from, next) => {
   const isAuthenticated = store.getters['user/isAuthenticated'];
   const isAdmin = store.getters['user/isAdmin'];
 
-  if (requiresAuth && !isAuthenticated) {
-    next({ name: 'Login', query: { redirect: to.fullPath } });
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    next({ name: 'Login' });
+    return;
   }
-  else if (requiresAdmin && !isAdmin) {
-    next({ name: 'Home' });
-  }
-  else if (guestOnly && isAuthenticated) {
-    next({ name: 'Home' });
-  }
-  else if (noAdmin && isAdmin) {
-    next({ name: 'Home' });
-  }
-  else {
-    next();
-  }
-});
-// --- END CORRECTED GUARD ---
 
+  if (to.meta.guestOnly && isAuthenticated) {
+    next({ name: 'Home' });
+    return;
+  }
+
+  if (to.meta.requiresAdmin && !isAdmin) {
+    next({ name: 'Home' });
+    return;
+  }
+
+  next();
+});
 
 export default router;

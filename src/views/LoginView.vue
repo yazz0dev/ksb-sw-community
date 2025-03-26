@@ -54,7 +54,8 @@
 <script>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'; // Import Firebase auth functions
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { useStore } from 'vuex';
 
 export default {
   setup() {
@@ -62,17 +63,20 @@ export default {
     const password = ref('');
     const errorMessage = ref('');
     const router = useRouter();
+    const store = useStore();
 
     const signIn = async () => {
-      errorMessage.value = ''; // Reset error message
+      errorMessage.value = '';
       try {
         const auth = getAuth();
         const userCredential = await signInWithEmailAndPassword(auth, email.value, password.value);
-        // User signed in successfully
-        console.log('User signed in:', userCredential.user);
-        router.push('/home'); // Redirect to home page
+        
+        // Use the correct action name
+        await store.dispatch('user/fetchUserData', userCredential.user.uid);
+        
+        // Navigate after successful auth and data fetch
+        router.push('/home');
       } catch (error) {
-        // Handle errors here.  Provide specific error messages.
         console.error("Login Error:", error);
         switch (error.code) {
           case 'auth/invalid-email':

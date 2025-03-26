@@ -479,6 +479,117 @@ const actions = {
     // Action to update local event state without full refetch
     updateLocalEvent({ commit }, { id, changes }) {
         commit('addOrUpdateEvent', { id, ...changes });
+    },
+
+     // --- NEW ACTION: Submit Project ---
+     async submitProjectToEvent({ rootState, dispatch }, { eventId, submissionData }) {
+        // submissionData expected: { projectName, link, description }
+        if (!submissionData || !submissionData.projectName || !submissionData.link) {
+            throw new Error("Project Name and Link are required for submission.");
+        }
+
+        const eventRef = doc(db, 'events', eventId);
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+
+        const eventData = eventSnap.data();
+        const userId = rootState.user.uid;
+
+        if (eventData.status !== 'In Progress') {
+            throw new Error("Project submissions are only allowed while the event is 'In Progress'.");
+        }
+
+        try {
+            if (eventData.isTeamEvent) {
+                // Find the user's team
+                const userTeamIndex = eventData.teams.findIndex(team => team.members?.includes(userId));
+                if (userTeamIndex === -1) throw new Error("You are not part of a team in this event.");
+
+                // Check if team already submitted (simple check: assumes one submission per team)
+                if (eventData.teams[userTeamIndex].submissions?.length > 0) {
+                    throw new Error("Your team has already submitted a project for this event.");
+                }
+
+                // Prepare update for the specific team's submissions array
+                const updatedTeams = [...eventData.teams];
+                const submissionEntry = { ...submissionData }; // Copy data
+                // Initialize submissions array if it doesn't exist
+                if (!updatedTeams[userTeamIndex].submissions) {
+                    updatedTeams[userTeamIndex].submissions = [];
+                }
+                updatedTeams[userTeamIndex].submissions.push(submissionEntry);
+
+                await updateDoc(eventRef, { teams: updatedTeams });
+
+            } else { // Individual Event
+                // Check if user is a participant
+                if (!eventData.participants?.includes(userId)) {
+                    throw new Error("You are not a participant in this event.");
+                }
+                // Check if user already submitted
+                if (eventData.submissions?.some(sub => sub.participantId === userId)) {
+                    throw new Error("You have already submitted a project for this event.");
+                }
+
+                // Prepare update for the top-level submissions array
+                const submissionEntry = {
+                    participantId: userId,
+                    ...submissionData // Copy data
+                };
+                await updateDoc(eventRef, {
+                    submissions: arrayUnion(submissionEntry) // Use arrayUnion to add
+                });
+            }
+             // Refresh local state
+             dispatch('updateLocalEvent', { id: eventId, changes: (await getDoc(eventRef)).data() });
+
+        } catch (error) {
+            console.error("Error submitting project:", error);
+            throw error; // Re-throw for the component to catch
+        }
+    },
+
+    // --- NEW ACTION: Leave Event ---
+    async leaveEvent({ rootState, dispatch }, eventId) {
+        const eventRef = doc(db, 'events', eventId);
+        const eventSnap = await getDoc(eventRef);
+
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        const eventData = eventSnap.data();
+        const userId = rootState.user.uid;
+
+        if (eventData.status !== 'Upcoming') {
+            throw new Error("You can only leave an event before it starts ('Upcoming').");
+        }
+
+        try {
+            if (eventData.isTeamEvent) {
+                const userTeamIndex = eventData.teams.findIndex(team => team.members?.includes(userId));
+                if (userTeamIndex === -1) throw new Error("You are not part of a team in this event.");
+
+                // Remove user from the specific team's members array
+                const updatedTeams = [...eventData.teams];
+                const currentMembers = updatedTeams[userTeamIndex].members || [];
+                updatedTeams[userTeamIndex].members = currentMembers.filter(memberId => memberId !== userId);
+
+                await updateDoc(eventRef, { teams: updatedTeams });
+
+            } else { // Individual Event
+                if (!eventData.participants?.includes(userId)) {
+                    throw new Error("You are not a participant in this event.");
+                }
+                // Use arrayRemove to remove user from participants
+                await updateDoc(eventRef, {
+                    participants: arrayRemove(userId)
+                });
+            }
+             // Refresh local state
+             dispatch('updateLocalEvent', { id: eventId, changes: (await getDoc(eventRef)).data() });
+
+        } catch (error) {
+            console.error("Error leaving event:", error);
+            throw error;
+        }
     }
 };
 

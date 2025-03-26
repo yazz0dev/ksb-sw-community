@@ -19,15 +19,13 @@ import '@fortawesome/fontawesome-free/css/all.css';
 
 const auth = getAuth();
 let appInstance = null;
-const isAuthReady = ref(false); // Ref to track auth state readiness
+const isAuthReady = ref(false); 
 
 function mountApp() {
     if (!appInstance) {
         appInstance = createApp(App);
         appInstance.use(router);
         appInstance.use(store);
-         // Register vue3-star-ratings globally if needed, or import in components
-        // appInstance.component('vue3-star-ratings', vue3StarRatings); // Example global registration
         appInstance.mount('#app');
         console.log("Vue app mounted.");
     }
