@@ -1,192 +1,171 @@
-// src/views/RequestEvent.vue
 <template>
     <div class="container mt-4">
-      <div class="d-flex align-items-center mb-4">
-        <button class="btn btn-secondary me-3 btn-sm" @click="$router.back()">
-          <i class="fas fa-arrow-left me-1"></i>Back
-        </button>
-        <h2 class="mb-0">{{ isAdmin ? 'Create New Event' : 'Request New Event' }}</h2>
-      </div>
+        <!-- Header with Step Indicator -->
+        <div class="d-flex align-items-center mb-4">
+            <button class="btn btn-secondary me-3 btn-sm" @click="handleBack">
+                <i class="fas fa-arrow-left me-1"></i>Back
+            </button>
+            <h2 class="mb-0">{{ isAdmin ? 'Create New Event' : 'Request New Event' }}</h2>
+        </div>
 
-      <!-- Loading/Error States -->
-       <div v-if="!isAdmin && loadingCheck" class="text-center my-4">
+        <!-- Progress Steps -->
+        <div v-if="!loadingCheck && !hasActiveRequest" class="progress-steps mb-4">
+            <div class="step" :class="{ active: currentStep === 1, completed: currentStep > 1 }">
+                1. Event Details & XP
+            </div>
+            <div v-if="isTeamEvent" class="step" :class="{ active: currentStep === 2, disabled: currentStep < 2 }">
+                2. Team Definition
+            </div>
+        </div>
+
+        <!-- Loading & Error States -->
+        <div v-if="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+        <div v-if="!isAdmin && loadingCheck" class="text-center my-4">
             <div class="spinner-border spinner-border-sm" role="status"></div>
             <span class="ms-2">Checking existing requests...</span>
-       </div>
-       <div v-else-if="!isAdmin && hasActiveRequest" class="alert alert-warning" role="alert">
-          You already have an active or pending event request. You cannot submit another until it is resolved or cancelled.
-      </div>
-      <div v-if="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
-       <div v-if="loadingStudents" class="text-center my-4">
+        </div>
+        <div v-else-if="!isAdmin && hasActiveRequest" class="alert alert-warning" role="alert">
+            You already have an active or pending event request. You cannot submit another until it is resolved or cancelled.
+        </div>
+        <div v-if="loadingStudents" class="text-center my-4">
             <div class="spinner-border spinner-border-sm" role="status"></div>
             <span class="ms-2">Loading student list...</span>
-       </div>
+        </div>
 
-      <form @submit.prevent="submitRequest" v-if="!loadingCheck && !loadingStudents && (isAdmin || !hasActiveRequest)">
-         <div class="card shadow-sm">
-            <div class="card-body p-lg-5">
+        <!-- Step 1: Event Details & XP -->
+        <div v-if="currentStep === 1">
+            <form @submit.prevent="handleStep1Submit">
+                <!-- Event Type Selection -->
+                <div class="mb-4">
+                    <label class="form-label d-block">Event Type</label>
+                    <div class="btn-group">
+                        <input type="radio" class="btn-check" name="eventType" id="individualEvent" 
+                               v-model="isTeamEvent" :value="false" :disabled="isSubmitting">
+                        <label class="btn btn-outline-primary" for="individualEvent">Individual Event</label>
 
-                <!-- Event Details Fields (Name, Type, Desc, Dates) -->
+                        <input type="radio" class="btn-check" name="eventType" id="teamEvent" 
+                               v-model="isTeamEvent" :value="true" :disabled="isSubmitting">
+                        <label class="btn btn-outline-primary" for="teamEvent">Team Event</label>
+                    </div>
+                </div>
+
+                <!-- Basic Event Details -->
                 <div class="mb-3">
-                  <label for="eventName" class="form-label">Event Name <span class="text-danger">*</span></label>
-                  <input type="text" id="eventName" v-model="eventName" required class="form-control" :disabled="isSubmitting" />
+                    <label for="eventName" class="form-label">Event Name <span class="text-danger">*</span></label>
+                    <input type="text" id="eventName" v-model="eventName" required class="form-control" :disabled="isSubmitting" />
                 </div>
                 <div class="mb-3">
                     <label for="eventType" class="form-label">Event Type <span class="text-danger">*</span></label>
                     <select id="eventType" v-model="eventType" required class="form-select" size="5" :disabled="isSubmitting">
-                      <option value="Hackathon">Hackathon</option>
-                      <option value="Ideathon">Ideathon</option>
-                      <option value="Debate">Debate</option>
-                      <option value="Topic Presentation">Topic Presentation</option>
-                      <option value="Debug competition">Debug competition</option>
-                      <option value="Discussion session">Discussion session</option>
-                      <option value="Design Competition">Design Competition</option>
-                      <option value="Testing">Testing</option>
-                      <option value="Treasure hunt">Treasure hunt</option>
-                      <option value="Open Source">Open Source</option>
-                      <option value="Hands-on Presentation">Hands-on Presentation</option>
-                      <option value="Quiz">Quiz</option>
-                      <option value="Program logic solver">Program logic solver</option>
-                      <option value="Google Search">Google Search</option>
-                      <option value="Typing competition">Typing competition</option>
-                      <option value="Tech Business plan">Tech Business plan</option>
-                      <option value="Algorithm writing">Algorithm writing</option>
-                      <option value="Other">Other</option>
+                        <option value="Hackathon">Hackathon</option>
+                        <option value="Ideathon">Ideathon</option>
+                        <option value="Debate">Debate</option>
+                        <option value="Topic Presentation">Topic Presentation</option>
+                        <option value="Debug competition">Debug competition</option>
+                        <option value="Discussion session">Discussion session</option>
+                        <option value="Design Competition">Design Competition</option>
+                        <option value="Testing">Testing</option>
+                        <option value="Treasure hunt">Treasure hunt</option>
+                        <option value="Open Source">Open Source</option>
+                        <option value="Hands-on Presentation">Hands-on Presentation</option>
+                        <option value="Quiz">Quiz</option>
+                        <option value="Program logic solver">Program logic solver</option>
+                        <option value="Google Search">Google Search</option>
+                        <option value="Typing competition">Typing competition</option>
+                        <option value="Tech Business plan">Tech Business plan</option>
+                        <option value="Algorithm writing">Algorithm writing</option>
+                        <option value="Other">Other</option>
                     </select>
-                  </div>
-                <div class="mb-3">
-                  <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
-                  <textarea id="description" v-model="description" required class="form-control" rows="4" :disabled="isSubmitting"></textarea>
                 </div>
-                 <div class="row mb-3">
-                     <div class="col-md-6">
-                         <label :for="isAdmin ? 'startDate' : 'desiredStartDate'" class="form-label">
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
+                    <textarea id="description" v-model="description" required class="form-control" rows="4" :disabled="isSubmitting"></textarea>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label :for="isAdmin ? 'startDate' : 'desiredStartDate'" class="form-label">
                             {{ isAdmin ? 'Start Date' : 'Desired Start Date' }} <span class="text-danger">*</span>
                         </label>
-                         <input type="date" :id="isAdmin ? 'startDate' : 'desiredStartDate'" v-model="startDate" required class="form-control" :min="minDate" :disabled="isSubmitting"/>
-                     </div>
-                     <div class="col-md-6">
-                          <label :for="isAdmin ? 'endDate' : 'desiredEndDate'" class="form-label">
+                        <input type="date" :id="isAdmin ? 'startDate' : 'desiredStartDate'" v-model="startDate" required class="form-control" :min="minDate" :disabled="isSubmitting"/>
+                    </div>
+                    <div class="col-md-6">
+                        <label :for="isAdmin ? 'endDate' : 'desiredEndDate'" class="form-label">
                             {{ isAdmin ? 'End Date' : 'Desired End Date' }} <span class="text-danger">*</span>
-                         </label>
-                         <input type="date" :id="isAdmin ? 'endDate' : 'desiredEndDate'" v-model="endDate" required class="form-control" :min="startDate || minDate" :disabled="isSubmitting"/>
-                     </div>
-                 </div>
-
-                <!-- Team Event Checkbox -->
-                <div class="mb-4 form-check">
-                  <input type="checkbox" id="isTeamEvent" v-model="isTeamEvent" class="form-check-input" :disabled="isSubmitting" />
-                  <label for="isTeamEvent" class="form-check-label">Is this a team event?</label>
+                        </label>
+                        <input type="date" :id="isAdmin ? 'endDate' : 'desiredEndDate'" v-model="endDate" required class="form-control" :min="startDate || minDate" :disabled="isSubmitting"/>
+                    </div>
                 </div>
 
-                <!-- Co-Organizers Section -->
-                 <div class="mb-4 co-organizer-section border rounded p-3 bg-light" >
-                    <label for="coOrganizerSearch" class="form-label fw-semibold">Add Student Co-Organizers (Optional, max 5):</label>
-                    <input
-                      type="text"
-                      id="coOrganizerSearch"
-                      v-model="coOrganizerSearch"
-                      @focus="showCoOrganizerDropdown = true"
-                      @blur="handleSearchBlur"
-                      placeholder="Search students by name or UID..."
-                      class="form-control form-control-sm"
-                      autocomplete="off"
-                      :disabled="isSubmitting || selectedCoOrganizers.length >= 5"
-                    />
-                    <div v-if="selectedCoOrganizers.length > 0" class="selected-coorganizers mt-2 d-flex flex-wrap gap-1">
-                        <span v-for="uid in selectedCoOrganizers" :key="uid" class="badge bg-white text-dark border me-1 selected-badge shadow-sm">
-                            {{ studentNameCache[uid] || uid }}
-                            <button type="button" class="btn-close btn-close-sm ms-1" @click="removeCoOrganizer(uid)" aria-label="Remove" :disabled="isSubmitting"></button>
-                        </span>
+                <!-- XP Allocation Section -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">Rating Criteria & XP Allocation</h5>
                     </div>
-                    <ul v-if="showCoOrganizerDropdown && filteredStudentCoOrganizers.length > 0" class="list-group co-organizer-dropdown mt-1">
-                         <li v-for="student in filteredStudentCoOrganizers"
-                            :key="student.uid"
-                            class="list-group-item list-group-item-action list-group-item-sm py-1 px-2"
-                            @mousedown.prevent="selectCoOrganizer(student)" >
-                             {{ student.name || student.uid }}
-                         </li>
-                    </ul>
-                     <small class="form-text text-muted mt-2 d-block">Click name to add. Click 'x' on badge to remove.</small>
-                     <div v-if="selectedCoOrganizers.length >= 5 && !showCoOrganizerDropdown" class="text-danger small mt-1">Maximum 5 co-organizers reached.</div>
-                 </div>
-
-                <!-- Team Definition Section (Conditional) -->
-                <div v-if="isTeamEvent" class="mb-4 border rounded p-3">
-                    <h4 class="mb-3">Define Teams</h4>
-                    <div v-for="(team, teamIndex) in teams" :key="teamIndex" class="team-definition-block border rounded p-3 mb-3 bg-white position-relative">
-                        <button
-                            type="button"
-                            class="btn-close position-absolute top-0 end-0 m-2"
-                            aria-label="Remove Team"
-                            v-if="teams.length > 1"
-                            @click="removeTeam(teamIndex)"
-                            :disabled="isSubmitting"
-                            title="Remove this team"
-                        ></button>
-                        <div class="mb-3">
-                            <label :for="'teamName' + teamIndex" class="form-label fw-semibold">Team {{ teamIndex + 1 }} Name <span class="text-danger">*</span></label>
-                            <input
-                                type="text"
-                                :id="'teamName' + teamIndex"
-                                v-model="team.name"
-                                required
-                                class="form-control form-control-sm"
-                                :disabled="isSubmitting"
-                                placeholder="Enter unique team name"
-                            />
-                        </div>
-                        <div>
-                            <label class="form-label">Assign Members ({{ team.members.length }}):</label>
-                            <!-- Simple Multi-Select for team members -->
-                            <select
-                                multiple
-                                class="form-select form-select-sm team-member-select"
-                                size="6"
-                                v-model="team.members"
-                                :disabled="isSubmitting"
-                            >
-                                <option
-                                    v-for="student in availableStudentsForTeams"
-                                    :key="student.uid"
-                                    :value="student.uid"
-                                    :disabled="isStudentAssignedElsewhere(student.uid, teamIndex)"
-                                >
-                                    {{ studentNameCache[student.uid] || student.uid }}
-                                     <span v-if="isStudentAssignedElsewhere(student.uid, teamIndex)" class="text-muted">
-                                         <!-- Display which team they are in -->
-                                         (in Team {{ getTeamAssignmentName(student.uid) }})
-                                     </span>
-                                </option>
-                            </select>
-                             <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple. Students assigned to another team are disabled.</small>
+                    <div class="card-body">
+                        <div v-for="(criteria, index) in ratingCriteria" :key="index" 
+                             class="row mb-3 align-items-end">
+                            <div class="col-md-4">
+                                <label :for="'criteriaLabel'+index" class="form-label">
+                                    Criteria {{ index + 1 }} Label
+                                </label>
+                                <input type="text" :id="'criteriaLabel'+index" 
+                                       v-model="criteria.label"
+                                       class="form-control" 
+                                       :placeholder="getDefaultCriteriaLabel(index)">
+                            </div>
+                            <div class="col-md-4">
+                                <label :for="'roleSelect'+index" class="form-label">Role</label>
+                                <select :id="'roleSelect'+index" 
+                                        v-model="criteria.role"
+                                        class="form-select">
+                                    <option value="">Select Role</option>
+                                    <option v-for="role in availableRoles" 
+                                            :key="role.value" 
+                                            :value="role.value">
+                                        {{ role.label }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label :for="'xpPoints'+index" class="form-label">
+                                    XP Points (0-50)
+                                </label>
+                                <input type="number" :id="'xpPoints'+index" 
+                                       v-model.number="criteria.points"
+                                       class="form-control"
+                                       min="0" max="50">
+                            </div>
                         </div>
                     </div>
-                     <button type="button" @click="addTeam" class="btn btn-outline-secondary btn-sm" :disabled="isSubmitting">
-                         <i class="fas fa-plus me-1"></i> Add Another Team
-                     </button>
                 </div>
-                <!-- END Team Definition Section -->
 
-                <!-- Rating Constraints -->
-                 <div class="mb-4 border rounded p-3">
-                    <label class="form-label d-block mb-2 fw-semibold">Define Rating Criteria (Max 5):</label>
-                    <small class="form-text text-muted d-block mb-3">Customize labels for the 5 stars. Defaults used if left blank or fewer than 5 provided.</small>
-                    <input type="text" v-model="ratingConstraintsInput[0]" placeholder="Constraint 1 (e.g., Design)" class="form-control form-control-sm mb-2" :disabled="isSubmitting">
-                    <input type="text" v-model="ratingConstraintsInput[1]" placeholder="Constraint 2 (e.g., Presentation)" class="form-control form-control-sm mb-2" :disabled="isSubmitting">
-                    <input type="text" v-model="ratingConstraintsInput[2]" placeholder="Constraint 3 (e.g., Problem Solving)" class="form-control form-control-sm mb-2" :disabled="isSubmitting">
-                    <input type="text" v-model="ratingConstraintsInput[3]" placeholder="Constraint 4 (e.g., Execution)" class="form-control form-control-sm mb-2" :disabled="isSubmitting">
-                    <input type="text" v-model="ratingConstraintsInput[4]" placeholder="Constraint 5 (e.g., Technology)" class="form-control form-control-sm mb-2" :disabled="isSubmitting">
-                 </div>
-
-                <!-- Submit Button -->
+                <!-- Step 1 Submit -->
                 <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
-                   <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                   {{ getSubmitButtonText() }}
+                    {{ isTeamEvent ? 'Next: Define Teams' : getSubmitButtonText() }}
                 </button>
-            </div> <!-- End card-body -->
-         </div> <!-- End card -->
-      </form>
+            </form>
+        </div>
+
+        <!-- Step 2: Team Definition -->
+        <div v-else-if="currentStep === 2">
+            <ManageTeamsComponent
+                :initial-teams="teams"
+                :students="potentialStudentCoOrganizers"
+                :name-cache="studentNameCache"
+                :is-submitting="isSubmitting"
+                @update:teams="updateTeams"
+            />
+            <div class="mt-4">
+                <button type="button" class="btn btn-secondary me-2" @click="currentStep = 1">
+                    Back to Details
+                </button>
+                <button type="button" class="btn btn-primary" 
+                        @click="handleSubmit" 
+                        :disabled="isSubmitting || !hasValidTeams">
+                    {{ getSubmitButtonText() }}
+                </button>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -194,8 +173,9 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { collection, getDocs, query, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, doc, getDoc, Timestamp } from 'firebase/firestore'; // Add Timestamp
 import { db } from '../firebase';
+import ManageTeamsComponent from '../components/ManageTeamsComponent.vue'; // Add this import
 
 // --- Form Fields ---
 const eventName = ref('');
@@ -342,94 +322,149 @@ onMounted(async () => {
 });
 
 // --- Form Submission ---
-const submitRequest = async () => {
+const handleSubmit = async () => {
     errorMessage.value = '';
     isSubmitting.value = true;
 
-    // 1. Basic & Date Validation
-    if (!eventName.value || !eventType.value || !description.value || !startDate.value || !endDate.value) {
-        errorMessage.value = 'Please fill in all required fields (Name, Type, Description, Dates).';
-        isSubmitting.value = false; return;
-    }
-     let startDateObj, endDateObj;
-     try {
-         startDateObj = new Date(startDate.value); endDateObj = new Date(endDate.value);
-         if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) throw new Error("Invalid date format.");
-         if (startDateObj >= endDateObj) throw new Error("End date must be after the start date.");
-         if (startDateObj < new Date(minDate.value)) throw new Error("Start date cannot be in the past.");
-     } catch (dateError) {
-         errorMessage.value = dateError.message || "Invalid date selection.";
-         isSubmitting.value = false; return;
-     }
-
-    // 2. Team Validation
-    let finalTeams = [];
-    if (isTeamEvent.value) {
-        const assignedStudents = new Set();
-        const teamNamesLower = new Set(); // For uniqueness check
-
-        for (let i = 0; i < teams.value.length; i++) {
-            const team = teams.value[i]; const teamName = team.name.trim();
-            if (!teamName) { errorMessage.value = `Team ${i + 1} needs a name.`; isSubmitting.value = false; return; }
-            const teamNameLower = teamName.toLowerCase();
-            if (teamNamesLower.has(teamNameLower)) { errorMessage.value = `Team name "${teamName}" is used more than once.`; isSubmitting.value = false; return; }
-            teamNamesLower.add(teamNameLower);
-            if (!Array.isArray(team.members) || team.members.length === 0) { errorMessage.value = `Team "${teamName}" needs at least one member.`; isSubmitting.value = false; return; }
-            for (const memberUid of team.members) {
-                if (assignedStudents.has(memberUid)) { errorMessage.value = `Student ${studentNameCache.value[memberUid] || memberUid} is assigned to multiple teams.`; isSubmitting.value = false; return; }
-                assignedStudents.add(memberUid);
-            }
-            // Prepare team object for submission (without reactivity wrappers)
-            finalTeams.push({ teamName: teamName, members: [...team.members] });
-        }
-        if (finalTeams.length === 0) { errorMessage.value = 'Please define at least one team for a team event.'; isSubmitting.value = false; return; }
-    }
-
-    // 3. Process Rating Constraints
-    const defaultConstraints = ['Design', 'Presentation', 'Problem Solving', 'Execution', 'Technology'];
-    let finalConstraints = ratingConstraintsInput.value.map(c => c.trim()).filter(c => c !== '');
-    if (finalConstraints.length === 0) { finalConstraints = [...defaultConstraints]; }
-    else {
-         let defaultsToAdd = defaultConstraints.slice();
-         finalConstraints = finalConstraints.slice(0, 5);
-         let i = 0; while (finalConstraints.length < 5 && i < defaultsToAdd.length) { if (!finalConstraints.includes(defaultsToAdd[i])) { finalConstraints.push(defaultsToAdd[i]); } i++; }
-         let placeholderNum = 1; while (finalConstraints.length < 5) { finalConstraints.push(`Criteria ${placeholderNum++}`); }
-    }
-
-    // 4. Prepare Data Payload
-    const commonData = {
-        eventName: eventName.value, eventType: eventType.value, description: description.value,
-        isTeamEvent: isTeamEvent.value, coOrganizers: selectedCoOrganizers.value, ratingConstraints: finalConstraints,
-        teams: isTeamEvent.value ? finalTeams : [],
-        participants: [] // Store action will populate this if individual
-    };
-
     try {
-        // 5. Dispatch Action based on Role
+        const submissionData = prepareSubmissionData(); // Get prepared data first
+
+        // Basic validation
+        if (!eventName.value || !eventType.value || !description.value || !startDate.value || !endDate.value) {
+            throw new Error('Please fill in all required fields.');
+        }
+
+        // Team validation if needed
+        if (isTeamEvent.value && (!teams.value.length || !teams.value.every(t => t.name && t.members.length))) {
+            throw new Error('All teams must have a name and at least one member.');
+        }
+
+        // Convert dates to proper format
+        const startDateObj = new Date(startDate.value);
+        const endDateObj = new Date(endDate.value);
+        
+        // Prepare final submission data
+        const finalData = {
+            eventName: eventName.value,
+            eventType: eventType.value,
+            description: description.value,
+            isTeamEvent: isTeamEvent.value,
+            coOrganizers: selectedCoOrganizers.value,
+            ratingCriteria: submissionData.ratingConstraints,
+            xpAllocation: submissionData.xpAllocation,
+            status: isAdmin.value ? 'Approved' : 'Pending',
+            teams: isTeamEvent.value ? teams.value.map(t => ({
+                teamName: t.name,
+                members: t.members
+            })) : [],
+            requestedAt: Timestamp.now()
+        };
+
+        // Add appropriate date fields based on user role
         if (isAdmin.value) {
-            const eventData = { ...commonData, startDate: startDate.value, endDate: endDate.value };
-            await store.dispatch('events/createEvent', eventData);
+            finalData.startDate = startDateObj;
+            finalData.endDate = endDateObj;
+        } else {
+            finalData.desiredStartDate = startDateObj;
+            finalData.desiredEndDate = endDateObj;
+        }
+
+        // Dispatch appropriate action
+        if (isAdmin.value) {
+            await store.dispatch('events/createEvent', finalData);
             alert('Event created successfully.');
             router.push('/home');
         } else {
-             const stillHasActive = await store.dispatch('events/checkExistingRequests');
-             if (stillHasActive) { errorMessage.value = 'You already have an active or pending event request.'; hasActiveRequest.value = true; isSubmitting.value = false; return; }
-            const requestData = { ...commonData, desiredStartDate: startDate.value, desiredEndDate: endDate.value };
-            await store.dispatch('events/requestEvent', requestData);
+            await store.dispatch('events/requestEvent', finalData);
             alert('Event request submitted successfully.');
             router.push('/profile');
         }
     } catch (error) {
-        errorMessage.value = error.message || 'Failed to process event submission.';
         console.error("Event submission error:", error);
+        errorMessage.value = error.message || 'Failed to process event submission.';
     } finally {
         isSubmitting.value = false;
     }
 };
 
-// Helper for button text
-const getSubmitButtonText = () => (isSubmitting.value ? (isAdmin.value ? 'Creating...' : 'Submitting...') : (isAdmin.value ? 'Create Event' : 'Submit Request'));
+// New reactive state for rating criteria
+const ratingCriteria = ref([
+    { label: '', role: '', points: 0 },
+    { label: '', role: '', points: 0 },
+    { label: '', role: '', points: 0 },
+    { label: '', role: '', points: 0 },
+    { label: '', role: '', points: 0 }
+]);
 
+// Default labels helper
+const defaultCriteriaLabels = [
+    'Design', 'Presentation', 'Problem Solving', 'Execution', 'Technology'
+];
+
+const getDefaultCriteriaLabel = (index) => defaultCriteriaLabels[index] || `Criteria ${index + 1}`;
+
+// Modified submission preparation
+const prepareSubmissionData = () => {
+    // Prepare XP allocation and constraints
+    const xpAllocation = ratingCriteria.value
+        .map((criteria, index) => ({
+            constraintIndex: index,
+            constraintLabel: criteria.label || getDefaultCriteriaLabel(index),
+            role: criteria.role || 'general',
+            points: criteria.points || 0
+        }))
+        .filter(allocation => allocation.points > 0);
+
+    const constraints = ratingCriteria.value.map((criteria, index) => 
+        criteria.label || getDefaultCriteriaLabel(index)
+    );
+
+    return {
+        // ...existing event data...
+        xpAllocation,
+        ratingConstraints: constraints,
+        status: isAdmin.value ? 'Approved' : 'Pending',
+        requester: currentUser.value.uid,
+        requestedAt: Timestamp.now(),
+        // ...rest of the submission data
+    };
+};
+
+// New reactive state for multi-step form
+const currentStep = ref(1);
+const availableRoles = [
+    { value: 'fullstack', label: 'Full Stack Developer' },
+    { value: 'presenter', label: 'Presenter' },
+    { value: 'designer', label: 'Designer' },
+    { value: 'organizer', label: 'Organizer' },
+    { value: 'problemSolver', label: 'Problem Solver' }
+];
+
+const handleStep1Submit = (e) => {
+    e.preventDefault();
+    if (isTeamEvent.value) {
+        currentStep.value = 2;
+    } else {
+        handleSubmit();
+    }
+};
+
+const handleBack = () => {
+    if (currentStep.value > 1) {
+        currentStep.value--;
+    } else {
+        router.back();
+    }
+};
+
+const updateTeams = (newTeams) => {
+    teams.value = newTeams;
+};
+
+const hasValidTeams = computed(() => {
+    return teams.value.length > 0 && 
+           teams.value.every(team => team.name && team.members.length > 0);
+});
 </script>
 
 <style scoped>
@@ -446,4 +481,32 @@ const getSubmitButtonText = () => (isSubmitting.value ? (isAdmin.value ? 'Creati
 .team-definition-block { background-color: #f8f9fa; }
 .team-member-select { min-height: 150px; }
 .team-member-select option:disabled { color: #adb5bd; font-style: italic; }
+
+.progress-steps {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.step {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    background: #e9ecef;
+    color: #6c757d;
+}
+
+.step.active {
+    background: #007bff;
+    color: white;
+}
+
+.step.completed {
+    background: #28a745;
+    color: white;
+}
+
+.step.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 </style>

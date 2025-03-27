@@ -25,8 +25,7 @@
 
             <div v-else>
                 <div class="profile-section profile-info card card-body mb-4 shadow-sm">
-                    <p><strong>Name:</strong> {{ user.name }}</p>
-                    <p><strong>UID:</strong> <span class="text-muted small">{{ user.uid }}</span></p> 
+                    <p><strong>Name:</strong> {{ user.name || 'N/A' }}</p>
                     <p><strong>Role:</strong> {{ user.role }}</p>
                     <p><strong>Total XP:</strong> <span class="fw-bold">{{ currentUserTotalXp }}</span></p>
                     <p v-if="user.skills?.length"><strong>Skills:</strong> {{ user.skills.join(', ') }}</p>
@@ -77,11 +76,12 @@
                 </div>
 
                 <div class="profile-section requests-section card mb-4 shadow-sm">
-                    <div class="card-header"><h3 class="mb-0">My Event Requests</h3></div>
-                    <div class="card-body">
-                        <UserRequests />
-                    </div>
+                <div class="card-header"><h3 class="mb-0">My Event Requests</h3></div>
+                <div class="card-body">
++                   <!-- UserRequests component now fetches events with status Pending/Rejected for the current user -->
+                    <UserRequests />
                 </div>
+            </div>
             </div>
         </template>
     </div>

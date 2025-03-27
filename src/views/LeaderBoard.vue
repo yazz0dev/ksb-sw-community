@@ -28,9 +28,9 @@
                 <div class="d-flex align-items-center">
                     <span class="leaderboard-rank me-3">{{ index + 1 }}.</span>
                     
-                     <router-link :to="{ name: 'PublicProfile', params: { userId: user.uid }}">
-                         {{ user.name || user.uid }} 
-                     </router-link>
+                    <router-link :to="{ name: 'PublicProfile', params: { userId: user.uid }}">
+                         {{ user.name || 'Anonymous User' }} 
+                    </router-link>
                 </div>
                 
                 <span class="badge bg-primary rounded-pill fs-6"> 
@@ -84,7 +84,7 @@
           users.value = querySnapshot.docs
               .map(doc => ({
                   uid: doc.id,
-                  name: doc.data().name || null, // Handle missing names
+                  name: doc.data().name || 'Anonymous User', // Add fallback for missing names
                   role: doc.data().role || 'Student',
                   xpByRole: doc.data().xpByRole || {} // Ensure xpByRole exists
               }))

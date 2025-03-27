@@ -8,10 +8,10 @@
            </router-link>
            <router-link v-if="isAdmin" to="/request-event" class="btn btn-success btn-sm ms-2">
                <i class="fas fa-calendar-plus me-1"></i> Create Event
-            </router-link>
+           </router-link>
            <router-link v-if="isAdmin" to="/manage-requests" class="btn btn-warning btn-sm ms-2">
                <i class="fas fa-tasks me-1"></i> Manage Requests
-            </router-link>
+           </router-link>
        </div>
     </div>
 

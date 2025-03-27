@@ -138,7 +138,8 @@
                      <ul class="list-group shadow-sm">
                        <li v-for="participantId in sortedParticipants" :key="participantId" class="list-group-item d-flex justify-content-between align-items-center">
                             <router-link :to="{ name: 'PublicProfile', params: { userId: participantId }}">
-                                <i class="fas fa-user me-2 text-muted"></i>{{ getUserNameFromCache(participantId) || participantId }}
+                                <i class="fas fa-user me-2 text-muted"></i>
+                                {{ getUserNameFromCache(participantId) || 'Anonymous User' }}
                             </router-link>
                            <button v-if="event.ratingsOpen && event.status === 'Completed' && canRateParticipant(participantId)"
                                    @click="goToIndividualRating(participantId)"
@@ -166,7 +167,7 @@
                                     <i class="fas fa-link me-1"></i> View Link
                                  </a>
                                   <span v-if="sub.submittedBy" class="text-muted small ms-auto">
-                                    Submitted by: {{ sub.submittedBy }}
+                                    Submitted by: {{ getUserNameFromCache(sub.submittedBy) || 'Anonymous User' }}
                                 </span>
                              </div>
                          </li>

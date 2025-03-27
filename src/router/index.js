@@ -5,17 +5,17 @@ import Home from '../views/HomeView.vue';
 import Login from '../views/LoginView.vue';
 import EventDetails from '../views/EventDetails.vue';
 import LeaderBoard from '../views/LeaderBoard.vue';
-// import ManageTeams from '../views/ManageTeams.vue'; // REMOVED
 import RatingForm from '../views/RatingForm.vue';
 import Resources from '../views/ResourcesView.vue';
 import Transparency from '../views/TransparencyView.vue';
 import RequestEvent from '../views/RequestEvent.vue';
-import ManageEventRequests from '../views/ManageEventRequests.vue';
+import ManageRequestsView from '../views/ManageRequestsView.vue'; // Update import
 import store from '../store';
 import UserProfile from '../views/UserProfile.vue';
 import ForgotPasswordView from '../views/ForgotPasswordView.vue';
 import LandingView from '../views/LandingView.vue';
 import PublicProfile from '../views/PublicProfile.vue';
+
 
 const routes = [
   { path: '/', name: 'Landing', component: LandingView, meta: { requiresAuth: false, guestOnly: true } },
@@ -23,12 +23,23 @@ const routes = [
   { path: '/login', name: 'Login', component: Login, meta: { requiresAuth: false, guestOnly: true } },
   { path: '/event/:id', name: 'EventDetails', component: EventDetails, meta: { requiresAuth: true }, props: true },
   { path: '/leaderboard', name: 'Leaderboard', component: LeaderBoard, meta: { requiresAuth: true } },
-  // { path: '/manage-teams/:id', name: 'ManageTeams', component: ManageTeams, meta: { requiresAuth: true, requiresAdminOrOrganizer: true }, props: true }, // REMOVED
   { path: '/rating/:eventId/:teamId?', name: 'RatingForm', component: RatingForm, meta: { requiresAuth: true }, props: true },
   { path: '/resources', name: 'Resources', component: Resources, meta: { requiresAuth: false } },
   { path: '/transparency', name: 'Transparency', component: Transparency, meta: { requiresAuth: false } },
-  { path: '/request-event', name: 'RequestEvent', component: RequestEvent, meta: { requiresAuth: true } },
-  { path: '/manage-requests', name: 'ManageRequests', component: ManageEventRequests, meta: { requiresAuth: true, requiresAdmin: true } },
+  { 
+    path: '/request-event', 
+    name: 'RequestEvent', 
+    component: RequestEvent, 
+    meta: { requiresAuth: true },
+    props: route => ({ step: route.query.step || '1' })
+  }, // Also serves as Create Event
+  { 
+    path: '/manage-requests', 
+    name: 'ManageRequests', 
+    component: ManageRequestsView, 
+    meta: { requiresAuth: true, requiresAdmin: true } 
+  }, // Renamed Route/Component
+
   {
     path: '/profile',
     name: 'Profile',
