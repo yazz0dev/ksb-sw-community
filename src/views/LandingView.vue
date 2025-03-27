@@ -1,34 +1,46 @@
 // src/views/LandingView.vue
 <template>
-  <!-- Use the specific landing container class -->
-  <div class="landing-container container">
-    <h1>Welcome to the KSB MCA S/W Community!</h1>
-    <p>
-      This platform is for managing events, collaborating on projects, and
-      sharing resources within the KSB MCA community.
+  <div class="landing-container container text-center py-5"> 
+    <h1 class="mb-3">Welcome to the KSB MCA S/W Community!</h1>
+    <p class="lead text-muted mb-4"> 
+      Manage events, collaborate on projects, and share resources within the KSB MCA community.
     </p>
-    <p>
-      Please <router-link to="/login">log in</router-link> to access the
-      application.
+    <p class="mb-5">
+      Please <router-link to="/login" class="fw-bold">log in</router-link> to access the platform.
     </p>
-    <p>Features:</p>
-    <ul>
-      <li>View upcoming events.</li>
-      <li>Request new events (for students and admins).</li>
-      <li>Participate in teams (for team-based events).</li>
-      <li>Rate events and provide feedback.</li>
-      <li>Access a library of resources.</li>
-      <li>View a leaderboard of top contributors.</li>
-      <li>Generate a portfolio of your achievements.</li>
-    </ul>
-    <p class="mt-3">
-        <small>This site is managed by the MCA department of KMCT School Of Buisiness.</small>
+
+    <div class="row justify-content-center mb-4">
+        <div class="col-md-8 col-lg-6">
+            <div class="card text-start shadow-sm"> 
+                <div class="card-header"><h5 class="mb-0">Platform Features</h5></div>
+                <ul class="list-group list-group-flush">
+                     <li class="list-group-item"><i class="fas fa-calendar-alt fa-fw me-2 text-primary"></i>View upcoming and past events.</li>
+                     <li class="list-group-item"><i class="fas fa-plus-circle fa-fw me-2 text-info"></i>Request new events.</li>
+                     <li class="list-group-item"><i class="fas fa-users fa-fw me-2 text-secondary"></i>Participate in team-based events.</li>
+                     <li class="list-group-item"><i class="fas fa-star fa-fw me-2 text-warning"></i>Rate projects and provide feedback.</li>
+                     <li class="list-group-item"><i class="fas fa-book fa-fw me-2 text-success"></i>Access a library of shared resources.</li>
+                     <li class="list-group-item"><i class="fas fa-trophy fa-fw me-2 text-primary"></i>View leaderboards based on XP.</li>
+                     <li class="list-group-item"><i class="fas fa-file-pdf fa-fw me-2 text-danger"></i>Generate a portfolio of your achievements.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <p class="mt-5">
+        <small class="text-muted">This site is managed by the MCA department of KMCT School Of Business.</small>
     </p>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'LandingView',
-};
+<script setup>
+// No script logic needed for this simple view
 </script>
+
+<style scoped>
+.landing-container {
+  max-width: 900px; /* Limit width */
+}
+.list-group-item i {
+    width: 20px; /* Align icons */
+}
+</style>

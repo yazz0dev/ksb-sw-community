@@ -1,133 +1,97 @@
 <template>
-    <div class="container">
-        <h2>Resources</h2>
-        
-        <div class="resource-categories">
-            <div v-for="(category, index) in resources" :key="index" class="card mb-4">
-                <div class="card-header">
-                    <h3>{{ category.title }}</h3>
+    <div class="container mt-4"> 
+        <h2 class="mb-4">Resources</h2>
+
+        <div v-if="categories.length === 0" class="alert alert-info">No resources available at the moment.</div>
+
+        <div v-else class="resource-categories row g-4"> 
+            <div v-for="(category, index) in categories" :key="index" class="col-md-6"> 
+                 <div class="card h-100 shadow-sm"> 
+                    <div class="card-header">
+                        <h3 class="mb-0">{{ category.title }}</h3>
+                    </div>
+                     <ul v-if="category.items && category.items.length > 0" class="list-group list-group-flush">
+                        <li v-for="(resource, rIndex) in category.items"
+                            :key="rIndex"
+                            class="list-group-item">
+                            <a :href="resource.content"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="d-flex justify-content-between align-items-center text-decoration-none">
+                                <span>
+                                    <i :class="['fas', getIconClass(resource.type), 'fa-fw me-2 text-muted']" :title="resource.type"></i>
+                                    {{ resource.title }}
+                                </span>
+                                <i class="fas fa-external-link-alt fa-xs text-muted opacity-50"></i> 
+                            </a>
+                        </li>
+                    </ul>
+                     <div v-else class="card-body text-muted">
+                         No items in this category.
+                     </div>
                 </div>
-                <ul class="list-group list-group-flush">
-                    <li v-for="(resource, rIndex) in category.items" 
-                        :key="rIndex" 
-                        class="list-group-item">
-                        <a :href="resource.content" 
-                           target="_blank" 
-                           rel="noopener noreferrer" 
-                           class="text-decoration-none">
-                            {{ resource.title }}
-                            <span v-if="resource.type === 'Download'">
-                                <i class="fas fa-download"></i>
-                            </span>
-                            <span v-if="resource.type === 'Guide'">
-                                <i class="fas fa-book"></i>
-                            </span>
-                            <span v-if="resource.type === 'Link'">
-                                <i class="fas fa-link"></i>
-                            </span>
-                        </a>
-                    </li>
-                </ul>
             </div>
         </div>
     </div>
 </template>
 
-<script>
-import '@fortawesome/fontawesome-free/css/all.css';
+<script setup>
+// Using setup script
+import { ref } from 'vue'; // Import ref
 
-const predefinedResources = [
+// Static predefined resources
+const predefinedResources = ref([ // Make it a ref
     {
         title: "Getting Started",
         items: [
-            {
-                title: "Student Handbook",
-                type: "Download",
-                content: "https://example.com/handbook.pdf"
-            },
-            {
-                title: "Code of Conduct",
-                type: "Guide",
-                content: "https://example.com/code-of-conduct"
-            }
+            { title: "Student Handbook", type: "Download", content: "#" }, 
+            { title: "Code of Conduct", type: "Guide", content: "#" }
         ]
     },
     {
         title: "Development Tools",
         items: [
-            {
-                title: "Git Installation Guide",
-                type: "Guide",
-                content: "https://git-scm.com/downloads"
-            },
-            {
-                title: "VS Code Editor",
-                type: "Link",
-                content: "https://code.visualstudio.com/"
-            },
-            {
-                title: "Node.js Setup",
-                type: "Guide",
-                content: "https://nodejs.org/en/learn/getting-started/introduction-to-nodejs"
-            }
+            { title: "Git Installation Guide", type: "Guide", content: "https://git-scm.com/downloads" },
+            { title: "VS Code Editor", type: "Link", content: "https://code.visualstudio.com/" },
+            { title: "Node.js Setup", type: "Guide", content: "https://nodejs.org/en/learn/getting-started/introduction-to-nodejs" }
         ]
     },
     {
         title: "Learning Materials",
         items: [
-            {
-                title: "JavaScript Fundamentals",
-                type: "Link",
-                content: "https://javascript.info/"
-            },
-            {
-                title: "Vue.js Documentation",
-                type: "Link",
-                content: "https://vuejs.org/guide/introduction.html"
-            },
-            {
-                title: "Web Development Roadmap",
-                type: "Guide",
-                content: "https://roadmap.sh/frontend"
-            }
+            { title: "JavaScript Fundamentals", type: "Link", content: "https://javascript.info/" },
+            { title: "Vue.js Documentation", type: "Link", content: "https://vuejs.org/guide/introduction.html" },
+            { title: "Web Development Roadmap", type: "Guide", content: "https://roadmap.sh/frontend" }
+        ]
+    },
+     {
+        title: "Community Links",
+        items: [
+            // Add relevant community links if available
         ]
     }
-];
+]);
 
-export default {
-    name: 'ResourcesView',
-    setup() {
-        return {
-            resources: predefinedResources
-        };
+// Use the ref in the template
+const categories = predefinedResources;
+
+// Helper function for icons
+const getIconClass = (type) => {
+    switch (type) {
+        case 'Download': return 'fa-download';
+        case 'Guide': return 'fa-book';
+        case 'Link': return 'fa-link';
+        default: return 'fa-file-alt'; // Default icon
     }
 };
+
 </script>
 
 <style scoped>
-.resource-categories {
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.card-header h3 {
-    margin: 0;
-    font-size: 1.25rem;
-}
-
-.list-group-item a {
-    color: var(--color-text);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.list-group-item a:hover {
-    color: var(--color-primary);
-}
-
-.list-group-item i {
-    margin-left: 1rem;
-    color: var(--color-text-secondary);
-}
+/* Styles from main.css (card, list-group) are used */
+.card-header h3 { font-size: 1.15rem; } /* Slightly smaller header */
+.list-group-item a { color: var(--color-text); }
+.list-group-item a:hover { color: var(--color-primary); background-color: var(--color-background); }
+.fa-xs { font-size: 0.75em; }
+.opacity-50 { opacity: 0.5; }
 </style>

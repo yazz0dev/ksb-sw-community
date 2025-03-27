@@ -1,172 +1,138 @@
 // src/views/RatingForm.vue
 <template>
-  <div class="container">
-    <!-- Dynamic Title -->
-    <h2 v-if="!loading && eventName">
-        Rate {{ isTeamEvent ? `Team: ${teamId}` : `Participant` }} (Event: {{ eventName }})
+  <div class="container mt-4">
+    <h2 v-if="!loading && eventName" class="text-center mb-3">
+        Rate {{ isTeamEvent ? `Team: ${teamId}` : `Participant` }}
     </h2>
-    <!-- Display Participant ID/Name if applicable -->
-    <h4 v-if="!loading && !isTeamEvent && participantToRate" class="text-muted mb-4">
-        Rating: {{ participantName || participantToRate }}
+     <h4 v-if="!loading && !isTeamEvent && participantToRate" class="text-center text-muted mb-4">
+        {{ participantName || participantToRate }}
     </h4>
-     <!-- Loading and Error Messages -->
+    <p v-if="!loading && eventName" class="text-center text-muted mb-4 small">Event: {{ eventName }}</p>
+
      <div v-if="loading" class="text-center my-5">
          <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
      </div>
     <div v-if="errorMessage && !loading" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
 
     <form @submit.prevent="submitRating" v-if="!loading && !errorMessage">
-      <!-- Common Rating Section (Looping through constraints) -->
-       <div v-for="(constraint, index) in ratingConstraints" :key="`constraint-${index}`" class="mb-4 p-3 border rounded bg-light shadow-sm">
+       <div v-for="(constraint, index) in ratingConstraints" :key="`constraint-${index}`"
+            class="mb-4 p-3 border rounded bg-light shadow-sm">
            <label class="form-label d-block fw-bold mb-2 text-center">{{ constraint }}:</label>
-           <vue3-star-ratings
-               v-model="rating[getConstraintKey(index)]"
-               :star-size="35"
-               :show-rating="false"
-               :increment="1"
-               :key="`stars-${index}`"
-               :active-color="`#ffc107`"
-               :inactive-color="`#e5e7eb`"
-               class="rating-stars-wrapper"
-            />
+           <div class="rating-stars-wrapper">
+                <CustomStarRating
+                    v-model="rating[getConstraintKey(index)]"
+                    :star-size="35"
+                    :star-spacing="4"
+                    :active-color="'var(--color-warning)'"
+                    :inactive-color="'var(--color-border)'"
+                />
+                 <span class="ms-2 text-muted small">({{ rating[getConstraintKey(index)] }})</span> 
+           </div>
        </div>
 
-      <button type="submit" class="btn btn-primary mt-3" :disabled="isSubmitting">
-           {{ isSubmitting ? 'Submitting...' : 'Submit Rating' }}
-      </button>
-      <button type="button" @click="goBack" class="btn btn-secondary mt-3 ms-2">
-        Cancel
-      </button>
+       <div class="d-flex justify-content-center gap-3 mt-4">
+          <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
+              <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              {{ isSubmitting ? 'Submitting...' : 'Submit Rating' }}
+          </button>
+          <button type="button" @click="goBack" class="btn btn-secondary">
+            Cancel
+          </button>
+      </div>
     </form>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
-import vue3StarRatings from "vue3-star-ratings";
+// *** REMOVE import vue3StarRatings from "vue3-star-ratings"; ***
+import CustomStarRating from '../components/CustomStarRating.vue'; // *** IMPORT Custom Component ***
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-const props = defineProps({
-  eventId: { type: String, required: true },
-  teamId: { type: String, required: false },
-});
-
+// Props and setup vars remain the same
+const props = defineProps({ eventId: { type: String, required: true }, teamId: { type: String, required: false } });
 const store = useStore();
 const route = useRoute();
 const router = useRouter();
-
 const loading = ref(true);
 const errorMessage = ref('');
 const isSubmitting = ref(false);
-
 const eventName = ref('');
 const isTeamEvent = ref(null);
-const ratingConstraints = ref(['', '', '', '', '']);
+const ratingConstraints = ref([]);
 const participantToRate = ref(null);
 const participantName = ref(null);
 
-// Rating data structure
+// *** Initialize rating values back to 0 ***
 const rating = ref({
   constraint0: 0, constraint1: 0, constraint2: 0, constraint3: 0, constraint4: 0,
 });
 
-// Helper to map index to fixed key
 const getConstraintKey = (index) => `constraint${index}`;
 
-// Helper to update the rating ref object
-const updateRatingValue = (key, value) => {
-    // Ensure value is a number, default to 0 if null/undefined
-    rating.value[key] = value ?? 0;
-};
+// Fetch User Name (remains the same)
+async function fetchUserName(userId) { if (!userId) return null; try { const userDocRef = doc(db, 'users', userId); const docSnap = await getDoc(userDocRef); return docSnap.exists() ? (docSnap.data().name || userId) : userId; } catch (error) { console.error(`Error fetching name for ${userId}:`, error); return userId; } }
 
-// Fetch User Name
-async function fetchUserName(userId) {
-    if (!userId) return null;
-    try {
-        const userDocRef = doc(db, 'users', userId);
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-            return docSnap.data().name || userId;
-        }
-        return userId;
-    } catch (error) {
-        console.error(`Error fetching name for ${userId}:`, error);
-        return userId;
-    }
-}
-
+// onMounted (remains largely the same, just ensure rating reset uses 0)
 onMounted(async () => {
   loading.value = true;
   errorMessage.value = '';
   participantToRate.value = null;
   participantName.value = null;
-   // Reset ratings
-   rating.value = { constraint0: 0, constraint1: 0, constraint2: 0, constraint3: 0, constraint4: 0 };
+  isTeamEvent.value = null;
+  ratingConstraints.value = [];
+  // *** Ensure reset uses 0 ***
+  rating.value = { constraint0: 0, constraint1: 0, constraint2: 0, constraint3: 0, constraint4: 0 };
 
   try {
     const event = await store.dispatch('events/fetchEventDetails', props.eventId);
-    if (!event) { throw new Error('Event not found or not accessible.'); } // More specific error
-
+    if (!event) throw new Error('Event not found or not accessible.');
     eventName.value = event.eventName;
-    isTeamEvent.value = event.isTeamEvent;
-    ratingConstraints.value = event.ratingConstraints && event.ratingConstraints.length === 5
-        ? event.ratingConstraints
-        : ['Design', 'Presentation', 'Problem Solving', 'Execution', 'Technology'];
-
-     // Check if ratings are actually open
-     if (event.status !== 'Completed' || !event.ratingsOpen) {
-         throw new Error('Ratings are currently closed for this event.');
-     }
-
-    if (!isTeamEvent.value) {
-      const participantQuery = route.query.participant;
-      if (participantQuery && typeof participantQuery === 'string') {
-          participantToRate.value = participantQuery;
-          participantName.value = await fetchUserName(participantToRate.value);
-          if (!participantName.value) { // If fetch fails or returns null ID
-              participantName.value = participantToRate.value; // Fallback to ID
-          }
-      } else {
-          throw new Error("Participant ID missing in URL query for individual rating.");
-      }
+    isTeamEvent.value = !!event.isTeamEvent;
+    const defaultConstraints = ['Design', 'Presentation', 'Problem Solving', 'Execution', 'Technology'];
+    ratingConstraints.value = (Array.isArray(event.ratingConstraints) && event.ratingConstraints.length === 5) ? event.ratingConstraints : defaultConstraints;
+    if (event.status !== 'Completed' || !event.ratingsOpen) throw new Error('Ratings are currently closed for this event.');
+    if (isTeamEvent.value) {
+        if (!props.teamId) throw new Error("Team ID is required for rating this team event.");
     } else {
-        if (!props.teamId) {
-            throw new Error("Team ID is missing for this team event rating.");
-        }
+      const participantQuery = route.query.participant;
+      if (!participantQuery || typeof participantQuery !== 'string') throw new Error("Participant ID missing in URL query for individual rating.");
+      participantToRate.value = participantQuery;
+      participantName.value = await fetchUserName(participantToRate.value);
     }
-
   } catch (error) {
     console.error("Error loading rating form:", error);
-    errorMessage.value = error.message || 'Failed to load details. Please try again.';
+    errorMessage.value = error.message || 'Failed to load rating details. Please try again.';
   } finally {
     loading.value = false;
   }
 });
 
-
+// Submit Rating Logic
 const submitRating = async () => {
   if (isSubmitting.value) return;
   errorMessage.value = '';
-  isSubmitting.value = true;
 
+  // Payload uses 0 for unrated, which is correct now
   const ratingPayload = {
-      design: rating.value.constraint0 ?? 0, // Ensure 0 if null/undefined
+      design: rating.value.constraint0 ?? 0, // Use ?? 0 just in case, though it should be number
       presentation: rating.value.constraint1 ?? 0,
       problemSolving: rating.value.constraint2 ?? 0,
       execution: rating.value.constraint3 ?? 0,
       technology: rating.value.constraint4 ?? 0,
   };
 
+   // Validation remains the same
    const totalStars = Object.values(ratingPayload).reduce((sum, val) => sum + val, 0);
    if (totalStars === 0) {
-       errorMessage.value = "Please provide a rating (at least 1 star overall).";
-       isSubmitting.value = false;
+       errorMessage.value = "Please provide a rating (select at least 1 star overall).";
        return;
    }
 
+  isSubmitting.value = true;
   try {
       const dispatchPayload = {
           eventId: props.eventId,
@@ -174,66 +140,28 @@ const submitRating = async () => {
           members: isTeamEvent.value ? [] : [participantToRate.value],
           ratingData: ratingPayload
       };
-
       await store.dispatch('user/submitRating', dispatchPayload);
-
       alert('Rating submitted successfully!');
       router.back();
-
   } catch (error) {
-    errorMessage.value = error.message || 'Failed to submit rating. You might have already rated or ratings are closed.';
+    errorMessage.value = error.message || 'Failed to submit rating. You might have already rated, or ratings could be closed.';
     console.error("Rating submission error:", error);
   } finally {
     isSubmitting.value = false;
   }
 };
 
-const goBack = () => {
-    router.back();
-};
+const goBack = () => { router.back(); };
 
 </script>
 
 <style scoped>
+/* Keep the wrapper style for centering */
 .rating-stars-wrapper {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 1rem 0;
+    padding: var(--space-2) 0;
     width: 100%;
-}
-
-/* Fix star ratings display */
-:deep(.vue3-star-ratings__wrapper) {
-    display: flex !important;
-    justify-content: center !important;
-    padding: 0 !important;
-    margin: 0 !important;
-}
-
-:deep(.stars) {
-    display: inline-flex !important;
-    gap: 4px;
-}
-
-:deep(.vue3-star-ratings svg) {
-    width: 35px !important;
-    height: 35px !important;
-}
-
-.form-label {
-    margin-bottom: 0.25rem;
-}
-
-.border {
-    border: 1px solid var(--color-border) !important;
-}
-
-.rounded {
-    border-radius: var(--border-radius) !important;
-}
-
-.bg-light {
-    background-color: #f8f9fa !important;
 }
 </style>

@@ -1,56 +1,81 @@
 // src/main.js
-import { createApp, ref, watch } from 'vue'; // Import ref, watch
+import { createApp } from 'vue'; // Removed ref, watch
 import App from './App.vue';
 import router from './router';
 import store from './store';
-import './firebase';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import vue3StarRatings from "vue3-star-ratings"; // Correct import
+import { auth } from './firebase'; // Import auth from firebase.js
+import { onAuthStateChanged } from 'firebase/auth';
+// vue3StarRatings is only used in specific components, no global registration needed unless desired
 
-// Import Bootstrap CSS & JS
+// Import Bootstrap CSS & JS (Ensure these are imported only once)
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
-// --- IMPORT YOUR CUSTOM GLOBAL STYLES ---
+// Import Custom Global Styles
 import './assets/styles/main.css';
 
-// Font Awesome
+// Import Font Awesome CSS
 import '@fortawesome/fontawesome-free/css/all.css';
 
-const auth = getAuth();
 let appInstance = null;
-const isAuthReady = ref(false); 
+let authInitialized = false; // Flag to prevent multiple initializations
+
+// Listen for the initial auth state change ONCE
+const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    console.log("Initial Auth State Determined. User:", user ? user.uid : 'null');
+    unsubscribe(); // Unsubscribe after the first callback
+
+    try {
+        if (user) {
+            // Fetch data only if user exists on initial load
+            await store.dispatch('user/fetchUserData', user.uid);
+        } else {
+            // Ensure user data is cleared if no user on initial load
+            store.commit('user/clearUserData'); // Use commit for direct state change
+            store.commit('user/setHasFetched', true); // Mark fetch as complete (no user)
+        }
+    } catch (error) {
+         console.error("Error during initial auth processing:", error);
+          // Ensure hasFetched is true even on error so router guard proceeds
+         if (!store.getters['user/hasFetchedUserData']) {
+              store.commit('user/setHasFetched', true);
+         }
+    } finally {
+        authInitialized = true;
+        mountApp(); // Mount the app after initial auth state is processed
+    }
+});
 
 function mountApp() {
-    if (!appInstance) {
+    // Mount only once after auth is initialized
+    if (!appInstance && authInitialized) {
         appInstance = createApp(App);
         appInstance.use(router);
         appInstance.use(store);
+        // Global components (if any) could be registered here
+        // appInstance.component('Vue3StarRatings', vue3StarRatings); // Example if needed globally
         appInstance.mount('#app');
         console.log("Vue app mounted.");
+    } else if (appInstance) {
+        console.log("Vue app already mounted.");
+    } else {
+         console.log("Auth not initialized yet, delaying app mount.");
     }
 }
 
-// Listen for auth state changes
-onAuthStateChanged(auth, async (user) => {
-    console.log("Auth state changed. User:", user ? user.uid : 'null');
-    try {
-        if (user) {
-            // User is signed in, fetch their data
-            await store.dispatch('user/fetchUserData', user.uid);
-        } else {
-            // User is signed out, clear their data
-            await store.dispatch('user/clearUserData');
+// Optional: Add a timeout failsafe for auth state check
+setTimeout(() => {
+    if (!authInitialized) {
+        console.warn("Firebase Auth state check timed out. Mounting app...");
+        // Mark as initialized and attempt to mount
+        authInitialized = true;
+        // Assume no user / clear state if auth timed out? Risky.
+        // Best practice is to ensure Firebase initializes correctly.
+        // For now, just ensure hasFetched is true so router doesn't block indefinitely.
+        if (!store.getters['user/hasFetchedUserData']) {
+           store.commit('user/clearUserData');
+           store.commit('user/setHasFetched', true);
         }
-    } catch (error) {
-        console.error("Error handling auth state change:", error);
-         // Even if fetch fails, proceed to mount/route logic
-         if (!store.getters['user/hasFetchedUserData']) {
-              store.commit('user/setHasFetched', true); // Ensure fetch state is marked complete
-         }
-    } finally {
-         isAuthReady.value = true; // Mark auth as ready regardless of user state
-         console.log("Auth marked as ready.");
-         mountApp(); // Ensure app is mounted after auth check completes
+        mountApp();
     }
-});
+}, 7000); // 7 second timeout

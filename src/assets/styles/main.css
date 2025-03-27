@@ -202,7 +202,7 @@ textarea:focus-visible {
     display: flex; /* Ensure flex behavior */
     align-items: center; /* Vertically center content */
   }
-  
+
   /* Container within Navbar */
   .navbar .container {
     display: flex;
@@ -215,7 +215,7 @@ textarea:focus-visible {
     margin-left: auto; /* Center container */
     margin-right: auto;
   }
-  
+
   /* Navbar Brand */
   .navbar-brand {
     font-weight: 600;
@@ -228,7 +228,7 @@ textarea:focus-visible {
     height: 100%; /* Fill height */
     white-space: nowrap; /* Prevent wrapping */
   }
-  
+
   /* Navbar Toggler (Mobile) */
   .navbar-toggler {
     border: none;
@@ -247,7 +247,7 @@ textarea:focus-visible {
     width: 1.5em; /* Slightly larger */
     height: 1.5em;
   }
-  
+
   /* Navbar Nav Container */
   .navbar-collapse {
     /* On desktop, allow items to flow */
@@ -255,7 +255,7 @@ textarea:focus-visible {
     display: flex;
     justify-content: space-between; /* Pushes main-nav and auth-nav apart */
   }
-  
+
   /* General Nav List Styles */
   .navbar-nav {
     display: flex;
@@ -265,20 +265,20 @@ textarea:focus-visible {
     padding-left: 0;
     margin-bottom: 0;
   }
-  
-  
+
+
   /* Authentication Links (Right) */
   .navbar-nav.auth-nav {
     margin-left: auto; /* Pushes auth links to the right */
   }
-  
+
   /* Individual Nav Item */
   .nav-item {
     display: flex; /* Use flex for vertical alignment */
     align-items: center;
     height: 100%;
   }
-  
+
   /* Nav Link Styling */
   .nav-link {
     color: var(--color-text-secondary) !important;
@@ -297,7 +297,7 @@ textarea:focus-visible {
     min-height: var(--touch-target-size);
     min-width: var(--touch-target-size);
   }
-  
+
   /* Nav Link Hover/Active State */
   .nav-link:hover,
   .nav-link.router-link-active.router-link-exact-active { /* Style for active route */
@@ -305,12 +305,12 @@ textarea:focus-visible {
     background-color: var(--color-primary-light);
     text-decoration: none;
   }
-  
+
   .nav-link.logout-link:hover {
     color: var(--color-danger) !important;
     background-color: rgba(239, 68, 68, 0.1); /* Light red background */
   }
-  
+
   /* === Mobile Navbar Styles === */
   @media (max-width: 991.98px) {
     .navbar {
@@ -318,13 +318,13 @@ textarea:focus-visible {
       padding-top: var(--space-3);
       padding-bottom: var(--space-3);
     }
-  
+
     .navbar .container {
       padding-left: var(--space-4); /* Less padding on mobile */
       padding-right: var(--space-4);
       flex-wrap: wrap; /* Allow toggler to wrap */
     }
-  
+
     /* Collapsed Menu Container */
     .navbar-collapse {
       /* Becomes the dropdown */
@@ -340,7 +340,7 @@ textarea:focus-visible {
       justify-content: flex-start;
       flex-direction: column;
     }
-  
+
     /* Nav Lists on Mobile */
     .navbar-nav {
       flex-direction: column; /* Stack vertically */
@@ -348,7 +348,7 @@ textarea:focus-visible {
       height: auto; /* Reset height */
       align-items: stretch; /* Stretch items full width */
     }
-  
+
     /* Space between main and auth nav on mobile */
     .navbar-nav.auth-nav {
       margin-left: 0; /* Reset desktop margin */
@@ -356,13 +356,13 @@ textarea:focus-visible {
       padding-top: var(--space-4);
       border-top: var(--border-width) solid var(--color-border);
     }
-  
+
     /* Nav Items on Mobile */
     .nav-item {
       height: auto; /* Reset height */
       width: 100%;
     }
-  
+
     /* Nav Links on Mobile */
     .nav-link {
       padding: var(--space-3) var(--space-6) !important; /* Vertical padding */
@@ -376,7 +376,7 @@ textarea:focus-visible {
     .nav-item:last-child .nav-link {
       border-bottom: none; /* Remove border on last item of each nav section */
     }
-  
+
     /* Hover/Active on Mobile */
     .nav-link:hover,
     .nav-link.router-link-active.router-link-exact-active {
@@ -402,7 +402,7 @@ textarea:focus-visible {
   white-space: nowrap;
   box-shadow: var(--shadow-sm);
   min-height: var(--touch-target-size);
-  min-width: var(--touch-target-size);
+  /* min-width: var(--touch-target-size); */ /* Might be too wide */
 }
 .btn:hover {
     box-shadow: var(--shadow);
@@ -416,11 +416,13 @@ textarea:focus-visible {
 .btn-sm {
     padding: var(--space-2) var(--space-4);
     font-size: var(--font-size-sm);
+    min-height: calc(var(--touch-target-size) * 0.8); /* Adjust min height for smaller buttons */
 }
 
 .btn-lg {
     padding: var(--space-4) var(--space-8);
     font-size: var(--font-size-lg);
+     min-height: calc(var(--touch-target-size) * 1.1);
 }
 
 .btn-primary {
@@ -447,10 +449,17 @@ textarea:focus-visible {
 .btn-success:hover { background-color: var(--color-secondary-hover); color: var(--color-surface); }
 
 .btn-danger { background-color: var(--color-danger); color: var(--color-surface); }
-.btn-danger:hover { background-color: darken(var(--color-danger), 10%); color: var(--color-surface); }
+/* Fix: Use color names, not CSS variables in darken() */
+/* Assuming a preprocessor or manual calculation needed for darken */
+/* .btn-danger:hover { background-color: darken(#EF4444, 10%); color: var(--color-surface); } */
+/* Fallback: Slightly darker shade */
+.btn-danger:hover { background-color: #E11D48; color: var(--color-surface); }
+
 
 .btn-warning { background-color: var(--color-warning); color: var(--color-text); }
-.btn-warning:hover { background-color: darken(var(--color-warning), 10%); color: var(--color-text); }
+/* Fallback: Slightly darker shade */
+/* .btn-warning:hover { background-color: darken(#F59E0B, 10%); color: var(--color-text); } */
+.btn-warning:hover { background-color: #D97706; color: var(--color-text); }
 
 .btn-info { background-color: var(--color-info); color: var(--color-surface); }
 .btn-info:hover { background-color: var(--color-primary-hover); color: var(--color-surface); }
@@ -460,7 +469,7 @@ textarea:focus-visible {
     margin-left: var(--space-3);
 }
 
-/* Improved Mobile Form Controls */
+/* Improved Mobile Form Controls & Buttons */
 @media (max-width: 767px) {
   .form-control,
   .form-select,
@@ -468,23 +477,41 @@ textarea:focus-visible {
     font-size: 16px; /* Prevent iOS zoom on focus */
     padding: 0.625rem 1rem;
   }
-  
-  /* Stack buttons on mobile */
+
+  /* Stack adjacent buttons on mobile */
   .btn + .btn {
     margin-left: 0;
     margin-top: var(--space-3);
   }
-  
-  /* Full width buttons on mobile */
-  .btn {
+
+  /* Make buttons inside form/card context full width on mobile */
+  /* Target specific contexts if needed, e.g., .card .btn, form .btn */
+  .card .btn, form .btn {
     width: 100%;
   }
-  
+  /* Allow specific buttons to remain inline if needed, e.g., using .btn-inline-mobile */
+  .btn.btn-inline-mobile {
+      width: auto;
+  }
+   /* Adjust stack spacing for inline buttons */
+  .btn.btn-inline-mobile + .btn.btn-inline-mobile {
+      margin-top: 0;
+      margin-left: var(--space-3);
+  }
+   /* Reset full width stack for groups of inline buttons */
+  .card .btn.btn-inline-mobile + .btn.btn-inline-mobile,
+  form .btn.btn-inline-mobile + .btn.btn-inline-mobile {
+     width: auto;
+     margin-left: var(--space-3);
+     margin-top: 0;
+   }
+
+
   /* Adjust card padding */
   .card-body {
     padding: var(--space-4);
   }
-  
+
   /* Stack form groups closer */
   .mb-3 {
     margin-bottom: var(--space-4) !important;
@@ -499,6 +526,7 @@ textarea:focus-visible {
   box-shadow: var(--shadow);
   margin-bottom: var(--space-6); /* Consistent bottom margin */
   overflow: hidden; /* Ensure child elements respect border-radius */
+   transition: box-shadow 0.2s ease, border-color 0.2s ease; /* Added transition */
 }
 
 
@@ -565,7 +593,7 @@ textarea:focus-visible {
   box-shadow: var(--shadow-sm);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   min-height: var(--touch-target-size);
-  min-width: var(--touch-target-size);
+  /* min-width: var(--touch-target-size); */ /* Check if needed */
 }
 .form-control::placeholder {
     color: var(--color-text-muted);
@@ -581,7 +609,7 @@ textarea:focus-visible {
   background-repeat: no-repeat;
   background-position: right var(--space-3) center;
   background-size: 1.25em 1.25em;
-  padding-right: calc(var(--space-3) * 2.5); /* Space for arrow */
+  padding-right: calc(var(--space-3) * 2.5 + 1.25em); /* Space for arrow, adjusted */
 }
 
 textarea.form-control {
@@ -599,7 +627,7 @@ textarea.form-control {
   width: 1.15em;
   height: 1.15em;
   margin-top: 0; /* Reset margin */
-  margin-right: var(--space-2);
+  margin-right: var(--space-3); /* Adjusted spacing */
   vertical-align: top;
   background-color: var(--color-input-bg);
   border: var(--border-width) solid var(--color-border);
@@ -609,6 +637,8 @@ textarea.form-control {
   flex-shrink: 0; /* Prevent shrinking */
   border-radius: 0.25em; /* Slightly less rounded for checkboxes */
   box-shadow: var(--shadow-sm);
+  transition: background-color 0.2s ease, border-color 0.2s ease; /* Add transition */
+  cursor: pointer;
 }
 .form-check-input[type="radio"] {
   border-radius: 50%;
@@ -628,17 +658,28 @@ textarea.form-control {
   margin-bottom: 0; /* Reset margin */
   color: var(--color-text);
   font-size: var(--font-size-base);
+   cursor: pointer; /* Add cursor */
 }
+.form-check-input:disabled {
+    background-color: var(--color-background);
+    border-color: var(--color-border);
+    cursor: not-allowed;
+}
+.form-check-input:disabled ~ .form-check-label {
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+}
+
 
 /* Form groups */
 .mb-3 { /* Replace Bootstrap margin utility */
-    margin-bottom: var(--space-6) !important;
+    margin-bottom: var(--space-6) !important; /* Keep consistent spacing */
 }
 
 
 /* Alerts */
 .alert {
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-6); /* Consistent padding */
   margin-bottom: var(--space-6);
   border-left: 4px solid; /* Use left border for emphasis */
   border-radius: var(--border-radius);
@@ -651,27 +692,35 @@ textarea.form-control {
     font-size: 1.25em;
     flex-shrink: 0;
 }
-
+/* Fix: Use color names, not CSS variables in lighten/darken() */
+/* Assuming a preprocessor or manual calculation needed */
+/* Fallback: Use lighter/darker background colors and adjusted text colors */
 .alert-success {
-  background-color: lighten(var(--color-success), 55%);
-  color: darken(var(--color-success), 20%);
+  background-color: #ECFDF5; /* Emerald 50 */
+  color: #065F46; /* Emerald 800 */
   border-color: var(--color-success);
 }
 .alert-danger {
-  background-color: lighten(var(--color-danger), 45%);
-  color: darken(var(--color-danger), 20%);
+  background-color: #FEF2F2; /* Red 50 */
+  color: #991B1B; /* Red 800 */
   border-color: var(--color-danger);
 }
 .alert-warning {
-  background-color: lighten(var(--color-warning), 50%);
-  color: darken(var(--color-warning), 30%);
+  background-color: #FFFBEB; /* Amber 50 */
+  color: #92400E; /* Amber 800 */
   border-color: var(--color-warning);
 }
 .alert-info {
-  background-color: lighten(var(--color-info), 55%);
-  color: darken(var(--color-info), 20%);
+  background-color: #EFF6FF; /* Blue 50 */
+  color: #1E40AF; /* Blue 800 */
   border-color: var(--color-info);
 }
+.alert-light {
+    background-color: var(--color-background);
+    color: var(--color-text-secondary);
+    border-color: var(--color-border);
+}
+
 
 /* List Groups */
 .list-group {
@@ -680,6 +729,7 @@ textarea.form-control {
   border: var(--border-width) solid var(--color-border);
   box-shadow: var(--shadow-sm);
   margin-bottom: var(--space-6);
+  padding-left: 0; /* Reset default padding */
 }
 
 .list-group-item {
@@ -692,6 +742,7 @@ textarea.form-control {
   border-top: 0;
   border-left: 0;
   border-right: 0;
+  margin-bottom: 0; /* Override default li margin */
 }
 .list-group-item:last-child {
   border-bottom: 0; /* No border on last item */
@@ -706,16 +757,53 @@ textarea.form-control {
 .list-group-item a:hover {
     color: var(--color-primary);
 }
+.list-group-flush {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+.list-group-flush .list-group-item {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+    padding-left: 0; /* Remove padding for flush items */
+    padding-right: 0;
+}
+.list-group-flush .list-group-item:last-child {
+     border-bottom: 0;
+}
+/* Specific styling for flush items within cards */
+.card .list-group-flush .list-group-item {
+     padding-left: var(--space-6); /* Restore padding inside card */
+     padding-right: var(--space-6);
+}
+.card .list-group-flush {
+    margin-left: calc(var(--space-6) * -1);
+    margin-right: calc(var(--space-6) * -1);
+}
+@media (max-width: 767px) {
+     .card .list-group-flush {
+        margin-left: calc(var(--space-4) * -1);
+        margin-right: calc(var(--space-4) * -1);
+    }
+    .card .list-group-flush .list-group-item {
+         padding-left: var(--space-4);
+         padding-right: var(--space-4);
+    }
+}
+
 
 /* --- Specific Component/View Styles --- */
 
 /* Event Card */
 .event-card .card-body {
-    padding: var(--space-6);
+    padding: var(--space-5); /* Adjusted padding */
 }
 .event-card .card-title {
     color: var(--color-text); /* Less prominent title color */
     font-weight: 600;
+    font-size: 1.1rem; /* Slightly smaller title */
+    margin-bottom: var(--space-2);
 }
 .event-card .card-text {
     font-size: var(--font-size-sm);
@@ -724,6 +812,12 @@ textarea.form-control {
 }
 .event-card .btn {
     margin-top: var(--space-4);
+    width: auto; /* Ensure button isn't full width unless specified */
+}
+@media (max-width: 767px) {
+    .event-card .btn {
+        width: 100%; /* Full width on mobile */
+    }
 }
 
 /* Team List / User Card */
@@ -732,7 +826,7 @@ textarea.form-control {
 }
 .team-card .list-group {
     margin-top: var(--space-4);
-    margin-bottom: var(--space-4);
+    margin-bottom: 0; /* Remove bottom margin if it's the last element */
     border: none; /* Remove border around inner list */
     box-shadow: none;
 }
@@ -753,10 +847,18 @@ textarea.form-control {
     color: var(--color-text-secondary);
     display: flex;
     align-items: center;
+    gap: var(--space-2); /* Gap between name/id and stars */
+}
+.user-card-item p a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+}
+.user-card-item p a:hover {
+    color: var(--color-primary);
 }
 .user-card-item .vue3-star-ratings {
-    margin-left: var(--space-2);
-    display: inline-block;
+    /* display: inline-block; */ /* Flex handles alignment */
     vertical-align: middle;
     line-height: 1; /* Align stars better */
 }
@@ -764,18 +866,18 @@ textarea.form-control {
 /* Login View Card */
 .login-card .card-header {
     text-align: center;
-    padding: var(--space-6);
+    padding: var(--space-6) var(--space-4);
 }
 .login-card .card-body {
-    padding: var(--space-8);
+    padding: var(--space-8) var(--space-6); /* Adjusted padding */
 }
 .login-card form .btn {
-    width: 100%;
-    margin-top: var(--space-4);
+    /* width: 100%; */ /* Already handled by mobile styles */
+    margin-top: var(--space-6); /* More space before button */
 }
 .login-card .mt-3 { /* Forgot password link */
     text-align: center;
-    margin-top: var(--space-6) !important;
+    margin-top: var(--space-5) !important; /* Adjusted spacing */
     font-size: var(--font-size-sm);
 }
 
@@ -783,7 +885,7 @@ textarea.form-control {
 .profile-section {
     margin-bottom: var(--space-8);
     padding-bottom: var(--space-6);
-    border-bottom: var(--border-width) solid var(--color-border);
+    /* border-bottom: var(--border-width) solid var(--color-border); */ /* Remove border between sections, use cards */
 }
 .profile-section:last-child {
     border-bottom: none;
@@ -801,10 +903,16 @@ textarea.form-control {
 .profile-info p strong {
     color: var(--color-text);
     margin-right: var(--space-2);
+    min-width: 100px; /* Keep alignment */
+    display: inline-block;
+    font-weight: 500;
 }
-/* Project List Items */
-.project-item {
-    padding: var(--space-4) 0;
+/* Project List Items (within UserProfile) */
+.projects-section .list-group-item { /* Target items within the projects section */
+    padding: var(--space-4) 0; /* Use list-group-flush padding */
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* Align items top */
 }
 .project-item p {
     font-size: var(--font-size-sm);
@@ -817,45 +925,27 @@ textarea.form-control {
 }
 .project-item .btn-group {
     margin-top: var(--space-3);
+    flex-shrink: 0; /* Prevent buttons shrinking */
+    margin-left: var(--space-4);
+}
+.project-item .small-link { /* Style the view submission link */
+    font-size: var(--font-size-sm);
+    margin-top: var(--space-1);
+    display: inline-block;
 }
 
-/* Star Ratings Overrides (Optional - Adjust if needed) */
-.vue3-star-ratings__wrapper {
-  padding: 0 !important;
-  margin: 0;
-  display: flex !important; /* Ensure flex */
-  justify-content: center !important; /* Ensure center */
-  align-items: center !important;
-  gap: 0.25rem; /* Consistent gap */
-  width: auto !important; /* Override potential width issues */
-}
 
-.vue3-star-ratings .stars {
-  display: flex !important;
+/* === Star Ratings Overrides (REMOVE OR COMMENT OUT vue3-specific ones) === */
+
+/* Keep the wrapper style if used elsewhere, or rely on scoped style in RatingForm */
+.rating-stars-wrapper {
+  display: flex;
+  justify-content: center; /* Center the stars component within this div */
   align-items: center;
+  padding: var(--space-2) 0; /* Add vertical padding */
+  width: 100%;
 }
 
-.vue3-star-ratings svg {
-  width: 30px !important; /* Example: Adjust size if default is too small/large */
-  height: 30px !important;
-  color: var(--color-warning) !important; /* Use theme color */
-  margin: 0 var(--space-1) !important; /* Adjust horizontal spacing */
-  /* vertical-align: middle; */ /* May not be needed with flex */
-}
-
-.vue3-star-ratings .stars-active svg {
-   color: var(--color-warning) !important;
-}
-
-.vue3-star-ratings .stars-inactive svg {
-   color: var(--color-border) !important; /* Muted color for inactive */
-}
-
-/* Fix for the rating form specific wrapper if the global isn't enough */
-.rating-stars-wrapper .vue3-star-ratings svg {
-   width: 35px !important; /* Size from RatingForm */
-   height: 35px !important;
-}
 
 /* Style for Event Type Select Dropdown */
 #eventType.form-select[size] {
@@ -866,34 +956,46 @@ textarea.form-control {
 
 /* Better table handling on mobile */
 @media (max-width: 767px) {
-  table {
+  .table-responsive { /* Add this class to table container */
     display: block;
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
-  /* Optional: Make tables stack on mobile */
-  .table-stack-mobile {
-    thead {
-      display: none;
-    }
-    tr {
+
+  /* Optional: Make tables stack on mobile (requires data-label attributes on td) */
+  /* Add .table-stack-mobile to the table element */
+  .table-stack-mobile thead { display: none; }
+  .table-stack-mobile tr {
       display: block;
-      margin-bottom: var(--space-4);
-    }
-    td {
+      margin-bottom: var(--space-6);
+      border: var(--border-width) solid var(--color-border);
+      border-radius: var(--border-radius);
+      padding: var(--space-4);
+      background-color: var(--color-surface);
+      box-shadow: var(--shadow-sm);
+  }
+  .table-stack-mobile td {
       display: block;
       text-align: right;
-      padding-left: 50%;
+      padding-left: 50%; /* Adjust based on label width */
       position: relative;
-    }
-    td::before {
+      border: none; /* Remove default borders */
+      padding-top: var(--space-2);
+      padding-bottom: var(--space-2);
+      min-height: 38px; /* Ensure space for label */
+  }
+   .table-stack-mobile td:last-child { padding-bottom: var(--space-2); } /* Consistent padding */
+  .table-stack-mobile td::before {
       content: attr(data-label);
       position: absolute;
       left: var(--space-4);
+      top: var(--space-2); /* Align with padding */
+      width: calc(50% - var(--space-4) - var(--space-2)); /* Adjust width */
       font-weight: 600;
-    }
+      white-space: nowrap;
+      text-align: left;
+      color: var(--color-text);
   }
 }
 
@@ -903,57 +1005,63 @@ textarea.form-control {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
   }
-  
+
   .row {
     margin-left: calc(var(--space-2) * -1);
     margin-right: calc(var(--space-2) * -1);
   }
-  
+
   [class^="col-"] {
     padding-left: var(--space-2);
     padding-right: var(--space-2);
   }
 }
 
-/* Better handling of fixed position elements on mobile */
-.modal,
-.navbar-fixed-top {
-  position: fixed;
-  /* Prevent content shift on iOS */
-  width: 100%;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-}
-
 @media (hover: none) {
   .btn:hover,
-  .nav-link:hover {
-    /* Remove hover styles for touch devices */
+  .nav-link:hover,
+  .card:hover,
+  .list-group-item:hover {
+    /* Remove visual hover styles for touch devices */
     transform: none;
-    box-shadow: none;
+    box-shadow: none; /* Keep original shadow if any */
   }
+  /* Keep card's original shadow on touch */
+  .card:hover { box-shadow: var(--shadow); border-color: var(--color-border); }
+  /* Keep list item original bg on touch */
+   .list-group-item:hover { background-color: var(--color-surface); }
 }
+
 
 /* --- Utility Classes (Optional, inspired by Tailwind) --- */
 .text-center { text-align: center; }
 .text-right { text-align: right; }
 .text-left { text-align: left; }
 
-.block { display: block; }
-.inline-block { display: inline-block; }
-.flex { display: flex; }
-.inline-flex { display: inline-flex; }
-.grid { display: grid; }
+.d-block { display: block !important; } /* Override bootstrap if needed */
+.d-inline-block { display: inline-block !important; }
+.d-flex { display: flex !important; }
+.d-inline-flex { display: inline-flex !important; }
+.d-grid { display: grid !important; }
 
-.items-center { align-items: center; }
-.items-start { align-items: flex-start; }
-.items-end { align-items: flex-end; }
+.align-items-center { align-items: center !important; }
+.align-items-start { align-items: flex-start !important; }
+.align-items-end { align-items: flex-end !important; }
+.align-self-center { align-self: center !important; } /* Added */
 
-.justify-center { justify-content: center; }
-.justify-between { justify-content: space-between; }
-.justify-start { justify-content: flex-start; }
-.justify-end { justify-content: flex-end; }
+.justify-content-center { justify-content: center !important; }
+.justify-content-between { justify-content: space-between !important; }
+.justify-content-start { justify-content: flex-start !important; }
+.justify-content-end { justify-content: flex-end !important; }
 
+.flex-wrap { flex-wrap: wrap !important; } /* Added */
+.flex-nowrap { flex-wrap: nowrap !important; } /* Added */
+.flex-grow-1 { flex-grow: 1 !important; } /* Added */
+.flex-shrink-0 { flex-shrink: 0 !important; } /* Added */
+
+.gap-2 { gap: var(--space-2) !important; } /* Added */
+
+/* Spacing Utilities (Using !important cautiously to override Bootstrap if needed) */
 .space-x-2 > * + * { margin-left: var(--space-2); }
 .space-x-4 > * + * { margin-left: var(--space-4); }
 /* Add more space utilities as needed */
@@ -961,19 +1069,151 @@ textarea.form-control {
 .space-y-4 > * + * { margin-top: var(--space-4); }
 .space-y-6 > * + * { margin-top: var(--space-6); }
 
-.rounded { border-radius: var(--border-radius); }
-.rounded-full { border-radius: 9999px; }
+.rounded { border-radius: var(--border-radius) !important; }
+.rounded-full { border-radius: 9999px !important; }
 
-.shadow-sm { box-shadow: var(--shadow-sm); }
-.shadow { box-shadow: var(--shadow); }
-.shadow-md { box-shadow: var(--shadow-md); }
-.shadow-lg { box-shadow: var(--shadow-lg); }
+.shadow-sm { box-shadow: var(--shadow-sm) !important; }
+.shadow { box-shadow: var(--shadow) !important; }
+.shadow-md { box-shadow: var(--shadow-md) !important; }
+.shadow-lg { box-shadow: var(--shadow-lg) !important; }
 
 /* Add more padding/margin utilities using --space variables if needed */
-.p-4 { padding: var(--space-4); }
-.py-2 { padding-top: var(--space-2); padding-bottom: var(--space-2); }
-.px-4 { padding-left: var(--space-4); padding-right: var(--space-4); }
-/* ... etc */
-.mt-4 { margin-top: var(--space-4); }
-.mb-6 { margin-bottom: var(--space-6); }
-/* ... etc */
+/* Be mindful of Bootstrap's existing utilities (p-*, m-*, etc.) */
+.p-1 { padding: var(--space-1) !important; }
+.p-2 { padding: var(--space-2) !important; }
+.p-3 { padding: var(--space-3) !important; }
+.p-4 { padding: var(--space-4) !important; }
+.p-5 { padding: var(--space-5) !important; }
+.p-6 { padding: var(--space-6) !important; }
+
+.py-1 { padding-top: var(--space-1) !important; padding-bottom: var(--space-1) !important; }
+.py-2 { padding-top: var(--space-2) !important; padding-bottom: var(--space-2) !important; }
+.py-3 { padding-top: var(--space-3) !important; padding-bottom: var(--space-3) !important; }
+.py-4 { padding-top: var(--space-4) !important; padding-bottom: var(--space-4) !important; }
+.py-5 { padding-top: var(--space-5) !important; padding-bottom: var(--space-5) !important; }
+.py-6 { padding-top: var(--space-6) !important; padding-bottom: var(--space-6) !important; }
+
+.px-1 { padding-left: var(--space-1) !important; padding-right: var(--space-1) !important; }
+.px-2 { padding-left: var(--space-2) !important; padding-right: var(--space-2) !important; }
+.px-3 { padding-left: var(--space-3) !important; padding-right: var(--space-3) !important; }
+.px-4 { padding-left: var(--space-4) !important; padding-right: var(--space-4) !important; }
+.px-5 { padding-left: var(--space-5) !important; padding-right: var(--space-5) !important; }
+.px-6 { padding-left: var(--space-6) !important; padding-right: var(--space-6) !important; }
+
+.pt-1 { padding-top: var(--space-1) !important; }
+.pt-2 { padding-top: var(--space-2) !important; }
+.pt-3 { padding-top: var(--space-3) !important; }
+.pt-4 { padding-top: var(--space-4) !important; }
+.pt-5 { padding-top: var(--space-5) !important; }
+.pt-6 { padding-top: var(--space-6) !important; }
+/* ... Add pb, pl, pr similarly */
+
+.m-1 { margin: var(--space-1) !important; }
+.m-2 { margin: var(--space-2) !important; }
+.m-3 { margin: var(--space-3) !important; }
+.m-4 { margin: var(--space-4) !important; }
+.m-5 { margin: var(--space-5) !important; }
+.m-6 { margin: var(--space-6) !important; }
+.m-auto { margin: auto !important; } /* Added */
+
+.my-1 { margin-top: var(--space-1) !important; margin-bottom: var(--space-1) !important; }
+.my-2 { margin-top: var(--space-2) !important; margin-bottom: var(--space-2) !important; }
+.my-3 { margin-top: var(--space-3) !important; margin-bottom: var(--space-3) !important; }
+.my-4 { margin-top: var(--space-4) !important; margin-bottom: var(--space-4) !important; }
+.my-5 { margin-top: var(--space-5) !important; margin-bottom: var(--space-5) !important; }
+.my-6 { margin-top: var(--space-6) !important; margin-bottom: var(--space-6) !important; }
+
+.mx-1 { margin-left: var(--space-1) !important; margin-right: var(--space-1) !important; }
+.mx-2 { margin-left: var(--space-2) !important; margin-right: var(--space-2) !important; }
+.mx-3 { margin-left: var(--space-3) !important; margin-right: var(--space-3) !important; }
+.mx-4 { margin-left: var(--space-4) !important; margin-right: var(--space-4) !important; }
+.mx-5 { margin-left: var(--space-5) !important; margin-right: var(--space-5) !important; }
+.mx-6 { margin-left: var(--space-6) !important; margin-right: var(--space-6) !important; }
+.mx-auto { margin-left: auto !important; margin-right: auto !important; } /* Added */
+
+.mt-0 { margin-top: 0 !important; } /* Specific overrides */
+.mt-1 { margin-top: var(--space-1) !important; }
+.mt-2 { margin-top: var(--space-2) !important; }
+.mt-3 { margin-top: var(--space-3) !important; }
+.mt-4 { margin-top: var(--space-4) !important; }
+.mt-5 { margin-top: var(--space-5) !important; }
+.mt-6 { margin-top: var(--space-6) !important; }
+
+.mb-0 { margin-bottom: 0 !important; } /* Specific overrides */
+.mb-1 { margin-bottom: var(--space-1) !important; }
+.mb-2 { margin-bottom: var(--space-2) !important; }
+.mb-3 { margin-bottom: var(--space-3) !important; } /* Note: Conflicts with form group spacing slightly */
+.mb-4 { margin-bottom: var(--space-4) !important; }
+.mb-5 { margin-bottom: var(--space-5) !important; }
+.mb-6 { margin-bottom: var(--space-6) !important; }
+/* ... Add ms, me, ml, mr similarly */
+.ms-1 { margin-left: var(--space-1) !important; }
+.ms-2 { margin-left: var(--space-2) !important; }
+.ms-3 { margin-left: var(--space-3) !important; }
+.ms-auto { margin-left: auto !important; } /* Added */
+
+.me-1 { margin-right: var(--space-1) !important; }
+.me-2 { margin-right: var(--space-2) !important; }
+.me-3 { margin-right: var(--space-3) !important; }
+.me-auto { margin-right: auto !important; } /* Added */
+
+/* Text utilities */
+.text-primary { color: var(--color-primary) !important; }
+.text-secondary { color: var(--color-text-secondary) !important; }
+.text-success { color: var(--color-success) !important; }
+.text-danger { color: var(--color-danger) !important; }
+.text-warning { color: var(--color-warning) !important; }
+.text-info { color: var(--color-info) !important; }
+.text-light { color: var(--color-background) !important; } /* Text on dark backgrounds */
+.text-dark { color: var(--color-text) !important; }
+.text-muted { color: var(--color-text-muted) !important; }
+.text-white { color: var(--color-surface) !important; }
+.text-decoration-none { text-decoration: none !important; } /* Added */
+.text-nowrap { white-space: nowrap !important; } /* Added */
+
+
+/* Background utilities */
+.bg-primary { background-color: var(--color-primary) !important; }
+.bg-secondary { background-color: var(--color-secondary) !important; }
+.bg-success { background-color: var(--color-success) !important; }
+.bg-danger { background-color: var(--color-danger) !important; }
+.bg-warning { background-color: var(--color-warning) !important; }
+.bg-info { background-color: var(--color-info) !important; }
+.bg-light { background-color: var(--color-background) !important; }
+.bg-dark { background-color: var(--color-text) !important; }
+.bg-white { background-color: var(--color-surface) !important; }
+.bg-transparent { background-color: transparent !important; } /* Added */
+
+
+/* Border utilities */
+.border { border: var(--border-width) solid var(--border-color-default) !important; }
+.border-top { border-top: var(--border-width) solid var(--border-color-default) !important; }
+.border-end { border-right: var(--border-width) solid var(--border-color-default) !important; }
+.border-bottom { border-bottom: var(--border-width) solid var(--border-color-default) !important; }
+.border-start { border-left: var(--border-width) solid var(--border-color-default) !important; }
+.border-0 { border: 0 !important; }
+.border-warning { border-color: var(--color-warning) !important; } /* Added example */
+
+/* Font Weight & Style */
+.fw-bold { font-weight: 700 !important; }
+.fw-semibold { font-weight: 600 !important; }
+.fw-medium { font-weight: 500 !important; }
+.fw-normal { font-weight: 400 !important; }
+.fw-light { font-weight: 300 !important; }
+.fst-italic { font-style: italic !important; }
+
+/* Small text */
+.small { font-size: var(--font-size-sm); }
+
+/* Visually hidden */
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}

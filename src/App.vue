@@ -1,140 +1,137 @@
 // /src/App.vue
 <template>
   <div id="app">
-    <nav class="navbar navbar-expand-lg"> 
+    <nav class="navbar navbar-expand-lg shadow-sm"> 
       <div class="container">
         <router-link to="/" class="navbar-brand" @click="closeNavbar">KSB MCA S/W Community</router-link>
+
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse" id="navbarNav" ref="navbarCollapse">
-         
-          <ul class="navbar-nav main-nav">
 
+        <div class="collapse navbar-collapse" id="navbarNav" ref="navbarCollapseRef"> 
+
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0"> 
              <li class="nav-item" v-if="isAuthenticated">
-              <router-link to="/home" class="nav-link">Home</router-link>
+              <router-link to="/home" class="nav-link" active-class="active">Home</router-link>
             </li>
              <li class="nav-item" v-if="isAuthenticated && !isAdmin">
-              <router-link to="/profile" class="nav-link">Profile</router-link>
+              <router-link to="/profile" class="nav-link" active-class="active">Profile</router-link>
             </li>
             <li class="nav-item" v-if="isAuthenticated">
-              <router-link to="/leaderboard" class="nav-link">Leaderboard</router-link>
+              <router-link to="/leaderboard" class="nav-link" active-class="active">Leaderboard</router-link>
             </li>
             <li class="nav-item">
-              <router-link to="/resources" class="nav-link">Resources</router-link>
+              <router-link to="/resources" class="nav-link" active-class="active">Resources</router-link>
             </li>
             <li class="nav-item">
-              <router-link to="/transparency" class="nav-link">Transparency</router-link>
+              <router-link to="/transparency" class="nav-link" active-class="active">Transparency</router-link>
             </li>
-            
           </ul>
 
-
-           <ul class="navbar-nav auth-nav">
-
+          
+           <ul class="navbar-nav ms-auto"> 
               <li class="nav-item" v-if="!isAuthenticated">
-                <router-link to="/login" class="nav-link">Login</router-link>
+                <router-link to="/login" class="nav-link" active-class="active">Login</router-link>
               </li>
                <li class="nav-item" v-if="isAuthenticated">
-                  
-                  <a href="#" @click.prevent="logout" class="nav-link logout-link">Logout</a>
+                  <a href="#" @click.prevent="logout" class="nav-link logout-link">
+                      <i class="fas fa-sign-out-alt me-1"></i>Logout
+                  </a>
                 </li>
             </ul>
-        </div>
-      </div>
+        </div> 
+      </div> 
     </nav>
 
-    <main class="container main-content mt-4">
-      <router-view />
+    
+    <main class="container main-content py-4"> 
+         <router-view v-slot="{ Component }">
+             <transition name="fade" mode="out-in">
+                 <component :is="Component" />
+             </transition>
+         </router-view>
     </main>
   </div>
 </template>
 
-<script>
+<script setup> // Using setup script
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signOut } from 'firebase/auth'; // Import signOut
 import { Collapse } from 'bootstrap';
 
-export default {
-  setup() {
-    const store = useStore();
-    const router = useRouter();
-    const navbarCollapse = ref(null);
-    let collapseInstance = null;
+const store = useStore();
+const router = useRouter();
+const navbarCollapseRef = ref(null); // Renamed ref
+let collapseInstance = null;
 
-    onMounted(() => {
-      // Initialize collapse instance
-      if (navbarCollapse.value) {
-        collapseInstance = new Collapse(navbarCollapse.value, {
-          toggle: false
-        });
+// Computed properties
+const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
+const isAdmin = computed(() => store.getters['user/isAdmin']);
 
-        // Add click event listener to close navbar when clicking outside
-        document.addEventListener('click', closeNavbarOnClickOutside);
-      }
-
-      // Add route change handler to close navbar
-      router.afterEach(() => {
-        closeNavbar();
-      });
-    });
-
-    onUnmounted(() => {
-      document.removeEventListener('click', closeNavbarOnClickOutside);
-    });
-
-    const closeNavbarOnClickOutside = (event) => {
-      if (navbarCollapse.value && !navbarCollapse.value.contains(event.target) 
-          && !event.target.closest('.navbar-toggler')) {
-        closeNavbar();
-      }
-    };
-
-    const closeNavbar = () => {
-      if (collapseInstance && window.innerWidth < 992) { // 992px is Bootstrap's lg breakpoint
-        collapseInstance.hide();
-      }
-    };
-
-    const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-    const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
-
-    const logout = () => {
-      const auth = getAuth();
-      auth.signOut().then(() => {
-        store.dispatch('user/clearUserData');
-        router.replace('/login');
-        closeNavbar(); // Close navbar after logout
-      });
-    };
-
-    return {
-      isAuthenticated,
-      isAdmin,
-      logout,
-      navbarCollapse,
-      closeNavbar
-    };
-  },
+// Methods
+const closeNavbar = () => {
+  // Check if the instance exists and the navbar is currently expanded (visible)
+  if (collapseInstance && navbarCollapseRef.value?.classList.contains('show')) {
+    collapseInstance.hide();
+  }
 };
+
+const logout = () => {
+  const auth = getAuth();
+  signOut(auth).then(() => { // Use signOut
+    // Actions dispatched below handle state clearing
+  }).catch((error) => {
+      console.error("Logout failed:", error);
+      // Still attempt to clear local state even if Firebase signout fails
+  }).finally(() => {
+      // Always clear local state and redirect
+      store.dispatch('user/clearUserData'); // Ensure local state is cleared
+      router.replace({ name: 'Login' }); // Use replace to prevent back button to authenticated state
+      closeNavbar();
+  });
+};
+
+
+// Lifecycle Hooks
+onMounted(() => {
+  if (navbarCollapseRef.value) {
+    collapseInstance = new Collapse(navbarCollapseRef.value, { toggle: false });
+  }
+  // Close navbar on route change
+  router.afterEach(() => {
+    closeNavbar();
+  });
+});
+
+onUnmounted(() => {
+  // Dispose collapse instance on component unmount
+  collapseInstance?.dispose();
+});
+
 </script>
 
-<style scoped> 
+<style scoped>
 .main-content {
-  /* padding-top removed as navbar is sticky, not fixed */
   /* Add some bottom space */
   padding-bottom: var(--space-12);
 }
 
-/* Optional: Add a subtle transition for router-view changes */
-.router-view-enter-active,
-.router-view-leave-active {
+/* Router transition */
+.fade-enter-active,
+.fade-leave-active {
   transition: opacity 0.2s ease;
 }
-.router-view-enter-from,
-.router-view-leave-to {
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
+}
+
+/* Ensure active class matches hover style */
+.nav-link.active {
+     color: var(--color-primary) !important;
+     background-color: var(--color-primary-light);
 }
 </style>
