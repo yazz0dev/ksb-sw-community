@@ -14,6 +14,7 @@ dist
 dist-ssr
 *.local
 .firebaserc
+.env
 firebase.json
 firebase-debug.log
 firestore.rules
