@@ -3,13 +3,13 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
        <h2 class="mb-0 me-3">Events Dashboard</h2>
        <div class="mt-2 mt-md-0"> 
-           <router-link v-if="canRequestEvent" to="/request-event" class="btn btn-info btn-sm ms-2">
+           <router-link v-if="canRequestEvent && !isAdmin" to="/request-event" class="btn btn-info btn-sm ms-2">
                <i class="fas fa-plus me-1"></i> Request Event
            </router-link>
-           <router-link v-if="isAdminOrTeacher" to="/request-event" class="btn btn-success btn-sm ms-2">
+           <router-link v-if="isAdmin" to="/request-event" class="btn btn-success btn-sm ms-2">
                <i class="fas fa-calendar-plus me-1"></i> Create Event
             </router-link>
-           <router-link v-if="isAdminOrTeacher" to="/manage-requests" class="btn btn-warning btn-sm ms-2">
+           <router-link v-if="isAdmin" to="/manage-requests" class="btn btn-warning btn-sm ms-2">
                <i class="fas fa-tasks me-1"></i> Manage Requests
             </router-link>
        </div>
@@ -68,7 +68,7 @@ const userRole = computed(() => store.getters['user/getUserRole']);
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 
 
-const isAdminOrTeacher = computed(() => userRole.value === 'Admin' || userRole.value === 'Teacher');
+const isAdmin = computed(() => userRole.value === 'Admin' );
 // Anyone authenticated can request (logic handled in RequestEvent view/action)
 const canRequestEvent = computed(() => isAuthenticated.value);
 

@@ -76,7 +76,7 @@ const getConstraintKey = (index) => `constraint${index}`;
 // Fetch User Name (remains the same)
 async function fetchUserName(userId) { if (!userId) return null; try { const userDocRef = doc(db, 'users', userId); const docSnap = await getDoc(userDocRef); return docSnap.exists() ? (docSnap.data().name || userId) : userId; } catch (error) { console.error(`Error fetching name for ${userId}:`, error); return userId; } }
 
-// onMounted (remains largely the same, just ensure rating reset uses 0)
+// onMounted (ensure rating reset uses 0)
 onMounted(async () => {
   loading.value = true;
   errorMessage.value = '';

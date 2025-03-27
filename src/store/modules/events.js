@@ -20,15 +20,13 @@ import {
 // Importing the fetch function from user module is not standard practice.
 // Instead, call the user module action via dispatch with { root: true }.
 
-// Helper function to calculate the weighted average score (0-5 scale) from ratings
+// Helper function to calculate the average score (0-5 scale) from ratings
 // Kept internal to this module but accessible via rootGetter if needed elsewhere
 const _calculateWeightedAverageScore = (ratings = []) => {
     if (!Array.isArray(ratings) || ratings.length === 0) return 0;
 
-    let totalTeacherRatingSum = 0;
-    let teacherRatingCount = 0;
-    let totalStudentRatingSum = 0;
-    let studentRatingCount = 0;
+    let totalRatingSum = 0;
+    let ratingCount = 0;
 
     for (const ratingEntry of ratings) {
         if (!ratingEntry || typeof ratingEntry !== 'object' || !ratingEntry.rating || typeof ratingEntry.rating !== 'object') continue;
@@ -41,19 +39,12 @@ const _calculateWeightedAverageScore = (ratings = []) => {
         const technology = Number(rating.technology) || 0;
 
         const overallRating = (design + presentation + problemSolving + execution + technology) / 5.0;
-
-        if (ratingEntry.isTeacherRating) {
-            totalTeacherRatingSum += overallRating;
-            teacherRatingCount++;
-        } else {
-            totalStudentRatingSum += overallRating;
-            studentRatingCount++;
-        }
+        
+        totalRatingSum += overallRating;
+        ratingCount++;
     }
-    const averageTeacherRating = teacherRatingCount > 0 ? totalTeacherRatingSum / teacherRatingCount : 0;
-    const averageStudentRating = studentRatingCount > 0 ? totalStudentRatingSum / studentRatingCount : 0;
-    const weightedAverage = 0.7 * averageTeacherRating + 0.3 * averageStudentRating;
-    return Math.max(0, Math.min(5, weightedAverage));
+
+    return ratingCount > 0 ? Math.max(0, Math.min(5, totalRatingSum / ratingCount)) : 0;
 };
 
 
@@ -122,11 +113,11 @@ const actions = {
         return conflictingEvent;
     },
 
-    // Create event directly (Admin/Teacher)
+    // Create event directly (Admin)
     async createEvent({ rootState, dispatch, commit }, eventData) {
         try {
             const userRole = rootState.user?.role;
-            if (userRole !== 'Teacher' && userRole !== 'Admin') { throw new Error('Unauthorized.'); }
+            if ( userRole !== 'Admin') { throw new Error('Unauthorized.'); }
 
             let startDateObj, endDateObj;
             try {
@@ -171,7 +162,7 @@ const actions = {
             const currentUser = rootGetters['user/getUser'];
             const userId = currentUser?.uid;
             if (!userId) { throw new Error("User not authenticated."); }
-            if (currentUser.role !== 'Admin' && currentUser.role !== 'Teacher') {
+            if (currentUser.role !== 'Admin') {
                 const hasActive = await dispatch('checkExistingRequests');
                 if (hasActive) { throw new Error('Active/pending request exists.'); }
             }
@@ -346,6 +337,9 @@ const actions = {
             const eventRef = doc(db, 'events', eventId);
             // Maybe add check: ensure event status is 'Completed'?
             // const eventData = await dispatch('fetchEventDetails', eventId);
+            // if (eventData?.status !== 'Completed') throw new Error("Can only toggle ratings for completed events.");
+            await updateDoc(eventRef, { ratingsOpen: !!isOpen });
+            dispatch('updateLocalEvent', { id: eventId, changes: { ratingsOpen: !!isOpen } });
             // if (eventData?.status !== 'Completed') throw new Error("Can only toggle ratings for completed events.");
             await updateDoc(eventRef, { ratingsOpen: !!isOpen });
             dispatch('updateLocalEvent', { id: eventId, changes: { ratingsOpen: !!isOpen } });

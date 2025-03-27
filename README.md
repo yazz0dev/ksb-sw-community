@@ -5,15 +5,15 @@ Welcome to the KSB MCA Software Community Platform! This web application provide
 ## ✨ Features
 
 *   **User Authentication:** Secure login using Firebase Authentication.
-*   **Role-Based Access:** Differentiated views and permissions for Students, Teachers, and Admins.
+*   **Role-Based Access:** Differentiated views and permissions for Students and Admins.
 *   **Event Management:**
     *   Dashboard displaying Upcoming, Active, and Completed events.
     *   Students can request new events (limit one active request).
-    *   Admins/Teachers can create events directly and manage pending requests.
+    *   Admins can create events directly and manage pending requests.
     *   Detailed event view with participant/team lists.
 *   **Team Formation:** Admins/Organizers can create teams and assign students for team-based events.
 *   **Project Submission:** Participants can submit project links (GitHub, website, documents) related to specific events.
-*   **Rating System:** Users can rate participants/teams on completed events based on customizable criteria. Weighted scoring for Teacher/Admin ratings.
+*   **Rating System:** Users can rate participants/teams on completed events based on customizable criteria.
 *   **XP System:** Experience points automatically calculated based on event participation, ratings, and winning status, distributed across different skill categories (`xpByRole`).
 *   **User Profiles:**
     *   Displays user information, total XP, XP breakdown, and submitted event projects.

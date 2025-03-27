@@ -84,19 +84,18 @@ This page outlines how our KSB MCA Software Community platform operates, aiming 
 
 const rolesContent = `
 *   **Student:** Can view events, request new events (limit one active/pending request), participate in events (join/leave upcoming), submit projects (during 'In Progress' events), rate participants/teams in completed events, manage their own profile (skills, preferred roles - *project list is now automatic*), view leaderboards, view public profiles, and generate a PDF portfolio based on their profile and event submissions.
-*   **Teacher / Admin:** Have all student permissions plus:
+*   **Admin:** Have all student permissions plus:
     *   Can create events directly (auto-approved, bypasses request limit).
     *   Can manage pending event requests (approve/reject).
     *   Can manage created events (update status, manage teams, toggle ratings, set winners manually or auto-calculate, delete).
-    *   Ratings submitted by Admins/Teachers carry higher weight (70%) in score calculations.
     *   Can manage shared resources (via direct Firestore access or future admin UI).
     *   Admin accounts do not have a personal user profile page and are excluded from the leaderboard.
 `;
 
 const eventLifecycleContent = `
 1.  **Request (Student):** Students use the "Request Event" form. Requires name, type, description, desired dates. Optional: team event flag, co-organizers, custom rating criteria. The request enters a "Pending" state. A student cannot submit a new request if they have another "Pending" or "Approved" (but not yet started) request.
-2.  **Direct Creation (Admin/Teacher):** Admins/Teachers use the "Create Event" form (same UI, different backend action). The event is created directly with an "Upcoming" status and is auto-approved. A date conflict check is performed during creation against other 'Upcoming'/'In Progress' events.
-3.  **Approval (Admin/Teacher):** Admins/Teachers review "Pending" requests via "Manage Requests". They can see potential date conflicts. Approving a request creates a new event with status "Upcoming" using the requested details. Rejecting marks the request as "Rejected".
+2.  **Direct Creation (Admin):** Admins use the "Create Event" form (same UI, different backend action). The event is created directly with an "Upcoming" status and is auto-approved. A date conflict check is performed during creation against other 'Upcoming'/'In Progress' events.
+3.  **Approval (Admin):** Admins review "Pending" requests via "Manage Requests". They can see potential date conflicts. Approving a request creates a new event with status "Upcoming" using the requested details. Rejecting marks the request as "Rejected".
 4.  **Management (Organizer/Co-Organizer/Admin):**
     *   **Status Updates:** Events progress: Upcoming -> In Progress -> Completed. They can also be "Cancelled" (from Upcoming/In Progress). Moving to 'Completed' triggers XP calculation.
     *   **Teams:** For team events, authorized users can create teams and assign students via "Manage Teams". Students can only be in one team per event.
@@ -116,10 +115,9 @@ const teamsContent = `
 
 const ratingContent = `
 *   **Availability:** Ratings can only be submitted for events that are "Completed" AND have had their "Ratings Open" toggle enabled.
-*   **Who Can Rate:** Any authenticated user (Student, Teacher, Admin) can rate. Users cannot rate themselves in individual events.
+*   **Who Can Rate:** Any authenticated user (Student, Admin) can rate. Users cannot rate themselves in individual events.
 *   **Process:** Users navigate to the event details page. A "Rate Team" button appears for teams, or a "Rate" button appears next to participants in individual events. Clicking leads to the rating form.
 *   **Criteria:** Events use 5 rating criteria (defaults: Design, Presentation, Problem Solving, Execution, Technology, customizable on creation). Users rate each on a 1-5 star scale. A rating of 0 stars is not counted towards the average unless it's the only rating submitted.
-*   **Weighting:** For calculating scores, ratings from "Teacher" or "Admin" users have a 70% weight; ratings from "Student" users have a 30% weight.
 *   **Score:** The final weighted average score (0-5) is calculated based on the average of the 5 criteria ratings, weighted by the rater's role.
 `;
 

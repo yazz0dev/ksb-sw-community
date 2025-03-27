@@ -9,7 +9,7 @@
                    <div class="card-body">
                       <p class="text-muted mb-4">Enter your email address and we will send you a link to reset your password.</p>
 
-                      {/* Success/Error Message */}
+                
                       <div v-if="message" :class="['alert', isError ? 'alert-danger' : 'alert-success']" role="alert">
                           {{ message }}
                       </div>

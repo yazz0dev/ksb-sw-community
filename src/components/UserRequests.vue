@@ -8,8 +8,8 @@
     </div>
     <div v-else-if="requests.length === 0" class="alert alert-light">No event requests found.</div>
     <div v-else>
-      <ul class="list-group list-group-flush"> {/* Use flush list */}
-        <li v-for="request in requests" :key="request.id" class="list-group-item px-0 py-3"> {/* Adjust padding */}
+      <ul class="list-group list-group-flush"> 
+        <li v-for="request in requests" :key="request.id" class="list-group-item px-0 py-3"> 
           <div class="d-flex justify-content-between align-items-start">
               <div>
                 <h6 class="mb-1">{{ request.eventName }} <span class="text-muted fw-normal">({{ request.eventType }})</span></h6>

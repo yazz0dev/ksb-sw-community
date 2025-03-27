@@ -6,16 +6,14 @@ import { doc, getDoc, updateDoc, arrayUnion, collection, getDocs, query, where, 
 const state = {
   uid: null,
   name: null,
-  role: null, // Student, Teacher, Admin
+  role: null, // Student, Admin
   xpByRole: { // ADDED xpByRole with default structure
       fullstack: 0,
       presenter: 0,
       designer: 0,
       organizer: 0,
       problemSolver: 0
-      // Add more roles as needed, matching rating criteria/event types
   },
-  // projects: [], // REMOVED - Projects are now derived from event submissions
   skills: [],
   preferredRoles: [],
   isAuthenticated: false,
@@ -31,8 +29,6 @@ const getters = {
       name: state.name,
       role: state.role,
       xpByRole: state.xpByRole ? { ...state.xpByRole } : {}, // Return copy
-      // getTotalXp getter removed, use currentUserTotalXp instead for clarity
-      // projects: state.projects ? [...state.projects] : [], // Removed
       skills: state.skills ? [...state.skills] : [],
       preferredRoles: state.preferredRoles ? [...state.preferredRoles] : [],
   }),
@@ -68,7 +64,7 @@ const actions = {
          // Trigger XP calculation after fetching data (can run in background)
          dispatch('calculateUserXP').catch(err => console.error("Background XP calculation failed:", err));
       } else {
-        // Handle case where user exists in Auth but not Firestore (e.g., first login)
+        // Handle case where user exists in Auth but not Firestore
         console.warn(`User document not found for UID: ${uid}. May need to create one.`);
         // For now, clear local data but keep authenticated state? Or treat as error?
         // Let's clear data and mark as not fully authenticated in our system context
@@ -250,8 +246,6 @@ const actions = {
             // Construct the rating entry
             const ratingEntry = {
                     ratedBy: currentUserUID,
-                    // Flag if Admin or Teacher is rating (higher weight)
-                    isTeacherRating: currentUserRole === 'Admin' || currentUserRole === 'Teacher',
                     rating: { ...ratingData }, // The 5 constraint values
                     timestamp: Timestamp.now()
                 };

@@ -5,15 +5,15 @@
         <button class="btn btn-secondary me-3 btn-sm" @click="$router.back()">
           <i class="fas fa-arrow-left me-1"></i>Back
         </button>
-        <h2 class="mb-0">{{ isAdminOrTeacher ? 'Create New Event' : 'Request New Event' }}</h2>
+        <h2 class="mb-0">{{ isAdmin ? 'Create New Event' : 'Request New Event' }}</h2>
       </div>
 
       <!-- Loading/Error States -->
-       <div v-if="!isAdminOrTeacher && loadingCheck" class="text-center my-4">
+       <div v-if="!isAdmin && loadingCheck" class="text-center my-4">
             <div class="spinner-border spinner-border-sm" role="status"></div>
             <span class="ms-2">Checking existing requests...</span>
        </div>
-       <div v-else-if="!isAdminOrTeacher && hasActiveRequest" class="alert alert-warning" role="alert">
+       <div v-else-if="!isAdmin && hasActiveRequest" class="alert alert-warning" role="alert">
           You already have an active or pending event request. You cannot submit another until it is resolved or cancelled.
       </div>
       <div v-if="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
@@ -22,7 +22,7 @@
             <span class="ms-2">Loading student list...</span>
        </div>
 
-      <form @submit.prevent="submitRequest" v-if="!loadingCheck && !loadingStudents && (isAdminOrTeacher || !hasActiveRequest)">
+      <form @submit.prevent="submitRequest" v-if="!loadingCheck && !loadingStudents && (isAdmin || !hasActiveRequest)">
          <div class="card shadow-sm">
             <div class="card-body p-lg-5">
 
@@ -60,16 +60,16 @@
                 </div>
                  <div class="row mb-3">
                      <div class="col-md-6">
-                         <label :for="isAdminOrTeacher ? 'startDate' : 'desiredStartDate'" class="form-label">
-                            {{ isAdminOrTeacher ? 'Start Date' : 'Desired Start Date' }} <span class="text-danger">*</span>
+                         <label :for="isAdmin ? 'startDate' : 'desiredStartDate'" class="form-label">
+                            {{ isAdmin ? 'Start Date' : 'Desired Start Date' }} <span class="text-danger">*</span>
                         </label>
-                         <input type="date" :id="isAdminOrTeacher ? 'startDate' : 'desiredStartDate'" v-model="startDate" required class="form-control" :min="minDate" :disabled="isSubmitting"/>
+                         <input type="date" :id="isAdmin ? 'startDate' : 'desiredStartDate'" v-model="startDate" required class="form-control" :min="minDate" :disabled="isSubmitting"/>
                      </div>
                      <div class="col-md-6">
-                          <label :for="isAdminOrTeacher ? 'endDate' : 'desiredEndDate'" class="form-label">
-                            {{ isAdminOrTeacher ? 'End Date' : 'Desired End Date' }} <span class="text-danger">*</span>
+                          <label :for="isAdmin ? 'endDate' : 'desiredEndDate'" class="form-label">
+                            {{ isAdmin ? 'End Date' : 'Desired End Date' }} <span class="text-danger">*</span>
                          </label>
-                         <input type="date" :id="isAdminOrTeacher ? 'endDate' : 'desiredEndDate'" v-model="endDate" required class="form-control" :min="startDate || minDate" :disabled="isSubmitting"/>
+                         <input type="date" :id="isAdmin ? 'endDate' : 'desiredEndDate'" v-model="endDate" required class="form-control" :min="startDate || minDate" :disabled="isSubmitting"/>
                      </div>
                  </div>
 
@@ -227,7 +227,7 @@ const isSubmitting = ref(false);
 
 // --- Computed ---
 const currentUser = computed(() => store.getters['user/getUser']);
-const isAdminOrTeacher = computed(() => currentUser.value?.role === 'Admin' || currentUser.value?.role === 'Teacher');
+const isAdmin = computed(() => currentUser.value?.role === 'Admin' );
 const minDate = computed(() => {
   const today = new Date();
   today.setDate(today.getDate() + 1);
@@ -332,11 +332,11 @@ onMounted(async () => {
     loadingCheck.value = true;
     hasActiveRequest.value = false;
     try {
-        if (!isAdminOrTeacher.value) { hasActiveRequest.value = await store.dispatch('events/checkExistingRequests'); }
+        if (!isAdmin.value) { hasActiveRequest.value = await store.dispatch('events/checkExistingRequests'); }
     } catch (error) {
         console.error("Error checking existing requests:", error);
         errorMessage.value = "Could not verify existing requests.";
-        if (!isAdminOrTeacher.value) hasActiveRequest.value = true;
+        if (!isAdmin.value) hasActiveRequest.value = true;
     } finally { loadingCheck.value = false; }
     await fetchStudents();
 });
@@ -406,7 +406,7 @@ const submitRequest = async () => {
 
     try {
         // 5. Dispatch Action based on Role
-        if (isAdminOrTeacher.value) {
+        if (isAdmin.value) {
             const eventData = { ...commonData, startDate: startDate.value, endDate: endDate.value };
             await store.dispatch('events/createEvent', eventData);
             alert('Event created successfully.');
@@ -428,7 +428,7 @@ const submitRequest = async () => {
 };
 
 // Helper for button text
-const getSubmitButtonText = () => (isSubmitting.value ? (isAdminOrTeacher.value ? 'Creating...' : 'Submitting...') : (isAdminOrTeacher.value ? 'Create Event' : 'Submit Request'));
+const getSubmitButtonText = () => (isSubmitting.value ? (isAdmin.value ? 'Creating...' : 'Submitting...') : (isAdmin.value ? 'Create Event' : 'Submit Request'));
 
 </script>
 

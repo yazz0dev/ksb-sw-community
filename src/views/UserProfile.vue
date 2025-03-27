@@ -37,7 +37,7 @@
                      
                     <div v-if="hasXpData" class="mt-4 pt-3 border-top">
                          <p class="fw-semibold mb-2">XP Breakdown:</p>
-                         <ul class="list-unstyled small row row-cols-2 row-cols-sm-3"> {/* Use columns */}
+                         <ul class="list-unstyled small row row-cols-2 row-cols-sm-3"> 
                              <li v-for="(xp, role) in user.xpByRole" :key="role" class="col">
                                 <span v-if="xp > 0">{{ formatRoleName(role) }}: {{ xp }}</span>
                              </li>
