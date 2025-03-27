@@ -5,7 +5,6 @@ import router from './router';
 import store from './store';
 import { auth } from './firebase'; // Import auth from firebase.js
 import { onAuthStateChanged } from 'firebase/auth';
-// vue3StarRatings is only used in specific components, no global registration needed unless desired
 
 // Import Bootstrap CSS & JS (Ensure these are imported only once)
 import 'bootstrap/dist/css/bootstrap.min.css';

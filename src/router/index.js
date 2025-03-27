@@ -44,7 +44,7 @@ const routes = [
     path: '/profile',
     name: 'Profile',
     component: UserProfile,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, adminForbidden: true }  // Add adminForbidden flag
   },
   {
     path: '/user/:userId',
@@ -88,6 +88,10 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAdmin && !isAdmin) {
     // console.log("Router Guard: Non-admin accessing admin page. Redirecting to /home.");
     next({ name: 'Home' }); return;
+  }
+  if (to.meta.adminForbidden && isAdmin) {
+    next({ name: 'Home' }); 
+    return;
   }
 
   // console.log(`Router Guard: Allowing navigation to ${to.path}`);

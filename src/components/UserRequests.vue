@@ -37,7 +37,7 @@
               <i class="fas fa-edit"></i> Edit
             </button>
             <button 
-              @click="deleteRequest(request.id)" 
+              @click="deleteOwnRequest(request.id)" 
               class="btn btn-outline-danger btn-sm"
               :disabled="isSubmitting">
               <i class="fas fa-trash"></i> Delete
@@ -51,27 +51,35 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'; // Added watch
+import { computed, onMounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
-// Removed Firestore imports, logic moved to store getter
+import { useRouter } from 'vue-router';
 
 const store = useStore();
+const router = useRouter();
 const loading = ref(true);
-const deletingId = ref(null); // Track which request is being deleted
+const deletingId = ref(null);
 const deleteError = ref('');
-const isSubmitting = ref(false); // Track form submission state
+const isSubmitting = ref(false);
 const error = ref('');
 
-// Get requests directly from the store getter
+// Get current user from store
+const user = computed(() => store.getters['user/getUser']);
+
+// Updated requests computed property using user from store
 const requests = computed(() => 
     store.getters['events/allEvents'].filter(event => 
-        event.requesterId === currentUser.value?.uid &&
+        event.requesterId === user.value?.uid &&
         ['Pending', 'Rejected'].includes(event.status)
     ).sort((a, b) => (b.requestedAt?.seconds ?? 0) - (a.requestedAt?.seconds ?? 0))
 );
 
 // Robust Date Formatting
-const formatDate = (dateInput) => { /* ... same as before ... */ };
+const formatDate = (dateInput) => {
+    if (!dateInput) return 'N/A';
+    const date = dateInput instanceof Date ? dateInput : new Date(dateInput.seconds * 1000);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
 
 // Status Badge Class
 const statusBadgeClass = (status) => {
@@ -123,7 +131,7 @@ onMounted(async () => {
 });
 
 // Watch the computed property to potentially stop loading if it populates
-watch(requests, (newList) => {
+watch(requests, () => {
     // This might not be strictly necessary if onMounted handles it,
     // but ensures loading stops if store updates after mount
      if (loading.value) {

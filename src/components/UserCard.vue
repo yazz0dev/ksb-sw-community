@@ -67,9 +67,5 @@ export default {
     gap: 0.5rem; /* Space between ID and stars */
     margin-bottom: 0;
 }
- /* Adjust star rating vertical alignment if necessary */
-.vue3-star-ratings {
-    display: inline-block;
-    vertical-align: middle;
-}
+
 </style>

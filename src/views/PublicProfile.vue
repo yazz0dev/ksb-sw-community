@@ -12,7 +12,9 @@
         </div>
         <div v-else-if="errorMessage" class="alert alert-warning">{{ errorMessage }}</div>
         <div v-else-if="!user" class="alert alert-warning">User profile data not available.</div>
-
+        <div v-else-if="user?.role === 'Admin'" class="alert alert-info">
+            Administrator accounts do not have public profiles.
+        </div>
         <div v-else class="card shadow-sm">
             <div class="card-header">
                 <h2 class="mb-0">{{ user.name || 'User Profile' }}</h2>
@@ -117,6 +119,7 @@ async function fetchUserData(id) {
                 xpByRole: docSnap.data().xpByRole,
                 skills: docSnap.data().skills,
                 preferredRoles: docSnap.data().preferredRoles,
+                role: docSnap.data().role, // Added role field
                 // projects: docSnap.data().projects, // REMOVED - Fetch from events now
              };
         } else {

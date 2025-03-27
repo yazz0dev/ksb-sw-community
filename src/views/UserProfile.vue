@@ -78,7 +78,7 @@
                 <div class="profile-section requests-section card mb-4 shadow-sm">
                 <div class="card-header"><h3 class="mb-0">My Event Requests</h3></div>
                 <div class="card-body">
-+                   <!-- UserRequests component now fetches events with status Pending/Rejected for the current user -->
+                    <!-- UserRequests component now fetches events with status Pending/Rejected for the current user -->
                     <UserRequests />
                 </div>
             </div>
@@ -94,6 +94,7 @@ import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import UserRequests from '../components/UserRequests.vue';
 import PortfolioGeneratorButton from '../components/PortfolioGeneratorButton.vue';
+import { useRouter } from 'vue-router';
 
 const store = useStore();
 const loading = ref(true); // Loading state for user data
@@ -101,6 +102,14 @@ const user = computed(() => store.getters['user/getUser']);
 const isAdmin = computed(() => store.getters['user/isAdmin']);
 const currentUserTotalXp = computed(() => store.getters['user/currentUserTotalXp']);
 const hasFetchedUserData = computed(() => store.getters['user/hasFetchedUserData']); // Track initial fetch
+const router = useRouter();
+
+// Redirect admins away from profile page
+watch(() => isAdmin.value, (newValue) => {
+    if (newValue) {
+        router.replace({ name: 'Home' });
+    }
+}, { immediate: true });
 
 // State for fetched projects
 const userProjects = ref([]);

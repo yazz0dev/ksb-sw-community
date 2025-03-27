@@ -132,23 +132,42 @@
             </div>
 
             <!-- Participants Section (Display Only for Individual Events) -->
-             <div v-else class="mb-4">
+            <div v-else class="mb-4">
                 <h3 class="mb-3">Participants</h3>
-                 <div v-if="event.participants && event.participants.length > 0">
-                     <ul class="list-group shadow-sm">
-                       <li v-for="participantId in sortedParticipants" :key="participantId" class="list-group-item d-flex justify-content-between align-items-center">
-                            <router-link :to="{ name: 'PublicProfile', params: { userId: participantId }}">
-                                <i class="fas fa-user me-2 text-muted"></i>
-                                {{ getUserNameFromCache(participantId) || 'Anonymous User' }}
-                            </router-link>
-                           <button v-if="event.ratingsOpen && event.status === 'Completed' && canRateParticipant(participantId)"
-                                   @click="goToIndividualRating(participantId)"
-                                   class="btn btn-info btn-sm btn-inline-mobile">
-                                Rate
-                           </button>
-                       </li>
+                <div v-if="event.participants && event.participants.length > 0">
+                    <!-- Add Rating Button for Individual Events -->
+                    <div v-if="event.ratingsOpen && event.status === 'Completed'" class="mb-3">
+                        <button 
+                            @click="goToWinnerSelection"
+                            class="btn btn-primary"
+                            v-if="canRateEvent"
+                        >
+                            <i class="fas fa-trophy me-1"></i>
+                            Select Winners
+                        </button>
+                        <span v-else class="text-muted">
+                            (You've already submitted your winner selections)
+                        </span>
+                    </div>
+
+                    <ul class="list-group shadow-sm">
+                        <li v-for="participantId in sortedParticipants" 
+                            :key="participantId" 
+                            class="list-group-item d-flex justify-content-between align-items-center"
+                        >
+                            <div class="d-flex align-items-center">
+                                <i v-if="isWinner(participantId)" 
+                                    class="fas fa-trophy text-warning me-2" 
+                                    title="Winner">
+                                </i>
+                                <router-link :to="{ name: 'PublicProfile', params: { userId: participantId }}">
+                                    <i class="fas fa-user me-2 text-muted"></i>
+                                    {{ getUserNameFromCache(participantId) || 'Anonymous User' }}
+                                </router-link>
+                            </div>
+                        </li>
                     </ul>
-                 </div>
+                </div>
                 <p v-else class="alert alert-light">No participants found for this event. Students are added automatically but may have left.</p>
             </div>
 
@@ -173,27 +192,6 @@
                          </li>
                      </ul>
                 </div>
-            </div>
-
-             <!-- Winner Selection UI (Manual) -->
-            <div v-if="canManageEvent && event.status === 'Completed'" class="card mb-4 shadow-sm">
-                 <div class="card-header"><h3 class="mb-0">Select Winner (Manual)</h3></div>
-                 <div class="card-body">
-                    <div v-if="event.isTeamEvent && event.teams && event.teams.length > 0">
-                        <div v-for="team in sortedTeamsForSelection" :key="'win-team-'+team.teamName" class="form-check mb-2">
-                            <input type="radio" :id="'team-' + team.teamName" :value="team.teamName" v-model="selectedWinner" name="winnerSelection" class="form-check-input">
-                            <label :for="'team-' + team.teamName" class="form-check-label">{{ team.teamName }}</label>
-                        </div>
-                    </div>
-                    <div v-else-if="!event.isTeamEvent && event.participants && event.participants.length > 0">
-                        <div v-for="participantId in sortedParticipants" :key="'win-user-'+participantId" class="form-check mb-2">
-                             <input type="radio" :id="'user-' + participantId" :value="participantId" v-model="selectedWinner" name="winnerSelection" class="form-check-input">
-                            <label :for="'user-' + participantId" class="form-check-label"> {{ getUserNameFromCache(participantId) || participantId }} </label>
-                        </div>
-                    </div>
-                     <p v-else class="text-muted mb-0">No teams or participants available to select a winner from.</p>
-                    <button @click="saveWinner" class="btn btn-primary btn-sm mt-3" :disabled="!selectedWinner">Save Selected Winner</button>
-                 </div>
             </div>
 
              <!-- Display Winner -->
@@ -252,7 +250,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import TeamList from '../components/TeamList.vue';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Modal } from 'bootstrap';
 
@@ -424,6 +422,13 @@ const sortedTeamsForSelection = computed(() => {
 });
 const canMarkInProgress = computed(() => { /* ... date check ... */ });
 const canMarkCompleted = computed(() => { /* ... date check ... */ });
+const isEventInDateRange = computed(() => {
+    if (!event.value?.startDate || !event.value?.endDate) return false;
+    const now = new Date();
+    const startDate = event.value.startDate.toDate();
+    const endDate = event.value.endDate.toDate();
+    return now >= startDate && now <= endDate;
+});
 
 // --- Methods ---
 const formatDate = (timestamp) => { if (timestamp?.seconds) { return new Date(timestamp.seconds * 1000).toLocaleDateString(); } return 'N/A'; };
@@ -444,14 +449,62 @@ const getUserNameFromCache = (userId) => nameCache.value.get(userId) || null;
 const getWinnerName = (winnerIdentifier) => { if (!winnerIdentifier || !event.value) return winnerIdentifier; return event.value.isTeamEvent ? winnerIdentifier : (getUserNameFromCache(winnerIdentifier) || winnerIdentifier); };
 const updateStatus = async (newStatus) => { if (!event.value) return; if (newStatus === 'Cancelled' && !confirm(`Cancel "${event.value.eventName}"?`)) return; try { await store.dispatch('events/updateEventStatus', { eventId: props.id, newStatus }); } catch (error) { console.error(`Status update error:`, error); alert(`Failed: ${error.message}`); } };
 const toggleRatingsOpen = async (isOpen) => { if (!event.value) return; try { await store.dispatch('events/toggleRatingsOpen', { eventId: props.id, isOpen }); } catch (error) { console.error("Toggle ratings error:", error); alert(`Failed: ${error.message}`); } };
-const saveWinner = async () => { if (!event.value || !selectedWinner.value) return; if (Array.isArray(event.value.winners) && event.value.winners.includes(selectedWinner.value)) { alert("Already the winner."); return; } try { await store.dispatch('events/setWinners', { eventId: props.id, winners: [selectedWinner.value] }); alert("Winner saved!"); } catch (error) { console.error("Save winner error:", error); alert(`Failed: ${error.message}`); } };
+const saveWinner = async () => { 
+    if (!event.value || !selectedWinner.value) return;
+    try {
+        // Update both winners array and winnersPerRole for compatibility
+        const updates = {
+            winners: [selectedWinner.value],  // Legacy format
+            winnersPerRole: {
+                default: [selectedWinner.value]  // New format
+            }
+        };
+        
+        await updateDoc(doc(db, 'events', props.id), updates);
+        store.dispatch('events/updateLocalEvent', { 
+            id: props.id, 
+            changes: updates 
+        });
+    } catch (error) {
+        console.error("Save winner error:", error);
+        alert(`Failed: ${error.message}`);
+    }
+};
 const deleteEvent = async () => { if (!event.value) return; if (confirm(`PERMANENTLY DELETE "${event.value.eventName}"?`)) { try { await store.dispatch('events/deleteEvent', props.id); alert("Event deleted."); router.push({ name: 'Home' }); } catch (error) { console.error('Delete event error:', error); alert(`Failed: ${error.message}`); } } };
 const calculateWinners = async () => { if (!event.value) return; try { await store.dispatch('events/calculateWinners', props.id); /* Alert is in action */ } catch (error) { console.error("Calc winners error:", error); /* Alert is in action */ } };
 const copyRatingLink = async () => { const link = window.location.href; try { await navigator.clipboard.writeText(link); linkCopied.value = true; setTimeout(() => { linkCopied.value = false; }, 2500); } catch (err) { console.error('Copy failed: ', err); alert("Failed to copy."); } };
 const goToIndividualRating = (participantId) => { if (!event.value || !participantId) return; router.push({ name: 'RatingForm', params: { eventId: props.id }, query: { participant: participantId } }); };
-const canRateParticipant = (participantId) => currentUser.value?.uid !== participantId;
 const submitProject = async () => { submissionError.value = ''; if (!submissionForm.value.projectName || !submissionForm.value.link) { submissionError.value = 'Name and Link required.'; return; } if (!submissionForm.value.link.startsWith('http')) { submissionError.value = 'Enter valid URL.'; return; } isSubmittingProject.value = true; try { await store.dispatch('events/submitProjectToEvent', { eventId: props.id, submissionData: { ...submissionForm.value } }); showSubmissionModal.value = false; alert("Project submitted!"); } catch (error) { console.error("Submit project error:", error); submissionError.value = error.message || 'Failed.'; } finally { isSubmittingProject.value = false; } };
 const leaveEvent = async () => { if (!event.value) return; if (confirm('Leave this event?')) { try { await store.dispatch('events/leaveEvent', props.id); alert("You left the event."); } catch (error) { console.error("Leave event error:", error); alert(`Failed: ${error.message}`); } } };
+
+// Add new computed property
+const canRateEvent = computed(() => {
+    if (!event.value?.ratingsOpen || event.value?.status !== 'Completed') return false;
+    if (!currentUser.value?.uid) return false;
+    
+    // Check if user has already submitted ratings
+    const userRatings = event.value.ratings?.filter(r => r.ratedBy === currentUser.value.uid) || [];
+    return userRatings.length === 0;
+});
+
+// Modify goToIndividualRating to goToWinnerSelection
+const goToWinnerSelection = () => {
+    if (!event.value) return;
+    router.push({ 
+        name: 'RatingForm', 
+        params: { eventId: props.id }
+    });
+};
+
+// Add helper to check if participant is a winner
+const isWinner = (participantId) => {
+    if (!event.value) return false;
+    // Check both winner formats
+    return event.value.winners?.includes(participantId) || 
+           Object.values(event.value.winnersPerRole || {}).some(winners => 
+               Array.isArray(winners) && winners.includes(participantId)
+           );
+};
 
 </script>
 

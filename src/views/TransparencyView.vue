@@ -83,75 +83,103 @@ This page outlines how our KSB MCA Software Community platform operates, aiming 
 `;
 
 const rolesContent = `
-*   **Student:** Can view events, request new events (limit one active/pending request), participate in events (join/leave upcoming), submit projects (during 'In Progress' events), rate participants/teams in completed events, manage their own profile (skills, preferred roles - *project list is now automatic*), view leaderboards, view public profiles, and generate a PDF portfolio based on their profile and event submissions.
+*   **Student:** Can view events, request new events (limit one active/pending request), participate in events (leave upcoming events), submit projects (during 'In Progress' events), rate participants/teams in completed events, manage their profile (skills, preferred roles), view leaderboards, view public profiles, and generate a PDF portfolio.
 *   **Admin:** Have all student permissions plus:
-    *   Can create events directly (auto-approved, bypasses request limit).
+    *   Can create events directly (auto-approved).
     *   Can manage pending event requests (approve/reject).
-    *   Can manage created events (update status, manage teams, toggle ratings, set winners manually or auto-calculate, delete).
-    *   Can manage shared resources (via direct Firestore access or future admin UI).
-    *   Admin accounts do not have a personal user profile page and are excluded from the leaderboard.
+    *   Can manage event lifecycle (update status, manage teams, toggle ratings, calculate/set winners).
+    *   Can edit event details and teams at any stage.
+    *   Admin accounts do not have personal profiles and are excluded from the leaderboard.
 `;
 
 const eventLifecycleContent = `
-1.  **Request (Student):** Students use the "Request Event" form. Requires name, type, description, desired dates. Optional: team event flag, co-organizers, custom rating criteria. The request enters a "Pending" state. A student cannot submit a new request if they have another "Pending" or "Approved" (but not yet started) request.
-2.  **Direct Creation (Admin):** Admins use the "Create Event" form (same UI, different backend action). The event is created directly with an "Upcoming" status and is auto-approved. A date conflict check is performed during creation against other 'Upcoming'/'In Progress' events.
-3.  **Approval (Admin):** Admins review "Pending" requests via "Manage Requests". They can see potential date conflicts. Approving a request creates a new event with status "Upcoming" using the requested details. Rejecting marks the request as "Rejected".
-4.  **Management (Organizer/Co-Organizer/Admin):**
-    *   **Status Updates:** Events progress: Upcoming -> In Progress -> Completed. They can also be "Cancelled" (from Upcoming/In Progress). Moving to 'Completed' triggers XP calculation.
-    *   **Teams:** For team events, authorized users can create teams and assign students via "Manage Teams". Students can only be in one team per event.
-    *   **Participants (Individual):** Participants are added implicitly when they submit a project or potentially through a future "Join Event" button (not currently implemented). Users can leave 'Upcoming' events.
-    *   **Submissions:** Participants (or one member per team) can submit project details (name, link, description) while the event is "In Progress". Only one submission per participant/team is allowed.
-    *   **Ratings:** Once an event is "Completed", authorized users can manually "Open Ratings".
-    *   **Winners:** After completion, authorized users can manually select a winner (radio button) or use "Calculate Winner (Auto)" which determines the highest scoring participant/team based on weighted ratings.
-    *   **Deletion:** Authorized users can delete events (permanent).
+1.  **Event Creation:**
+    * **Student Request:** Use "Request Event" form. One pending request limit per student.
+    * **Admin Creation:** Direct creation with "Create Event" form, auto-approved.
+    * Required: name, type, description, dates. Optional: team format, co-organizers, rating criteria.
+
+2.  **Event Status Flow:**
+    * Pending (Student Request) -> Approved/Rejected (Admin Review)
+    * Approved -> In Progress (Auto-allowed on start date)
+    * In Progress -> Completed (Auto-allowed on end date)
+    * Upcoming/In Progress can be Cancelled
+
+3.  **Key Features by Status:**
+    * **Upcoming:** Team management, participants can leave
+    * **In Progress:** Project submissions allowed (one per participant/team)
+    * **Completed:** Rating system opens (manual toggle), winner calculation
 `;
 
 const teamsContent = `
-*   Applies only to events marked as "Is this a team event?".
-*   Teams are created and students are assigned via the "Manage Teams" page, accessible by the event organizer(s), co-organizer(s) or Admins.
-*   The student selection list shows users with the "Student" role (or no defined role). The current user and users already assigned to *any* team within the *same* event are disabled in the selection list.
-*   Team names must be unique within an event.
+*   Only available for events marked as "team event"
+*   Managed via "Manage Teams" component by organizers/admins
+*   Features:
+    * Add/Edit/Remove teams
+    * Assign/Remove team members
+    * Student can only be in one team per event
+    * Team submissions handled as unit
 `;
 
 const ratingContent = `
-*   **Availability:** Ratings can only be submitted for events that are "Completed" AND have had their "Ratings Open" toggle enabled.
-*   **Who Can Rate:** Any authenticated user (Student, Admin) can rate. Users cannot rate themselves in individual events.
-*   **Process:** Users navigate to the event details page. A "Rate Team" button appears for teams, or a "Rate" button appears next to participants in individual events. Clicking leads to the rating form.
-*   **Criteria:** Events use 5 rating criteria (defaults: Design, Presentation, Problem Solving, Execution, Technology, customizable on creation). Users rate each on a 1-5 star scale. A rating of 0 stars is not counted towards the average unless it's the only rating submitted.
-*   **Score:** The final weighted average score (0-5) is calculated based on the average of the 5 criteria ratings, weighted by the rater's role.
+*   **Availability:** For completed events with ratings toggle enabled
+*   **Access:** Any authenticated user except self-rating
+*   **Rating Criteria:**
+    * Design
+    * Presentation
+    * Problem Solving
+    * Execution
+    * Technology
+*   **Scale:** 1-5 stars per criterion
+*   **Final Score:** Weighted average (0-5) of all criteria ratings
 `;
 
 const xpContent = `
-*   **Calculation Trigger:** XP is automatically calculated/recalculated for all participants when an event's status changes to "Completed", or when winners are set/changed.
-*   **Base XP:** Derived from the weighted average score (0-5 scale) from ratings for that participant/team in the event. The score is multiplied by 10 (e.g., a score of 4.5 yields 45 base XP).
-*   **Winner Bonus:** A fixed bonus (currently 100 XP) is added to the base XP if the participant/team is marked as a winner.
-*   **Distribution (\`xpByRole\`):** The total XP (Base + Bonus) earned from a completed event is currently distributed *equally* across all predefined role categories in the user's profile (\`xpByRole\` map): \`fullstack\`, \`presenter\`, \`designer\`, \`organizer\`, \`problemSolver\`. *Future refinement may allow more targeted distribution based on event type or rated criteria.*
-*   **Total XP:** The "Total XP" shown on profiles and used for the "Overall" leaderboard is the sum of all values in the user's \`xpByRole\` map.
+*   **Calculation Trigger:** Automatic on event completion or winner updates
+*   **XP Formula:**
+    * Base XP = Average Rating Score (0-5) × 10
+    * Winner Bonus = +100 XP
+*   **Role Distribution:**
+    * Total XP split equally across role categories:
+      * Fullstack
+      * Presenter
+      * Designer
+      * Organizer
+      * Problem Solver
+*   **Profile Display:** Shows total XP and per-role breakdown
 `;
 
 const portfolioContent = `
-*   **Project Source:** The "Event Projects" section on the user profile *automatically* displays project submissions made by the user (or their team) for completed events. Manually adding projects to the profile is no longer supported.
-*   **Generation:** A "Generate PDF Portfolio" button is available on the user's own profile page.
-*   **Content:** The generated PDF includes:
-    *   User's Name
-    *   Total XP
-    *   Skills and Preferred Roles (if added on profile)
-    *   XP Breakdown by role (\`xpByRole\`)
-    *   List of Event Project Submissions (Name, Description, Link, Event Context).
+*   **Project Tracking:**
+    * Automatic collection from event submissions
+    * Shows in user profiles (own and public view)
+    * Includes team and individual submissions
+*   **PDF Generation:**
+    * Available on user's own profile
+    * Includes:
+      * Personal Info & Skills
+      * XP Summary & Breakdown
+      * Event Project History
+      * Submission Links
 `;
 
 const leaderboardContent = `
-*   Ranks users (excluding Admins) based on their calculated XP.
-*   Can be filtered by:
-    *   **Overall:** Ranks by Total XP (sum of all \`xpByRole\` categories).
-    *   **Specific Roles:** (e.g., Fullstack, Presenter) Ranks by the XP in that specific \`xpByRole\` category.
+*   **Rankings:**
+    * Overall Score (Total XP)
+    * Role-specific Rankings
+*   **Features:**
+    * Excludes Admin accounts
+    * Real-time updates with XP changes
+    * Sortable by different XP categories
 `;
 
 const generalContent = `
-*   **Resources:** A curated list of links, guides, and downloads is available on the "Resources" page.
-*   **Communication:** Official communication channels will be specified by the department.
-*   **Code of Conduct:** All community members must adhere to a code of conduct promoting respectful and collaborative interaction. (Link to be provided if available).
-*   **Data Privacy:** We collect data necessary for authentication, profile management, event participation, ratings, and XP calculation. We strive to protect user data. This platform is for internal community use.
+*   **Platform Purpose:** Manage KSB MCA software community events and track contributions
+*   **Access:** Authentication required for most features
+*   **Data Management:** 
+    * Stores event participation, submissions, ratings
+    * Automatic XP calculations and updates
+    * Public profiles show verified achievements only
+*   **Updates:** Features and rules may be adjusted based on community needs
 `;
 
 // Function to render markdown with options

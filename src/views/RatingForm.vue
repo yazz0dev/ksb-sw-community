@@ -1,6 +1,10 @@
 // src/views/RatingForm.vue
 <template>
     <div class="container mt-4">
+        <button @click="goBack" class="btn btn-outline-secondary mb-3">
+            <i class="fas fa-arrow-left me-2"></i>Back
+        </button>
+        
         <h2 v-if="!loading && eventName" class="text-center mb-3">
             Rate {{ isTeamEvent ? `Team: ${teamId}` : `Participant` }}
         </h2>
@@ -15,30 +19,68 @@
         <div v-if="errorMessage && !loading" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
 
         <div v-else-if="!event" class="alert alert-warning">Event not found or ratings are not open.</div>
+        <div v-else-if="!event?.ratingConstraints?.length" class="alert alert-warning">
+            This event has no rating criteria defined.
+        </div>
         <div v-else>
             <div class="card shadow-sm">
                 <div class="card-body">
                     <form @submit.prevent="submitRating">
-                        <!-- Dynamic Rating Criteria -->
-                        <div v-for="(constraint, index) in ratingConstraints" :key="index" class="mb-4">
-                            <h5 class="mb-3">{{ constraint }}</h5>
-                            <div class="rating-wrapper">
-                                <CustomStarRating
-                                    v-model="ratings[`constraint${index}`]"
-                                    :disabled="isSubmitting"
-                                    :show-rating="true"
-                                />
+                        <!-- Team Event Rating -->
+                        <div v-if="isTeamEvent">
+                            <div v-for="(constraint, index) in ratingConstraints" :key="index" class="mb-4">
+                                <h5 class="mb-3">{{ constraint }}</h5>
+                                <div class="rating-wrapper">
+                                    <CustomStarRating
+                                        v-model="ratings[`constraint${index}`]"
+                                        :disabled="isSubmitting"
+                                        :show-rating="true"
+                                    />
+                                </div>
+                                <p v-if="getXpForConstraint(index)" class="text-muted small mt-1">
+                                    <i class="fas fa-trophy me-1"></i>Worth up to {{ getXpForConstraint(index) }} XP 
+                                    ({{ getRoleForConstraint(index) }})
+                                </p>
                             </div>
-                            <p v-if="getXpForConstraint(index)" class="text-muted small mt-1">
-                                <i class="fas fa-trophy me-1"></i>Worth up to {{ getXpForConstraint(index) }} XP 
-                                ({{ getRoleForConstraint(index) }})
-                            </p>
+                        </div>
+                        
+                        <!-- Individual Event Winner Selection -->
+                        <div v-else>
+                            <h5 class="mb-3">Select Winners</h5>
+                            <div v-for="(constraint, index) in ratingConstraints" :key="index" class="mb-4">
+                                <div class="constraint-section p-3 border rounded">
+                                    <h6 class="mb-3">{{ constraint }}</h6>
+                                    <div class="form-group">
+                                        <label :for="'winner'+index">Select Winner for {{ constraint }}</label>
+                                        <select 
+                                            :id="'winner'+index"
+                                            v-model="ratings[`constraint${index}`]"
+                                            class="form-select"
+                                            required
+                                            :disabled="isSubmitting"
+                                        >
+                                            <option value="">Choose winner...</option>
+                                            <option 
+                                                v-for="participant in availableParticipants" 
+                                                :key="participant"
+                                                :value="participant"
+                                            >
+                                                {{ getUserName(participant) }}
+                                            </option>
+                                        </select>
+                                        <p v-if="getXpForConstraint(index)" class="text-muted small mt-2">
+                                            <i class="fas fa-trophy me-1"></i>Winner gets {{ getXpForConstraint(index) }} XP 
+                                            ({{ getRoleForConstraint(index) }})
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Submit Button -->
-                        <button type="submit" class="btn btn-primary" :disabled="isSubmitting || !isValid">
+                        <button type="submit" class="btn btn-primary mt-3" :disabled="isSubmitting || !isValid">
                             <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status"></span>
-                            {{ isSubmitting ? 'Submitting...' : 'Submit Rating' }}
+                            {{ isSubmitting ? 'Submitting...' : (isTeamEvent ? 'Submit Rating' : 'Submit Winners') }}
                         </button>
                     </form>
                 </div>
@@ -72,25 +114,50 @@ const ratings = ref({});
 const event = ref(null);
 
 // Computed
-const ratingConstraints = computed(() => event.value?.ratingConstraints || []);
+const ratingConstraints = computed(() => {
+    if (!event.value) return [];
+    
+    // Check both xpAllocation and ratingConstraints
+    if (Array.isArray(event.value.xpAllocation)) {
+        // Map from xpAllocation if available
+        return event.value.xpAllocation
+            .sort((a, b) => (a.constraintIndex || 0) - (b.constraintIndex || 0))
+            .map(allocation => allocation.constraintLabel);
+    }
+    
+    // Fallback to ratingConstraints if xpAllocation not available
+    return Array.isArray(event.value.ratingConstraints) ? event.value.ratingConstraints : [];
+});
 
 const isValid = computed(() => {
-    if (!event.value?.ratingConstraints) return false;
-    return event.value.ratingConstraints.every((_, index) => 
-        typeof ratings.value[`constraint${index}`] === 'number' && 
-        ratings.value[`constraint${index}`] > 0
-    );
+    if (!event.value?.ratingConstraints || event.value.ratingConstraints.length === 0) return false;
+    return event.value.ratingConstraints.every((_, index) => {
+        if (isTeamEvent.value) {
+            return typeof ratings.value[`constraint${index}`] === 'number' && 
+                   ratings.value[`constraint${index}`] > 0;
+        } else {
+            return ratings.value[`constraint${index}`] && 
+                   typeof ratings.value[`constraint${index}`] === 'string';
+        }
+    });
+});
+
+// Add computed for available participants
+const availableParticipants = computed(() => {
+    if (!event.value?.participants) return [];
+    return event.value.participants.filter(p => p !== currentUser.value?.uid);
 });
 
 // Helper Methods
 const getXpForConstraint = (index) => {
-    if (!event.value?.xpAllocation) return null;
+    if (!event.value?.xpAllocation || !Array.isArray(event.value.xpAllocation)) return null;
+    // Find allocation by constraintIndex
     const allocation = event.value.xpAllocation.find(a => a.constraintIndex === index);
     return allocation?.points || null;
 };
 
 const getRoleForConstraint = (index) => {
-    if (!event.value?.xpAllocation) return '';
+    if (!event.value?.xpAllocation || !Array.isArray(event.value.xpAllocation)) return '';
     const allocation = event.value.xpAllocation.find(a => a.constraintIndex === index);
     return formatRoleName(allocation?.role || '');
 };
@@ -129,17 +196,15 @@ onMounted(async () => {
         if (!eventDetails) throw new Error('Event not found or not accessible.');
         eventName.value = eventDetails.eventName;
         isTeamEvent.value = !!eventDetails.isTeamEvent;
-        const defaultConstraints = ['Design', 'Presentation', 'Problem Solving', 'Execution', 'Technology'];
-        ratingConstraints.value = (Array.isArray(eventDetails.ratingConstraints) && eventDetails.ratingConstraints.length === 5) ? eventDetails.ratingConstraints : defaultConstraints;
-        if (eventDetails.status !== 'Completed' || !eventDetails.ratingsOpen) throw new Error('Ratings are currently closed for this event.');
+        
+        if (eventDetails.status !== 'Completed' || !eventDetails.ratingsOpen) {
+            throw new Error('Ratings are currently closed for this event.');
+        }
+        
         if (isTeamEvent.value) {
             if (!props.teamId) throw new Error("Team ID is required for rating this team event.");
-        } else {
-            const participantQuery = route.query.participant;
-            if (!participantQuery || typeof participantQuery !== 'string') throw new Error("Participant ID missing in URL query for individual rating.");
-            participantToRate.value = participantQuery;
-            participantName.value = await fetchUserName(participantToRate.value);
         }
+        // Remove participant validation since we're handling all participants at once
         event.value = eventDetails;
     } catch (error) {
         console.error("Error loading rating form:", error);
@@ -155,19 +220,30 @@ const submitRating = async () => {
     isSubmitting.value = true;
 
     try {
-        // Transform ratings to use constraint labels as keys
-        const ratingsByLabel = {};
-        event.value.ratingConstraints.forEach((constraint, index) => {
-            ratingsByLabel[constraint] = ratings.value[`constraint${index}`];
-        });
-
-        // Prepare rating data
-        const ratingData = {
-            ratingType: route.query.teamId ? 'team' : 'individual',
-            targetId: route.query.teamId || route.query.participant,
-            rating: ratingsByLabel,
-            submittedAt: new Date()
-        };
+        let ratingData;
+        
+        if (isTeamEvent.value) {
+            // Transform team ratings to use constraint labels as keys
+            const ratingsByLabel = {};
+            event.value.ratingConstraints.forEach((constraint, index) => {
+                ratingsByLabel[constraint] = ratings.value[`constraint${index}`];
+            });
+            ratingData = {
+                ratingType: 'team',
+                targetId: route.query.teamId,
+                rating: ratingsByLabel
+            };
+        } else {
+            // Transform individual ratings to participant selections
+            const selectionsByConstraint = {};
+            event.value.ratingConstraints.forEach((constraint, index) => {
+                selectionsByConstraint[constraint] = ratings.value[`constraint${index}`];
+            });
+            ratingData = {
+                ratingType: 'individual',
+                selections: selectionsByConstraint
+            };
+        }
 
         await store.dispatch('user/submitRating', {
             eventId: props.eventId,
@@ -184,7 +260,12 @@ const submitRating = async () => {
     }
 };
 
-const goBack = () => { router.back(); };
+// Add helper method for participant names
+const getUserName = (userId) => {
+    return participantName.value || userId;
+};
+
+const goBack = () => router.back();
 
 </script>
 
@@ -196,5 +277,9 @@ const goBack = () => { router.back(); };
     align-items: center;
     padding: var(--space-2) 0;
     width: 100%;
+}
+
+.constraint-section {
+    background-color: var(--bs-gray-100);
 }
 </style>

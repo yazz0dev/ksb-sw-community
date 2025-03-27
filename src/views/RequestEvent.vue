@@ -98,19 +98,27 @@
 
                 <!-- XP Allocation Section -->
                 <div class="card mb-4">
-                    <div class="card-header bg-light">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Rating Criteria & XP Allocation</h5>
+                        <button 
+                            type="button" 
+                            class="btn btn-sm btn-outline-primary" 
+                            @click="addConstraint"
+                            :disabled="ratingCriteria.length >= 5">
+                            <i class="fas fa-plus"></i> Add Criterion
+                        </button>
                     </div>
                     <div class="card-body">
                         <div v-for="(criteria, index) in ratingCriteria" :key="index" 
-                             class="row mb-3 align-items-end">
+                             class="row mb-3 align-items-end position-relative">
                             <div class="col-md-4">
                                 <label :for="'criteriaLabel'+index" class="form-label">
-                                    Criteria {{ index + 1 }} Label
+                                    Criteria {{ index + 1 }} Label <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" :id="'criteriaLabel'+index" 
                                        v-model="criteria.label"
                                        class="form-control" 
+                                       required
                                        :placeholder="getDefaultCriteriaLabel(index)">
                             </div>
                             <div class="col-md-4">
@@ -135,6 +143,17 @@
                                        class="form-control"
                                        min="0" max="50">
                             </div>
+                            <button 
+                                v-if="ratingCriteria.length > 1"
+                                type="button"
+                                class="btn btn-sm btn-outline-danger position-absolute top-0 end-0"
+                                @click="removeConstraint(index)"
+                                title="Remove this criterion">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div v-if="ratingCriteria.length < 1" class="alert alert-warning">
+                            At least one rating criterion is required.
                         </div>
                     </div>
                 </div>
@@ -324,7 +343,7 @@ const handleSubmit = async () => {
     isSubmitting.value = true;
 
     try {
-        const submissionData = prepareSubmissionData(); // Get prepared data first
+        const submissionData = prepareSubmissionData();
 
         // Basic validation
         if (!eventName.value || !eventType.value || !description.value || !startDate.value || !endDate.value) {
@@ -349,7 +368,6 @@ const handleSubmit = async () => {
             coOrganizers: selectedCoOrganizers.value,
             ratingCriteria: submissionData.ratingConstraints,
             xpAllocation: submissionData.xpAllocation,
-            status: isAdmin.value ? 'Approved' : 'Pending',
             teams: isTeamEvent.value ? teams.value.map(t => ({
                 teamName: t.name,
                 members: t.members
@@ -357,7 +375,7 @@ const handleSubmit = async () => {
             requestedAt: Timestamp.now()
         };
 
-        // Add appropriate date fields based on user role
+        // Add date fields based on user role
         if (isAdmin.value) {
             finalData.startDate = startDateObj;
             finalData.endDate = endDateObj;
@@ -366,16 +384,12 @@ const handleSubmit = async () => {
             finalData.desiredEndDate = endDateObj;
         }
 
-        // Dispatch appropriate action
-        if (isAdmin.value) {
-            await store.dispatch('events/createEvent', finalData);
-            alert('Event created successfully.');
-            router.push('/home');
-        } else {
-            await store.dispatch('events/requestEvent', finalData);
-            alert('Event request submitted successfully.');
-            router.push('/profile');
-        }
+        // Always use requestEvent for non-admins
+        const actionType = isAdmin.value ? 'events/createEvent' : 'events/requestEvent';
+        const eventId = await store.dispatch(actionType, finalData);
+        
+        alert(isAdmin.value ? 'Event created successfully.' : 'Event request submitted successfully.');
+        router.push(isAdmin.value ? '/home' : '/profile');
     } catch (error) {
         console.error("Event submission error:", error);
         errorMessage.value = error.message || 'Failed to process event submission.';
@@ -386,11 +400,7 @@ const handleSubmit = async () => {
 
 // New reactive state for rating criteria
 const ratingCriteria = ref([
-    { label: '', role: '', points: 0 },
-    { label: '', role: '', points: 0 },
-    { label: '', role: '', points: 0 },
-    { label: '', role: '', points: 0 },
-    { label: '', role: '', points: 0 }
+    { label: '', role: '', points: 0 } // Start with one empty constraint
 ]);
 
 // Default labels helper
@@ -399,6 +409,19 @@ const defaultCriteriaLabels = [
 ];
 
 const getDefaultCriteriaLabel = (index) => defaultCriteriaLabels[index] || `Criteria ${index + 1}`;
+
+// Add new method to add/remove constraints
+const addConstraint = () => {
+    if (ratingCriteria.value.length < 5) {
+        ratingCriteria.value.push({ label: '', role: '', points: 0 });
+    }
+};
+
+const removeConstraint = (index) => {
+    if (ratingCriteria.value.length > 1) {
+        ratingCriteria.value.splice(index, 1);
+    }
+};
 
 // Modified submission preparation
 const prepareSubmissionData = () => {
@@ -433,7 +456,6 @@ const availableRoles = [
     { value: 'fullstack', label: 'Full Stack Developer' },
     { value: 'presenter', label: 'Presenter' },
     { value: 'designer', label: 'Designer' },
-    { value: 'organizer', label: 'Organizer' },
     { value: 'problemSolver', label: 'Problem Solver' }
 ];
 
