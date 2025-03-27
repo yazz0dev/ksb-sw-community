@@ -228,16 +228,13 @@ const filteredStudentCoOrganizers = computed(() => {
 });
 const availableStudentsForTeams = computed(() => potentialStudentCoOrganizers.value);
 
-// --- Watchers ---
-watch(isTeamEvent, (newValue) => {
-    if (!newValue) {
-        teams.value = [{ name: '', members: [] }]; // Reset if switching to individual
-    } else if (teams.value.length === 0) {
-         teams.value = [{ name: '', members: [] }];
-    }
-});
-
 // --- Helper Functions ---
+const getSubmitButtonText = () => {
+    if (isSubmitting.value) return 'Submitting...';
+    if (isAdmin.value) return 'Create Event';
+    return 'Submit Event Request';
+};
+
 async function fetchUserNames(userIds) {
     const idsToFetch = [...new Set(userIds)].filter(id => id && !studentNameCache.value.hasOwnProperty(id));
     if (idsToFetch.length === 0) return;

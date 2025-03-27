@@ -276,6 +276,7 @@ const submissionForm = ref({ projectName: '', link: '', description: '' });
 const submissionError = ref('');
 const isSubmittingProject = ref(false);
 const loadingSubmissions = ref(false);
+const errorMessage = ref('');
 
 // Fetch User Names
 async function fetchUserNames(userIds) {
@@ -328,20 +329,27 @@ watch(eventFromStore, (newEventData) => {
 }, { immediate: true, deep: true }); // Use deep watch to catch nested changes like teams array
 
 // Initial Fetch Function
-async function fetchAndSetEventInitial() {
-    loading.value = true;
+const fetchAndSetEventInitial = async () => {
     try {
-        const fetchedEvent = await store.dispatch('events/fetchEventDetails', props.id); // Fetches and caches in store
-        if (!fetchedEvent) {
-            console.warn(`Event ${props.id} not found.`);
-            loading.value = false;
+        // Add loading state if not already present
+        loading.value = true;
+        errorMessage.value = '';
+
+        const eventData = await store.dispatch('events/fetchEventDetails', props.id);
+        if (!eventData) {
+            errorMessage.value = `Event ${props.id} not found.`;
+            // Optionally redirect to events list or show not found message
+            router.push('/home'); // Add this line to redirect on not found
+            return;
         }
-        // Watcher will handle setting event.value from the store cache
+        // ... rest of the function
     } catch (error) {
-        console.error("Error fetching initial event details:", error);
+        console.error('Error fetching event:', error);
+        errorMessage.value = error.message || 'Failed to load event details.';
+    } finally {
         loading.value = false;
     }
-}
+};
 
 // Lifecycle Hooks
 onMounted(() => {
