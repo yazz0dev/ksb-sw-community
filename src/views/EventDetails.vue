@@ -83,16 +83,14 @@
                              v-if="event.status === 'Upcoming' || event.status === 'Approved'"
                              @click="updateStatus('In Progress')"
                              class="btn btn-info btn-sm"
-                             :disabled="!canMarkInProgress"
-                             :title="canMarkInProgress ? 'Mark event as started' : 'Can only mark in progress on or after start date'">
+                             :title="'Can only mark in progress on or after start date'">
                              <i class="fas fa-play me-1"></i> Mark In Progress
                          </button>
                          <button
                              v-if="event.status === 'In Progress'"
                              @click="updateStatus('Completed')"
                              class="btn btn-success btn-sm"
-                             :disabled="!canMarkCompleted"
-                             :title="canMarkCompleted ? 'Mark event as finished' : 'Can only mark completed on or after end date'">
+                             :title="'Can only mark completed on or after end date'">
                              <i class="fas fa-check-circle me-1"></i> Mark Completed
                          </button>
                          <button @click="updateStatus('Cancelled')" class="btn btn-warning btn-sm"><i class="fas fa-times-circle me-1"></i> Cancel Event</button>
@@ -102,16 +100,20 @@
                     <button v-if="event.status === 'Completed'" @click="toggleRatingsOpen(!event.ratingsOpen)" class="btn btn-secondary btn-sm">
                          <i :class="['fas', event.ratingsOpen ? 'fa-lock' : 'fa-lock-open', 'me-1']"></i> {{ event.ratingsOpen ? 'Close Ratings' : 'Open Ratings' }}
                     </button>
-                    <button v-if="event.status === 'Completed'" @click="calculateWinners" class="btn btn-outline-secondary btn-sm" title="Attempt automatic calculation based on average ratings">
+                    <button v-if="event.status === 'Completed' && event.ratingsOpen && hasEnoughRatings" 
+                            @click="calculateWinners" 
+                            class="btn btn-outline-secondary btn-sm" 
+                            title="Attempt automatic calculation based on average ratings">
                         <i class="fas fa-trophy me-1"></i> Calculate Winner (Auto)
                     </button>
                     <button v-if="event.status === 'Completed' && event.ratingsOpen" @click="copyRatingLink" class="btn btn-outline-info btn-sm">
                           <i class="fas fa-share-alt me-1"></i> Copy Rating Link
                     </button>
-                    <span v-if="linkCopied" class="text-success small ms-2 align-self-center">Link Copied!</span>
 
-                    <!-- Delete Button -->
-                    <button @click="deleteEvent" class="btn btn-danger btn-sm ms-auto">
+                    <!-- Delete Button - Only show during Pending state -->
+                    <button v-if="event.status === 'Pending'" 
+                           @click="deleteEvent" 
+                           class="btn btn-danger btn-sm ms-auto">
                         <i class="fas fa-trash-alt me-1"></i> Delete Event
                     </button>
                  </div>
@@ -447,7 +449,19 @@ const getCoOrganizerDisplayNames = () => {
 }
 const getUserNameFromCache = (userId) => nameCache.value.get(userId) || null;
 const getWinnerName = (winnerIdentifier) => { if (!winnerIdentifier || !event.value) return winnerIdentifier; return event.value.isTeamEvent ? winnerIdentifier : (getUserNameFromCache(winnerIdentifier) || winnerIdentifier); };
-const updateStatus = async (newStatus) => { if (!event.value) return; if (newStatus === 'Cancelled' && !confirm(`Cancel "${event.value.eventName}"?`)) return; try { await store.dispatch('events/updateEventStatus', { eventId: props.id, newStatus }); } catch (error) { console.error(`Status update error:`, error); alert(`Failed: ${error.message}`); } };
+const updateStatus = async (newStatus) => { 
+    if (!event.value) return;
+    if (newStatus === 'Cancelled' && !confirm(`Cancel "${event.value.eventName}"?`)) return;
+    try { 
+        await store.dispatch('events/updateEventStatus', { 
+            eventId: props.id, 
+            newStatus 
+        }); 
+    } catch (error) { 
+        console.error(`Status update error:`, error); 
+        alert(error.message || 'Failed to update event status'); 
+    } 
+};
 const toggleRatingsOpen = async (isOpen) => { if (!event.value) return; try { await store.dispatch('events/toggleRatingsOpen', { eventId: props.id, isOpen }); } catch (error) { console.error("Toggle ratings error:", error); alert(`Failed: ${error.message}`); } };
 const saveWinner = async () => { 
     if (!event.value || !selectedWinner.value) return;
@@ -505,6 +519,15 @@ const isWinner = (participantId) => {
                Array.isArray(winners) && winners.includes(participantId)
            );
 };
+
+// Add this new computed property with the other computed properties
+const hasEnoughRatings = computed(() => {
+    if (!event.value) return false;
+    const totalRatings = event.value.isTeamEvent
+        ? (event.value.teams || []).reduce((sum, team) => sum + (team.ratings?.length || 0), 0)
+        : (event.value.ratings?.length || 0);
+    return totalRatings >= 10;
+});
 
 </script>
 

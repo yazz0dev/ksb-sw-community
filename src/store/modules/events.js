@@ -13,7 +13,9 @@ import {
     writeBatch, // Keep import, might be useful later
     orderBy,
     arrayUnion,
-    arrayRemove
+    arrayRemove,
+    enableNetwork,
+    disableNetwork
 } from 'firebase/firestore';
 // Importing the fetch function from user module is not standard practice.
 // Instead, call the user module action via dispatch with { root: true }.
@@ -327,7 +329,7 @@ const actions = {
     },
 
     // Fetch all events
-    async fetchEvents({ commit }) {
+    async fetchEvents({ commit, dispatch }) {
         try {
             // Consider adding status filters or pagination if list grows very large
             const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
@@ -335,7 +337,7 @@ const actions = {
             const events = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             commit('setEvents', events);
         } catch (error) {
-            console.error('Error fetching events:', error);
+            await dispatch('handleFirestoreError', error);
             commit('setEvents', []); // Set empty on error
             // Potentially throw error for UI feedback
         }
@@ -473,8 +475,14 @@ const actions = {
 
     // Update the status of an event (Handles main state transitions)
     async updateEventStatus({ dispatch, rootGetters }, { eventId, newStatus }) {
-        const validStatuses = ['InProgress', 'Completed', 'Cancelled', 'Approved']; // Approved might be for reverting Cancelled by Admin
-        if (!validStatuses.includes(newStatus)) { throw new Error('Invalid target event status provided.'); }
+        // Update valid statuses to match the actual status values used
+        const validStatuses = ['Approved', 'In Progress', 'Completed', 'Cancelled'];
+        if (!validStatuses.includes(newStatus)) { 
+            throw new Error(`Invalid status: ${newStatus}. Valid statuses are: ${validStatuses.join(', ')}`); 
+        }
+
+        // Fix status value for 'In Progress' to match the database format
+        const statusToSet = newStatus === 'In Progress' ? 'InProgress' : newStatus;
 
         const eventRef = doc(db, 'events', eventId);
         try {
@@ -493,25 +501,16 @@ const actions = {
              if (!isAdmin && !isOrganizer) { throw new Error("Permission denied to update event status."); }
 
             // State Transition Logic & Validation
-            const updates = { status: newStatus };
+            const updates = { status: statusToSet };
 
             switch (newStatus) {
-                case 'InProgress':
+                case 'In Progress':
                     if (currentEvent.status !== 'Approved') throw new Error("Event must be 'Approved' to be marked 'In Progress'.");
-                    if (!eventStartDate) throw new Error("Event start date is missing, cannot mark in progress.");
-                    // Allow marking in progress on or after the start date (start of day)
-                    eventStartDate.setHours(0, 0, 0, 0);
-                    if (now < eventStartDate) throw new Error(`Cannot start event before ${eventStartDate.toLocaleDateString()}.`);
                     updates.ratingsOpen = false; // Ensure ratings are closed when starting/re-starting
                     break;
 
                 case 'Completed':
                     if (currentEvent.status !== 'InProgress') throw new Error("Event must be 'In Progress' to be marked 'Completed'.");
-                    if (!eventEndDate) throw new Error("Event end date is missing, cannot mark completed.");
-                    // Allow completion on or after the end date (end of day)
-                    let endOfDay = eventEndDate ? new Date(eventEndDate) : new Date();
-                    endOfDay.setHours(23, 59, 59, 999);
-                    if (now < endOfDay) throw new Error(`Cannot complete event before the end of ${endOfDay.toLocaleDateString()}.`);
                     updates.ratingsOpen = false; // Default to closed on completion
                     updates.completedAt = Timestamp.now(); // Record completion time
                     break;
@@ -1084,7 +1083,29 @@ const actions = {
             console.error(`Error updating event details for ${eventId}:`, error);
             throw error; // Re-throw for component
         }
-    }
+    },
+
+    // Add a new action to handle connection issues
+    async handleFirestoreError({ commit }, error) {
+        console.error('Firestore operation failed:', error);
+        
+        if (error.code === 'permission-denied') {
+            throw new Error('You do not have permission to perform this operation.');
+        }
+        
+        if (error.code === 'unavailable' || error.code === 'failed-precondition') {
+            // Try to reconnect
+            try {
+                await disableNetwork(db);
+                await enableNetwork(db);
+            } catch (reconnectError) {
+                console.error('Reconnection attempt failed:', reconnectError);
+            }
+            throw new Error('Connection issue detected. Please check your internet connection.');
+        }
+        
+        throw error;
+    },
 };
 
 const mutations = {

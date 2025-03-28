@@ -3,8 +3,9 @@ import { createApp } from 'vue'; // Removed ref, watch
 import App from './App.vue';
 import router from './router';
 import store from './store';
-import { auth } from './firebase'; // Import auth from firebase.js
+import { auth, db } from './firebase'; // Import auth and db from firebase.js
 import { onAuthStateChanged } from 'firebase/auth';
+import { enableIndexedDbPersistence, disableNetwork, enableNetwork } from 'firebase/firestore';
 
 // Import Bootstrap CSS & JS (Ensure these are imported only once)
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -19,12 +20,43 @@ import '@fortawesome/fontawesome-free/css/all.css';
 let appInstance = null;
 let authInitialized = false; // Flag to prevent multiple initializations
 
+// Add Firestore persistence and error handling
+const initializeFirestore = async () => {
+    try {
+        // Enable offline persistence
+        await enableIndexedDbPersistence(db);
+        console.log("Firestore persistence enabled");
+    } catch (err) {
+        if (err.code === 'failed-precondition') {
+            console.warn('Firestore persistence unavailable: multiple tabs open');
+        } else if (err.code === 'unimplemented') {
+            console.warn('Firestore persistence unavailable: browser unsupported');
+        } else {
+            console.error('Firestore initialization error:', err);
+        }
+    }
+};
+
+// Add network state handling
+let isOnline = navigator.onLine;
+window.addEventListener('online', () => {
+    isOnline = true;
+    enableNetwork(db).catch(console.error);
+});
+window.addEventListener('offline', () => {
+    isOnline = false;
+    disableNetwork(db).catch(console.error);
+});
+
 // Listen for the initial auth state change ONCE
 const unsubscribe = onAuthStateChanged(auth, async (user) => {
     console.log("Initial Auth State Determined. User:", user ? user.uid : 'null');
     unsubscribe(); // Unsubscribe after the first callback
 
     try {
+        // Initialize Firestore first
+        await initializeFirestore();
+
         if (user) {
             // Fetch data only if user exists on initial load
             await store.dispatch('user/fetchUserData', user.uid);

@@ -105,4 +105,18 @@
    router.push({ name: 'RatingForm', params: { eventId: props.eventId, teamId: teamId } }); // Use named route
  };
 
+ // Add new computed property to check if all students are assigned
+ const areAllStudentsAssigned = computed(() => {
+    // Get all unique students from all teams
+    const assignedStudents = new Set(
+        teamsWithDetails.value.flatMap(team => team.members || [])
+    );
+    
+    // Compare with total available students
+    return props.students.every(student => assignedStudents.has(student.uid));
+});
+
+// Pass this to parent slot or emit as needed
+defineEmits(['update:teams', 'canAddTeam']);
+
 </script>

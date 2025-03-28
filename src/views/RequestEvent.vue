@@ -86,7 +86,12 @@
                         <label :for="isAdmin ? 'startDate' : 'desiredStartDate'" class="form-label">
                             {{ isAdmin ? 'Start Date' : 'Desired Start Date' }} <span class="text-danger">*</span>
                         </label>
-                        <input type="date" :id="isAdmin ? 'startDate' : 'desiredStartDate'" v-model="startDate" required class="form-control" :min="minDate" :disabled="isSubmitting"/>
+                        <div class="input-group">
+                            <input type="date" :id="isAdmin ? 'startDate' : 'desiredStartDate'" v-model="startDate" required class="form-control" :min="minDate" :disabled="isSubmitting"/>
+                            <button class="btn btn-outline-secondary" type="button" @click="setNextAvailableDate">
+                                <i class="fas fa-calendar-check"></i> Next Available
+                            </button>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <label :for="isAdmin ? 'endDate' : 'desiredEndDate'" class="form-label">
@@ -136,12 +141,11 @@
                             </div>
                             <div class="col-md-4">
                                 <label :for="'xpPoints'+index" class="form-label">
-                                    XP Points (0-50)
+                                    XP Points ({{ criteria.points }})
                                 </label>
-                                <input type="number" :id="'xpPoints'+index" 
+                                <input type="range" :id="'xpPoints'+index" 
                                        v-model.number="criteria.points"
-                                       class="form-control"
-                                       min="0" max="50">
+                                       class="form-range" min="5" max="50" step="5">
                             </div>
                             <button 
                                 v-if="ratingCriteria.length > 1"
@@ -173,6 +177,7 @@
                 :name-cache="studentNameCache"
                 :is-submitting="isSubmitting"
                 @update:teams="updateTeams"
+                @can-add-team="updateCanAddTeam"
             />
             <div class="mt-4">
                 <button type="button" class="btn btn-secondary me-2" @click="currentStep = 1">
@@ -250,6 +255,7 @@ const availableStudentsForTeams = computed(() => potentialStudentCoOrganizers.va
 // --- Helper Functions ---
 const getSubmitButtonText = () => {
     if (isSubmitting.value) return 'Submitting...';
+    if (isTeamEvent.value && !hasValidTeams.value) return 'At least 2 teams required';
     if (isAdmin.value) return 'Create Event';
     return 'Submit Event Request';
 };
@@ -350,9 +356,9 @@ const handleSubmit = async () => {
             throw new Error('Please fill in all required fields.');
         }
 
-        // Team validation if needed
-        if (isTeamEvent.value && (!teams.value.length || !teams.value.every(t => t.name && t.members.length))) {
-            throw new Error('All teams must have a name and at least one member.');
+        // Team validation
+        if (isTeamEvent.value && !hasValidTeams.value) {
+            throw new Error('Please ensure there are at least 2 teams and each team has a name and at least one member.');
         }
 
         // Convert dates to proper format
@@ -400,7 +406,7 @@ const handleSubmit = async () => {
 
 // New reactive state for rating criteria
 const ratingCriteria = ref([
-    { label: '', role: '', points: 0 } // Start with one empty constraint
+    { label: '', role: '', points: 5 } // Start with one empty constraint
 ]);
 
 // Default labels helper
@@ -413,7 +419,7 @@ const getDefaultCriteriaLabel = (index) => defaultCriteriaLabels[index] || `Crit
 // Add new method to add/remove constraints
 const addConstraint = () => {
     if (ratingCriteria.value.length < 5) {
-        ratingCriteria.value.push({ label: '', role: '', points: 0 });
+        ratingCriteria.value.push({ label: '', role: '', points: 5 });
     }
 };
 
@@ -477,13 +483,80 @@ const handleBack = () => {
 };
 
 const updateTeams = (newTeams) => {
-    teams.value = newTeams;
+    // Only update if there's an actual change
+    if (JSON.stringify(teams.value) !== JSON.stringify(newTeams)) {
+        teams.value = newTeams.map(t => ({
+            name: t.teamName,
+            members: [...t.members]
+        }));
+    }
 };
 
+// Add state for tracking if new teams can be added
+const canAddTeam = ref(true);
+
+// Add method to update canAddTeam state
+const updateCanAddTeam = (value) => {
+    if (canAddTeam.value !== value) {
+        canAddTeam.value = value;
+    }
+};
+
+// Update hasValidTeams computed to include the new check
 const hasValidTeams = computed(() => {
-    return teams.value.length > 0 && 
-           teams.value.every(team => team.name && team.members.length > 0);
+    if (!isTeamEvent.value) return true; // Always valid for non-team events
+    if (!teams.value || teams.value.length < 2) {
+        return false;
+    }
+    return teams.value.every(team => 
+        team.name?.trim() && 
+        Array.isArray(team.members) && 
+        team.members.length > 0
+    );
 });
+
+// Add new helper function to find next available date
+const findNextAvailableDate = async () => {
+    const checkDate = new Date();
+    checkDate.setDate(checkDate.getDate() + 1); // Start from tomorrow
+    
+    let foundDate = null;
+    let attempts = 0;
+    const maxAttempts = 30; // Limit search to next 30 days
+  
+    while (!foundDate && attempts < maxAttempts) {
+      const conflict = await store.dispatch('events/checkDateConflict', {
+        startDate: checkDate,
+        endDate: new Date(checkDate)
+      });
+  
+      if (!conflict) {
+        foundDate = new Date(checkDate);
+      } else {
+        checkDate.setDate(checkDate.getDate() + 1);
+      }
+      attempts++;
+    }
+  
+    return foundDate;
+  };
+  
+  // Add function to set next available date
+  const setNextAvailableDate = async () => {
+    try {
+      const nextDate = await findNextAvailableDate();
+      if (nextDate) {
+        startDate.value = nextDate.toISOString().split('T')[0];
+        // Set end date to same day by default
+        endDate.value = startDate.value;
+      } else {
+        alert('No available dates found in the next 30 days');
+      }
+    } catch (error) {
+      console.error('Error finding next available date:', error);
+      alert('Error finding next available date');
+    }
+  };
 </script>
 
 <style scoped>
@@ -527,5 +600,17 @@ const hasValidTeams = computed(() => {
 .step.disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Add styles for the range input */
+.form-range {
+    height: 2.5rem;
+    padding: 0.5rem 0;
+}
+.form-range::-webkit-slider-thumb {
+    background: #0d6efd;
+}
+.form-range::-moz-range-thumb {
+    background: #0d6efd;
 }
 </style>

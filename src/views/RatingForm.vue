@@ -19,8 +19,8 @@
         <div v-if="errorMessage && !loading" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
 
         <div v-else-if="!event" class="alert alert-warning">Event not found or ratings are not open.</div>
-        <div v-else-if="!event?.ratingConstraints?.length" class="alert alert-warning">
-            This event has no rating criteria defined.
+        <div v-else-if="!hasValidRatingCriteria" class="alert alert-warning">
+            This event has no valid rating criteria defined. Please contact the event organizer.
         </div>
         <div v-else>
             <div class="card shadow-sm">
@@ -117,16 +117,20 @@ const event = ref(null);
 const ratingConstraints = computed(() => {
     if (!event.value) return [];
     
-    // Check both xpAllocation and ratingConstraints
-    if (Array.isArray(event.value.xpAllocation)) {
-        // Map from xpAllocation if available
+    // First try to get constraints from xpAllocation
+    if (Array.isArray(event.value.xpAllocation) && event.value.xpAllocation.length > 0) {
         return event.value.xpAllocation
+            .filter(allocation => allocation.constraintLabel && allocation.points > 0)
             .sort((a, b) => (a.constraintIndex || 0) - (b.constraintIndex || 0))
             .map(allocation => allocation.constraintLabel);
     }
     
-    // Fallback to ratingConstraints if xpAllocation not available
-    return Array.isArray(event.value.ratingConstraints) ? event.value.ratingConstraints : [];
+    // Fallback to ratingConstraints if available
+    if (Array.isArray(event.value.ratingConstraints)) {
+        return event.value.ratingConstraints.filter(constraint => !!constraint);
+    }
+    
+    return [];
 });
 
 const isValid = computed(() => {
@@ -146,6 +150,25 @@ const isValid = computed(() => {
 const availableParticipants = computed(() => {
     if (!event.value?.participants) return [];
     return event.value.participants.filter(p => p !== currentUser.value?.uid);
+});
+
+// Add new computed property to properly check for valid rating criteria
+const hasValidRatingCriteria = computed(() => {
+    if (!event.value) return false;
+    
+    // First check xpAllocation
+    if (Array.isArray(event.value.xpAllocation) && event.value.xpAllocation.length > 0) {
+        return event.value.xpAllocation.some(allocation => 
+            allocation.constraintLabel && allocation.points > 0
+        );
+    }
+    
+    // Fallback to check ratingConstraints
+    if (Array.isArray(event.value.ratingConstraints) && event.value.ratingConstraints.length > 0) {
+        return event.value.ratingConstraints.some(constraint => !!constraint);
+    }
+    
+    return false;
 });
 
 // Helper Methods
@@ -200,15 +223,16 @@ onMounted(async () => {
         if (eventDetails.status !== 'Completed' || !eventDetails.ratingsOpen) {
             throw new Error('Ratings are currently closed for this event.');
         }
-        
-        if (isTeamEvent.value) {
-            if (!props.teamId) throw new Error("Team ID is required for rating this team event.");
+
+        if (!hasValidRatingCriteria.value) {
+            throw new Error('This event has no valid rating criteria defined.');
         }
-        // Remove participant validation since we're handling all participants at once
+        
         event.value = eventDetails;
     } catch (error) {
         console.error("Error loading rating form:", error);
         errorMessage.value = error.message || 'Failed to load rating details. Please try again.';
+        event.value = null;
     } finally {
         loading.value = false;
     }

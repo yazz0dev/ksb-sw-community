@@ -52,6 +52,24 @@
           </div>
         </div>
       </section>
+
+      <!-- Add new Cancelled Events Section -->
+      <section v-if="cancelledEvents.length > 0" class="mt-5">
+        <div class="d-flex align-items-center mb-3">
+          <button class="btn btn-link text-muted p-0 text-decoration-none" 
+                  type="button" 
+                  @click="showCancelled = !showCancelled">
+            <i :class="['fas', showCancelled ? 'fa-chevron-down' : 'fa-chevron-right', 'me-2']"></i>
+            Cancelled Events ({{ cancelledEvents.length }})
+          </button>
+        </div>
+        <div v-show="showCancelled" class="row g-3"> 
+          <div class="col-lg-4 col-md-6" v-for="event in cancelledEvents" :key="`cancelled-${event.id}`"> 
+            <EventCard :event="event" />
+          </div>
+        </div>
+      </section>
+
     </div>
   </div>
 </template>
@@ -77,12 +95,21 @@ const upcomingEvents = computed(() =>
        .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0)) // Sort upcoming soonest first
 );
 const activeEvents = computed(() =>
-  allEvents.value.filter(e => e.status === 'In Progress')
-       .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0)) // Sort active soonest first
+  allEvents.value.filter(e => e.status === 'In Progress' || e.status === 'InProgress')
+       .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0))
 );
 const completedEvents = computed(() =>
   allEvents.value.filter(e => e.status === 'Completed')
        // Sort completed most recent first (already sorted by fetch)
+);
+
+// Add new ref for cancelled events visibility
+const showCancelled = ref(false);
+
+// Add new computed for cancelled events
+const cancelledEvents = computed(() =>
+  allEvents.value.filter(e => e.status === 'Cancelled')
+       .sort((a, b) => (b.startDate?.seconds ?? 0) - (a.startDate?.seconds ?? 0))
 );
 
 onMounted(async () => {
@@ -104,5 +131,10 @@ onMounted(async () => {
 .row.g-3 {
     --bs-gutter-x: 1rem; /* Adjust grid gap */
     --bs-gutter-y: 1rem;
+}
+
+/* Add styles for cancelled events section */
+.btn-link:hover {
+    opacity: 0.8;
 }
 </style>

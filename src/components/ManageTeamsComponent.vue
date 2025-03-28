@@ -1,13 +1,20 @@
-// src/components/ManageTeamsComponent.vue
 <template>
-    <div>
+    <div class="team-management">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">Define Teams</h4>
+            <!-- Remove this button as we have another one below -->
+        </div>
+        
         <div v-if="addTeamErrorMessage" class="alert alert-danger alert-sm" role="alert">{{ addTeamErrorMessage }}</div>
 
         <!-- Teams List -->
         <div class="mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Current Teams ({{ localTeams.length }})</h5>
-                <button @click="prepareNewTeam" class="btn btn-sm btn-outline-primary" :disabled="props.isSubmitting">
+                <button v-if="!areAllStudentsAssigned" 
+                        @click="prepareNewTeam" 
+                        class="btn btn-sm btn-outline-primary" 
+                        :disabled="props.isSubmitting">
                     <i class="fas fa-plus me-1"></i> Add New Team
                 </button>
             </div>
@@ -142,7 +149,7 @@ const props = defineProps({
     isSubmitting: { type: Boolean, default: false } // Passed from parent during submission
 });
 
-const emit = defineEmits(['update:teams']);
+const emit = defineEmits(['update:teams', 'can-add-team']); // Add 'can-add-team' to emits
 
 // Local state for managing teams within the component
 const localTeams = ref([{ teamName: '', members: [] }]);
@@ -207,7 +214,12 @@ const sortedTeams = computed(() => {
 
 // Add minimum teams validation
 const hasValidTeams = computed(() => {
-    if (localTeams.value.length < 2) return false;
+    // Check if we have at least 2 teams
+    if (!Array.isArray(localTeams.value) || localTeams.value.length < 2) {
+        return false;
+    }
+
+    // Check if each team has a name and at least one member
     return localTeams.value.every(team => 
         team.teamName?.trim() && 
         Array.isArray(team.members) && 
@@ -244,6 +256,26 @@ const filteredAvailableStudents = computed(() => {
 
 // Add new ref for new team form visibility
 const showNewTeamForm = ref(false);
+
+// Add computed property to check if all students are assigned
+const areAllStudentsAssigned = computed(() => {
+    const assignedStudents = new Set(
+        localTeams.value.flatMap(team => team.members || [])
+    );
+    return props.students.every(student => assignedStudents.has(student.uid));
+});
+
+// Move initialization before the watch
+const previousAllAssigned = ref(false);
+
+// Update watch to avoid ReferenceError
+watch([localTeams, areAllStudentsAssigned], (newVals, oldVals) => {
+    const [_, newAllAssigned] = newVals;
+    if (previousAllAssigned.value !== newAllAssigned) {
+        emit('can-add-team', !newAllAssigned);
+        previousAllAssigned.value = newAllAssigned;
+    }
+}, { immediate: true });
 
 // --- Helper Methods ---
 const isStudentAssignedElsewhere = (studentUid, currentEditIndex) => {
@@ -382,6 +414,19 @@ const removeMember = (uid) => {
     if (index !== -1) {
         currentTeam.members.splice(index, 1);
     }
+};
+
+// Modify removeTeam to check if we should show Add Team button again
+const removeTeam = (index) => {
+    if (localTeams.value.length > 1) {
+        localTeams.value.splice(index, 1);
+        emitUpdate();
+    }
+};
+
+// Update the emitUpdate function
+const emitUpdate = () => {
+    emit('update:teams', localTeams.value);
 };
 </script>
 
