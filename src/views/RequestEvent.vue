@@ -87,17 +87,31 @@
                             {{ isAdmin ? 'Start Date' : 'Desired Start Date' }} <span class="text-danger">*</span>
                         </label>
                         <div class="input-group">
-                            <input type="date" :id="isAdmin ? 'startDate' : 'desiredStartDate'" v-model="startDate" required class="form-control" :min="minDate" :disabled="isSubmitting"/>
-                            <button class="btn btn-outline-secondary" type="button" @click="setNextAvailableDate">
-                                <i class="fas fa-calendar-check"></i> Next Available
+                            <input type="date" :id="isAdmin ? 'startDate' : 'desiredStartDate'" 
+                                   v-model="startDate" required class="form-control" 
+                                   :min="minDate" :disabled="isSubmitting" 
+                                   placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"/>
+                            <button class="btn btn-outline-secondary" type="button" 
+                                    @click="setNextAvailableDate" :disabled="isFindingNextDate">
+                                <span v-if="isFindingNextDate" class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                <i class="fas fa-calendar-check"></i> Next Available Date
                             </button>
+                        </div>
+                        <div v-if="dateErrorMessages.startDate" class="form-text text-danger">
+                            {{ dateErrorMessages.startDate }}
                         </div>
                     </div>
                     <div class="col-md-6">
                         <label :for="isAdmin ? 'endDate' : 'desiredEndDate'" class="form-label">
                             {{ isAdmin ? 'End Date' : 'Desired End Date' }} <span class="text-danger">*</span>
                         </label>
-                        <input type="date" :id="isAdmin ? 'endDate' : 'desiredEndDate'" v-model="endDate" required class="form-control" :min="startDate || minDate" :disabled="isSubmitting"/>
+                        <input type="date" :id="isAdmin ? 'endDate' : 'desiredEndDate'" 
+                               v-model="endDate" required class="form-control" 
+                               :min="startDate || minDate" :disabled="isSubmitting" 
+                               placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"/>
+                        <div v-if="dateErrorMessages.endDate" class="form-text text-danger">
+                            {{ dateErrorMessages.endDate }}
+                        </div>
                     </div>
                 </div>
 
@@ -170,7 +184,7 @@
         </div>
 
         <!-- Step 2: Team Definition -->
-        <div v-else-if="currentStep === 2">
+        <div v-if="currentStep === 2 && isTeamEvent">
             <ManageTeamsComponent
                 :initial-teams="teams"
                 :students="potentialStudentCoOrganizers"
@@ -193,41 +207,58 @@
     </div>
 </template>
 
-<script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { collection, getDocs, query, doc, getDoc, Timestamp } from 'firebase/firestore'; // Add Timestamp
+import { collection, getDocs, query, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import ManageTeamsComponent from '../components/ManageTeamsComponent.vue'; // Add this import
+import ManageTeamsComponent from '../components/ManageTeamsComponent.vue';
+
+interface Student {
+    uid: string;
+    name: string;
+    role: string;
+}
+
+interface TeamMember {
+    teamName: string;
+    members: string[];
+    isNew: boolean;
+}
+
+// --- Core State ---
+const isTeamEvent = ref<boolean>(false);
 
 // --- Form Fields ---
-const eventName = ref('');
-const eventType = ref('Hackathon');
-const description = ref('');
-const startDate = ref('');
-const endDate = ref('');
-const isTeamEvent = ref(false);
-const ratingConstraintsInput = ref(['', '', '', '', '']);
-const selectedCoOrganizers = ref([]);
+const eventName = ref<string>('');
+const eventType = ref<string>('Hackathon');
+const description = ref<string>('');
+const startDate = ref<string>('');
+const endDate = ref<string>('');
+const selectedCoOrganizers = ref<string[]>([]);
 
 // --- Team Definition State ---
-const teams = ref([{ name: '', members: [] }]); // Start with one empty team object
+const teams = ref<TeamMember[]>([{
+    teamName: '',
+    members: [],
+    isNew: true
+}]);
 
 // --- Co-organizer State ---
-const potentialStudentCoOrganizers = ref([]);
-const studentNameCache = ref({});
-const coOrganizerSearch = ref('');
-const showCoOrganizerDropdown = ref(false);
+const potentialStudentCoOrganizers = ref<Student[]>([]);
+const studentNameCache = ref<Record<string, string>>({});
+const coOrganizerSearch = ref<string>('');
+const showCoOrganizerDropdown = ref<boolean>(false);
 
 // --- General State ---
 const store = useStore();
 const router = useRouter();
-const errorMessage = ref('');
-const hasActiveRequest = ref(false);
-const loadingCheck = ref(true);
-const loadingStudents = ref(true);
-const isSubmitting = ref(false);
+const errorMessage = ref<string>('');
+const hasActiveRequest = ref<boolean>(false);
+const loadingCheck = ref<boolean>(true);
+const loadingStudents = ref<boolean>(true);
+const isSubmitting = ref<boolean>(false);
 
 // --- Computed ---
 const currentUser = computed(() => store.getters['user/getUser']);
@@ -237,21 +268,6 @@ const minDate = computed(() => {
   today.setDate(today.getDate() + 1);
   return today.toISOString().split('T')[0];
 });
-const filteredStudentCoOrganizers = computed(() => {
-    if (!coOrganizerSearch.value) {
-        return potentialStudentCoOrganizers.value
-            .filter(s => !selectedCoOrganizers.value.includes(s.uid))
-            .slice(0, 10);
-    }
-    const searchLower = coOrganizerSearch.value.toLowerCase();
-    return potentialStudentCoOrganizers.value.filter(student =>
-        !selectedCoOrganizers.value.includes(student.uid) &&
-        ( (student.name || '').toLowerCase().includes(searchLower) ||
-          (student.uid || '').toLowerCase().includes(searchLower) )
-    ).slice(0, 10);
-});
-const availableStudentsForTeams = computed(() => potentialStudentCoOrganizers.value);
-
 // --- Helper Functions ---
 const getSubmitButtonText = () => {
     if (isSubmitting.value) return 'Submitting...';
@@ -260,7 +276,7 @@ const getSubmitButtonText = () => {
     return 'Submit Event Request';
 };
 
-async function fetchUserNames(userIds) {
+async function fetchUserNames(userIds: string[]) {
     const idsToFetch = [...new Set(userIds)].filter(id => id && !studentNameCache.value.hasOwnProperty(id));
     if (idsToFetch.length === 0) return;
     try {
@@ -279,54 +295,89 @@ async function fetchUserNames(userIds) {
     }
 }
 
-async function fetchStudents() {
+const dateErrorMessages = ref<{ startDate: string; endDate: string }>({ startDate: '', endDate: '' }); // Reactive error messages
+const isFindingNextDate = ref<boolean>(false); // Disable button while finding date
+
+const setNextAvailableDate = async () => {
+    isFindingNextDate.value = true; // Disable button
+    dateErrorMessages.value.startDate = ''; // Clear previous errors
+    try {
+      const nextDate = await findNextAvailableDate();
+      if (nextDate instanceof Date) {
+        startDate.value = nextDate.toISOString().split('T')[0];
+        endDate.value = startDate.value; // Set end date to same day
+        dateErrorMessages.value.startDate = 'Next available start date set.'; // Confirmation message
+      } else {
+        dateErrorMessages.value.startDate = 'No available dates found in the next 30 days.'; // Error message if no date found
+      }
+    } catch (error) {
+      console.error('Error finding next available date:', error);
+      dateErrorMessages.value.startDate = 'Error finding next available date.'; // Error message on exception
+    } finally {
+      isFindingNextDate.value = false; // Enable button
+    }
+  };
+
+const fetchStudents = async () => {
     loadingStudents.value = true;
-    errorMessage.value = ''; // Clear previous student loading errors
+    errorMessage.value = '';
     try {
         const usersRef = collection(db, 'users');
         const q = query(usersRef);
         const querySnapshot = await getDocs(q);
         const currentUserId = currentUser.value?.uid;
 
-        const studentsData = querySnapshot.docs
-            .map(doc => ({ uid: doc.id, name: doc.data().name || null, role: doc.data().role || null }))
-            .filter(user => (user.role === 'Student' || !user.role) && user.uid !== currentUserId) // Exclude self, include 'Student' or no role
-             .sort((a, b) => (a.name || a.uid).localeCompare(b.name || b.uid)); // Sort alpha
+        // Filter and process students
+        const students = querySnapshot.docs
+            .map(doc => ({
+                uid: doc.id,
+                name: doc.data().name || '',
+                role: doc.data().role || 'Student'
+            }))
+            .filter(user => 
+                // Only include students (not admins) and exclude current user
+                user.role === 'Student' && 
+                user.uid !== currentUserId
+            )
+            .sort((a, b) => (a.name || a.uid).localeCompare(b.name || b.uid));
 
-        if (studentsData.length > 0) {
-            const studentIds = studentsData.map(s => s.uid);
-            await fetchUserNames(studentIds); // Fetch names for the dropdowns
-            potentialStudentCoOrganizers.value = studentsData;
-        } else {
-             potentialStudentCoOrganizers.value = [];
-             console.warn("No potential student co-organizers or team members found.");
-        }
+        // Update name cache first
+        students.forEach(student => {
+            if (student.name) {
+                studentNameCache.value[student.uid] = student.name;
+            }
+        });
+
+        // Set the filtered and sorted student list
+        potentialStudentCoOrganizers.value = students;
+
     } catch (error) {
-        console.error('RequestEvent: Error fetching students:', error);
-        errorMessage.value = (errorMessage.value ? errorMessage.value + '\n' : '') + 'Could not load student list.';
-        potentialStudentCoOrganizers.value = [];
+        console.error('Error fetching students:', error);
+        errorMessage.value = 'Failed to load student list';
     } finally {
         loadingStudents.value = false;
     }
-}
+};
 
-const selectCoOrganizer = (student) => {
+
+
+const addCoOrganizer = (student: Student) => {
     if (selectedCoOrganizers.value.length < 5 && !selectedCoOrganizers.value.includes(student.uid)) {
         selectedCoOrganizers.value.push(student.uid);
         if (!studentNameCache.value[student.uid]) { studentNameCache.value[student.uid] = student.name || student.uid; }
         coOrganizerSearch.value = ''; showCoOrganizerDropdown.value = false;
     }
 };
-const removeCoOrganizer = (uid) => { selectedCoOrganizers.value = selectedCoOrganizers.value.filter(id => id !== uid); };
+const removeCoOrganizer = (uid: string) => { selectedCoOrganizers.value = selectedCoOrganizers.value.filter(id => id !== uid); };
 const handleSearchBlur = () => { setTimeout(() => { showCoOrganizerDropdown.value = false; }, 150); };
 
 // --- Team Helpers ---
-const addTeam = () => { teams.value.push({ name: '', members: [] }); };
-const removeTeam = (index) => { if (teams.value.length > 1) { teams.value.splice(index, 1); } };
-const isStudentAssignedElsewhere = (studentUid, currentTeamIndex) => teams.value.some((team, index) => index !== currentTeamIndex && team.members.includes(studentUid));
-const getTeamAssignmentName = (studentUid) => { // Find the name of the team a student is in
+const addTeam = () => { teams.value.push({ teamName: '', members: [], isNew: true }); };
+const removeTeam = (index: number) => { if (teams.value.length > 1) { teams.value.splice(index, 1); } };
+const isStudentAssignedElsewhere = (studentUid: string, currentTeamIndex: number) => teams.value.some((team, index) => index !== currentTeamIndex && team.members.includes(studentUid));
+const getTeamAssignmentName = (studentUid: string) => { // Find the name of the team a student is in
      const team = teams.value.find(team => team.members.includes(studentUid));
-     return team ? team.name : 'Another Team'; // Return team name or generic fallback
+     return team ? team.teamName : 'Another Team'; // Return team name or generic fallback
  };
 
 // --- Lifecycle Hook ---
@@ -343,69 +394,8 @@ onMounted(async () => {
     await fetchStudents();
 });
 
-// --- Form Submission ---
-const handleSubmit = async () => {
-    errorMessage.value = '';
-    isSubmitting.value = true;
-
-    try {
-        const submissionData = prepareSubmissionData();
-
-        // Basic validation
-        if (!eventName.value || !eventType.value || !description.value || !startDate.value || !endDate.value) {
-            throw new Error('Please fill in all required fields.');
-        }
-
-        // Team validation
-        if (isTeamEvent.value && !hasValidTeams.value) {
-            throw new Error('Please ensure there are at least 2 teams and each team has a name and at least one member.');
-        }
-
-        // Convert dates to proper format
-        const startDateObj = new Date(startDate.value);
-        const endDateObj = new Date(endDate.value);
-        
-        // Prepare final submission data
-        const finalData = {
-            eventName: eventName.value,
-            eventType: eventType.value,
-            description: description.value,
-            isTeamEvent: isTeamEvent.value,
-            coOrganizers: selectedCoOrganizers.value,
-            ratingCriteria: submissionData.ratingConstraints,
-            xpAllocation: submissionData.xpAllocation,
-            teams: isTeamEvent.value ? teams.value.map(t => ({
-                teamName: t.name,
-                members: t.members
-            })) : [],
-            requestedAt: Timestamp.now()
-        };
-
-        // Add date fields based on user role
-        if (isAdmin.value) {
-            finalData.startDate = startDateObj;
-            finalData.endDate = endDateObj;
-        } else {
-            finalData.desiredStartDate = startDateObj;
-            finalData.desiredEndDate = endDateObj;
-        }
-
-        // Always use requestEvent for non-admins
-        const actionType = isAdmin.value ? 'events/createEvent' : 'events/requestEvent';
-        const eventId = await store.dispatch(actionType, finalData);
-        
-        alert(isAdmin.value ? 'Event created successfully.' : 'Event request submitted successfully.');
-        router.push(isAdmin.value ? '/home' : '/profile');
-    } catch (error) {
-        console.error("Event submission error:", error);
-        errorMessage.value = error.message || 'Failed to process event submission.';
-    } finally {
-        isSubmitting.value = false;
-    }
-};
-
 // New reactive state for rating criteria
-const ratingCriteria = ref([
+const ratingCriteria = ref<{ label: string; role: string; points: number }[]>([
     { label: '', role: '', points: 5 } // Start with one empty constraint
 ]);
 
@@ -414,7 +404,7 @@ const defaultCriteriaLabels = [
     'Design', 'Presentation', 'Problem Solving', 'Execution', 'Technology'
 ];
 
-const getDefaultCriteriaLabel = (index) => defaultCriteriaLabels[index] || `Criteria ${index + 1}`;
+const getDefaultCriteriaLabel = (index: number) => defaultCriteriaLabels[index] || `Criteria ${index + 1}`;
 
 // Add new method to add/remove constraints
 const addConstraint = () => {
@@ -423,41 +413,71 @@ const addConstraint = () => {
     }
 };
 
-const removeConstraint = (index) => {
+const removeConstraint = (index: number) => {
     if (ratingCriteria.value.length > 1) {
         ratingCriteria.value.splice(index, 1);
     }
 };
 
-// Modified submission preparation
-const prepareSubmissionData = () => {
-    // Prepare XP allocation and constraints
-    const xpAllocation = ratingCriteria.value
-        .map((criteria, index) => ({
-            constraintIndex: index,
-            constraintLabel: criteria.label || getDefaultCriteriaLabel(index),
-            role: criteria.role || 'general',
-            points: criteria.points || 0
-        }))
-        .filter(allocation => allocation.points > 0);
+// The handleSubmit function correctly uses the output of prepareSubmissionData
+const handleSubmit = async () => {
+    errorMessage.value = '';
+    isSubmitting.value = true;
+    dateErrorMessages.value = { startDate: '', endDate: '' };
 
-    const constraints = ratingCriteria.value.map((criteria, index) => 
-        criteria.label || getDefaultCriteriaLabel(index)
-    );
+    try {
+        const startDateObj = new Date(startDate.value);
+        const endDateObj = new Date(endDate.value);
 
-    return {
-        // ...existing event data...
-        xpAllocation,
-        ratingConstraints: constraints,
-        status: isAdmin.value ? 'Approved' : 'Pending',
-        requester: currentUser.value.uid,
-        requestedAt: Timestamp.now(),
-        // ...rest of the submission data
-    };
+        // *** CHANGE: Allow start and end date to be the same ***
+        if (startDateObj > endDateObj) {
+            dateErrorMessages.value.endDate = 'End date cannot be earlier than the start date.';
+            throw new Error('Invalid date range');
+        }
+
+        const commonData = prepareSubmissionData(); // Gets status: 'Approved' if isAdmin
+
+        const finalData = {
+            eventName: eventName.value,
+            eventType: eventType.value,
+            description: description.value,
+            isTeamEvent: isTeamEvent.value,
+            coOrganizers: selectedCoOrganizers.value,
+            ratingCriteria: commonData.ratingConstraints, // Pass original criteria structure
+            xpAllocation: commonData.xpAllocation,
+            teams: isTeamEvent.value ? teams.value.map(t => ({
+                teamName: t.teamName.trim(),
+                members: [...t.members]
+                // Submissions/ratings will be initialized by mapper/action
+            })) : [],
+            // Pass status from commonData
+            status: commonData.status,
+            // Pass dates based on admin status
+            ...(isAdmin.value
+                ? { startDate: startDateObj, endDate: endDateObj }
+                // For request, pass desired dates
+                : { desiredStartDate: startDateObj, desiredEndDate: endDateObj })
+        };
+
+
+        const actionType = isAdmin.value ? 'events/createEvent' : 'events/requestEvent';
+        await store.dispatch(actionType, finalData); // Pass the complete finalData
+
+        alert(isAdmin.value ? 'Event created successfully.' : 'Event request submitted successfully.');
+        // Redirect based on role
+        router.push(isAdmin.value ? '/home' : '/profile'); // Redirect Admin to home after creation
+
+    } catch (error: any) {
+        console.error("Event submission error:", error);
+        errorMessage.value = error.message || 'Failed to process event submission.';
+    } finally {
+        isSubmitting.value = false;
+    }
 };
 
-// New reactive state for multi-step form
-const currentStep = ref(1);
+
+// reactive state for multi-step form
+const currentStep = ref<number>(1);
 const availableRoles = [
     { value: 'fullstack', label: 'Full Stack Developer' },
     { value: 'presenter', label: 'Presenter' },
@@ -465,7 +485,7 @@ const availableRoles = [
     { value: 'problemSolver', label: 'Problem Solver' }
 ];
 
-const handleStep1Submit = (e) => {
+const handleStep1Submit = (e: Event) => {
     e.preventDefault();
     if (isTeamEvent.value) {
         currentStep.value = 2;
@@ -482,21 +502,29 @@ const handleBack = () => {
     }
 };
 
-const updateTeams = (newTeams) => {
-    // Only update if there's an actual change
-    if (JSON.stringify(teams.value) !== JSON.stringify(newTeams)) {
-        teams.value = newTeams.map(t => ({
-            name: t.teamName,
-            members: [...t.members]
-        }));
-    }
+const updateTeams = (newTeams: TeamMember[]) => {
+    if (!Array.isArray(newTeams)) return;
+    
+    // Map to ensure consistent structure
+    teams.value = newTeams.map(team => ({
+        teamName: team.teamName || '',
+        members: Array.isArray(team.members) ? [...team.members] : [],
+        isNew: team.isNew || false
+    }));
+
+    // Validate and log team state
+    console.log("Teams updated:", teams.value.map(t => ({
+        teamName: t.teamName,
+        memberCount: t.members.length,
+        isNew: t.isNew
+    })));
 };
 
 // Add state for tracking if new teams can be added
-const canAddTeam = ref(true);
+const canAddTeam = ref<boolean>(true);
 
 // Add method to update canAddTeam state
-const updateCanAddTeam = (value) => {
+const updateCanAddTeam = (value: boolean) => {
     if (canAddTeam.value !== value) {
         canAddTeam.value = value;
     }
@@ -504,23 +532,39 @@ const updateCanAddTeam = (value) => {
 
 // Update hasValidTeams computed to include the new check
 const hasValidTeams = computed(() => {
-    if (!isTeamEvent.value) return true; // Always valid for non-team events
-    if (!teams.value || teams.value.length < 2) {
+    if (!isTeamEvent.value) return true;
+    
+    const teamsArr = teams.value;
+    if (!Array.isArray(teamsArr) || teamsArr.length < 2) {
+        console.log("hasValidTeams: Need at least 2 teams", teamsArr);
         return false;
     }
-    return teams.value.every(team => 
-        team.name?.trim() && 
-        Array.isArray(team.members) && 
-        team.members.length > 0
-    );
+
+    // Check each team's validity
+    const isValid = teamsArr.every((team, index) => {
+        const hasName = Boolean(team?.teamName?.trim());
+        const hasMembers = Array.isArray(team?.members) && team.members.length > 0;
+        
+        if (!hasName || !hasMembers) {
+            console.log(`Team ${index + 1} validation failed:`, {
+                hasName,
+                hasMembers,
+                memberCount: team?.members?.length
+            });
+            return false;
+        }
+        return true;
+    });
+
+    return isValid;
 });
 
 // Add new helper function to find next available date
-const findNextAvailableDate = async () => {
+const findNextAvailableDate = async (): Promise<Date | null> => {
     const checkDate = new Date();
     checkDate.setDate(checkDate.getDate() + 1); // Start from tomorrow
     
-    let foundDate = null;
+    let foundDate: Date | null = null;
     let attempts = 0;
     const maxAttempts = 30; // Limit search to next 30 days
   
@@ -532,30 +576,13 @@ const findNextAvailableDate = async () => {
   
       if (!conflict) {
         foundDate = new Date(checkDate);
-      } else {
-        checkDate.setDate(checkDate.getDate() + 1);
+        break;
       }
+      checkDate.setDate(checkDate.getDate() + 1);
       attempts++;
     }
   
     return foundDate;
-  };
-  
-  // Add function to set next available date
-  const setNextAvailableDate = async () => {
-    try {
-      const nextDate = await findNextAvailableDate();
-      if (nextDate) {
-        startDate.value = nextDate.toISOString().split('T')[0];
-        // Set end date to same day by default
-        endDate.value = startDate.value;
-      } else {
-        alert('No available dates found in the next 30 days');
-      }
-    } catch (error) {
-      console.error('Error finding next available date:', error);
-      alert('Error finding next available date');
-    }
   };
 </script>
 

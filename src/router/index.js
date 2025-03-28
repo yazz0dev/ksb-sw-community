@@ -9,7 +9,7 @@ import RatingForm from '../views/RatingForm.vue';
 import Resources from '../views/ResourcesView.vue';
 import Transparency from '../views/TransparencyView.vue';
 import RequestEvent from '../views/RequestEvent.vue';
-import ManageRequestsView from '../views/ManageRequestsView.vue'; // Update import
+import ManageRequestsView from '../views/ManageRequestsView.vue'; 
 import store from '../store';
 import UserProfile from '../views/UserProfile.vue';
 import ForgotPasswordView from '../views/ForgotPasswordView.vue';

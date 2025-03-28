@@ -97,7 +97,7 @@ import CustomStarRating from '../components/CustomStarRating.vue';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// Props and setup vars remain the same
+
 const props = defineProps({ eventId: { type: String, required: true }, teamId: { type: String, required: false } });
 const store = useStore();
 const route = useRoute();
@@ -117,19 +117,13 @@ const event = ref(null);
 const ratingConstraints = computed(() => {
     if (!event.value) return [];
     
-    // First try to get constraints from xpAllocation
+    // Always use xpAllocation as the source of truth
     if (Array.isArray(event.value.xpAllocation) && event.value.xpAllocation.length > 0) {
         return event.value.xpAllocation
-            .filter(allocation => allocation.constraintLabel && allocation.points > 0)
             .sort((a, b) => (a.constraintIndex || 0) - (b.constraintIndex || 0))
-            .map(allocation => allocation.constraintLabel);
+            .map(allocation => allocation.constraintLabel)
+            .filter(label => !!label);
     }
-    
-    // Fallback to ratingConstraints if available
-    if (Array.isArray(event.value.ratingConstraints)) {
-        return event.value.ratingConstraints.filter(constraint => !!constraint);
-    }
-    
     return [];
 });
 
@@ -152,23 +146,15 @@ const availableParticipants = computed(() => {
     return event.value.participants.filter(p => p !== currentUser.value?.uid);
 });
 
-// Add new computed property to properly check for valid rating criteria
 const hasValidRatingCriteria = computed(() => {
     if (!event.value) return false;
-    
-    // First check xpAllocation
-    if (Array.isArray(event.value.xpAllocation) && event.value.xpAllocation.length > 0) {
-        return event.value.xpAllocation.some(allocation => 
-            allocation.constraintLabel && allocation.points > 0
+
+    return Array.isArray(event.value.xpAllocation) && 
+        event.value.xpAllocation.some(allocation => 
+            allocation?.constraintLabel?.trim() && 
+            typeof allocation.points === 'number' && 
+            allocation.points > 0
         );
-    }
-    
-    // Fallback to check ratingConstraints
-    if (Array.isArray(event.value.ratingConstraints) && event.value.ratingConstraints.length > 0) {
-        return event.value.ratingConstraints.some(constraint => !!constraint);
-    }
-    
-    return false;
 });
 
 // Helper Methods
@@ -245,12 +231,15 @@ const submitRating = async () => {
 
     try {
         let ratingData;
+        const xpAllocation = event.value.xpAllocation || [];
         
         if (isTeamEvent.value) {
-            // Transform team ratings to use constraint labels as keys
+            // Transform team ratings using xpAllocation
             const ratingsByLabel = {};
-            event.value.ratingConstraints.forEach((constraint, index) => {
-                ratingsByLabel[constraint] = ratings.value[`constraint${index}`];
+            xpAllocation.forEach((allocation, index) => {
+                if (allocation.constraintLabel) {
+                    ratingsByLabel[allocation.constraintLabel] = ratings.value[`constraint${index}`];
+                }
             });
             ratingData = {
                 ratingType: 'team',
@@ -258,10 +247,12 @@ const submitRating = async () => {
                 rating: ratingsByLabel
             };
         } else {
-            // Transform individual ratings to participant selections
+            // Transform individual ratings using xpAllocation
             const selectionsByConstraint = {};
-            event.value.ratingConstraints.forEach((constraint, index) => {
-                selectionsByConstraint[constraint] = ratings.value[`constraint${index}`];
+            xpAllocation.forEach((allocation, index) => {
+                if (allocation.constraintLabel) {
+                    selectionsByConstraint[allocation.constraintLabel] = ratings.value[`constraint${index}`];
+                }
             });
             ratingData = {
                 ratingType: 'individual',

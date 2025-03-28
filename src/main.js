@@ -5,7 +5,7 @@ import router from './router';
 import store from './store';
 import { auth, db } from './firebase'; // Import auth and db from firebase.js
 import { onAuthStateChanged } from 'firebase/auth';
-import { enableIndexedDbPersistence, disableNetwork, enableNetwork } from 'firebase/firestore';
+import { disableNetwork, enableNetwork } from 'firebase/firestore';
 
 // Import Bootstrap CSS & JS (Ensure these are imported only once)
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -19,23 +19,6 @@ import '@fortawesome/fontawesome-free/css/all.css';
 
 let appInstance = null;
 let authInitialized = false; // Flag to prevent multiple initializations
-
-// Add Firestore persistence and error handling
-const initializeFirestore = async () => {
-    try {
-        // Enable offline persistence
-        await enableIndexedDbPersistence(db);
-        console.log("Firestore persistence enabled");
-    } catch (err) {
-        if (err.code === 'failed-precondition') {
-            console.warn('Firestore persistence unavailable: multiple tabs open');
-        } else if (err.code === 'unimplemented') {
-            console.warn('Firestore persistence unavailable: browser unsupported');
-        } else {
-            console.error('Firestore initialization error:', err);
-        }
-    }
-};
 
 // Add network state handling
 let isOnline = navigator.onLine;
@@ -54,9 +37,6 @@ const unsubscribe = onAuthStateChanged(auth, async (user) => {
     unsubscribe(); // Unsubscribe after the first callback
 
     try {
-        // Initialize Firestore first
-        await initializeFirestore();
-
         if (user) {
             // Fetch data only if user exists on initial load
             await store.dispatch('user/fetchUserData', user.uid);
@@ -83,8 +63,6 @@ function mountApp() {
         appInstance = createApp(App);
         appInstance.use(router);
         appInstance.use(store);
-        // Global components (if any) could be registered here
-        // appInstance.component('Vue3StarRatings', vue3StarRatings); // Example if needed globally
         appInstance.mount('#app');
         console.log("Vue app mounted.");
     } else if (appInstance) {

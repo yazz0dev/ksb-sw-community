@@ -2,7 +2,7 @@
 <template>
     <div class="container mt-4">
         <div v-if="loading" class="text-center my-5">
-             <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
         </div>
         <div v-else-if="event">
             <!-- Back Button -->
@@ -24,48 +24,58 @@
                     <p><strong>Dates:</strong> {{ formatDate(event.startDate) }} - {{ formatDate(event.endDate) }}</p>
                     <p>
                         <strong>Organizer(s):</strong>
-                        <span v-if="organizerNamesLoading" class="spinner-border spinner-border-sm text-muted ms-1" role="status" aria-hidden="true"></span>
+                        <span v-if="organizerNamesLoading" class="spinner-border spinner-border-sm text-muted ms-1"
+                            role="status" aria-hidden="true"></span>
                         <span v-else>{{ getOrganizerNames() || 'N/A' }}</span>
                     </p>
-                     <p v-if="event.coOrganizers && event.coOrganizers.length > 0">
+                    <p v-if="event.coOrganizers && event.coOrganizers.length > 0">
                         <strong>Co-Organizer(s):</strong>
-                        <span v-if="organizerNamesLoading" class="spinner-border spinner-border-sm text-muted ms-1" role="status" aria-hidden="true"></span>
+                        <span v-if="organizerNamesLoading" class="spinner-border spinner-border-sm text-muted ms-1"
+                            role="status" aria-hidden="true"></span>
                         <span v-else>{{ getCoOrganizerDisplayNames() || 'N/A' }}</span>
                     </p>
                     <p><strong>Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}</p>
-                     <p v-if="event.status === 'Completed'">
-                       <strong>Ratings:</strong>
-                       <span :class="['badge', event.ratingsOpen ? 'bg-success' : 'bg-secondary']">
-                           {{ event.ratingsOpen ? 'Open' : 'Closed' }}
-                       </span>
+                    <p v-if="event.status === 'Completed'">
+                        <strong>Ratings:</strong>
+                        <span :class="['badge', event.ratingsOpen ? 'bg-success' : 'bg-secondary']">
+                            {{ event.ratingsOpen ? 'Open' : 'Closed' }}
+                        </span>
                     </p>
-                     <p v-if="event.ratingConstraints && event.ratingConstraints.length > 0" class="small">
-                         <strong>Rating Criteria:</strong> {{ event.ratingConstraints.join(' | ') }}
-                     </p>
+                    <p v-if="event.ratingConstraints && event.ratingConstraints.length > 0" class="small">
+                        <strong>Rating Criteria:</strong> {{ event.ratingConstraints.join(' | ') }}
+                    </p>
 
                     <!-- Participant/User Actions -->
-                     <div v-if="isAuthenticated && !isAdmin && (event.status === 'Upcoming' || event.status === 'In Progress')" class="mt-3 pt-3 border-top">
+                    <div v-if="isAuthenticated && !isAdmin && (event.status === 'Upcoming' || event.status === 'In Progress')"
+                        class="mt-3 pt-3 border-top">
                         <h5 class="mb-3">My Actions</h5>
                         <div class="d-flex flex-wrap gap-2">
                             <!-- Leave Event Button -->
-                            <button v-if="event.status === 'Upcoming' && isParticipantOrTeamMember" @click="leaveEvent" class="btn btn-outline-warning btn-sm">
+                            <button v-if="event.status === 'Upcoming' && isParticipantOrTeamMember" @click="leaveEvent"
+                                class="btn btn-outline-warning btn-sm">
                                 <i class="fas fa-sign-out-alt me-1"></i> Leave Event
                             </button>
 
                             <!-- Submit Project Button -->
-                            <button v-if="canSubmitProject" @click="showSubmissionModal = true" class="btn btn-outline-success btn-sm">
+                            <button v-if="canSubmitProject" @click="showSubmissionModal = true"
+                                class="btn btn-outline-success btn-sm">
                                 <i class="fas fa-upload me-1"></i> Submit Project
                             </button>
-                            <span v-if="event.status === 'In Progress' && hasSubmittedProject" class="text-success small align-self-center">
+                            <span v-if="event.status === 'In Progress' && hasSubmittedProject"
+                                class="text-success small align-self-center">
                                 <i class="fas fa-check-circle me-1"></i> Project Submitted
                             </span>
-                             <span v-else-if="event.status === 'In Progress' && isParticipantOrTeamMember" class="text-muted small align-self-center">
+                            <span v-else-if="event.status === 'In Progress' && isParticipantOrTeamMember"
+                                class="text-muted small align-self-center">
                                 (Submission allowed during 'In Progress')
-                             </span>
-                             <span v-if="event.status !== 'Upcoming' && event.status !== 'In Progress' && isParticipantOrTeamMember" class="text-muted small align-self-center">
+                            </span>
+                            <span
+                                v-if="event.status !== 'Upcoming' && event.status !== 'In Progress' && isParticipantOrTeamMember"
+                                class="text-muted small align-self-center">
                                 (Actions only available before/during event)
                             </span>
-                             <span v-if="!isParticipantOrTeamMember && event.status === 'Upcoming'" class="text-muted small align-self-center">
+                            <span v-if="!isParticipantOrTeamMember && event.status === 'Upcoming'"
+                                class="text-muted small align-self-center">
                                 (You are not currently participating in this event)
                             </span>
                         </div>
@@ -74,62 +84,55 @@
             </div>
 
             <!-- Management Section (for Admin/Organizer/CoOrganizer) -->
-             <div v-if="canManageEvent" class="card mb-4 shadow-sm">
-                 <div class="card-header">Event Management</div>
-                 <div class="card-body d-flex flex-wrap gap-2">
-                     <!-- Status Buttons with Date Checks -->
-                     <template v-if="event.status !== 'Completed' && event.status !== 'Cancelled'">
-                         <button
-                             v-if="event.status === 'Upcoming' || event.status === 'Approved'"
-                             @click="updateStatus('In Progress')"
-                             class="btn btn-info btn-sm"
-                             :title="'Can only mark in progress on or after start date'">
-                             <i class="fas fa-play me-1"></i> Mark In Progress
-                         </button>
-                         <button
-                             v-if="event.status === 'In Progress'"
-                             @click="updateStatus('Completed')"
-                             class="btn btn-success btn-sm"
-                             :title="'Can only mark completed on or after end date'">
-                             <i class="fas fa-check-circle me-1"></i> Mark Completed
-                         </button>
-                         <button @click="updateStatus('Cancelled')" class="btn btn-warning btn-sm"><i class="fas fa-times-circle me-1"></i> Cancel Event</button>
-                     </template>
+            <div v-if="canManageEvent" class="card mb-4 shadow-sm">
+                <div class="card-header">Event Management</div>
+                <div class="card-body d-flex flex-wrap gap-2">
+                    <!-- Status Buttons with Date Checks -->
+                    <template v-if="event.status !== 'Completed' && event.status !== 'Cancelled'">
+                        <button v-if="event.status === 'Upcoming' || event.status === 'Approved'"
+                            @click="updateStatus('In Progress')" class="btn btn-info btn-sm"
+                            :title="'Can only mark in progress on or after start date'">
+                            <i class="fas fa-play me-1"></i> Mark In Progress
+                        </button>
+                        <button v-if="event.status === 'In Progress'" @click="updateStatus('Completed')"
+                            class="btn btn-success btn-sm" :title="'Can only mark completed on or after end date'">
+                            <i class="fas fa-check-circle me-1"></i> Mark Completed
+                        </button>
+                        <button @click="updateStatus('Cancelled')" class="btn btn-warning btn-sm"><i
+                                class="fas fa-times-circle me-1"></i> Cancel Event</button>
+                    </template>
 
                     <!-- Ratings Toggle, Winner Calc, Copy Link -->
-                    <button v-if="event.status === 'Completed'" @click="toggleRatingsOpen(!event.ratingsOpen)" class="btn btn-secondary btn-sm">
-                         <i :class="['fas', event.ratingsOpen ? 'fa-lock' : 'fa-lock-open', 'me-1']"></i> {{ event.ratingsOpen ? 'Close Ratings' : 'Open Ratings' }}
+                    <button v-if="event.status === 'Completed'" @click="toggleRatingsOpen(!event.ratingsOpen)"
+                        class="btn btn-secondary btn-sm">
+                        <i :class="['fas', event.ratingsOpen ? 'fa-lock' : 'fa-lock-open', 'me-1']"></i> {{
+                            event.ratingsOpen ? 'Close Ratings' : 'Open Ratings' }}
                     </button>
-                    <button v-if="event.status === 'Completed' && event.ratingsOpen && hasEnoughRatings" 
-                            @click="calculateWinners" 
-                            class="btn btn-outline-secondary btn-sm" 
-                            title="Attempt automatic calculation based on average ratings">
+                    <button v-if="event.status === 'Completed' && event.ratingsOpen && hasEnoughRatings"
+                        @click="calculateWinners" class="btn btn-outline-secondary btn-sm"
+                        title="Attempt automatic calculation based on average ratings">
                         <i class="fas fa-trophy me-1"></i> Calculate Winner (Auto)
                     </button>
-                    <button v-if="event.status === 'Completed' && event.ratingsOpen" @click="copyRatingLink" class="btn btn-outline-info btn-sm">
-                          <i class="fas fa-share-alt me-1"></i> Copy Rating Link
+                    <button v-if="event.status === 'Completed' && event.ratingsOpen" @click="copyRatingLink"
+                        class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-share-alt me-1"></i> Copy Rating Link
                     </button>
 
                     <!-- Delete Button - Only show during Pending state -->
-                    <button v-if="event.status === 'Pending'" 
-                           @click="deleteEvent" 
-                           class="btn btn-danger btn-sm ms-auto">
+                    <button v-if="event.status === 'Pending'" @click="deleteEvent"
+                        class="btn btn-danger btn-sm ms-auto">
                         <i class="fas fa-trash-alt me-1"></i> Delete Event
                     </button>
-                 </div>
-             </div>
+                </div>
+            </div>
 
             <!-- Teams Section (Display Only for Team Events) -->
             <div v-if="event.isTeamEvent" class="mb-4">
                 <h3 class="mb-3">Teams</h3>
-                 <TeamList
-                    v-if="event.teams && event.teams.length > 0"
-                    :teams="event.teams"
-                    :eventId="id"
+                <TeamList v-if="event.teams && event.teams.length > 0" :teams="event.teams" :eventId="id"
                     :ratingsOpen="event.ratingsOpen && event.status === 'Completed'"
-                    :get-user-name="getUserNameFromCache"
-                    :organizer-names-loading="organizerNamesLoading"
-                 />
+                    :get-user-name="getUserNameFromCache" :organizer-names-loading="organizerNamesLoading"
+                    :current-user-uid="currentUser.uid" />
                 <p v-else class="alert alert-light">No teams defined for this event.</p>
             </div>
 
@@ -139,11 +142,7 @@
                 <div v-if="event.participants && event.participants.length > 0">
                     <!-- Add Rating Button for Individual Events -->
                     <div v-if="event.ratingsOpen && event.status === 'Completed'" class="mb-3">
-                        <button 
-                            @click="goToWinnerSelection"
-                            class="btn btn-primary"
-                            v-if="canRateEvent"
-                        >
+                        <button @click="goToWinnerSelection" class="btn btn-primary" v-if="canRateEvent">
                             <i class="fas fa-trophy me-1"></i>
                             Select Winners
                         </button>
@@ -153,16 +152,14 @@
                     </div>
 
                     <ul class="list-group shadow-sm">
-                        <li v-for="participantId in sortedParticipants" 
-                            :key="participantId" 
+                        <li v-for="(participantId, index) in sortedParticipants" :key="participantId"
                             class="list-group-item d-flex justify-content-between align-items-center"
-                        >
+                            :class="{ 'highlighted-user': participantId === currentUser?.uid }">
                             <div class="d-flex align-items-center">
-                                <i v-if="isWinner(participantId)" 
-                                    class="fas fa-trophy text-warning me-2" 
+                                <i v-if="isWinner(participantId)" class="fas fa-trophy text-warning me-2"
                                     title="Winner">
                                 </i>
-                                <router-link :to="{ name: 'PublicProfile', params: { userId: participantId }}">
+                                <router-link :to="{ name: 'PublicProfile', params: { userId: participantId } }">
                                     <i class="fas fa-user me-2 text-muted"></i>
                                     {{ getUserNameFromCache(participantId) || 'Anonymous User' }}
                                 </router-link>
@@ -170,77 +167,92 @@
                         </li>
                     </ul>
                 </div>
-                <p v-else class="alert alert-light">No participants found for this event. Students are added automatically but may have left.</p>
+                <p v-else class="alert alert-light">No participants found for this event. Students are added
+                    automatically but may
+                    have left.</p>
             </div>
 
-             <!-- Display Submissions Section -->
+            <!-- Display Submissions Section -->
             <div class="card mb-4 shadow-sm">
-                <div class="card-header"> <h3 class="mb-0">Project Submissions</h3> </div>
+                <div class="card-header">
+                    <h3 class="mb-0">Project Submissions</h3>
+                </div>
                 <div class="card-body">
                     <div v-if="loadingSubmissions" class="text-center"> /* ... loading spinner ... */ </div>
-                     <div v-else-if="submissions.length === 0" class="alert alert-light mb-0">No projects submitted yet.</div>
-                     <ul v-else class="list-group list-group-flush">
-                         <li v-for="(sub, index) in submissions" :key="`sub-${index}`" class="list-group-item px-0 py-3">
-                             <p class="mb-1 fw-bold">{{ sub.projectName }}</p>
-                             <p class="mb-1 small" v-if="sub.description">{{ sub.description }}</p>
-                             <div class="d-flex justify-content-between align-items-center">
-                                 <a :href="sub.link" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary me-2 btn-inline-mobile" v-if="sub.link">
+                    <div v-else-if="submissions.length === 0" class="alert alert-light mb-0">No projects submitted yet.
+                    </div>
+                    <ul v-else class="list-group list-group-flush">
+                        <li v-for="(sub, index) in submissions" :key="`sub-${index}`" class="list-group-item px-0 py-3">
+                            <p class="mb-1 fw-bold">{{ sub.projectName }}</p>
+                            <p class="mb-1 small" v-if="sub.description">{{ sub.description }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a :href="sub.link" target="_blank" rel="noopener noreferrer"
+                                    class="btn btn-sm btn-outline-primary me-2 btn-inline-mobile" v-if="sub.link">
                                     <i class="fas fa-link me-1"></i> View Link
-                                 </a>
-                                  <span v-if="sub.submittedBy" class="text-muted small ms-auto">
+                                </a>
+                                <span v-if="sub.submittedBy" class="text-muted small ms-auto">
                                     Submitted by: {{ getUserNameFromCache(sub.submittedBy) || 'Anonymous User' }}
                                 </span>
-                             </div>
-                         </li>
-                     </ul>
+                            </div>
+                        </li>
+                    </ul>
                 </div>
             </div>
 
-             <!-- Display Winner -->
-             <div v-if="event.winners && event.winners.length > 0" class="card bg-light border-warning mb-4 shadow-sm">
-                 <div class="card-body text-center">
+            <!-- Display Winner -->
+            <div v-if="event.winners && event.winners.length > 0" class="card bg-light border-warning mb-4 shadow-sm">
+                <div class="card-body text-center">
                     <h4 class="text-warning mb-2"><i class="fas fa-award me-2"></i>Winner!</h4>
                     <div v-for="winnerId in event.winners" :key="winnerId" class="lead mb-1">
                         {{ getWinnerName(winnerId) || winnerId }}
                     </div>
-                 </div>
-             </div>
+                </div>
+            </div>
 
-             <!-- Project Submission Modal -->
-             <div class="modal fade" id="submissionModal" tabindex="-1" aria-labelledby="submissionModalLabel" aria-hidden="true" ref="submissionModalRef">
-                 <div class="modal-dialog">
-                     <div class="modal-content">
-                         <div class="modal-header">
-                             <h5 class="modal-title" id="submissionModalLabel">Submit Project Details</h5>
-                             <button type="button" class="btn-close" aria-label="Close" @click="closeSubmissionModal"></button>
-                         </div>
-                         <form @submit.prevent="submitProject">
-                             <div class="modal-body">
-                                 <div v-if="submissionError" class="alert alert-danger">{{ submissionError }}</div>
-                                 <div class="mb-3">
-                                     <label for="projectName" class="form-label">Project Name <span class="text-danger">*</span></label>
-                                     <input type="text" v-model="submissionForm.projectName" id="projectName" class="form-control" required>
-                                 </div>
-                                 <div class="mb-3">
-                                     <label for="projectLink" class="form-label">Project Link (GitHub, Demo, etc.) <span class="text-danger">*</span></label>
-                                     <input type="url" v-model="submissionForm.link" id="projectLink" class="form-control" required placeholder="https://...">
-                                 </div>
-                                 <div class="mb-3">
-                                     <label for="projectDescription" class="form-label">Brief Description</label>
-                                     <textarea v-model="submissionForm.description" id="projectDescription" class="form-control" rows="3"></textarea>
-                                 </div>
-                             </div>
-                             <div class="modal-footer">
-                                 <button type="button" class="btn btn-secondary" @click="closeSubmissionModal">Close</button>
-                                 <button type="submit" class="btn btn-primary" :disabled="isSubmittingProject">
-                                     <span v-if="isSubmittingProject" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                     {{ isSubmittingProject ? 'Submitting...' : 'Submit Project' }}
+            <!-- Project Submission Modal -->
+            <div class="modal fade" id="submissionModal" tabindex="-1" aria-labelledby="submissionModalLabel"
+                aria-hidden="true" ref="submissionModalRef">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="submissionModalLabel">Submit Project Details</h5>
+                            <button type="button" class="btn-close" aria-label="Close"
+                                @click="closeSubmissionModal"></button>
+                        </div>
+                        <form @submit.prevent="submitProject">
+                            <div class="modal-body">
+                                <div v-if="submissionError" class="alert alert-danger">{{ submissionError }}</div>
+                                <div class="mb-3">
+                                    <label for="projectName" class="form-label">Project Name <span
+                                            class="text-danger">*</span></label>
+                                    <input type="text" v-model="submissionForm.projectName" id="projectName"
+                                        class="form-control" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="projectLink" class="form-label">Project Link (GitHub, Demo, etc.) <span
+                                            class="text-danger">*</span></label>
+                                    <input type="url" v-model="submissionForm.link" id="projectLink"
+                                        class="form-control" required placeholder="https://...">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="projectDescription" class="form-label">Brief Description</label>
+                                    <textarea v-model="submissionForm.description" id="projectDescription"
+                                        class="form-control" rows="3"></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary"
+                                    @click="closeSubmissionModal">Close</button>
+                                <button type="submit" class="btn btn-primary" :disabled="isSubmittingProject">
+                                    <span v-if="isSubmittingProject" class="spinner-border spinner-border-sm me-1"
+                                        role="status" aria-hidden="true"></span>
+                                    {{ isSubmittingProject ? 'Submitting...' : 'Submit Project' }}
                                 </button>
-                             </div>
-                         </form>
-                     </div>
-                 </div>
-             </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
 
         </div>
         <div v-else class="alert alert-warning">Event not found or you do not have permission to view it.</div>
@@ -313,12 +325,12 @@ watch(eventFromStore, (newEventData) => {
         selectedWinner.value = (newEventData.winners && newEventData.winners.length > 0) ? newEventData.winners[0] : null;
         // Collect all relevant IDs from the new event data
         let ids = new Set();
-         if (newEventData.organizer) ids.add(newEventData.organizer);
-         (newEventData.coOrganizers || []).forEach(id => ids.add(id));
-         (newEventData.participants || []).forEach(id => ids.add(id));
-         (newEventData.teams || []).forEach(team => (team.members || []).forEach(id => ids.add(id)));
-         (newEventData.submissions || []).forEach(sub => { if (sub.participantId) ids.add(sub.participantId); });
-         (newEventData.teams || []).forEach(team => (team.submissions || []).forEach(s => { if (s.submittedBy) ids.add(s.submittedBy); })); // Fetch submitter name if needed
+        if (newEventData.organizer) ids.add(newEventData.organizer);
+        (newEventData.coOrganizers || []).forEach(id => ids.add(id));
+        (newEventData.participants || []).forEach(id => ids.add(id));
+        (newEventData.teams || []).forEach(team => (team.members || []).forEach(id => ids.add(id)));
+        (newEventData.submissions || []).forEach(sub => { if (sub.participantId) ids.add(sub.participantId); });
+        (newEventData.teams || []).forEach(team => (team.submissions || []).forEach(s => { if (s.submittedBy) ids.add(s.submittedBy); })); // Fetch submitter name if needed
         fetchUserNames(Array.from(ids)); // Fetch names based on updated IDs
         loading.value = false; // Ensure loading stops
     } else if (!loading.value && newEventData?.id !== props.id) {
@@ -338,11 +350,22 @@ const fetchAndSetEventInitial = async () => {
         const eventData = await store.dispatch('events/fetchEventDetails', props.id);
         if (!eventData) {
             errorMessage.value = `Event ${props.id} not found.`;
-            // Optionally redirect to events list or show not found message
-            router.push('/home'); // Add this line to redirect on not found
+            router.push('/home');
             return;
         }
-        // ... rest of the function
+
+        event.value = eventData;
+        // Fetch names for all users involved in the event
+        const userIds = new Set();
+        if (eventData.organizer) userIds.add(eventData.organizer);
+        if (eventData.coOrganizers) eventData.coOrganizers.forEach(id => userIds.add(id));
+        if (eventData.participants) eventData.participants.forEach(id => userIds.add(id));
+        if (eventData.teams) {
+            eventData.teams.forEach(team => {
+                if (team.members) team.members.forEach(id => userIds.add(id));
+            });
+        }
+        await fetchUserNames(Array.from(userIds));
     } catch (error) {
         console.error('Error fetching event:', error);
         errorMessage.value = error.message || 'Failed to load event details.';
@@ -353,23 +376,23 @@ const fetchAndSetEventInitial = async () => {
 
 // Lifecycle Hooks
 onMounted(() => {
-     fetchAndSetEventInitial();
-     // Modal setup
-      if (submissionModalRef.value) {
-         submissionModalInstance = new Modal(submissionModalRef.value);
-         submissionModalRef.value.addEventListener('hidden.bs.modal', () => {
+    fetchAndSetEventInitial();
+    // Modal setup
+    if (submissionModalRef.value) {
+        submissionModalInstance = new Modal(submissionModalRef.value);
+        submissionModalRef.value.addEventListener('hidden.bs.modal', () => {
             showSubmissionModal.value = false;
             submissionForm.value = { projectName: '', link: '', description: '' };
             submissionError.value = '';
             isSubmittingProject.value = false;
-         });
-     }
+        });
+    }
 });
 onUnmounted(() => { submissionModalInstance?.dispose(); });
 watch(showSubmissionModal, (newValue) => {
-     if (!submissionModalInstance) { /* ... try init modal ... */ return; }
-     try { if (newValue) { submissionModalInstance.show(); } else { submissionModalInstance.hide(); } }
-     catch (e) { console.error("Modal show/hide error:", e); }
+    if (!submissionModalInstance) { /* ... try init modal ... */ return; }
+    try { if (newValue) { submissionModalInstance.show(); } else { submissionModalInstance.hide(); } }
+    catch (e) { console.error("Modal show/hide error:", e); }
 });
 const closeSubmissionModal = () => { showSubmissionModal.value = false; };
 
@@ -392,27 +415,27 @@ const isParticipantOrTeamMember = computed(() => {
 });
 const hasSubmittedProject = computed(() => {
     if (!currentUser.value || !event.value || !isParticipantOrTeamMember.value) return false;
-     const userId = currentUser.value.uid;
-     if (event.value.isTeamEvent) {
-         const userTeam = (event.value.teams || []).find(team => team.members?.includes(userId));
-         return userTeam?.submissions?.length > 0;
-     } else {
-         return (event.value.submissions || []).some(sub => sub.participantId === userId);
-     }
+    const userId = currentUser.value.uid;
+    if (event.value.isTeamEvent) {
+        const userTeam = (event.value.teams || []).find(team => team.members?.includes(userId));
+        return userTeam?.submissions?.length > 0;
+    } else {
+        return (event.value.submissions || []).some(sub => sub.participantId === userId);
+    }
 });
 const canSubmitProject = computed(() => event.value?.status === 'In Progress' && isParticipantOrTeamMember.value && !hasSubmittedProject.value);
 const submissions = computed(() => {
-     if (!event.value) return [];
-     loadingSubmissions.value = true; // May not be needed if data updates reactively
-     let subs = [];
-     if (event.value.isTeamEvent && Array.isArray(event.value.teams)) {
-         event.value.teams.forEach(team => (team.submissions || []).forEach(s => subs.push({ ...s, submittedBy: `Team: ${team.teamName}` })));
-     } else if (!event.value.isTeamEvent && Array.isArray(event.value.submissions)) {
-         subs = event.value.submissions.map(s => ({ ...s, submittedBy: getUserNameFromCache(s.participantId) || s.participantId }));
-     }
-     loadingSubmissions.value = false;
-     subs.sort((a, b) => (a.projectName || '').localeCompare(b.projectName || ''));
-     return subs;
+    if (!event.value) return [];
+    loadingSubmissions.value = true; // May not be needed if data updates reactively
+    let subs = [];
+    if (event.value.isTeamEvent && Array.isArray(event.value.teams)) {
+        event.value.teams.forEach(team => (team.submissions || []).forEach(s => subs.push({ ...s, submittedBy: `Team: ${team.teamName}` })));
+    } else if (!event.value.isTeamEvent && Array.isArray(event.value.submissions)) {
+        subs = event.value.submissions.map(s => ({ ...s, submittedBy: getUserNameFromCache(s.participantId) || s.participantId }));
+    }
+    loadingSubmissions.value = false;
+    subs.sort((a, b) => (a.projectName || '').localeCompare(b.projectName || ''));
+    return subs;
 });
 const sortedParticipants = computed(() => {
     if (!event.value || !Array.isArray(event.value.participants)) return [];
@@ -435,13 +458,11 @@ const isEventInDateRange = computed(() => {
 // --- Methods ---
 const formatDate = (timestamp) => { if (timestamp?.seconds) { return new Date(timestamp.seconds * 1000).toLocaleDateString(); } return 'N/A'; };
 const getOrganizerNames = () => {
-     if (!event.value) return null;
-     let names = new Set();
-     const primaryName = getUserNameFromCache(event.value.organizer) || event.value.organizer;
-     if (primaryName) names.add(primaryName);
-     // Co-organizers handled separately now
-     // (event.value.coOrganizers || []).forEach(id => { const coName = getUserNameFromCache(id) || id; if (coName) names.add(coName); });
-     return Array.from(names).join(', ') || null;
+    if (!event.value) return null;
+    let names = new Set();
+    const primaryName = getUserNameFromCache(event.value.organizer) || event.value.organizer;
+    if (primaryName) names.add(primaryName);
+    return Array.from(names).join(', ') || null;
 };
 const getCoOrganizerDisplayNames = () => {
     if (!event.value || !event.value.coOrganizers || event.value.coOrganizers.length === 0) return null;
@@ -449,21 +470,21 @@ const getCoOrganizerDisplayNames = () => {
 }
 const getUserNameFromCache = (userId) => nameCache.value.get(userId) || null;
 const getWinnerName = (winnerIdentifier) => { if (!winnerIdentifier || !event.value) return winnerIdentifier; return event.value.isTeamEvent ? winnerIdentifier : (getUserNameFromCache(winnerIdentifier) || winnerIdentifier); };
-const updateStatus = async (newStatus) => { 
+const updateStatus = async (newStatus) => {
     if (!event.value) return;
     if (newStatus === 'Cancelled' && !confirm(`Cancel "${event.value.eventName}"?`)) return;
-    try { 
-        await store.dispatch('events/updateEventStatus', { 
-            eventId: props.id, 
-            newStatus 
-        }); 
-    } catch (error) { 
-        console.error(`Status update error:`, error); 
-        alert(error.message || 'Failed to update event status'); 
-    } 
+    try {
+        await store.dispatch('events/updateEventStatus', {
+            eventId: props.id,
+            newStatus
+        });
+    } catch (error) {
+        console.error(`Status update error:`, error);
+        alert(error.message || 'Failed to update event status');
+    }
 };
 const toggleRatingsOpen = async (isOpen) => { if (!event.value) return; try { await store.dispatch('events/toggleRatingsOpen', { eventId: props.id, isOpen }); } catch (error) { console.error("Toggle ratings error:", error); alert(`Failed: ${error.message}`); } };
-const saveWinner = async () => { 
+const saveWinner = async () => {
     if (!event.value || !selectedWinner.value) return;
     try {
         // Update both winners array and winnersPerRole for compatibility
@@ -473,11 +494,11 @@ const saveWinner = async () => {
                 default: [selectedWinner.value]  // New format
             }
         };
-        
+
         await updateDoc(doc(db, 'events', props.id), updates);
-        store.dispatch('events/updateLocalEvent', { 
-            id: props.id, 
-            changes: updates 
+        store.dispatch('events/updateLocalEvent', {
+            id: props.id,
+            changes: updates
         });
     } catch (error) {
         console.error("Save winner error:", error);
@@ -495,7 +516,7 @@ const leaveEvent = async () => { if (!event.value) return; if (confirm('Leave th
 const canRateEvent = computed(() => {
     if (!event.value?.ratingsOpen || event.value?.status !== 'Completed') return false;
     if (!currentUser.value?.uid) return false;
-    
+
     // Check if user has already submitted ratings
     const userRatings = event.value.ratings?.filter(r => r.ratedBy === currentUser.value.uid) || [];
     return userRatings.length === 0;
@@ -504,9 +525,9 @@ const canRateEvent = computed(() => {
 // Modify goToIndividualRating to goToWinnerSelection
 const goToWinnerSelection = () => {
     if (!event.value) return;
-    router.push({ 
-        name: 'RatingForm', 
-        params: { eventId: props.id }
+    router.push({
+        name: 'RatingForm',
+        params: { eventId: props.id } // Ensure 'eventId' matches route param name
     });
 };
 
@@ -514,10 +535,10 @@ const goToWinnerSelection = () => {
 const isWinner = (participantId) => {
     if (!event.value) return false;
     // Check both winner formats
-    return event.value.winners?.includes(participantId) || 
-           Object.values(event.value.winnersPerRole || {}).some(winners => 
-               Array.isArray(winners) && winners.includes(participantId)
-           );
+    return event.value.winners?.includes(participantId) ||
+        Object.values(event.value.winnersPerRole || {}).some(winners =>
+            Array.isArray(winners) && winners.includes(participantId)
+        );
 };
 
 // Add this new computed property with the other computed properties
@@ -533,6 +554,21 @@ const hasEnoughRatings = computed(() => {
 
 <style scoped>
 /* Styles rely on main.css and utilities */
-.badge { font-size: 0.8em; }
-.spinner-border-sm { width: 0.8rem; height: 0.8rem; border-width: .15em; vertical-align: text-bottom; }
+.badge {
+    font-size: 0.8em;
+}
+
+.spinner-border-sm {
+    width: 0.8rem;
+    height: 0.8rem;
+    border-width: .15em;
+    vertical-align: text-bottom;
+}
+
+.highlighted-user {
+    background-color: rgba(var(--color-primary-rgb), 0.1);
+    /* Light primary background */
+    border-left: 4px solid var(--color-primary);
+    /* Primary border on left */
+}
 </style>

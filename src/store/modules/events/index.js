@@ -1,7 +1,34 @@
-import { db } from '../../firebase';
-import { _calculateWeightedAverageScore } from './events/helpers';
-import { eventActions } from './events/actions';
-import { eventMutations } from './events/mutations';
+import { db } from '../../../firebase';
+import { eventActions } from './actions';
+import { eventMutations } from './mutations';
+
+// Helper function moved from original file
+const _calculateWeightedAverageScore = (ratings = []) => {
+    if (!Array.isArray(ratings) || ratings.length === 0) return 0;
+
+    let totalRatingSum = 0;
+    let ratingCount = 0;
+
+    for (const ratingEntry of ratings) {
+        if (!ratingEntry || typeof ratingEntry !== 'object' || !ratingEntry.rating || typeof ratingEntry.rating !== 'object') continue;
+
+        const rating = ratingEntry.rating;
+        const design = Number(rating.design) || 0;
+        const presentation = Number(rating.presentation) || 0;
+        const problemSolving = Number(rating.problemSolving) || 0;
+        const execution = Number(rating.execution) || 0;
+        const technology = Number(rating.technology) || 0;
+
+        // Assuming rating values are 0-5 or similar, adjust divisor if needed
+        const overallRating = (design + presentation + problemSolving + execution + technology) / 5.0;
+
+        totalRatingSum += overallRating;
+        ratingCount++;
+    }
+
+    // Return average score, capped between 0 and 5 (or relevant scale)
+    return ratingCount > 0 ? Math.max(0, Math.min(5, totalRatingSum / ratingCount)) : 0;
+};
 
 const state = {
     events: [], // Single list for all event statuses
@@ -84,5 +111,5 @@ export default {
     state,
     getters,
     actions: eventActions,
-    mutations: eventMutations,
+    mutations: eventMutations
 };

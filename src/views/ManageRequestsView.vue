@@ -98,15 +98,42 @@ const conflictWarnings = reactive({}); // Use reactive object for conflicts
 const pendingEvents = computed(() => store.getters['events/pendingEvents']);
 
 // Robust Date Formatting
-const formatDate = (dateInput) => { /* ... same as before ... */ };
-const formatRoleName = (roleKey) => { /* ... same as before ... */ };
+const formatDate = (dateInput) => {
+    if (!dateInput) return 'N/A';
+    const date = dateInput.toDate();
+    return new Intl.DateTimeFormat('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    }).format(date);
+};
 
+const formatRoleName = (roleKey) => {
+    const roleMap = {
+        'orgRole': 'Organizer',
+        'partRole': 'Participant'
+    };
+    return roleMap[roleKey] || roleKey;
+};
 
 // Fetch user names
-async function fetchUserNames(userIds) { /* ... same as before ... */ }
+async function fetchUserNames(userIds) {
+    for (const userId of userIds) {
+        if (!nameCache.value[userId]) {
+            try {
+                const userDoc = await getDoc(doc(db, 'users', userId));
+                if (userDoc.exists()) {
+                    nameCache.value[userId] = userDoc.data().displayName || userId;
+                }
+            } catch (error) {
+                console.error(`Error fetching user ${userId}:`, error);
+                nameCache.value[userId] = userId;
+            }
+        }
+    }
+}
 
-// Get co-organizer names
-const getCoOrganizerNames = (coOrganizerIds) => { /* ... same as before ... */ };
+// Get co-organizer names - function is not used, can be removed
 
 // Check processing state
 const isProcessing = (requestId) => processingRequests.value.has(requestId);
@@ -152,7 +179,7 @@ async function loadInitialData() {
 onMounted(loadInitialData);
 
 // Watch the getter for changes and re-run checks
-watch(pendingEvents, async (newPendingList, oldPendingList) => {
+watch(pendingEvents, async (newPendingList) => {
      // Avoid re-running during initial load if fetchEvents triggers update
      if (!loading.value) {
           console.log("Pending events changed, refreshing names and conflicts...");
