@@ -26,13 +26,13 @@
             <div class="d-flex justify-content-between align-items-start flex-wrap">
                 <div class="me-3 mb-2">
                    <h5 class="mb-1">{{ event.eventName }} <span class="fw-normal text-muted">({{ event.eventType }})</span></h5>
-                   <p class="mb-1 small"><strong class="me-1">Requested by:</strong> {{ nameCache[event.requester] || event.requester }}</p>
+                   <p class="mb-1 small"><strong class="me-1">Requested by:</strong> {{ nameCache[event.requester] || '(Name not found)' }}</p>
                    <p class="mb-1 small"><strong class="me-1">Desired Dates:</strong> {{ formatDate(event.desiredStartDate) }} - {{ formatDate(event.desiredEndDate) }}</p>
                    <p class="mb-1 small"><strong class="me-1">Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}</p>
                    <p v-if="event.coOrganizers && event.coOrganizers.length > 0" class="mb-1 small">
                        <strong>Co-organizers:</strong> 
                        <span v-for="(orgId, idx) in event.coOrganizers" :key="orgId">
-                           {{ nameCache[orgId] || orgId }}{{ idx < event.coOrganizers.length - 1 ? ', ' : '' }}
+                           {{ nameCache[orgId] || '(Name not found)' }}{{ idx < event.coOrganizers.length - 1 ? ', ' : '' }}
                        </span>
                    </p>
                    <p class="mb-2 small">Description: {{ event.description }}</p>
@@ -100,12 +100,35 @@ const pendingEvents = computed(() => store.getters['events/pendingEvents']);
 // Robust Date Formatting
 const formatDate = (dateInput) => {
     if (!dateInput) return 'N/A';
-    const date = dateInput.toDate();
-    return new Intl.DateTimeFormat('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-    }).format(date);
+
+    let date;
+    if (typeof dateInput.toDate === 'function') {
+        // Firestore Timestamp
+        date = dateInput.toDate();
+    } else if (dateInput instanceof Date) {
+        // Already a JS Date
+        date = dateInput;
+    } else {
+        // Try parsing (less likely for Firestore, but safe)
+        date = new Date(dateInput);
+    }
+
+    // Check if the resulting date is valid
+    if (isNaN(date.getTime())) {
+        console.warn("Invalid date encountered in formatDate:", dateInput);
+        return 'Invalid Date';
+    }
+
+    try {
+        return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        }).format(date);
+    } catch (error) {
+        console.error("Error formatting date:", date, error);
+        return 'Formatting Error';
+    }
 };
 
 const formatRoleName = (roleKey) => {
@@ -123,11 +146,16 @@ async function fetchUserNames(userIds) {
             try {
                 const userDoc = await getDoc(doc(db, 'users', userId));
                 if (userDoc.exists()) {
-                    nameCache.value[userId] = userDoc.data().displayName || userId;
+                    // Store display name if available, otherwise store a specific placeholder
+                    nameCache.value[userId] = userDoc.data().displayName || '(Name missing)'; 
+                } else {
+                     // User document doesn't exist
+                     nameCache.value[userId] = '(User not found)';
                 }
             } catch (error) {
                 console.error(`Error fetching user ${userId}:`, error);
-                nameCache.value[userId] = userId;
+                // Store an error indicator in the cache
+                nameCache.value[userId] = '(Error fetching name)';
             }
         }
     }

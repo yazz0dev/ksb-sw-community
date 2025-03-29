@@ -11,7 +11,7 @@
         <!-- Progress Steps -->
         <div v-if="!loadingCheck && !hasActiveRequest" class="progress-steps mb-4">
             <div class="step" :class="{ active: currentStep === 1, completed: currentStep > 1 }">
-                1. Event Details & XP
+                1. Event Details, Organizers & XP
             </div>
             <div v-if="isTeamEvent" class="step" :class="{ active: currentStep === 2, disabled: currentStep < 2 }">
                 2. Team Definition
@@ -32,18 +32,18 @@
             <span class="ms-2">Loading student list...</span>
         </div>
 
-        <!-- Step 1: Event Details & XP -->
+        <!-- Step 1: Event Details, Organizers & XP -->
         <div v-if="currentStep === 1">
             <form @submit.prevent="handleStep1Submit">
                 <!-- Event Type Selection -->
                 <div class="mb-4">
                     <label class="form-label d-block">Event Type</label>
                     <div class="btn-group">
-                        <input type="radio" class="btn-check" name="eventType" id="individualEvent" 
+                        <input type="radio" class="btn-check" name="eventType" id="individualEvent"
                                v-model="isTeamEvent" :value="false" :disabled="isSubmitting">
                         <label class="btn btn-outline-primary" for="individualEvent">Individual Event</label>
 
-                        <input type="radio" class="btn-check" name="eventType" id="teamEvent" 
+                        <input type="radio" class="btn-check" name="eventType" id="teamEvent"
                                v-model="isTeamEvent" :value="true" :disabled="isSubmitting">
                         <label class="btn btn-outline-primary" for="teamEvent">Team Event</label>
                     </div>
@@ -87,11 +87,11 @@
                             {{ isAdmin ? 'Start Date' : 'Desired Start Date' }} <span class="text-danger">*</span>
                         </label>
                         <div class="input-group">
-                            <input type="date" :id="isAdmin ? 'startDate' : 'desiredStartDate'" 
-                                   v-model="startDate" required class="form-control" 
-                                   :min="minDate" :disabled="isSubmitting" 
+                            <input type="date" :id="isAdmin ? 'startDate' : 'desiredStartDate'"
+                                   v-model="startDate" required class="form-control"
+                                   :min="minDate" :disabled="isSubmitting"
                                    placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"/>
-                            <button class="btn btn-outline-secondary" type="button" 
+                            <button class="btn btn-outline-secondary" type="button"
                                     @click="setNextAvailableDate" :disabled="isFindingNextDate">
                                 <span v-if="isFindingNextDate" class="spinner-border spinner-border-sm me-1" role="status"></span>
                                 <i class="fas fa-calendar-check"></i> Next Available Date
@@ -105,12 +105,64 @@
                         <label :for="isAdmin ? 'endDate' : 'desiredEndDate'" class="form-label">
                             {{ isAdmin ? 'End Date' : 'Desired End Date' }} <span class="text-danger">*</span>
                         </label>
-                        <input type="date" :id="isAdmin ? 'endDate' : 'desiredEndDate'" 
-                               v-model="endDate" required class="form-control" 
-                               :min="startDate || minDate" :disabled="isSubmitting" 
+                        <input type="date" :id="isAdmin ? 'endDate' : 'desiredEndDate'"
+                               v-model="endDate" required class="form-control"
+                               :min="startDate || minDate" :disabled="isSubmitting"
                                placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"/>
                         <div v-if="dateErrorMessages.endDate" class="form-text text-danger">
                             {{ dateErrorMessages.endDate }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Organizers Section -->
+                <div class="mb-4">
+                    <label class="form-label">Organizers</label>
+                    <div class="card">
+                        <div class="card-body">
+                            <!-- Display current user (requester) - non-removable -->
+                            <div class="mb-2">
+                                <span class="badge bg-primary me-2">
+                                    {{ studentNameCache[currentUser?.uid] || currentUser?.email || 'You' }} (Requester)
+                                </span>
+                            </div>
+
+                            <!-- Display selected additional organizers -->
+                            <div class="selected-organizers mb-2">
+                                <span v-for="uid in organizers.filter(id => id !== currentUser?.uid)" :key="uid"
+                                      class="badge bg-secondary me-2 mb-1 selected-badge">
+                                    {{ studentNameCache[uid] || uid }}
+                                    <button type="button" class="btn-close btn-close-white ms-1"
+                                            @click="removeOrganizer(uid)"
+                                            :disabled="isSubmitting"
+                                            aria-label="Remove organizer"></button>
+                                </span>
+                            </div>
+
+                            <!-- Search and Add Organizers -->
+                            <div v-if="organizers.length < 6" class="organizer-section">
+                                <input type="text"
+                                       class="form-control form-control-sm"
+                                       placeholder="Search and add organizers (up to 5 more)..."
+                                       v-model="organizerSearch"
+                                       @focus="showOrganizerDropdown = true"
+                                       @blur="handleOrganizerSearchBlur"
+                                       :disabled="isSubmitting || loadingStudents">
+                                <div v-if="showOrganizerDropdown && filteredPotentialOrganizers.length > 0"
+                                     class="list-group organizer-dropdown">
+                                    <button type="button"
+                                            v-for="student in filteredPotentialOrganizers" :key="student.uid"
+                                            class="list-group-item list-group-item-action list-group-item-sm"
+                                            @mousedown.prevent="addOrganizer(student)">
+                                        {{ student.name || student.uid }}
+                                    </button>
+                                </div>
+                                <div v-else-if="showOrganizerDropdown && organizerSearch && filteredPotentialOrganizers.length === 0"
+                                     class="list-group organizer-dropdown">
+                                    <span class="list-group-item list-group-item-sm text-muted">No matching students found.</span>
+                                </div>
+                            </div>
+                             <div v-else class="form-text text-muted">Maximum number of organizers reached (1 requester + 5 additional).</div>
                         </div>
                     </div>
                 </div>
@@ -119,35 +171,35 @@
                 <div class="card mb-4">
                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Rating Criteria & XP Allocation</h5>
-                        <button 
-                            type="button" 
-                            class="btn btn-sm btn-outline-primary" 
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-primary"
                             @click="addConstraint"
                             :disabled="ratingCriteria.length >= 5">
                             <i class="fas fa-plus"></i> Add Criterion
                         </button>
                     </div>
                     <div class="card-body">
-                        <div v-for="(criteria, index) in ratingCriteria" :key="index" 
+                        <div v-for="(criteria, index) in ratingCriteria" :key="index"
                              class="row mb-3 align-items-end position-relative">
                             <div class="col-md-4">
                                 <label :for="'criteriaLabel'+index" class="form-label">
                                     Criteria {{ index + 1 }} Label <span class="text-danger">*</span>
                                 </label>
-                                <input type="text" :id="'criteriaLabel'+index" 
+                                <input type="text" :id="'criteriaLabel'+index"
                                        v-model="criteria.label"
-                                       class="form-control" 
+                                       class="form-control"
                                        required
                                        :placeholder="getDefaultCriteriaLabel(index)">
                             </div>
                             <div class="col-md-4">
                                 <label :for="'roleSelect'+index" class="form-label">Role</label>
-                                <select :id="'roleSelect'+index" 
+                                <select :id="'roleSelect'+index"
                                         v-model="criteria.role"
                                         class="form-select">
                                     <option value="">Select Role</option>
-                                    <option v-for="role in availableRoles" 
-                                            :key="role.value" 
+                                    <option v-for="role in availableRoles"
+                                            :key="role.value"
                                             :value="role.value">
                                         {{ role.label }}
                                     </option>
@@ -157,11 +209,11 @@
                                 <label :for="'xpPoints'+index" class="form-label">
                                     XP Points ({{ criteria.points }})
                                 </label>
-                                <input type="range" :id="'xpPoints'+index" 
+                                <input type="range" :id="'xpPoints'+index"
                                        v-model.number="criteria.points"
                                        class="form-range" min="5" max="50" step="5">
                             </div>
-                            <button 
+                            <button
                                 v-if="ratingCriteria.length > 1"
                                 type="button"
                                 class="btn btn-sm btn-outline-danger position-absolute top-0 end-0"
@@ -187,7 +239,7 @@
         <div v-if="currentStep === 2 && isTeamEvent">
             <ManageTeamsComponent
                 :initial-teams="teams"
-                :students="potentialStudentCoOrganizers"
+                :students="potentialOrganizers" 
                 :name-cache="studentNameCache"
                 :is-submitting="isSubmitting"
                 @update:teams="updateTeams"
@@ -197,8 +249,8 @@
                 <button type="button" class="btn btn-secondary me-2" @click="currentStep = 1">
                     Back to Details
                 </button>
-                <button type="button" class="btn btn-primary" 
-                        @click="handleSubmit" 
+                <button type="button" class="btn btn-primary"
+                        @click="handleSubmit"
                         :disabled="isSubmitting || !hasValidTeams">
                     {{ getSubmitButtonText() }}
                 </button>
@@ -236,7 +288,7 @@ const eventType = ref<string>('Hackathon');
 const description = ref<string>('');
 const startDate = ref<string>('');
 const endDate = ref<string>('');
-const selectedCoOrganizers = ref<string[]>([]);
+const organizers = ref<string[]>([]); // Combined list including requester
 
 // --- Team Definition State ---
 const teams = ref<TeamMember[]>([{
@@ -245,11 +297,11 @@ const teams = ref<TeamMember[]>([{
     isNew: true
 }]);
 
-// --- Co-organizer State ---
-const potentialStudentCoOrganizers = ref<Student[]>([]);
+// --- Organizer State ---
+const potentialOrganizers = ref<Student[]>([]); // Students available to be added as organizers
 const studentNameCache = ref<Record<string, string>>({});
-const coOrganizerSearch = ref<string>('');
-const showCoOrganizerDropdown = ref<boolean>(false);
+const organizerSearch = ref<string>('');
+const showOrganizerDropdown = ref<boolean>(false);
 
 // --- General State ---
 const store = useStore();
@@ -273,8 +325,15 @@ const minDate = computed(() => {
   return `${year}-${month}-${day}`;
 });
 
-// Removed watcher for startDate - let the :min attribute handle manual changes
-// The setNextAvailableDate function will handle setting both dates correctly.
+// Filter potential organizers based on search and exclude already selected ones
+const filteredPotentialOrganizers = computed(() => {
+    if (!organizerSearch.value) return [];
+    const searchLower = organizerSearch.value.toLowerCase();
+    return potentialOrganizers.value.filter(student =>
+        !organizers.value.includes(student.uid) && // Exclude already added organizers
+        (student.name?.toLowerCase().includes(searchLower) || student.uid.includes(searchLower))
+    );
+});
 
 // --- Helper Functions ---
 const getSubmitButtonText = () => {
@@ -370,22 +429,26 @@ const fetchStudents = async () => {
                 name: doc.data().name || '',
                 role: doc.data().role || 'Student'
             }))
-            .filter(user => 
+            .filter(user =>
                 // Only include students (not admins) and exclude current user
-                user.role === 'Student' && 
+                user.role === 'Student' &&
                 user.uid !== currentUserId
             )
             .sort((a, b) => (a.name || a.uid).localeCompare(b.name || b.uid));
 
-        // Update name cache first
+        // Update name cache first for fetched students
         students.forEach(student => {
             if (student.name) {
                 studentNameCache.value[student.uid] = student.name;
             }
         });
+        // Ensure current user's name is cached if available and not already present
+        if (currentUserId && currentUser.value?.name && !studentNameCache.value[currentUserId]) {
+             studentNameCache.value[currentUserId] = currentUser.value.name;
+        }
 
-        // Set the filtered and sorted student list
-        potentialStudentCoOrganizers.value = students;
+        // Set the filtered and sorted student list for potential organizers
+        potentialOrganizers.value = students;
 
     } catch (error) {
         console.error('Error fetching students:', error);
@@ -396,16 +459,33 @@ const fetchStudents = async () => {
 };
 
 
-
-const addCoOrganizer = (student: Student) => {
-    if (selectedCoOrganizers.value.length < 5 && !selectedCoOrganizers.value.includes(student.uid)) {
-        selectedCoOrganizers.value.push(student.uid);
-        if (!studentNameCache.value[student.uid]) { studentNameCache.value[student.uid] = student.name || student.uid; }
-        coOrganizerSearch.value = ''; showCoOrganizerDropdown.value = false;
+// --- Organizer Management ---
+const addOrganizer = (student: Student) => {
+    // Limit to 6 total organizers (1 requester + 5 additional)
+    if (organizers.value.length < 6 && !organizers.value.includes(student.uid)) {
+        organizers.value.push(student.uid);
+        // Ensure name is cached if not already
+        if (!studentNameCache.value[student.uid]) {
+            studentNameCache.value[student.uid] = student.name || student.uid;
+        }
+        organizerSearch.value = ''; // Clear search input
+        showOrganizerDropdown.value = false; // Hide dropdown
     }
 };
-const removeCoOrganizer = (uid: string) => { selectedCoOrganizers.value = selectedCoOrganizers.value.filter(id => id !== uid); };
-const handleSearchBlur = () => { setTimeout(() => { showCoOrganizerDropdown.value = false; }, 150); };
+
+const removeOrganizer = (uid: string) => {
+    // Prevent removing the current user (requester)
+    if (uid === currentUser.value?.uid) {
+        console.warn("Cannot remove the requester from the organizers list.");
+        return;
+    }
+    organizers.value = organizers.value.filter(id => id !== uid);
+};
+
+const handleOrganizerSearchBlur = () => {
+    // Delay hiding dropdown to allow click event on list items
+    setTimeout(() => { showOrganizerDropdown.value = false; }, 150);
+};
 
 // --- Team Helpers ---
 const addTeam = () => { teams.value.push({ teamName: '', members: [], isNew: true }); };
@@ -420,14 +500,38 @@ const getTeamAssignmentName = (studentUid: string) => { // Find the name of the 
 onMounted(async () => {
     loadingCheck.value = true;
     hasActiveRequest.value = false;
+
+    // Ensure currentUser is loaded before proceeding
+    if (!currentUser.value?.uid) {
+        // Maybe wait or show a loading state until user is available
+        console.warn("Current user not available yet in onMounted");
+        // You might need a watcher on currentUser if it loads asynchronously after mount
+    } else {
+        // Initialize organizers with the current user
+        organizers.value = [currentUser.value.uid];
+        // Cache current user's name if available
+        if (currentUser.value.name && !studentNameCache.value[currentUser.value.uid]) {
+            studentNameCache.value[currentUser.value.uid] = currentUser.value.name;
+        }
+    }
+
+
     try {
-        if (!isAdmin.value) { hasActiveRequest.value = await store.dispatch('events/checkExistingRequests'); }
+        if (!isAdmin.value && currentUser.value?.uid) { // Check if user exists before dispatch
+             hasActiveRequest.value = await store.dispatch('events/checkExistingRequests');
+        }
     } catch (error) {
         console.error("Error checking existing requests:", error);
         errorMessage.value = "Could not verify existing requests.";
-        if (!isAdmin.value) hasActiveRequest.value = true;
+        if (!isAdmin.value) hasActiveRequest.value = true; // Assume active request on error
     } finally { loadingCheck.value = false; }
-    await fetchStudents();
+
+    // Fetch other students only after current user is confirmed
+    if (currentUser.value?.uid) {
+        await fetchStudents();
+    } else {
+        loadingStudents.value = false; // Don't show loading if no user yet
+    }
 });
 
 // --- Data Preparation ---
@@ -482,6 +586,11 @@ const handleSubmit = async () => {
     isSubmitting.value = true;
     dateErrorMessages.value = { startDate: '', endDate: '' };
 
+    // Ensure requester is always included
+    if (currentUser.value?.uid && !organizers.value.includes(currentUser.value.uid)) {
+        organizers.value.unshift(currentUser.value.uid); // Add requester if somehow missing
+    }
+
     try {
         const startDateObj = new Date(startDate.value);
         const endDateObj = new Date(endDate.value);
@@ -499,7 +608,7 @@ const handleSubmit = async () => {
             eventType: eventType.value,
             description: description.value,
             isTeamEvent: isTeamEvent.value,
-            coOrganizers: selectedCoOrganizers.value,
+            organizers: [...new Set(organizers.value)], // Use the combined organizers list, ensure uniqueness
             ratingCriteria: commonData.ratingConstraints, // Pass original criteria structure
             xpAllocation: commonData.xpAllocation,
             teams: isTeamEvent.value ? teams.value.map(t => ({
@@ -544,6 +653,17 @@ const availableRoles = [
 
 const handleStep1Submit = (e: Event) => {
     e.preventDefault();
+    // Basic validation before proceeding or submitting
+    if (!eventName.value || !eventType.value || !description.value || !startDate.value || !endDate.value) {
+        errorMessage.value = "Please fill in all required event details.";
+        return;
+    }
+     if (ratingCriteria.value.length < 1 || ratingCriteria.value.some(c => !c.label.trim())) {
+        errorMessage.value = "Please define at least one rating criterion with a label.";
+        return;
+    }
+    errorMessage.value = ''; // Clear error if validation passes
+
     if (isTeamEvent.value) {
         currentStep.value = 2;
     } else {
@@ -561,7 +681,7 @@ const handleBack = () => {
 
 const updateTeams = (newTeams: TeamMember[]) => {
     if (!Array.isArray(newTeams)) return;
-    
+
     // Map to ensure consistent structure
     teams.value = newTeams.map(team => ({
         teamName: team.teamName || '',
@@ -590,7 +710,7 @@ const updateCanAddTeam = (value: boolean) => {
 // Update hasValidTeams computed to include the new check
 const hasValidTeams = computed(() => {
     if (!isTeamEvent.value) return true;
-    
+
     const teamsArr = teams.value;
     if (!Array.isArray(teamsArr) || teamsArr.length < 2) {
         console.log("hasValidTeams: Need at least 2 teams", teamsArr);
@@ -601,7 +721,7 @@ const hasValidTeams = computed(() => {
     const isValid = teamsArr.every((team, index) => {
         const hasName = Boolean(team?.teamName?.trim());
         const hasMembers = Array.isArray(team?.members) && team.members.length > 0;
-        
+
         if (!hasName || !hasMembers) {
             console.log(`Team ${index + 1} validation failed:`, {
                 hasName,
@@ -621,14 +741,15 @@ const hasValidTeams = computed(() => {
 
 <style scoped>
 .form-select[multiple], .form-select[size] { min-height: 100px; max-height: 150px; overflow-y: auto; }
-.co-organizer-section { position: relative; }
-.co-organizer-dropdown { position: absolute; top: calc(100% - 1px); left: 0; right: 0; z-index: 1050; border: 1px solid var(--color-border); border-top: none; max-height: 200px; overflow-y: auto; background-color: var(--color-surface); box-shadow: var(--shadow-md); border-radius: 0 0 var(--border-radius) var(--border-radius); }
-.co-organizer-dropdown .list-group-item-sm { cursor: pointer; font-size: var(--font-size-sm); }
-.co-organizer-dropdown .list-group-item-sm:hover { background-color: var(--color-background); }
-.selected-coorganizers .selected-badge { padding: var(--space-1) var(--space-2); font-size: 0.85em; display: inline-flex; align-items: center; }
-.selected-coorganizers .btn-close { padding: 0.1rem 0.25rem; margin-left: 0.3rem; vertical-align: middle; font-size: 0.7em; line-height: 1; filter: grayscale(1); }
-.selected-coorganizers .btn-close:hover { filter: none; }
-.selected-coorganizers .btn-close:focus { box-shadow: none; }
+/* Renamed styles */
+.organizer-section { position: relative; }
+.organizer-dropdown { position: absolute; top: calc(100% - 1px); left: 0; right: 0; z-index: 1050; border: 1px solid var(--bs-border-color); border-top: none; max-height: 200px; overflow-y: auto; background-color: var(--bs-body-bg); box-shadow: var(--bs-box-shadow-sm); border-radius: 0 0 var(--bs-border-radius) var(--bs-border-radius); }
+.organizer-dropdown .list-group-item-sm { cursor: pointer; font-size: 0.875rem; padding: 0.25rem 0.5rem; } /* Adjusted padding/font */
+.organizer-dropdown .list-group-item-sm:hover { background-color: var(--bs-tertiary-bg); }
+.selected-organizers .selected-badge { padding: 0.3em 0.6em; font-size: 0.85em; display: inline-flex; align-items: center; }
+.selected-organizers .btn-close { padding: 0.1rem 0.25rem; margin-left: 0.3rem; vertical-align: middle; font-size: 0.7em; line-height: 1; filter: brightness(0) invert(1); opacity: 0.75; } /* Ensure contrast */
+.selected-organizers .btn-close:hover { filter: brightness(0) invert(1); opacity: 1; }
+.selected-organizers .btn-close:focus { box-shadow: none; }
 
 .team-definition-block { background-color: #f8f9fa; }
 .team-member-select { min-height: 150px; }
@@ -638,6 +759,7 @@ const hasValidTeams = computed(() => {
     display: flex;
     gap: 1rem;
     margin-bottom: 2rem;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
 }
 
 .step {
@@ -645,11 +767,14 @@ const hasValidTeams = computed(() => {
     border-radius: 4px;
     background: #e9ecef;
     color: #6c757d;
+    text-align: center;
+    flex-grow: 1; /* Allow steps to grow */
 }
 
 .step.active {
     background: #007bff;
     color: white;
+    font-weight: bold;
 }
 
 .step.completed {
@@ -658,8 +783,10 @@ const hasValidTeams = computed(() => {
 }
 
 .step.disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
+    background: #e9ecef; /* Keep background consistent but faded */
+    color: #6c757d;
 }
 
 /* Add styles for the range input */
@@ -672,5 +799,11 @@ const hasValidTeams = computed(() => {
 }
 .form-range::-moz-range-thumb {
     background: #0d6efd;
+}
+
+/* Ensure button on range input is visible */
+.position-absolute.top-0.end-0 {
+    z-index: 2; /* Ensure it's above the range input track */
+    transform: translate(-5px, 5px); /* Adjust position slightly */
 }
 </style>
