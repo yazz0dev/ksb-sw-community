@@ -416,14 +416,6 @@ const removeMember = (uid) => {
     }
 };
 
-// Modify removeTeam to check if we should show Add Team button again
-const removeTeam = (index) => {
-    if (localTeams.value.length > 1) {
-        localTeams.value.splice(index, 1);
-        emitUpdate();
-    }
-};
-
 // Update the emitUpdate function
 const emitUpdate = () => {
     emit('update:teams', localTeams.value);

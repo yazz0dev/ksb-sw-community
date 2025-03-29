@@ -208,7 +208,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch, nextTick } from 'vue'; // Import nextTick
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { collection, getDocs, query, doc, getDoc, Timestamp } from 'firebase/firestore';
@@ -263,11 +263,19 @@ const isSubmitting = ref<boolean>(false);
 // --- Computed ---
 const currentUser = computed(() => store.getters['user/getUser']);
 const isAdmin = computed(() => currentUser.value?.role === 'Admin' );
+// Use consistent local formatting for minDate
 const minDate = computed(() => {
   const today = new Date();
-  today.setDate(today.getDate() + 1);
-  return today.toISOString().split('T')[0];
+  today.setDate(today.getDate() + 1); // Start from tomorrow
+  const year = today.getFullYear();
+  const month = (today.getMonth() + 1).toString().padStart(2, '0');
+  const day = today.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
 });
+
+// Removed watcher for startDate - let the :min attribute handle manual changes
+// The setNextAvailableDate function will handle setting both dates correctly.
+
 // --- Helper Functions ---
 const getSubmitButtonText = () => {
     if (isSubmitting.value) return 'Submitting...';
@@ -302,17 +310,45 @@ const setNextAvailableDate = async () => {
     isFindingNextDate.value = true; // Disable button
     dateErrorMessages.value.startDate = ''; // Clear previous errors
     try {
-      const nextDate = await findNextAvailableDate();
+      // Use the new Vuex action
+      const nextDate = await store.dispatch('events/findNextAvailableSlot');
       if (nextDate instanceof Date) {
-        startDate.value = nextDate.toISOString().split('T')[0];
-        endDate.value = startDate.value; // Set end date to same day
+        // --- Add safeguard check ---
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalize today to midnight for comparison
+        // Ensure the found date is not before today
+        if (nextDate < today) {
+             console.error("findNextAvailableSlot returned a date before today:", nextDate);
+             dateErrorMessages.value.startDate = 'Error: Found date is in the past. Please select manually or try again.';
+             isFindingNextDate.value = false;
+             return; // Stop processing
+        }
+        // --- End safeguard check ---
+
+        // Format date using local components to avoid timezone shifts from toISOString
+        const year = nextDate.getFullYear();
+        const month = (nextDate.getMonth() + 1).toString().padStart(2, '0'); // Add 1 to month (0-indexed) and pad
+        const day = nextDate.getDate().toString().padStart(2, '0'); // Pad day
+        const localDateString = `${year}-${month}-${day}`;
+
+        // 1. Clear endDate first
+        endDate.value = '';
+        // 2. Set startDate
+        startDate.value = localDateString;
+
+        // 3. Wait for Vue's next DOM update cycle
+        await nextTick();
+
+        // 4. Now set endDate, ensuring it uses the same correct format
+        endDate.value = localDateString;
+
         dateErrorMessages.value.startDate = 'Next available start date set.'; // Confirmation message
       } else {
-        dateErrorMessages.value.startDate = 'No available dates found in the next 30 days.'; // Error message if no date found
+        dateErrorMessages.value.startDate = 'No available dates found in the near future.'; // Error message if no date found
       }
-    } catch (error) {
-      console.error('Error finding next available date:', error);
-      dateErrorMessages.value.startDate = 'Error finding next available date.'; // Error message on exception
+    } catch (error: any) {
+      console.error('Error finding next available date via store:', error);
+      dateErrorMessages.value.startDate = error.message || 'Error finding next available date.'; // Error message on exception
     } finally {
       isFindingNextDate.value = false; // Enable button
     }
@@ -393,6 +429,27 @@ onMounted(async () => {
     } finally { loadingCheck.value = false; }
     await fetchStudents();
 });
+
+// --- Data Preparation ---
+// Function to prepare data before submitting to the store action
+const prepareSubmissionData = () => {
+    // Calculate total XP from criteria
+    const totalXp = ratingCriteria.value.reduce((sum, criteria) => sum + criteria.points, 0);
+
+    // Determine status based on user role
+    const status = isAdmin.value ? 'Approved' : 'Pending'; // Admins create approved events directly
+
+    return {
+        ratingConstraints: ratingCriteria.value.map(c => ({ // Pass the criteria as constraints
+            label: c.label.trim() || getDefaultCriteriaLabel(ratingCriteria.value.indexOf(c)), // Use default if empty
+            role: c.role || '', // Use role or empty string
+            points: c.points
+        })),
+        xpAllocation: totalXp, // Total XP allocated
+        status: status // Set status based on role
+    };
+};
+
 
 // New reactive state for rating criteria
 const ratingCriteria = ref<{ label: string; role: string; points: number }[]>([
@@ -559,31 +616,7 @@ const hasValidTeams = computed(() => {
     return isValid;
 });
 
-// Add new helper function to find next available date
-const findNextAvailableDate = async (): Promise<Date | null> => {
-    const checkDate = new Date();
-    checkDate.setDate(checkDate.getDate() + 1); // Start from tomorrow
-    
-    let foundDate: Date | null = null;
-    let attempts = 0;
-    const maxAttempts = 30; // Limit search to next 30 days
-  
-    while (!foundDate && attempts < maxAttempts) {
-      const conflict = await store.dispatch('events/checkDateConflict', {
-        startDate: checkDate,
-        endDate: new Date(checkDate)
-      });
-  
-      if (!conflict) {
-        foundDate = new Date(checkDate);
-        break;
-      }
-      checkDate.setDate(checkDate.getDate() + 1);
-      attempts++;
-    }
-  
-    return foundDate;
-  };
+// Removed findNextAvailableDate as it's now handled by the Vuex action 'findNextAvailableSlot'
 </script>
 
 <style scoped>

@@ -91,11 +91,14 @@
                     <template v-if="event.status !== 'Completed' && event.status !== 'Cancelled'">
                         <button v-if="event.status === 'Upcoming' || event.status === 'Approved'"
                             @click="updateStatus('In Progress')" class="btn btn-info btn-sm"
-                            :title="'Can only mark in progress on or after start date'">
+                            :disabled="!canActuallyMarkInProgress"
+                            :title="canActuallyMarkInProgress ? 'Set event status to In Progress' : 'Can only mark in progress on or after start date'">
                             <i class="fas fa-play me-1"></i> Mark In Progress
                         </button>
                         <button v-if="event.status === 'In Progress'" @click="updateStatus('Completed')"
-                            class="btn btn-success btn-sm" :title="'Can only mark completed on or after end date'">
+                            class="btn btn-success btn-sm"
+                            :disabled="!canActuallyMarkCompleted"
+                            :title="canActuallyMarkCompleted ? 'Set event status to Completed' : 'Can only mark completed on or after end date'">
                             <i class="fas fa-check-circle me-1"></i> Mark Completed
                         </button>
                         <button @click="updateStatus('Cancelled')" class="btn btn-warning btn-sm"><i
@@ -445,9 +448,25 @@ const sortedTeamsForSelection = computed(() => {
     if (!event.value || !Array.isArray(event.value.teams)) return [];
     return [...event.value.teams].sort((a, b) => (a.teamName || '').localeCompare(b.teamName || ''));
 });
-const canMarkInProgress = computed(() => { /* ... date check ... */ });
-const canMarkCompleted = computed(() => { /* ... date check ... */ });
-const isEventInDateRange = computed(() => {
+const canActuallyMarkInProgress = computed(() => {
+    if (!event.value || (event.value.status !== 'Upcoming' && event.value.status !== 'Approved')) return false;
+    if (!event.value.startDate) return false; // Cannot mark if no start date
+    const now = new Date();
+    const startDate = event.value.startDate.toDate();
+    startDate.setHours(0, 0, 0, 0); // Compare dates only
+    now.setHours(0, 0, 0, 0);
+    return now >= startDate;
+});
+const canActuallyMarkCompleted = computed(() => {
+    if (!event.value || event.value.status !== 'In Progress') return false;
+    if (!event.value.endDate) return false; // Cannot mark if no end date
+    const now = new Date();
+    const endDate = event.value.endDate.toDate();
+    endDate.setHours(0, 0, 0, 0); // Compare dates only
+    now.setHours(0, 0, 0, 0);
+    return now >= endDate;
+});
+const isEventInDateRange = computed(() => { // Keep this as it might be used elsewhere
     if (!event.value?.startDate || !event.value?.endDate) return false;
     const now = new Date();
     const startDate = event.value.startDate.toDate();
@@ -472,7 +491,38 @@ const getUserNameFromCache = (userId) => nameCache.value.get(userId) || null;
 const getWinnerName = (winnerIdentifier) => { if (!winnerIdentifier || !event.value) return winnerIdentifier; return event.value.isTeamEvent ? winnerIdentifier : (getUserNameFromCache(winnerIdentifier) || winnerIdentifier); };
 const updateStatus = async (newStatus) => {
     if (!event.value) return;
-    if (newStatus === 'Cancelled' && !confirm(`Cancel "${event.value.eventName}"?`)) return;
+
+    // Add date checks before dispatching
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Compare dates only
+
+    if (newStatus === 'In Progress') {
+        if (!event.value.startDate) {
+            alert("Cannot mark as 'In Progress' without a start date.");
+            return;
+        }
+        const startDate = event.value.startDate.toDate();
+        startDate.setHours(0, 0, 0, 0);
+        if (now < startDate) {
+            alert(`Cannot mark as 'In Progress' before the start date (${formatDate(event.value.startDate)}).`);
+            return;
+        }
+    } else if (newStatus === 'Completed') {
+        if (!event.value.endDate) {
+            alert("Cannot mark as 'Completed' without an end date.");
+            return;
+        }
+        const endDate = event.value.endDate.toDate();
+        endDate.setHours(0, 0, 0, 0);
+        if (now < endDate) {
+            alert(`Cannot mark as 'Completed' before the end date (${formatDate(event.value.endDate)}).`);
+            return;
+        }
+    }
+
+    // Confirmation for Cancel
+    if (newStatus === 'Cancelled' && !confirm(`Are you sure you want to cancel the event "${event.value.eventName}"? This action cannot be undone.`)) return;
+
     try {
         await store.dispatch('events/updateEventStatus', {
             eventId: props.id,

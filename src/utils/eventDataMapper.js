@@ -32,7 +32,8 @@ export const mapEventDataToFirestore = (eventData) => {
   mappedData.participants = Array.isArray(eventData.participants) ? eventData.participants : [];
   mappedData.coOrganizers = Array.isArray(eventData.coOrganizers) ? eventData.coOrganizers : [];
   mappedData.ratingCriteria = Array.isArray(eventData.ratingCriteria) ? eventData.ratingCriteria : [];
-  mappedData.xpAllocation = Array.isArray(eventData.xpAllocation) ? eventData.xpAllocation : [];
+  // Ensure xpAllocation is a number, default to 0 if not provided or invalid
+  mappedData.xpAllocation = typeof eventData.xpAllocation === 'number' ? eventData.xpAllocation : 0;
 
   // Initialize teams array if it's a team event
   if (eventData.isTeamEvent) {

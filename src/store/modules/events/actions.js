@@ -42,6 +42,8 @@ export const eventActions = {
             }
             // Set time to avoid time-based overlap issues if only comparing dates
             checkStart.setHours(0, 0, 0, 0);
+            // Normalize check range: Start of the first day to End of the last day
+            checkStart.setHours(0, 0, 0, 0);
             checkEnd.setHours(23, 59, 59, 999);
 
         } catch (e) {
@@ -64,18 +66,74 @@ export const eventActions = {
 
                 // Set time for comparison to ensure full day coverage
                 eventStart.setHours(0, 0, 0, 0);
+                // Normalize event range fully: Start of its first day to End of its last day
+                eventStart.setHours(0, 0, 0, 0);
                 eventEnd.setHours(23, 59, 59, 999);
 
-                // Overlap check: (StartA <= EndB) and (EndA >= StartB)
-                if (checkStart <= eventEnd && checkEnd >= eventStart) {
-                     conflictingEvent = { id: doc.id, ...event };
-                     // Can break early if only one conflict is needed: return true in forEach doesn't work, might need a flag
+                // Overlap check using getTime() for robust, timezone-agnostic comparison:
+                // (StartA <= EndB) and (EndA >= StartB)
+                const startA = checkStart.getTime();
+                const endA = checkEnd.getTime();
+                const startB = eventStart.getTime();
+                const endB = eventEnd.getTime();
+
+                if (startA <= endB && endA >= startB) {
+                    conflictingEvent = { id: doc.id, ...event };
+                    // Note: querySnapshot.forEach cannot be broken out of early.
+                    // If performance becomes an issue with many events, consider a different query approach.
                 }
             } catch (dateError) {
                 console.warn(`Skipping event ${doc.id} in conflict check due to date issue:`, dateError);
             }
         });
         return conflictingEvent; // Returns null if no conflict, or the first conflicting event found
+    },
+
+    async findNextAvailableSlot({ dispatch }, { minDurationDays = 1, searchLimitDays = 30 } = {}) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() + 1); // Start checking from tomorrow
+        checkDate.setHours(0, 0, 0, 0); // Normalize start time
+
+        let availableDate = null;
+        let attempts = 0;
+        const today = new Date(); // Get today's date once
+        today.setHours(0, 0, 0, 0); // Normalize today
+
+        while (!availableDate && attempts < searchLimitDays) {
+            // Ensure we don't check dates before tomorrow relative to the loop start
+            if (checkDate <= today) {
+                 checkDate.setDate(checkDate.getDate() + 1); // Move to tomorrow if needed
+                 continue; // Skip to next iteration
+            }
+
+            const potentialEndDate = new Date(checkDate);
+            potentialEndDate.setHours(23, 59, 59, 999); // Check the entire day
+
+            try {
+                // Check the current checkDate for conflicts
+                const conflict = await dispatch('checkDateConflict', {
+                    startDate: new Date(checkDate), // Pass a new Date object instance
+                    endDate: potentialEndDate
+                });
+
+                if (!conflict) {
+                    availableDate = new Date(checkDate); // Found the available date
+                    break; // Exit loop
+                }
+            } catch (error) {
+                console.error(`Error checking date conflict for ${checkDate.toISOString().split('T')[0]} in findNextAvailableSlot:`, error);
+                // Decide how to handle errors during the search - stop or continue?
+                // For now, let's stop the search on error.
+                throw new Error("Error occurred while searching for available dates.");
+            }
+
+            // Move to the next day
+            // Move to the next day for the *next* iteration
+            checkDate.setDate(checkDate.getDate() + 1);
+            attempts++;
+        }
+
+        return availableDate; // Return the actual date found to be available
     },
 
     async createEvent({ rootGetters, commit, dispatch }, eventData) { // Add dispatch
@@ -135,11 +193,11 @@ export const eventActions = {
                  const studentUIDs = await dispatch('user/fetchAllStudentUIDs', null, { root: true });
                  mappedData.participants = studentUIDs;
                  delete mappedData.teams; // Remove teams field if not a team event
-            }
+             }
 
-            // Ensure xpAllocation and ratingCriteria are present and arrays
-            mappedData.xpAllocation = Array.isArray(mappedData.xpAllocation) ? mappedData.xpAllocation : [];
-            mappedData.ratingCriteria = Array.isArray(mappedData.ratingCriteria) ? mappedData.ratingCriteria : [];
+             // Ensure xpAllocation is a number and ratingCriteria is an array
+             mappedData.xpAllocation = typeof mappedData.xpAllocation === 'number' ? mappedData.xpAllocation : 0; // Default to 0 if invalid
+             mappedData.ratingCriteria = Array.isArray(mappedData.ratingCriteria) ? mappedData.ratingCriteria : [];
 
 
             // --- Create the event in Firestore ---
