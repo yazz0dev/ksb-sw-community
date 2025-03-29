@@ -79,73 +79,105 @@ import { marked } from 'marked'; // Ensure marked is installed (npm install mark
 // --- Markdown Content Sections ---
 
 const introductionContent = `
-This page outlines how our KSB MCA Software Community platform operates, aiming for transparency in how events are managed, how contributions are recognized (XP), and how feedback (ratings) is handled. Our goal is to provide a clear understanding of the platform's mechanics.
+This page outlines how our KSB MCA Software Community platform operates, providing transparency about event management, XP allocation, ratings, and participation tracking. Understanding these mechanics helps members participate effectively and track their growth in the community.
 `;
 
 const rolesContent = `
-*   **Student:** Can view events, request new events (limit one active/pending request), participate in events (leave upcoming events), submit projects (during 'In Progress' events), rate participants/teams in completed events, manage their profile (skills, preferred roles), view leaderboards, view public profiles, and generate a PDF portfolio.
-*   **Admin:** Have all student permissions plus:
-    *   Can create events directly (auto-approved).
-    *   Can manage pending event requests (approve/reject).
-    *   Can manage event lifecycle (update status, manage teams, toggle ratings, calculate/set winners).
-    *   Can edit event details and teams at any stage.
-    *   Admin accounts do not have personal profiles and are excluded from the leaderboard.
+*   **Student:**
+    * View and participate in events
+    * Submit one event request at a time (pending/approved)
+    * Submit projects during 'In Progress' events
+    * Rate other participants/teams in completed events
+    * Manage profile (skills, preferred roles)
+    * Generate PDF portfolio
+    * Leave upcoming/approved events
+    * View public profiles and leaderboard
+*   **Admin:**
+    * Create events directly (auto-approved)
+    * Manage event requests (approve/reject)
+    * Manage event lifecycle and status
+    * Toggle ratings availability
+    * Calculate/set winners
+    * Manage teams and event details
+    * View all platform data
 `;
 
 const eventLifecycleContent = `
-1.  **Event Creation:**
-    * **Student Request:** Use "Request Event" form. One pending request limit per student.
-    * **Admin Creation:** Direct creation with "Create Event" form, auto-approved.
-    * Required: name, type, description, dates. Optional: team format, co-organizers, rating criteria.
+1.  **Event States:**
+    * **Pending:** Initial state for student requests
+    * **Approved:** Scheduled but not yet started
+    * **In Progress:** Active event accepting submissions
+    * **Completed:** Finished events open for ratings
+    * **Cancelled:** Terminated events
+    * **Rejected:** Declined requests
 
-2.  **Event Status Flow:**
-    * Pending (Student Request) -> Approved/Rejected (Admin Review)
-    * Approved -> In Progress (Auto-allowed on start date)
-    * In Progress -> Completed (Auto-allowed on end date)
-    * Upcoming/In Progress can be Cancelled
+2.  **Event Creation:**
+    * **Student Request:** Uses request form with desired dates
+    * **Admin Creation:** Direct creation with immediate approval
+    * **Required Fields:** Name, type, description, dates
+    * **Optional:** Team format, co-organizers, rating criteria
 
-3.  **Key Features by Status:**
-    * **Upcoming:** Team management, participants can leave
-    * **In Progress:** Project submissions allowed (one per participant/team)
-    * **Completed:** Rating system opens (manual toggle), winner calculation
+3.  **Status Transitions:**
+    * Pending → Approved/Rejected (Admin action)
+    * Approved → In Progress (At start date)
+    * In Progress → Completed (At end date)
+    * Approved/In Progress → Cancelled (Admin action)
 `;
 
 const teamsContent = `
-*   Only available for events marked as "team event"
-*   Managed via "Manage Teams" component by organizers/admins
-*   Features:
-    * Add/Edit/Remove teams
-    * Assign/Remove team members
-    * Student can only be in one team per event
-    * Team submissions handled as unit
+*   **Team Event Features:**
+    * Available when event is marked as "team event"
+    * Teams can be managed by admins/organizers
+    * Students limited to one team per event
+    * Team composition can be modified until event starts
+    * Team submissions handled collectively
+    * Team ratings applied to all members equally
+
+*   **Team Management:**
+    * Create/Edit team names
+    * Add/Remove team members
+    * View team submissions
+    * Track team participation
 `;
 
 const ratingContent = `
-*   **Availability:** For completed events with ratings toggle enabled
-*   **Access:** Any authenticated user except self-rating
-*   **Rating Criteria:**
-    * Design
-    * Presentation
-    * Problem Solving
-    * Execution
-    * Technology
-*   **Scale:** 1-5 stars per criterion
-*   **Final Score:** Weighted average (0-5) of all criteria ratings
+*   **Rating System:**
+    * Available for completed events only
+    * Must be enabled by admin/organizer
+    * Self-rating not allowed
+    * Rating constraints customizable per event
+    * Default criteria:
+      * Design (Implementation quality)
+      * Presentation (Communication)
+      * Problem Solving (Solution approach)
+      * Execution (Completeness)
+      * Technology (Tool usage)
+    * Scale: 1-5 stars per criterion
+    * Final score: Weighted average of criteria
 `;
 
 const xpContent = `
-*   **Calculation Trigger:** Automatic on event completion or winner updates
-*   **XP Formula:**
-    * Base XP = Average Rating Score (0-5) × 10
-    * Winner Bonus = +100 XP
-*   **Role Distribution:**
-    * Total XP split equally across role categories:
-      * Fullstack
-      * Presenter
-      * Designer
-      * Organizer
-      * Problem Solver
-*   **Profile Display:** Shows total XP and per-role breakdown
+*   **XP Calculation:**
+    * Triggered automatically on:
+      * Event completion
+      * Winner updates
+      * Rating submissions
+    
+*   **Base XP Formula:**
+    * Regular Participant: Rating Score × 10
+    * Event Winner: Base XP + 100 bonus
+    
+*   **Role Categories:**
+    * Fullstack Development
+    * Presentation Skills
+    * Design Expertise
+    * Organization Ability
+    * Problem Solving
+    
+*   **Distribution:**
+    * XP split across relevant role categories
+    * Categories determined by event constraints
+    * Equal distribution if no specific allocation
 `;
 
 const portfolioContent = `
