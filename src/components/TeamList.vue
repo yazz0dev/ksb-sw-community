@@ -59,7 +59,8 @@ const props = defineProps({
     eventId: { type: String, required: true },
     ratingsOpen: { type: Boolean, required: true, default: false },
     getUserName: { type: Function, required: true }, // Function passed from parent
-    organizerNamesLoading: { type: Boolean, default: false } // Loading state from parent
+    organizerNamesLoading: { type: Boolean, default: false }, // Loading state from parent
+    currentUserUid: { type: String, default: null } // Add the missing prop definition
 });
 
 const store = useStore();

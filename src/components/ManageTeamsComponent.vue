@@ -2,48 +2,80 @@
     <div class="team-management">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="mb-0">Define Teams</h4>
-            <!-- Remove this button as we have another one below -->
         </div>
-        
+
+        <!-- Auto-Generation Section -->
+        <div v-if="props.canAutoGenerate" class="card mb-4 bg-light">
+            <div class="card-body p-3">
+                <h6 class="card-title mb-2">Auto-Generate Teams</h6>
+                 <div v-if="autoGenErrorMessage" class="alert alert-warning alert-sm py-1 px-2 mb-2" role="alert">{{ autoGenErrorMessage }}</div>
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label small mb-1">Generation Method:</label>
+                        <select v-model="autoGenType" class="form-select form-select-sm" :disabled="props.isSubmitting">
+                            <option value="numberOfTeams">Number of Teams</option>
+                            <option value="maxMembers">Max Members per Team</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="autoGenValueInput" class="form-label small mb-1">
+                            {{ autoGenType === 'numberOfTeams' ? 'Teams:' : 'Max Size:' }}
+                        </label>
+                        <input type="number" id="autoGenValueInput" v-model.number="autoGenValue"
+                               class="form-control form-control-sm"
+                               :min="autoGenType === 'numberOfTeams' ? 2 : 1"
+                               :disabled="props.isSubmitting" />
+                    </div>
+                    <div class="col-md-4">
+                         <button @click="triggerAutoGenerate"
+                                class="btn btn-sm btn-primary w-100"
+                                :disabled="props.isSubmitting || !canTriggerAutoGenerate">
+                            <i class="fas fa-cogs me-1"></i> Generate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div v-if="addTeamErrorMessage" class="alert alert-danger alert-sm" role="alert">{{ addTeamErrorMessage }}</div>
 
         <!-- Teams List -->
         <div class="mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Current Teams ({{ localTeams.length }})</h5>
-                <button v-if="!areAllStudentsAssigned" 
-                        @click="prepareNewTeam" 
-                        class="btn btn-sm btn-outline-primary" 
-                        :disabled="props.isSubmitting">
+                <h5 class="mb-0">Current Teams ({{ sortedTeams.length }})</h5>
+                <button v-if="!areAllStudentsAssigned"
+                        @click="prepareNewTeam"
+                        class="btn btn-sm btn-outline-primary"
+                        :disabled="props.isSubmitting || showNewTeamForm">
                     <i class="fas fa-plus me-1"></i> Add New Team
                 </button>
             </div>
-            
-            <div v-if="localTeams.length === 0" class="alert alert-light alert-sm py-2 px-3">
-                No teams defined yet.
+
+            <div v-if="sortedTeams.length === 0" class="alert alert-light alert-sm py-2 px-3">
+                No teams defined yet. Click 'Add New Team' to start.
             </div>
             <div v-else class="row row-cols-1 row-cols-md-2 g-3 mb-3">
-                <div v-for="(team, index) in sortedTeams" :key="team.teamName" class="col">
-                    <div class="card h-100" :class="{ 'border-primary': editingTeamIndex === index }">
+                <div v-for="(team) in sortedTeams" :key="team.teamName" class="col">
+                    <div class="card h-100" :class="{ 'border-primary': editingTeamName === team.teamName }">
                         <div class="card-body position-relative py-2 px-3">
                             <div class="d-flex justify-content-between">
                                 <h6 class="card-title mb-2">{{ team.teamName }}</h6>
                                 <div class="btn-group btn-group-sm">
-                                    <button @click="editTeam(index)" type="button" 
-                                            class="btn btn-outline-primary btn-sm" 
-                                            :disabled="props.isSubmitting || editingTeamIndex === index">
+                                    <button @click="editTeam(team.teamName)" type="button"
+                                            class="btn btn-outline-primary btn-sm"
+                                            :disabled="props.isSubmitting || editingTeamName === team.teamName || showNewTeamForm">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button @click="deleteTeam(index)" type="button" 
+                                    <button @click="deleteTeam(team.teamName)" type="button"
                                             class="btn btn-outline-danger btn-sm"
-                                            :disabled="props.isSubmitting || localTeams.length <= 2">
+                                            :disabled="props.isSubmitting || sortedTeams.length <= 2">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </div>
                             <div class="team-members">
                                 <div v-if="team.members && team.members.length > 0" class="d-flex flex-wrap gap-1">
-                                    <span v-for="memberId in team.members" :key="memberId" 
+                                    <span v-for="memberId in team.members" :key="memberId"
                                           class="badge bg-light text-dark border small">
                                         {{ props.nameCache[memberId] || 'Anonymous User' }}
                                     </span>
@@ -56,17 +88,17 @@
             </div>
         </div>
 
-        <!-- Team Edit Form -->
-        <div v-if="editingTeamIndex !== null || showNewTeamForm" class="card mb-3">
+        <!-- Team Edit/Add Form -->
+        <div v-if="editingTeamName !== null || showNewTeamForm" class="card mb-3">
             <div class="card-header bg-light">
-                <h6 class="mb-0">{{ editingTeamIndex === null ? 'Add New Team' : `Edit Team: ${localTeams[editingTeamIndex].teamName}` }}</h6>
+                 <h6 class="mb-0">{{ showNewTeamForm && editingTeamName === null ? 'Add New Team' : `Edit Team: ${editingTeamName}` }}</h6>
             </div>
             <div class="card-body">
                 <div class="mb-3">
-                    <label :for="'teamNameInput' + (editingTeamIndex ?? 'New')" class="form-label">
+                    <label :for="'teamNameInput' + (editingTeamName ?? 'New')" class="form-label">
                         Team Name <span class="text-danger">*</span>
                     </label>
-                    <input type="text" :id="'teamNameInput' + (editingTeamIndex ?? 'New')"
+                    <input type="text" :id="'teamNameInput' + (editingTeamName ?? 'New')"
                            v-model="currentTeam.teamName" required class="form-control"
                            :disabled="props.isSubmitting" placeholder="Enter unique team name"/>
                 </div>
@@ -77,8 +109,8 @@
                         <small class="text-muted">Min: 1 member</small>
                     </label>
                     <div class="input-group input-group-sm mb-2">
-                        <input type="text" v-model="studentSearch" 
-                               placeholder="Search students..." 
+                        <input type="text" v-model="studentSearch"
+                               placeholder="Search students..."
                                class="form-control"/>
                         <button class="btn btn-outline-secondary" type="button"
                                 @click="studentSearch = ''"
@@ -86,7 +118,7 @@
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    
+
                     <!-- Available Students List -->
                     <div class="row gx-2">
                         <div class="col-md-6">
@@ -94,25 +126,28 @@
                             <div class="available-students-list border rounded p-2" style="height: 200px; overflow-y: auto;">
                                 <div v-for="student in filteredAvailableStudents" :key="student.uid"
                                      class="student-item d-flex justify-content-between align-items-center p-1"
-                                     :class="{ 'text-muted': isStudentAssignedElsewhere(student.uid, editingTeamIndex) }">
+                                     :class="{ 'text-muted': isStudentAssignedElsewhere(student.uid) }">
                                     <span>{{ props.nameCache[student.uid] || 'Anonymous User' }}</span>
-                                    <button @click="addMember(student.uid)" 
+                                    <button @click="addMember(student.uid)"
                                             class="btn btn-sm btn-outline-success py-0 px-2"
-                                            :disabled="isStudentAssignedElsewhere(student.uid, editingTeamIndex)">
+                                            :disabled="isStudentAssignedElsewhere(student.uid)">
                                         <i class="fas fa-plus"></i>
                                     </button>
                                 </div>
+                                <div v-if="filteredAvailableStudents.length === 0 && studentSearch" class="text-muted small p-2">No matching students found.</div>
+                                <div v-if="filteredAvailableStudents.length === 0 && !studentSearch" class="text-muted small p-2">All available students are in this team or assigned elsewhere.</div>
                             </div>
                         </div>
-                        
+
                         <!-- Selected Members List -->
                         <div class="col-md-6">
                             <h6 class="small mb-2">Team Members</h6>
                             <div class="selected-members-list border rounded p-2" style="height: 200px; overflow-y: auto;">
-                                <div v-for="memberId in currentTeam.members" :key="memberId"
+                                <div v-if="currentTeam.members.length === 0" class="text-muted small p-2">No members added yet.</div>
+                                <div v-else v-for="memberId in currentTeam.members" :key="memberId"
                                      class="student-item d-flex justify-content-between align-items-center p-1">
                                     <span>{{ props.nameCache[memberId] || 'Anonymous User' }}</span>
-                                    <button @click="removeMember(memberId)" 
+                                    <button @click="removeMember(memberId)"
                                             class="btn btn-sm btn-outline-danger py-0 px-2">
                                         <i class="fas fa-minus"></i>
                                     </button>
@@ -123,15 +158,15 @@
                 </div>
 
                 <div class="d-flex gap-2 justify-content-end">
-                    <button type="button" @click="cancelEdit" 
-                            class="btn btn-sm btn-secondary" 
+                    <button type="button" @click="cancelEdit"
+                            class="btn btn-sm btn-secondary"
                             :disabled="props.isSubmitting">
                         Cancel
                     </button>
-                    <button type="button" @click="saveTeam" 
+                    <button type="button" @click="saveTeam"
                             class="btn btn-sm btn-primary"
                             :disabled="!canSaveTeam">
-                        {{ editingTeamIndex === null ? 'Add Team' : 'Save Changes' }}
+                        {{ editingTeamName === null ? 'Add Team' : 'Save Changes' }}
                     </button>
                 </div>
             </div>
@@ -139,114 +174,88 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 
-const props = defineProps({
-    initialTeams: { type: Array, default: () => [] },
-    students: { type: Array, required: true }, // Full list of available students
-    nameCache: { type: Object, required: true }, // Map of UID -> Name
-    isSubmitting: { type: Boolean, default: false } // Passed from parent during submission
-});
+interface Team {
+    teamName: string;
+    members: string[];
+}
 
-const emit = defineEmits(['update:teams', 'can-add-team']); // Add 'can-add-team' to emits
+interface Student {
+    uid: string;
+}
 
-// Local state for managing teams within the component
-const localTeams = ref([{ teamName: '', members: [] }]);
-const editingTeamIndex = ref(null); // null for adding new, index for editing
-const currentTeam = reactive({ teamName: '', members: [] });
-const studentSearch = ref('');
-const addTeamErrorMessage = ref('');
+interface Props {
+    initialTeams: Team[];
+    students: Student[];
+    nameCache: Record<string, string>;
+    isSubmitting: boolean;
+    canAutoGenerate: boolean;
+}
 
-// Initialize local teams based on prop
+// --- Auto-Generation State ---
+const autoGenType = ref<'numberOfTeams' | 'maxMembers'>('numberOfTeams');
+const autoGenValue = ref<number>(2);
+const autoGenErrorMessage = ref<string>('');
+
+const props = defineProps<Props>();
+
+const emit = defineEmits<{
+    'update:teams': [teams: Team[]];
+    'can-add-team': [canAdd: boolean];
+    'auto-generate': [config: { generationType: string; value: number }];
+}>();
+
+// --- Local State ---
+const localTeams = ref<Team[]>([]);
+const editingTeamName = ref<string | null>(null);
+const currentTeam = reactive<Team>({ teamName: '', members: [] });
+const studentSearch = ref<string>('');
+const addTeamErrorMessage = ref<string>('');
+const showNewTeamForm = ref<boolean>(false);
+
+// --- Initialization ---
 onMounted(() => {
-     localTeams.value = JSON.parse(JSON.stringify(props.initialTeams || [{ teamName: '', members: [] }]));
-     if (localTeams.value.length === 0) {
-         localTeams.value.push({ teamName: '', members: [] });
-     }
-     // Start by editing the first team if it exists, otherwise prepare new
-     if (localTeams.value.length > 0 && localTeams.value[0].teamName) {
-         editTeam(0);
-     } else {
-         prepareNewTeam();
-     }
+    // Deep copy initial teams to avoid modifying prop directly
+    localTeams.value = JSON.parse(JSON.stringify(props.initialTeams || []));
 });
 
-// Watch for external changes to initialTeams (less common for modal use)
+// --- Watchers ---
+// Watch for external changes to initialTeams
 watch(() => props.initialTeams, (newVal) => {
-     localTeams.value = JSON.parse(JSON.stringify(newVal || [{ teamName: '', members: [] }]));
-     if (editingTeamIndex.value === null && localTeams.value.length === 0) {
-          localTeams.value.push({ teamName: '', members: [] });
-          prepareNewTeam();
-     } else if (editingTeamIndex.value !== null && editingTeamIndex.value >= localTeams.value.length) {
-         // If the team being edited was removed externally, reset
-         prepareNewTeam();
-     }
+    localTeams.value = JSON.parse(JSON.stringify(newVal || []));
+    // If the team being edited was removed externally, reset the form
+    if (editingTeamName.value !== null && !localTeams.value.some(t => t.teamName === editingTeamName.value)) {
+        cancelEdit();
+    }
 }, { deep: true });
 
-
 // --- Computed Properties ---
-const assignedStudentIds = computed(() => {
+
+// All student IDs currently assigned to any team
+const assignedStudentIds = computed<Set<string>>(() => {
     return new Set(localTeams.value.flatMap(team => team.members || []));
 });
 
-const filteredStudents = computed(() => {
+// Filtered list of students available to be added to the *current* team being edited/created
+const filteredAvailableStudents = computed<Student[]>(() => {
     if (!Array.isArray(props.students)) return [];
-    const searchLower = studentSearch.value.toLowerCase();
-    const sortedStudents = [...props.students].sort((a, b) => {
-         const nameA = props.nameCache[a.uid] || a.uid;
-         const nameB = props.nameCache[b.uid] || b.uid;
-         return nameA.localeCompare(nameB);
-     });
-    if (!searchLower) return sortedStudents;
-    return sortedStudents.filter(student => {
-        const name = props.nameCache[student.uid] || '';
-        const uid = student.uid || '';
-        return name.toLowerCase().includes(searchLower) || uid.toLowerCase().includes(searchLower);
-    });
-});
 
-const sortedTeams = computed(() => {
-     return [...localTeams.value].sort((a, b) => 
-        (a?.teamName || '').localeCompare(b?.teamName || '')
-    );
-});
-
-// Add minimum teams validation
-const hasValidTeams = computed(() => {
-    // Check if we have at least 2 teams
-    if (!Array.isArray(localTeams.value) || localTeams.value.length < 2) {
-        return false;
-    }
-
-    // Check if each team has a name and at least one member
-    return localTeams.value.every(team => 
-        team.teamName?.trim() && 
-        Array.isArray(team.members) && 
-        team.members.length > 0
-    );
-});
-
-// Add new computed property for save button state
-const canSaveTeam = computed(() => {
-    return currentTeam.teamName.trim() && 
-           currentTeam.members.length > 0 && 
-           !props.isSubmitting;
-});
-
-// Add new computed property for available students filtering
-const filteredAvailableStudents = computed(() => {
+    // Students not already in the *current* team's member list
     let available = props.students.filter(student => !currentTeam.members.includes(student.uid));
-    
+
+    // Further filter by search term if present
     if (studentSearch.value) {
         const search = studentSearch.value.toLowerCase();
         available = available.filter(student => {
             const name = props.nameCache[student.uid] || '';
-            return name.toLowerCase().includes(search) || 
+            return name.toLowerCase().includes(search) ||
                    student.uid.toLowerCase().includes(search);
         });
     }
-    
+
+    // Sort alphabetically
     return available.sort((a, b) => {
         const nameA = props.nameCache[a.uid] || '';
         const nameB = props.nameCache[b.uid] || '';
@@ -254,184 +263,273 @@ const filteredAvailableStudents = computed(() => {
     });
 });
 
-// Add new ref for new team form visibility
-const showNewTeamForm = ref(false);
-
-// Add computed property to check if all students are assigned
-const areAllStudentsAssigned = computed(() => {
-    const assignedStudents = new Set(
-        localTeams.value.flatMap(team => team.members || [])
+// Sorted list of teams for display purposes
+const sortedTeams = computed<Team[]>(() => {
+     // Filter out any potential invalid/empty placeholder teams before sorting
+     const validTeams = localTeams.value.filter(team => team && team.teamName);
+     return [...validTeams].sort((a, b) =>
+        (a?.teamName || '').localeCompare(b?.teamName || '')
     );
-    return props.students.every(student => assignedStudents.has(student.uid));
 });
 
-// Move initialization before the watch
-const previousAllAssigned = ref(false);
+// Validation: Check if the current state represents valid teams (e.g., >= 2 teams, each with name and members)
+// Note: This might be better handled in the parent component before final submission
+const hasValidTeamsConfiguration = computed<boolean>(() => {
+    const validTeams = localTeams.value.filter(team => team.teamName?.trim() && Array.isArray(team.members) && team.members.length > 0);
+    return validTeams.length >= 2; // Example: require at least 2 valid teams
+});
 
-// Update watch to avoid ReferenceError
-watch([localTeams, areAllStudentsAssigned], (newVals, oldVals) => {
-    const [_, newAllAssigned] = newVals;
-    if (previousAllAssigned.value !== newAllAssigned) {
-        emit('can-add-team', !newAllAssigned);
-        previousAllAssigned.value = newAllAssigned;
+// Computed property to enable/disable the save button for the current team form
+const canSaveTeam = computed<boolean>(() => {
+    return currentTeam.teamName.trim() &&
+           currentTeam.members.length > 0 &&
+           !props.isSubmitting;
+});
+
+// Computed property to check if all available students have been assigned to a team
+const areAllStudentsAssigned = computed<boolean>(() => {
+    if (!Array.isArray(props.students) || props.students.length === 0) {
+        return true; // Or false, depending on desired behavior when no students exist
     }
+    const currentAssignedIds = assignedStudentIds.value; // Use the computed set
+    return props.students.every(student => currentAssignedIds.has(student.uid));
+});
+
+// Emit whether adding more teams is possible (used by parent)
+watch(areAllStudentsAssigned, (newVal) => {
+    emit('can-add-team', !newVal);
 }, { immediate: true });
 
+
+// --- Auto-Generation Computed ---
+const canTriggerAutoGenerate = computed<boolean>(() => {
+    autoGenErrorMessage.value = ''; // Clear previous errors
+    if (props.isSubmitting) return false;
+    if (!Array.isArray(props.students) || props.students.length === 0) {
+        autoGenErrorMessage.value = 'No students available to generate teams.';
+        return false;
+    }
+    const value = Number(autoGenValue.value);
+     if (isNaN(value) || !Number.isInteger(value) || value <= 0) { // Ensure integer > 0
+        autoGenErrorMessage.value = 'Please enter a valid positive whole number.';
+        return false;
+    }
+
+    if (autoGenType.value === 'numberOfTeams') {
+        if (value < 2) {
+             autoGenErrorMessage.value = 'Must generate at least 2 teams.';
+             return false;
+        }
+        if (value > props.students.length) {
+            autoGenErrorMessage.value = 'Cannot generate more teams than available students.';
+            return false;
+        }
+    } else if (autoGenType.value === 'maxMembers') {
+         if (value < 1) {
+             // This case is already handled by the positive integer check above
+             // autoGenErrorMessage.value = 'Max members per team must be at least 1.';
+             // return false;
+             return false; // Should not happen due to integer check
+         }
+         // Check if max members allows for at least 2 teams (if more than 1 student exists)
+         if (props.students.length > 1 && Math.ceil(props.students.length / value) < 2 ) {
+             autoGenErrorMessage.value = `Max members (${value}) results in only 1 team for ${props.students.length} students. Adjust to create at least 2 teams.`;
+             return false;
+         }
+    }
+    return true; // All checks passed
+});
+
+
 // --- Helper Methods ---
-const isStudentAssignedElsewhere = (studentUid, currentEditIndex) => {
-    return localTeams.value.some((team, index) => index !== currentEditIndex && team.members.includes(studentUid));
+
+// Checks if a student is assigned to *another* team (different from the one currently being edited)
+const isStudentAssignedElsewhere = (studentUid: string): boolean => {
+    return localTeams.value.some(team =>
+        team.teamName !== editingTeamName.value && // Exclude the team currently being edited
+        Array.isArray(team.members) &&
+        team.members.includes(studentUid)
+    );
 };
 
-const getTeamAssignmentName = (studentUid) => {
-    const team = localTeams.value.find(t => t.members.includes(studentUid));
-    return team ? team.teamName : '';
+
+// --- Auto-Generation Action ---
+const triggerAutoGenerate = (): void => {
+    if (!canTriggerAutoGenerate.value) {
+        // Error message should already be set by the computed property
+        return;
+    }
+    // Emit the event for the parent component to handle the logic
+    emit('auto-generate', {
+        generationType: autoGenType.value,
+        value: Number(autoGenValue.value) // Ensure it's a number
+    });
 };
 
-// --- Actions ---
-const prepareNewTeam = () => {
-    editingTeamIndex.value = null;
+
+// --- Team Management Actions ---
+
+// Prepare the form for adding a *new* team
+const prepareNewTeam = (): void => {
+    editingTeamName.value = null; // Ensure we are not in edit mode
     currentTeam.teamName = '';
-    currentTeam.members.length = 0; // Clear array while maintaining reactivity
+    currentTeam.members = [];
     studentSearch.value = '';
     addTeamErrorMessage.value = '';
-    showNewTeamForm.value = true;
+    showNewTeamForm.value = true; // Show the form
 };
 
-const editTeam = (index) => {
-    if (index >= 0 && index < localTeams.value.length) {
-        editingTeamIndex.value = index;
-        const teamToEdit = localTeams.value[index];
-        currentTeam.teamName = teamToEdit.teamName || '';
-        currentTeam.members.length = 0; // Clear first
-        if (Array.isArray(teamToEdit.members)) {
-            teamToEdit.members.forEach(member => currentTeam.members.push(member));
-        }
+// Prepare the form for editing an *existing* team
+const editTeam = (teamName: string): void => {
+    const teamToEdit = localTeams.value.find(t => t.teamName === teamName);
+    if (teamToEdit) {
+        editingTeamName.value = teamName; // Set the name of the team being edited
+        currentTeam.teamName = teamToEdit.teamName;
+        // Deep copy members to avoid modifying original array directly during edit
+        currentTeam.members = teamToEdit.members ? [...teamToEdit.members] : [];
         studentSearch.value = '';
         addTeamErrorMessage.value = '';
+        showNewTeamForm.value = false; // Ensure add mode is off
+    } else {
+        console.error("Could not find team to edit with name:", teamName);
+        cancelEdit(); // Reset if team not found
     }
 };
 
-const cancelEdit = () => {
+// Cancel the current add/edit operation and hide the form
+const cancelEdit = (): void => {
+    editingTeamName.value = null;
     showNewTeamForm.value = false;
-    editingTeamIndex.value = null;
     currentTeam.teamName = '';
     currentTeam.members = [];
     studentSearch.value = '';
     addTeamErrorMessage.value = '';
 };
 
-const saveTeam = () => {
-    try {
-        addTeamErrorMessage.value = '';
-        const teamNameTrimmed = currentTeam?.teamName?.trim() || '';
+// Save the team currently in the form (either add new or update existing)
+const saveTeam = (): void => {
+    addTeamErrorMessage.value = ''; // Clear previous errors
+    const teamNameTrimmed = currentTeam.teamName.trim();
 
-        // Validation
-        if (!teamNameTrimmed) { 
-            addTeamErrorMessage.value = 'Team name is required.'; 
-            return; 
-        }
-        if (!Array.isArray(currentTeam.members) || currentTeam.members.length === 0) { 
-            addTeamErrorMessage.value = 'Team must have at least one member.'; 
-            return; 
-        }
+    // --- Validation ---
+    if (!teamNameTrimmed) {
+        addTeamErrorMessage.value = 'Team name is required.';
+        return;
+    }
+    if (!Array.isArray(currentTeam.members) || currentTeam.members.length === 0) {
+        addTeamErrorMessage.value = 'Team must have at least one member.';
+        return;
+    }
 
-        const isNameDuplicate = localTeams.value.some((team, index) =>
-            index !== editingTeamIndex.value && 
-            (team?.teamName || '').trim().toLowerCase() === teamNameTrimmed.toLowerCase()
-        );
-        if (isNameDuplicate) { 
-            addTeamErrorMessage.value = `Team name "${teamNameTrimmed}" already exists.`; 
-            return; 
-        }
+    // Check for duplicate team names (case-insensitive), excluding the team being edited
+    const isNameDuplicate = localTeams.value.some(team =>
+        team.teamName !== editingTeamName.value && // Exclude self if editing
+        team.teamName.trim().toLowerCase() === teamNameTrimmed.toLowerCase()
+    );
+    if (isNameDuplicate) {
+        addTeamErrorMessage.value = `Team name "${teamNameTrimmed}" already exists. Please use a unique name.`;
+        return;
+    }
 
-        const updatedTeams = [...localTeams.value];
-        const newTeam = { 
-            teamName: teamNameTrimmed, 
-            members: [...currentTeam.members] 
-        };
+    // --- Update Logic ---
+    const teamData: Team = {
+        teamName: teamNameTrimmed,
+        members: [...currentTeam.members] // Create a copy of members
+    };
 
-        if (editingTeamIndex.value !== null) {
-            updatedTeams[editingTeamIndex.value] = newTeam;
+    const existingTeamIndex = localTeams.value.findIndex(t => t.teamName === editingTeamName.value);
+
+    if (editingTeamName.value !== null && existingTeamIndex !== -1) {
+        // Update existing team
+        localTeams.value.splice(existingTeamIndex, 1, teamData);
+    } else {
+        // Add new team
+        localTeams.value.push(teamData);
+    }
+
+    emitUpdate(); // Emit the updated list
+    cancelEdit(); // Close form and reset state
+};
+
+// Delete a team by its name
+const deleteTeam = (teamNameToDelete: string): void => {
+    // Prevent deleting if it leaves less than 2 teams
+     if (localTeams.value.filter(t => t.teamName).length <= 2) {
+        addTeamErrorMessage.value = 'Cannot delete team: Minimum of 2 teams required.';
+        // Use a more persistent notification system if needed
+        setTimeout(() => addTeamErrorMessage.value = '', 3000);
+        return;
+    }
+
+    if (confirm(`Are you sure you want to delete team "${teamNameToDelete}"? This cannot be undone.`)) {
+        const indexToDelete = localTeams.value.findIndex(t => t.teamName === teamNameToDelete);
+        if (indexToDelete !== -1) {
+            localTeams.value.splice(indexToDelete, 1);
+
+            // If the deleted team was being edited, reset the form
+            if (editingTeamName.value === teamNameToDelete) {
+                 cancelEdit();
+            }
+            emitUpdate(); // Emit the updated list
         } else {
-            if (updatedTeams.length === 1 && 
-                !updatedTeams[0]?.teamName && 
-                (!updatedTeams[0]?.members?.length)) {
-                updatedTeams[0] = newTeam;
-            } else {
-                updatedTeams.push(newTeam);
-            }
+             console.error("Could not find team to delete with name:", teamNameToDelete);
+             addTeamErrorMessage.value = 'Error deleting team: Team not found.';
         }
-
-        localTeams.value = updatedTeams;
-        emit('update:teams', updatedTeams);
-        prepareNewTeam();
-    } catch (error) {
-        console.error('Error saving team:', error);
-        addTeamErrorMessage.value = 'Error saving team. Please try again.';
     }
 };
 
-const deleteTeam = (indexToDelete) => {
-    try {
-        if (localTeams.value.length <= 2) {
-            addTeamErrorMessage.value = 'Cannot delete team: Minimum of 2 teams required.';
-            return;
-        }
-        
-        const teamName = localTeams.value[indexToDelete]?.teamName || 'this team';
-        if (confirm(`Are you sure you want to delete "${teamName}"?`)) {
-            const updatedTeams = localTeams.value.filter((_, index) => index !== indexToDelete);
-            localTeams.value = updatedTeams;
-            emit('update:teams', updatedTeams);
-
-            if (editingTeamIndex.value === indexToDelete) {
-                prepareNewTeam();
-            } else if (editingTeamIndex.value !== null && editingTeamIndex.value > indexToDelete) {
-                editingTeamIndex.value--;
-            }
-
-            if (localTeams.value.length === 0) {
-                localTeams.value = [{ teamName: '', members: [] }];
-                prepareNewTeam();
-                emit('update:teams', localTeams.value);
-            }
-        }
-    } catch (error) {
-        console.error('Error deleting team:', error);
-        addTeamErrorMessage.value = 'Error deleting team. Please try again.';
-    }
-};
-
-// Add new methods for member management
-const addMember = (uid) => {
-    if (!currentTeam.members.includes(uid) && !isStudentAssignedElsewhere(uid, editingTeamIndex.value)) {
+// Add a member to the *current* team being edited/created
+const addMember = (uid: string): void => {
+    if (!currentTeam.members.includes(uid) && !isStudentAssignedElsewhere(uid)) {
         currentTeam.members.push(uid);
+    } else if (isStudentAssignedElsewhere(uid)) {
+        // Optionally provide feedback that the student is already assigned
+        console.warn(`Student ${uid} is already assigned to another team.`);
     }
 };
 
-const removeMember = (uid) => {
+// Remove a member from the *current* team being edited/created
+const removeMember = (uid: string): void => {
     const index = currentTeam.members.indexOf(uid);
     if (index !== -1) {
         currentTeam.members.splice(index, 1);
     }
 };
 
-// Update the emitUpdate function
-const emitUpdate = () => {
-    emit('update:teams', localTeams.value);
+// Emit the current valid teams list to the parent
+const emitUpdate = (): void => {
+    // Filter out any potential invalid teams before emitting (e.g., empty placeholders)
+    const validTeams = localTeams.value.filter(team => team.teamName?.trim() && Array.isArray(team.members));
+    emit('update:teams', validTeams);
 };
 </script>
 
 <style scoped>
 .team-member-select { min-height: 150px; max-height: 250px; }
 .team-member-select option:disabled { color: #adb5bd; font-style: italic; background-color: #e9ecef; }
-.alert-sm { padding: var(--space-2) var(--space-3); font-size: var(--font-size-sm); margin-bottom: var(--space-3); }
+.alert-sm { padding: 0.25rem 0.5rem; font-size: 0.875em; margin-bottom: 0.5rem; } /* Adjusted padding and margin */
 .fa-xs { font-size: 0.7em; }
+.student-item {
+    cursor: default; /* Indicate non-interactive text */
+    transition: background-color 0.2s ease-in-out;
+}
 .student-item:hover { background-color: rgba(0,0,0,0.05); }
 .available-students-list, .selected-members-list {
     background: white;
 }
 .team-members {
-    min-height: 2rem;
+    min-height: 2rem; /* Ensure space even when empty */
+    display: flex; /* Use flexbox for alignment */
+    align-items: center; /* Vertically center content */
+    flex-wrap: wrap; /* Allow badges to wrap */
+    gap: 0.25rem; /* Space between badges */
+}
+.team-members .text-muted { /* Ensure placeholder text is centered */
+    width: 100%;
+    text-align: center;
+    font-style: italic;
+}
+.card.border-primary {
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
 }
 </style>

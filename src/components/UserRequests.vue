@@ -28,10 +28,15 @@
               {{ request.status }}
             </span>
           </div>
-          
-          <div v-if="request.status === 'Pending'" class="mt-2 d-flex justify-content-end gap-2">
-            <button 
-              @click="editRequest(request)" 
+          <!-- Display Rejection Reason -->
+          <div v-if="request.status === 'Rejected' && request.rejectionReason" class="alert alert-warning alert-sm mt-2 py-1 px-2">
+            <strong>Reason for Rejection:</strong> {{ request.rejectionReason }}
+          </div>
+
+          <!-- Action Buttons -->
+          <div v-if="request.status === 'Pending' || request.status === 'Rejected'" class="mt-2 d-flex justify-content-end gap-2">
+            <button
+              @click="editRequest(request)"
               class="btn btn-outline-primary btn-sm"
               :disabled="isSubmitting">
               <i class="fas fa-edit"></i> Edit
@@ -39,7 +44,8 @@
             <button 
               @click="deleteOwnRequest(request.id)" 
               class="btn btn-outline-danger btn-sm"
-              :disabled="isSubmitting">
+              :disabled="isSubmitting"
+              v-if="request.status === 'Pending'"> <!-- Only show Delete for Pending -->
               <i class="fas fa-trash"></i> Delete
             </button>
           </div>

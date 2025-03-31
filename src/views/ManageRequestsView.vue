@@ -30,7 +30,7 @@
                    <p class="mb-1 small"><strong class="me-1">Desired Dates:</strong> {{ formatDate(event.desiredStartDate) }} - {{ formatDate(event.desiredEndDate) }}</p>
                    <p class="mb-1 small"><strong class="me-1">Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}</p>
                    <p v-if="event.coOrganizers && event.coOrganizers.length > 0" class="mb-1 small">
-                       <strong>Co-organizers:</strong> 
+                       <strong>Co-organizers:</strong>
                        <span v-for="(orgId, idx) in event.coOrganizers" :key="orgId">
                            {{ nameCache[orgId] || '(Name not found)' }}{{ idx < event.coOrganizers.length - 1 ? ', ' : '' }}
                        </span>
@@ -71,7 +71,7 @@
             </div>
             <!-- Conflict Warning -->
             <div v-if="conflictWarnings[event.id]" class="mt-2 alert alert-warning alert-sm p-2 small">
-                <i class="fas fa-exclamation-triangle me-1"></i> 
+                <i class="fas fa-exclamation-triangle me-1"></i>
                 Warning: Date conflict with "{{ conflictWarnings[event.id] }}"
             </div>
           </li>
@@ -147,7 +147,7 @@ async function fetchUserNames(userIds) {
                 const userDoc = await getDoc(doc(db, 'users', userId));
                 if (userDoc.exists()) {
                     // Store display name if available, otherwise store a specific placeholder
-                    nameCache.value[userId] = userDoc.data().displayName || '(Name missing)'; 
+                    nameCache.value[userId] = userDoc.data().displayName || '(Name missing)';
                 } else {
                      // User document doesn't exist
                      nameCache.value[userId] = '(User not found)';
@@ -229,11 +229,27 @@ const approveRequest = async (eventId) => {
 };
 
 const rejectRequest = async (eventId) => {
-     if (isProcessing(eventId)) return;
-     processingRequests.value.add(eventId); processingAction.value = 'reject';
-    try { await store.dispatch('events/rejectEventRequest', eventId); alert('Event rejected.'); } // Uses event ID now
-    catch (error) { console.error("Error rejecting event:", error); alert(`Error rejecting event: ${error.message}`); }
-    finally { processingRequests.value.delete(eventId); processingAction.value = ''; }
+    if (isProcessing(eventId)) return;
+
+    // Prompt for rejection reason
+    const reason = prompt("Please provide a reason for rejecting this event (optional):");
+    // If the user clicks Cancel, prompt returns null. Don't proceed.
+    if (reason === null) {
+        return;
+    }
+
+    processingRequests.value.add(eventId); processingAction.value = 'reject';
+    try {
+        // Pass eventId and reason to the action
+        await store.dispatch('events/rejectEventRequest', { eventId, reason });
+        alert('Event rejected.');
+    } catch (error) {
+        console.error("Error rejecting event:", error);
+        alert(`Error rejecting event: ${error.message}`);
+    } finally {
+        processingRequests.value.delete(eventId);
+        processingAction.value = '';
+    }
 }
 
 const deleteRequest = async (eventId) => {

@@ -1,49 +1,77 @@
+// src/utils/eventDataMapper.js
 import { Timestamp } from 'firebase/firestore';
 
-/**
- * Maps event data to the format expected by Firestore
- * @param {Object} eventData - The event data to be mapped
- * @returns {Object} - Mapped event data ready for Firestore
- */
 export const mapEventDataToFirestore = (eventData) => {
   const mappedData = {
     ...eventData,
-    createdAt: Timestamp.now(),
+    createdAt: eventData.createdAt instanceof Timestamp ? eventData.createdAt : Timestamp.now(),
     status: eventData.status || 'Pending',
-    ratingsOpen: false,
-    ratings: [],
-    submissions: [],
+    ratingsOpen: eventData.ratingsOpen === true || eventData.ratingsOpen === false ? eventData.ratingsOpen : false,
+    ratings: Array.isArray(eventData.ratings) ? eventData.ratings : [],
+    submissions: Array.isArray(eventData.submissions) ? eventData.submissions : [],
+    winnersPerRole: typeof eventData.winnersPerRole === 'object' && eventData.winnersPerRole !== null ? eventData.winnersPerRole : {},
   };
 
-  // Convert date strings to Firestore Timestamps if they exist
-  if (eventData.startDate) {
-    mappedData.startDate = eventData.startDate instanceof Date 
-      ? Timestamp.fromDate(eventData.startDate)
-      : Timestamp.fromDate(new Date(eventData.startDate));
-  }
+  // Date Conversion
+  const dateFieldsToConvert = ['startDate', 'endDate', 'desiredStartDate', 'desiredEndDate'];
+  dateFieldsToConvert.forEach(field => {
+    if (eventData[field]) {
+      try {
+        // Check if it's already a Timestamp
+        if (eventData[field] instanceof Timestamp) {
+          mappedData[field] = eventData[field];
+        } else {
+          // Attempt to convert from Date object or string/number
+          const dateObj = new Date(eventData[field]);
+          if (!isNaN(dateObj.getTime())) {
+            mappedData[field] = Timestamp.fromDate(dateObj);
+          } else {
+            console.warn(`mapEventDataToFirestore: Invalid date value for field ${field}:`, eventData[field]);
+            mappedData[field] = null; // Set to null if conversion fails
+          }
+        }
+      } catch (e) {
+        console.error(`mapEventDataToFirestore: Error converting date field ${field}:`, e);
+        mappedData[field] = null; // Set to null on error
+      }
+    } else {
+      // Ensure field exists and is null if not provided or falsey
+      mappedData[field] = null;
+    }
+  });
 
-  if (eventData.endDate) {
-    mappedData.endDate = eventData.endDate instanceof Date
-      ? Timestamp.fromDate(eventData.endDate)
-      : Timestamp.fromDate(new Date(eventData.endDate));
-  }
-
-  // Ensure arrays exist
+  // Array Initializations / Type Checks
   mappedData.participants = Array.isArray(eventData.participants) ? eventData.participants : [];
   mappedData.coOrganizers = Array.isArray(eventData.coOrganizers) ? eventData.coOrganizers : [];
-  mappedData.ratingCriteria = Array.isArray(eventData.ratingCriteria) ? eventData.ratingCriteria : [];
-  // Ensure xpAllocation is a number, default to 0 if not provided or invalid
-  mappedData.xpAllocation = typeof eventData.xpAllocation === 'number' ? eventData.xpAllocation : 0;
+  // --- MODIFIED: Use only xpAllocation ---
+  mappedData.xpAllocation = Array.isArray(eventData.xpAllocation) ? eventData.xpAllocation : [];
+  // REMOVED: mappedData.ratingCriteria = Array.isArray(eventData.ratingCriteria) ? eventData.ratingCriteria : [];
 
-  // Initialize teams array if it's a team event
+
+  // Team Initialization
   if (eventData.isTeamEvent) {
-    mappedData.teams = Array.isArray(eventData.teams) ? eventData.teams.map(team => ({
-      teamName: team.teamName || 'Unnamed Team',
-      members: Array.isArray(team.members) ? team.members : [],
-      submissions: [],
-      ratings: []
+    mappedData.teams = Array.isArray(eventData.teams) ? eventData.teams.map(t => ({
+        teamName: t.teamName || 'Unnamed Team',
+        members: Array.isArray(t.members) ? t.members : [],
+        // Ensure submissions/ratings arrays exist, even if empty
+        submissions: Array.isArray(t.submissions) ? t.submissions : [],
+        ratings: Array.isArray(t.ratings) ? t.ratings : []
     })) : [];
+    // Ensure participants is empty for team events
+    mappedData.participants = [];
+  } else {
+    // Ensure teams field is removed for individual events
+    delete mappedData.teams;
+    // Ensure participants is an array for individual events (might be populated later)
+    mappedData.participants = Array.isArray(eventData.participants) ? eventData.participants : [];
   }
+
+  // Clean up any potential undefined values before returning
+  Object.keys(mappedData).forEach(key => {
+    if (mappedData[key] === undefined) {
+      delete mappedData[key]; // Firestore doesn't like undefined
+    }
+  });
 
   return mappedData;
 };

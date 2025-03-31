@@ -12,6 +12,12 @@
                 </button>
             </div>
 
+            <!-- Global Error Message Display -->
+            <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ errorMessage }}
+                <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close"></button>
+            </div>
+
             <!-- Event Header Card -->
             <div class="card mb-4 shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
@@ -121,10 +127,10 @@
                         <i class="fas fa-share-alt me-1"></i> Copy Rating Link
                     </button>
 
-                    <!-- Delete Button - Only show during Pending state -->
-                    <button v-if="event.status === 'Pending'" @click="deleteEvent"
+                    <!-- Delete Button - Only show during Pending state AND if user can manage -->
+                    <button v-if="canManageEvent && event?.status === 'Pending'" @click="deleteEvent"
                         class="btn btn-danger btn-sm ms-auto">
-                        <i class="fas fa-trash-alt me-1"></i> Delete Event
+                        <i class="fas fa-trash-alt me-1"></i> Delete Event Request
                     </button>
                 </div>
             </div>
@@ -291,7 +297,7 @@ const submissionForm = ref({ projectName: '', link: '', description: '' });
 const submissionError = ref('');
 const isSubmittingProject = ref(false);
 const loadingSubmissions = ref(false);
-const errorMessage = ref('');
+const errorMessage = ref(''); // Already exists, will be used for action errors too
 
 // Fetch User Names
 async function fetchUserNames(userIds) {
@@ -491,6 +497,7 @@ const getUserNameFromCache = (userId) => nameCache.value.get(userId) || null;
 const getWinnerName = (winnerIdentifier) => { if (!winnerIdentifier || !event.value) return winnerIdentifier; return event.value.isTeamEvent ? winnerIdentifier : (getUserNameFromCache(winnerIdentifier) || winnerIdentifier); };
 const updateStatus = async (newStatus) => {
     if (!event.value) return;
+    errorMessage.value = ''; // Clear previous errors
 
     // Add date checks before dispatching
     const now = new Date();
@@ -528,14 +535,26 @@ const updateStatus = async (newStatus) => {
             eventId: props.id,
             newStatus
         });
+        // Optionally add a success message or rely on UI update
     } catch (error) {
         console.error(`Status update error:`, error);
-        alert(error.message || 'Failed to update event status');
+        errorMessage.value = `Failed to update status: ${error.message || 'Unknown error'}`;
     }
 };
-const toggleRatingsOpen = async (isOpen) => { if (!event.value) return; try { await store.dispatch('events/toggleRatingsOpen', { eventId: props.id, isOpen }); } catch (error) { console.error("Toggle ratings error:", error); alert(`Failed: ${error.message}`); } };
+const toggleRatingsOpen = async (isOpen) => {
+    if (!event.value) return;
+    errorMessage.value = ''; // Clear previous errors
+    try {
+        await store.dispatch('events/toggleRatingsOpen', { eventId: props.id, isOpen });
+        // Optionally add a success message
+    } catch (error) {
+        console.error("Toggle ratings error:", error);
+        errorMessage.value = `Failed to toggle ratings: ${error.message || 'Unknown error'}`;
+    }
+};
 const saveWinner = async () => {
     if (!event.value || !selectedWinner.value) return;
+    errorMessage.value = ''; // Clear previous errors
     try {
         // Update both winners array and winnersPerRole for compatibility
         const updates = {
@@ -550,17 +569,81 @@ const saveWinner = async () => {
             id: props.id,
             changes: updates
         });
+        // Optionally add success message
     } catch (error) {
         console.error("Save winner error:", error);
-        alert(`Failed: ${error.message}`);
+        errorMessage.value = `Failed to save winner: ${error.message || 'Unknown error'}`;
     }
 };
-const deleteEvent = async () => { if (!event.value) return; if (confirm(`PERMANENTLY DELETE "${event.value.eventName}"?`)) { try { await store.dispatch('events/deleteEvent', props.id); alert("Event deleted."); router.push({ name: 'Home' }); } catch (error) { console.error('Delete event error:', error); alert(`Failed: ${error.message}`); } } };
-const calculateWinners = async () => { if (!event.value) return; try { await store.dispatch('events/calculateWinners', props.id); /* Alert is in action */ } catch (error) { console.error("Calc winners error:", error); /* Alert is in action */ } };
-const copyRatingLink = async () => { const link = window.location.href; try { await navigator.clipboard.writeText(link); linkCopied.value = true; setTimeout(() => { linkCopied.value = false; }, 2500); } catch (err) { console.error('Copy failed: ', err); alert("Failed to copy."); } };
+const deleteEvent = async () => {
+    if (!event.value) return;
+    errorMessage.value = ''; // Clear previous errors
+    if (confirm(`PERMANENTLY DELETE "${event.value.eventName}"?`)) {
+        try {
+            await store.dispatch('events/deleteEvent', props.id);
+            alert("Event deleted."); // Keep alert for navigation confirmation
+            router.push({ name: 'Home' });
+        } catch (error) {
+            console.error('Delete event error:', error);
+            errorMessage.value = `Failed to delete event: ${error.message || 'Unknown error'}`;
+        }
+    }
+};
+const calculateWinners = async () => {
+    if (!event.value) return;
+    errorMessage.value = ''; // Clear previous errors
+    try {
+        await store.dispatch('events/calculateWinners', props.id);
+        // Success/Error alert is handled within the action itself
+    } catch (error) {
+        console.error("Calc winners error:", error);
+        // Error alert is handled within the action, but maybe set local error too?
+        errorMessage.value = `Failed to calculate winners: ${error.message || 'Unknown error'}`;
+    }
+};
+const copyRatingLink = async () => {
+    const link = window.location.href;
+    errorMessage.value = ''; // Clear previous errors
+    try {
+        await navigator.clipboard.writeText(link);
+        linkCopied.value = true;
+        setTimeout(() => { linkCopied.value = false; }, 2500);
+    } catch (err) {
+        console.error('Copy failed: ', err);
+        errorMessage.value = "Failed to copy link to clipboard.";
+    }
+};
 const goToIndividualRating = (participantId) => { if (!event.value || !participantId) return; router.push({ name: 'RatingForm', params: { eventId: props.id }, query: { participant: participantId } }); };
-const submitProject = async () => { submissionError.value = ''; if (!submissionForm.value.projectName || !submissionForm.value.link) { submissionError.value = 'Name and Link required.'; return; } if (!submissionForm.value.link.startsWith('http')) { submissionError.value = 'Enter valid URL.'; return; } isSubmittingProject.value = true; try { await store.dispatch('events/submitProjectToEvent', { eventId: props.id, submissionData: { ...submissionForm.value } }); showSubmissionModal.value = false; alert("Project submitted!"); } catch (error) { console.error("Submit project error:", error); submissionError.value = error.message || 'Failed.'; } finally { isSubmittingProject.value = false; } };
-const leaveEvent = async () => { if (!event.value) return; if (confirm('Leave this event?')) { try { await store.dispatch('events/leaveEvent', props.id); alert("You left the event."); } catch (error) { console.error("Leave event error:", error); alert(`Failed: ${error.message}`); } } };
+const submitProject = async () => {
+    submissionError.value = ''; // Use specific error ref for modal
+    errorMessage.value = ''; // Clear global error
+    if (!submissionForm.value.projectName || !submissionForm.value.link) { submissionError.value = 'Project Name and Link are required.'; return; }
+    if (!submissionForm.value.link.startsWith('http')) { submissionError.value = 'Please enter a valid URL starting with http:// or https://.'; return; }
+    isSubmittingProject.value = true;
+    try {
+        await store.dispatch('events/submitProjectToEvent', { eventId: props.id, submissionData: { ...submissionForm.value } });
+        showSubmissionModal.value = false;
+        alert("Project submitted successfully!"); // Keep alert for modal confirmation
+    } catch (error) {
+        console.error("Submit project error:", error);
+        submissionError.value = `Submission failed: ${error.message || 'Unknown error'}`; // Keep modal error specific
+    } finally {
+        isSubmittingProject.value = false;
+    }
+};
+const leaveEvent = async () => {
+    if (!event.value) return;
+    errorMessage.value = ''; // Clear previous errors
+    if (confirm('Are you sure you want to leave this event?')) {
+        try {
+            await store.dispatch('events/leaveEvent', props.id);
+            alert("You have successfully left the event."); // Keep alert for confirmation
+        } catch (error) {
+            console.error("Leave event error:", error);
+            errorMessage.value = `Failed to leave event: ${error.message || 'Unknown error'}`;
+        }
+    }
+};
 
 // Add new computed property
 const canRateEvent = computed(() => {

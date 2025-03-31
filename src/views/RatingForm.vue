@@ -28,18 +28,18 @@
                     <form @submit.prevent="submitRating">
                         <!-- Team Event Rating -->
                         <div v-if="isTeamEvent">
-                            <div v-for="(constraint, index) in ratingConstraints" :key="index" class="mb-4">
-                                <h5 class="mb-3">{{ constraint }}</h5>
+                            <div v-for="allocation in sortedXpAllocation" :key="allocation.constraintIndex" class="mb-4">
+                                <h5 class="mb-3">{{ allocation.constraintLabel }}</h5>
                                 <div class="rating-wrapper">
                                     <CustomStarRating
-                                        v-model="ratings[`constraint${index}`]"
+                                        v-model="ratings[`constraint${allocation.constraintIndex}`]"
                                         :disabled="isSubmitting"
                                         :show-rating="true"
                                     />
                                 </div>
-                                <p v-if="getXpForConstraint(index)" class="text-muted small mt-1">
-                                    <i class="fas fa-trophy me-1"></i>Worth up to {{ getXpForConstraint(index) }} XP 
-                                    ({{ getRoleForConstraint(index) }})
+                                <p v-if="allocation.points" class="text-muted small mt-1">
+                                    <i class="fas fa-trophy me-1"></i>Worth up to {{ allocation.points }} XP 
+                                    ({{ formatRoleName(allocation.role) }})
                                 </p>
                             </div>
                         </div>
@@ -47,14 +47,14 @@
                         <!-- Individual Event Winner Selection -->
                         <div v-else>
                             <h5 class="mb-3">Select Winners</h5>
-                            <div v-for="(constraint, index) in ratingConstraints" :key="index" class="mb-4">
+                            <div v-for="allocation in sortedXpAllocation" :key="allocation.constraintIndex" class="mb-4">
                                 <div class="constraint-section p-3 border rounded">
-                                    <h6 class="mb-3">{{ constraint }}</h6>
+                                    <h6 class="mb-3">{{ allocation.constraintLabel }}</h6>
                                     <div class="form-group">
-                                        <label :for="'winner'+index">Select Winner for {{ constraint }}</label>
+                                        <label :for="'winner'+allocation.constraintIndex">Select Winner for {{ allocation.constraintLabel }}</label>
                                         <select 
-                                            :id="'winner'+index"
-                                            v-model="ratings[`constraint${index}`]"
+                                            :id="'winner'+allocation.constraintIndex"
+                                            v-model="ratings[`constraint${allocation.constraintIndex}`]"
                                             class="form-select"
                                             required
                                             :disabled="isSubmitting"
@@ -68,9 +68,9 @@
                                                 {{ getUserName(participant) }}
                                             </option>
                                         </select>
-                                        <p v-if="getXpForConstraint(index)" class="text-muted small mt-2">
-                                            <i class="fas fa-trophy me-1"></i>Winner gets {{ getXpForConstraint(index) }} XP 
-                                            ({{ getRoleForConstraint(index) }})
+                                        <p v-if="allocation.points" class="text-muted small mt-2">
+                                            <i class="fas fa-trophy me-1"></i>Winner gets {{ allocation.points }} XP 
+                                            ({{ formatRoleName(allocation.role) }})
                                         </p>
                                     </div>
                                 </div>
@@ -114,28 +114,22 @@ const ratings = ref({});
 const event = ref(null);
 
 // Computed
-const ratingConstraints = computed(() => {
-    if (!event.value) return [];
-    
-    // Always use xpAllocation as the source of truth
-    if (Array.isArray(event.value.xpAllocation) && event.value.xpAllocation.length > 0) {
-        return event.value.xpAllocation
-            .sort((a, b) => (a.constraintIndex || 0) - (b.constraintIndex || 0))
-            .map(allocation => allocation.constraintLabel)
-            .filter(label => !!label);
-    }
-    return [];
+const sortedXpAllocation = computed(() => {
+    if (!event.value?.xpAllocation || !Array.isArray(event.value.xpAllocation)) return [];
+    // Create a copy before sorting to avoid mutating the original prop/store data
+    return [...event.value.xpAllocation].sort((a, b) => (a.constraintIndex || 0) - (b.constraintIndex || 0));
 });
 
 const isValid = computed(() => {
-    if (!event.value?.ratingConstraints || event.value.ratingConstraints.length === 0) return false;
-    return event.value.ratingConstraints.every((_, index) => {
+    if (!sortedXpAllocation.value || sortedXpAllocation.value.length === 0) return false;
+    return sortedXpAllocation.value.every(allocation => {
+        const ratingKey = `constraint${allocation.constraintIndex}`;
         if (isTeamEvent.value) {
-            return typeof ratings.value[`constraint${index}`] === 'number' && 
-                   ratings.value[`constraint${index}`] > 0;
+            // Team event: rating must be a number > 0
+            return typeof ratings.value[ratingKey] === 'number' && ratings.value[ratingKey] > 0;
         } else {
-            return ratings.value[`constraint${index}`] && 
-                   typeof ratings.value[`constraint${index}`] === 'string';
+            // Individual event: rating must be a non-empty string (selected participant ID)
+            return ratings.value[ratingKey] && typeof ratings.value[ratingKey] === 'string';
         }
     });
 });
@@ -178,15 +172,29 @@ const formatRoleName = (roleKey) => {
         .replace(/^./, str => str.toUpperCase());
 };
 
-// Initialize ratings object when event loads
-watch(() => event.value?.ratingConstraints, (constraints) => {
-    if (Array.isArray(constraints)) {
-        ratings.value = {};
-        constraints.forEach((_, index) => {
-            ratings.value[`constraint${index}`] = 0;
+// Initialize ratings object when xpAllocation loads/changes
+watch(sortedXpAllocation, (allocations) => {
+    if (Array.isArray(allocations)) {
+        const initialRatings = {};
+        allocations.forEach(allocation => {
+            // Default to 0 for team ratings, empty string for individual winner selection
+            initialRatings[`constraint${allocation.constraintIndex}`] = isTeamEvent.value ? 0 : '';
         });
+        ratings.value = initialRatings;
     }
-}, { immediate: true });
+}, { immediate: true, deep: true }); // Use deep watch if xpAllocation structure might change internally
+
+// Watch for changes in isTeamEvent to reset ratings appropriately
+watch(() => isTeamEvent.value, (newValue, oldValue) => {
+    // Only reset if the type actually changes *after* initial load
+    if (newValue !== null && oldValue !== null && newValue !== oldValue) {
+        const initialRatings = {};
+        sortedXpAllocation.value.forEach(allocation => {
+            initialRatings[`constraint${allocation.constraintIndex}`] = newValue ? 0 : '';
+        });
+        ratings.value = initialRatings;
+    }
+});
 
 // Fetch User Name (remains the same)
 async function fetchUserName(userId) { if (!userId) return null; try { const userDocRef = doc(db, 'users', userId); const docSnap = await getDoc(userDocRef); return docSnap.exists() ? (docSnap.data().name || userId) : userId; } catch (error) { console.error(`Error fetching name for ${userId}:`, error); return userId; } }
@@ -230,33 +238,20 @@ const submitRating = async () => {
     isSubmitting.value = true;
 
     try {
-        let ratingData;
-        const xpAllocation = event.value.xpAllocation || [];
+        let payload;
         
         if (isTeamEvent.value) {
-            // Transform team ratings using xpAllocation
-            const ratingsByLabel = {};
-            xpAllocation.forEach((allocation, index) => {
-                if (allocation.constraintLabel) {
-                    ratingsByLabel[allocation.constraintLabel] = ratings.value[`constraint${index}`];
-                }
-            });
-            ratingData = {
+            // Team event: Payload uses constraintIndex keys
+            payload = {
                 ratingType: 'team',
-                targetId: route.query.teamId,
-                rating: ratingsByLabel
+                targetId: route.query.teamId, // Assuming teamId is still passed via query param
+                rating: { ...ratings.value } // Send the ratings object directly
             };
         } else {
-            // Transform individual ratings using xpAllocation
-            const selectionsByConstraint = {};
-            xpAllocation.forEach((allocation, index) => {
-                if (allocation.constraintLabel) {
-                    selectionsByConstraint[allocation.constraintLabel] = ratings.value[`constraint${index}`];
-                }
-            });
-            ratingData = {
+            // Individual event: Payload uses constraintIndex keys for selections
+            payload = {
                 ratingType: 'individual',
-                selections: selectionsByConstraint
+                selections: { ...ratings.value } // Send the selections object directly
             };
         }
 
