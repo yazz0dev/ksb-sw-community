@@ -247,7 +247,7 @@ const validateDatesForConflict = async () => {
         });
 
         if (conflictingEvent) {
-            const conflictMsg = `Date conflict with event "${conflictingEvent.eventName}" (ID: ${conflictingEvent.id}).`;
+            const conflictMsg = `Date conflict with event "${conflictingEvent.eventName}".`;
             dateErrorMessages.value.startDate = conflictMsg;
             dateErrorMessages.value.endDate = ' '; // Add space to show error near end date too
         } else {

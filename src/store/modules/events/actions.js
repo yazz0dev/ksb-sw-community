@@ -156,7 +156,7 @@ export const eventActions = {
             if (conflictingEvent) {
                 // Provide specific error message for the UI
                 throw new Error(
-                    `Creation failed: Date conflict with event "${conflictingEvent.eventName}" (ID: ${conflictingEvent.id}). Please choose different dates.`
+                    `Creation failed: Date conflict with event "${conflictingEvent.eventName}" . Please choose different dates.`
                 );
             }
 

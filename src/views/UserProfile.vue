@@ -13,107 +13,257 @@
                     :user="userForPortfolio"
                     :projects="userProjectsForPortfolio"
                     class="mt-2 mt-md-0" /> 
-                 <span v-else-if="user" class="text-muted small mt-2 mt-md-0">(Portfolio PDF available after completing events with project submissions)</span>
+                <span v-else-if="user" class="text-muted small mt-2 mt-md-0">
+                    (Portfolio PDF available after completing events with project submissions)
+                </span>
             </div>
 
             <div v-if="loading || !user" class="text-center my-5"> 
-                 <div v-if="loading" class="spinner-border text-primary" role="status">
-                     <span class="visually-hidden">Loading...</span>
-                 </div>
-                 <p v-else class="text-muted">User profile data could not be loaded.</p>
+                <div v-if="loading" class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p v-else class="text-muted">User profile data could not be loaded.</p>
             </div>
 
-            <div v-else>
-                <div class="profile-section profile-info card card-body mb-4 shadow-sm">
-                    <p><strong>Name:</strong> {{ user.name || 'N/A' }}</p>
-                    <p><strong>Role:</strong> {{ user.role }}</p>
-                    <p><strong>Total XP:</strong> <span class="fw-bold">{{ currentUserTotalXp }}</span></p>
-                    <p v-if="user.skills?.length"><strong>Skills:</strong> {{ user.skills.join(', ') }}</p>
-                     <p v-else><strong>Skills:</strong> <span class="text-muted">Not specified</span></p>
-                    <p v-if="user.preferredRoles?.length"><strong>Preferred Roles:</strong> {{ user.preferredRoles.join(', ') }}</p>
-                     <p v-else><strong>Preferred Roles:</strong> <span class="text-muted">Not specified</span></p>
+            <div v-else class="row g-4">
+                <!-- Left Column: Profile Info -->
+                <div class="col-md-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <!-- Profile Photo -->
+                            <div class="profile-photo-container mb-3">
+                                <img :src="user.photoURL || '/default-avatar.png'" 
+                                     :alt="user.name || 'Profile Photo'"
+                                     class="rounded-circle profile-photo"
+                                     @error="handleImageError">
+                            </div>
+                            <h2 class="h4 mb-3">{{ user.name || 'My Profile' }}</h2>
+                            
+                            <!-- Quick Stats -->
+                            <div class="row g-2 stats-container mb-4">
+                                <div class="col-4">
+                                    <div class="p-2 rounded bg-light">
+                                        <div class="h4 mb-0">{{ stats.participatedCount }}</div>
+                                        <small class="text-muted">Participated</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 rounded bg-light">
+                                        <div class="h4 mb-0">{{ stats.organizedCount }}</div>
+                                        <small class="text-muted">Organized</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 rounded bg-light">
+                                        <div class="h4 mb-0">{{ stats.wonCount }}</div>
+                                        <small class="text-muted">Won</small>
+                                    </div>
+                                </div>
+                            </div>
 
-                     
-                    <div v-if="hasXpData" class="mt-4 pt-3 border-top">
-                         <p class="fw-semibold mb-2">XP Breakdown:</p>
-                         <ul class="list-unstyled small row row-cols-2 row-cols-sm-3"> 
-                             <li v-for="(xp, role) in user.xpByRole" :key="role" class="col">
-                                <span v-if="xp > 0">{{ formatRoleName(role) }}: {{ xp }}</span>
-                             </li>
-                         </ul>
-                    </div>
-                     <div v-else-if="user.xpByRole" class="mt-4 pt-3 border-top">
-                         <p class="text-muted small mb-0">No XP earned yet.</p>
-                    </div>
-                </div>
+                            <!-- Total XP -->
+                            <div class="mb-4">
+                                <h3 class="h5">Total XP</h3>
+                                <div class="h2">{{ currentUserTotalXp }}</div>
+                            </div>
 
-                
-                <div class="profile-section projects-section card mb-4 shadow-sm">
-                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h3 class="mb-0">My Event Projects</h3>
-                    </div>
-                     <div class="card-body">
-                         <div v-if="loadingProjects" class="text-center py-3">
-                              <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
-                              <span class="ms-2 text-muted small">Loading project history...</span>
-                         </div>
-                         <div v-else-if="userProjects.length > 0">
-                            <ul class="list-group list-group-flush">
-                                <li v-for="(project, index) in userProjects" :key="`proj-${project.eventId}-${index}`" class="list-group-item project-item px-0 py-3"> 
-                                     <div class="flex-grow-1 me-3">
-                                        <strong class="d-block mb-1">{{ project.projectName }}</strong>
-                                        <span class="text-muted small mb-2 d-block">From Event: {{ project.eventName }} ({{ project.eventType }})</span>
-                                        <p class="mb-2 text-muted small" v-if="project.description">{{ project.description }}</p>
-                                        <a :href="project.link" target="_blank" rel="noopener noreferrer" class="small-link" v-if="project.link">
-                                            <i class="fas fa-link fa-fw"></i> View Submission
-                                        </a>
-                                     </div>
-                                </li>
-                            </ul>
+                            <!-- Skills & Roles -->
+                            <div class="text-start">
+                                <h3 class="h5 mb-2">Skills</h3>
+                                <div class="mb-3">
+                                    <span v-if="user.skills?.length" class="badge bg-secondary me-1 mb-1" 
+                                          v-for="skill in user.skills" :key="skill">
+                                        {{ skill }}
+                                    </span>
+                                    <span v-else class="text-muted">Not specified</span>
+                                </div>
+
+                                <h3 class="h5 mb-2">Preferred Roles</h3>
+                                <div>
+                                    <span v-if="user.preferredRoles?.length" class="badge bg-info me-1 mb-1" 
+                                          v-for="role in user.preferredRoles" :key="role">
+                                        {{ role }}
+                                    </span>
+                                    <span v-else class="text-muted">Not specified</span>
+                                </div>
+                            </div>
                         </div>
-                         <div v-else><p class="text-muted mb-0">No project submissions found from completed events.</p></div>
                     </div>
                 </div>
 
-                <div class="profile-section requests-section card mb-4 shadow-sm">
-                <div class="card-header"><h3 class="mb-0">My Event Requests</h3></div>
-                <div class="card-body">
-                    <!-- UserRequests component now fetches events with status Pending/Rejected for the current user -->
-                    <UserRequests />
+                <!-- Right Column: XP & Events -->
+                <div class="col-md-8">
+                    <!-- XP Breakdown Card -->
+                    <div class="card shadow-sm mb-4" v-if="hasXpData">
+                        <div class="card-header">
+                            <h3 class="h5 mb-0">XP Breakdown</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-sm-6 mb-3" v-for="(xp, role) in user.xpByRole" :key="role">
+                                    <div v-if="xp > 0">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span>{{ formatRoleName(role) }}</span>
+                                            <span class="badge bg-primary">{{ xp }} XP</span>
+                                        </div>
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar" :style="{ width: (xp / currentUserTotalXp * 100) + '%' }"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Event Projects -->
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3 class="h5 mb-0">My Event Projects</h3>
+                            <span class="badge bg-secondary">{{ userProjects.length }} Projects</span>
+                        </div>
+                        <div class="card-body">
+                            <div v-if="loadingProjects" class="text-center py-3">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            </div>
+                            <div v-else-if="userProjects.length === 0" class="text-center py-3 text-muted">
+                                No projects submitted yet
+                            </div>
+                            <div v-else class="list-group list-group-flush">
+                                <div v-for="project in userProjects" :key="project.eventId" 
+                                     class="list-group-item border-0 px-0">
+                                    <h4 class="h6 mb-1">{{ project.projectName }}</h4>
+                                    <p class="small text-muted mb-1">
+                                        Event: {{ project.eventName }} ({{ project.eventType }})
+                                        <span v-if="project.teamName" class="ms-2">
+                                            <i class="fas fa-users me-1"></i> {{ project.teamName }}
+                                        </span>
+                                    </p>
+                                    <p v-if="project.description" class="small mb-2">{{ project.description }}</p>
+                                    <a v-if="project.link" :href="project.link" target="_blank" rel="noopener noreferrer"
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-external-link-alt me-1"></i> View Project
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Event Requests -->
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h3 class="h5 mb-0">My Event Requests</h3>
+                        </div>
+                        <div class="card-body">
+                            <UserRequests />
+                        </div>
+                    </div>
                 </div>
-            </div>
             </div>
         </template>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'; // Added watch
+import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '../firebase';
-import UserRequests from '../components/UserRequests.vue';
-import PortfolioGeneratorButton from '../components/PortfolioGeneratorButton.vue';
 import { useRouter } from 'vue-router';
+import { db } from '../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import PortfolioGeneratorButton from '../components/PortfolioGeneratorButton.vue';
+import UserRequests from '../components/UserRequests.vue';
 
 const store = useStore();
-const loading = ref(true); // Loading state for user data
+const router = useRouter();
+const userProjects = ref([]);
+const stats = ref({
+    participatedCount: 0,
+    organizedCount: 0,
+    wonCount: 0
+});
+const loading = ref(true);
+const loadingProjects = ref(false);
+
+const fetchUserEventProjects = async () => {
+    if (!user.value?.uid) return;
+    
+    try {
+        loadingProjects.value = true;
+        const q = query(
+            collection(db, 'events'),
+            where('status', '==', 'Completed')
+        );
+        const querySnapshot = await getDocs(q);
+        const projects = [];
+        let participated = 0;
+        let organized = 0;
+        let won = 0;
+
+        querySnapshot.forEach((doc) => {
+            const event = doc.data();
+            const userId = user.value?.uid;
+            const eventId = doc.id;
+
+            if (event.participants?.includes(userId) || 
+                event.teams?.some(team => team.members?.includes(userId))) {
+                participated++;
+            }
+
+            if (event.organizer === userId || event.coOrganizers?.includes(userId)) {
+                organized++;
+            }
+
+            if ((event.winners?.includes(userId)) || 
+                (event.teams?.some(team => team.members?.includes(userId) && event.winners?.includes(team.teamName)))) {
+                won++;
+            }
+
+            if (event.isTeamEvent) {
+                const userTeam = event.teams?.find(team => team.members?.includes(userId));
+                if (userTeam?.submissions?.length) {
+                    userTeam.submissions.forEach(sub => {
+                        projects.push({
+                            eventId,
+                            eventName: event.eventName,
+                            eventType: event.eventType,
+                            teamName: userTeam.teamName,
+                            ...sub
+                        });
+                    });
+                }
+            } else {
+                const userSubmission = event.submissions?.find(sub => sub.participantId === userId);
+                if (userSubmission) {
+                    projects.push({
+                        eventId,
+                        eventName: event.eventName,
+                        eventType: event.eventType,
+                        ...userSubmission
+                    });
+                }
+            }
+        });
+
+        userProjects.value = projects;
+        stats.value = {
+            participatedCount: participated,
+            organizedCount: organized,
+            wonCount: won
+        };
+    } catch (error) {
+        console.error('Error fetching user projects:', error);
+    } finally {
+        loadingProjects.value = false;
+    }
+};
+
+// Computed properties
 const user = computed(() => store.getters['user/getUser']);
 const isAdmin = computed(() => store.getters['user/isAdmin']);
-const currentUserTotalXp = computed(() => store.getters['user/currentUserTotalXp']);
-const hasFetchedUserData = computed(() => store.getters['user/hasFetchedUserData']); // Track initial fetch
-const router = useRouter();
-
-// Redirect admins away from profile page
-watch(() => isAdmin.value, (newValue) => {
-    if (newValue) {
-        router.replace({ name: 'Home' });
-    }
-}, { immediate: true });
-
-// State for fetched projects
-const userProjects = ref([]);
-const loadingProjects = ref(true);
+const hasFetchedUserData = computed(() => store.getters['user/hasFetchedUserData']);
+const currentUserTotalXp = computed(() => {
+    const xpByRole = user.value?.xpByRole || {};
+    return Object.values(xpByRole).reduce((sum, xp) => sum + xp, 0);
+});
 
 // Helper to format role keys
 const formatRoleName = (roleKey) => {
@@ -146,79 +296,74 @@ const userProjectsForPortfolio = computed(() => {
     }));
 });
 
-// Fetch projects from completed events
-async function fetchUserEventProjects() {
-    if (isAdmin.value || !user.value?.uid) { // Skip if admin or no user ID
-        loadingProjects.value = false;
-        userProjects.value = [];
-        return;
+// Watch for initial data load and trigger project fetch once
+watch(hasFetchedUserData, async (hasFetched) => {
+    if (hasFetched) {
+        loading.value = false;
+        // Fetch projects only after user data is confirmed loaded
+        if (user.value?.uid) {
+            loadingProjects.value = true;
+            await fetchUserEventProjects();
+            loadingProjects.value = false;
+        }
     }
-    loadingProjects.value = true;
-    const fetchedProjects = [];
-    const userId = user.value.uid;
+}, { immediate: true, once: true });
 
-    try {
-        const eventsRef = collection(db, 'events');
-        const q = query(eventsRef, where('status', '==', 'Completed'), orderBy('endDate', 'desc'));
-        const querySnapshot = await getDocs(q);
-
-        querySnapshot.forEach((doc) => {
-            const eventData = doc.data();
-            const eventId = doc.id;
-            // Check individual participation
-            if (!eventData.isTeamEvent && Array.isArray(eventData.participants) && eventData.participants.includes(userId)) {
-                const userSubmission = (Array.isArray(eventData.submissions) ? eventData.submissions : []).find(sub => sub.participantId === userId);
-                if (userSubmission) {
-                    fetchedProjects.push({ ...userSubmission, eventId, eventName: eventData.eventName, eventType: eventData.eventType });
-                }
-            }
-            // Check team participation
-            else if (eventData.isTeamEvent && Array.isArray(eventData.teams)) {
-                const userTeam = eventData.teams.find(team => Array.isArray(team.members) && team.members.includes(userId));
-                if (userTeam) {
-                    (userTeam.submissions || []).forEach(submission => {
-                         fetchedProjects.push({ ...submission, eventId, eventName: eventData.eventName, eventType: eventData.eventType, teamName: userTeam.teamName });
-                    });
-                }
-            }
-        });
-        userProjects.value = fetchedProjects;
-    } catch (error) {
-        console.error("Error fetching user projects:", error);
-        userProjects.value = []; // Reset on error
-    } finally {
+// Watch for subsequent user ID changes (e.g., re-login)
+watch(() => user.value?.uid, async (newUid, oldUid) => {
+    // Run only if UID changes *after* initial load
+    if (newUid && newUid !== oldUid && !loading.value) {
+        loadingProjects.value = true;
+        await fetchUserEventProjects();
         loadingProjects.value = false;
     }
-}
-
-
-// Watch for user data availability before fetching projects
-watch(hasFetchedUserData, (fetched) => {
-    if (fetched) {
-        loading.value = false; // Mark user data loading as complete
-        fetchUserEventProjects(); // Trigger project fetch
-    }
-}, { immediate: true }); // Run immediately in case data is already fetched
-
-// Re-fetch projects if the user ID changes (e.g., during hot-reloading or complex scenarios)
-watch(() => user.value?.uid, (newUid, oldUid) => {
-     if (newUid && newUid !== oldUid) {
-         fetchUserEventProjects();
-     }
 });
 
-// REMOVED: Manual project management functions (addProject, etc.)
-
+// Redirect admins away from profile page
+watch(() => isAdmin.value, (newValue) => {
+    if (newValue) {
+        router.replace({ name: 'Home' });
+    }
+}, { immediate: true });
 </script>
 
 <style scoped>
-/* Profile info uses utilities */
-.profile-info p { margin-bottom: var(--space-2); } /* Tighter spacing */
+.profile-photo-container {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto;
+    overflow: hidden;
+}
+
+.profile-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.stats-container {
+    text-align: center;
+}
+
+.progress {
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    background-color: #0d6efd;
+}
+
+.card-header {
+    background-color: rgba(0,0,0,.03);
+}
+
+.list-group-item:last-child {
+    border-bottom: 0 !important;
+}
+
+/* Keep existing styles */
+.profile-info p { margin-bottom: var(--space-2); }
 .profile-info p strong { min-width: 120px; font-weight: 500; }
-
 .small-link i { width: 1em; text-align: center; }
-
-
-/* Ensure consistent heading size in cards */
 .card-header h3 { font-size: 1.15rem; }
 </style>

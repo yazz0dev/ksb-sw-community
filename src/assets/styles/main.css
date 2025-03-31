@@ -192,7 +192,7 @@ textarea:focus-visible {
     background-color: var(--color-surface);
     border-bottom: none; /* Remove Bootstrap border */
     box-shadow: var(--shadow); /* Use standard shadow */
-    padding: 0; /* Remove default padding */
+    padding: var(--space-2) var(--space-4); /* Adjust padding */
     height: 64px; /* Consistent height */
     position: sticky; /* Make it stick */
     top: 0;
@@ -201,23 +201,22 @@ textarea:focus-visible {
     z-index: 1030; /* Ensure it's above most content */
     display: flex; /* Ensure flex behavior */
     align-items: center; /* Vertically center content */
-  }
+}
 
-  /* Container within Navbar */
-  .navbar .container {
+.navbar .container {
     display: flex;
     align-items: center;
     justify-content: space-between;
     height: 100%;
     width: 100%;
-    padding-left: var(--space-6); /* Adjust padding as needed */
-    padding-right: var(--space-6);
+    padding-left: var(--space-4); /* Adjust container padding */
+    padding-right: var(--space-4);
     margin-left: auto; /* Center container */
     margin-right: auto;
-  }
+}
 
-  /* Navbar Brand */
-  .navbar-brand {
+/* Navbar Brand */
+.navbar-brand {
     font-weight: 600;
     color: var(--color-text) !important; /* Use variable, !important to override BS */
     font-size: 1.15rem; /* Slightly larger */
@@ -227,10 +226,10 @@ textarea:focus-visible {
     align-items: center;
     height: 100%; /* Fill height */
     white-space: nowrap; /* Prevent wrapping */
-  }
+}
 
-  /* Navbar Toggler (Mobile) */
-  .navbar-toggler {
+/* Navbar Toggler (Mobile) */
+.navbar-toggler {
     border: none;
     background: transparent;
     padding: var(--space-2);
@@ -238,40 +237,40 @@ textarea:focus-visible {
     min-height: var(--touch-target-size);
     min-width: var(--touch-target-size);
     /* Use custom focus ring from :focus-visible */
-  }
-  .navbar-toggler:focus {
+}
+.navbar-toggler:focus {
     box-shadow: none; /* Remove Bootstrap's default focus */
-  }
-  .navbar-toggler-icon {
+}
+.navbar-toggler-icon {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(31, 41, 55, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e"); /* Darker icon */
     width: 1.5em; /* Slightly larger */
     height: 1.5em;
-  }
+}
 
-  /* Navbar Nav Container */
-  .navbar-collapse {
+/* Navbar Nav Container */
+.navbar-collapse {
     /* On desktop, allow items to flow */
     flex-grow: 1;
     display: flex;
     justify-content: space-between; /* Pushes main-nav and auth-nav apart */
     transition: height 0.35s ease; /* Add smooth transition */
-  }
+}
 
-  .navbar-collapse:not(.show) {
+.navbar-collapse:not(.show) {
     display: none;
-  }
+}
 
-  .navbar-collapse.collapsing {
+.navbar-collapse.collapsing {
     height: 0;
     overflow: hidden;
     transition: height 0.35s ease;
-  }
+}
 
-  .navbar-collapse.show {
+.navbar-collapse.show {
     display: flex;
-  }
+}
 
-  @media (max-width: 991.98px) {
+@media (max-width: 991.98px) {
     .navbar-collapse {
       position: absolute;
       top: 100%;
