@@ -5,7 +5,7 @@
       <div class="container">
         <router-link to="/" class="navbar-brand" @click="closeNavbar">KSB MCA S/W Community</router-link>
 
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <button class="navbar-toggler" type="button" @click="toggleNavbar" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
 
@@ -72,8 +72,13 @@ const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 const isAdmin = computed(() => store.getters['user/isAdmin']);
 
 // Methods
+const toggleNavbar = () => {
+  if (collapseInstance) {
+    collapseInstance.toggle();
+  }
+};
+
 const closeNavbar = () => {
-  // Check if the instance exists and the navbar is currently expanded (visible)
   if (collapseInstance && navbarCollapseRef.value?.classList.contains('show')) {
     collapseInstance.hide();
   }
