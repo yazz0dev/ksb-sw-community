@@ -11,8 +11,8 @@
               {{ errorMessage }}
             </div>
 
-            <form @submit.prevent="signIn" class="space-y-4"> 
-              <div>
+            <form @submit.prevent="signIn"> 
+              <div class="mb-4"> 
                 <label for="email" class="form-label">Email:</label>
                 <input
                   type="email"
@@ -21,9 +21,9 @@
                   required
                   class="form-control"
                   placeholder="Enter your email"
-                  :disabled="isLoading" /> 
+                  :disabled="isLoading" />
               </div>
-              <div>
+              <div class="mb-4">  
                 <label for="password" class="form-label">Password:</label>
                 <input
                   type="password"
@@ -109,6 +109,5 @@ const signIn = async () => {
 </script>
 
 <style scoped>
-/* Optional: Add specific styles if login-card isn't enough */
-.space-y-4 > * + * { margin-top: var(--space-4); } /* Simple spacing helper */
+/* Removed custom space-y-4 style, using Bootstrap mb-4 utility now */
 </style>

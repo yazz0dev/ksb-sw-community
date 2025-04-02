@@ -19,7 +19,7 @@
             </div>
 
             <!-- Event Header Card -->
-            <div class="card mb-4 shadow-sm">
+            <div class="card mb-4 shadow"> 
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                     <h2 class="mb-0 me-3">{{ event.eventName }}</h2>
                     <span :class="['badge', statusBadgeClass, 'mt-1 mt-md-0']">{{ event.status }}</span>
@@ -90,7 +90,7 @@
             </div>
 
             <!-- Management Section (for Admin/Organizer/CoOrganizer) -->
-            <div v-if="canManageEvent" class="card mb-4 shadow-sm">
+            <div v-if="canManageEvent" class="card mb-4 shadow">  
                 <div class="card-header">Event Management</div>
                 <div class="card-body d-flex flex-wrap gap-2">
                     <!-- Status Buttons with Date Checks -->
@@ -160,7 +160,7 @@
                         </span>
                     </div>
 
-                    <ul class="list-group shadow-sm">
+                    <ul class="list-group shadow"> 
                         <li v-for="(participantId, index) in sortedParticipants" :key="participantId"
                             class="list-group-item d-flex justify-content-between align-items-center"
                             :class="{ 'highlighted-user': participantId === currentUser?.uid }">
@@ -182,7 +182,7 @@
             </div>
 
             <!-- Display Submissions Section -->
-            <div class="card mb-4 shadow-sm">
+            <div class="card mb-4 shadow"> 
                 <div class="card-header">
                     <h3 class="mb-0">Project Submissions</h3>
                 </div>
@@ -209,7 +209,7 @@
             </div>
 
             <!-- Display Winner -->
-            <div v-if="event.winners && event.winners.length > 0" class="card bg-light border-warning mb-4 shadow-sm">
+            <div v-if="event.winners && event.winners.length > 0" class="card bg-light border-warning mb-4 shadow"> 
                 <div class="card-body text-center">
                     <h4 class="text-warning mb-2"><i class="fas fa-award me-2"></i>Winner!</h4>
                     <div v-for="winnerId in event.winners" :key="winnerId" class="lead mb-1">
@@ -691,12 +691,7 @@ const hasEnoughRatings = computed(() => {
     font-size: 0.8em;
 }
 
-.spinner-border-sm {
-    width: 0.8rem;
-    height: 0.8rem;
-    border-width: .15em;
-    vertical-align: text-bottom;
-}
+/* Removed redundant spinner-border-sm style, Bootstrap provides it */
 
 .highlighted-user {
     background-color: rgba(var(--color-primary-rgb), 0.1);

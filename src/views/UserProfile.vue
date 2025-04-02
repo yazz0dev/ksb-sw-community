@@ -28,7 +28,7 @@
             <div v-else class="row g-4">
                 <!-- Left Column: Profile Info -->
                 <div class="col-md-4">
-                    <div class="card shadow-sm h-100">
+                    <div class="card shadow h-100">  
                         <div class="card-body text-center">
                             <!-- Profile Photo -->
                             <div class="profile-photo-container mb-3">
@@ -94,7 +94,7 @@
                 <!-- Right Column: XP & Events -->
                 <div class="col-md-8">
                     <!-- XP Breakdown Card -->
-                    <div class="card shadow-sm mb-4" v-if="hasXpData">
+                    <div class="card shadow mb-4" v-if="hasXpData">  
                         <div class="card-header">
                             <h3 class="h5 mb-0">XP Breakdown</h3>
                         </div>
@@ -116,7 +116,7 @@
                     </div>
 
                     <!-- Event Projects -->
-                    <div class="card shadow-sm mb-4">
+                    <div class="card shadow mb-4"> 
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="h5 mb-0">My Event Projects</h3>
                             <span class="badge bg-secondary">{{ userProjects.length }} Projects</span>
@@ -149,7 +149,7 @@
                     </div>
 
                     <!-- Event Requests -->
-                    <div class="card shadow-sm">
+                    <div class="card shadow"> 
                         <div class="card-header">
                             <h3 class="h5 mb-0">My Event Requests</h3>
                         </div>
@@ -353,9 +353,7 @@ watch(() => isAdmin.value, (newValue) => {
     background-color: #0d6efd;
 }
 
-.card-header {
-    background-color: rgba(0,0,0,.03);
-}
+/* Removed redundant card-header style */
 
 .list-group-item:last-child {
     border-bottom: 0 !important;

@@ -2,7 +2,7 @@
 <template>
     <div>
         <!-- Loop over the reactive teamsWithDetails ref -->
-        <div v-for="team in teamsWithDetails" :key="team.teamName" class="card mb-3 team-card shadow-sm">
+        <div v-for="team in teamsWithDetails" :key="team.teamName" class="card mb-3 team-card shadow"> 
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <h4 class="card-title mb-0">{{ team.teamName }}</h4>

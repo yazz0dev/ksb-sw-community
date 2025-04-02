@@ -127,14 +127,5 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Add specific styles for the HomeView if needed */
-.row.g-3 {
-    --bs-gutter-x: 1rem; /* Adjust grid gap */
-    --bs-gutter-y: 1rem;
-}
-
-/* Add styles for cancelled events section */
-.btn-link:hover {
-    opacity: 0.8;
-}
+/* Scoped styles removed to rely on global styles and standard Bootstrap */
 </style>

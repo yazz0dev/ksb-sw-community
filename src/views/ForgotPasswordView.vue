@@ -2,7 +2,7 @@
   <div class="container mt-5">
       <div class="row justify-content-center">
           <div class="col-md-6 col-lg-5">
-              <div class="card login-card"> 
+              <div class="card login-card shadow"> 
                    <div class="card-header">
                       <h2 class="mb-0">Forgot Password</h2>
                    </div>

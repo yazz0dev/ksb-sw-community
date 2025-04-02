@@ -23,7 +23,7 @@
             This event has no valid rating criteria defined. Please contact the event organizer.
         </div>
         <div v-else>
-            <div class="card shadow-sm">
+            <div class="card shadow">
                 <div class="card-body">
                     <form @submit.prevent="submitRating">
                         <!-- Team Event Rating -->
