@@ -75,14 +75,11 @@ function mountApp() {
 // Optional: Add a timeout failsafe for auth state check
 setTimeout(() => {
     if (!authInitialized) {
-        console.warn("Firebase Auth state check timed out. Mounting app...");
-        // Mark as initialized and attempt to mount
+        console.error("Firebase Auth state check timed out. Mounting app with current state...");
+        // Mark as initialized to allow app mount
         authInitialized = true;
-        // Assume no user / clear state if auth timed out? Risky.
-        // Best practice is to ensure Firebase initializes correctly.
-        // For now, just ensure hasFetched is true so router doesn't block indefinitely.
+        // Only set hasFetched to true if it's still false
         if (!store.getters['user/hasFetchedUserData']) {
-           store.commit('user/clearUserData');
            store.commit('user/setHasFetched', true);
         }
         mountApp();

@@ -68,25 +68,30 @@ const router = createRouter({
 
 // --- Navigation Guard ---
 router.beforeEach(async (to, from, next) => {
-  while (!store.getters['user/hasFetchedUserData']) {
-    // console.log("Router Guard: Waiting for auth/user data fetch...");
-    await new Promise(resolve => setTimeout(resolve, 50));
+  if (!store.getters['user/hasFetchedUserData']) {
+    await new Promise(resolve => {
+      const unwatch = store.watch(
+        (state, getters) => getters['user/hasFetchedUserData'],
+        (newVal) => {
+          if (newVal) {
+            unwatch();
+            resolve();
+          }
+        }
+      );
+    });
   }
-  // console.log("Router Guard: Auth/user data fetch complete. Proceeding...");
 
   const isAuthenticated = store.getters['user/isAuthenticated'];
   const isAdmin = store.getters['user/isAdmin'];
 
   if (to.meta.guestOnly && isAuthenticated) {
-    // console.log("Router Guard: Authenticated user accessing guest page. Redirecting to /home.");
     next({ name: 'Home' }); return;
   }
   if (to.meta.requiresAuth && !isAuthenticated) {
-    // console.log("Router Guard: Unauthenticated user accessing protected page. Redirecting to /login.");
     next({ name: 'Login' }); return;
   }
   if (to.meta.requiresAdmin && !isAdmin) {
-    // console.log("Router Guard: Non-admin accessing admin page. Redirecting to /home.");
     next({ name: 'Home' }); return;
   }
   if (to.meta.adminForbidden && isAdmin) {
@@ -94,7 +99,6 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
 
-  // console.log(`Router Guard: Allowing navigation to ${to.path}`);
   next();
 });
 
