@@ -20,7 +20,7 @@
 
         <div v-else-if="!event" class="alert alert-warning">Event not found or ratings are not open.</div>
         <div v-else-if="!hasValidRatingCriteria" class="alert alert-warning">
-            This event has no valid rating criteria defined. Please contact the event organizer.
+            This event has no valid rating criteria defined or they are incomplete. Please contact an event organizer.
         </div>
         <div v-else>
             <div class="card shadow">
@@ -28,16 +28,18 @@
                     <form @submit.prevent="submitRating">
                         <!-- Team Event Rating -->
                         <div v-if="isTeamEvent">
+                            <h5 class="mb-4">Rate based on the following criteria:</h5>
                             <div v-for="allocation in sortedXpAllocation" :key="allocation.constraintIndex" class="mb-4">
-                                <h5 class="mb-3">{{ allocation.constraintLabel }}</h5>
-                                <div class="rating-wrapper">
+                                <label :for="'rating-' + allocation.constraintIndex" class="form-label fw-bold">{{ allocation.constraintLabel }}</label>
+                                <div class="rating-wrapper mb-2">
                                     <CustomStarRating
-                                        v-model="ratings[`constraint${allocation.constraintIndex}`]"
+                                        :id="'rating-' + allocation.constraintIndex"
+                                        v-model="ratings[`constraint${allocation.constraintIndex}`].score"
                                         :disabled="isSubmitting"
                                         :show-rating="true"
                                     />
                                 </div>
-                                <p v-if="allocation.points" class="text-muted small mt-1">
+                                <p class="text-muted small mt-1 mb-0">
                                     <i class="fas fa-trophy me-1"></i>Worth up to {{ allocation.points }} XP 
                                     ({{ formatRoleName(allocation.role) }})
                                 </p>
@@ -46,29 +48,29 @@
                         
                         <!-- Individual Event Winner Selection -->
                         <div v-else>
-                            <h5 class="mb-3">Select Winners</h5>
+                            <h5 class="mb-4">Select Winners for Each Criterion:</h5>
                             <div v-for="allocation in sortedXpAllocation" :key="allocation.constraintIndex" class="mb-4">
-                                <div class="constraint-section p-3 border rounded">
+                                <div class="constraint-section p-3 border rounded bg-light">
                                     <h6 class="mb-3">{{ allocation.constraintLabel }}</h6>
                                     <div class="form-group">
-                                        <label :for="'winner'+allocation.constraintIndex">Select Winner for {{ allocation.constraintLabel }}</label>
-                                        <select 
-                                            :id="'winner'+allocation.constraintIndex"
-                                            v-model="ratings[`constraint${allocation.constraintIndex}`]"
-                                            class="form-select"
+                                        <label :for="'winner-' + allocation.constraintIndex" class="form-label">Select Winner for {{ allocation.constraintLabel }}</label>
+                                        <select
+                                            :id="'winner-' + allocation.constraintIndex"
+                                            v-model="ratings[`constraint${allocation.constraintIndex}`].winnerId"
+                                            class="form-select form-select-sm"
                                             required
                                             :disabled="isSubmitting"
                                         >
                                             <option value="">Choose winner...</option>
-                                            <option 
-                                                v-for="participant in availableParticipants" 
-                                                :key="participant"
-                                                :value="participant"
+                                            <option
+                                                v-for="participantId in availableParticipants"
+                                                :key="participantId"
+                                                :value="participantId"
                                             >
-                                                {{ getUserName(participant) }}
+                                                {{ nameCache[participantId] || participantId }}
                                             </option>
                                         </select>
-                                        <p v-if="allocation.points" class="text-muted small mt-2">
+                                        <p v-if="allocation.points" class="text-muted small mt-2 mb-0">
                                             <i class="fas fa-trophy me-1"></i>Winner gets {{ allocation.points }} XP 
                                             ({{ formatRoleName(allocation.role) }})
                                         </p>
@@ -78,9 +80,9 @@
                         </div>
 
                         <!-- Submit Button -->
-                        <button type="submit" class="btn btn-primary mt-3" :disabled="isSubmitting || !isValid">
+                        <button type="submit" class="btn btn-primary mt-3 w-100" :disabled="isSubmitting || !isValid">
                             <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status"></span>
-                            {{ isSubmitting ? 'Submitting...' : (isTeamEvent ? 'Submit Rating' : 'Submit Winners') }}
+                            {{ isSubmitting ? 'Submitting...' : (isTeamEvent ? 'Submit Team Ratings' : 'Submit Winners') }}
                         </button>
                     </form>
                 </div>
@@ -90,13 +92,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import CustomStarRating from '../components/CustomStarRating.vue';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-
 
 const props = defineProps({ eventId: { type: String, required: true }, teamId: { type: String, required: false } });
 const store = useStore();
@@ -106,190 +107,227 @@ const loading = ref(true);
 const errorMessage = ref('');
 const isSubmitting = ref(false);
 const eventName = ref('');
-const isTeamEvent = ref(null);
-const participantToRate = ref(null);
-const participantName = ref(null);
-
-const ratings = ref({});
 const event = ref(null);
+const isTeamEvent = ref(null);
+const teamIdToRate = ref(null);
+const nameCache = reactive({});
 
-// Computed
+const ratings = reactive({});
+
+// Computed: Get current user (memoized)
+const currentUser = computed(() => store.getters['user/getUser']);
+
+// Computed: Sorted XP Allocation (ensures it exists and is an array)
 const sortedXpAllocation = computed(() => {
     if (!event.value?.xpAllocation || !Array.isArray(event.value.xpAllocation)) return [];
-    // Create a copy before sorting to avoid mutating the original prop/store data
-    return [...event.value.xpAllocation].sort((a, b) => (a.constraintIndex || 0) - (b.constraintIndex || 0));
+    // Filter out any potentially invalid entries just in case
+    const validAllocations = event.value.xpAllocation.filter(
+        alloc => typeof alloc.constraintIndex === 'number' && 
+                 alloc.constraintLabel?.trim() &&
+                 typeof alloc.points === 'number' && alloc.points >= 0 &&
+                 typeof alloc.role === 'string'
+    );
+    // Create a copy before sorting
+    return [...validAllocations].sort((a, b) => a.constraintIndex - b.constraintIndex);
 });
 
+// Computed: Check if form is valid for submission
 const isValid = computed(() => {
     if (!sortedXpAllocation.value || sortedXpAllocation.value.length === 0) return false;
+    
     return sortedXpAllocation.value.every(allocation => {
         const ratingKey = `constraint${allocation.constraintIndex}`;
+        const ratingEntry = ratings[ratingKey]; // Access reactive ratings directly
+
+        if (!ratingEntry) return false; // Entry must exist
+
         if (isTeamEvent.value) {
-            // Team event: rating must be a number > 0
-            return typeof ratings.value[ratingKey] === 'number' && ratings.value[ratingKey] > 0;
+            // Team event: score must be a number > 0
+            return typeof ratingEntry.score === 'number' && ratingEntry.score > 0;
         } else {
-            // Individual event: rating must be a non-empty string (selected participant ID)
-            return ratings.value[ratingKey] && typeof ratings.value[ratingKey] === 'string';
+            // Individual event: winnerId must be a non-empty string
+            return ratingEntry.winnerId && typeof ratingEntry.winnerId === 'string';
         }
     });
 });
 
-// Add computed for available participants
+// Computed: Available participants for individual winner selection
 const availableParticipants = computed(() => {
-    if (!event.value?.participants) return [];
-    return event.value.participants.filter(p => p !== currentUser.value?.uid);
+    if (isTeamEvent.value || !event.value?.participants) return [];
+    // Exclude the current user from the list of potential winners
+    return event.value.participants.filter(pId => pId !== currentUser.value?.uid);
 });
 
+// Computed: Check if event has defined criteria suitable for rating/selection
 const hasValidRatingCriteria = computed(() => {
-    if (!event.value) return false;
-
-    return Array.isArray(event.value.xpAllocation) && 
-        event.value.xpAllocation.some(allocation => 
-            allocation?.constraintLabel?.trim() && 
-            typeof allocation.points === 'number' && 
-            allocation.points > 0
-        );
+    // Use the already filtered and sorted computed property
+    return sortedXpAllocation.value.length > 0;
 });
 
-// Helper Methods
-const getXpForConstraint = (index) => {
-    if (!event.value?.xpAllocation || !Array.isArray(event.value.xpAllocation)) return null;
-    // Find allocation by constraintIndex
-    const allocation = event.value.xpAllocation.find(a => a.constraintIndex === index);
-    return allocation?.points || null;
-};
-
-const getRoleForConstraint = (index) => {
-    if (!event.value?.xpAllocation || !Array.isArray(event.value.xpAllocation)) return '';
-    const allocation = event.value.xpAllocation.find(a => a.constraintIndex === index);
-    return formatRoleName(allocation?.role || '');
-};
-
+// Helper: Format role names (unchanged)
 const formatRoleName = (roleKey) => {
     if (!roleKey) return '';
     return roleKey
-        .replace(/([A-Z])/g, ' $1')
-        .replace(/^./, str => str.toUpperCase());
+        .replace(/([A-Z])/g, ' $1') // Add space before caps
+        .replace(/^./, str => str.toUpperCase()); // Capitalize first letter
 };
 
-// Initialize ratings object when xpAllocation loads/changes
-watch(sortedXpAllocation, (allocations) => {
+// Watcher: Initialize/reset ratings object when allocation or event type changes
+watch([sortedXpAllocation, isTeamEvent], ([allocations, teamEventStatus]) => {
+    // Clear existing keys first to handle allocation removal
+    Object.keys(ratings).forEach(key => delete ratings[key]);
+    
     if (Array.isArray(allocations)) {
-        const initialRatings = {};
         allocations.forEach(allocation => {
-            // Default to 0 for team ratings, empty string for individual winner selection
-            initialRatings[`constraint${allocation.constraintIndex}`] = isTeamEvent.value ? 0 : '';
+            const key = `constraint${allocation.constraintIndex}`;
+            if (teamEventStatus) {
+                // Team event: initialize with score 0
+                ratings[key] = { score: 0 };
+            } else {
+                // Individual event: initialize with empty winnerId
+                ratings[key] = { winnerId: '' };
+            }
         });
-        ratings.value = initialRatings;
     }
-}, { immediate: true, deep: true }); // Use deep watch if xpAllocation structure might change internally
+}, { immediate: true, deep: true });
 
-// Watch for changes in isTeamEvent to reset ratings appropriately
-watch(() => isTeamEvent.value, (newValue, oldValue) => {
-    // Only reset if the type actually changes *after* initial load
-    if (newValue !== null && oldValue !== null && newValue !== oldValue) {
-        const initialRatings = {};
-        sortedXpAllocation.value.forEach(allocation => {
-            initialRatings[`constraint${allocation.constraintIndex}`] = newValue ? 0 : '';
-        });
-        ratings.value = initialRatings;
+// Helper: Fetch user name and cache it
+async function fetchAndCacheUserName(userId) {
+    if (!userId || nameCache[userId]) return;
+    nameCache[userId] = 'Loading...'; // Placeholder
+    try {
+        const userDocRef = doc(db, 'users', userId);
+        const docSnap = await getDoc(userDocRef);
+        nameCache[userId] = docSnap.exists() ? (docSnap.data().name || userId) : `(${userId} not found)`;
+    } catch (error) { 
+        console.error(`Error fetching name for ${userId}:`, error); 
+        nameCache[userId] = `(Error: ${userId})`;
     }
-});
+}
 
-// Fetch User Name (remains the same)
-async function fetchUserName(userId) { if (!userId) return null; try { const userDocRef = doc(db, 'users', userId); const docSnap = await getDoc(userDocRef); return docSnap.exists() ? (docSnap.data().name || userId) : userId; } catch (error) { console.error(`Error fetching name for ${userId}:`, error); return userId; } }
+// Watcher: Fetch names for available participants when the list changes
+watch(availableParticipants, (participants) => {
+    if (Array.isArray(participants)) {
+        participants.forEach(fetchAndCacheUserName);
+    }
+}, { immediate: true });
 
-// onMounted (ensure rating reset uses 0)
+// Lifecycle Hook: Fetch event details on mount
 onMounted(async () => {
     loading.value = true;
     errorMessage.value = '';
-    participantToRate.value = null;
-    participantName.value = null;
-    isTeamEvent.value = null;
-    ratings.value = {};
+    teamIdToRate.value = route.query.teamId || null; // Get teamId from route if present
 
     try {
         const eventDetails = await store.dispatch('events/fetchEventDetails', props.eventId);
         if (!eventDetails) throw new Error('Event not found or not accessible.');
+        
+        // Assign to ref *before* checks that depend on it
+        event.value = eventDetails;
         eventName.value = eventDetails.eventName;
         isTeamEvent.value = !!eventDetails.isTeamEvent;
         
         if (eventDetails.status !== 'Completed' || !eventDetails.ratingsOpen) {
             throw new Error('Ratings are currently closed for this event.');
         }
-
+        
+        // Validity check now uses computed property based on sortedXpAllocation
         if (!hasValidRatingCriteria.value) {
-            throw new Error('This event has no valid rating criteria defined.');
+            // Error message is handled by the v-else-if in the template
+            console.warn("Event lacks valid rating criteria.");
         }
         
-        event.value = eventDetails;
+        // If it's an individual event, pre-fetch names
+        if (!isTeamEvent.value && event.value.participants) {
+            availableParticipants.value.forEach(fetchAndCacheUserName); 
+        }
+
     } catch (error) {
         console.error("Error loading rating form:", error);
         errorMessage.value = error.message || 'Failed to load rating details. Please try again.';
-        event.value = null;
+        event.value = null; // Ensure event is null on error
     } finally {
         loading.value = false;
     }
 });
 
-// Submit Rating Logic
+// Method: Submit the rating or winner selections
 const submitRating = async () => {
     if (!isValid.value || isSubmitting.value) return;
     isSubmitting.value = true;
+    errorMessage.value = '';
 
     try {
-        let payload;
-        
+        let ratingDataPayload;
+
         if (isTeamEvent.value) {
-            // Team event: Payload uses constraintIndex keys
-            payload = {
+            if (!teamIdToRate.value) throw new Error("Team ID is missing for rating.");
+            // Team: Prepare payload with scores
+            ratingDataPayload = {
                 ratingType: 'team',
-                targetId: route.query.teamId, // Assuming teamId is still passed via query param
-                rating: { ...ratings.value } // Send the ratings object directly
+                targetId: teamIdToRate.value, 
+                rating: {}
             };
+            sortedXpAllocation.value.forEach(alloc => {
+                const key = `constraint${alloc.constraintIndex}`;
+                // Ensure score is sent as a number
+                ratingDataPayload.rating[key] = Number(ratings[key]?.score || 0);
+            });
         } else {
-            // Individual event: Payload uses constraintIndex keys for selections
-            payload = {
+            // Individual: Prepare payload with winner selections
+            ratingDataPayload = {
                 ratingType: 'individual',
-                selections: { ...ratings.value } // Send the selections object directly
+                selections: {} // Submit winner IDs per constraint
             };
+            sortedXpAllocation.value.forEach(alloc => {
+                const key = `constraint${alloc.constraintIndex}`;
+                ratingDataPayload.selections[key] = ratings[key]?.winnerId || null;
+            });
         }
 
+        console.log("Submitting payload:", ratingDataPayload);
+
+        // Dispatch action to the user module (assuming it handles both types)
         await store.dispatch('user/submitRating', {
             eventId: props.eventId,
-            ratingData
+            ratingData: ratingDataPayload
         });
 
-        alert('Rating submitted successfully!');
-        router.back();
+        alert(isTeamEvent.value ? 'Team ratings submitted successfully!' : 'Winner selections submitted successfully!');
+        router.back(); // Go back to the previous page
+
     } catch (error) {
-        console.error('Rating submission error:', error);
-        alert(error.message || 'Failed to submit rating.');
-    } finally {
+        console.error('Rating/Selection submission error:', error);
+        errorMessage.value = error.message || 'Failed to submit. Please try again.';
+        // Keep isSubmitting false if error occurs during dispatch to allow retry
         isSubmitting.value = false;
     }
 };
 
-// Add helper method for participant names
-const getUserName = (userId) => {
-    return participantName.value || userId;
-};
-
+// Method: Go back
 const goBack = () => router.back();
 
 </script>
 
 <style scoped>
-/* Keep the wrapper style for centering */
-.rating-stars-wrapper {
+.rating-wrapper {
     display: flex;
-    justify-content: center;
+    justify-content: center; /* Center stars */
     align-items: center;
-    padding: var(--space-2) 0;
-    width: 100%;
+    min-height: 40px; /* Ensure space even if stars don't load */
 }
 
 .constraint-section {
-    background-color: var(--bs-gray-100);
+    background-color: var(--bs-light); /* Use Bootstrap variable */
+    margin-bottom: 1rem; /* Add space between sections */
+}
+
+.form-label {
+    margin-bottom: 0.5rem;
+}
+
+/* Improve button visibility */
+button[type="submit"] {
+    font-weight: bold;
 }
 </style>

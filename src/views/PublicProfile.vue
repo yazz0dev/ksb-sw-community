@@ -22,7 +22,7 @@
                     <div class="card-body text-center">
                         <!-- Profile Photo -->
                         <div class="profile-photo-container mb-3">
-                            <img :src="user.photoURL || '@/assets/images/default-avatar.png'" 
+                            <img :src="user.photoURL || defaultAvatarUrl" 
                                  :alt="user.name || 'Profile Photo'"
                                  class="rounded-circle profile-photo"
                                  @error="handleImageError">
@@ -195,6 +195,9 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 
+// Use new URL pattern for asset handling
+const defaultAvatarUrl = new URL('../assets/default-avatar.png', import.meta.url).href;
+
 const props = defineProps({ userId: { type: String, required: true } });
 const user = ref(null);
 const loading = ref(true);
@@ -221,7 +224,7 @@ const hasXpData = computed(() => totalXp.value > 0);
 
 // Handlers
 const handleImageError = (e) => {
-    e.target.src = '@/assets/images/default-avatar.png';
+    e.target.src = defaultAvatarUrl;
 };
 
 // Helpers

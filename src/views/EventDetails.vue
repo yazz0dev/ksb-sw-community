@@ -545,11 +545,20 @@ const toggleRatingsOpen = async (isOpen) => {
     if (!event.value) return;
     errorMessage.value = ''; // Clear previous errors
     try {
-        await store.dispatch('events/toggleRatingsOpen', { eventId: props.id, isOpen });
-        // Optionally add a success message
-    } catch (error) {
-        console.error("Toggle ratings error:", error);
-        errorMessage.value = `Failed to toggle ratings: ${error.message || 'Unknown error'}`;
+        // Dispatch and get the result status
+        const result = await store.dispatch('events/toggleRatingsOpen', { eventId: props.id, isOpen });
+
+        if (result.status === 'error') {
+            // Show error message for failures
+            errorMessage.value = `Failed to toggle ratings: ${result.message || 'Unknown error'}`;
+        } else if (result.status === 'success') {
+            // Optionally add a success message or simply rely on UI update
+            console.log("Ratings toggled successfully.");
+        }
+    } catch (unexpectedError) {
+        // Catch any truly unexpected errors during dispatch itself
+        console.error("Unexpected error calling toggleRatingsOpen action:", unexpectedError);
+        errorMessage.value = 'An unexpected error occurred. Please try again.';
     }
 };
 const saveWinner = async () => {

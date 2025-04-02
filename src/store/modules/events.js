@@ -1,4 +1,4 @@
-import { db } from '../../firebase';
+mport { db } from '../../firebase';
 import { _calculateWeightedAverageScore } from './events/helpers';
 import { eventActions } from './events/actions';
 import { eventMutations } from './events/mutations';

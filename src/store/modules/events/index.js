@@ -64,11 +64,11 @@ const getters = {
     // --- MODIFIED GETTER ---
     // Derive rating constraints *only* from xpAllocation
     getEventRatingConstraints: (state) => (eventId) => {
-        const event = state.events.find(e => e.id === eventId) ||
+        const event = state.events.find(e => e.id === eventId) || 
                      (state.currentEventDetails?.id === eventId ? state.currentEventDetails : null);
         if (!event?.xpAllocation || !Array.isArray(event.xpAllocation) || event.xpAllocation.length === 0) {
              // If no xpAllocation, return empty array (no fallback to legacy ratingConstraints)
-            return [];
+            return []; 
         }
         // Map xpAllocation to get the labels (constraints)
         return event.xpAllocation
@@ -78,7 +78,7 @@ const getters = {
 
     // Getter for winners (already checks winnersPerRole, seems okay)
     eventWinners: (state) => (eventId) => {
-        const event = state.events.find(e => e.id === eventId) ||
+        const event = state.events.find(e => e.id === eventId) || 
                      (state.currentEventDetails?.id === eventId ? state.currentEventDetails : null);
         if (!event) return []; // Return empty if event not found
 

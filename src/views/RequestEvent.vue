@@ -17,6 +17,9 @@ interface TeamMember {
     teamName: string;
     members: string[];
     isNew: boolean;
+    // Added optional fields that might exist when editing
+    submissions?: any[];
+    ratings?: any[];
 }
 
 // --- Core State ---
@@ -28,7 +31,7 @@ const eventType = ref<string>('Hackathon');
 const description = ref<string>('');
 const startDate = ref<string>(''); // Will hold start date for Admin, desired start date for User
 const endDate = ref<string>(''); // Will hold end date for Admin, desired end date for User
-const selectedCoOrganizers = ref<string[]>([]);
+const selectedOrganizers = ref<string[]>([]); // Renamed from selectedCoOrganizers
 
 // --- Team Definition State ---
 const teams = ref<TeamMember[]>([{
@@ -37,11 +40,11 @@ const teams = ref<TeamMember[]>([{
     isNew: true
 }]);
 
-// --- Co-organizer State ---
-const potentialStudentCoOrganizers = ref<Student[]>([]);
+// --- Organizer/Student State ---
+const availableStudents = ref<Student[]>([]);
 const studentNameCache = ref<Record<string, string>>({});
-const coOrganizerSearch = ref<string>('');
-const showCoOrganizerDropdown = ref<boolean>(false);
+const organizerSearch = ref<string>(''); // Keep for search input
+const showOrganizerDropdown = ref<boolean>(false);
 
 // --- General State ---
 const store = useStore();
@@ -55,6 +58,33 @@ const isSubmitting = ref<boolean>(false);
 const editingEventId = ref<string | null>(null); // To store the ID of the event being edited
 const rejectionReason = ref<string | null>(null); // To store the rejection reason if editing a rejected event
 const isLoadingEventData = ref<boolean>(false); // Loading state for fetching event data
+const conflictingEventEndDate = ref<Date | null>(null); // NEW: Store end date of conflict
+const isCheckingConflict = ref<boolean>(false); // <<< ADD THIS LINE BACK
+
+// --- NEW: Event Category Lists ---
+const teamEventCategories = [
+    { value: 'Hackathon', label: 'Hackathon' },
+    { value: 'Ideathon', label: 'Ideathon' },
+    { value: 'Debate', label: 'Debate' },
+    { value: 'Design Competition', label: 'Design Competition' },
+    { value: 'Tech Business plan', label: 'Tech Business plan' },
+    { value: 'Treasure hunt', label: 'Treasure hunt' },
+    { value: 'Open Source', label: 'Open Source' },
+    { value: 'Other', label: 'Other' }
+];
+const individualEventCategories = [
+    { value: 'Topic Presentation', label: 'Topic Presentation' },
+    { value: 'Debug competition', label: 'Debug competition' },
+    { value: 'Discussion session', label: 'Discussion session' },
+    { value: 'Testing', label: 'Testing' },
+    { value: 'Hands-on Presentation', label: 'Hands-on Presentation' },
+    { value: 'Quiz', label: 'Quiz' },
+    { value: 'Program logic solver', label: 'Program logic solver' },
+    { value: 'Google Search', label: 'Google Search' },
+    { value: 'Typing competition', label: 'Typing competition' },
+    { value: 'Algorithm writing', label: 'Algorithm writing' },
+    { value: 'Other', label: 'Other' }
+];
 
 // --- Computed ---
 const currentUser = computed(() => store.getters['user/getUser']);
@@ -64,9 +94,14 @@ const minDate = computed(() => {
   today.setDate(today.getDate() + 1);
   return today.toISOString().split('T')[0];
 });
-const canAddMoreCoOrganizers = computed(() => selectedCoOrganizers.value.length < 5);
+const canAddMoreOrganizers = computed(() => selectedOrganizers.value.length < 5); // Updated limit
 const totalAllocatedXp = computed(() => {
     return ratingCriteria.value.reduce((sum, criteria) => sum + (criteria.points || 0), 0);
+});
+
+// --- NEW: Computed property for available categories ---
+const availableEventCategories = computed(() => {
+    return isTeamEvent.value ? teamEventCategories : individualEventCategories;
 });
 
 // --- Rating Criteria State ---
@@ -91,6 +126,7 @@ const isFindingNextDate = ref<boolean>(false); // Disable button while finding d
 const getSubmitButtonText = () => {
     if (isSubmitting.value) return 'Submitting...';
     if (isTeamEvent.value && !hasValidTeams.value) return 'At least 2 teams required';
+    if (selectedOrganizers.value.length === 0) return 'Organizer Required'; // Added organizer check
     if (isAdmin.value) return 'Create Event';
     return 'Submit Event Request';
 };
@@ -120,16 +156,15 @@ const fetchStudents = async () => {
         const usersRef = collection(db, 'users');
         const q = query(usersRef);
         const querySnapshot = await getDocs(q);
-        const currentUserId = currentUser.value?.uid;
 
         const students = querySnapshot.docs
             .map(doc => ({ uid: doc.id, name: doc.data().name || '', role: doc.data().role || 'Student' }))
-            // Filter out Admins AND the current user
-            .filter(user => user.role !== 'Admin' && user.uid !== currentUserId)
+            // Filter out Admins (Users can't select themselves in this combined input)
+            .filter(user => user.role !== 'Admin')
             .sort((a, b) => (a.name || a.uid).localeCompare(b.name || b.uid));
 
         students.forEach(student => { if (student.name) { studentNameCache.value[student.uid] = student.name; }});
-        potentialStudentCoOrganizers.value = students;
+        availableStudents.value = students;
 
     } catch (error) {
         console.error('Error fetching students:', error);
@@ -139,28 +174,54 @@ const fetchStudents = async () => {
     }
 };
 
-// ... rest of the component (template, other functions, styles) ...
-
-const addCoOrganizer = (student: Student) => {
-    if (!selectedCoOrganizers.value.includes(student.uid)) {
-        selectedCoOrganizers.value.push(student.uid);
-        // Optionally fetch name if not already cached, though fetchStudents should handle most cases
-        if (!studentNameCache.value[student.uid] && student.name) {
-             studentNameCache.value[student.uid] = student.name;
-        }
+// --- UPDATED: Organizer Selection Helpers ---
+const addOrganizer = (student: Student) => {
+    // Prevent adding self if not Admin (implicitly handled by fetchStudents filter now)
+    if (currentUser.value?.uid === student.uid && !isAdmin.value) {
+        console.warn("Cannot add self as organizer via this input."); // User is added automatically on request
+        return;
     }
-    coOrganizerSearch.value = ''; // Clear search input
-    showCoOrganizerDropdown.value = false; // Hide dropdown
+    if (!selectedOrganizers.value.includes(student.uid) && selectedOrganizers.value.length < 5) {
+        selectedOrganizers.value.push(student.uid);
+    }
+    organizerSearch.value = ''; // Clear search input
+    showOrganizerDropdown.value = false;
 };
-const removeCoOrganizer = (uid: string) => {
-    selectedCoOrganizers.value = selectedCoOrganizers.value.filter(id => id !== uid);
+
+const removeOrganizer = (uid: string) => {
+    selectedOrganizers.value = selectedOrganizers.value.filter(id => id !== uid);
 };
+
+const handleSearchFocus = () => {
+    showOrganizerDropdown.value = true;
+};
+
 const handleSearchBlur = () => {
-    // Delay hiding to allow click event on dropdown items to register
+    // Delay hiding to allow click event on dropdown items
     setTimeout(() => {
-        showCoOrganizerDropdown.value = false;
+        showOrganizerDropdown.value = false;
+        // Clear search if nothing was selected
+        if (organizerSearch.value) {
+             organizerSearch.value = '';
+        }
     }, 200);
 };
+
+// Filtered students for dropdown (excluding already selected organizers)
+const filteredStudentsForDropdown = computed(() => {
+    if (!organizerSearch.value) return [];
+    const lowerSearch = organizerSearch.value.toLowerCase();
+    // Ensure current user isn't shown in dropdown unless Admin (since they're added automatically for requests)
+    const excludeSelf = !isAdmin.value ? currentUser.value?.uid : null;
+
+    return availableStudents.value.filter(s =>
+        s.uid !== excludeSelf && // Exclude self if not admin
+        s.name.toLowerCase().includes(lowerSearch) &&
+        !selectedOrganizers.value.includes(s.uid)
+    );
+});
+// --- END: Organizer Selection Helpers ---
+
 // Team management functions (addTeam, removeTeam, isStudentAssignedElsewhere, getTeamAssignmentName)
 // are handled within ManageTeamsComponent.vue
 
@@ -182,61 +243,59 @@ const prepareSubmissionData = () => {
         }))
         .filter(allocation => allocation.points > 0);
 
-    const constraints = ratingCriteria.value.map((criteria, index) =>
-        criteria.label || getDefaultCriteriaLabel(index)
-    );
+    const finalOrganizers = isAdmin.value
+        ? [...selectedOrganizers.value]
+        : [...new Set([currentUser.value.uid, ...selectedOrganizers.value])];
+
+    if (finalOrganizers.length === 0 || finalOrganizers.length > 5) {
+        throw new Error(`An event must have between 1 and 5 organizers. Found ${finalOrganizers.length}.`);
+    }
 
     return {
         xpAllocation,
-        ratingConstraints: constraints,
-        status: isAdmin.value ? 'Approved' : 'Pending', // Status based on Admin role
-        requester: currentUser.value.uid,
+        organizers: finalOrganizers
     };
 };
 
-const findNextAvailableDate = async (): Promise<Date | null> => {
-    const checkDate = new Date();
-    checkDate.setDate(checkDate.getDate() + 1); // Start from tomorrow
+const findNextAvailableDate = async (searchStart: Date): Promise<Date | null> => {
+    const checkDate = new Date(searchStart); // Start from the provided date
     let foundDate: Date | null = null;
     let attempts = 0;
-    const maxAttempts = 30; // Limit search to next 30 days
+    const maxAttempts = 30; // Limit search
 
     while (!foundDate && attempts < maxAttempts) {
-      // Use checkDate directly
-      const conflict = await store.dispatch('events/checkDateConflict', {
-        startDate: checkDate,
-        endDate: new Date(checkDate) // Check for same-day conflict too
-      });
+        // Check for conflict on checkDate
+        const conflict = await store.dispatch('events/checkDateConflict', {
+            startDate: checkDate,
+            endDate: checkDate // Check single day
+        });
 
-      if (!conflict) {
-        foundDate = new Date(checkDate); // Found an available date
-        break;
-      }
-      checkDate.setDate(checkDate.getDate() + 1); // Move to the next day
-      attempts++;
+        if (!conflict) {
+            foundDate = new Date(checkDate);
+            break;
+        }
+        checkDate.setDate(checkDate.getDate() + 1); // Move to next day
+        attempts++;
     }
     return foundDate;
-  };
+};
 
-// --- NEW: Real-time Date Conflict Validation ---
-const isCheckingConflict = ref(false);
+// --- Date Conflict Validation --- UPDATED
 const validateDatesForConflict = async () => {
-    // Clear previous errors first
     dateErrorMessages.value = { startDate: '', endDate: '' };
-    errorMessage.value = ''; // Also clear general error
+    errorMessage.value = '';
+    conflictingEventEndDate.value = null; // Reset conflict end date
 
-    // Only proceed if both dates are selected and valid format (basic check)
     if (!startDate.value || !endDate.value || !/^\d{4}-\d{2}-\d{2}$/.test(startDate.value) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate.value)) {
-        return; // Don't check incomplete/invalid dates
+        return;
     }
 
     const startDateObj = new Date(startDate.value);
     const endDateObj = new Date(endDate.value);
 
-    // Basic range check (end >= start)
     if (startDateObj > endDateObj) {
         dateErrorMessages.value.endDate = 'End date cannot be earlier than the start date.';
-        return; // Don't check conflict if range is invalid
+        return;
     }
 
     isCheckingConflict.value = true;
@@ -249,26 +308,28 @@ const validateDatesForConflict = async () => {
         if (conflictingEvent) {
             const conflictMsg = `Date conflict with event "${conflictingEvent.eventName}".`;
             dateErrorMessages.value.startDate = conflictMsg;
-            dateErrorMessages.value.endDate = ' '; // Add space to show error near end date too
+            dateErrorMessages.value.endDate = ' ';
+            // Store the end date of the conflicting event
+            if (conflictingEvent.endDate?.toDate) {
+                conflictingEventEndDate.value = conflictingEvent.endDate.toDate();
+            }
         } else {
-            // Clear errors if no conflict found
             dateErrorMessages.value = { startDate: '', endDate: '' };
+            conflictingEventEndDate.value = null; // Clear if no conflict
         }
     } catch (error: any) {
         console.error("Error checking date conflict:", error);
-        // Display a generic error if the check itself fails
         dateErrorMessages.value.startDate = `Error checking date availability: ${error.message || 'Unknown error'}`;
         dateErrorMessages.value.endDate = ' ';
+        conflictingEventEndDate.value = null; // Clear on error
     } finally {
         isCheckingConflict.value = false;
     }
 };
 
-// Watch for changes in start and end dates to trigger validation
+// Watchers for date changes remain the same
 watch(startDate, validateDatesForConflict);
 watch(endDate, validateDatesForConflict);
-
-// Watch StartDate to auto-update EndDate if necessary
 watch(startDate, (newStartDate) => {
     if (!newStartDate) return; // Don't do anything if start date is cleared
 
@@ -281,34 +342,71 @@ watch(startDate, (newStartDate) => {
         // Note: The watcher on endDate will automatically trigger validateDatesForConflict
     }
 });
-// --- END: Real-time Date Conflict Validation ---
 
+// --- NEW: Watcher to reset eventType when isTeamEvent changes ---
+watch(isTeamEvent, (isTeam) => {
+    const currentCategories = isTeam ? teamEventCategories : individualEventCategories;
+    // Check if the currently selected eventType exists in the new list of categories
+    if (!currentCategories.some(category => category.value === eventType.value)) {
+        eventType.value = ''; // Reset if not valid for the new type
+    }
+});
 
+// --- Set Next Available Date --- UPDATED
 const setNextAvailableDate = async () => {
-    isFindingNextDate.value = true; // Disable button
-    dateErrorMessages.value.startDate = ''; // Clear previous errors
+    isFindingNextDate.value = true;
+    dateErrorMessages.value.startDate = ''; // Clear previous confirmation/error message
+    dateErrorMessages.value.endDate = '';
+
+    // Determine where to start searching
+    let searchStartDate = new Date();
+    searchStartDate.setDate(searchStartDate.getDate() + 1); // Default: tomorrow
+    searchStartDate.setHours(0, 0, 0, 0);
+
+    const hasConflictError = !!dateErrorMessages.value.startDate.includes('conflict');
+
+    if (hasConflictError && conflictingEventEndDate.value) {
+        // Start searching the day AFTER the conflicting event ends
+        searchStartDate = new Date(conflictingEventEndDate.value);
+        searchStartDate.setDate(searchStartDate.getDate() + 1);
+        searchStartDate.setHours(0, 0, 0, 0);
+        console.log("Conflict detected, starting search after:", searchStartDate);
+    } else if (startDate.value && endDate.value && !hasConflictError) {
+        // Start searching the day AFTER the current valid end date
+        try {
+             const currentEndDate = new Date(endDate.value);
+             if (!isNaN(currentEndDate.getTime())) {
+                searchStartDate = new Date(currentEndDate);
+                searchStartDate.setDate(searchStartDate.getDate() + 1);
+                searchStartDate.setHours(0, 0, 0, 0);
+                console.log("No conflict, starting search after current end date:", searchStartDate);
+            }
+        } catch { /* Ignore potential date parsing errors, use default */ }
+    }
+
     try {
-      const nextDate = await findNextAvailableDate();
-      if (nextDate instanceof Date) {
-        const dateString = nextDate.toISOString().split('T')[0];
-        startDate.value = dateString;
-        endDate.value = dateString; // Set end date to the same day
-        dateErrorMessages.value.startDate = 'Next available start date set.'; // Confirmation message
-      } else {
-        dateErrorMessages.value.startDate = 'No available dates found in the next 30 days.'; // Error message if no date found
-      }
+        const nextDate = await findNextAvailableDate(searchStartDate);
+        if (nextDate instanceof Date) {
+            const dateString = nextDate.toISOString().split('T')[0];
+            startDate.value = dateString;
+            endDate.value = dateString; // Set end date to the same day
+            // Provide confirmation - validation will run via watchers
+            dateErrorMessages.value.startDate = 'Set to next available date.'; 
+        } else {
+            dateErrorMessages.value.startDate = 'No available dates found in the next 30 days.';
+        }
     } catch (error) {
-      console.error('Error finding next available date:', error);
-      dateErrorMessages.value.startDate = 'Error finding next available date.'; // Error message on exception
+        console.error('Error finding next available date:', error);
+        dateErrorMessages.value.startDate = 'Error finding next available date.';
     } finally {
-       isFindingNextDate.value = false; // Enable button
-       // Explicitly re-validate after setting dates from "Next Available"
-       await validateDatesForConflict();
-     }
-   };
+        isFindingNextDate.value = false;
+        // Explicitly re-validate after setting dates
+        // Use timeout to ensure watchers have potentially run from date changes
+        setTimeout(validateDatesForConflict, 50); 
+    }
+};
 
-
- // --- Step Navigation ---
+// --- Step Navigation ---
 const handleStep1Submit = (e: Event) => {
     e.preventDefault();
     errorMessage.value = ''; // Clear previous errors
@@ -359,6 +457,28 @@ const handleSubmit = async () => {
         return; // Stop submission if XP total is incorrect
     }
 
+    // *** ADDED: Validate that xpAllocation is not empty after filtering ***
+    if (totalAllocatedXp.value === 0) {
+        errorMessage.value = `No XP points allocated. Please assign points (greater than 0) to at least one rating criterion.`;
+        window.scrollTo(0, 0);
+        return; // Stop submission if no XP is allocated
+    }
+
+    // Validate Organizer Selection for Admin
+    if (isAdmin.value && selectedOrganizers.value.length === 0) {
+        errorMessage.value = 'Please select at least one student organizer for the event.';
+        window.scrollTo(0, 0);
+        return;
+    }
+
+    // Validate total organizers (primary + co) <= 5
+    const totalOrganizers = (isAdmin.value ? 1 : 1) + selectedOrganizers.value.length;
+    if (totalOrganizers < 1 || totalOrganizers > 5) {
+        errorMessage.value = `An event must have between 1 and 5 organizers (currently ${totalOrganizers}).`;
+         window.scrollTo(0, 0);
+         return;
+    }
+
     errorMessage.value = '';
     isSubmitting.value = true;
 
@@ -387,15 +507,14 @@ const handleSubmit = async () => {
         }
 
         // --- Prepare Base Data --- (Common for create/update)
-        const commonData = prepareSubmissionData(); // Gets xpAllocation, ratingConstraints, requester
+        const commonData = prepareSubmissionData(); // Gets xpAllocation, organizers
         const preparedData: any = {
             eventName: eventName.value,
             eventType: eventType.value,
             description: description.value,
             isTeamEvent: isTeamEvent.value,
-            coOrganizers: selectedCoOrganizers.value,
-            ratingCriteria: commonData.ratingConstraints, // Use original labels array
             xpAllocation: commonData.xpAllocation,
+            organizers: commonData.organizers, // Use combined list from prepareSubmissionData
             // Teams (only if team event)
             teams: isTeamEvent.value ? teams.value.map(t => ({
                 teamName: t.teamName.trim(),
@@ -414,14 +533,22 @@ const handleSubmit = async () => {
 
             // Add appropriate dates (desired for pending/rejected, actual for approved if admin edits)
             // Note: updateEventDetails action internally handles date conversion to Timestamp
-            if (isAdmin.value) { // Admin might edit actual dates of approved/pending
+            if (isAdmin.value) {
                  updates.startDate = startDateObj;
                  updates.endDate = endDateObj;
-            } else { // User editing pending/rejected uses desired dates
+                 // Admin can update organizers list directly
+                 updates.organizers = commonData.organizers;
+            } else {
                  updates.desiredStartDate = startDateObj;
                  updates.desiredEndDate = endDateObj;
+                 // Non-admins CANNOT change organizers during update in this setup
+                 // The updateEventDetails action should prevent this if not admin
+                 // We pass the *original* organizers list if not admin to be safe
+                 // OR rely on the action's permission check
+                 // Let's rely on the action's permission check for now.
+                 // If non-admin tries to submit a changed list, action should throw error.
+                 updates.organizers = commonData.organizers;
             }
-
 
             // *** Special handling for resubmitting a REJECTED event ***
             if (rejectionReason.value !== null) { // Check if we were editing a rejected event
@@ -436,27 +563,25 @@ const handleSubmit = async () => {
             });
             alert('Event request updated successfully.');
             // Redirect after update (e.g., back to profile or admin list)
-             router.push(isAdmin.value ? '/admin/events' : '/profile');
+             router.push(isAdmin.value ? '/manage-requests' : '/profile');
 
         } else {
             // --- CREATE NEW EVENT / REQUEST ---
             const finalData = { ...preparedData };
-            finalData.requester = commonData.requester; // Add requester from commonData
-            finalData.status = commonData.status;       // Add status from commonData ('Approved' or 'Pending')
+            finalData.requester = currentUser.value.uid;
+            finalData.status = isAdmin.value ? 'Approved' : 'Pending';
 
             if (isAdmin.value) {
-                // Admin creates directly with these dates
                 finalData.startDate = startDateObj;
                 finalData.endDate = endDateObj;
-                // Organizer is set in the createEvent action
+                // organizers already set in finalData
                 await store.dispatch('events/createEvent', finalData);
                 alert('Event created successfully.');
-                router.push('/admin/events');
+                router.push('/manage-requests');
             } else {
-                // User requests with these desired dates
                 finalData.desiredStartDate = startDateObj;
                 finalData.desiredEndDate = endDateObj;
-                // Organizer defaults to requester in requestEvent action
+                // organizers already set in finalData (includes requester)
                 await store.dispatch('events/requestEvent', finalData);
                 alert('Event request submitted successfully.');
                 router.push('/profile');
@@ -475,7 +600,6 @@ const handleSubmit = async () => {
         isSubmitting.value = false;
     }
 };
-
 
 // --- Lifecycle Hook ---
 onMounted(async () => {
@@ -503,7 +627,11 @@ onMounted(async () => {
                 eventType.value = eventData.eventType || 'Hackathon';
                 description.value = eventData.description || '';
                 isTeamEvent.value = !!eventData.isTeamEvent;
-                selectedCoOrganizers.value = Array.isArray(eventData.coOrganizers) ? [...eventData.coOrganizers] : [];
+                selectedOrganizers.value = Array.isArray(eventData.organizers) ? [...eventData.organizers] : [];
+                // Set search text for organizer if admin and organizer exists
+                if (isAdmin.value && selectedOrganizers.value.length > 0 && studentNameCache.value[selectedOrganizers.value[0]]) {
+                    organizerSearch.value = studentNameCache.value[selectedOrganizers.value[0]];
+                }
 
                 // Use desired dates if pending/rejected, otherwise actual dates
                 const start = eventData.status === 'Pending' || eventData.status === 'Rejected'
@@ -518,20 +646,17 @@ onMounted(async () => {
 
                 // Populate rating criteria
                 if (Array.isArray(eventData.xpAllocation) && eventData.xpAllocation.length > 0) {
-                     // Map xpAllocation back to the simpler ratingCriteria structure used in the form
-                     // Assuming ratingConstraints holds the labels in the correct order
-                     const constraints = Array.isArray(eventData.ratingConstraints) ? eventData.ratingConstraints : [];
+                     // Map xpAllocation back to the simpler ratingCriteria structure
+                     // We now derive labels *directly* from xpAllocation
                      ratingCriteria.value = eventData.xpAllocation.map((alloc: any) => ({
-                         label: constraints[alloc.constraintIndex] || '', // Get label from constraints array
-                         role: alloc.role === 'general' ? '' : alloc.role, // Map 'general' back to empty string for select
+                         label: alloc.constraintLabel || `Criteria ${alloc.constraintIndex + 1}`, // Get label from alloc
+                         role: alloc.role === 'general' ? '' : alloc.role,
                          points: alloc.points || 5
-                     }));
-                     // Ensure at least one criterion exists if mapping resulted in empty
+                     })).sort((a:any, b:any) => a.constraintIndex - b.constraintIndex); // Ensure order if index exists
                      if (ratingCriteria.value.length === 0) {
                          ratingCriteria.value.push({ label: '', role: '', points: 5 });
                      }
                 } else {
-                     // Reset to default if no allocation found
                      ratingCriteria.value = [{ label: '', role: '', points: 5 }];
                 }
 
@@ -557,8 +682,10 @@ onMounted(async () => {
                     rejectionReason.value = null; // Clear if not rejected
                 }
 
-                 // Ensure name cache is populated for co-organizers
-                 await fetchUserNames(selectedCoOrganizers.value);
+                 // Ensure name cache is populated for the organizers if not already
+                 if (selectedOrganizers.value.length > 0) {
+                     await fetchUserNames(selectedOrganizers.value);
+                 }
 
             } else {
                 errorMessage.value = `Event with ID ${editId} not found. Cannot edit.`;
@@ -599,7 +726,7 @@ onMounted(async () => {
          </div>
 
         <!-- Progress Steps -->
-        <div v-if="!loadingCheck && !hasActiveRequest" class="progress-steps mb-4">
+        <div v-if="!loadingCheck && !hasActiveRequest && !isAdmin" class="progress-steps mb-4">
             <div class="step" :class="{ active: currentStep === 1, completed: currentStep > 1 }">
                 1. Event Details & XP
             </div>
@@ -617,13 +744,13 @@ onMounted(async () => {
         <div v-else-if="!isAdmin && hasActiveRequest" class="alert alert-warning" role="alert">
             You already have an active or pending event request. You cannot submit another until it is resolved or cancelled.
         </div>
-        <div v-if="loadingStudents" class="text-center my-4">
+        <div v-if="loadingStudents || isLoadingEventData" class="text-center my-4">
             <div class="spinner-border spinner-border-sm" role="status"></div>
-            <span class="ms-2">Loading student list...</span>
+            <span class="ms-2">{{ loadingStudents ? 'Loading student list...' : 'Loading event data...' }}</span>
         </div>
 
         <!-- Step 1: Event Details & XP -->
-        <div v-if="currentStep === 1">
+        <div v-if="currentStep === 1 && (!loadingStudents || isAdmin)">
             <form @submit.prevent="handleStep1Submit">
                 <!-- Event Type Selection -->
                 <div class="mb-4">
@@ -647,24 +774,10 @@ onMounted(async () => {
                 <div class="mb-3">
                     <label for="eventTypeSelect" class="form-label">Event Category <span class="text-danger">*</span></label>
                     <select id="eventTypeSelect" v-model="eventType" required class="form-select" size="5" :disabled="isSubmitting">
-                        <option value="Hackathon">Hackathon</option>
-                        <option value="Ideathon">Ideathon</option>
-                        <option value="Debate">Debate</option>
-                        <option value="Topic Presentation">Topic Presentation</option>
-                        <option value="Debug competition">Debug competition</option>
-                        <option value="Discussion session">Discussion session</option>
-                        <option value="Design Competition">Design Competition</option>
-                        <option value="Testing">Testing</option>
-                        <option value="Treasure hunt">Treasure hunt</option>
-                        <option value="Open Source">Open Source</option>
-                        <option value="Hands-on Presentation">Hands-on Presentation</option>
-                        <option value="Quiz">Quiz</option>
-                        <option value="Program logic solver">Program logic solver</option>
-                        <option value="Google Search">Google Search</option>
-                        <option value="Typing competition">Typing competition</option>
-                        <option value="Tech Business plan">Tech Business plan</option>
-                        <option value="Algorithm writing">Algorithm writing</option>
-                        <option value="Other">Other</option>
+                        <!-- *** MODIFIED: Use computed property for options *** -->
+                        <option v-for="category in availableEventCategories" :key="category.value" :value="category.value">
+                            {{ category.label }}
+                        </option>
                     </select>
                 </div>
                 <div class="mb-3">
@@ -672,42 +785,48 @@ onMounted(async () => {
                     <textarea id="description" v-model="description" required class="form-control" rows="4" :disabled="isSubmitting"></textarea>
                 </div>
 
-                <!-- Co-organizer Selection -->
+                <!-- Consolidated Organizer Selection -->
                  <div class="mb-3">
-                    <label for="coOrganizerSearch" class="form-label">Add Co-organizers (Students only, max 5)</label>
+                    <label for="organizerSearchInput" class="form-label">
+                        Organizers (Students only, max 5) <span v-if="isAdmin" class="text-danger">*</span>
+                    </label>
+                     <p v-if="!isAdmin" class="form-text text-muted small mt-0 mb-1">You are automatically included as an organizer. Add up to 4 co-organizers.</p>
                     <div class="position-relative">
-                        <input type="text" id="coOrganizerSearch"
-                               v-model="coOrganizerSearch"
+                        <input type="text" id="organizerSearchInput"
+                               v-model="organizerSearch"
                                class="form-control"
-                               placeholder="Search students to add as co-organizers..."
-                               @focus="showCoOrganizerDropdown = true"
+                               placeholder="Search students to add as organizers..."
+                               @focus="handleSearchFocus"
                                @blur="handleSearchBlur"
-                               :disabled="!canAddMoreCoOrganizers || isSubmitting || loadingStudents"
+                               :disabled="!canAddMoreOrganizers || isSubmitting || loadingStudents"
                                autocomplete="off">
-                        <div v-if="showCoOrganizerDropdown && coOrganizerSearch"
+                        <div v-if="showOrganizerDropdown && organizerSearch"
                              class="dropdown-menu d-block position-absolute w-100" style="max-height: 200px; overflow-y: auto;">
-                             <button v-for="student in potentialStudentCoOrganizers.filter(s => s.name.toLowerCase().includes(coOrganizerSearch.toLowerCase()) && !selectedCoOrganizers.includes(s.uid))"
+                             <button v-for="student in filteredStudentsForDropdown"
                                      :key="student.uid"
                                      class="dropdown-item" type="button"
-                                     @click="addCoOrganizer(student)">
+                                     @click="addOrganizer(student)">
                                  {{ student.name }}
                              </button>
-                             <div v-if="!potentialStudentCoOrganizers.filter(s => s.name.toLowerCase().includes(coOrganizerSearch.toLowerCase()) && !selectedCoOrganizers.includes(s.uid)).length" class="dropdown-item text-muted">
-                                 No matching students found.
+                             <div v-if="!filteredStudentsForDropdown.length" class="dropdown-item text-muted">
+                                 No matching students found or already selected.
                              </div>
                         </div>
                     </div>
-                     <div v-if="!canAddMoreCoOrganizers" class="form-text text-warning small mt-1">
-                         Maximum of 5 co-organizers reached.
+                     <div v-if="!canAddMoreOrganizers" class="form-text text-warning small mt-1">
+                         Maximum of 5 organizers reached.
                      </div>
-                    <!-- Selected Co-organizers List -->
-                    <div v-if="selectedCoOrganizers.length > 0" class="mt-2 d-flex flex-wrap gap-2">
-                        <span v-for="uid in selectedCoOrganizers" :key="uid" class="badge bg-secondary d-flex align-items-center">
+                    <!-- Selected Organizers List -->
+                    <div v-if="selectedOrganizers.length > 0" class="mt-2 d-flex flex-wrap gap-2">
+                        <span v-for="uid in selectedOrganizers" :key="uid" class="badge bg-secondary d-flex align-items-center">
                             {{ studentNameCache[uid] || uid }}
                             <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove"
-                                    @click="removeCoOrganizer(uid)" style="font-size: 0.6em;"></button>
+                                    @click="removeOrganizer(uid)" style="font-size: 0.6em;"></button>
                         </span>
                     </div>
+                     <div v-if="selectedOrganizers.length === 0 && isAdmin" class="form-text text-danger small mt-1">
+                         At least one organizer selection is required.
+                     </div>
                 </div>
 
                 <div class="row mb-3">
@@ -721,13 +840,16 @@ onMounted(async () => {
                                    :min="minDate" :disabled="isSubmitting"
                                    placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"/>
                             <button class="btn btn-outline-secondary" type="button"
-                                    @click="setNextAvailableDate" :disabled="isFindingNextDate || isSubmitting">
+                                    @click="setNextAvailableDate"
+                                    :disabled="isFindingNextDate || isSubmitting"
+                                    title="Find the next available date starting after the current selection or conflict">
                                 <span v-if="isFindingNextDate" class="spinner-border spinner-border-sm me-1" role="status"></span>
                                 <i v-else class="fas fa-calendar-check"></i> Next Available
                             </button>
                         </div>
-                        <div v-if="dateErrorMessages.startDate" class="form-text text-danger small mt-1">
-                            {{ dateErrorMessages.startDate }}
+                        <div v-if="dateErrorMessages.startDate" class="form-text small mt-1"
+                             :class="dateErrorMessages.startDate.includes('conflict') ? 'text-danger' : 'text-success'">
+                             {{ dateErrorMessages.startDate }}
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -822,12 +944,12 @@ onMounted(async () => {
 
                 <!-- Step 1 Submit -->
                 <button type="submit" class="btn btn-primary"
-                        :disabled="isSubmitting || isCheckingConflict || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate">
+                        :disabled="isSubmitting || isCheckingConflict || selectedOrganizers.length === 0 || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate || totalAllocatedXp !== 50">
                     <span v-if="isSubmitting || isCheckingConflict" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                     {{ isSubmitting ? 'Processing...' : (isCheckingConflict ? 'Checking Dates...' : (isTeamEvent ? 'Next: Define Teams' : getSubmitButtonText())) }}
                 </button>
-                 <p v-if="!isSubmitting && (dateErrorMessages.startDate || dateErrorMessages.endDate)" class="text-danger small mt-2">
-                    Please resolve the date conflict errors above.
+                 <p v-if="!isSubmitting && (selectedOrganizers.length === 0 || dateErrorMessages.startDate || dateErrorMessages.endDate || totalAllocatedXp !== 50)" class="text-danger small mt-2">
+                    Please correct the errors above (Dates, XP Total, Organizer selection).
                  </p>
             </form>
         </div>
@@ -836,9 +958,10 @@ onMounted(async () => {
         <div v-if="currentStep === 2 && isTeamEvent">
             <ManageTeamsComponent
                 :initial-teams="teams"
-                :students="potentialStudentCoOrganizers"
+                :students="availableStudents"
                 :name-cache="studentNameCache"
                 :is-submitting="isSubmitting"
+                :can-auto-generate="false"
                 @update:teams="updateTeams"
                 @can-add-team="updateCanAddTeam"
             />
@@ -848,15 +971,17 @@ onMounted(async () => {
                 </button>
                 <button type="button" class="btn btn-primary"
                         @click="handleSubmit"
-                        :disabled="isSubmitting || isCheckingConflict || !hasValidTeams || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate"
+                        :disabled="isSubmitting || isCheckingConflict || !hasValidTeams || selectedOrganizers.length === 0 || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate || totalAllocatedXp !== 50"
                         :title="!hasValidTeams ? 'Ensure all teams have a name and at least one member. Minimum 2 teams required.' : (dateErrorMessages.startDate || dateErrorMessages.endDate ? 'Resolve date conflicts first.' : '')">
                      <span v-if="isSubmitting || isCheckingConflict" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                     {{ isSubmitting ? 'Submitting...' : (isCheckingConflict ? 'Checking Dates...' : getSubmitButtonText()) }}
                 </button>
             </div>
-            <p v-if="!hasValidTeams || dateErrorMessages.startDate || dateErrorMessages.endDate" class="text-danger small mt-2">
+            <p v-if="!isSubmitting && (!hasValidTeams || selectedOrganizers.length === 0 || dateErrorMessages.startDate || dateErrorMessages.endDate || totalAllocatedXp !== 50)" class="text-danger small mt-2">
                  <span v-if="!hasValidTeams">Please ensure at least two teams are defined, each with a name and at least one member.</span>
-                 <span v-if="dateErrorMessages.startDate || dateErrorMessages.endDate"> Please resolve the date conflict errors.</span>
+                 <span v-if="selectedOrganizers.length === 0">Please select at least one organizer.</span>
+                 <span v-if="dateErrorMessages.startDate || dateErrorMessages.endDate">Please resolve date conflicts.</span>
+                 <span v-if="totalAllocatedXp !== 50">Total XP must be 50.</span>
             </p>
         </div>
     </div>

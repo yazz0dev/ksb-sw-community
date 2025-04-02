@@ -23,21 +23,28 @@ export interface Event {
     isTeamEvent: boolean;
 
     // Dates & Status
-    startDate: Timestamp;
-    endDate: Timestamp;
+    startDate?: Timestamp;
+    endDate?: Timestamp;
+    desiredStartDate?: Timestamp;
+    desiredEndDate?: Timestamp;
     createdAt: Timestamp;
-    status: 'Pending' | 'Approved' | 'In Progress' | 'Completed' | 'Cancelled';
+    status: 'Pending' | 'Approved' | 'InProgress' | 'Completed' | 'Cancelled' | 'Rejected';
+    rejectionReason?: string;
+    completedAt?: Timestamp;
+    ratingsLastOpenedAt?: Timestamp;
+    ratingsOpenCount?: number;
+    lastUpdatedAt?: Timestamp;
 
     // Users
-    organizer: string;
     requester: string;
-    coOrganizers: string[];
-    participants: string[];
+    organizers: string[];
+    participants?: string[];
 
     // Ratings & XP
     xpAllocation: XPAllocation[];
     ratingsOpen: boolean;
-    winnersPerRole: Record<string, string[]>;
+    winnersPerRole?: Record<string, string[]>;
+    winners?: string[];
 
     // Team or Individual specific data
     teams?: EventTeam[];
@@ -52,8 +59,7 @@ export interface EventCreateDTO {
     isTeamEvent: boolean;
     startDate: Date;
     endDate: Date;
-    organizer: string;
-    coOrganizers: string[];
+    organizers: string[];
     xpAllocation: XPAllocation[];
     teams?: Partial<EventTeam>[];
 }

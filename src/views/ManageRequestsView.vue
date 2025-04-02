@@ -29,27 +29,19 @@
                    <p class="mb-1 small"><strong class="me-1">Requested by:</strong> {{ nameCache[event.requester] || '(Name not found)' }}</p>
                    <p class="mb-1 small"><strong class="me-1">Desired Dates:</strong> {{ formatDate(event.desiredStartDate) }} - {{ formatDate(event.desiredEndDate) }}</p>
                    <p class="mb-1 small"><strong class="me-1">Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}</p>
-                   <p v-if="event.coOrganizers && event.coOrganizers.length > 0" class="mb-1 small">
-                       <strong>Co-organizers:</strong>
-                       <span v-for="(orgId, idx) in event.coOrganizers" :key="orgId">
-                           {{ nameCache[orgId] || '(Name not found)' }}{{ idx < event.coOrganizers.length - 1 ? ', ' : '' }}
+                   <p v-if="event.organizers && event.organizers.length > 0" class="mb-1 small">
+                       <strong>Organizers:</strong>
+                       <span v-for="(orgId, idx) in event.organizers" :key="orgId">
+                           {{ nameCache[orgId] || '(Name not found)' }}{{ idx < event.organizers.length - 1 ? ', ' : '' }}
                        </span>
                    </p>
                    <p class="mb-2 small">Description: {{ event.description }}</p>
-                   <!-- Display XP/Constraint Info -->
-                   <div v-if="event.xpDistribution && Object.values(event.xpDistribution).some(xp => xp > 0)" class="mt-2 small">
-                        <strong class="d-block mb-1">XP Allocation:</strong>
-                        <ul class="list-unstyled ps-3 mb-1">
-                            <li v-for="(xp, role) in event.xpDistribution" :key="role">
-                                <span v-if="xp > 0">{{ formatRoleName(role) }}: {{ xp }} XP</span>
-                            </li>
-                        </ul>
-                   </div>
-                   <div v-if="event.ratingCriteria && event.ratingCriteria.some(c => c.constraint)" class="mt-2 small">
-                        <strong class="d-block mb-1">Rating Criteria:</strong>
-                        <ul class="list-unstyled ps-3 mb-1">
-                            <li v-for="(crit, index) in event.ratingCriteria" :key="index">
-                               <span v-if="crit.constraint">{{ crit.constraint }} {{ crit.role ? '('+formatRoleName(crit.role)+')' : '' }}</span>
+                   <!-- Display XP/Constraint Info from xpAllocation -->
+                   <div v-if="event.xpAllocation && event.xpAllocation.length > 0" class="mt-2 small">
+                       <strong class="d-block mb-1">Rating Criteria & XP:</strong>
+                       <ul class="list-unstyled ps-3 mb-1">
+                           <li v-for="(alloc, index) in event.xpAllocation" :key="index">
+                               {{ alloc.constraintLabel || 'Unnamed Criteria' }}: {{ alloc.points }} XP ({{ formatRoleName(alloc.role) }})
                            </li>
                        </ul>
                    </div>
@@ -139,22 +131,20 @@ const formatRoleName = (roleKey) => {
     return roleMap[roleKey] || roleKey;
 };
 
-// Fetch user names
+// Fetch user names (updated to use organizers array)
 async function fetchUserNames(userIds) {
-    for (const userId of userIds) {
+    const uniqueIds = new Set(userIds.filter(Boolean)); // Ensure unique and filter out falsy values
+    for (const userId of uniqueIds) {
         if (!nameCache.value[userId]) {
             try {
                 const userDoc = await getDoc(doc(db, 'users', userId));
                 if (userDoc.exists()) {
-                    // Store display name if available, otherwise store a specific placeholder
-                    nameCache.value[userId] = userDoc.data().displayName || '(Name missing)';
+                    nameCache.value[userId] = userDoc.data().name || '(Name missing)';
                 } else {
-                     // User document doesn't exist
                      nameCache.value[userId] = '(User not found)';
                 }
             } catch (error) {
                 console.error(`Error fetching user ${userId}:`, error);
-                // Store an error indicator in the cache
                 nameCache.value[userId] = '(Error fetching name)';
             }
         }
@@ -186,7 +176,7 @@ async function checkAllConflicts(eventsToCheck) {
      }
 }
 
-// Initial data load & conflict check
+// Initial data load & conflict check (updated to fetch names for organizers)
 async function loadInitialData() {
     loading.value = true;
     Object.keys(conflictWarnings).forEach(key => delete conflictWarnings[key]); // Clear old warnings
@@ -194,7 +184,10 @@ async function loadInitialData() {
         await store.dispatch('events/fetchEvents'); // Fetch all events to ensure store is up-to-date
         const currentPendingEvents = pendingEvents.value; // Get from getter
         let userIds = new Set();
-        currentPendingEvents.forEach(req => { if (req.requester) userIds.add(req.requester); (req.coOrganizers || []).forEach(id => userIds.add(id)); });
+        currentPendingEvents.forEach(req => {
+             if (req.requester) userIds.add(req.requester);
+             (req.organizers || []).forEach(id => userIds.add(id)); // Use organizers array
+         });
         await fetchUserNames(Array.from(userIds));
         await checkAllConflicts(currentPendingEvents); // Check conflicts for current pending list
     } catch(error) {
@@ -206,13 +199,15 @@ async function loadInitialData() {
 
 onMounted(loadInitialData);
 
-// Watch the getter for changes and re-run checks
+// Watch the getter for changes and re-run checks (updated to fetch names for organizers)
 watch(pendingEvents, async (newPendingList) => {
-     // Avoid re-running during initial load if fetchEvents triggers update
      if (!loading.value) {
           console.log("Pending events changed, refreshing names and conflicts...");
           let userIds = new Set();
-          newPendingList.forEach(req => { if (req.requester) userIds.add(req.requester); (req.coOrganizers || []).forEach(id => userIds.add(id)); });
+          newPendingList.forEach(req => {
+              if (req.requester) userIds.add(req.requester);
+              (req.organizers || []).forEach(id => userIds.add(id)); // Use organizers array
+          });
           await fetchUserNames(Array.from(userIds));
           await checkAllConflicts(newPendingList);
      }

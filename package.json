@@ -13,6 +13,7 @@
     "@popperjs/core": "^2.11.8",
     "@vue/compiler-sfc": "^3.5.13",
     "bootstrap": "^5.3.3",
+    "dompurify": "^3.2.4",
     "firebase": "^11.5.0",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
