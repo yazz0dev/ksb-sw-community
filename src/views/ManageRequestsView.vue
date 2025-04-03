@@ -22,7 +22,7 @@
       </div>
       <div v-else>
         <ul class="list-group">
-          <li v-for="event in pendingEvents" :key="event.id" class="list-group-item mb-3 shadow-sm">
+          <li v-for="event in pendingEvents" :key="event.id" class="list-group-item mb-3">
             <div class="d-flex justify-content-between align-items-start flex-wrap">
                 <div class="me-3 mb-2">
                    <h5 class="mb-1">{{ event.eventName }} <span class="fw-normal text-muted">({{ event.eventType }})</span></h5>

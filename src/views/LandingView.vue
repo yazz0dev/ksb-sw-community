@@ -11,7 +11,7 @@
 
     <div class="row justify-content-center mb-4">
         <div class="col-md-8 col-lg-6">
-            <div class="card text-start shadow"> 
+            <div class="card text-start">
                 <div class="card-header"><h5 class="mb-0">Platform Features</h5></div>
                 <ul class="list-group list-group-flush">
                      <li class="list-group-item"><i class="fas fa-calendar-alt fa-fw me-2 text-primary"></i>View upcoming and past events.</li>

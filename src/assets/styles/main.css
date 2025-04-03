@@ -9,6 +9,7 @@
   --color-primary: #3B82F6; /* Blue 500 (Tailwind) */
   --color-primary-hover: #2563EB; /* Blue 600 */
   --color-primary-light: #EFF6FF; /* Blue 50 */
+  --color-primary-rgb: 59, 130, 246; /* RGB for Blue 500 */
   --color-secondary: #10B981; /* Emerald 500 */
   --color-secondary-hover: #059669; /* Emerald 600 */
   --color-text: #1F2937; /* Gray 800 */
@@ -475,3 +476,582 @@ textarea:focus-visible {
     white-space: nowrap !important;
     border: 0 !important;
 }
+
+/* === Form Elements - Modern Styling === */
+.form-group {
+    margin-bottom: var(--space-4); /* Consistent spacing */
+}
+
+.form-label {
+    display: block;
+    margin-bottom: var(--space-2);
+    font-weight: 500; /* Medium weight */
+    color: var(--color-text);
+    font-size: var(--font-size-sm); /* Smaller label */
+}
+
+.form-control,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+textarea,
+select {
+    display: block;
+    width: 100%;
+    padding: var(--space-3) var(--space-4); /* Adjusted padding */
+    font-size: var(--font-size-base);
+    font-weight: 400;
+    line-height: var(--line-height-base);
+    color: var(--color-text);
+    background-color: var(--color-input-bg);
+    background-clip: padding-box;
+    border: var(--border-width) solid var(--border-color-default);
+    appearance: none; /* Remove default styling */
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-inner); /* Subtle inner shadow */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    min-height: var(--touch-target-size); /* Touch friendly */
+}
+
+/* Placeholder style */
+.form-control::placeholder,
+input[type="text"]::placeholder,
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+input[type="number"]::placeholder,
+input[type="search"]::placeholder,
+input[type="tel"]::placeholder,
+input[type="url"]::placeholder,
+textarea::placeholder {
+    color: var(--color-text-muted);
+    opacity: 1; /* Override Firefox's lower opacity */
+}
+
+/* Focus state (already handled by global :focus-visible, but keep border highlight) */
+.form-control:focus,
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus,
+textarea:focus,
+select:focus {
+    color: var(--color-text);
+    background-color: var(--color-input-bg);
+    border-color: var(--color-primary);
+    outline: 0;
+    /* box-shadow is handled by :focus-visible */
+}
+
+/* Disabled state */
+.form-control:disabled, .form-control[readonly] {
+    background-color: #E5E7EB; /* Gray 200 */
+    opacity: 1;
+    cursor: not-allowed;
+}
+
+/* Select specific styling */
+select.form-control {
+    padding-right: var(--space-8); /* Space for arrow */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right var(--space-4) center;
+    background-size: 16px 12px;
+}
+
+textarea.form-control {
+    min-height: calc(var(--touch-target-size) * 2); /* Default taller textarea */
+    resize: vertical; /* Allow vertical resize */
+}
+
+/* Checkboxes and Radios (Basic custom styling) */
+.form-check-input {
+    width: 1.15em;
+    height: 1.15em;
+    margin-top: 0.15em; /* Align better with label */
+    vertical-align: top;
+    background-color: var(--color-input-bg);
+    border: var(--border-width) solid var(--border-color-default);
+    appearance: none;
+    border-radius: 0.25em; /* Slightly less rounded for checkboxes */
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    cursor: pointer;
+}
+.form-check-input[type="radio"] {
+    border-radius: 50%; /* Round radios */
+}
+.form-check-input:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e"); /* Simple check */
+    background-size: 65% 65%;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+.form-check-input[type="radio"]:checked {
+     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e"); /* Simple dot */
+}
+.form-check-input:focus {
+    border-color: var(--color-primary);
+    outline: 0;
+    /* box-shadow is handled by :focus-visible */
+}
+.form-check-label {
+    margin-left: var(--space-2);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+
+/* === Buttons - Modern Styling === */
+.btn {
+    display: inline-flex; /* Use flex for icon alignment */
+    align-items: center;
+    justify-content: center;
+    font-weight: 500; /* Medium weight */
+    line-height: var(--line-height-base);
+    color: var(--color-text);
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    background-color: transparent;
+    border: var(--border-width) solid transparent;
+    padding: var(--space-3) var(--space-5); /* Adjust padding for better feel */
+    font-size: var(--font-size-sm); /* Slightly smaller base button text */
+    border-radius: var(--border-radius);
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    min-height: var(--touch-target-size); /* Touch friendly */
+}
+.btn:hover {
+    text-decoration: none; /* Remove underline on hover */
+}
+/* Focus state (uses global :focus-visible) */
+
+/* Primary Button */
+.btn-primary {
+    color: var(--color-surface);
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover {
+    color: var(--color-surface);
+    background-color: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+}
+.btn-primary:active {
+    background-color: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    /* Add subtle scale or inset shadow for active state if desired */
+    transform: scale(0.98);
+    box-shadow: var(--shadow-inner);
+}
+.btn-primary:disabled {
+    color: var(--color-surface);
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    opacity: 0.65;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Secondary Button (Outline Style) */
+.btn-secondary {
+    color: var(--color-primary);
+    background-color: transparent;
+    border-color: var(--color-primary);
+}
+.btn-secondary:hover {
+    color: var(--color-surface);
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+.btn-secondary:active {
+    color: var(--color-surface);
+    background-color: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    transform: scale(0.98);
+}
+.btn-secondary:disabled {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    opacity: 0.65;
+    cursor: not-allowed;
+    background-color: transparent;
+    transform: none;
+}
+
+/* Danger Button */
+.btn-danger {
+    color: var(--color-surface);
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+    box-shadow: var(--shadow-sm);
+}
+.btn-danger:hover {
+    color: var(--color-surface);
+    background-color: #DC2626; /* Red 600 */
+    border-color: #DC2626;
+}
+.btn-danger:active {
+    transform: scale(0.98);
+    box-shadow: var(--shadow-inner);
+}
+.btn-danger:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Link-style Button */
+.btn-link {
+    font-weight: 400;
+    color: var(--color-primary);
+    text-decoration: none; /* No underline by default */
+    background-color: transparent;
+    border-color: transparent;
+    padding: 0; /* Remove padding for link style */
+    min-height: auto; /* Override touch target for link style */
+}
+.btn-link:hover {
+    color: var(--color-primary-hover);
+    text-decoration: underline;
+}
+.btn-link:disabled {
+    color: var(--color-text-muted);
+    pointer-events: none;
+    text-decoration: none;
+}
+
+/* Button Sizes */
+.btn-lg {
+    padding: var(--space-4) var(--space-6);
+    font-size: var(--font-size-lg);
+}
+.btn-sm {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-sm);
+}
+
+/* Button with icon */
+.btn .icon { /* Simple class for icons inside buttons */
+    margin-right: var(--space-2); /* Space between icon and text */
+    width: 1.1em; /* Adjust icon size relative to text */
+    height: 1.1em;
+    vertical-align: middle; /* Align icon better */
+}
+.btn .icon-only { /* If button contains only an icon */
+    margin-right: 0;
+}
+
+
+/* === Card Component - Modern Base === */
+.card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    word-wrap: break-word;
+    background-color: var(--color-surface);
+    background-clip: border-box;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow); /* Use default shadow */
+    margin-bottom: var(--space-6); /* Add default bottom margin */
+}
+
+.card-body {
+    flex: 1 1 auto;
+    padding: var(--space-5); /* Consistent padding */
+}
+
+.card-title {
+    margin-bottom: var(--space-3); /* Tighter spacing below title */
+    font-size: 1.25rem; /* h4 size */
+    font-weight: 600;
+}
+
+.card-subtitle {
+    margin-top: calc(var(--space-3) * -1); /* Pull subtitle closer to title */
+    margin-bottom: var(--space-4);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+}
+
+.card-text:last-child {
+    margin-bottom: 0; /* Remove margin from last text element */
+}
+
+.card-link + .card-link {
+    margin-left: var(--space-4);
+}
+
+.card-header {
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: 0; /* Reset default margin */
+    background-color: var(--color-surface); /* Match card background */
+    border-bottom: var(--border-width) solid var(--border-color-default);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.card-header:first-child {
+    border-radius: var(--border-radius) var(--border-radius) 0 0; /* Round top corners */
+}
+
+.card-footer {
+    padding: var(--space-4) var(--space-5);
+    background-color: var(--color-surface); /* Match card background */
+    border-top: var(--border-width) solid var(--border-color-default);
+}
+.card-footer:last-child {
+    border-radius: 0 0 var(--border-radius) var(--border-radius); /* Round bottom corners */
+}
+
+/* === Alerts === */
+.alert {
+    position: relative;
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-4);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-base);
+}
+
+.alert-heading {
+    color: inherit; /* Inherit color from parent alert */
+    font-weight: 600;
+}
+
+.alert-link {
+    font-weight: 600; /* Make links bold */
+}
+
+/* Alert Colors (Example: Info/Primary) */
+.alert-primary {
+    color: #0c5460; /* Need appropriate text colors for light bg */
+    background-color: var(--color-primary-light);
+    border-color: #bee5eb; /* Need light border colors */
+}
+.alert-primary .alert-link { color: #08424c; }
+
+.alert-success {
+    color: #0f5132;
+    background-color: #d1e7dd; /* Needs var(--color-success-light) */
+    border-color: #badbcc;
+}
+.alert-success .alert-link { color: #0c4128; }
+
+.alert-danger {
+    color: #842029;
+    background-color: #f8d7da; /* Needs var(--color-danger-light) */
+    border-color: #f5c2c7;
+}
+.alert-danger .alert-link { color: #6a1a21; }
+
+.alert-warning {
+    color: #664d03; /* Darker text for yellow background */
+    background-color: #FFFBEB; /* Lighter Yellow (Amber 50) */
+    border-color: #FEF3C7; /* Lighter Yellow Border (Amber 200) */
+}
+.alert-warning .alert-link { color: #453303; } /* Darker link */
+
+.alert-light {
+    color: var(--color-text-secondary); /* Use secondary text color */
+    background-color: #F9FAFB; /* Slightly off-white, matches --color-background */
+    border-color: var(--color-border); /* Use default border color */
+}
+.alert-light .alert-link { color: var(--color-text); } /* Darker link for contrast */
+
+.alert-info {
+    color: #055160; /* From Bootstrap 5, adjust if needed */
+    background-color: #cff4fc; /* Needs var(--color-info-light) */
+    border-color: #b6effb;
+}
+.alert-info .alert-link { color: #04414d; }
+
+/* Small Alert Modifier */
+.alert-sm {
+    padding: var(--space-2) var(--space-3); /* Reduced padding */
+    font-size: var(--font-size-sm); /* Smaller font */
+}
+
+/* Add -light variants to :root for alerts if needed */
+
+
+/* === Modals (Basic structure - Requires JS for functionality) === */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1050; /* High z-index */
+    display: none; /* Hidden by default */
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    outline: 0;
+    background-color: rgba(31, 41, 55, 0.5); /* Semi-transparent dark bg */
+}
+.modal.fade {
+    transition: opacity 0.15s linear;
+}
+.modal.show {
+    display: block;
+    opacity: 1;
+}
+
+.modal-dialog {
+    position: relative;
+    width: auto;
+    margin: var(--space-8) auto; /* Centered with margin */
+    pointer-events: none; /* Allow clicking through backdrop */
+    max-width: 500px; /* Default max width */
+}
+@media (max-width: 575.98px) {
+    .modal-dialog { margin: var(--space-2); } /* Less margin on small screens */
+}
+.modal.show .modal-dialog {
+    pointer-events: auto; /* Enable interaction with dialog */
+    transform: translate(0, 0); /* Reset transform for shown modal */
+}
+/* Add slide-in animation if desired */
+.modal.fade .modal-dialog {
+    transition: transform 0.3s ease-out;
+    transform: translate(0, -50px); /* Start slightly above */
+}
+.modal.show.fade .modal-dialog {
+    transform: translate(0, 0); /* Slide in */
+}
+
+
+.modal-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    pointer-events: auto;
+    background-color: var(--color-surface);
+    background-clip: padding-box;
+    border: var(--border-width) solid rgba(0,0,0,.2); /* Subtle border */
+    border-radius: var(--border-radius);
+    outline: 0;
+    box-shadow: var(--shadow-lg); /* Larger shadow for modals */
+}
+
+.modal-header {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between; /* Push title and close button apart */
+    padding: var(--space-4) var(--space-5);
+    border-bottom: var(--border-width) solid var(--border-color-default);
+    border-top-left-radius: var(--border-radius);
+    border-top-right-radius: var(--border-radius);
+}
+
+.modal-title {
+    margin-bottom: 0;
+    line-height: 1.5;
+    font-size: var(--font-size-lg); /* Larger title */
+    font-weight: 600;
+}
+
+.btn-close { /* Style the close button */
+    box-sizing: content-box;
+    width: 1em;
+    height: 1em;
+    padding: var(--space-2);
+    color: var(--color-text);
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%231F2937'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat;
+    border: 0;
+    border-radius: var(--border-radius);
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity .15s ease-in-out;
+}
+.btn-close:hover {
+    opacity: 1;
+}
+.btn-close:focus {
+    outline: 0;
+    box-shadow: var(--shadow-focus-ring); /* Use focus ring */
+}
+
+.modal-body {
+    position: relative;
+    flex: 1 1 auto;
+    padding: var(--space-5);
+}
+
+.modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: center; /* Vertically center */
+    justify-content: flex-end; /* Align buttons to the right */
+    padding: var(--space-3) var(--space-5);
+    border-top: var(--border-width) solid var(--border-color-default);
+    border-bottom-right-radius: var(--border-radius);
+    border-bottom-left-radius: var(--border-radius);
+}
+.modal-footer > * { /* Add space between footer items */
+    margin: var(--space-2);
+}
+
+/* === List Group - Modern Styling === */
+.list-group {
+    display: flex;
+    flex-direction: column;
+    padding-left: 0; /* Remove browser default padding */
+    margin-bottom: 0; /* Remove browser default margin */
+    border-radius: var(--border-radius);
+}
+
+.list-group-item {
+    position: relative;
+    display: block;
+    padding: var(--space-3) var(--space-4); /* Consistent padding */
+    color: var(--color-text);
+    text-decoration: none;
+    background-color: var(--color-surface);
+    border: var(--border-width) solid var(--border-color-default);
+}
+
+.list-group-item:first-child {
+    border-top-left-radius: inherit; /* Inherit from parent */
+    border-top-right-radius: inherit;
+}
+
+.list-group-item:last-child {
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+}
+
+/* Adjust borders for stacked items */
+.list-group-item + .list-group-item {
+    border-top-width: 0;
+}
+
+/* Flush variation - removes borders and rounding */
+.list-group-flush {
+    border-radius: 0;
+}
+.list-group-flush > .list-group-item {
+    border-width: 0 0 var(--border-width); /* Only bottom border */
+    border-radius: 0;
+}
+.list-group-flush > .list-group-item:last-child {
+    border-bottom-width: 0; /* No border on last item */
+}
+
+
+/* --- End Component Styling Overrides --- */

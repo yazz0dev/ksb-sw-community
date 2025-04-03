@@ -60,6 +60,10 @@ const hoverRating = ref(0);
 
 // Determine the color of an individual star based on hover and modelValue
 const starStyle = (starIndex) => {
+  // --- DEBUG LOG --- 
+  console.log(`starStyle(${starIndex}): hover=${hoverRating.value}, modelValue=${props.modelValue}`);
+  // --- END DEBUG LOG ---
+
   let color = props.inactiveColor; // Default to inactive
 
   // Determine the rating value to compare against (hover overrides modelValue)

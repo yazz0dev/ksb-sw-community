@@ -2,7 +2,7 @@
   <div class="container mt-5">
       <div class="row justify-content-center">
           <div class="col-md-6 col-lg-5">
-              <div class="card login-card shadow"> 
+              <div class="card">
                    <div class="card-header">
                       <h2 class="mb-0">Forgot Password</h2>
                    </div>
@@ -15,7 +15,7 @@
                       </div>
 
                       <form @submit.prevent="sendPasswordResetEmail" v-if="!message || isError">
-                          <div class="mb-3">
+                          <div class="form-group">
                               <label for="email" class="form-label">Email Address:</label>
                               <input
                                   type="email"
@@ -86,8 +86,5 @@ const sendPasswordResetEmail = async () => { // Renamed handler function
 </script>
 
 <style scoped>
-/* Styles primarily come from main.css login-card */
-.login-card .card-body p.text-muted {
-  font-size: var(--font-size-sm);
-}
+/* Removed style targeting .login-card */
 </style>

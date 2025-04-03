@@ -65,5 +65,27 @@ export const eventMutations = {
         if (state.currentEventDetails?.id === eventId) {
             state.currentEventDetails = null;
         }
-    }
+    },
+
+    clearCurrentEventDetails(state) {
+        state.currentEventDetails = null;
+    },
+
+    // Update organization ratings locally (can be used by the action)
+    addOrganizationRating(state, { eventId, score }) {
+        const event = state.events.find(e => e.id === eventId);
+        if (event) {
+            if (!Array.isArray(event.organizationRatings)) {
+                event.organizationRatings = [];
+            }
+            // Simple push for now, matching the action's arrayUnion
+            event.organizationRatings.push(Number(score));
+        }
+        if (state.currentEventDetails && state.currentEventDetails.id === eventId) {
+             if (!Array.isArray(state.currentEventDetails.organizationRatings)) {
+                 state.currentEventDetails.organizationRatings = [];
+             }
+             state.currentEventDetails.organizationRatings.push(Number(score));
+        }
+    },
 };

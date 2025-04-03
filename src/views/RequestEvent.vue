@@ -27,7 +27,7 @@ const isTeamEvent = ref<boolean>(false);
 
 // --- Form Fields ---
 const eventName = ref<string>('');
-const eventType = ref<string>('Hackathon');
+const eventType = ref<string>('Topic Presentation');
 const description = ref<string>('');
 const startDate = ref<string>(''); // Will hold start date for Admin, desired start date for User
 const endDate = ref<string>(''); // Will hold end date for Admin, desired end date for User
@@ -238,7 +238,7 @@ const prepareSubmissionData = () => {
         .map((criteria, index) => ({
             constraintIndex: index,
             constraintLabel: criteria.label || getDefaultCriteriaLabel(index),
-            role: criteria.role || 'general',
+            role: criteria.role ? criteria.role : 'general',
             points: criteria.points || 0
         }))
         .filter(allocation => allocation.points > 0);
@@ -280,18 +280,24 @@ const findNextAvailableDate = async (searchStart: Date): Promise<Date | null> =>
     return foundDate;
 };
 
-// --- Date Conflict Validation --- UPDATED
+// --- Date Conflict Validation ---
 const validateDatesForConflict = async () => {
     dateErrorMessages.value = { startDate: '', endDate: '' };
-    errorMessage.value = '';
+    // Clear global error message only if it's a date conflict error
+    if (errorMessage.value.includes('Date conflict') || errorMessage.value.includes('resolve the date conflicts')) {
+        errorMessage.value = '';
+    }
     conflictingEventEndDate.value = null; // Reset conflict end date
 
     if (!startDate.value || !endDate.value || !/^\d{4}-\d{2}-\d{2}$/.test(startDate.value) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate.value)) {
-        return;
+        return; // Don't validate if dates are invalid/empty
     }
 
     const startDateObj = new Date(startDate.value);
     const endDateObj = new Date(endDate.value);
+    // Add time to avoid off-by-one day issues due to timezone
+    startDateObj.setUTCHours(0, 0, 0, 0);
+    endDateObj.setUTCHours(23, 59, 59, 999);
 
     if (startDateObj > endDateObj) {
         dateErrorMessages.value.endDate = 'End date cannot be earlier than the start date.';
@@ -302,25 +308,27 @@ const validateDatesForConflict = async () => {
     try {
         const conflictingEvent = await store.dispatch('events/checkDateConflict', {
             startDate: startDateObj,
-            endDate: endDateObj
+            endDate: endDateObj,
+            excludeEventId: editingEventId.value // Exclude current event if editing
         });
 
         if (conflictingEvent) {
-            const conflictMsg = `Date conflict with event "${conflictingEvent.eventName}".`;
+            const conflictMsg = `Date conflict: overlaps with "${conflictingEvent.eventName}" (ends ${conflictingEvent.endDate?.toDate ? conflictingEvent.endDate.toDate().toLocaleDateString() : 'N/A'}).`;
             dateErrorMessages.value.startDate = conflictMsg;
-            dateErrorMessages.value.endDate = ' ';
+            dateErrorMessages.value.endDate = ' '; // Add space to show indicator near end date too
             // Store the end date of the conflicting event
             if (conflictingEvent.endDate?.toDate) {
                 conflictingEventEndDate.value = conflictingEvent.endDate.toDate();
             }
         } else {
-            dateErrorMessages.value = { startDate: '', endDate: '' };
-            conflictingEventEndDate.value = null; // Clear if no conflict
+            dateErrorMessages.value = { startDate: '', endDate: '' }; // Clear errors if no conflict
+            conflictingEventEndDate.value = null; // Clear conflict date
         }
     } catch (error: any) {
         console.error("Error checking date conflict:", error);
-        dateErrorMessages.value.startDate = `Error checking date availability: ${error.message || 'Unknown error'}`;
-        dateErrorMessages.value.endDate = ' ';
+        const errorMsg = `Error checking date availability: ${error.message || 'Unknown error'}`;
+        dateErrorMessages.value.startDate = errorMsg;
+        dateErrorMessages.value.endDate = ' '; // Show indicator near end date
         conflictingEventEndDate.value = null; // Clear on error
     } finally {
         isCheckingConflict.value = false;
@@ -348,7 +356,8 @@ watch(isTeamEvent, (isTeam) => {
     const currentCategories = isTeam ? teamEventCategories : individualEventCategories;
     // Check if the currently selected eventType exists in the new list of categories
     if (!currentCategories.some(category => category.value === eventType.value)) {
-        eventType.value = ''; // Reset if not valid for the new type
+        // Set to the first available category in the new list, or empty if the list is empty
+        eventType.value = currentCategories.length > 0 ? currentCategories[0].value : '';
     }
 });
 
@@ -370,7 +379,7 @@ const setNextAvailableDate = async () => {
         searchStartDate = new Date(conflictingEventEndDate.value);
         searchStartDate.setDate(searchStartDate.getDate() + 1);
         searchStartDate.setHours(0, 0, 0, 0);
-        console.log("Conflict detected, starting search after:", searchStartDate);
+        console.log("Conflict detected, starting search after:", searchStartDate.toLocaleDateString());
     } else if (startDate.value && endDate.value && !hasConflictError) {
         // Start searching the day AFTER the current valid end date
         try {
@@ -379,7 +388,7 @@ const setNextAvailableDate = async () => {
                 searchStartDate = new Date(currentEndDate);
                 searchStartDate.setDate(searchStartDate.getDate() + 1);
                 searchStartDate.setHours(0, 0, 0, 0);
-                console.log("No conflict, starting search after current end date:", searchStartDate);
+                console.log("No conflict, starting search after current end date:", searchStartDate.toLocaleDateString());
             }
         } catch { /* Ignore potential date parsing errors, use default */ }
     }
@@ -391,7 +400,15 @@ const setNextAvailableDate = async () => {
             startDate.value = dateString;
             endDate.value = dateString; // Set end date to the same day
             // Provide confirmation - validation will run via watchers
-            dateErrorMessages.value.startDate = 'Set to next available date.'; 
+             // Clear existing errors before setting success message
+            dateErrorMessages.value = { startDate: '', endDate: '' };
+            // Use setTimeout to ensure validation runs *after* this message is potentially cleared by watcher
+            setTimeout(() => {
+                // Only set success message if no validation error occurred after date change
+                 if (!dateErrorMessages.value.startDate && !dateErrorMessages.value.endDate) {
+                     dateErrorMessages.value.startDate = `Set to next available date: ${nextDate.toLocaleDateString()}`;
+                 }
+            }, 100); // Small delay
         } else {
             dateErrorMessages.value.startDate = 'No available dates found in the next 30 days.';
         }
@@ -400,9 +417,8 @@ const setNextAvailableDate = async () => {
         dateErrorMessages.value.startDate = 'Error finding next available date.';
     } finally {
         isFindingNextDate.value = false;
-        // Explicitly re-validate after setting dates
-        // Use timeout to ensure watchers have potentially run from date changes
-        setTimeout(validateDatesForConflict, 50); 
+        // Explicitly re-validate *after* setting dates and after a short delay for watchers
+        setTimeout(validateDatesForConflict, 150);
     }
 };
 
@@ -442,11 +458,15 @@ const hasValidTeams = computed(() => {
 
 // --- MAIN SUBMISSION LOGIC ---
 const handleSubmit = async () => {
+    errorMessage.value = ''; // Clear general error first
+    isSubmitting.value = true; // Set submitting early
+
     // Run final validation before submitting
-    await validateDatesForConflict();
+    await validateDatesForConflict(); // Re-validate dates just before submission
     if (dateErrorMessages.value.startDate || dateErrorMessages.value.endDate) {
         errorMessage.value = 'Please resolve the date conflicts before submitting.';
         window.scrollTo(0, 0);
+        isSubmitting.value = false; // Stop submitting
         return; // Stop submission if conflict exists
     }
 
@@ -454,13 +474,16 @@ const handleSubmit = async () => {
     if (totalAllocatedXp.value !== 50) {
         errorMessage.value = `Total allocated XP must be exactly 50. Current total: ${totalAllocatedXp.value} XP. Please adjust criteria points.`;
         window.scrollTo(0, 0); // Scroll to top to show error
+        isSubmitting.value = false; // Stop submitting
         return; // Stop submission if XP total is incorrect
     }
 
-    // *** ADDED: Validate that xpAllocation is not empty after filtering ***
-    if (totalAllocatedXp.value === 0) {
+    // *** ADDED: Validate that xpAllocation has at least one criteria with points > 0 ***
+    const validXpAllocations = ratingCriteria.value.filter(c => c.points > 0);
+    if (validXpAllocations.length === 0) {
         errorMessage.value = `No XP points allocated. Please assign points (greater than 0) to at least one rating criterion.`;
         window.scrollTo(0, 0);
+        isSubmitting.value = false; // Stop submitting
         return; // Stop submission if no XP is allocated
     }
 
@@ -468,86 +491,113 @@ const handleSubmit = async () => {
     if (isAdmin.value && selectedOrganizers.value.length === 0) {
         errorMessage.value = 'Please select at least one student organizer for the event.';
         window.scrollTo(0, 0);
+         isSubmitting.value = false; // Stop submitting
         return;
     }
 
     // Validate total organizers (primary + co) <= 5
-    const totalOrganizers = (isAdmin.value ? 1 : 1) + selectedOrganizers.value.length;
-    if (totalOrganizers < 1 || totalOrganizers > 5) {
-        errorMessage.value = `An event must have between 1 and 5 organizers (currently ${totalOrganizers}).`;
+    // The user requesting is implicitly one organizer if not admin
+    const implicitOrganizers = isAdmin.value ? 0 : 1;
+    const totalOrganizersCount = selectedOrganizers.value.length + implicitOrganizers;
+
+    if (totalOrganizersCount < 1 || totalOrganizersCount > 5) {
+        errorMessage.value = `An event must have between 1 and 5 organizers (currently ${totalOrganizersCount}).`;
          window.scrollTo(0, 0);
+         isSubmitting.value = false; // Stop submitting
          return;
     }
 
-    errorMessage.value = '';
-    isSubmitting.value = true;
+    // Ensure required fields are not empty
+    if (!eventName.value.trim() || !eventType.value || !description.value.trim()) {
+        errorMessage.value = "Please fill in Event Name, Category, and Description.";
+        window.scrollTo(0, 0);
+        isSubmitting.value = false;
+        return;
+    }
 
+    // Team Validation (if applicable)
+    if (isTeamEvent.value && !hasValidTeams.value) {
+        errorMessage.value = "For team events, please ensure at least two teams are defined, each with a name and at least one member.";
+        // Attempt to navigate back to step 2 if possible
+        if (currentStep.value === 1) currentStep.value = 2; // Should not happen based on flow, but safety check
+        window.scrollTo(0, 0);
+        isSubmitting.value = false;
+        return;
+    }
+
+
+    // --- Prepare Submission Data (Moved Inside Try Block) ---
     try {
         // Validate date inputs exist (redundant but safe)
         if (!startDate.value || !endDate.value) {
              throw new Error("Start and End dates are required.");
         }
 
-        const startDateObj = new Date(startDate.value);
-        const endDateObj = new Date(endDate.value);
+        // Convert dates to Date objects for Timestamp conversion
+        // Use UTC to avoid timezone issues during conversion
+        const startDateObj = new Date(startDate.value + 'T00:00:00Z');
+        const endDateObj = new Date(endDate.value + 'T23:59:59Z');
+
 
         // Validate date objects
         if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
              throw new Error("Invalid date format provided.");
         }
 
-        // Validate date range (Allow same day)
-        // Set time to 00:00:00 for start and 23:59:59 for end for comparison
-        const compareStart = new Date(startDateObj); compareStart.setHours(0,0,0,0);
-        const compareEnd = new Date(endDateObj); compareEnd.setHours(23,59,59,999);
-
-        if (compareStart > compareEnd) {
-            dateErrorMessages.value.endDate = 'End date cannot be earlier than the start date.';
-            throw new Error('Invalid date range');
+        // Validate date range (Allow same day) - Already checked by watcher, but double-check
+        if (startDateObj > endDateObj) {
+             dateErrorMessages.value.endDate = 'End date cannot be earlier than the start date.';
+             throw new Error('Invalid date range');
         }
 
+
         // --- Prepare Base Data --- (Common for create/update)
-        const commonData = prepareSubmissionData(); // Gets xpAllocation, organizers
+        const { xpAllocation, organizers } = prepareSubmissionData(); // Gets filtered xpAllocation, organizers list
+
+        // Ensure xpAllocation is not empty *after* filtering (already checked, but safe)
+        if (xpAllocation.length === 0) {
+            throw new Error("XP Allocation resulted in an empty list. Ensure at least one criterion has points > 0.");
+        }
+
         const preparedData: any = {
-            eventName: eventName.value,
+            eventName: eventName.value.trim(),
             eventType: eventType.value,
-            description: description.value,
+            description: description.value.trim(),
             isTeamEvent: isTeamEvent.value,
-            xpAllocation: commonData.xpAllocation,
-            organizers: commonData.organizers, // Use combined list from prepareSubmissionData
+            xpAllocation: xpAllocation, // Use filtered list
+            organizers: organizers, // Use combined list from prepareSubmissionData
             // Teams (only if team event)
             teams: isTeamEvent.value ? teams.value.map(t => ({
                 teamName: t.teamName.trim(),
                 members: [...t.members],
-                // Ensure submissions/ratings arrays exist, even if empty, when updating
+                // Ensure submissions/ratings arrays exist, even if empty, when updating/creating
                 submissions: t.submissions || [],
                 ratings: t.ratings || []
-            })) : [],
+            })).filter(t => t.teamName && t.members.length > 0) : [], // Filter empty teams just in case
             // Dates will be added based on context (create vs update, admin vs user)
         };
+
 
         // --- Determine Action: Create vs Update ---
         if (editingEventId.value) {
             // --- UPDATE EXISTING EVENT ---
             const updates = { ...preparedData };
 
-            // Add appropriate dates (desired for pending/rejected, actual for approved if admin edits)
-            // Note: updateEventDetails action internally handles date conversion to Timestamp
+            // Convert dates to Firestore Timestamps
+            const startTimestamp = Timestamp.fromDate(startDateObj);
+            const endTimestamp = Timestamp.fromDate(endDateObj);
+
             if (isAdmin.value) {
-                 updates.startDate = startDateObj;
-                 updates.endDate = endDateObj;
+                 updates.startDate = startTimestamp;
+                 updates.endDate = endTimestamp;
                  // Admin can update organizers list directly
-                 updates.organizers = commonData.organizers;
+                 updates.organizers = organizers; // Use the validated list
             } else {
-                 updates.desiredStartDate = startDateObj;
-                 updates.desiredEndDate = endDateObj;
-                 // Non-admins CANNOT change organizers during update in this setup
-                 // The updateEventDetails action should prevent this if not admin
-                 // We pass the *original* organizers list if not admin to be safe
-                 // OR rely on the action's permission check
-                 // Let's rely on the action's permission check for now.
-                 // If non-admin tries to submit a changed list, action should throw error.
-                 updates.organizers = commonData.organizers;
+                 updates.desiredStartDate = startTimestamp;
+                 updates.desiredEndDate = endTimestamp;
+                 // Non-admins CANNOT change organizers during update
+                 // The action should enforce this, but we send the correct list anyway
+                 updates.organizers = organizers; // Send the list (requester + selected)
             }
 
             // *** Special handling for resubmitting a REJECTED event ***
@@ -555,14 +605,12 @@ const handleSubmit = async () => {
                 updates.status = 'Pending';        // Reset status to Pending
                 updates.rejectionReason = null;    // Clear the rejection reason
             }
-            // If just editing a pending request, status remains Pending (no need to set explicitly unless changing)
 
             await store.dispatch('events/updateEventDetails', {
                 eventId: editingEventId.value,
                 updates: updates
             });
             alert('Event request updated successfully.');
-            // Redirect after update (e.g., back to profile or admin list)
              router.push(isAdmin.value ? '/manage-requests' : '/profile');
 
         } else {
@@ -571,17 +619,15 @@ const handleSubmit = async () => {
             finalData.requester = currentUser.value.uid;
             finalData.status = isAdmin.value ? 'Approved' : 'Pending';
 
+             // Pass Date objects directly to the action
+             finalData.startDate = startDateObj;
+             finalData.endDate = endDateObj;
+
             if (isAdmin.value) {
-                finalData.startDate = startDateObj;
-                finalData.endDate = endDateObj;
-                // organizers already set in finalData
                 await store.dispatch('events/createEvent', finalData);
                 alert('Event created successfully.');
                 router.push('/manage-requests');
             } else {
-                finalData.desiredStartDate = startDateObj;
-                finalData.desiredEndDate = endDateObj;
-                // organizers already set in finalData (includes requester)
                 await store.dispatch('events/requestEvent', finalData);
                 alert('Event request submitted successfully.');
                 router.push('/profile');
@@ -590,12 +636,17 @@ const handleSubmit = async () => {
 
     } catch (error: any) {
         console.error("Event submission/update error:", error);
-        // Display specific date conflict errors from the action
+        // Display specific date conflict errors from the action or validation
         if (error.message.includes('Date conflict')) {
              dateErrorMessages.value.startDate = error.message;
              dateErrorMessages.value.endDate = ' '; // Add space to show error near end date too
+        } else if (error.message.includes('Invalid date range')) {
+            // This specific error likely comes from the client-side check
+            dateErrorMessages.value.endDate = 'End date cannot be earlier than the start date.';
         }
+        // Set general error message for other issues
         errorMessage.value = error.message || 'Failed to process event submission.';
+        window.scrollTo(0, 0); // Scroll to top to show error
     } finally {
         isSubmitting.value = false;
     }
@@ -708,199 +759,255 @@ onMounted(async () => {
 
 <!-- Template and Style remain the same -->
 <template>
-    <div class="container mt-4">
+    <div class="container mt-4 mb-5"> <!-- Added mb-5 for bottom padding -->
         <!-- Header with Step Indicator -->
         <div class="d-flex align-items-center mb-4">
-            <button class="btn btn-secondary me-3 btn-sm" @click="handleBack">
+            <button class="btn btn-outline-secondary me-3" @click="handleBack" :disabled="isSubmitting">
                 <i class="fas fa-arrow-left me-1"></i>Back
             </button>
             <h2 class="mb-0">{{ editingEventId ? 'Edit Event Request' : (isAdmin ? 'Create New Event' : 'Request New Event') }}</h2>
         </div>
 
          <!-- Display Rejection Reason if applicable -->
-         <div v-if="rejectionReason" class="alert alert-warning mb-4">
-             <h5 class="alert-heading">Reason for Previous Rejection:</h5>
+         <div v-if="rejectionReason" class="alert alert-warning mb-4 border border-warning">
+             <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Reason for Previous Rejection:</h5>
              <p class="mb-0">{{ rejectionReason }}</p>
              <hr>
              <p class="mb-0 small">Please review the reason above and make the necessary changes before resubmitting.</p>
          </div>
 
         <!-- Progress Steps -->
-        <div v-if="!loadingCheck && !hasActiveRequest && !isAdmin" class="progress-steps mb-4">
-            <div class="step" :class="{ active: currentStep === 1, completed: currentStep > 1 }">
-                1. Event Details & XP
-            </div>
-            <div v-if="isTeamEvent" class="step" :class="{ active: currentStep === 2, disabled: currentStep < 2 }">
-                2. Team Definition
+        <div v-if="isTeamEvent && !loadingCheck && !hasActiveRequest && !isAdmin && !editingEventId" class="progress mb-4" style="height: 25px;">
+            <div class="progress-bar" role="progressbar"
+                 :style="{ width: currentStep === 1 ? '50%' : '100%' }"
+                 :class="{ 'bg-success': currentStep === 2, 'bg-primary': currentStep === 1 }"
+                 aria-valuenow="currentStep" aria-valuemin="1" aria-valuemax="2">
+                Step {{ currentStep }} of 2: {{ currentStep === 1 ? 'Event Details & XP' : 'Team Definition' }}
             </div>
         </div>
 
+
         <!-- Loading & Error States -->
-        <div v-if="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+        <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
+             <i class="fas fa-times-circle me-2"></i> {{ errorMessage }}
+             <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close"></button>
+        </div>
         <div v-if="!isAdmin && loadingCheck" class="text-center my-4">
             <div class="spinner-border spinner-border-sm" role="status"></div>
             <span class="ms-2">Checking existing requests...</span>
         </div>
-        <div v-else-if="!isAdmin && hasActiveRequest" class="alert alert-warning" role="alert">
-            You already have an active or pending event request. You cannot submit another until it is resolved or cancelled.
+        <div v-else-if="!isAdmin && hasActiveRequest && !editingEventId" class="alert alert-info" role="alert">
+            <i class="fas fa-info-circle me-2"></i> You already have an active or pending event request. You cannot submit another until it is resolved or cancelled.
+            <router-link to="/profile" class="alert-link"> View your profile</router-link> to manage it.
         </div>
-        <div v-if="loadingStudents || isLoadingEventData" class="text-center my-4">
-            <div class="spinner-border spinner-border-sm" role="status"></div>
-            <span class="ms-2">{{ loadingStudents ? 'Loading student list...' : 'Loading event data...' }}</span>
-        </div>
+         <div v-if="loadingStudents || isLoadingEventData" class="text-center my-4">
+             <div class="spinner-border spinner-border" role="status"></div> <!-- Larger spinner -->
+             <p class="mt-2">{{ loadingStudents ? 'Loading student list...' : 'Loading event data...' }}</p>
+         </div>
+
 
         <!-- Step 1: Event Details & XP -->
-        <div v-if="currentStep === 1 && (!loadingStudents || isAdmin)">
-            <form @submit.prevent="handleStep1Submit">
-                <!-- Event Type Selection -->
-                <div class="mb-4">
-                    <label class="form-label d-block">Event Type</label>
-                    <div class="btn-group">
-                        <input type="radio" class="btn-check" name="eventTypeToggle" id="individualEvent"
-                               v-model="isTeamEvent" :value="false" :disabled="isSubmitting">
-                        <label class="btn btn-outline-primary" for="individualEvent">Individual Event</label>
+        <div v-if="currentStep === 1 && (!loadingStudents || isAdmin) && !isLoadingEventData">
+            <form @submit.prevent="handleStep1Submit" novalidate> <!-- Disable browser validation -->
+                <!-- Event Type Selection Card -->
+                 <div class="card mb-4">
+                    <div class="card-body">
+                         <h5 class="card-title mb-3">Event Format</h5>
+                         <div class="btn-group w-100">
+                            <input type="radio" class="btn-check" name="eventTypeToggle" id="individualEvent"
+                                   v-model="isTeamEvent" :value="false" :disabled="isSubmitting || !!editingEventId" autocomplete="off">
+                            <label class="btn btn-outline-primary w-50 py-2" for="individualEvent">
+                                <i class="fas fa-user me-1"></i> Individual Event
+                            </label>
 
-                        <input type="radio" class="btn-check" name="eventTypeToggle" id="teamEvent"
-                               v-model="isTeamEvent" :value="true" :disabled="isSubmitting">
-                        <label class="btn btn-outline-primary" for="teamEvent">Team Event</label>
-                    </div>
-                </div>
-
-                <!-- Basic Event Details -->
-                <div class="mb-3">
-                    <label for="eventName" class="form-label">Event Name <span class="text-danger">*</span></label>
-                    <input type="text" id="eventName" v-model="eventName" required class="form-control" :disabled="isSubmitting" />
-                </div>
-                <div class="mb-3">
-                    <label for="eventTypeSelect" class="form-label">Event Category <span class="text-danger">*</span></label>
-                    <select id="eventTypeSelect" v-model="eventType" required class="form-select" size="5" :disabled="isSubmitting">
-                        <!-- *** MODIFIED: Use computed property for options *** -->
-                        <option v-for="category in availableEventCategories" :key="category.value" :value="category.value">
-                            {{ category.label }}
-                        </option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
-                    <textarea id="description" v-model="description" required class="form-control" rows="4" :disabled="isSubmitting"></textarea>
-                </div>
-
-                <!-- Consolidated Organizer Selection -->
-                 <div class="mb-3">
-                    <label for="organizerSearchInput" class="form-label">
-                        Organizers (Students only, max 5) <span v-if="isAdmin" class="text-danger">*</span>
-                    </label>
-                     <p v-if="!isAdmin" class="form-text text-muted small mt-0 mb-1">You are automatically included as an organizer. Add up to 4 co-organizers.</p>
-                    <div class="position-relative">
-                        <input type="text" id="organizerSearchInput"
-                               v-model="organizerSearch"
-                               class="form-control"
-                               placeholder="Search students to add as organizers..."
-                               @focus="handleSearchFocus"
-                               @blur="handleSearchBlur"
-                               :disabled="!canAddMoreOrganizers || isSubmitting || loadingStudents"
-                               autocomplete="off">
-                        <div v-if="showOrganizerDropdown && organizerSearch"
-                             class="dropdown-menu d-block position-absolute w-100" style="max-height: 200px; overflow-y: auto;">
-                             <button v-for="student in filteredStudentsForDropdown"
-                                     :key="student.uid"
-                                     class="dropdown-item" type="button"
-                                     @click="addOrganizer(student)">
-                                 {{ student.name }}
-                             </button>
-                             <div v-if="!filteredStudentsForDropdown.length" class="dropdown-item text-muted">
-                                 No matching students found or already selected.
-                             </div>
+                            <input type="radio" class="btn-check" name="eventTypeToggle" id="teamEvent"
+                                   v-model="isTeamEvent" :value="true" :disabled="isSubmitting || !!editingEventId" autocomplete="off">
+                            <label class="btn btn-outline-primary w-50 py-2" for="teamEvent">
+                                <i class="fas fa-users me-1"></i> Team Event
+                            </label>
                         </div>
-                    </div>
-                     <div v-if="!canAddMoreOrganizers" class="form-text text-warning small mt-1">
-                         Maximum of 5 organizers reached.
-                     </div>
-                    <!-- Selected Organizers List -->
-                    <div v-if="selectedOrganizers.length > 0" class="mt-2 d-flex flex-wrap gap-2">
-                        <span v-for="uid in selectedOrganizers" :key="uid" class="badge bg-secondary d-flex align-items-center">
-                            {{ studentNameCache[uid] || uid }}
-                            <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove"
-                                    @click="removeOrganizer(uid)" style="font-size: 0.6em;"></button>
-                        </span>
-                    </div>
-                     <div v-if="selectedOrganizers.length === 0 && isAdmin" class="form-text text-danger small mt-1">
-                         At least one organizer selection is required.
-                     </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label :for="'date-start'" class="form-label">
-                            {{ isAdmin ? 'Start Date' : 'Desired Start Date' }} <span class="text-danger">*</span>
-                        </label>
-                        <div class="input-group">
-                            <input type="date" :id="'date-start'"
-                                   v-model="startDate" required class="form-control"
-                                   :min="minDate" :disabled="isSubmitting"
-                                   placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"/>
-                            <button class="btn btn-outline-secondary" type="button"
-                                    @click="setNextAvailableDate"
-                                    :disabled="isFindingNextDate || isSubmitting"
-                                    title="Find the next available date starting after the current selection or conflict">
-                                <span v-if="isFindingNextDate" class="spinner-border spinner-border-sm me-1" role="status"></span>
-                                <i v-else class="fas fa-calendar-check"></i> Next Available
-                            </button>
-                        </div>
-                        <div v-if="dateErrorMessages.startDate" class="form-text small mt-1"
-                             :class="dateErrorMessages.startDate.includes('conflict') ? 'text-danger' : 'text-success'">
-                             {{ dateErrorMessages.startDate }}
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <label :for="'date-end'" class="form-label">
-                            {{ isAdmin ? 'End Date' : 'Desired End Date' }} <span class="text-danger">*</span>
-                        </label>
-                        <input type="date" :id="'date-end'"
-                               v-model="endDate" required class="form-control"
-                               :min="startDate || minDate" :disabled="isSubmitting || !startDate"
-                               placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"/>
-                        <div v-if="dateErrorMessages.endDate" class="form-text text-danger small mt-1">
-                            {{ dateErrorMessages.endDate }}
+                        <div v-if="editingEventId" class="form-text text-muted small mt-2">
+                            Event format (Individual/Team) cannot be changed after creation.
                         </div>
                     </div>
                 </div>
 
-                <!-- XP Allocation Section -->
+                <!-- Basic Event Details Card -->
                 <div class="card mb-4">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Rating Criteria & XP Allocation</h5>
+                    <div class="card-header"><h5 class="mb-0">Basic Information</h5></div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="eventName" class="form-label">Event Name <span class="text-danger">*</span></label>
+                            <input type="text" id="eventName" v-model.trim="eventName" required class="form-control" :disabled="isSubmitting" placeholder="e.g., Spring Hackathon 2024" />
+                             <!-- Add validation feedback if needed -->
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventTypeSelect" class="form-label">Event Category <span class="text-danger">*</span></label>
+                            <select id="eventTypeSelect" v-model="eventType" required class="form-select" :disabled="isSubmitting">
+                                <option value="" disabled>-- Select a Category --</option>
+                                <option v-for="category in availableEventCategories" :key="category.value" :value="category.value">
+                                    {{ category.label }}
+                                </option>
+                                <option v-if="!availableEventCategories.some(c => c.value === eventType) && eventType" :value="eventType" disabled>{{ eventType }} (Invalid for current format)</option>
+                            </select>
+                             <!-- Add validation feedback if needed -->
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
+                            <textarea id="description" v-model.trim="description" required class="form-control" rows="4" :disabled="isSubmitting" placeholder="Provide a brief overview of the event, goals, and any important rules."></textarea>
+                             <!-- Add validation feedback if needed -->
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Organizer Selection Card -->
+                 <div class="card mb-4">
+                     <div class="card-header"><h5 class="mb-0">Organizer(s)</h5></div>
+                     <div class="card-body">
+                         <label for="organizerSearchInput" class="form-label">
+                             Select Student Organizers (1-5 total) <span v-if="isAdmin" class="text-danger">*</span>
+                         </label>
+                         <p v-if="!isAdmin" class="form-text text-muted small mt-0 mb-2">You are automatically the primary organizer. You can add up to 4 co-organizers.</p>
+                         <div class="position-relative mb-2">
+                             <input type="text" id="organizerSearchInput"
+                                    v-model="organizerSearch"
+                                    class="form-control"
+                                    placeholder="Search students by name..."
+                                    @focus="handleSearchFocus"
+                                    @blur="handleSearchBlur"
+                                    :disabled="!canAddMoreOrganizers || isSubmitting || loadingStudents"
+                                    autocomplete="off">
+                             <div v-if="showOrganizerDropdown && organizerSearch && filteredStudentsForDropdown.length > 0"
+                                  class="dropdown-menu d-block position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1050;">
+                                  <button v-for="student in filteredStudentsForDropdown"
+                                          :key="student.uid"
+                                          class="dropdown-item" type="button"
+                                          @mousedown.prevent="addOrganizer(student)"> <!-- Use mousedown to register before blur -->
+                                      {{ student.name }}
+                                  </button>
+                             </div>
+                             <div v-if="showOrganizerDropdown && organizerSearch && !filteredStudentsForDropdown.length" class="dropdown-menu d-block position-absolute w-100 shadow">
+                                 <span class="dropdown-item text-muted disabled">No matching students found.</span>
+                             </div>
+                         </div>
+                         <div v-if="!canAddMoreOrganizers" class="form-text text-warning small">
+                            <i class="fas fa-exclamation-circle me-1"></i> Maximum of 5 organizers reached.
+                         </div>
+                         <!-- Selected Organizers List -->
+                         <div v-if="selectedOrganizers.length > 0" class="mt-2 d-flex flex-wrap gap-2">
+                             <span v-for="uid in selectedOrganizers" :key="uid" class="badge text-bg-secondary d-flex align-items-center py-1 px-2">
+                                 <i class="fas fa-user me-1"></i>
+                                 {{ studentNameCache[uid] || uid }}
+                                 <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove"
+                                         @click="removeOrganizer(uid)" :disabled="isSubmitting"
+                                         style="font-size: 0.7em; padding: 0.1em 0.2em;"></button>
+                             </span>
+                         </div>
+                         <div v-if="isAdmin && selectedOrganizers.length === 0" class="form-text text-danger small mt-1">
+                             <i class="fas fa-exclamation-triangle me-1"></i> At least one organizer selection is required for Admin creation.
+                         </div>
+                    </div>
+                </div>
+
+                 <!-- Date Selection Card -->
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">{{ isAdmin ? 'Event Dates' : 'Desired Event Dates' }}</h5></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                             <div class="col-md-6">
+                                <label :for="'date-start'" class="form-label">
+                                    Start Date <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group" :class="{ 'is-invalid': dateErrorMessages.startDate }">
+                                    <input type="date" :id="'date-start'"
+                                           v-model="startDate" required class="form-control"
+                                           :min="minDate" :disabled="isSubmitting || isFindingNextDate"
+                                           placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"
+                                           aria-describedby="startDateFeedback startDateHelp"/>
+                                    <button class="btn btn-outline-secondary" type="button"
+                                            @click="setNextAvailableDate"
+                                            :disabled="isFindingNextDate || isSubmitting"
+                                            title="Find next available start date">
+                                        <span v-if="isFindingNextDate" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        <i v-else class="fas fa-calendar-check"></i>
+                                        <span class="d-none d-sm-inline ms-1">Next Available</span>
+                                    </button>
+                                     <div id="startDateFeedback" class="invalid-feedback w-100"> <!-- Use invalid-feedback -->
+                                         {{ dateErrorMessages.startDate }}
+                                     </div>
+                                </div>
+                                <div id="startDateHelp" class="form-text" v-if="!dateErrorMessages.startDate">Select the day the event begins. Must be tomorrow or later.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label :for="'date-end'" class="form-label">
+                                    End Date <span class="text-danger">*</span>
+                                </label>
+                                 <div class="input-group" :class="{ 'is-invalid': dateErrorMessages.endDate && dateErrorMessages.endDate.trim() }"> <!-- Check trim -->
+                                    <input type="date" :id="'date-end'"
+                                           v-model="endDate" required class="form-control"
+                                           :min="startDate || minDate" :disabled="isSubmitting || !startDate || isFindingNextDate"
+                                           placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"
+                                           aria-describedby="endDateFeedback endDateHelp"/>
+                                    <div id="endDateFeedback" class="invalid-feedback w-100"> <!-- Use invalid-feedback -->
+                                         {{ dateErrorMessages.endDate }}
+                                     </div>
+                                 </div>
+                                <div id="endDateHelp" class="form-text" v-if="!dateErrorMessages.endDate || !dateErrorMessages.endDate.trim()">Select the day the event ends. Must be on or after the start date.</div>
+                            </div>
+                        </div>
+                         <!-- Display Combined Date Feedback -->
+                         <div v-if="dateErrorMessages.startDate && dateErrorMessages.startDate.includes('conflict')" class="alert alert-warning alert-sm mt-3 py-2 px-3"> <!-- More prominent warning -->
+                             <i class="fas fa-exclamation-triangle me-1"></i> {{ dateErrorMessages.startDate }} Use "Next Available" or choose different dates.
+                         </div>
+                         <div v-else-if="dateErrorMessages.startDate && !dateErrorMessages.startDate.includes('conflict') && !dateErrorMessages.startDate.includes('available date')" class="alert alert-danger alert-sm mt-3 py-2 px-3">
+                            <i class="fas fa-times-circle me-1"></i> Error: {{ dateErrorMessages.startDate }}
+                         </div>
+                         <div v-else-if="dateErrorMessages.startDate && dateErrorMessages.startDate.includes('available date')" class="alert alert-success alert-sm mt-3 py-2 px-3">
+                             <i class="fas fa-check-circle me-1"></i> {{ dateErrorMessages.startDate }}
+                         </div>
+                    </div>
+                </div>
+
+
+                <!-- XP Allocation Section Card -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Rating Criteria & XP Allocation (Total: 50 XP)</h5>
                         <button
                             type="button"
-                            class="btn btn-sm btn-outline-primary"
+                            class="btn btn-sm btn-outline-success"
                             @click="addConstraint"
                             :disabled="ratingCriteria.length >= 5 || isSubmitting">
                             <i class="fas fa-plus"></i> Add Criterion
                         </button>
                     </div>
                     <div class="card-body">
-                         <p class="text-muted small mb-3">Define up to 5 criteria for rating submissions. Assign XP points and optionally link criteria to specific roles for automatic winner calculation.</p>
+                         <p class="text-muted small mb-3">Define up to 5 criteria for rating submissions. The total XP across all criteria must equal 50. Optionally, link criteria to specific roles for automatic winner calculation in team events.</p>
+                        <div v-if="ratingCriteria.length === 0" class="alert alert-warning small py-2">
+                            At least one rating criterion is required. Click 'Add Criterion'.
+                        </div>
                         <div v-for="(criteria, index) in ratingCriteria" :key="index"
-                             class="row mb-3 align-items-center border-bottom pb-3 position-relative">
+                             class="row g-3 mb-3 pb-3 border-bottom align-items-center position-relative">
                              <!-- Input fields for label, role, points -->
-                             <div class="col-md-4">
+                             <div class="col-md-4 col-lg-4">
                                 <label :for="'criteriaLabel'+index" class="form-label">
                                     Criteria {{ index + 1 }} Label <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" :id="'criteriaLabel'+index"
-                                       v-model="criteria.label"
+                                       v-model.trim="criteria.label"
                                        class="form-control form-control-sm"
                                        required
                                        :placeholder="getDefaultCriteriaLabel(index)"
                                        :disabled="isSubmitting">
                             </div>
-                             <div class="col-md-3">
+                             <div class="col-md-3 col-lg-3">
                                 <label :for="'roleSelect'+index" class="form-label">Associated Role</label>
                                 <select :id="'roleSelect'+index"
                                         v-model="criteria.role"
                                         class="form-select form-select-sm"
                                         :disabled="isSubmitting">
-                                    <option value="">General</option>
+                                    <option value="" disabled>-- Select Role (Optional) --</option>
                                     <option v-for="role in availableRoles"
                                             :key="role.value"
                                             :value="role.value">
@@ -908,49 +1015,64 @@ onMounted(async () => {
                                     </option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                             <div class="col-md-4 col-lg-4">
                                 <label :for="'xpPoints'+index" class="form-label">
-                                    XP Points ({{ criteria.points }})
+                                    XP Points
                                 </label>
-                                <input type="range" :id="'xpPoints'+index"
-                                       v-model.number="criteria.points"
-                                       class="form-range" min="5" max="50" step="5"
-                                       :disabled="isSubmitting">
+                                <div class="input-group input-group-sm">
+                                     <input type="number" :id="'xpPointsNum'+index"
+                                           v-model.number="criteria.points"
+                                           class="form-control" min="0" :max="50" step="1"
+                                           style="max-width: 70px;"
+                                           :disabled="isSubmitting">
+                                     <span class="input-group-text">pts</span>
+                                    <input type="range" :id="'xpPoints'+index"
+                                           v-model.number="criteria.points"
+                                           class="form-range w-auto flex-grow-1 mx-2" min="0" max="50" step="1"
+                                           :disabled="isSubmitting"
+                                           aria-label="XP Points Slider">
+                                </div>
                             </div>
-                            <div class="col-md-1 text-end">
+                            <div class="col-md-1 col-lg-1 text-end align-self-center pt-3"> <!-- Align button nicely -->
                                 <button
-                                    v-if="ratingCriteria.length > 1"
+                                    v-if="ratingCriteria.length > 0"
                                     type="button"
-                                    class="btn btn-sm btn-outline-danger mt-3"
+                                    class="btn btn-sm btn-outline-danger"
                                     @click="removeConstraint(index)"
                                     title="Remove this criterion"
                                     :disabled="isSubmitting">
-                                    <i class="fas fa-times"></i>
+                                    <i class="fas fa-trash-alt"></i>
                                 </button>
                             </div>
                         </div>
-                        <div v-if="ratingCriteria.length < 1" class="alert alert-warning small py-2">
-                            At least one rating criterion is required.
-                        </div>
+
                         <!-- Display Total XP -->
-                        <div class="mt-3 text-end fw-bold" :class="{ 'text-danger': totalAllocatedXp !== 50, 'text-success': totalAllocatedXp === 50 }">
-                            Total Allocated XP: {{ totalAllocatedXp }} / 50
-                        </div>
-                         <div v-if="totalAllocatedXp !== 50" class="form-text text-danger small text-end">
-                             Total XP must sum to exactly 50.
+                        <div class="mt-3 text-end">
+                            <span class="fw-bold fs-5" :class="{ 'text-danger': totalAllocatedXp !== 50, 'text-success': totalAllocatedXp === 50 }">
+                                Total Allocated XP: {{ totalAllocatedXp }} / 50
+                            </span>
+                            <p v-if="totalAllocatedXp !== 50" class="form-text text-danger small text-end mb-0">
+                                <i class="fas fa-exclamation-triangle me-1"></i> Total XP must sum to exactly 50.
+                            </p>
                          </div>
                     </div>
                 </div>
 
-                <!-- Step 1 Submit -->
-                <button type="submit" class="btn btn-primary"
-                        :disabled="isSubmitting || isCheckingConflict || selectedOrganizers.length === 0 || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate || totalAllocatedXp !== 50">
-                    <span v-if="isSubmitting || isCheckingConflict" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                    {{ isSubmitting ? 'Processing...' : (isCheckingConflict ? 'Checking Dates...' : (isTeamEvent ? 'Next: Define Teams' : getSubmitButtonText())) }}
-                </button>
-                 <p v-if="!isSubmitting && (selectedOrganizers.length === 0 || dateErrorMessages.startDate || dateErrorMessages.endDate || totalAllocatedXp !== 50)" class="text-danger small mt-2">
-                    Please correct the errors above (Dates, XP Total, Organizer selection).
-                 </p>
+                <!-- Step 1 Submit Button & Validation Summary -->
+                 <div class="mt-4 sticky-bottom bg-light p-3 border-top d-flex justify-content-end align-items-center"> <!-- Sticky Footer -->
+                     <div class="me-auto">
+                         <p v-if="!isSubmitting && (isCheckingConflict || (isAdmin && selectedOrganizers.length === 0) || dateErrorMessages.startDate || dateErrorMessages.endDate || totalAllocatedXp !== 50 || !eventName || !eventType || !description)" class="text-danger small mb-0">
+                             <i class="fas fa-exclamation-circle me-1"></i> Please correct the errors highlighted above.
+                         </p>
+                     </div>
+                    <button type="submit" class="btn btn-primary btn-lg"
+                            :disabled="isSubmitting || isCheckingConflict || (isAdmin && selectedOrganizers.length === 0) || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate || totalAllocatedXp !== 50 || !eventName || !eventType || !description">
+                        <span v-if="isSubmitting || isCheckingConflict" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <i v-else-if="isTeamEvent" class="fas fa-arrow-right me-2"></i>
+                        <i v-else class="fas fa-paper-plane me-2"></i>
+                        {{ isSubmitting ? 'Processing...' : (isCheckingConflict ? 'Checking Dates...' : (isTeamEvent ? 'Next: Define Teams' : (editingEventId ? 'Update Event' : (isAdmin ? 'Create Event' : 'Submit Request')))) }}
+                    </button>
+                 </div>
             </form>
         </div>
 
@@ -965,35 +1087,58 @@ onMounted(async () => {
                 @update:teams="updateTeams"
                 @can-add-team="updateCanAddTeam"
             />
-            <div class="mt-4 d-flex justify-content-between">
-                 <button type="button" class="btn btn-secondary" @click="currentStep = 1" :disabled="isSubmitting">
+             <!-- Step 2 Buttons & Validation Summary -->
+             <div class="mt-4 sticky-bottom bg-light p-3 border-top d-flex justify-content-between align-items-center"> <!-- Sticky Footer -->
+                 <button type="button" class="btn btn-outline-secondary" @click="currentStep = 1" :disabled="isSubmitting">
                     <i class="fas fa-arrow-left me-1"></i> Back to Details
                 </button>
-                <button type="button" class="btn btn-primary"
-                        @click="handleSubmit"
-                        :disabled="isSubmitting || isCheckingConflict || !hasValidTeams || selectedOrganizers.length === 0 || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate || totalAllocatedXp !== 50"
-                        :title="!hasValidTeams ? 'Ensure all teams have a name and at least one member. Minimum 2 teams required.' : (dateErrorMessages.startDate || dateErrorMessages.endDate ? 'Resolve date conflicts first.' : '')">
-                     <span v-if="isSubmitting || isCheckingConflict" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                    {{ isSubmitting ? 'Submitting...' : (isCheckingConflict ? 'Checking Dates...' : getSubmitButtonText()) }}
-                </button>
+                 <div class="text-end">
+                    <p v-if="!isSubmitting && (!hasValidTeams || (isAdmin && selectedOrganizers.length === 0) || dateErrorMessages.startDate || dateErrorMessages.endDate || totalAllocatedXp !== 50)" class="text-danger small mb-1 me-2">
+                         <i class="fas fa-exclamation-circle me-1"></i>
+                         <span v-if="!hasValidTeams">Min. 2 valid teams required. </span>
+                         <span v-if="(isAdmin && selectedOrganizers.length === 0)">Organizer needed. </span>
+                         <span v-if="dateErrorMessages.startDate || dateErrorMessages.endDate">Date conflict. </span>
+                         <span v-if="totalAllocatedXp !== 50">XP total != 50.</span>
+                         <span>(Check Step 1 if needed)</span>
+                    </p>
+                    <button type="button" class="btn btn-success btn-lg"
+                            @click="handleSubmit"
+                            :disabled="isSubmitting || isCheckingConflict || !hasValidTeams || (isAdmin && selectedOrganizers.length === 0) || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate || totalAllocatedXp !== 50"
+                            :title="!hasValidTeams ? 'Ensure at least two teams are defined, each with a name and at least one member.' : (dateErrorMessages.startDate || dateErrorMessages.endDate ? 'Resolve date conflicts first (Step 1).' : (totalAllocatedXp !== 50 ? 'Total XP must be 50 (Step 1).' : 'Submit Event'))">
+                         <span v-if="isSubmitting || isCheckingConflict" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                         <i v-else class="fas fa-check-circle me-2"></i>
+                        {{ isSubmitting ? 'Submitting...' : (isCheckingConflict ? 'Checking Dates...' : (editingEventId ? 'Update Event' : (isAdmin ? 'Create Event' : 'Submit Request'))) }}
+                    </button>
+                 </div>
             </div>
-            <p v-if="!isSubmitting && (!hasValidTeams || selectedOrganizers.length === 0 || dateErrorMessages.startDate || dateErrorMessages.endDate || totalAllocatedXp !== 50)" class="text-danger small mt-2">
-                 <span v-if="!hasValidTeams">Please ensure at least two teams are defined, each with a name and at least one member.</span>
-                 <span v-if="selectedOrganizers.length === 0">Please select at least one organizer.</span>
-                 <span v-if="dateErrorMessages.startDate || dateErrorMessages.endDate">Please resolve date conflicts.</span>
-                 <span v-if="totalAllocatedXp !== 50">Total XP must be 50.</span>
-            </p>
         </div>
     </div>
 </template>
 
 <style scoped>
-/* Styles are condensed for brevity but should match the previous version */
-.progress-steps { display: flex; gap: 1rem; margin-bottom: 2rem; }
-.step { padding: 0.5rem 1rem; border-radius: 4px; background: #e9ecef; color: #6c757d; }
-.step.active { background: #007bff; color: white; }
-.step.completed { background: #28a745; color: white; }
-.step.disabled { opacity: 0.5; cursor: not-allowed; }
-.form-range { height: auto; padding-top: 0.5rem; padding-bottom: 0.5rem; }
-.input-group .btn { z-index: 2; } /* Ensure button is clickable over date input edge */
+/* Add styles for better visual feedback and layout */
+.input-group.is-invalid .form-control,
+.input-group.is-invalid .btn {
+  border-color: #dc3545; /* Ensure button border also turns red */
+  z-index: 2; /* Keep button clickable */
+}
+.input-group.is-invalid .invalid-feedback {
+  display: block; /* Ensure feedback is shown */
+}
+.dropdown-menu {
+    z-index: 1050; /* Ensure dropdown appears above other elements */
+}
+/* Sticky footer for action buttons */
+.sticky-bottom {
+    position: sticky;
+    bottom: 0;
+    z-index: 1020; /* Below dropdowns but above page content */
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+}
+/* Smaller alerts removed - using global style */
+
+/* Ensure range input takes available space correctly */
+.form-range.w-auto {
+    width: auto;
+}
 </style>

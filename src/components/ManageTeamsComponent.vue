@@ -5,7 +5,7 @@
         </div>
 
         <!-- Auto-Generation Section -->
-        <div v-if="props.canAutoGenerate" class="card mb-4 bg-light">
+        <div v-if="props.canAutoGenerate" class="card mb-4 bg-light-subtle">
             <div class="card-body p-3">
                 <h6 class="card-title mb-2">Auto-Generate Teams</h6>
                  <div v-if="autoGenErrorMessage" class="alert alert-warning alert-sm py-1 px-2 mb-2" role="alert">{{ autoGenErrorMessage }}</div>
@@ -90,7 +90,7 @@
 
         <!-- Team Edit/Add Form -->
         <div v-if="editingTeamName !== null || showNewTeamForm" class="card mb-3">
-            <div class="card-header bg-light">
+            <div class="card-header">
                  <h6 class="mb-0">{{ showNewTeamForm && editingTeamName === null ? 'Add New Team' : `Edit Team: ${editingTeamName}` }}</h6>
             </div>
             <div class="card-body">
@@ -507,7 +507,6 @@ const emitUpdate = (): void => {
 <style scoped>
 .team-member-select { min-height: 150px; max-height: 250px; }
 .team-member-select option:disabled { color: #adb5bd; font-style: italic; background-color: #e9ecef; }
-.alert-sm { padding: 0.25rem 0.5rem; font-size: 0.875em; margin-bottom: 0.5rem; } /* Adjusted padding and margin */
 .fa-xs { font-size: 0.7em; }
 .student-item {
     cursor: default; /* Indicate non-interactive text */
@@ -530,6 +529,6 @@ const emitUpdate = (): void => {
     font-style: italic;
 }
 .card.border-primary {
-    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+    box-shadow: 0 0 0 0.25rem rgba(var(--color-primary-rgb), 0.25);
 }
 </style>

@@ -23,7 +23,7 @@
             </div>
         </div>
         <div v-else-if="filteredUsers.length === 0" class="alert alert-info">No users found matching the criteria.</div>
-         <ul v-else class="list-group shadow"> 
+         <ul v-else class="list-group">
             <li v-for="(user, index) in filteredUsers" :key="user.uid" class="list-group-item d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center">
                     <span class="leaderboard-rank me-3">{{ index + 1 }}.</span>

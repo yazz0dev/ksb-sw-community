@@ -2,14 +2,16 @@
 <template>
     <div>
         <!-- Loop over the reactive teamsWithDetails ref -->
-        <div v-for="team in teamsWithDetails" :key="team.teamName" class="card mb-3 team-card shadow"> 
+        <div v-for="team in teamsWithDetails" :key="team.teamName" class="card mb-3 team-card"> 
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <h4 class="card-title mb-0">{{ team.teamName }}</h4>
-                    <!-- Rating Button -->
+                    <!-- Rating Button - text changes based on whether user has rated -->
                     <button v-if="ratingsOpen && canRate" @click="goToRatingForm(team.teamName)"
-                        class="btn btn-info btn-sm btn-inline-mobile">
-                        <i class="fas fa-star me-1"></i> Rate Team
+                        class="btn btn-sm btn-inline-mobile" 
+                        :class="currentUserHasRatedTeam ? 'btn-outline-secondary' : 'btn-info'">
+                        <i class="fas fa-star me-1"></i> 
+                        {{ currentUserHasRatedTeam ? 'View/Edit Ratings' : 'Rate Team' }}
                     </button>
                 </div>
 
@@ -60,7 +62,8 @@ const props = defineProps({
     ratingsOpen: { type: Boolean, required: true, default: false },
     getUserName: { type: Function, required: true }, // Function passed from parent
     organizerNamesLoading: { type: Boolean, default: false }, // Loading state from parent
-    currentUserUid: { type: String, default: null } // Add the missing prop definition
+    currentUserUid: { type: String, default: null }, // Add the missing prop definition
+    currentUserHasRatedTeam: { type: Boolean, default: false } // Prop to indicate if user has rated any team
 });
 
 const store = useStore();

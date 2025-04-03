@@ -2,7 +2,7 @@
   <div class="container mt-5">
     <div class="row justify-content-center">
       <div class="col-md-6 col-lg-5">
-        <div class="card login-card shadow"> 
+        <div class="card"> 
           <div class="card-header">
             <h2 class="mb-0">Login</h2> 
           </div>
@@ -12,7 +12,7 @@
             </div>
 
             <form @submit.prevent="signIn"> 
-              <div class="mb-4"> 
+              <div class="form-group"> 
                 <label for="email" class="form-label">Email:</label>
                 <input
                   type="email"
@@ -23,7 +23,7 @@
                   placeholder="Enter your email"
                   :disabled="isLoading" />
               </div>
-              <div class="mb-4">  
+              <div class="form-group">  
                 <label for="password" class="form-label">Password:</label>
                 <input
                   type="password"

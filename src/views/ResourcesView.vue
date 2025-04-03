@@ -6,7 +6,7 @@
 
         <div v-else class="resource-categories row g-4"> 
             <div v-for="(category, index) in categories" :key="index" class="col-md-6"> 
-                 <div class="card h-100 shadow-sm"> 
+                 <div class="card h-100">
                     <div class="card-header">
                         <h3 class="mb-0">{{ category.title }}</h3>
                     </div>

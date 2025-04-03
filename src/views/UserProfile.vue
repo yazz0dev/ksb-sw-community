@@ -28,7 +28,7 @@
             <div v-else class="row g-4">
                 <!-- Left Column: Profile Info -->
                 <div class="col-lg-4">
-                    <div class="card shadow-sm h-100">  
+                    <div class="card h-100">  
                         <div class="card-body text-center p-4">
                             <!-- Profile Photo -->
                             <div class="profile-photo-container mb-3">
@@ -94,7 +94,7 @@
                 <!-- Right Column: XP & Events -->
                 <div class="col-lg-8">
                     <!-- XP Breakdown Card -->
-                    <div class="card shadow-sm mb-4" v-if="hasXpData">  
+                    <div class="card mb-4" v-if="hasXpData">  
                         <div class="card-header bg-white py-3">
                             <h3 class="h5 mb-0"><i class="fas fa-chart-pie me-2 text-primary"></i>XP Breakdown</h3>
                         </div>
@@ -116,7 +116,7 @@
                     </div>
 
                     <!-- Event Projects -->
-                    <div class="card shadow-sm mb-4"> 
+                    <div class="card mb-4"> 
                         <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                             <h3 class="h5 mb-0"><i class="fas fa-lightbulb me-2 text-success"></i>My Event Projects</h3>
                             <span class="badge bg-secondary rounded-pill">{{ userProjects.length }} Projects</span>
@@ -150,7 +150,7 @@
                     </div>
 
                     <!-- Event Requests -->
-                    <div class="card shadow-sm"> 
+                    <div class="card mb-4"> 
                         <div class="card-header bg-white py-3">
                             <h3 class="h5 mb-0"><i class="fas fa-paper-plane me-2 text-info"></i>My Event Requests</h3>
                         </div>

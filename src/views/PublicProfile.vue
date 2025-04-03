@@ -18,7 +18,7 @@
         <div v-else class="row g-4">
             <!-- Left Column: Profile Info -->
             <div class="col-md-4">
-                <div class="card shadow h-100"> 
+                <div class="card h-100">
                     <div class="card-body text-center">
                         <!-- Profile Photo -->
                         <div class="profile-photo-container mb-3">
@@ -32,20 +32,20 @@
                         <!-- Quick Stats -->
                         <div class="row g-2 stats-container mb-4">
                             <div class="col-4">
-                                <div class="p-2 rounded bg-light">
-                                    <div class="h4 mb-0">{{ stats.participatedCount }}</div>
+                                <div class="p-2 rounded bg-light-subtle border">
+                                    <div class="h4 mb-0 text-primary">{{ stats.participatedCount }}</div>
                                     <small class="text-muted">Participated</small>
                                 </div>
                             </div>
                             <div class="col-4">
-                                <div class="p-2 rounded bg-light">
-                                    <div class="h4 mb-0">{{ stats.organizedCount }}</div>
+                                <div class="p-2 rounded bg-light-subtle border">
+                                    <div class="h4 mb-0 text-info">{{ stats.organizedCount }}</div>
                                     <small class="text-muted">Organized</small>
                                 </div>
                             </div>
                             <div class="col-4">
-                                <div class="p-2 rounded bg-light">
-                                    <div class="h4 mb-0">{{ stats.wonCount }}</div>
+                                <div class="p-2 rounded bg-light-subtle border">
+                                    <div class="h4 mb-0 text-warning">{{ stats.wonCount }}</div>
                                     <small class="text-muted">Won</small>
                                 </div>
                             </div>
@@ -84,9 +84,9 @@
             <!-- Right Column: XP & Events -->
             <div class="col-md-8">
                 <!-- XP Breakdown Card -->
-                <div class="card shadow mb-4" v-if="hasXpData"> 
-                    <div class="card-header">
-                        <h3 class="h5 mb-0">XP Breakdown</h3>
+                <div class="card mb-4" v-if="hasXpData">
+                    <div class="card-header bg-white py-3">
+                        <h3 class="h5 mb-0"><i class="fas fa-chart-pie me-2 text-primary"></i>XP Breakdown</h3>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -106,9 +106,9 @@
                 </div>
 
                 <!-- Events Participation -->
-                <div class="card shadow mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h3 class="h5 mb-0">Event History</h3>
+                <div class="card mb-4">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h3 class="h5 mb-0"><i class="fas fa-lightbulb me-2 text-success"></i>My Event Projects</h3>
                         <span class="badge bg-secondary">{{ participatedEvents.length }} Events</span>
                     </div>
                     <div class="card-body">
@@ -155,7 +155,7 @@
                 </div>
 
                 <!-- Projects Section -->
-                <div class="card shadow"> 
+                <div class="card"> 
                     <div class="card-header">
                         <h3 class="h5 mb-0">Project Submissions</h3>
                     </div>

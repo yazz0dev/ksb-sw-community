@@ -60,7 +60,7 @@ export const eventActions = {
         return !querySnapshot.empty;
     },
 
-    async checkDateConflict(_, { startDate, endDate }) {
+    async checkDateConflict(_, { startDate, endDate, excludeEventId = null }) {
         let checkStart, checkEnd;
         try {
             checkStart = startDate instanceof Date ? startDate : new Date(startDate);
@@ -82,6 +82,12 @@ export const eventActions = {
 
         querySnapshot.forEach((doc) => {
             const event = doc.data();
+
+            // Skip the event being edited
+            if (excludeEventId && doc.id === excludeEventId) {
+                return;
+            }
+
             // Skip if event doesn't have valid start/end dates stored as Timestamps
             if (!event.startDate?.seconds || !event.endDate?.seconds) return;
 
@@ -123,18 +129,12 @@ export const eventActions = {
              }
             await validateOrganizersNotAdmin(organizers);
 
-            // Prepare Base Data
-            let startDateObj, endDateObj;
-            try {
-                startDateObj = eventData.startDate instanceof Date ? eventData.startDate : new Date(eventData.startDate);
-                endDateObj = eventData.endDate instanceof Date ? eventData.endDate : new Date(eventData.endDate);
-                if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) throw new Error("Invalid date objects.");
-            } catch (e) { throw new Error("Invalid date format for creation."); }
-
+            // Mapper handles date conversion from Date objects or strings
             const mappedData = mapEventDataToFirestore({
                 ...eventData,
-                startDate: startDateObj,
-                endDate: endDateObj,
+                // Pass dates as received (should be Date objects from component)
+                startDate: eventData.startDate,
+                endDate: eventData.endDate,
                 organizers: organizers,      // Pass the combined array
                 requester: currentUser.uid,    // Admin is the requester
             });
@@ -150,7 +150,8 @@ export const eventActions = {
 
             const conflictingEvent = await dispatch('checkDateConflict', {
                 startDate: mappedData.startDate.toDate(),
-                endDate: mappedData.endDate.toDate()
+                endDate: mappedData.endDate.toDate(),
+                excludeEventId: null
             });
             if (conflictingEvent) {
                 throw new Error(
@@ -164,6 +165,7 @@ export const eventActions = {
             mappedData.submissions = Array.isArray(mappedData.submissions) ? mappedData.submissions : [];
             mappedData.ratings = Array.isArray(mappedData.ratings) ? mappedData.ratings : [];
             mappedData.xpAllocation = Array.isArray(mappedData.xpAllocation) ? mappedData.xpAllocation : [];
+            mappedData.organizationRatings = [];
             mappedData.completedAt = null;
             mappedData.ratingsLastOpenedAt = null;
             mappedData.ratingsOpenCount = 0;
@@ -208,8 +210,9 @@ export const eventActions = {
             // Validate desired dates
             let desiredStartDateObj, desiredEndDateObj;
             try {
-                desiredStartDateObj = eventData.desiredStartDate instanceof Date ? eventData.desiredStartDate : new Date(eventData.desiredStartDate);
-                desiredEndDateObj = eventData.desiredEndDate instanceof Date ? eventData.desiredEndDate : new Date(eventData.desiredEndDate);
+                // Ensure we handle both Date objects and string representations (YYYY-MM-DD)
+                desiredStartDateObj = eventData.desiredStartDate instanceof Date ? eventData.desiredStartDate : new Date(eventData.desiredStartDate + 'T00:00:00Z');
+                desiredEndDateObj = eventData.desiredEndDate instanceof Date ? eventData.desiredEndDate : new Date(eventData.desiredEndDate + 'T23:59:59Z');
                 if (isNaN(desiredStartDateObj.getTime()) || isNaN(desiredEndDateObj.getTime())) throw new Error("Invalid desired date format.");
                 if (desiredStartDateObj > desiredEndDateObj) throw new Error("Desired end date cannot be earlier than desired start date.");
             } catch (e) { throw new Error(e.message || "Invalid date format."); }
@@ -221,8 +224,8 @@ export const eventActions = {
              }
             await validateOrganizersNotAdmin(organizers); // Validate all organizers
 
-            // Prepare data specifically for a REQUEST
-            const requestData = {
+            // Mapper handles date conversion from Date objects or strings
+            const requestData = mapEventDataToFirestore({
                 eventName: eventData.eventName || 'Unnamed Request',
                 eventType: eventData.eventType || 'Other',
                 description: eventData.description || '',
@@ -231,21 +234,15 @@ export const eventActions = {
                 organizers: organizers, // Use the combined array
                 xpAllocation: Array.isArray(eventData.xpAllocation) ? eventData.xpAllocation : [],
                 status: 'Pending',
-                desiredStartDate: Timestamp.fromDate(desiredStartDateObj),
-                desiredEndDate: Timestamp.fromDate(desiredEndDateObj),
-                startDate: null,
-                endDate: null,
-                ratingsOpen: false,
-                winnersPerRole: {},
-                participants: [],
-                submissions: [],
-                ratings: [],
-                createdAt: Timestamp.now(),
-                teams: [],
-                completedAt: null,
-                ratingsLastOpenedAt: null,
-                ratingsOpenCount: 0,
-            };
+                // Pass desired dates as received (should be Date objects)
+                desiredStartDate: eventData.desiredStartDate,
+                desiredEndDate: eventData.desiredEndDate,
+                createdAt: Timestamp.now(), // Keep this specific timestamp here
+            });
+
+            // Add/Override fields specifically for a new request
+            requestData.status = 'Pending';
+            requestData.organizationRatings = [];
 
             if (requestData.isTeamEvent) {
                 requestData.teams = (Array.isArray(eventData.teams) ? eventData.teams : []).map(team => ({
@@ -258,6 +255,7 @@ export const eventActions = {
 
             const docRef = await addDoc(collection(db, 'events'), requestData);
             commit('addOrUpdateEvent', { id: docRef.id, ...requestData });
+
             return docRef.id;
         } catch (error) {
             console.error('Error requesting event:', error);
@@ -296,7 +294,8 @@ export const eventActions = {
 
             const conflictingEvent = await dispatch('checkDateConflict', {
                 startDate: reqStartDate,
-                endDate: reqEndDate
+                endDate: reqEndDate,
+                excludeEventId: eventId
             });
             if (conflictingEvent) {
                 throw new Error(
@@ -309,7 +308,8 @@ export const eventActions = {
                 startDate: eventData.desiredStartDate,
                 endDate: eventData.desiredEndDate,
                 participants: [],
-                teams: []
+                teams: [],
+                organizationRatings: Array.isArray(eventData.organizationRatings) ? eventData.organizationRatings : []
             };
 
             if (!eventData.isTeamEvent) {
@@ -421,7 +421,7 @@ export const eventActions = {
                     if (!isAdmin) throw new Error("Only Admins can change status to 'Approved'.");
                     if (currentEvent.status !== 'Cancelled') throw new Error("Can only re-approve events that are 'Cancelled'.");
                     if (!eventStartDate || !eventEndDate) throw new Error("Event dates missing, cannot re-approve.");
-                    const conflict = await dispatch('checkDateConflict', { startDate: eventStartDate, endDate: eventEndDate });
+                    const conflict = await dispatch('checkDateConflict', { startDate: eventStartDate, endDate: eventEndDate, excludeEventId: eventId });
                     if (conflict) throw new Error(`Cannot re-approve: Date conflict with "${conflict.eventName}".`);
                     updates.completedAt = null;
                     break;
@@ -836,7 +836,7 @@ export const eventActions = {
             // Permission Check: Admin, any Organizer, OR Requester if Pending
             const currentUser = rootGetters['user/getUser'];
             const isAdmin = currentUser?.role === 'Admin';
-            const isOrganizer = (eventData.organizers || []).includes(currentUser?.uid);
+            const isOrganizer = Array.isArray(eventData.organizers) && eventData.organizers.includes(currentUser?.uid);
             const isRequester = eventData.requester === currentUser?.uid;
 
             let canEdit = false;
@@ -970,5 +970,172 @@ export const eventActions = {
             throw new Error('Connection issue detected. Please check your internet connection.');
         }
         throw error;
+    },
+
+    // Submit rating scores (for teams) or winner selections (for individuals)
+    // Removed participantId from destructuring as it's not needed for winner selection payload
+    async submitRating({ rootGetters, dispatch }, { eventId, ratingType, selections, teamId }) {
+        // Correctly get the user ID from the 'getUser' getter
+        const userId = rootGetters['user/getUser']?.uid; // Use optional chaining for safety
+        if (!userId) throw new Error('User must be logged in to submit ratings.');
+
+        const eventRef = doc(db, 'events', eventId);
+
+        try {
+            const eventSnap = await getDoc(eventRef);
+            if (!eventSnap.exists()) throw new Error('Event not found.');
+            const eventData = eventSnap.data();
+
+            if (eventData.status !== 'Completed') throw new Error('Ratings can only be submitted for completed events.');
+            if (!eventData.ratingsOpen) throw new Error('Ratings are currently closed for this event.');
+
+            // Validate selections format (basic check)
+            if (!selections || typeof selections !== 'object' || Object.keys(selections).length === 0) {
+                throw new Error('Invalid rating/selection data provided.');
+            }
+
+            const updates = {};
+            const now = Timestamp.now();
+
+            if (ratingType === 'team') {
+                if (!teamId) throw new Error('Team ID is missing for team rating.');
+                
+                const teams = Array.isArray(eventData.teams) ? [...eventData.teams] : [];
+                // Find team by name (adjust if using unique IDs later)
+                const teamIndex = teams.findIndex(t => t.teamName === teamId); 
+                if (teamIndex === -1) throw new Error(`Team with ID/Name '${teamId}' not found in this event.`);
+
+                // Ensure ratings array exists and filter previous ratings by this user
+                const existingTeamRatings = Array.isArray(teams[teamIndex].ratings) ? teams[teamIndex].ratings : [];
+                const updatedTeamRatings = existingTeamRatings.filter(r => r.ratedBy !== userId);
+
+                // Add the new rating scores
+                const newRatingScores = {};
+                for (const key in selections) {
+                    if (selections[key]?.score !== undefined) {
+                        newRatingScores[key] = Number(selections[key].score);
+                    }
+                }
+
+                updatedTeamRatings.push({
+                    ratedBy: userId,
+                    ratedAt: now,
+                    scores: newRatingScores // Use the processed scores
+                });
+
+                teams[teamIndex].ratings = updatedTeamRatings;
+                updates.teams = teams;
+
+            } else if (ratingType === 'individual') {
+                // Removed the check for participantId as it's no longer passed or needed for winner selection logic
+                // if (!participantId) {
+                //     console.warn('Participant ID missing for individual rating submission, proceeding without it for winner selection.');
+                // }
+                
+                // Process selections to update winnersPerRole
+                const newWinnersPerRole = { ...(eventData.winnersPerRole || {}) };
+                const criteria = eventData.xpAllocation || [];
+                let changesMade = false;
+                
+                for (const constraintKey in selections) {
+                    const winnerId = selections[constraintKey]?.winnerId;
+                    if (winnerId && typeof winnerId === 'string' && winnerId.trim() !== '') {
+                        const constraintIndex = parseInt(constraintKey.replace('constraint', ''), 10);
+                        const criterion = criteria.find(c => c.constraintIndex === constraintIndex);
+                        if (criterion) {
+                            const role = criterion.role || 'general'; 
+                            // Overwrite or set the winner for this role/criterion
+                            if (!newWinnersPerRole[role] || newWinnersPerRole[role][0] !== winnerId) {
+                                newWinnersPerRole[role] = [winnerId]; // Store as an array
+                                changesMade = true;
+                            }
+                        }
+                    } else {
+                         // Handle cases where a winner might be removed/unselected (if applicable)
+                         // For now, we only add/overwrite based on valid selections.
+                    }
+                }
+                 if (changesMade) {
+                     updates.winnersPerRole = newWinnersPerRole;
+                 }
+
+                // Record the submission act itself
+                const existingEventRatings = Array.isArray(eventData.ratings) ? eventData.ratings : [];
+                const updatedEventRatings = existingEventRatings.filter(r => r.ratedBy !== userId || r.type !== 'winner_selection'); // Remove previous selection by this user
+                updatedEventRatings.push({
+                    ratedBy: userId,
+                    ratedAt: now,
+                    type: 'winner_selection' 
+                });
+                updates.ratings = updatedEventRatings;
+
+            } else {
+                throw new Error(`Invalid rating type: ${ratingType}`);
+            }
+
+             // Only update if there are actual changes
+             if (Object.keys(updates).length > 0) {
+                await updateDoc(eventRef, updates);
+                dispatch('updateLocalEvent', { id: eventId, changes: updates });
+             } else {
+                 console.log("No changes detected in rating submission.");
+             }
+
+        } catch (error) {
+            console.error('Error submitting rating:', error);
+            throw error; 
+        }
+    },
+
+    // --- NEW: Submit a rating for the event organization ---
+    async submitOrganizationRating({ rootGetters, dispatch }, { eventId, score }) {
+        const userId = rootGetters['user/getUser']?.uid;
+        if (!userId) throw new Error('User must be logged in to rate organization.');
+
+        const numericScore = Number(score);
+        if (isNaN(numericScore) || numericScore < 0 || numericScore > 5) { // Assuming 0-5 or 1-5 scale
+            throw new Error('Invalid rating score provided. Must be a number between 0 and 5.');
+        }
+
+        const eventRef = doc(db, 'events', eventId);
+        try {
+            const eventSnap = await getDoc(eventRef);
+            if (!eventSnap.exists()) throw new Error('Event not found.');
+            const eventData = eventSnap.data();
+
+            if (eventData.status !== 'Completed') throw new Error('Organization can only be rated for completed events.');
+
+            // **Permission Check (Example: Allow only participants to rate organization)**
+            let isParticipant = false;
+            if (eventData.isTeamEvent && Array.isArray(eventData.teams)) {
+                isParticipant = eventData.teams.some(team => team.members?.includes(userId));
+            } else if (!eventData.isTeamEvent && Array.isArray(eventData.participants)) {
+                isParticipant = eventData.participants.includes(userId);
+            }
+            if (!isParticipant) {
+                // Alternatively, could allow admins too, or check if already rated by this user
+                throw new Error('Only event participants can rate the organization.');
+            }
+            // ** End Permission Check Example **
+
+            // We'll store simple scores in the array. Add checks if user can rate multiple times?
+            // For simplicity now, we just add the score using arrayUnion.
+            // A more robust approach might store objects { ratedBy: userId, score: numericScore, ratedAt: now }
+            // and filter before adding, similar to other ratings.
+            await updateDoc(eventRef, {
+                organizationRatings: arrayUnion(numericScore)
+            });
+
+            // Fetch updated data to update local state
+            const freshSnap = await getDoc(eventRef);
+            const updatedRatings = freshSnap.data()?.organizationRatings || [];
+            dispatch('updateLocalEvent', { id: eventId, changes: { organizationRatings: updatedRatings } });
+
+            console.log(`Organization rating (${numericScore}) submitted for event ${eventId} by user ${userId}.`);
+
+        } catch (error) {
+            console.error(`Error submitting organization rating for event ${eventId}:`, error);
+            throw error;
+        }
     },
 };
