@@ -27,18 +27,18 @@
 
             <div v-else class="row g-4">
                 <!-- Left Column: Profile Info -->
-                <div class="col-lg-4">
-                    <div class="card h-100">  
-                        <div class="card-body text-center p-4">
+                <div class="col-lg-4"> <!-- Changed from col-md-4 -->
+                    <div class="card h-100">
+                        <div class="card-body text-center p-3 p-md-4"> <!-- Adjusted padding -->
                             <!-- Profile Photo -->
                             <div class="profile-photo-container mb-3">
-                                <img :src="user.photoURL || defaultAvatarUrl" 
+                                <img :src="user.photoURL || defaultAvatarUrl"
                                      :alt="user.name || 'Profile Photo'"
                                      class="rounded-circle profile-photo border border-2 border-light"
                                      @error="handleImageError">
                             </div>
                             <h2 class="h4 mb-3">{{ user.name || 'My Profile' }}</h2>
-                            
+
                             <!-- Quick Stats -->
                             <div class="row g-2 stats-container mb-4">
                                 <div class="col-4">
@@ -68,10 +68,10 @@
                             </div>
 
                             <!-- Skills & Roles -->
-                            <div class="text-start">
+                            <div class="text-center text-md-start"> <!-- Center text on mobile, start on medium+ -->
                                 <h3 class="h5 mb-2"><i class="fas fa-cogs me-1 text-secondary"></i>Skills</h3>
                                 <div class="mb-3">
-                                    <span v-if="user.skills?.length" class="badge text-bg-secondary me-1 mb-1" 
+                                    <span v-if="user.skills?.length" class="badge text-bg-secondary me-1 mb-1"
                                           v-for="skill in user.skills" :key="skill">
                                         {{ skill }}
                                     </span>
@@ -80,7 +80,7 @@
 
                                 <h3 class="h5 mb-2"><i class="fas fa-user-tag me-1 text-info"></i>Preferred Roles</h3>
                                 <div>
-                                    <span v-if="user.preferredRoles?.length" class="badge text-bg-info me-1 mb-1" 
+                                    <span v-if="user.preferredRoles?.length" class="badge text-bg-info me-1 mb-1"
                                           v-for="role in user.preferredRoles" :key="role">
                                         {{ role }}
                                     </span>
@@ -92,13 +92,13 @@
                 </div>
 
                 <!-- Right Column: XP & Events -->
-                <div class="col-lg-8">
+                <div class="col-lg-8"> <!-- Changed from col-md-8 -->
                     <!-- XP Breakdown Card -->
-                    <div class="card mb-4" v-if="hasXpData">  
+                    <div class="card mb-4" v-if="hasXpData">
                         <div class="card-header bg-white py-3">
                             <h3 class="h5 mb-0"><i class="fas fa-chart-pie me-2 text-primary"></i>XP Breakdown</h3>
                         </div>
-                        <div class="card-body p-4">
+                        <div class="card-body p-3 p-md-4"> <!-- Adjusted padding -->
                             <div class="row g-3">
                                 <div class="col-md-6" v-for="(xp, role) in user.xpByRole" :key="role">
                                     <div v-if="xp > 0">
@@ -116,12 +116,12 @@
                     </div>
 
                     <!-- Event Projects -->
-                    <div class="card mb-4"> 
+                    <div class="card mb-4">
                         <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                             <h3 class="h5 mb-0"><i class="fas fa-lightbulb me-2 text-success"></i>My Event Projects</h3>
                             <span class="badge bg-secondary rounded-pill">{{ userProjects.length }} Projects</span>
                         </div>
-                        <div class="card-body p-4">
+                        <div class="card-body p-3 p-md-4"> <!-- Adjusted padding -->
                             <div v-if="loadingProjects" class="text-center py-3">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                                 <span class="ms-2">Loading projects...</span>
@@ -150,11 +150,11 @@
                     </div>
 
                     <!-- Event Requests -->
-                    <div class="card mb-4"> 
+                    <div class="card mb-4">
                         <div class="card-header bg-white py-3">
                             <h3 class="h5 mb-0"><i class="fas fa-paper-plane me-2 text-info"></i>My Event Requests</h3>
                         </div>
-                        <div class="card-body p-4">
+                        <div class="card-body p-3 p-md-4"> <!-- Adjusted padding -->
                             <UserRequests />
                         </div>
                     </div>
@@ -359,12 +359,19 @@ const handleImageError = (e) => {
 
 <style scoped>
 .profile-photo-container {
-    width: 150px;
-    height: 150px;
-    margin: 0 auto;
+    width: 120px; /* Slightly smaller on mobile */
+    height: 120px;
+    margin: 0 auto var(--space-3) auto; /* Adjusted margin */
     overflow: hidden;
     border-radius: 50%;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+@media (min-width: 992px) { /* lg breakpoint */
+    .profile-photo-container {
+        width: 150px;
+        height: 150px;
+    }
 }
 
 .profile-photo {
@@ -412,5 +419,18 @@ const handleImageError = (e) => {
 
 .badge {
     font-weight: 500;
+}
+
+.card-body {
+    padding: var(--space-3); /* Default smaller padding */
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .card-body {
+        padding: var(--space-4); /* Restore larger padding on md+ */
+    }
+    .text-md-start {
+        text-align: left !important;
+    }
 }
 </style>

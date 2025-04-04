@@ -17,9 +17,9 @@
         </div>
         <div v-else class="row g-4">
             <!-- Left Column: Profile Info -->
-            <div class="col-md-4">
+            <div class="col-lg-4"> <!-- Changed from col-md-4 -->
                 <div class="card h-100">
-                    <div class="card-body text-center">
+                    <div class="card-body text-center p-3 p-md-4"> <!-- Adjusted padding -->
                         <!-- Profile Photo -->
                         <div class="profile-photo-container mb-3">
                             <img :src="user.photoURL || defaultAvatarUrl" 
@@ -53,13 +53,13 @@
 
                         <!-- Total XP -->
                         <div class="mb-4">
-                            <h3 class="h5">Total XP</h3>
-                            <div class="h2">{{ totalXp }}</div>
+                            <h3 class="h5 text-muted"><i class="fas fa-star me-1 text-warning"></i>Total XP</h3>
+                            <div class="h2 fw-bold">{{ totalXp }}</div>
                         </div>
 
                         <!-- Skills & Roles -->
-                        <div class="text-start">
-                            <h3 class="h5 mb-2">Skills</h3>
+                        <div class="text-center text-md-start"> <!-- Center text on mobile, start on medium+ -->
+                            <h3 class="h5 mb-2"><i class="fas fa-cogs me-1 text-secondary"></i>Skills</h3>
                             <div class="mb-3">
                                 <span v-if="user.skills?.length" class="badge bg-secondary me-1 mb-1" 
                                       v-for="skill in user.skills" :key="skill">
@@ -68,7 +68,7 @@
                                 <span v-else class="text-muted">Not specified</span>
                             </div>
 
-                            <h3 class="h5 mb-2">Preferred Roles</h3>
+                            <h3 class="h5 mb-2"><i class="fas fa-user-tag me-1 text-info"></i>Preferred Roles</h3>
                             <div>
                                 <span v-if="user.preferredRoles?.length" class="badge bg-info me-1 mb-1" 
                                       v-for="role in user.preferredRoles" :key="role">
@@ -82,15 +82,15 @@
             </div>
 
             <!-- Right Column: XP & Events -->
-            <div class="col-md-8">
+            <div class="col-lg-8"> <!-- Changed from col-md-8 -->
                 <!-- XP Breakdown Card -->
                 <div class="card mb-4" v-if="hasXpData">
                     <div class="card-header bg-white py-3">
                         <h3 class="h5 mb-0"><i class="fas fa-chart-pie me-2 text-primary"></i>XP Breakdown</h3>
                     </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-sm-6 mb-3" v-for="(xp, role) in user.xpByRole" :key="role">
+                    <div class="card-body p-3 p-md-4"> <!-- Adjusted padding -->
+                        <div class="row g-3">
+                            <div class="col-md-6" v-for="(xp, role) in user.xpByRole" :key="role">
                                 <div v-if="xp > 0">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <span>{{ formatRoleName(role) }}</span>
@@ -108,10 +108,10 @@
                 <!-- Events Participation -->
                 <div class="card mb-4">
                     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h3 class="h5 mb-0"><i class="fas fa-lightbulb me-2 text-success"></i>My Event Projects</h3>
-                        <span class="badge bg-secondary">{{ participatedEvents.length }} Events</span>
+                        <h3 class="h5 mb-0"><i class="fas fa-lightbulb me-2 text-success"></i>Event History</h3>
+                        <span class="badge bg-secondary rounded-pill">{{ participatedEvents.length }} Events</span>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-3 p-md-4"> <!-- Adjusted padding -->
                         <div v-if="loadingEvents" class="text-center py-3">
                             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                         </div>
@@ -156,10 +156,10 @@
 
                 <!-- Projects Section -->
                 <div class="card"> 
-                    <div class="card-header">
-                        <h3 class="h5 mb-0">Project Submissions</h3>
+                    <div class="card-header bg-white py-3">
+                        <h3 class="h5 mb-0"><i class="fas fa-paperclip me-2 text-info"></i>Project Submissions</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-3 p-md-4"> <!-- Adjusted padding -->
                         <div v-if="loadingProjects" class="text-center py-3">
                             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                         </div>
@@ -382,10 +382,16 @@ watch(() => props.userId, (newId) => {
 
 <style scoped>
 .profile-photo-container {
-    width: 150px;
-    height: 150px;
-    margin: 0 auto;
-    overflow: hidden;
+    width: 120px; /* Slightly smaller on mobile */
+    height: 120px;
+    margin: 0 auto var(--space-3) auto; /* Adjusted margin */
+}
+
+@media (min-width: 992px) { /* lg breakpoint */
+    .profile-photo-container {
+        width: 150px;
+        height: 150px;
+    }
 }
 
 .profile-photo {
@@ -410,5 +416,18 @@ watch(() => props.userId, (newId) => {
 
 .list-group-item:last-child {
     border-bottom: 0 !important;
+}
+
+.card-body {
+    padding: var(--space-3); /* Default smaller padding */
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .card-body {
+        padding: var(--space-4); /* Restore larger padding on md+ */
+    }
+    .text-md-start {
+        text-align: left !important;
+    }
 }
 </style>

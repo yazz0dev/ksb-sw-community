@@ -52,6 +52,7 @@
              </transition>
          </router-view>
     </main>
+    <BottomNav v-if="isAuthenticated" /> <!-- Add BottomNav, conditionally rendered -->
   </div>
 </template>
 
@@ -61,6 +62,7 @@ import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth'; // Import signOut
 import { Collapse } from 'bootstrap';
+import BottomNav from './components/BottomNav.vue'; // Import BottomNav
 
 const store = useStore();
 const router = useRouter();

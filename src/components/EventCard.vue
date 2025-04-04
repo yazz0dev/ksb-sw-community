@@ -1,89 +1,68 @@
-//src/components/EventCard.vue 
-//src/components/EventCard.vue
 <template>
-  <div class="card event-card h-100">
-    <div class="card-body d-flex flex-column">
+  <div class="card h-100 shadow-sm event-card" :class="cardClass">
+    <div class="card-body p-3"> <!-- Adjusted padding -->
       <div class="d-flex justify-content-between align-items-start mb-2">
         <h5 class="card-title mb-0 me-2">{{ event.eventName }}</h5>
-        <span :class="['badge', statusBadgeClass, 'ms-auto']">{{ event.status }}</span>
+        <span class="badge rounded-pill" :class="statusBadgeClass">{{ event.status }}</span>
       </div>
-      <p class="card-text text-muted small mb-1">Type: {{ event.eventType }}</p>
-      <p class="card-text small mb-2">
-        <i class="far fa-calendar-alt me-1 text-muted"></i>
-        {{ formatDate(event.startDate) }} - {{ formatDate(event.endDate) }}
+      <p class="card-subtitle mb-2 text-muted small">
+        <i class="fas fa-tag me-1"></i>{{ event.eventType }}
+        <span class="mx-2">|</span>
+        <i class="fas fa-calendar-alt me-1"></i>{{ formatDateRange(event.startDate, event.endDate) }}
       </p>
-      <router-link :to="'/event/' + event.id" class="btn btn-primary btn-sm mt-auto stretched-link">
-        View Details <i class="fas fa-arrow-right ms-1"></i>
-      </router-link>
+      <p class="card-text small mb-3">{{ truncatedDescription }}</p>
+      <div class="d-flex justify-content-between align-items-center">
+        <router-link :to="{ name: 'EventDetail', params: { eventId: event.id } }" class="btn btn-sm btn-primary">
+          View Details
+        </router-link>
+        <span class="text-muted small">
+          <i class="fas fa-users me-1"></i> {{ participantCount }}
+        </span>
+      </div>
     </div>
   </div>
 </template>
 
-<script>
-export default {
-  props: {
-    event: {
-      type: Object,
-      required: true,
-    },
-  },
-  computed: {
-    statusBadgeClass() {
-      switch (this.event.status) {
-        case 'Approved':
-        case 'Upcoming':
-          return 'bg-info text-dark';
-        case 'In Progress':
-          return 'bg-success';
-        case 'Completed':
-          return 'bg-secondary';
-        case 'Cancelled':
-        case 'Rejected':
-          return 'bg-danger';
-        case 'Pending':
-          return 'bg-warning text-dark';
-        default:
-          return 'bg-light text-dark';
-      }
-    },
-  },
-  methods: {
-    formatDate(timestamp) {
-      if (!timestamp?.seconds) {
-        if (this.event.desiredStartDate?.seconds) {
-             return new Date(this.event.desiredStartDate.seconds * 1000).toLocaleDateString();
-        }
-         return 'N/A';
-      }
-      return new Date(timestamp.seconds * 1000).toLocaleDateString();
-    },
-  }
-};
+<script setup>
+// ... existing script ...
 </script>
 
 <style scoped>
 .event-card {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  border: none; /* Rely on shadow */
 }
+
 .event-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md) !important; /* Use larger shadow from variables */
 }
+
 .card-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-size: 1.05rem; /* Slightly smaller title */
 }
-.badge {
-    font-size: 0.75em;
+
+.card-text {
+  font-size: 0.875rem; /* Ensure text isn't too large */
+  color: var(--color-text-secondary);
 }
-.stretched-link::after {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 1;
-    content: "";
+
+/* Adjust padding for medium screens and up if needed */
+@media (min-width: 768px) {
+  .card-body {
+    /* padding: var(--space-4); */ /* Optional: Increase padding on larger screens */
+  }
+  .card-title {
+    font-size: 1.1rem; /* Slightly larger title on desktop */
+  }
+}
+
+/* Status-specific styles */
+.card-cancelled {
+  opacity: 0.7;
+  background-color: #f8f9fa; /* Lighter background for cancelled */
+}
+.card-cancelled .card-title {
+  text-decoration: line-through;
 }
 </style>

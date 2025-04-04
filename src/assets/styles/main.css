@@ -1054,4 +1054,74 @@ textarea.form-control {
 }
 
 
+/* --- Bottom Navigation Bar (Mobile Only) --- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px; /* Adjust height as needed */
+    background-color: var(--color-surface);
+    border-top: var(--border-width) solid var(--border-color-default);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 1000; /* Ensure it's above content */
+}
+
+.bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1; /* Distribute space evenly */
+    color: var(--color-text-muted);
+    text-decoration: none;
+    font-size: 0.75rem; /* Smaller font size */
+    padding: var(--space-1) 0;
+    text-align: center;
+    transition: color 0.2s ease;
+    height: 100%; /* Fill the bar height */
+}
+
+.bottom-nav-item i {
+    font-size: 1.25rem; /* Icon size */
+    margin-bottom: var(--space-1);
+}
+
+.bottom-nav-item .profile-icon {
+    width: 24px; /* Size for profile picture */
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: var(--space-1);
+    border: 1px solid var(--color-border); /* Optional border */
+}
+
+.bottom-nav-item.router-link-exact-active {
+    color: var(--color-primary);
+    font-weight: 500;
+}
+
+/* Hide bottom nav on medium screens and up */
+@media (min-width: 768px) { /* Bootstrap's md breakpoint */
+    .bottom-nav {
+        display: none;
+    }
+    /* Remove bottom padding from body on larger screens */
+    body {
+        padding-bottom: 0;
+    }
+}
+
+/* Add padding to body on small screens to prevent overlap */
+@media (max-width: 767.98px) {
+    body {
+        /* Add padding equal to the bottom nav height */
+        padding-bottom: 60px; /* Match .bottom-nav height */
+    }
+}
+
+
 /* --- End Component Styling Overrides --- */

@@ -25,7 +25,7 @@
         <h3 class="mb-3">Upcoming Events</h3>
         <div v-if="upcomingEvents.length === 0" class="alert alert-light">No upcoming events.</div>
         <div v-else class="row g-3">
-          <div class="col-lg-4 col-md-6" v-for="event in upcomingEvents" :key="`upcoming-${event.id}`"> 
+          <div class="col-md-6 col-lg-4" v-for="event in upcomingEvents" :key="`upcoming-${event.id}`"> 
             <EventCard :event="event" />
           </div>
         </div>
@@ -36,7 +36,7 @@
         <h3 class="mb-3">Active Events</h3>
         <div v-if="activeEvents.length === 0" class="alert alert-light">No events currently in progress.</div>
         <div v-else class="row g-3"> 
-          <div class="col-lg-4 col-md-6" v-for="event in activeEvents" :key="`active-${event.id}`"> 
+          <div class="col-md-6 col-lg-4" v-for="event in activeEvents" :key="`active-${event.id}`"> 
             <EventCard :event="event" />
           </div>
         </div>
@@ -47,7 +47,7 @@
         <h3 class="mb-3">Completed Events</h3>
         <div v-if="completedEvents.length === 0" class="alert alert-light">No completed events yet.</div>
         <div v-else class="row g-3"> 
-          <div class="col-lg-4 col-md-6" v-for="event in completedEvents" :key="`completed-${event.id}`"> 
+          <div class="col-md-6 col-lg-4" v-for="event in completedEvents" :key="`completed-${event.id}`"> 
             <EventCard :event="event" />
           </div>
         </div>
@@ -64,7 +64,7 @@
           </button>
         </div>
         <div v-show="showCancelled" class="row g-3"> 
-          <div class="col-lg-4 col-md-6" v-for="event in cancelledEvents" :key="`cancelled-${event.id}`"> 
+          <div class="col-md-6 col-lg-4" v-for="event in cancelledEvents" :key="`cancelled-${event.id}`"> 
             <EventCard :event="event" />
           </div>
         </div>

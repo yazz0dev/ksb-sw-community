@@ -1,12 +1,10 @@
 <template>
   <div class="container mt-5">
     <div class="row justify-content-center">
-      <div class="col-md-6 col-lg-5">
-        <div class="card"> 
-          <div class="card-header">
-            <h2 class="mb-0">Login</h2> 
-          </div>
-          <div class="card-body">
+      <div class="col-md-8 col-lg-6"> <!-- Adjusted column classes -->
+        <div class="card shadow-sm">
+          <div class="card-body p-4 p-md-5"> <!-- Adjusted padding -->
+            <h2 class="card-title text-center mb-4">Login</h2>
             <div v-if="errorMessage" class="alert alert-danger" role="alert">
               {{ errorMessage }}
             </div>
@@ -41,6 +39,12 @@
             </form>
              <div class="mt-4 text-center"> 
               <router-link to="/forgot-password" class="small">Forgot Password?</router-link> 
+            </div>
+            <hr class="my-4">
+            <div class="text-center">
+              <button @click="signInWithGoogle" class="btn btn-light border w-100">
+                <img src="https://img.icons8.com/color/16/000000/google-logo.png" alt="Google logo" class="me-2"/> Sign in with Google
+              </button>
             </div>
           </div>
         </div>
@@ -109,5 +113,13 @@ const signIn = async () => {
 </script>
 
 <style scoped>
-/* Removed custom space-y-4 style, using Bootstrap mb-4 utility now */
+.card-body {
+    padding: var(--space-4); /* Default padding */
+}
+
+@media (min-width: 768px) { /* md breakpoint */
+    .card-body {
+        padding: var(--space-6); /* Larger padding on md+ */
+    }
+}
 </style>

@@ -5,7 +5,7 @@
         <div v-if="categories.length === 0" class="alert alert-info">No resources available at the moment.</div>
 
         <div v-else class="resource-categories row g-4"> 
-            <div v-for="(category, index) in categories" :key="index" class="col-md-6"> 
+            <div v-for="(category, index) in categories" :key="index" class="col-md-6 col-lg-4"> <!-- Adjusted column classes -->
                  <div class="card h-100">
                     <div class="card-header">
                         <h3 class="mb-0">{{ category.title }}</h3>
@@ -94,4 +94,33 @@ const getIconClass = (type) => {
 .list-group-item a:hover { color: var(--color-primary); background-color: var(--color-background); }
 .fa-xs { font-size: 0.75em; }
 .opacity-50 { opacity: 0.5; }
+
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border: none;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md) !important;
+}
+
+.card-title {
+    font-size: 1.05rem; /* Slightly smaller title */
+}
+
+.card-text {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+/* Adjust padding for medium screens and up if needed */
+@media (min-width: 768px) {
+    .card-body {
+        padding: var(--space-4); /* Restore larger padding on md+ */
+    }
+    .card-title {
+        font-size: 1.1rem;
+    }
+}
 </style>

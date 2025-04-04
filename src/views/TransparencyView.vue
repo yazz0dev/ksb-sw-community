@@ -1,4 +1,3 @@
-// /src/views/TransparencyView.vue
 <template>
     <div class="container mt-4 mb-5">
       <h2 class="mb-4 text-center">Community Transparency & Guidelines</h2>
@@ -9,63 +8,63 @@
                 <div class="card-header bg-primary text-white">
                     <h3 class="mb-0 h5"><i class="fas fa-info-circle me-2"></i>Introduction</h3>
                 </div>
-                <div class="card-body" v-html="renderSection(introductionContent)"></div>
+                <div class="card-body p-3 p-md-4" v-html="renderSection(introductionContent)"></div>
             </div>
 
             <div class="card mb-4">
                 <div class="card-header bg-secondary text-white">
                     <h3 class="mb-0 h5"><i class="fas fa-users-cog me-2"></i>Roles & Permissions</h3>
                 </div>
-                <div class="card-body" v-html="renderSection(rolesContent)"></div>
+                <div class="card-body p-3 p-md-4" v-html="renderSection(rolesContent)"></div>
             </div>
 
             <div class="card mb-4">
                 <div class="card-header bg-info text-dark">
                     <h3 class="mb-0 h5"><i class="fas fa-project-diagram me-2"></i>Event Lifecycle</h3>
                 </div>
-                <div class="card-body" v-html="renderSection(eventLifecycleContent)"></div>
+                <div class="card-body p-3 p-md-4" v-html="renderSection(eventLifecycleContent)"></div>
             </div>
 
             <div class="card mb-4">
                 <div class="card-header bg-secondary text-white">
                     <h3 class="mb-0 h5"><i class="fas fa-users me-2"></i>Team Management</h3>
                 </div>
-                <div class="card-body" v-html="renderSection(teamsContent)"></div>
+                <div class="card-body p-3 p-md-4" v-html="renderSection(teamsContent)"></div>
             </div>
 
             <div class="card mb-4">
                 <div class="card-header bg-warning text-dark">
                     <h3 class="mb-0 h5"><i class="fas fa-star-half-alt me-2"></i>Rating System</h3>
                 </div>
-                <div class="card-body" v-html="renderSection(ratingContent)"></div>
+                <div class="card-body p-3 p-md-4" v-html="renderSection(ratingContent)"></div>
             </div>
 
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
                     <h3 class="mb-0 h5"><i class="fas fa-star me-2"></i>Experience Points (XP) System</h3>
                 </div>
-                <div class="card-body" v-html="renderSection(xpContent)"></div>
+                <div class="card-body p-3 p-md-4" v-html="renderSection(xpContent)"></div>
             </div>
 
             <div class="card mb-4">
                 <div class="card-header bg-success text-white">
                      <h3 class="mb-0 h5"><i class="fas fa-file-pdf me-2"></i>Portfolio & Projects</h3>
                 </div>
-                <div class="card-body" v-html="renderSection(portfolioContent)"></div>
+                <div class="card-body p-3 p-md-4" v-html="renderSection(portfolioContent)"></div>
             </div>
 
              <div class="card mb-4">
                 <div class="card-header bg-warning text-dark">
                     <h3 class="mb-0 h5"><i class="fas fa-trophy me-2"></i>Leaderboard</h3>
                 </div>
-                <div class="card-body" v-html="renderSection(leaderboardContent)"></div>
+                <div class="card-body p-3 p-md-4" v-html="renderSection(leaderboardContent)"></div>
             </div>
 
              <div class="card mb-4">
                  <div class="card-header bg-light text-dark">
                     <h3 class="mb-0 h5"><i class="fas fa-book-open me-2"></i>General Information</h3>
                 </div>
-                <div class="card-body" v-html="renderSection(generalContent)"></div>
+                <div class="card-body p-3 p-md-4" v-html="renderSection(generalContent)"></div>
             </div>
       </div>
     </div>

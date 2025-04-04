@@ -1,175 +1,85 @@
 <template>
-    <div class="team-management">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0">Define Teams</h4>
+    <div class="manage-teams-component">
+        <h4 class="mb-3">Define Teams</h4>
+        <p class="text-muted small mb-3">Define at least two teams for this event. Add members to each team.</p>
+
+        <div v-if="teams.length === 0" class="alert alert-warning small py-2">
+            No teams defined yet. Click "Add Team".
         </div>
 
-        <!-- Auto-Generation Section -->
-        <div v-if="props.canAutoGenerate" class="card mb-4 bg-light-subtle">
-            <div class="card-body p-3">
-                <h6 class="card-title mb-2">Auto-Generate Teams</h6>
-                 <div v-if="autoGenErrorMessage" class="alert alert-warning alert-sm py-1 px-2 mb-2" role="alert">{{ autoGenErrorMessage }}</div>
-                <div class="row g-2 align-items-end">
-                    <div class="col-md-5">
-                        <label class="form-label small mb-1">Generation Method:</label>
-                        <select v-model="autoGenType" class="form-select form-select-sm" :disabled="props.isSubmitting">
-                            <option value="numberOfTeams">Number of Teams</option>
-                            <option value="maxMembers">Max Members per Team</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label for="autoGenValueInput" class="form-label small mb-1">
-                            {{ autoGenType === 'numberOfTeams' ? 'Teams:' : 'Max Size:' }}
-                        </label>
-                        <input type="number" id="autoGenValueInput" v-model.number="autoGenValue"
-                               class="form-control form-control-sm"
-                               :min="autoGenType === 'numberOfTeams' ? 2 : 1"
-                               :disabled="props.isSubmitting" />
-                    </div>
+        <div v-for="(team, index) in teams" :key="index" class="card mb-3 team-card">
+            <div class="card-body p-3"> <!-- Adjusted padding -->
+                <div class="row g-3 align-items-center">
+                    <!-- Team Name Input -->
                     <div class="col-md-4">
-                         <button @click="triggerAutoGenerate"
-                                class="btn btn-sm btn-primary w-100"
-                                :disabled="props.isSubmitting || !canTriggerAutoGenerate">
-                            <i class="fas fa-cogs me-1"></i> Generate
-                        </button>
+                        <label :for="'teamName-' + index" class="form-label small mb-1">Team {{ index + 1 }} Name <span class="text-danger">*</span></label>
+                        <input type="text" :id="'teamName-' + index"
+                               v-model.trim="team.teamName"
+                               class="form-control form-control-sm"
+                               placeholder="Enter team name"
+                               :disabled="isSubmitting"
+                               @input="emitUpdate">
                     </div>
-                </div>
-            </div>
-        </div>
 
-        <div v-if="addTeamErrorMessage" class="alert alert-danger alert-sm" role="alert">{{ addTeamErrorMessage }}</div>
-
-        <!-- Teams List -->
-        <div class="mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Current Teams ({{ sortedTeams.length }})</h5>
-                <button v-if="!areAllStudentsAssigned"
-                        @click="prepareNewTeam"
-                        class="btn btn-sm btn-outline-primary"
-                        :disabled="props.isSubmitting || showNewTeamForm">
-                    <i class="fas fa-plus me-1"></i> Add New Team
-                </button>
-            </div>
-
-            <div v-if="sortedTeams.length === 0" class="alert alert-light alert-sm py-2 px-3">
-                No teams defined yet. Click 'Add New Team' to start.
-            </div>
-            <div v-else class="row row-cols-1 row-cols-md-2 g-3 mb-3">
-                <div v-for="(team) in sortedTeams" :key="team.teamName" class="col">
-                    <div class="card h-100" :class="{ 'border-primary': editingTeamName === team.teamName }">
-                        <div class="card-body position-relative py-2 px-3">
-                            <div class="d-flex justify-content-between">
-                                <h6 class="card-title mb-2">{{ team.teamName }}</h6>
-                                <div class="btn-group btn-group-sm">
-                                    <button @click="editTeam(team.teamName)" type="button"
-                                            class="btn btn-outline-primary btn-sm"
-                                            :disabled="props.isSubmitting || editingTeamName === team.teamName || showNewTeamForm">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button @click="deleteTeam(team.teamName)" type="button"
-                                            class="btn btn-outline-danger btn-sm"
-                                            :disabled="props.isSubmitting || sortedTeams.length <= 2">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
+                    <!-- Member Selection -->
+                    <div class="col-md-6">
+                        <label :for="'memberSearch-' + index" class="form-label small mb-1">Add Members ({{ team.members.length }}) <span class="text-danger">*</span></label>
+                        <div class="position-relative">
+                            <input type="text" :id="'memberSearch-' + index"
+                                   v-model="searchQueries[index]"
+                                   class="form-control form-control-sm"
+                                   placeholder="Search students..."
+                                   @focus="showDropdown(index)"
+                                   @blur="hideDropdown(index)"
+                                   :disabled="isSubmitting"
+                                   autocomplete="off">
+                            <!-- Dropdown for suggestions -->
+                            <div v-if="dropdownVisible[index] && filteredStudents(index).length > 0"
+                                 class="dropdown-menu d-block position-absolute w-100 shadow mt-1" style="max-height: 150px; overflow-y: auto; z-index: 1050;">
+                                <button v-for="student in filteredStudents(index)"
+                                        :key="student.uid"
+                                        class="dropdown-item dropdown-item-sm py-1" type="button"
+                                        @mousedown.prevent="addMember(index, student)">
+                                    {{ student.name }}
+                                </button>
                             </div>
-                            <div class="team-members">
-                                <div v-if="team.members && team.members.length > 0" class="d-flex flex-wrap gap-1">
-                                    <span v-for="memberId in team.members" :key="memberId"
-                                          class="badge bg-light text-dark border small">
-                                        {{ props.nameCache[memberId] || 'Anonymous User' }}
-                                    </span>
-                                </div>
-                                <p v-else class="text-muted small mb-0">No members assigned</p>
-                            </div>
+                             <div v-if="dropdownVisible[index] && searchQueries[index] && !filteredStudents(index).length"
+                                  class="dropdown-menu d-block position-absolute w-100 shadow mt-1">
+                                 <span class="dropdown-item dropdown-item-sm text-muted disabled py-1">No matching students found.</span>
+                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Team Edit/Add Form -->
-        <div v-if="editingTeamName !== null || showNewTeamForm" class="card mb-3">
-            <div class="card-header">
-                 <h6 class="mb-0">{{ showNewTeamForm && editingTeamName === null ? 'Add New Team' : `Edit Team: ${editingTeamName}` }}</h6>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label :for="'teamNameInput' + (editingTeamName ?? 'New')" class="form-label">
-                        Team Name <span class="text-danger">*</span>
-                    </label>
-                    <input type="text" :id="'teamNameInput' + (editingTeamName ?? 'New')"
-                           v-model="currentTeam.teamName" required class="form-control"
-                           :disabled="props.isSubmitting" placeholder="Enter unique team name"/>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label d-flex justify-content-between">
-                        <span>Team Members ({{ currentTeam.members.length }})</span>
-                        <small class="text-muted">Min: 1 member</small>
-                    </label>
-                    <div class="input-group input-group-sm mb-2">
-                        <input type="text" v-model="studentSearch"
-                               placeholder="Search students..."
-                               class="form-control"/>
-                        <button class="btn btn-outline-secondary" type="button"
-                                @click="studentSearch = ''"
-                                v-if="studentSearch">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-
-                    <!-- Available Students List -->
-                    <div class="row gx-2">
-                        <div class="col-md-6">
-                            <h6 class="small mb-2">Available Students</h6>
-                            <div class="available-students-list border rounded p-2" style="height: 200px; overflow-y: auto;">
-                                <div v-for="student in filteredAvailableStudents" :key="student.uid"
-                                     class="student-item d-flex justify-content-between align-items-center p-1"
-                                     :class="{ 'text-muted': isStudentAssignedElsewhere(student.uid) }">
-                                    <span>{{ props.nameCache[student.uid] || 'Anonymous User' }}</span>
-                                    <button @click="addMember(student.uid)"
-                                            class="btn btn-sm btn-outline-success py-0 px-2"
-                                            :disabled="isStudentAssignedElsewhere(student.uid)">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                </div>
-                                <div v-if="filteredAvailableStudents.length === 0 && studentSearch" class="text-muted small p-2">No matching students found.</div>
-                                <div v-if="filteredAvailableStudents.length === 0 && !studentSearch" class="text-muted small p-2">All available students are in this team or assigned elsewhere.</div>
-                            </div>
-                        </div>
-
                         <!-- Selected Members List -->
-                        <div class="col-md-6">
-                            <h6 class="small mb-2">Team Members</h6>
-                            <div class="selected-members-list border rounded p-2" style="height: 200px; overflow-y: auto;">
-                                <div v-if="currentTeam.members.length === 0" class="text-muted small p-2">No members added yet.</div>
-                                <div v-else v-for="memberId in currentTeam.members" :key="memberId"
-                                     class="student-item d-flex justify-content-between align-items-center p-1">
-                                    <span>{{ props.nameCache[memberId] || 'Anonymous User' }}</span>
-                                    <button @click="removeMember(memberId)"
-                                            class="btn btn-sm btn-outline-danger py-0 px-2">
-                                        <i class="fas fa-minus"></i>
-                                    </button>
-                                </div>
-                            </div>
+                        <div v-if="team.members.length > 0" class="mt-2 d-flex flex-wrap gap-1">
+                            <span v-for="memberId in team.members" :key="memberId"
+                                  class="badge text-bg-light border d-flex align-items-center py-1 px-2">
+                                {{ nameCache[memberId] || memberId }}
+                                <button type="button" class="btn-close ms-1" aria-label="Remove"
+                                        @click="removeMember(index, memberId)" :disabled="isSubmitting"
+                                        style="font-size: 0.6em; padding: 0.1em 0.2em;"></button>
+                            </span>
                         </div>
                     </div>
-                </div>
 
-                <div class="d-flex gap-2 justify-content-end">
-                    <button type="button" @click="cancelEdit"
-                            class="btn btn-sm btn-secondary"
-                            :disabled="props.isSubmitting">
-                        Cancel
-                    </button>
-                    <button type="button" @click="saveTeam"
-                            class="btn btn-sm btn-primary"
-                            :disabled="!canSaveTeam">
-                        {{ editingTeamName === null ? 'Add Team' : 'Save Changes' }}
-                    </button>
+                    <!-- Remove Team Button -->
+                    <div class="col-md-2 text-md-end align-self-center pt-3 pt-md-0">
+                        <button type="button" class="btn btn-sm btn-outline-danger w-100 w-md-auto" <!-- Adjusted width -->
+                                @click="removeTeam(index)"
+                                :disabled="isSubmitting || teams.length <= 1">
+                            <i class="fas fa-trash-alt"></i> <span class="d-none d-md-inline">Remove</span>
+                        </button>
+                    </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Add Team Button -->
+        <div class="mt-3 text-center">
+            <button type="button" class="btn btn-sm btn-outline-success" @click="addTeam" :disabled="isSubmitting || !canAddTeam">
+                <i class="fas fa-plus me-1"></i> Add Another Team
+            </button>
+            <p v-if="!canAddTeam" class="form-text text-warning small mt-1">
+                Maximum number of teams reached or cannot add more based on available students.
+            </p>
         </div>
     </div>
 </template>
@@ -505,30 +415,31 @@ const emitUpdate = (): void => {
 </script>
 
 <style scoped>
-.team-member-select { min-height: 150px; max-height: 250px; }
-.team-member-select option:disabled { color: #adb5bd; font-style: italic; background-color: #e9ecef; }
-.fa-xs { font-size: 0.7em; }
-.student-item {
-    cursor: default; /* Indicate non-interactive text */
-    transition: background-color 0.2s ease-in-out;
+.team-card {
+    background-color: #f8f9fa; /* Light background for team cards */
+    border: 1px solid #dee2e6;
 }
-.student-item:hover { background-color: rgba(0,0,0,0.05); }
-.available-students-list, .selected-members-list {
-    background: white;
+
+.form-label.small {
+    font-size: 0.8rem;
+    font-weight: 500;
 }
-.team-members {
-    min-height: 2rem; /* Ensure space even when empty */
-    display: flex; /* Use flexbox for alignment */
-    align-items: center; /* Vertically center content */
-    flex-wrap: wrap; /* Allow badges to wrap */
-    gap: 0.25rem; /* Space between badges */
+
+.dropdown-menu {
+    z-index: 1050; /* Ensure dropdown is on top */
 }
-.team-members .text-muted { /* Ensure placeholder text is centered */
-    width: 100%;
-    text-align: center;
-    font-style: italic;
+
+.dropdown-item-sm {
+    font-size: 0.875rem;
 }
-.card.border-primary {
-    box-shadow: 0 0 0 0.25rem rgba(var(--color-primary-rgb), 0.25);
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) { /* Below md */
+    .col-md-2.text-md-end {
+        text-align: center !important; /* Center button on small screens */
+    }
+    .w-md-auto {
+        width: auto !important; /* Allow button to shrink on mobile */
+    }
 }
 </style>
