@@ -61,8 +61,15 @@
                         <input type="date" v-model="endDate" id="endDate" required :min="startDate || minDate" @change="validateDates" class="mt-1 block w-full rounded-md border-secondary shadow-sm focus:border-primary focus:ring focus:ring-primary-light focus:ring-opacity-50 sm:text-sm">
                          <p v-if="dateErrorMessages.endDate" class="mt-1 text-xs text-red-600">{{ dateErrorMessages.endDate }}</p>
                     </div>
-                </div>
-                <!-- Organizer Selection -->
+                 </div>
+                 <!-- Potential Conflict Suggestion -->
+                 <div v-if="suggestedNextAvailableDate && dateErrorMessages.startDate" class="mt-2 rounded-md bg-blue-50 p-3 text-xs text-blue-700 border border-blue-200">
+                      <p><i class="fas fa-info-circle mr-1"></i>The earliest available date slot starting after your desired period seems to be around {{ suggestedNextAvailableDate.toLocaleDateString() }}.</p>
+                      <button type="button" @click="setSuggestedDate" class="mt-1 text-blue-600 hover:underline font-medium" :disabled="isFindingNextDate">
+                          {{ isFindingNextDate ? 'Checking...' : 'Use this date?' }}
+                      </button>
+                  </div>
+                 <!-- Organizer Selection -->
                 <div>
                     <h4 class="text-md font-medium text-gray-800 mb-2">Organizers <span class="text-xs text-gray-500">(Max {{ maxOrganizers }} including requester if applicable)</span></h4>
                     <p v-if="originalRequesterName" class="text-xs text-gray-500 mb-2">Original Requester: <span class="font-medium">{{ originalRequesterName }}</span> (automatically included)</p>
@@ -140,7 +147,7 @@
                         </div>
                         <div class="flex-shrink-0 w-full md:w-auto">
                              <label :for="`criteria-points-${index}`" class="sr-only">XP Points</label>
-                             <input :id="`criteria-points-${index}`" type="number" v-model.number="criteria.points" min="1" max="100" class="block w-full rounded-md border-secondary shadow-sm focus:border-primary focus:ring focus:ring-primary-light focus:ring-opacity-50 sm:text-sm" placeholder="XP" />
+                             <input :id="`criteria-points-${index}`" type="range" v-model.number="criteria.points" min="1" max="50" class="block w-full cursor-pointer accent-primary py-1.5" />
                         </div>
                          <button @click="removeConstraint(index)" type="button" :disabled="ratingCriteria.length <= 1" class="text-gray-400 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed p-2 rounded-full hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-300">
                               <i class="fas fa-trash h-4 w-4"></i><span class="sr-only">Remove Criteria</span>
@@ -152,8 +159,8 @@
                          <i class="fas fa-plus mr-1"></i> Add Criteria
                     </button>
                     <div class="text-right">
-                        <p class="text-sm font-semibold text-gray-800">Total XP Allocated: {{ totalAllocatedXp }} / 100</p>
-                        <p v-if="totalAllocatedXp > 100" class="mt-1 text-xs text-red-600">Total XP exceeds the 100 point limit.</p>
+                        <p class="text-sm font-semibold text-gray-800">Total XP Allocated: {{ totalAllocatedXp }} / 50</p>
+                        <p v-if="totalAllocatedXp > 50" class="mt-1 text-xs text-red-600">Total XP exceeds the 50 point limit.</p>
                     </div>
                 </div>
             </div>
@@ -237,6 +244,10 @@ const isSubmitting = ref<boolean>(false);
 
 // --- Date Validation State ---
 const dateErrorMessages = ref<{ startDate: string; endDate: string }>({ startDate: '', endDate: '' });
+const conflictWarnings = ref<{ startDate: string | null; endDate: string | null }>({ startDate: null, endDate: null });
+const isCheckingConflict = ref<boolean>(false);
+const suggestedNextAvailableDate = ref<Date | null>(null);
+const isFindingNextDate = ref<boolean>(false);
 
 // --- Computed ---
 const currentUser = computed(() => store.getters['user/getUser']);
@@ -343,8 +354,10 @@ watch(eventStatus, (newStatus) => {
 
 // --- Methods ---
 
-const validateDates = () => {
-    dateErrorMessages.value = { startDate: '', endDate: '' };
+const validateDates = async () => { // Make async
+    dateErrorMessages.value = { startDate: '', endDate: '' }; // Reset errors
+    conflictWarnings.value = { startDate: null, endDate: null }; // Reset warnings
+    suggestedNextAvailableDate.value = null; // Reset suggestion
     let start: Date | null = null;
     let end: Date | null = null;
 
@@ -357,7 +370,56 @@ const validateDates = () => {
              dateErrorMessages.value.endDate = 'End date cannot be before the start date.';
          }
     }
-    // Conflict checking could be added here if admins also need it, but likely less critical than for requests.
+
+     // Check for conflicts only if dates are valid so far
+     if (start && end && !dateErrorMessages.value.startDate && !dateErrorMessages.value.endDate) {
+         isCheckingConflict.value = true;
+         isFindingNextDate.value = false; // Reset
+         try {
+             // Pass the current event ID if editing, so it doesn't conflict with itself
+             const conflict = await store.dispatch('events/checkDateConflict', {
+                 startDate: start,
+                 endDate: end,
+                 excludeEventId: isEditing.value ? props.eventId : undefined
+             });
+             if (conflict) {
+                 const conflictEndDate = conflict.endDate?.toDate ? conflict.endDate.toDate() : new Date(conflict.endDate);
+                 const warningMsg = `Conflicts with "${conflict.eventName}" (ends ${conflictEndDate.toLocaleDateString()}).`;
+                 // For admin, maybe show as warning instead of error? Or keep as error? Let's keep as error for now.
+                 dateErrorMessages.value.startDate = warningMsg;
+                 dateErrorMessages.value.endDate = warningMsg;
+                 // Suggest next available date
+                 isFindingNextDate.value = true;
+                 try {
+                     suggestedNextAvailableDate.value = await store.dispatch('events/findNextAvailableDate', {
+                         afterDate: conflictEndDate,
+                         excludeEventId: isEditing.value ? props.eventId : undefined
+                     });
+                 } catch (findError) {
+                      console.error("Error finding next available date:", findError);
+                      // Handle error silently or show a generic message
+                 } finally {
+                     isFindingNextDate.value = false;
+                 }
+             }
+         } catch (error) {
+             console.error("Error checking date conflict:", error);
+             // Show warning for admin if check fails
+             conflictWarnings.value.startDate = "Could not verify date availability.";
+             conflictWarnings.value.endDate = "Could not verify date availability.";
+         } finally {
+             isCheckingConflict.value = false;
+         }
+     }
+};
+
+const setSuggestedDate = () => {
+    if (suggestedNextAvailableDate.value) {
+         startDate.value = suggestedNextAvailableDate.value.toISOString().split('T')[0];
+        // Optionally clear end date or set it relative to the new start date
+        endDate.value = '';
+        validateDates(); // Re-validate after setting
+     }
 };
 
 const handleTeamsUpdate = (updatedTeams: TeamMember[]) => {
@@ -586,4 +648,4 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 input[type="date"]::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
 }
-</style> 
+</style>

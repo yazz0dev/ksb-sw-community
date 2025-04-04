@@ -166,7 +166,7 @@
                              type="range"
                              v-model.number="criteria.points"
                              min="1"
-                             max="100"
+                             max="50"
                              class="block w-full cursor-pointer accent-blue-600 py-1.5"
                           />
                           <span class="text-sm font-medium text-gray-700 w-8 text-right">{{ criteria.points || 0 }}</span>
@@ -643,4 +643,4 @@ onMounted(async () => {
 input[type="date"]::-webkit-calendar-picker-indicator {
     cursor: pointer;
 }
-</style> 
+</style>
