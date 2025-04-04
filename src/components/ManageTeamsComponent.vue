@@ -1,96 +1,99 @@
 <template>
-    <div class="manage-teams-component space-y-4">
-        <h4 class="text-xl font-semibold text-gray-800">Define Teams</h4>
-        <p class="text-sm text-gray-600">Define at least two teams for this event. Add members to each team.</p>
-
-        <div v-if="teams.length === 0" class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-md text-sm">
-            No teams defined yet. Click "Add Another Team".
+    <div class="manage-teams-component space-y-6">
+        <div v-if="teams.length === 0" class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md text-sm shadow-sm italic">
+            <i class="fas fa-info-circle mr-1"></i> No teams defined yet. Click "Add Another Team" to begin.
         </div>
+        <div class="manage-teams-component space-y-4">
+            <h4 class="text-xl font-semibold text-gray-800">Define Teams</h4>
+            <p class="text-sm text-gray-600">Define at least two teams for this event. Add members to each team.</p>
 
-        <div v-for="(team, index) in teams" :key="index" class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-            <div class="p-4 space-y-3">
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-                    <div class="md:col-span-4">
-                        <label :for="'teamName-' + index" class="block text-sm font-medium text-gray-700 mb-1">Team {{ index + 1 }} Name <span class="text-red-600">*</span></label>
+            <div v-if="teams.length === 0" class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-md text-sm">
+                No teams defined yet. Click "Add Another Team".
+            </div>
+
+            <div v-for="(team, index) in teams" :key="team._internalId || index" class="bg-white border border-secondary rounded-lg shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md">
+                <div class="p-4 sm:p-5 space-y-4">
+                    <div>
+                        <label :for="'teamName-' + index" class="block text-sm font-medium text-gray-700 mb-1">Team {{ index + 1 }} Name <span class="text-red-500">*</span></label>
                         <input type="text" :id="'teamName-' + index"
                                v-model.trim="team.teamName"
-                               class="block w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                               placeholder="Enter team name"
+                               class="block w-full px-3 py-2 border border-secondary rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                               placeholder="Enter team name (e.g., Team Alpha)"
                                :disabled="isSubmitting"
                                @input="emitUpdate">
+                        <p v-if="duplicateTeamNames.has(team.teamName)" class="mt-1 text-xs text-red-600">Team name must be unique.</p>
                     </div>
 
-                    <div class="md:col-span-6">
-                        <label :for="'memberSearch-' + index" class="block text-sm font-medium text-gray-700 mb-1">Add Members ({{ team.members.length }}) <span class="text-red-600">*</span></label>
+                    <div>
+                        <label :for="'memberSearch-' + index" class="block text-sm font-medium text-gray-700 mb-1">Team Members ({{ team.members.length }}) <span class="text-red-500">*</span></label>
                         <div class="relative">
                             <input type="text" :id="'memberSearch-' + index"
                                    v-model="searchQueries[index]"
-                                   class="block w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                   placeholder="Search students..."
+                                   class="block w-full px-3 py-2 border border-secondary rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                                   placeholder="Search available students to add..."
                                    @focus="showDropdown(index)"
                                    @blur="hideDropdown(index)"
                                    :disabled="isSubmitting"
                                    autocomplete="off">
-                            <transition
-                                enter-active-class="transition ease-out duration-100"
-                                enter-from-class="transform opacity-0 scale-95"
-                                enter-to-class="transform opacity-100 scale-100"
-                                leave-active-class="transition ease-in duration-75"
-                                leave-from-class="transform opacity-100 scale-100"
-                                leave-to-class="transform opacity-0 scale-95"
-                            >
+                            <transition name="fade-fast">
                                 <div v-if="dropdownVisible[index]"
-                                     class="absolute z-50 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                                     class="absolute z-50 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm border border-secondary">
                                     <button v-for="student in filteredStudents(index)"
                                             :key="student.uid"
-                                            class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                            class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-primary-light hover:text-white transition-colors"
                                             type="button"
                                             @mousedown.prevent="addMember(index, student)">
-                                        {{ student.name }}
+                                        {{ student.name || studentNameCache[student.uid] || student.uid }}
                                     </button>
-                                    <div v-if="searchQueries[index] && !filteredStudents(index).length"
-                                         class="px-4 py-2 text-sm text-gray-500">
-                                         No matching students found.
+                                    <div v-if="!filteredStudents(index).length"
+                                         class="px-4 py-2 text-sm text-gray-500 italic">
+                                        {{ searchQueries[index] ? 'No matching students found.' : 'No more students available.' }}
                                     </div>
                                 </div>
                             </transition>
                         </div>
-                        <div v-if="team.members.length > 0" class="mt-2 flex flex-wrap gap-1.5">
+
+                        <div v-if="team.members.length > 0" class="mt-3 flex flex-wrap gap-2">
                             <span v-for="memberId in team.members" :key="memberId"
-                                  class="inline-flex items-center py-0.5 pl-2 pr-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
+                                  class="inline-flex items-center py-1 pl-2.5 pr-1 rounded-full text-xs font-medium bg-secondary text-gray-700 border border-secondary-dark shadow-sm">
                                 {{ nameCache[memberId] || memberId }}
                                 <button type="button"
-                                        class="flex-shrink-0 ml-1 h-4 w-4 rounded-full inline-flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-500 focus:outline-none focus:bg-gray-500 focus:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                        class="flex-shrink-0 ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-gray-400 hover:bg-red-100 hover:text-red-600 focus:outline-none focus:ring-1 focus:ring-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                         @click="removeMember(index, memberId)" :disabled="isSubmitting"
-                                        aria-label="Remove">
-                                    <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                                        :aria-label="`Remove ${nameCache[memberId] || memberId}`">
+                                    <svg class="h-2.5 w-2.5" stroke="currentColor" fill="none" viewBox="0 0 8 8">
                                         <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />
                                     </svg>
                                 </button>
                             </span>
                         </div>
+                        <p v-if="showValidationErrors && team.members.length === 0" class="mt-1 text-xs text-red-600">Each team must have at least one member.</p>
                     </div>
 
-                    <div class="md:col-span-2 md:text-right self-center">
+                    <div class="pt-3 border-t border-secondary text-right">
                         <button type="button"
-                                class="inline-flex justify-center items-center w-full md:w-auto px-3 py-1.5 border border-red-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                class="inline-flex justify-center items-center px-3 py-1.5 border border-red-300 shadow-sm text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 @click="removeTeam(index)"
-                                :disabled="isSubmitting || teams.length <= 1">
-                            <i class="fas fa-trash-alt mr-1 h-3 w-3"></i> <span class="hidden md:inline">Remove</span>
+                                :disabled="isSubmitting || teams.length <= minTeams">
+                            <i class="fas fa-trash-alt mr-1.5 h-3 w-3"></i> Remove Team
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="mt-4 text-center">
-            <button type="button"
-                    class="inline-flex items-center px-3 py-1.5 border border-green-300 shadow-sm text-xs font-medium rounded text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    @click="addTeam" :disabled="isSubmitting || !canAddTeam">
-                <i class="fas fa-plus mr-1 h-3 w-3"></i> Add Another Team
-            </button>
-            <p v-if="!canAddTeam" class="text-yellow-600 text-xs mt-1">
-                Maximum number of teams reached or cannot add more based on available students.
+            <div class="mt-6 text-center">
+                <button type="button"
+                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        @click="addTeam" :disabled="isSubmitting || !canAddMoreTeams">
+                    <i class="fas fa-plus mr-1.5 h-4 w-4"></i> Add Another Team
+                </button>
+                <p v-if="!canAddMoreTeams" class="text-gray-500 text-xs mt-1 italic">
+                    Maximum number of teams reached or no more students available.
+                </p>
+            </div>
+
+            <p v-if="showValidationErrors && !overallValidation.isValid" class="mt-4 text-sm text-red-600 text-center">
+                <i class="fas fa-exclamation-triangle mr-1"></i> {{ overallValidation.message }}
             </p>
         </div>
     </div>
@@ -130,30 +133,48 @@ const emit = defineEmits<{
 }>();
 
 // --- Local State ---
+// Directly use localTeams as the primary reactive source for the template
 const localTeams = ref<Team[]>([]);
-const editingTeamName = ref<string | null>(null);
-const currentTeam = reactive<Team>({ teamName: '', members: [] });
-const studentSearch = ref<string>('');
-const addTeamErrorMessage = ref<string>('');
-const showNewTeamForm = ref<boolean>(false);
+
+// Added: States for search and dropdown visibility, reactive for each team
+const searchQueries = reactive<Record<number, string>>({});
+const dropdownVisible = reactive<Record<number, boolean>>({});
 
 // --- Initialization ---
-onMounted(() => {
-    // Deep copy initial teams to avoid modifying prop directly
-    localTeams.value = JSON.parse(JSON.stringify(props.initialTeams || []));
-});
+// Helper to initialize or reset local teams
+function initializeTeams(initialData: Team[]) {
+    localTeams.value = JSON.parse(JSON.stringify(initialData || []));
+    // Ensure searchQueries and dropdownVisible have entries for each team
+    // Clear existing keys first to handle cases where teams are removed
+    Object.keys(searchQueries).forEach(key => delete searchQueries[key]);
+    Object.keys(dropdownVisible).forEach(key => delete dropdownVisible[key]);
+
+    localTeams.value.forEach((_, index) => {
+        searchQueries[index] = ''; // Initialize search for the team
+        dropdownVisible[index] = false; // Initialize dropdown state
+    });
+     // Add default team if none exist initially AND if the component isn't just displaying existing teams (e.g., in an edit mode where initialTeams might be empty)
+     // Let's refine this: Only add if initialData itself was effectively empty/null.
+    if (!initialData || initialData.length === 0) {
+       if (localTeams.value.length === 0) { // Double check after potential stringify issues
+         addTeam(); // Start with one empty team if truly empty
+       }
+    }
+}
+
+// Initialize immediately on setup
+initializeTeams(props.initialTeams);
 
 // --- Watchers ---
-// Watch for external changes to initialTeams
 watch(() => props.initialTeams, (newVal) => {
-    localTeams.value = JSON.parse(JSON.stringify(newVal || []));
-    // If the team being edited was removed externally, reset the form
-    if (editingTeamName.value !== null && !localTeams.value.some(t => t.teamName === editingTeamName.value)) {
-        cancelEdit();
-    }
+    // Re-initialize when the prop changes
+    initializeTeams(newVal);
 }, { deep: true });
 
 // --- Computed Properties ---
+
+// Replaces direct use of `teams` in template
+const teams = computed(() => localTeams.value);
 
 // All student IDs currently assigned to any team
 const assignedStudentIds = computed<Set<string>>(() => {
@@ -217,11 +238,12 @@ const areAllStudentsAssigned = computed<boolean>(() => {
     return props.students.every(student => currentAssignedIds.has(student.uid));
 });
 
-// Emit whether adding more teams is possible (used by parent)
-watch(areAllStudentsAssigned, (newVal) => {
-    emit('can-add-team', !newVal);
-}, { immediate: true });
-
+// Check if adding another team is possible
+const canAddTeam = computed<boolean>(() => { 
+     if (!Array.isArray(props.students)) return false;
+     const maxTeams = 10; // Example limit
+     return (!areAllStudentsAssigned.value || localTeams.value.length < 2) && localTeams.value.length < maxTeams;
+});
 
 // --- Auto-Generation Computed ---
 const canTriggerAutoGenerate = computed<boolean>(() => {

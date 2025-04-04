@@ -123,6 +123,3 @@ const sendPasswordResetEmail = async () => { // Renamed handler function
 
 </script>
 
-<!-- <style scoped>
-/* Removed style targeting .login-card */
-</style> -->

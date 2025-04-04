@@ -59,6 +59,7 @@
   import { ref, computed, onMounted } from 'vue';
   import { collection, getDocs, query } from 'firebase/firestore';
   import { db } from '../firebase';
+  import { formatRoleName } from '../utils/formatters'; // Import shared formatter
   
   // Function to convert display role name to xpByRole key
   const getRoleKey = (roleName) => {
@@ -69,20 +70,6 @@
     // Simple conversion (assumes single word roles or camelCase in xpByRole)
     return lower.charAt(0) + lower.slice(1).replace(/\s+/g, '');
   };
-  
-  // Helper to format role keys/names for display
-  const formatRoleName = (roleKeyOrName) => {
-      if (!roleKeyOrName) return '';
-      // Handle potential keys or display names
-      const name = roleKeyOrName
-          .replace(/([A-Z])/g, ' $1') // Add space before capital letters
-          .replace(/^./, (str) => str.toUpperCase()); // Capitalize first letter
-      // Special cases for display
-      if (name === 'Xp By Role') return 'Overall'; // This might need adjustment based on actual keys
-      if (name === 'Problem Solver') return 'Problem Solver'; // Ensure exact match for display
-      return name;
-  };
-  
   
   const availableRoles = ref([ // Use keys from xpByRole + 'Overall'
       'Overall', 'fullstack', 'presenter', 'designer', 'organizer', 'problemSolver'
@@ -148,21 +135,3 @@
   
   </script>
   
-<!-- <style scoped>
-  /* Link styling from main.css */
-  /* .list-group-item a { ... } */
-  
-  /* Custom scrollbar styles removed, rely on default browser or plugin */
-  /* .role-filter-container .overflow-x-auto { ... } */
-  
-  .leaderboard-rank {
-      font-weight: 600;
-      color: var(--color-text-muted);
-      min-width: 2.5ch; /* Ensure space for rank number */
-      text-align: right;
-  }
-  .badge.fs-6 {
-      font-size: 0.9rem !important; /* Adjust badge size */
-      padding: 0.4em 0.7em;
-  }
-</style> -->

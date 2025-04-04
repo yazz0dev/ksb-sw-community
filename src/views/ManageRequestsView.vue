@@ -9,7 +9,7 @@
                  <i class="fas fa-arrow-left mr-1 h-3 w-3"></i> Back to Dashboard
              </button>
              <router-link 
-                to="/request-event" 
+                to="/create-event" 
                 class="inline-flex items-center rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600">
                  <i class="fas fa-calendar-plus mr-1 h-3 w-3"></i> Create Event
              </router-link>
@@ -26,73 +26,32 @@
           No pending requests to review at this time.
       </div>
       <div v-else class="space-y-4">
-        <div v-for="event in pendingEvents" :key="event.id" class="bg-white shadow overflow-hidden sm:rounded-lg p-4 sm:p-6 border border-gray-200">
-            <div class="flex flex-col md:flex-row justify-between md:items-start gap-4">
-                <div class="flex-1 min-w-0">
-                   <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ event.eventName }} <span class="font-normal text-gray-600">({{ event.eventType }})</span></h3>
-                   <p class="text-xs text-gray-500 mb-0.5"><strong class="font-medium text-gray-700 mr-1">Requested by:</strong> {{ nameCache[event.requester] || '(Name not found)' }}</p>
-                   <p class="text-xs text-gray-500 mb-0.5"><strong class="font-medium text-gray-700 mr-1">Desired Dates:</strong> {{ formatDate(event.desiredStartDate) }} - {{ formatDate(event.desiredEndDate) }}</p>
-                   <p class="text-xs text-gray-500 mb-0.5"><strong class="font-medium text-gray-700 mr-1">Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}</p>
-                   <p v-if="event.organizers && event.organizers.length > 0" class="text-xs text-gray-500 mb-1">
-                       <strong class="font-medium text-gray-700">Co-Organizers:</strong>
-                       <span v-for="(orgId, idx) in event.organizers" :key="orgId">
-                           {{ nameCache[orgId] || '(Name not found)' }}{{ idx < event.organizers.length - 1 ? ', ' : '' }}
-                       </span>
-                   </p>
-                   <p class="text-sm text-gray-600 mb-2 mt-1"><strong class="font-medium text-gray-700">Description:</strong> {{ event.description }}</p>
-                   <!-- Display XP/Constraint Info -->
-                   <div v-if="event.xpAllocation && event.xpAllocation.length > 0" class="mt-2 text-xs">
-                       <strong class="block mb-1 font-medium text-gray-700">Rating Criteria & XP:</strong>
-                       <ul class="list-disc list-inside space-y-0.5 text-gray-600 pl-2">
-                           <li v-for="(alloc, index) in event.xpAllocation" :key="index">
-                               {{ alloc.constraintLabel || 'Unnamed Criteria' }}: {{ alloc.points }} XP ({{ formatRoleName(alloc.role) }})
-                           </li>
-                       </ul>
-                   </div>
-                </div>
-                <div class="flex space-x-2 items-start flex-shrink-0 mt-2 md:mt-0">
-                     <button @click="approveRequest(event.id)" 
-                             class="inline-flex items-center justify-center rounded-md bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                             :disabled="isProcessing(event.id)">
-                         <svg v-if="isProcessing(event.id) && processingAction === 'approve'" class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                         <i v-else class="fas fa-check h-3 w-3"></i>
-                         <span class="ml-1 hidden sm:inline">Approve</span>
-                     </button>
-                     <button @click="rejectRequest(event.id)" 
-                             class="inline-flex items-center justify-center rounded-md bg-yellow-500 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-yellow-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                             :disabled="isProcessing(event.id)">
-                         <svg v-if="isProcessing(event.id) && processingAction === 'reject'" class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                         <i v-else class="fas fa-times h-3 w-3"></i>
-                         <span class="ml-1 hidden sm:inline">Reject</span>
-                     </button>
-                     <button @click="deleteRequest(event.id)" 
-                             class="inline-flex items-center justify-center rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                             :disabled="isProcessing(event.id)">
-                         <svg v-if="isProcessing(event.id) && processingAction === 'delete'" class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                         <i v-else class="fas fa-trash h-3 w-3"></i>
-                         <span class="ml-1 hidden sm:inline">Delete</span>
-                     </button>
-                 </div>
-            </div>
-            <!-- Conflict Warning -->
-            <div v-if="conflictWarnings[event.id]" class="mt-2 rounded-md bg-yellow-50 p-2 text-xs text-yellow-700 border border-yellow-200">
-                <i class="fas fa-exclamation-triangle mr-1"></i>
-                Warning: Date conflict with "{{ conflictWarnings[event.id] }}"
-            </div>
-        </div>
+        <!-- Use the RequestCard component -->
+        <RequestCard 
+            v-for="event in pendingEvents" 
+            :key="event.id"
+            :event="event"
+            :nameCache="nameCache"
+            :conflictWarning="conflictWarnings[event.id]"
+            :isProcessing="isProcessing(event.id)"
+            :processingAction="processingAction"
+            @approve="approveRequest"
+            @reject="rejectRequest"
+            @delete="deleteRequest"
+        />
       </div>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch, reactive } from 'vue'; // Added reactive
+import { computed, onMounted, ref, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import RequestCard from '../components/RequestCard.vue'; // Import the new component
 
 const store = useStore();
 const loading = ref(true);
-// const eventRequests = ref([]); // No longer needed, use getter
 const nameCache = ref({});
 const processingRequests = ref(new Set());
 const processingAction = ref('');
@@ -162,8 +121,6 @@ async function fetchUserNames(userIds) {
         }
     }
 }
-
-// Get co-organizer names - function is not used, can be removed
 
 // Check processing state
 const isProcessing = (requestId) => processingRequests.value.has(requestId);
@@ -270,7 +227,4 @@ const deleteRequest = async (eventId) => {
 
 </script>
 
-<style scoped>
-/* Remove specific padding/vertical-align from previous BS table styles if they existed */
-/* Keep any non-Bootstrap styles if needed */
-</style>
+

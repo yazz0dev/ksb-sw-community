@@ -69,26 +69,7 @@
           </div>
         </form>
 
-        <div class="mt-6"> <!-- Divider and Google Button Section -->
-          <div class="relative">
-            <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-gray-300"></div>
-            </div>
-            <div class="relative flex justify-center text-sm">
-              <span class="px-2 bg-white text-gray-500">Or continue with</span>
-            </div>
-          </div>
 
-          <div class="mt-6">
-            <button @click="signInWithGoogle" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-               <span class="sr-only">Sign in with Google</span>
-               <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M20 10a10 10 0 11-20 0 10 10 0 0120 0zm-2.47-4.312a8.124 8.124 0 00-1.78-1.781A9.89 9.89 0 0010 2a9.9 9.9 0 00-5.75 1.907 8.125 8.125 0 00-1.78 1.78A9.89 9.89 0 002 10c0 2.29.78 4.4 2.08 6.093a8.124 8.124 0 001.78 1.781A9.89 9.89 0 0010 18a9.9 9.9 0 005.75-1.907 8.125 8.125 0 001.78-1.78A9.89 9.89 0 0018 10c0-2.29-.78-4.4-2.08-6.093zM10 15.88A5.88 5.88 0 1110 4.12a5.88 5.88 0 010 11.76zm0-7.934c-.48 0-.94.09-1.38.25l.7 2.11h1.36v1.44h-1.36l-.7 2.1a4.03 4.03 0 002.76 0l.7-2.1h1.36v-1.44h-1.36l-.7-2.11a4.03 4.03 0 00-1.38-.25z" clip-rule="evenodd" />
-               </svg>
-                Sign in with Google
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -155,50 +136,4 @@ const signIn = async () => {
   }
 };
 
-const signInWithGoogle = async () => {
-    errorMessage.value = '';
-    isLoading.value = true;
-    const provider = new GoogleAuthProvider();
-    const auth = getAuth();
-    try {
-        const result = await signInWithPopup(auth, provider);
-        // This gives you a Google Access Token. You can use it to access the Google API.
-        // const credential = GoogleAuthProvider.credentialFromResult(result);
-        // const token = credential.accessToken;
-        // The signed-in user info.
-        await processLoginSuccess(result.user);
-    } catch (error) {
-        console.error("Google Sign-In Error:", error);
-        // Handle Errors here.
-        const errorCode = error.code;
-        const errorMessageText = error.message;
-        // The email of the user's account used.
-        // const email = error.customData.email;
-        // The AuthCredential type that was used.
-        // const credential = GoogleAuthProvider.credentialFromError(error);
-
-        if (errorCode === 'auth/account-exists-with-different-credential') {
-            errorMessage.value = 'An account already exists with the same email address but different sign-in credentials. Try signing in using a different method linked to your email.';
-        } else if (errorCode === 'auth/popup-closed-by-user') {
-            errorMessage.value = 'Sign-in process cancelled.';
-        } else {
-            errorMessage.value = errorMessageText || 'Failed to sign in with Google. Please try again.';
-        }
-    } finally {
-        isLoading.value = false;
-    }
-};
-
 </script>
-
-<!-- <style scoped>
-.card-body {
-    padding: var(--space-4); /* Default padding */
-}
-
-@media (min-width: 768px) { /* md breakpoint */
-    .card-body {
-        padding: var(--space-6); /* Larger padding on md+ */
-    }
-}
-</style> -->

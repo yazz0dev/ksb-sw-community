@@ -92,8 +92,3 @@ const getIconClass = (type) => {
 };
 
 </script>
-
-<!-- <style scoped>
-/* Styles from main.css (card, list-group) are used */
-/* Removed custom styles, relying on Tailwind */
-</style> -->

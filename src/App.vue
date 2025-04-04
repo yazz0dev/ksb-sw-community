@@ -1,50 +1,90 @@
 // /src/App.vue
 <template>
-  <div id="app" class="flex flex-col min-h-screen">
-    <nav class="sticky top-0 z-30 bg-white shadow flex items-center h-16">
-      <div class="container mx-auto flex items-center justify-between h-full px-4">
-        <router-link to="/" class="text-lg font-semibold text-gray-800 mr-8 flex items-center h-full whitespace-nowrap" @click="closeNavbar">KSB MCA S/W Community</router-link>
+  <div id="app" class="flex flex-col min-h-screen bg-secondary-light">
+    <nav class="sticky top-0 z-30 bg-white shadow-sm flex items-center h-14 lg:h-16 border-b border-secondary">
+      <div class="container mx-auto flex items-center justify-between h-full px-4 sm:px-6 lg:px-8">
+        <router-link to="/" class="text-lg lg:text-xl font-bold text-primary mr-4 lg:mr-8 flex items-center h-full whitespace-nowrap" @click="closeNavbar">KSB MCA S/W Community</router-link>
 
-        <button class="lg:hidden border-none bg-transparent p-2 rounded text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" type="button" @click="toggleNavbar" aria-controls="navbarNav" :aria-expanded="isNavbarOpen.toString()" aria-label="Toggle navigation">
-          <i class="fas fa-bars text-xl"></i> <!-- Using Font Awesome for the icon -->
+        <button class="lg:hidden border-none bg-transparent p-2 rounded text-gray-700 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-opacity-75" type="button" @click="toggleNavbar" aria-controls="navbarNav" :aria-expanded="isNavbarOpen.toString()" aria-label="Toggle navigation">
+          <i class="fas fa-bars text-xl"></i>
         </button>
 
-        <!-- Mobile Menu (absolute position) vs Desktop Menu (relative position) -->
         <div
           :class="[
-            'absolute top-16 left-0 right-0 w-full bg-white shadow-md lg:shadow-none lg:relative lg:top-auto lg:left-auto lg:right-auto lg:flex lg:w-auto lg:items-center lg:bg-transparent transition-all duration-300 ease-in-out',
-            isNavbarOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0 lg:opacity-100 lg:max-h-full overflow-hidden lg:overflow-visible'
+            'absolute top-14 lg:top-16 left-0 right-0 w-full bg-white shadow-lg lg:shadow-none lg:relative lg:top-auto lg:left-auto lg:right-auto lg:flex lg:w-auto lg:items-center lg:bg-transparent transition-all duration-300 ease-in-out overflow-hidden',
+            isNavbarOpen ? 'max-h-[calc(100vh-3.5rem)] lg:max-h-[calc(100vh-4rem)] opacity-100' : 'max-h-0 opacity-0 lg:opacity-100 lg:max-h-full lg:overflow-visible'
           ]"
           id="navbarNav"
           ref="navbarCollapseRef"
         >
-          <!-- Navigation Links -->
-          <ul class="flex flex-col lg:flex-row list-none lg:mr-auto px-4 lg:px-0 py-2 lg:py-0">
-             <li v-if="isAuthenticated">
-              <router-link to="/home" class="nav-link" active-class="active" @click="closeNavbar">Home</router-link>
+          <ul class="flex flex-col lg:flex-row list-none lg:mr-auto px-4 lg:px-0 py-3 lg:py-0 divide-y divide-secondary lg:divide-y-0">
+             <li v-if="isAuthenticated" class="lg:mr-1">
+              <router-link
+                to="/home"
+                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-gray-700 hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                active-class="font-semibold text-primary bg-secondary"
+                @click="closeNavbar"
+              >Home</router-link>
             </li>
-             <li v-if="isAuthenticated && !isAdmin">
-              <router-link to="/profile" class="nav-link" active-class="active" @click="closeNavbar">Profile</router-link>
+             <li v-if="isAuthenticated && !isAdmin" class="lg:mr-1">
+              <router-link
+                to="/profile"
+                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-gray-700 hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                active-class="font-semibold text-primary bg-secondary"
+                @click="closeNavbar"
+              >Profile</router-link>
             </li>
-            <li v-if="isAuthenticated">
-              <router-link to="/leaderboard" class="nav-link" active-class="active" @click="closeNavbar">Leaderboard</router-link>
+            <li v-if="isAdmin" class="lg:mr-1">
+                <router-link
+                    to="/create-event"
+                    class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-gray-700 hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                    active-class="font-semibold text-primary bg-secondary"
+                    @click="closeNavbar"
+                >Create Event</router-link>
+            </li>
+
+            <li v-if="isAuthenticated" class="lg:mr-1">
+              <router-link
+                to="/leaderboard"
+                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-gray-700 hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                active-class="font-semibold text-primary bg-secondary"
+                @click="closeNavbar"
+              >Leaderboard</router-link>
+            </li>
+            <li class="lg:mr-1">
+              <router-link
+                to="/resources"
+                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-gray-700 hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                active-class="font-semibold text-primary bg-secondary"
+                @click="closeNavbar"
+              >Resources</router-link>
             </li>
             <li>
-              <router-link to="/resources" class="nav-link" active-class="active" @click="closeNavbar">Resources</router-link>
-            </li>
-            <li>
-              <router-link to="/transparency" class="nav-link" active-class="active" @click="closeNavbar">Transparency</router-link>
+              <router-link
+                to="/transparency"
+                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-gray-700 hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                active-class="font-semibold text-primary bg-secondary"
+                @click="closeNavbar"
+              >Transparency</router-link>
             </li>
           </ul>
 
-          <!-- Auth Links -->
-           <ul class="flex flex-col lg:flex-row list-none lg:ml-auto px-4 lg:px-0 py-2 lg:py-0 border-t lg:border-none border-gray-200">
+           <ul class="flex flex-col lg:flex-row list-none lg:ml-auto px-4 lg:px-0 py-3 lg:py-0 border-t lg:border-none border-secondary">
               <li v-if="!isAuthenticated">
-                <router-link to="/login" class="nav-link" active-class="active" @click="closeNavbar">Login</router-link>
+                <router-link
+                  to="/login"
+                  class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-gray-700 hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                  active-class="font-semibold text-primary bg-secondary"
+                  @click="closeNavbar"
+                >Login</router-link>
               </li>
                <li v-if="isAuthenticated">
-                  <a href="#" @click.prevent="logout" class="nav-link logout-link flex items-center">
-                      <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                  <a
+                    href="#"
+                    @click.prevent="logout"
+                    class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-gray-700 hover:text-red-600 hover:bg-red-50 transition-colors duration-150 flex items-center"
+                  >
+                      <i class="fas fa-sign-out-alt mr-2"></i>Logout
                   </a>
                 </li>
             </ul>
@@ -53,37 +93,33 @@
     </nav>
 
 
-    <main class="container mx-auto flex-grow px-4 py-4"> <!-- Use flex-grow to push footer down -->
+    <main class="container mx-auto flex-grow px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-20 lg:pb-8">
          <router-view v-slot="{ Component }">
-             <transition name="fade" mode="out-in">
-                 <component :is="Component" />
-             </transition>
+             <!-- <transition name="fade" mode="out-in"> -->
+                 <component :is="Component" class="animate-fade-in" />
+             <!-- </transition> -->
          </router-view>
     </main>
 
-    <!-- Keep BottomNav, hide on large screens using Tailwind class -->
     <BottomNav v-if="isAuthenticated" class="lg:hidden" />
   </div>
 </template>
 
-<script setup> // Using setup script
+<script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { getAuth, signOut } from 'firebase/auth'; // Import signOut
-// import { Collapse } from 'bootstrap'; // REMOVED
-import BottomNav from './components/BottomNav.vue'; // Import BottomNav
+import { getAuth, signOut } from 'firebase/auth';
+import BottomNav from './components/BottomNav.vue';
 
 const store = useStore();
 const router = useRouter();
-const navbarCollapseRef = ref(null); // Keep ref if needed for other logic, maybe not
-const isNavbarOpen = ref(false); // State for mobile navbar toggle
+const navbarCollapseRef = ref(null);
+const isNavbarOpen = ref(false);
 
-// Computed properties
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 const isAdmin = computed(() => store.getters['user/isAdmin']);
 
-// Methods
 const toggleNavbar = () => {
   isNavbarOpen.value = !isNavbarOpen.value;
 };
@@ -94,60 +130,33 @@ const closeNavbar = () => {
 
 const logout = () => {
   const auth = getAuth();
-  signOut(auth).then(() => { // Use signOut
-    // Actions dispatched below handle state clearing
+  signOut(auth).then(() => {
   }).catch((error) => {
       console.error("Logout failed:", error);
-      // Still attempt to clear local state even if Firebase signout fails
   }).finally(() => {
-      // Always clear local state and redirect
-      store.dispatch('user/clearUserData'); // Ensure local state is cleared
-      router.replace({ name: 'Login' }); // Use replace to prevent back button to authenticated state
-      closeNavbar(); // Close navbar after logout
+      store.dispatch('user/clearUserData');
+      router.replace({ name: 'Login' });
+      closeNavbar();
   });
 };
 
-
-// Lifecycle Hooks
 onMounted(() => {
-  // Close navbar on route change
   router.afterEach(() => {
     closeNavbar();
   });
 });
 
 onUnmounted(() => {
- // Cleanup if needed
 });
-
 </script>
 
 <style scoped>
-/* Keep transition styles */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease; /* Increased duration from 0.2s to 0.3s */
+  transition: opacity 0.2s ease-in-out;
 }
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
-
-/* Base nav-link styles - apply common styles here or directly with Tailwind */
-.nav-link {
-  @apply block lg:inline-block px-3 py-2 rounded-md text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors duration-150;
-}
-.logout-link {
-   @apply block lg:inline-block px-3 py-2 rounded-md text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors duration-150;
-}
-
-/* Active link style */
-.nav-link.active {
-     @apply font-semibold text-blue-600 bg-blue-100;
-}
-.logout-link.active { /* Might not be needed if logout isn't a route */
-     @apply font-semibold text-red-600 bg-red-100;
-}
-
-/* Remove mobile padding styles, handled by layout */
 </style>

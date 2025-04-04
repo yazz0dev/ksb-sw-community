@@ -1,59 +1,62 @@
 // /src/components/TeamList.vue (Handles 'Show Members' correctly and uses name getter)
 <template>
-    <div class="space-y-4"> <!-- Added vertical spacing -->
-        <!-- Loop over the reactive teamsWithDetails ref -->
-        <div v-for="team in teamsWithDetails" :key="team.teamName" class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden"> 
-            <div class="p-4"> <!-- Use Tailwind padding -->
-                <div class="flex justify-between items-center mb-3"> <!-- Flex layout, added bottom margin -->
-                    <h4 class="text-lg font-semibold text-gray-800">{{ team.teamName }}</h4> <!-- Tailwind text style -->
-                    <!-- Rating Button - styled with Tailwind, conditional classes -->
+    <!-- Added padding to the container if it's the root element -->
+    <div class="p-4 sm:p-6 space-y-4"> <!-- Applied padding directly here as requested in parent -->
+        <!-- Team Card: Improved styling -->
+        <div v-for="team in teamsWithDetails" :key="team.teamName" class="bg-white border border-secondary rounded-lg shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md">
+            <div class="p-4 sm:p-5"> <!-- Adjusted padding -->
+                <div class="flex justify-between items-start mb-3"> <!-- Align items start for better wrap -->
+                    <h4 class="text-lg font-semibold text-primary-dark">{{ team.teamName }}</h4>
+                    <!-- Rating Button: Refined styling -->
                     <button v-if="ratingsOpen && canRate" @click="goToRatingForm(team.teamName)"
-                        class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors"
-                        :class="currentUserHasRatedTeam ? 
-                                   'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 focus:ring-indigo-500' : 
-                                   'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'">
-                        <i class="fas fa-star mr-1"></i> <!-- Adjusted margin -->
+                        class="ml-2 flex-shrink-0 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors"
+                        :class="currentUserHasRatedTeam ?
+                                   'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 focus:ring-primary-light' :
+                                   'text-white bg-primary hover:bg-primary-dark focus:ring-primary'">
+                        <i class="fas fa-star mr-1.5"></i>
                         {{ currentUserHasRatedTeam ? 'View/Edit Ratings' : 'Rate Team' }}
                     </button>
                 </div>
 
-                <!-- Toggle Button - styled with Tailwind -->
+                <!-- Toggle Button: Refined styling -->
                 <button @click="toggleTeamDetails(team.teamName)"
-                    class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                    <i :class="['fas', team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down', 'mr-1']"></i>
-                    {{ team.showDetails ? 'Hide Members' : 'Show Members' }}
+                    class="inline-flex items-center px-3 py-1.5 border border-secondary shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-light transition-colors">
+                    <i :class="['fas w-3 transition-transform duration-200', team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down', 'mr-1.5']"></i>
+                    {{ team.showDetails ? 'Hide Members' : `Show Members (${team.members?.length || 0})` }}
                 </button>
 
-                <!-- Member List (Conditional) - Using Tailwind for list structure -->
+                <!-- Member List (Conditional): Improved styling and structure -->
                  <transition name="fade-fast">
-                    <div v-if="team.showDetails" class="mt-4 border-t border-gray-200 divide-y divide-gray-200">
-                        <div v-if="organizerNamesLoading" class="py-3 text-sm text-gray-500">Loading members...</div>
+                    <div v-if="team.showDetails" class="mt-4 pt-4 border-t border-secondary">
+                        <div v-if="organizerNamesLoading" class="py-3 text-sm text-gray-500 italic">
+                            <i class="fas fa-spinner fa-spin mr-1"></i> Loading members...
+                        </div>
                         <div v-else-if="team.members && team.members.length > 0">
-                            <!-- Use ul for semantic list -->
-                            <ul role="list">
+                            <h5 class="text-xs font-semibold text-gray-500 uppercase mb-2">Team Members</h5>
+                            <ul role="list" class="space-y-2">
                                 <li v-for="memberId in team.members" :key="memberId"
-                                    class="py-3 flex items-center"
-                                    :class="{ 'bg-blue-50 rounded px-2 -mx-2 font-medium': memberId === currentUserUid }"> <!-- Tailwind highlighting -->
-                                    <i class="fas fa-user mr-2 text-gray-400 flex-shrink-0"></i> <!-- Styled icon -->
-                                    <router-link 
+                                    class="flex items-center p-2 rounded-md transition-colors duration-150"
+                                    :class="{ 'bg-primary-light bg-opacity-10 font-medium': memberId === currentUserUid }">
+                                    <i class="fas fa-user mr-2 text-gray-400 flex-shrink-0 w-4 text-center"></i>
+                                    <router-link
                                         :to="{ name: 'PublicProfile', params: { userId: memberId } }"
-                                        class="text-sm text-gray-800 hover:text-blue-600 truncate" 
-                                        :class="{'text-blue-700': memberId === currentUserUid}">
-                                        {{ getUserName(memberId) || memberId }}
+                                        class="text-sm text-gray-800 hover:text-primary truncate"
+                                        :class="{'text-primary-dark font-semibold': memberId === currentUserUid}">
+                                        {{ getUserName(memberId) || memberId }} {{ memberId === currentUserUid ? '(You)' : '' }}
                                     </router-link>
                                 </li>
                             </ul>
                         </div>
-                        <div v-else class="py-3 text-sm text-gray-500">
-                            No members in this team.
+                        <div v-else class="py-3 text-sm text-gray-500 italic">
+                            No members assigned to this team yet.
                         </div>
                     </div>
                  </transition>
             </div>
         </div>
-        <!-- No teams alert - styled with Tailwind -->
-        <div v-if="teamsWithDetails.length === 0" class="bg-gray-50 text-gray-700 px-4 py-3 rounded-md text-sm mt-4">
-             No teams created yet.
+        <!-- No teams alert: Improved styling -->
+        <div v-if="teamsWithDetails.length === 0" class="bg-secondary text-gray-700 px-4 py-3 rounded-md text-sm mt-4 border border-secondary-dark italic">
+             <i class="fas fa-info-circle mr-1"></i> No teams have been created for this event yet.
         </div>
     </div>
 </template>
@@ -140,16 +143,19 @@ defineEmits(['update:teams', 'canAddTeam']);
 </script>
 
 <style scoped>
-/* Scoped styles removed, replaced by Tailwind utilities */
+/* Styles moved to Tailwind utilities */
 
-/* Added transition for member list visibility */
+/* Keep fast fade transition */
 .fade-fast-enter-active,
 .fade-fast-leave-active {
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.2s ease-in-out, max-height 0.3s ease-in-out; /* Added max-height */
+  overflow: hidden; /* Prevent content spill during transition */
+  max-height: 200px; /* Adjust as needed, should be > expected content height */
 }
 
 .fade-fast-enter-from,
 .fade-fast-leave-to {
   opacity: 0;
+  max-height: 0;
 }
 </style>

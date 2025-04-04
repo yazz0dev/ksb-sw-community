@@ -653,16 +653,43 @@ export const eventActions = {
         }
     },
 
-    // --- fetchEvents --- (Unchanged)
-    async fetchEvents({ commit, dispatch }) {
+    // Fetch all events (consider pagination for large datasets)
+    async fetchEvents({ commit }) {
         try {
-            const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
-            const querySnapshot = await getDocs(q);
-            const events = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Optional: Re-enable network if previously disabled
+            // await enableNetwork(db);
+            const querySnapshot = await getDocs(collection(db, "events"));
+            const events = [];
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                // Convert Timestamps to ISO strings for consistency, handle potential nulls
+                const startDateISO = data.startDate?.toDate ? data.startDate.toDate().toISOString() : null;
+                const endDateISO = data.endDate?.toDate ? data.endDate.toDate().toISOString() : null;
+                const desiredStartDateISO = data.desiredStartDate?.toDate ? data.desiredStartDate.toDate().toISOString() : null;
+                const desiredEndDateISO = data.desiredEndDate?.toDate ? data.desiredEndDate.toDate().toISOString() : null;
+
+                events.push({
+                    id: doc.id,
+                    ...data, // Spread original data first
+                    // Overwrite dates with converted ISO strings
+                    startDate: startDateISO, 
+                    endDate: endDateISO,
+                    desiredStartDate: desiredStartDateISO,
+                    desiredEndDate: desiredEndDateISO
+                });
+            });
             commit('setEvents', events);
+            // console.log(`Fetched ${events.length} events.`);
         } catch (error) {
-            await dispatch('handleFirestoreError', error);
-            commit('setEvents', []);
+            console.error("Error fetching events:", error);
+            // Optional: Disable network on specific errors
+            // if (error.code === 'unavailable') { 
+            //     await disableNetwork(db);
+            //     console.warn("Firestore network disabled due to unavailability.");
+            // }
+            commit('setEvents', []); // Set empty array on error
+            // Rethrow or handle error appropriately
+            throw new Error(`Failed to fetch events: ${error.message}`);
         }
     },
 

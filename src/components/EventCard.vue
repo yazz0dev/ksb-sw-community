@@ -1,39 +1,42 @@
 <template>
   <div
     v-if="event && event.id"
-    class="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col h-full transition duration-200 ease-in-out hover:-translate-y-1 hover:shadow-lg"
-    :class="{ 'opacity-70 bg-gray-50': event.status === 'Cancelled' }"
+    class="bg-white rounded-lg overflow-hidden shadow-md border border-secondary flex flex-col h-full transition duration-200 ease-in-out hover:shadow-xl hover:-translate-y-1"
+    :class="{ 'opacity-75 bg-secondary': event.status === 'Cancelled' || event.status === 'Rejected' }"
   >
-    <div class="p-4 flex flex-col flex-grow"> <!-- Use p-4 for padding, flex-grow to push button down -->
+    <div class="p-5 flex flex-col flex-grow">
       <div class="flex justify-between items-start mb-2">
         <h5
-          class="text-lg font-semibold text-gray-800 mb-0 mr-2 flex-1"
-          :class="{ 'line-through': event.status === 'Cancelled' }"
+          class="text-lg font-semibold text-primary-dark mb-0 mr-2 flex-1"
+          :class="{ 'line-through text-gray-500': event.status === 'Cancelled' || event.status === 'Rejected' }"
         >
           {{ event.eventName }}
         </h5>
         <span
-          class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full whitespace-nowrap"
+          class="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full whitespace-nowrap"
           :class="statusBadgeClass"
         >
           {{ event.status }}
         </span>
       </div>
-      <p class="text-sm text-gray-500 mb-2">
-        <i class="fas fa-tag mr-1"></i>{{ event.eventType }}
-        <span class="mx-2">|</span>
-        <i class="fas fa-calendar-alt mr-1"></i>{{ formatDateRange(event.startDate, event.endDate) }}
-      </p>
-      <p class="text-sm text-gray-700 mb-3 flex-grow">{{ truncatedDescription }}</p> <!-- flex-grow for description area -->
-      <div class="flex justify-between items-center mt-auto pt-2 border-t border-gray-100"> <!-- mt-auto pushes this section down -->
+      <div class="text-xs text-gray-500 mb-3 flex items-center flex-wrap gap-x-3">
+        <span class="inline-flex items-center">
+            <i class="fas fa-tag mr-1 text-gray-400"></i>{{ event.eventType }}
+        </span>
+        <span class="inline-flex items-center">
+            <i class="fas fa-calendar-alt mr-1 text-gray-400"></i>{{ formatDateRange(event.startDate, event.endDate) }}
+        </span>
+      </div>
+      <p class="text-sm text-gray-600 mb-4 flex-grow">{{ truncatedDescription }}</p>
+      <div class="flex justify-between items-center mt-auto pt-3 border-t border-secondary">
         <router-link
-          :to="{ name: 'EventDetail', params: { eventId: event.id } }"
-          class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          :to="{ name: 'EventDetails', params: { id: event.id } }"
+          class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary transition-colors"
         >
           View Details
         </router-link>
-        <span class="text-sm text-gray-500">
-          <i class="fas fa-users mr-1"></i> {{ participantCount }}
+        <span class="text-sm text-gray-500 inline-flex items-center">
+          <i class="fas fa-users mr-1.5 text-gray-400"></i> {{ participantCount }}
         </span>
       </div>
     </div>
@@ -53,89 +56,76 @@ const props = defineProps({
 
 // Helper to format date range
 const formatDateRange = (start, end) => {
-  const startDate = DateTime.fromISO(start).toLocaleString(DateTime.DATE_MED);
-  const endDate = end ? DateTime.fromISO(end).toLocaleString(DateTime.DATE_MED) : null;
-  return endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate;
+  try {
+    const startDateObj = start?.toDate ? DateTime.fromJSDate(start.toDate()) : DateTime.fromISO(start);
+    const endDateObj = end?.toDate ? DateTime.fromJSDate(end.toDate()) : (end ? DateTime.fromISO(end) : null);
+
+    if (!startDateObj.isValid) return 'Invalid date';
+
+    const startDate = startDateObj.toLocaleString(DateTime.DATE_MED);
+    const endDate = endDateObj?.isValid ? endDateObj.toLocaleString(DateTime.DATE_MED) : null;
+
+    return endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate;
+  } catch (e) {
+    console.error("Error formatting date:", e);
+    return 'Date N/A';
+  }
 };
 
 // Truncate description
 const truncatedDescription = computed(() => {
-  const maxLen = 100;
-  if (props.event?.description?.length > maxLen) {
-    return props.event.description.substring(0, maxLen) + '...';
+  const maxLen = 90;
+  const desc = props.event?.description || '';
+  if (desc.length > maxLen) {
+    return desc.substring(0, maxLen).trim() + '…';
   }
-  return props.event.description || 'No description provided.';
+  return desc || 'No description provided.';
 });
 
-// Participant count (assuming participants is an array or has a length)
+// Participant count (Handles arrays and potentially objects/maps)
 const participantCount = computed(() => {
-    if (Array.isArray(props.event?.participants)) {
-        return props.event.participants.length;
+    const participants = props.event?.participants;
+    if (Array.isArray(participants)) {
+        return participants.length;
     }
-    // Add handling for potential map/object structure if needed
-    if (typeof props.event?.participants === 'object' && props.event?.participants !== null) {
-        return Object.keys(props.event.participants).length;
+    if (typeof participants === 'object' && participants !== null) {
+        let count = 0;
+        if (props.event.isTeamEvent && Array.isArray(props.event.teams)) {
+            props.event.teams.forEach(team => {
+                count += team.members?.length || 0;
+            });
+        } else {
+            count = Object.keys(participants).length;
+        }
+         return count;
     }
     return 0;
 });
 
-
-// Computed property for status badge class
+// Updated status badge classes for better contrast and theme alignment
 const statusBadgeClass = computed(() => {
   switch (props.event?.status) {
     case 'Approved':
-      return 'bg-green-100 text-green-800';
+    case 'Upcoming':
+      return 'bg-green-100 text-green-700 border border-green-200';
     case 'Pending':
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+    case 'In Progress':
+    case 'Ongoing':
+      return 'bg-blue-100 text-blue-700 border border-blue-200';
     case 'Rejected':
-      return 'bg-red-100 text-red-800';
+      return 'bg-red-100 text-red-700 border border-red-200';
     case 'Completed':
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-gray-100 text-gray-600 border border-gray-200';
     case 'Cancelled':
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-secondary text-gray-500 border border-secondary-dark';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-100 text-gray-500 border border-gray-200';
   }
 });
 
 </script>
 
-<!-- <style scoped>
-.event-card {
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  border: none; /* Rely on shadow */
-}
-
-.event-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md) !important; /* Use larger shadow from variables */
-}
-
-.card-title {
-  font-size: 1.05rem; /* Slightly smaller title */
-}
-
-.card-text {
-  font-size: 0.875rem; /* Ensure text isn't too large */
-  color: var(--color-text-secondary);
-}
-
-/* Adjust padding for medium screens and up if needed */
-@media (min-width: 768px) {
-  .card-body {
-    /* padding: var(--space-4); */ /* Optional: Increase padding on larger screens */
-  }
-  .card-title {
-    font-size: 1.1rem; /* Slightly larger title on desktop */
-  }
-}
-
-/* Status-specific styles */
-.card-cancelled {
-  opacity: 0.7;
-  background-color: #f8f9fa; /* Lighter background for cancelled */
-}
-.card-cancelled .card-title {
-  text-decoration: line-through;
-}
-</style> -->
+<style scoped>
+/* Styles moved to Tailwind utilities */
+</style>

@@ -1,40 +1,67 @@
 <template>
-    <nav class="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 flex justify-around items-center shadow-[0_-2px_5px_rgba(0,0,0,0.1)] z-40">
+    <nav class="fixed bottom-0 left-0 right-0 h-14 bg-white border-t border-gray-200 flex justify-around items-center shadow-[0_-2px_5px_rgba(0,0,0,0.1)] z-40">
+        <!-- Home (Always Visible) -->
         <router-link
             to="/home"
-            v-slot="{ isActive }"
+            active-class="text-blue-600 font-medium"
             class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
-            :class="[isActive ? 'text-blue-600 font-medium' : '']"
         >
-            <i class="fas fa-home text-xl mb-1"></i>
+            <i class="fas fa-home text-xl mb-0.5"></i>
             <span class="text-xs">Home</span>
         </router-link>
+        
+        <!-- Request Event (User Only) -->
         <router-link
+            v-if="!isAdmin"
             to="/request-event"
-            v-slot="{ isActive }"
+            active-class="text-blue-600 font-medium"
             class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
-            :class="[isActive ? 'text-blue-600 font-medium' : '']"
         >
-            <i class="fas fa-calendar-plus text-xl mb-1"></i>
+            <i class="fas fa-calendar-plus text-xl mb-0.5"></i>
             <span class="text-xs">Request</span>
         </router-link>
+
+        <!-- Create Event (Admin Only) -->
+        <router-link
+            v-if="isAdmin"
+            to="/create-event"
+            active-class="text-blue-600 font-medium"
+            class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
+        >
+            <i class="fas fa-plus-circle text-xl mb-0.5"></i> <!-- Different icon -->
+            <span class="text-xs">Create</span>
+        </router-link>
+        
+        <!-- Leaderboard (Always Visible) -->
         <router-link
             to="/leaderboard"
-            v-slot="{ isActive }"
+            active-class="text-blue-600 font-medium"
             class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
-            :class="[isActive ? 'text-blue-600 font-medium' : '']"
         >
-            <i class="fas fa-trophy text-xl mb-1"></i>
+            <i class="fas fa-trophy text-xl mb-0.5"></i>
             <span class="text-xs">Leaderboard</span>
         </router-link>
+
+        <!-- Manage Requests (Admin Only) -->
         <router-link
-            to="/profile"
-            v-slot="{ isActive }"
+            v-if="isAdmin"
+            to="/manage-requests"
+            active-class="text-blue-600 font-medium"
             class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
-            :class="[isActive ? 'text-blue-600 font-medium' : '']"
         >
-            <img v-if="userProfilePic" :src="userProfilePic" alt="Profile" class="w-6 h-6 rounded-full object-cover mb-1 border border-gray-300" @error="handleImageError" />
-            <i v-else class="fas fa-user-circle text-xl mb-1"></i>
+            <i class="fas fa-tasks text-xl mb-0.5"></i> <!-- Different icon -->
+            <span class="text-xs">Manage</span>
+        </router-link>
+        
+        <!-- Profile (User Only) -->
+        <router-link
+            v-if="!isAdmin"
+            to="/profile"
+            active-class="text-blue-600 font-medium"
+            class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
+        >
+            <img v-if="userProfilePic" :src="userProfilePic" alt="Profile" class="w-6 h-6 rounded-full object-cover mb-0.5 border border-gray-300" @error="handleImageError" />
+            <i v-else class="fas fa-user-circle text-xl mb-0.5"></i>
             <span class="text-xs">Profile</span>
         </router-link>
     </nav>
@@ -45,6 +72,9 @@ import { computed } from 'vue';
 import { useStore } from 'vuex';
 
 const store = useStore();
+
+// Get isAdmin status
+const isAdmin = computed(() => store.getters['user/isAdmin']);
 
 // Use new URL pattern for asset handling
 const defaultAvatarUrl = new URL('../assets/default-avatar.png', import.meta.url).href;
@@ -59,21 +89,3 @@ const handleImageError = (e) => {
 };
 
 </script>
-
-<!-- <style scoped>
-.bottom-nav-item {
-    @apply flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1;
-}
-
-.bottom-nav-item i {
-    /* Size is handled by text-xl in template, mb-1 adds margin */
-}
-
-.profile-icon {
-    @apply w-6 h-6 rounded-full object-cover mb-1 border border-gray-300;
-}
-
-.bottom-nav-item.active {
-    @apply text-blue-600 font-medium;
-}
-</style> -->

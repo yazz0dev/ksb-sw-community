@@ -10,8 +10,8 @@
                 :star-size="16" 
                 :read-only="true"
                 :show-rating="false"
-                inactive-color="#d1d5db" /* Tailwind gray-300 */
-                active-color="#f59e0b"   /* Tailwind amber-500 */
+                inactive-color="#d1d5db" 
+                active-color="#f59e0b"   
                 :star-spacing="1"
             />
         </span>
@@ -66,14 +66,3 @@ export default {
 };
 </script>
 
-<!-- Scoped styles removed -->
-<!--
-<style scoped>
-.user-card-item p {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem; /* Space between ID and stars */
-    margin-bottom: 0;
-}
-</style>
--->

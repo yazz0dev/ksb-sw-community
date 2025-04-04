@@ -88,20 +88,3 @@ const setRating = (starIndex) => {
   emit('update:modelValue', newValue);
 };
 </script>
-
-<!-- <style scoped>
-.custom-star-rating {
-  display: inline-flex; /* Allows centering by parent */
-  align-items: center;
-  line-height: 1; /* Prevent extra space */
-}
-
-.star-item {
-  display: inline-block;
-  transition: color 0.1s ease-in-out; /* Smooth color transition */
-  /* Spacing is now handled by inline style */
-}
-.star-item i {
-   display: block; /* Ensures icon sizing is consistent */
-}
-</style> -->

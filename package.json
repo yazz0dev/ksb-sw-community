@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
+    "@tailwindcss/vite": "^4.1.2",
     "@types/luxon": "^3.6.2",
     "@vue/compiler-sfc": "^3.5.13",
     "dompurify": "^3.2.4",
@@ -25,9 +26,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.2",
     "@vitejs/plugin-vue": "^5.2.3",
-    "autoprefixer": "^10.4.21",
     "path": "^0.12.7",
-    "postcss": "^8.5.3",
     "tailwindcss": "^4.1.2",
     "vite": "^6.2.3",
     "vite-plugin-pwa": "^1.0.0"

@@ -53,13 +53,4 @@
   </div>
 </template>
 
-<script setup>
-// No script logic needed for this simple view
-</script>
 
-<!-- <style scoped>
-.landing-container {
-  max-width: 900px; /* Limit width */
-}
-/* Removed redundant icon width style, relying on fa-fw class */
-</style> -->

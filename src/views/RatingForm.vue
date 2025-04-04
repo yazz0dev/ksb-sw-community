@@ -376,6 +376,4 @@ const goBack = () => {
 
 </script>
 
-<style scoped>
-/* Remove any Bootstrap-specific styles */
-</style>
+
