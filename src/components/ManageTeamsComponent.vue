@@ -43,7 +43,7 @@
                                             class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-primary-light hover:text-white transition-colors"
                                             type="button"
                                             @mousedown.prevent="addMember(index, student)">
-                                        {{ student.name || studentNameCache[student.uid] || student.uid }}
+                                        {{ student.name || props.nameCache[student.uid] || student.uid }}
                                     </button>
                                     <div v-if="!filteredStudents(index).length"
                                          class="px-4 py-2 text-sm text-gray-500 italic">
@@ -140,6 +140,37 @@ const localTeams = ref<Team[]>([]);
 const searchQueries = reactive<Record<number, string>>({});
 const dropdownVisible = reactive<Record<number, boolean>>({});
 
+// Current team being edited
+const currentTeam = reactive<Team>({ teamName: '', members: [] });
+const editingTeamName = ref<string | null>(null);
+const studentSearch = ref<string>('');
+const addTeamErrorMessage = ref<string>('');
+const showNewTeamForm = ref<boolean>(false);
+const showValidationErrors = ref<boolean>(false);
+const minTeams = ref<number>(2);
+
+// Validation state
+const overallValidation = computed(() => {
+    const validTeams = localTeams.value.filter(team => 
+        team.teamName.trim() !== '' && team.members.length > 0
+    );
+    
+    if (validTeams.length < minTeams.value) {
+        return {
+            isValid: false,
+            message: `At least ${minTeams.value} valid teams are required.`
+        };
+    }
+    
+    return { isValid: true, message: '' };
+});
+
+// Check if we can add more teams
+const canAddMoreTeams = computed(() => {
+    const maxTeams = 10; // Maximum number of teams allowed
+    return localTeams.value.length < maxTeams;
+});
+
 // --- Initialization ---
 // Helper to initialize or reset local teams
 function initializeTeams(initialData: Team[]) {
@@ -175,6 +206,23 @@ watch(() => props.initialTeams, (newVal) => {
 
 // Replaces direct use of `teams` in template
 const teams = computed(() => localTeams.value);
+
+// Detect duplicate team names
+const duplicateTeamNames = computed(() => {
+    const names = new Set();
+    const duplicates = new Set();
+    
+    localTeams.value.forEach(team => {
+        const name = team.teamName.trim().toLowerCase();
+        if (name && names.has(name)) {
+            duplicates.add(team.teamName);
+        } else if (name) {
+            names.add(name);
+        }
+    });
+    
+    return duplicates;
+});
 
 // All student IDs currently assigned to any team
 const assignedStudentIds = computed<Set<string>>(() => {
@@ -422,29 +470,129 @@ const deleteTeam = (teamNameToDelete: string): void => {
     }
 };
 
-// Add a member to the *current* team being edited/created
-const addMember = (uid: string): void => {
-    if (!currentTeam.members.includes(uid) && !isStudentAssignedElsewhere(uid)) {
-        currentTeam.members.push(uid);
-    } else if (isStudentAssignedElsewhere(uid)) {
-        // Optionally provide feedback that the student is already assigned
-        console.warn(`Student ${uid} is already assigned to another team.`);
-    }
-};
-
-// Remove a member from the *current* team being edited/created
-const removeMember = (uid: string): void => {
-    const index = currentTeam.members.indexOf(uid);
-    if (index !== -1) {
-        currentTeam.members.splice(index, 1);
-    }
-};
+// These functions are replaced by the team-specific versions below
 
 // Emit the current valid teams list to the parent
 const emitUpdate = (): void => {
     // Filter out any potential invalid teams before emitting (e.g., empty placeholders)
     const validTeams = localTeams.value.filter(team => team.teamName?.trim() && Array.isArray(team.members));
     emit('update:teams', validTeams);
+};
+
+// Function to filter students for a specific team
+const filteredStudents = (teamIndex: number) => {
+    if (!Array.isArray(props.students)) return [];
+    
+    const currentTeam = localTeams.value[teamIndex];
+    if (!currentTeam) return [];
+    
+    // Get all student IDs assigned to any team
+    const allAssignedIds = new Set(
+        localTeams.value.flatMap(team => team.members || [])
+    );
+    
+    // Filter students that are not already in any team or are in the current team
+    let available = props.students.filter(student => 
+        !allAssignedIds.has(student.uid) || currentTeam.members.includes(student.uid)
+    );
+    
+    // Further filter by search term if present
+    if (searchQueries[teamIndex]) {
+        const search = searchQueries[teamIndex].toLowerCase();
+        available = available.filter(student => {
+            const name = props.nameCache[student.uid] || student.uid;
+            return name.toLowerCase().includes(search);
+        });
+    }
+    
+    // Sort alphabetically
+    return available.sort((a, b) => {
+        const nameA = props.nameCache[a.uid] || a.uid;
+        const nameB = props.nameCache[b.uid] || b.uid;
+        return nameA.localeCompare(nameB);
+    });
+};
+
+// Show dropdown for a specific team
+const showDropdown = (index: number) => {
+    dropdownVisible[index] = true;
+};
+
+// Hide dropdown for a specific team
+const hideDropdown = (index: number) => {
+    // Use setTimeout to allow click events to complete before hiding
+    setTimeout(() => {
+        dropdownVisible[index] = false;
+    }, 200);
+};
+
+// Add a member to a specific team
+const addMember = (teamIndex: number, student: Student) => {
+    const team = localTeams.value[teamIndex];
+    if (!team) return;
+    
+    // Check if student is already in this team
+    if (team.members.includes(student.uid)) return;
+    
+    // Check if student is in another team
+    const isInOtherTeam = localTeams.value.some((t, idx) => 
+        idx !== teamIndex && t.members.includes(student.uid)
+    );
+    
+    // If student is in another team, ask for confirmation
+    if (isInOtherTeam) {
+        const studentName = props.nameCache[student.uid] || student.uid;
+        if (!confirm(`${studentName} is already in another team. Move to this team?`)) {
+            return;
+        }
+        
+        // Remove from other teams
+        localTeams.value.forEach((t, idx) => {
+            if (idx !== teamIndex && t.members.includes(student.uid)) {
+                t.members = t.members.filter(id => id !== student.uid);
+            }
+        });
+    }
+    
+    // Add to current team
+    team.members.push(student.uid);
+    searchQueries[teamIndex] = ''; // Clear search
+    emitUpdate();
+};
+
+// Remove a member from a specific team
+const removeMember = (teamIndex: number, memberId: string) => {
+    const team = localTeams.value[teamIndex];
+    if (!team) return;
+    
+    team.members = team.members.filter(id => id !== memberId);
+    emitUpdate();
+};
+
+// Remove a team
+const removeTeam = (index: number) => {
+    if (localTeams.value.length <= minTeams.value) {
+        alert(`At least ${minTeams.value} teams are required.`);
+        return;
+    }
+    
+    localTeams.value.splice(index, 1);
+    emitUpdate();
+};
+
+// Add a new team
+const addTeam = () => {
+    localTeams.value.push({
+        teamName: `Team ${localTeams.value.length + 1}`,
+        members: []
+    });
+    
+    // Initialize search and dropdown for the new team
+    const newIndex = localTeams.value.length - 1;
+    searchQueries[newIndex] = '';
+    dropdownVisible[newIndex] = false;
+    
+    emitUpdate();
 };
 </script>
 
