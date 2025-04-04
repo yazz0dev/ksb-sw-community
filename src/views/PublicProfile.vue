@@ -1,104 +1,120 @@
 // src/views/PublicProfile.vue
 <template>
-    <div class="container mt-4">
-        <div class="mb-4"> 
-            <button class="btn btn-secondary btn-sm" @click="$router.back()">
-                <i class="fas fa-arrow-left me-1"></i> Back
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> <!-- Container -->
+        <!-- Back Button -->
+        <div class="mb-6">
+            <button 
+                class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                @click="$router.back()">
+                <i class="fas fa-arrow-left mr-1 h-3 w-3"></i> Back
             </button>
         </div>
 
-        <div v-if="loading" class="text-center my-5">
-             <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        <!-- Loading State -->
+        <div v-if="loading" class="flex justify-center py-10">
+             <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+             </svg>
         </div>
-        <div v-else-if="errorMessage" class="alert alert-warning">{{ errorMessage }}</div>
-        <div v-else-if="!user" class="alert alert-warning">User profile data not available.</div>
-        <div v-else-if="user?.role === 'Admin'" class="alert alert-info">
+        <!-- Error State -->
+        <div v-else-if="errorMessage" class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-md text-sm">
+            {{ errorMessage }}
+        </div>
+        <!-- No User Data State -->
+        <div v-else-if="!user" class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-md text-sm">
+            User profile data not available.
+        </div>
+        <!-- Admin Profile State -->
+        <div v-else-if="user?.role === 'Admin'" class="bg-blue-50 text-blue-700 px-4 py-3 rounded-md text-sm">
             Administrator accounts do not have public profiles.
         </div>
-        <div v-else class="row g-4">
+        
+        <!-- Profile Content -->
+        <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Left Column: Profile Info -->
-            <div class="col-lg-4"> <!-- Changed from col-md-4 -->
-                <div class="card h-100">
-                    <div class="card-body text-center p-3 p-md-4"> <!-- Adjusted padding -->
-                        <!-- Profile Photo -->
-                        <div class="profile-photo-container mb-3">
-                            <img :src="user.photoURL || defaultAvatarUrl" 
-                                 :alt="user.name || 'Profile Photo'"
-                                 class="rounded-circle profile-photo"
-                                 @error="handleImageError">
+            <div class="lg:col-span-1">
+                <div class="bg-white shadow rounded-lg p-4 sm:p-6 text-center h-full flex flex-col">
+                    <!-- Profile Photo -->
+                    <div class="mb-4">
+                        <img :src="user.photoURL || defaultAvatarUrl" 
+                             :alt="user.name || 'Profile Photo'"
+                             class="w-24 h-24 sm:w-32 sm:h-32 mx-auto rounded-full object-cover shadow-md"
+                             @error="handleImageError">
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">{{ user.name || 'User Profile' }}</h2>
+                    
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-3 gap-2 mb-6">
+                        <div class="bg-gray-50 border border-gray-200 rounded p-2">
+                            <div class="text-lg font-bold text-blue-600">{{ stats.participatedCount }}</div>
+                            <small class="text-xs text-gray-500 block">Participated</small>
                         </div>
-                        <h2 class="h4 mb-3">{{ user.name || 'User Profile' }}</h2>
-                        
-                        <!-- Quick Stats -->
-                        <div class="row g-2 stats-container mb-4">
-                            <div class="col-4">
-                                <div class="p-2 rounded bg-light-subtle border">
-                                    <div class="h4 mb-0 text-primary">{{ stats.participatedCount }}</div>
-                                    <small class="text-muted">Participated</small>
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="p-2 rounded bg-light-subtle border">
-                                    <div class="h4 mb-0 text-info">{{ stats.organizedCount }}</div>
-                                    <small class="text-muted">Organized</small>
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="p-2 rounded bg-light-subtle border">
-                                    <div class="h4 mb-0 text-warning">{{ stats.wonCount }}</div>
-                                    <small class="text-muted">Won</small>
-                                </div>
-                            </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded p-2">
+                            <div class="text-lg font-bold text-cyan-600">{{ stats.organizedCount }}</div>
+                            <small class="text-xs text-gray-500 block">Organized</small>
+                        </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded p-2">
+                            <div class="text-lg font-bold text-yellow-500">{{ stats.wonCount }}</div>
+                            <small class="text-xs text-gray-500 block">Won</small>
+                        </div>
+                    </div>
+
+                    <!-- Total XP -->
+                    <div class="mb-6">
+                        <h3 class="text-sm font-medium text-gray-500 flex items-center justify-center mb-1">
+                            <i class="fas fa-star mr-1 text-yellow-400"></i>Total XP
+                        </h3>
+                        <div class="text-3xl font-bold text-gray-900">{{ totalXp }}</div>
+                    </div>
+
+                    <!-- Skills & Roles -->
+                    <div class="text-left mt-auto pt-4 border-t border-gray-200"> <!-- Aligned left, push to bottom -->
+                        <h3 class="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-cogs mr-2 text-gray-400"></i>Skills
+                        </h3>
+                        <div class="flex flex-wrap gap-1 mb-4">
+                            <span v-if="user.skills?.length" 
+                                  class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800" 
+                                  v-for="skill in user.skills" :key="skill">
+                                {{ skill }}
+                            </span>
+                            <span v-else class="text-xs text-gray-500">Not specified</span>
                         </div>
 
-                        <!-- Total XP -->
-                        <div class="mb-4">
-                            <h3 class="h5 text-muted"><i class="fas fa-star me-1 text-warning"></i>Total XP</h3>
-                            <div class="h2 fw-bold">{{ totalXp }}</div>
-                        </div>
-
-                        <!-- Skills & Roles -->
-                        <div class="text-center text-md-start"> <!-- Center text on mobile, start on medium+ -->
-                            <h3 class="h5 mb-2"><i class="fas fa-cogs me-1 text-secondary"></i>Skills</h3>
-                            <div class="mb-3">
-                                <span v-if="user.skills?.length" class="badge bg-secondary me-1 mb-1" 
-                                      v-for="skill in user.skills" :key="skill">
-                                    {{ skill }}
-                                </span>
-                                <span v-else class="text-muted">Not specified</span>
-                            </div>
-
-                            <h3 class="h5 mb-2"><i class="fas fa-user-tag me-1 text-info"></i>Preferred Roles</h3>
-                            <div>
-                                <span v-if="user.preferredRoles?.length" class="badge bg-info me-1 mb-1" 
-                                      v-for="role in user.preferredRoles" :key="role">
-                                    {{ role }}
-                                </span>
-                                <span v-else class="text-muted">Not specified</span>
-                            </div>
+                        <h3 class="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                           <i class="fas fa-user-tag mr-2 text-gray-400"></i>Preferred Roles
+                        </h3>
+                        <div class="flex flex-wrap gap-1">
+                            <span v-if="user.preferredRoles?.length" 
+                                  class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800" 
+                                  v-for="role in user.preferredRoles" :key="role">
+                                {{ role }}
+                            </span>
+                            <span v-else class="text-xs text-gray-500">Not specified</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Right Column: XP & Events -->
-            <div class="col-lg-8"> <!-- Changed from col-md-8 -->
+            <div class="lg:col-span-2 space-y-6"> 
                 <!-- XP Breakdown Card -->
-                <div class="card mb-4" v-if="hasXpData">
-                    <div class="card-header bg-white py-3">
-                        <h3 class="h5 mb-0"><i class="fas fa-chart-pie me-2 text-primary"></i>XP Breakdown</h3>
+                <div class="bg-white shadow rounded-lg overflow-hidden" v-if="hasXpData">
+                    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 class="text-base font-semibold text-gray-900 flex items-center">
+                           <i class="fas fa-chart-pie mr-2 text-blue-500"></i>XP Breakdown
+                        </h3>
                     </div>
-                    <div class="card-body p-3 p-md-4"> <!-- Adjusted padding -->
-                        <div class="row g-3">
-                            <div class="col-md-6" v-for="(xp, role) in user.xpByRole" :key="role">
-                                <div v-if="xp > 0">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span>{{ formatRoleName(role) }}</span>
-                                        <span class="badge bg-primary">{{ xp }} XP</span>
-                                    </div>
-                                    <div class="progress" style="height: 6px;">
-                                        <div class="progress-bar" :style="{ width: (xp / totalXp * 100) + '%' }"></div>
-                                    </div>
+                    <div class="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                        <div v-for="(xp, role) in user.xpByRole" :key="role">
+                            <div v-if="xp > 0">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm font-medium text-gray-700">{{ formatRoleName(role) }}</span>
+                                    <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">{{ xp }} XP</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div class="bg-blue-600 h-1.5 rounded-full" :style="{ width: totalXp > 0 ? (xp / totalXp * 100) + '%' : '0%' }"></div>
                                 </div>
                             </div>
                         </div>
@@ -106,83 +122,88 @@
                 </div>
 
                 <!-- Events Participation -->
-                <div class="card mb-4">
-                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h3 class="h5 mb-0"><i class="fas fa-lightbulb me-2 text-success"></i>Event History</h3>
-                        <span class="badge bg-secondary rounded-pill">{{ participatedEvents.length }} Events</span>
+                <div class="bg-white shadow rounded-lg overflow-hidden">
+                    <div class="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 class="text-base font-semibold text-gray-900 flex items-center">
+                           <i class="fas fa-lightbulb mr-2 text-green-500"></i>Event History
+                        </h3>
+                        <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">{{ participatedEvents.length }} Events</span>
                     </div>
-                    <div class="card-body p-3 p-md-4"> <!-- Adjusted padding -->
-                        <div v-if="loadingEvents" class="text-center py-3">
-                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <div class="p-4 sm:p-6">
+                        <div v-if="loadingEvents" class="flex justify-center py-3">
+                            <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                           </svg>
                         </div>
-                        <div v-else-if="participatedEvents.length === 0" class="text-center py-3 text-muted">
+                        <div v-else-if="participatedEvents.length === 0" class="text-center py-3 text-sm text-gray-500">
                             No events participated yet
                         </div>
-                        <div v-else>
-                            <div v-for="event in participatedEvents" :key="event.id" class="mb-3 pb-3 border-bottom">
-                                <div class="d-flex justify-content-between align-items-start">
+                        <ul v-else class="divide-y divide-gray-200 -my-4">
+                            <li v-for="event in participatedEvents" :key="event.id" class="py-4">
+                                <div class="flex flex-wrap justify-between items-start gap-2">
                                     <div>
-                                        <h4 class="h6 mb-1">{{ event.eventName }}</h4>
-                                        <p class="small text-muted mb-1">
-                                            <i class="fas fa-calendar me-1"></i> {{ formatDate(event.endDate) }}
-                                            <span class="mx-2">|</span>
-                                            <i class="fas fa-tag me-1"></i> {{ event.eventType }}
+                                        <h4 class="text-sm font-semibold text-gray-800 mb-0.5">{{ event.eventName }}</h4>
+                                        <p class="text-xs text-gray-500 mb-1 flex items-center flex-wrap gap-x-2">
+                                            <span><i class="fas fa-calendar mr-1"></i> {{ formatDate(event.endDate) }}</span>
+                                            <span class="hidden sm:inline">|</span>
+                                            <span><i class="fas fa-tag mr-1"></i> {{ event.eventType }}</span>
                                         </p>
                                     </div>
-                                    <div>
-                                        <span v-if="event.isWinner" class="badge bg-warning text-dark">
-                                            <i class="fas fa-trophy me-1"></i> Winner
+                                    <div class="flex space-x-1 flex-shrink-0">
+                                        <span v-if="event.isWinner" class="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                                            <i class="fas fa-trophy mr-1"></i> Winner
                                         </span>
-                                        <span v-if="event.isOrganizer" class="badge bg-info ms-1">
-                                            <i class="fas fa-star me-1"></i> Organizer
+                                        <span v-if="event.isOrganizer" class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                                            <i class="fas fa-star mr-1"></i> Organizer
                                         </span>
                                     </div>
                                 </div>
                                 <!-- Show project if available -->
-                                <div v-if="event.project" class="mt-2">
-                                    <div class="small">
-                                        <strong>Project:</strong> {{ event.project.projectName }}
-                                        <a v-if="event.project.link" :href="event.project.link" 
-                                           target="_blank" rel="noopener noreferrer"
-                                           class="btn btn-sm btn-outline-primary ms-2">
-                                            <i class="fas fa-external-link-alt"></i> View Project
-                                        </a>
-                                    </div>
+                                <div v-if="event.project" class="mt-2 text-xs">
+                                    <strong class="text-gray-600">Project:</strong> {{ event.project.projectName }}
+                                    <a v-if="event.project.link" :href="event.project.link" 
+                                       target="_blank" rel="noopener noreferrer"
+                                       class="inline-flex items-center rounded border border-gray-300 bg-white px-2 py-0.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 ml-2">
+                                        <i class="fas fa-external-link-alt mr-1 h-2.5 w-2.5"></i> View
+                                    </a>
                                 </div>
-                            </div>
-                        </div>
+                            </li>
+                        </ul>
                     </div>
                 </div>
 
                 <!-- Projects Section -->
-                <div class="card"> 
-                    <div class="card-header bg-white py-3">
-                        <h3 class="h5 mb-0"><i class="fas fa-paperclip me-2 text-info"></i>Project Submissions</h3>
+                 <div class="bg-white shadow rounded-lg overflow-hidden">
+                     <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 class="text-base font-semibold text-gray-900 flex items-center">
+                           <i class="fas fa-paperclip mr-2 text-cyan-500"></i>Project Submissions
+                        </h3>
                     </div>
-                    <div class="card-body p-3 p-md-4"> <!-- Adjusted padding -->
-                        <div v-if="loadingProjects" class="text-center py-3">
-                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <div class="p-4 sm:p-6">
+                        <div v-if="loadingProjects" class="flex justify-center py-3">
+                             <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                           </svg>
                         </div>
-                        <div v-else-if="userProjects.length === 0" class="text-center py-3 text-muted">
+                        <div v-else-if="userProjects.length === 0" class="text-center py-3 text-sm text-gray-500">
                             No projects submitted yet
                         </div>
-                        <div v-else class="list-group list-group-flush">
-                            <div v-for="project in userProjects" :key="project.eventId" 
-                                 class="list-group-item border-0 px-0">
-                                <h4 class="h6 mb-1">{{ project.projectName }}</h4>
-                                <p class="small text-muted mb-1">
+                         <ul v-else class="divide-y divide-gray-200 -my-4">
+                            <li v-for="project in userProjects" :key="project.eventId" class="py-4">
+                                <h4 class="text-sm font-semibold text-gray-800 mb-1">{{ project.projectName }}</h4>
+                                <p class="text-xs text-gray-500 mb-1">
                                     Event: {{ project.eventName }} ({{ project.eventType }})
-                                    <span v-if="project.teamName" class="ms-2">
-                                        <i class="fas fa-users me-1"></i> {{ project.teamName }}
+                                    <span v-if="project.teamName" class="ml-2">
+                                        <i class="fas fa-users mr-1"></i> {{ project.teamName }}
                                     </span>
                                 </p>
-                                <p v-if="project.description" class="small mb-2">{{ project.description }}</p>
+                                <p v-if="project.description" class="text-sm text-gray-700 mb-2">{{ project.description }}</p>
                                 <a v-if="project.link" :href="project.link" target="_blank" rel="noopener noreferrer"
-                                   class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-external-link-alt me-1"></i> View Project
+                                   class="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+                                    <i class="fas fa-external-link-alt mr-1 h-3 w-3"></i> View Project
                                 </a>
-                            </div>
-                        </div>
+                            </li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -194,11 +215,16 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useRoute } from 'vue-router'; // Import useRoute
 
 // Use new URL pattern for asset handling
 const defaultAvatarUrl = new URL('../assets/default-avatar.png', import.meta.url).href;
 
-const props = defineProps({ userId: { type: String, required: true } });
+// Define props or get userId from route
+// const props = defineProps({ userId: { type: String, required: true } });
+const route = useRoute();
+const userId = ref(route.params.userId);
+
 const user = ref(null);
 const loading = ref(true);
 const errorMessage = ref('');
@@ -220,7 +246,7 @@ const totalXp = computed(() => {
     return Object.values(user.value.xpByRole).reduce((sum, val) => sum + (Number(val) || 0), 0);
 });
 
-const hasXpData = computed(() => totalXp.value > 0);
+const hasXpData = computed(() => totalXp.value > 0 && Object.keys(user.value?.xpByRole || {}).some(key => user.value.xpByRole[key] > 0));
 
 // Handlers
 const handleImageError = (e) => {
@@ -237,197 +263,125 @@ const formatRoleName = (roleKey) => {
 
 const formatDate = (timestamp) => {
     if (!timestamp?.seconds) return 'N/A';
-    return new Date(timestamp.seconds * 1000).toLocaleDateString();
+    // Use Luxon for better date formatting if available, otherwise fallback
+    try {
+        const { DateTime } = require("luxon");
+        return DateTime.fromSeconds(timestamp.seconds).toLocaleString(DateTime.DATE_MED);
+    } catch (e) {
+        return new Date(timestamp.seconds * 1000).toLocaleDateString();
+    }
 };
 
-// Fetch core user data
-async function fetchUserData(id) {
-     if (!id) {
-         errorMessage.value = "Invalid User ID.";
-         loading.value = false;
-         return;
-     }
-    loading.value = true;
-    errorMessage.value = '';
-    user.value = null;
-    try {
-        const userDocRef = doc(db, 'users', id);
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-            // Only fetch necessary public fields
-             user.value = {
-                uid: docSnap.id,
-                name: docSnap.data().name,
-                xpByRole: docSnap.data().xpByRole,
-                skills: docSnap.data().skills,
-                preferredRoles: docSnap.data().preferredRoles,
-                role: docSnap.data().role, // Added role field
-                // projects: docSnap.data().projects, // REMOVED - Fetch from events now
-             };
-        } else {
-            errorMessage.value = "User not found.";
-        }
-    } catch (error) {
-         console.error('Error fetching public user data:', error);
-         errorMessage.value = "Failed to load user profile.";
-    } finally {
-         loading.value = false;
-    }
-}
-
-// Fetch projects and event participation
-async function fetchUserEventHistory(userId) {
-    if (!userId) {
-        loadingEvents.value = false;
-        loadingProjects.value = false;
+// Fetch Function
+async function fetchData(currentUserId) {
+    if (!currentUserId) {
+        errorMessage.value = "Invalid User ID.";
+        loading.value = false;
         return;
     }
 
+    loading.value = true;
     loadingEvents.value = true;
     loadingProjects.value = true;
-    const events = [];
-    const projects = [];
-    let participated = 0, organized = 0, won = 0;
+    errorMessage.value = '';
+    user.value = null; // Reset user data on new fetch
+    participatedEvents.value = [];
+    userProjects.value = [];
+    stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
 
     try {
-        const eventsRef = collection(db, 'events');
-        const q = query(eventsRef, where('status', '==', 'Completed'), orderBy('endDate', 'desc'));
-        const querySnapshot = await getDocs(q);
+        // 1. Fetch User Data
+        const userDocRef = doc(db, 'users', currentUserId);
+        const userDocSnap = await getDoc(userDocRef);
 
-        querySnapshot.forEach((doc) => {
+        if (!userDocSnap.exists()) {
+            errorMessage.value = "User not found.";
+            throw new Error("User not found");
+        } 
+        
+        user.value = userDocSnap.data();
+
+        if (user.value.role === 'Admin') {
+             // Don't fetch events/projects for admin, message is shown in template
+             loading.value = false;
+             loadingEvents.value = false;
+             loadingProjects.value = false;
+             return; 
+        }
+
+        // 2. Fetch Events the User Participated In
+        const eventsRef = collection(db, "events");
+        // Query based on user being in participants map (more reliable than array-contains)
+        const participatedEventsQuery = query(eventsRef, 
+             where(`participants.${currentUserId}.uid`, '==', currentUserId),
+             orderBy('endDate', 'desc') // Show most recent first
+        );
+        const participatedSnapshot = await getDocs(participatedEventsQuery);
+        
+        const eventsData = [];
+        let organizedCount = 0;
+        let wonCount = 0;
+
+        participatedSnapshot.forEach(doc => {
             const eventData = doc.data();
-            const eventId = doc.id;
-            const isOrganizer = eventData.organizer === userId || (eventData.coOrganizers || []).includes(userId);
-            let participantFound = false;
-            let projectSubmission = null;
-
-            // Check participation and submission
-            if (!eventData.isTeamEvent) {
-                if (Array.isArray(eventData.participants) && eventData.participants.includes(userId)) {
-                    participantFound = true;
-                    projectSubmission = (eventData.submissions || []).find(sub => sub.participantId === userId);
-                }
-            } else if (Array.isArray(eventData.teams)) {
-                const userTeam = eventData.teams.find(team => Array.isArray(team.members) && team.members.includes(userId));
-                if (userTeam) {
-                    participantFound = true;
-                    if (userTeam.submissions?.length > 0) {
-                        projectSubmission = { ...userTeam.submissions[0], teamName: userTeam.teamName };
-                    }
-                }
-            }
-
-            // Check if winner
-            const isWinner = Array.isArray(eventData.winners) && eventData.winners.includes(userId);
-
-            if (participantFound || isOrganizer) {
-                // Update stats
-                if (participantFound) participated++;
-                if (isOrganizer) organized++;
-                if (isWinner) won++;
-
-                // Add to events list
-                events.push({
-                    id: eventId,
-                    eventName: eventData.eventName,
-                    eventType: eventData.eventType,
-                    endDate: eventData.endDate,
-                    isOrganizer,
-                    isWinner,
-                    project: projectSubmission
-                });
-
-                // Add to projects list if submission exists
-                if (projectSubmission) {
-                    projects.push({
-                        ...projectSubmission,
-                        eventId,
-                        eventName: eventData.eventName,
-                        eventType: eventData.eventType
-                    });
-                }
-            }
+            const participantData = eventData.participants?.[currentUserId] || {};
+            const teamData = eventData.teams?.find(t => t.members?.includes(currentUserId));
+            
+            eventsData.push({
+                id: doc.id,
+                eventName: eventData.eventName,
+                eventType: eventData.eventType,
+                endDate: eventData.endDate,
+                isWinner: participantData.isWinner || teamData?.isWinner || false,
+                isOrganizer: participantData.isOrganizer || false,
+                project: participantData.project || teamData?.project // Check both user and team project links
+            });
+            if (participantData.isOrganizer) organizedCount++;
+            if (participantData.isWinner || teamData?.isWinner) wonCount++;
         });
+        participatedEvents.value = eventsData;
+        stats.value.participatedCount = eventsData.length;
+        stats.value.organizedCount = organizedCount;
+        stats.value.wonCount = wonCount;
+        loadingEvents.value = false;
 
-        // Update state
-        participatedEvents.value = events;
-        userProjects.value = projects;
-        stats.value = {
-            participatedCount: participated,
-            organizedCount: organized,
-            wonCount: won
-        };
+        // 3. Fetch Projects Submitted by the User (across all events)
+        // This requires querying projects where userId matches
+        const projectsRef = collection(db, "projects"); // Assuming a top-level 'projects' collection
+        const userProjectsQuery = query(projectsRef, where("submittedByUid", "==", currentUserId), orderBy("submittedAt", "desc"));
+        const projectsSnapshot = await getDocs(userProjectsQuery);
+        
+        // We need event names/types, potentially fetch associated event data if not stored with project
+        // For simplicity here, assume project doc contains necessary event info or fetch it.
+        userProjects.value = projectsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+            // eventName: fetchedEventData.eventName, // Example if fetched separately
+            // eventType: fetchedEventData.eventType, // Example if fetched separately
+        }));
+        loadingProjects.value = false;
 
-    } catch (error) {
-        console.error("Error fetching user history:", error);
-        errorMessage.value = "Could not load user's event history.";
-    } finally {
+    } catch (err) {
+        console.error("Error fetching public profile data:", err);
+        errorMessage.value = err.message === "User not found" ? "User not found." : "Failed to load profile data. Please try again later.";
+        // Ensure loading states are false on error
         loadingEvents.value = false;
         loadingProjects.value = false;
+    } finally {
+        loading.value = false;
     }
 }
 
-// Lifecycle hooks
-onMounted(() => {
-    fetchUserData(props.userId);
-    fetchUserEventHistory(props.userId);
-});
+// Watch for route param changes to refetch data
+watch(() => route.params.userId, (newUserId) => {
+    if (newUserId) {
+        userId.value = newUserId; // Update the reactive ref
+        fetchData(newUserId);
+    }
+}, { immediate: true }); // Fetch data immediately when component mounts
 
-// Watch for changes
-watch(() => props.userId, (newId) => {
-    fetchUserData(newId);
-    fetchUserEventHistory(newId);
-});
 </script>
 
-<style scoped>
-.profile-photo-container {
-    width: 120px; /* Slightly smaller on mobile */
-    height: 120px;
-    margin: 0 auto var(--space-3) auto; /* Adjusted margin */
-}
-
-@media (min-width: 992px) { /* lg breakpoint */
-    .profile-photo-container {
-        width: 150px;
-        height: 150px;
-    }
-}
-
-.profile-photo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.stats-container {
-    text-align: center;
-}
-
-.progress {
-    background-color: #e9ecef;
-}
-
-.progress-bar {
-    background-color: #0d6efd;
-}
-
-/* Removed redundant card-header style */
-
-.list-group-item:last-child {
-    border-bottom: 0 !important;
-}
-
-.card-body {
-    padding: var(--space-3); /* Default smaller padding */
-}
-
-@media (min-width: 768px) { /* md breakpoint */
-    .card-body {
-        padding: var(--space-4); /* Restore larger padding on md+ */
-    }
-    .text-md-start {
-        text-align: left !important;
-    }
-}
-</style>
+<!-- <style scoped>
+/* Scoped styles removed */
+</style> -->

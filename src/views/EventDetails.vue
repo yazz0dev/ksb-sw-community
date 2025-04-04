@@ -1,479 +1,87 @@
 // src/views/EventDetails.vue
 <template>
-    <div class="container mt-4 mb-5" :class="{ 'pb-mobile-nav': showBottomNav }">
-        <div v-if="loading" class="text-center my-5">
-            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
-                <span class="visually-hidden">Loading Event Details...</span>
-            </div>
-            <p class="mt-2 text-muted">Loading Event Details...</p>
-        </div>
-        <div v-else-if="event && typeof event.isTeamEvent === 'boolean'">
-            <!-- Back Button -->
-            <div class="mb-4">
-                <button class="btn btn-outline-secondary btn-sm" @click="$router.back()" :disabled="actionInProgress">
-                    <i class="fas fa-arrow-left me-1"></i> Back
-                </button>
-            </div>
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> <!-- Container -->
+      <div class="flex flex-wrap justify-between items-center gap-4 mb-6"> <!-- Header Flexbox -->
+         <h2 class="text-2xl font-bold text-gray-900">Manage Event Requests</h2>
+         <div class="flex space-x-2"> <!-- Button Group -->
+             <button
+                class="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                @click="$router.push('/home')">
+                 <i class="fas fa-arrow-left mr-1 h-3 w-3"></i> Back to Dashboard
+             </button>
+             <router-link
+                to="/request-event"
+                class="inline-flex items-center rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600">
+                 <i class="fas fa-calendar-plus mr-1 h-3 w-3"></i> Create Event
+             </router-link>
+         </div>
+      </div>
 
-            <!-- Global Action Feedback -->
-            <div v-if="globalFeedback.message" :class="['alert', globalFeedback.type === 'error' ? 'alert-danger' : 'alert-success', 'alert-dismissible', 'fade', 'show']" role="alert">
-                 <i :class="['fas', globalFeedback.type === 'error' ? 'fa-times-circle' : 'fa-check-circle', 'me-2']"></i>
-                {{ globalFeedback.message }}
-                <button type="button" class="btn-close" @click="clearGlobalFeedback" aria-label="Close"></button>
-            </div>
-
-            <!-- Event Header Card -->
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                    <h2 class="mb-0 me-3 h4">{{ event.eventName }}</h2>
-                    <span :class="['badge', statusBadgeClass, 'mt-1 mt-md-0', 'fs-6']">
-                        <i :class="statusIconClass + ' me-1'"></i> {{ event.status }}
-                    </span>
+      <div v-if="loading" class="flex justify-center py-10">
+          <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+      </div>
+      <div v-else-if="pendingEvents.length === 0" class="rounded-md bg-blue-50 p-4 text-sm text-blue-700 border border-blue-200">
+          No pending requests to review at this time.
+      </div>
+      <div v-else class="space-y-4"> <!-- List container -->
+        <div v-for="event in pendingEvents" :key="event.id" class="bg-white shadow overflow-hidden sm:rounded-lg p-4 sm:p-6 border border-gray-200">
+            <div class="flex flex-col md:flex-row justify-between md:items-start gap-4">
+                <div class="flex-1 min-w-0">
+                   <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ event.eventName }} <span class="font-normal text-gray-600">({{ event.eventType }})</span></h3>
+                   <p class="text-xs text-gray-500 mb-0.5"><strong class="font-medium text-gray-700 mr-1">Requested by:</strong> {{ nameCache[event.requester] || '(Name not found)' }}</p>
+                   <p class="text-xs text-gray-500 mb-0.5"><strong class="font-medium text-gray-700 mr-1">Desired Dates:</strong> {{ formatDate(event.desiredStartDate) }} - {{ formatDate(event.desiredEndDate) }}</p>
+                   <p class="text-xs text-gray-500 mb-0.5"><strong class="font-medium text-gray-700 mr-1">Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}</p>
+                   <p v-if="event.organizers && event.organizers.length > 0" class="text-xs text-gray-500 mb-1">
+                       <strong class="font-medium text-gray-700">Co-Organizers:</strong>
+                       <span v-for="(orgId, idx) in event.organizers" :key="orgId">
+                           {{ nameCache[orgId] || '(Name not found)' }}{{ idx < event.organizers.length - 1 ? ', ' : '' }}
+                       </span>
+                   </p>
+                   <p class="text-sm text-gray-600 mb-2 mt-1"><strong class="font-medium text-gray-700">Description:</strong> {{ event.description }}</p>
+                   <!-- Display XP/Constraint Info -->
+                   <div v-if="event.xpAllocation && event.xpAllocation.length > 0" class="mt-2 text-xs">
+                       <strong class="block mb-1 font-medium text-gray-700">Rating Criteria & XP:</strong>
+                       <ul class="list-disc list-inside space-y-0.5 text-gray-600 pl-2">
+                           <li v-for="(alloc, index) in event.xpAllocation" :key="index">
+                               {{ alloc.constraintLabel || 'Unnamed Criteria' }}: {{ alloc.points }} XP ({{ formatRoleName(alloc.role) }})
+                           </li>
+                       </ul>
+                   </div>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong><i class="fas fa-tag me-1 text-muted"></i> Type:</strong> {{ event.eventType }}</p>
-                            <p><strong><i class="far fa-calendar-alt me-1 text-muted"></i> Dates:</strong> {{ formatDate(event.startDate) }} - {{ formatDate(event.endDate) }}</p>
-                             <p v-if="event.status === 'Pending' || event.status === 'Rejected'">
-                                 <strong><i class="far fa-calendar-check me-1 text-muted"></i> Desired Dates:</strong> {{ formatDate(event.desiredStartDate) }} - {{ formatDate(event.desiredEndDate) }}
-                             </p>
-                            <p v-if="typeof event.isTeamEvent === 'boolean'">
-                                <strong><i :class="event.isTeamEvent ? 'fas fa-users' : 'fas fa-user' + ' me-1 text-muted'"></i> Format:</strong> {{ event.isTeamEvent ? 'Team Event' : 'Individual Event' }}
-                            </p>
-                            <p v-if="event.status === 'Completed' || event.ratingsOpen">
-                                <strong><i class="fas fa-star-half-alt me-1 text-muted"></i> Ratings:</strong>
-                        <span :class="['badge', event.ratingsOpen ? 'bg-success' : 'bg-secondary']">
-                                    <i :class="['fas', event.ratingsOpen ? 'fa-lock-open' : 'fa-lock', 'me-1']"></i>
-                            {{ event.ratingsOpen ? 'Open' : 'Closed' }}
-                        </span>
-                    </p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong><i class="fas fa-info-circle me-1 text-muted"></i> Description:</strong></p>
-                            <p style="white-space: pre-wrap;">{{ event.description || 'No description provided.' }}</p>
-                            <p>
-                                <strong><i class="fas fa-user-shield me-1 text-muted"></i> Organizer(s):</strong>
-                                <span v-if="organizerNamesLoading" class="spinner-border spinner-border-sm text-muted ms-1" role="status" aria-hidden="true"></span>
-                                <span v-else-if="event.organizers && event.organizers.length > 0">
-                                    <template v-for="(orgId, index) in event.organizers" :key="orgId">
-                                        <router-link :to="{ name: 'PublicProfile', params: { userId: orgId } }" class="text-decoration-none">
-                                            {{ getUserNameFromCache(orgId) || 'Loading...' }}
-                                        </router-link>
-                                        <span v-if="index < event.organizers.length - 1">, </span>
-                                    </template>
-                                </span>
-                                <span v-else>N/A</span>
-                            </p>
-                             <!-- Display XP Allocation -->
-                            <div v-if="event.xpAllocation && event.xpAllocation.length > 0">
-                                <strong><i class="fas fa-star me-1 text-muted"></i> Rating Criteria & XP:</strong>
-                                <ul class="list-unstyled small ms-3 mt-1">
-                                     <li v-for="(alloc, index) in sortedXpAllocation" :key="index">
-                                         {{ alloc.constraintLabel }}: {{ alloc.points }} XP <span v-if="alloc.role !== 'general'" class="text-muted">({{ getRoleLabel(alloc.role) }})</span>
-                                     </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-
-                    <!-- Participant/User Actions -->
-                     <div v-if="isAuthenticated && !isAdmin && isRelevantUser" class="mt-3 pt-3 border-top">
-                        <h5 class="mb-3">My Actions</h5>
-                        <div class="d-flex flex-wrap gap-2">
-                            <!-- Leave Event Button (Only if Upcoming and participant/team member) -->
-                             <button v-if="event.status === 'Approved' && isParticipantOrTeamMember" @click="leaveEvent" :disabled="actionInProgress"
-                                class="btn btn-outline-warning btn-sm">
-                                <span v-if="actionInProgress && actionType === 'leave'" class="spinner-border spinner-border-sm me-1" role="status"></span>
-                                <i v-else class="fas fa-sign-out-alt me-1"></i>
-                                Leave Event
-                            </button>
-
-                            <!-- Submit Project Button (Only if In Progress, participant/team member, and not already submitted) -->
-                             <button v-if="canSubmitProject" @click="showSubmissionModal = true" :disabled="actionInProgress"
-                                class="btn btn-success btn-sm">
-                                <i class="fas fa-upload me-1"></i> Submit Project
-                            </button>
-                            <!-- Submission Status Messages -->
-                            <span v-if="event.status === 'In Progress' && hasSubmittedProject" class="text-success small align-self-center d-flex align-items-center">
-                                <i class="fas fa-check-circle me-1"></i> Project Submitted
-                            </span>
-                            <span v-else-if="event.status === 'In Progress' && isParticipantOrTeamMember" class="text-muted small align-self-center">
-                                (Submission opens when event is 'In Progress')
-                            </span>
-                             <!-- General Status Messages -->
-                            <span v-if="(event.status === 'Completed' || event.status === 'Cancelled') && isParticipantOrTeamMember" class="text-muted small align-self-center">
-                                (Actions no longer available for this event status)
-                            </span>
-                            <span v-if="event.status === 'Approved' && !isParticipantOrTeamMember" class="text-muted small align-self-center">
-                                (You are not currently participating in this event)
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Management Section (for Admin/Organizers) -->
-            <div v-if="canManageEvent" class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Event Management</h5>
-                    <span v-if="actionInProgress" class="spinner-border spinner-border-sm text-primary" role="status"></span>
-                </div>
-                <div class="card-body">
-                    <div class="row gy-2 gx-3 align-items-center">
-                         <!-- Status Update Buttons -->
-                        <div class="col-auto">
-                            <div class="btn-group btn-group-sm">
-                                <button v-if="event.status === 'Approved'" @click="updateStatus('In Progress')" class="btn btn-info"
-                                    :disabled="!canActuallyMarkInProgress || actionInProgress"
-                                    :title="canActuallyMarkInProgress ? 'Set event status to In Progress' : 'Can only mark in progress on or after start date (' + formatDate(event.startDate) + ')'">
-                            <i class="fas fa-play me-1"></i> Mark In Progress
-                        </button>
-                                <button v-if="event.status === 'In Progress'" @click="updateStatus('Completed')" class="btn btn-success"
-                                    :disabled="!canActuallyMarkCompleted || actionInProgress"
-                                    :title="canActuallyMarkCompleted ? 'Set event status to Completed' : 'Can only mark completed on or after end date (' + formatDate(event.endDate) + ')'">
-                            <i class="fas fa-check-circle me-1"></i> Mark Completed
-                        </button>
-                            </div>
-                         </div>
-
-                         <!-- Ratings Toggle & Winner Calc -->
-                         <div class="col-auto" v-if="event.status === 'Completed'">
-                            <div class="btn-group btn-group-sm">
-                                 <button @click="toggleRatingsOpen(!event.ratingsOpen)" class="btn btn-secondary"
-                                    :disabled="actionInProgress"
-                                    :title="event.ratingsOpen ? 'Prevent new ratings' : 'Allow participants/organizers to rate'">
-                                    <i :class="['fas', event.ratingsOpen ? 'fa-lock' : 'fa-lock-open', 'me-1']"></i>
-                                    {{ event.ratingsOpen ? 'Close Ratings' : 'Open Ratings' }}
-                    </button>
-                                <button v-if="event.ratingsOpen && event.xpAllocation && event.xpAllocation.length > 0 && isDefinitelyTeamEvent" @click="calculateWinners" class="btn btn-outline-secondary"
-                                    :disabled="actionInProgress || !hasEnoughRatings"
-                                    :title="hasEnoughRatings ? 'Attempt automatic winner calculation based on average ratings (requires min 10 total ratings across teams)' : 'Requires at least 10 total ratings to calculate automatically'">
-                                    <i class="fas fa-trophy me-1"></i> Calc Winners (Auto)
-                    </button>
-                            </div>
-                         </div>
-
-                        <!-- Edit & Copy Links -->
-                        <div class="col-auto">
-                             <div class="btn-group btn-group-sm">
-                                <!-- Edit Button (Admins always, Organizers only if Pending/Rejected/Approved) -->
-                                 <router-link v-if="isAdmin || (isCurrentUserOrganizer && ['Pending', 'Rejected', 'Approved'].includes(event.status))"
-                                                :to="{ name: 'RequestEvent', query: { edit: event.id } }"
-                                                class="btn btn-outline-primary"
-                                                :class="{ disabled: actionInProgress }"
-                                                :aria-disabled="actionInProgress"
-                                                title="Edit event details">
-                                     <i class="fas fa-edit me-1"></i> Edit
-                                 </router-link>
-                                <!-- Copy Rating Link (If Completed & Open) -->
-                    <button v-if="event.status === 'Completed' && event.ratingsOpen" @click="copyRatingLink"
-                                    class="btn btn-outline-info"
-                                    :disabled="actionInProgress || linkCopied"
-                                    :title="linkCopied ? 'Link Copied!' : 'Copy link for participants to rate'">
-                                    <i :class="['fas', linkCopied ? 'fa-check' : 'fa-share-alt', 'me-1']"></i>
-                                    {{ linkCopied ? 'Copied!' : 'Copy Rating Link' }}
-                    </button>
-                            </div>
-                        </div>
-
-                        <!-- Destructive Actions (Cancel/Delete) -->
-                         <div class="col-12 col-md-auto ms-md-auto mt-2 mt-md-0"> <!-- Push to right on medium+ -->
-                             <div class="btn-group btn-group-sm">
-                                 <!-- Cancel Button (Only show if Approved) -->
-                                 <button v-if="event.status === 'Approved'" @click="updateStatus('Cancelled')"
-                                    class="btn btn-outline-warning" :disabled="actionInProgress"
-                                    title="Cancel the event (cannot be undone)">
-                                    <i class="fas fa-times-circle me-1"></i> Cancel Event
-                                </button>
-                                <!-- Delete Button (Admin or Organizer, but only if Pending/Rejected) -->
-                                 <button v-if="(isAdmin || isCurrentUserOrganizer) && (event.status === 'Pending' || event.status === 'Rejected')" @click="deleteEvent" class="btn btn-outline-danger"
-                                    :disabled="actionInProgress"
-                                    title="Permanently delete this event request (cannot be undone)">
-                                    <i class="fas fa-trash-alt me-1"></i> Delete Request
-                    </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Admin Development Tools - Force Status (Visible only to Admins) -->
-                    <div v-if="isAdmin" class="mt-4 pt-3 border-top">
-                        <h6 class="text-muted mb-2"><i class="fas fa-flask me-1"></i>Admin Dev Tools: Force Status</h6>
-                         <p class="small text-danger mb-3">Warning: Use with caution. Bypasses standard logic.</p>
-                        <div class="d-flex flex-wrap gap-2">
-                            <button @click="updateStatus('Pending')" class="btn btn-outline-secondary btn-sm" :disabled="actionInProgress || event.status === 'Pending'">Set Pending</button>
-                            <button @click="updateStatus('Approved')" class="btn btn-outline-info btn-sm" :disabled="actionInProgress || event.status === 'Approved'">Set Approved</button>
-                            <button @click="updateStatus('In Progress')" class="btn btn-outline-success btn-sm" :disabled="actionInProgress || event.status === 'In Progress'">Set In Progress</button>
-                            <button @click="updateStatus('Completed')" class="btn btn-outline-primary btn-sm" :disabled="actionInProgress || event.status === 'Completed'">Set Completed</button>
-                            <button @click="updateStatus('Cancelled')" class="btn btn-outline-warning btn-sm" :disabled="actionInProgress || event.status === 'Cancelled'">Set Cancelled</button>
-                            <button @click="updateStatus('Rejected')" class="btn btn-outline-danger btn-sm" :disabled="actionInProgress || event.status === 'Rejected'">Set Rejected</button>
-                        </div>
-                    </div>
-                    <!-- End Admin Development Tools -->
-
-                </div>
-            </div>
-
-
-             <!-- Winner Display Card -->
-             <div v-if="displayWinners && displayWinners.length > 0" class="card border-warning mb-4 bg-light-subtle">
-                 <div class="card-body text-center">
-                     <h4 class="text-warning mb-2"><i class="fas fa-award me-2"></i>Event Winner<span v-if="displayWinners.length > 1">s</span>!</h4>
-                     <div v-for="winner in displayWinners" :key="winner.id || winner.name" class="lead mb-1 fw-medium">
-                        <i :class="[event.isTeamEvent ? 'fas fa-users' : 'fas fa-user', 'me-2 text-muted']"></i>
-                        <!-- Link winner name if it's a user -->
-                        <router-link v-if="!event.isTeamEvent && winner.id" :to="{ name: 'PublicProfile', params: { userId: winner.id } }" class="text-decoration-none">
-                            {{ winner.name }}
-                        </router-link>
-                        <span v-else>{{ winner.name }}</span> <!-- Display team name or fallback ID -->
-                         <span v-if="winner.role" class="badge bg-secondary ms-2">{{ getRoleLabel(winner.role) }}</span>
-                     </div>
-                </div>
-            </div>
-
-            <!-- NEW: Organization Rating Section -->
-            <div v-if="canRateOrganization" class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-poll me-2"></i>Rate Event Organization</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-3">Your feedback helps organizers improve future events. How would you rate the overall organization?</p>
-                    <!-- Feedback Message -->
-                    <div v-if="orgRatingFeedback.message" 
-                         :class="['alert', 'alert-sm', orgRatingFeedback.type === 'error' ? 'alert-danger' : 'alert-success']" 
-                         role="alert">
-                         {{ orgRatingFeedback.message }}
-                    </div>
-
-                    <!-- Rating Input (Radio Buttons 1-5) -->
-                    <div class="mb-3 d-flex justify-content-center flex-wrap"> 
-                        <div v-for="score in 5" :key="`org-rate-${score}`" class="form-check form-check-inline mx-2">
-                            <input class="form-check-input" 
-                                   type="radio" 
-                                   :id="`orgRating${score}`" 
-                                   :value="score" 
-                                   v-model.number="organizationRatingScore" 
-                                   :disabled="isSubmittingOrgRating">
-                            <label class="form-check-label" :for="`orgRating${score}`">
-                                {{ score }} <i class="fas fa-star text-warning"></i>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Submit Button -->
-                    <div class="text-center">
-                        <button @click="submitOrganizationRatingHandler" 
-                                class="btn btn-primary btn-sm" 
-                                :disabled="isSubmittingOrgRating || organizationRatingScore === null">
-                            <span v-if="isSubmittingOrgRating" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                            {{ isSubmittingOrgRating ? 'Submitting...' : 'Submit Organization Rating' }}
-                        </button>
-                    </div>
-                     <p class="text-muted small mt-3 text-center">(Note: You can currently submit a rating multiple times.)</p>
-                </div>
-            </div>
-            <!-- END NEW Section -->
-
-            <!-- Teams Section (Display Only for Team Events - check property exists) -->
-            <div v-if="isDefinitelyTeamEvent" class="mb-4">
-                <h3 class="mb-3"><i class="fas fa-users me-2 text-muted"></i> Teams</h3>
-                <TeamList v-if="event.teams && event.teams.length > 0" :teams="event.teams" :eventId="id"
-                    :ratingsOpen="event.ratingsOpen && event.status === 'Completed'"
-                    :get-user-name="getUserNameFromCache"
-                    :organizer-names-loading="organizerNamesLoading"
-                    :current-user-uid="currentUser?.uid"
-                    :event-winners="event.winnersPerRole || (event.winners ? { default: event.winners } : {})"
-                    :is-team-event="event?.isTeamEvent"
-                    :current-user-has-rated-team="hasRatedAnyTeam">
-                </TeamList>
-                <p v-else class="alert alert-light">No teams defined for this event.</p>
-            </div>
-
-            <!-- Participants Section (Display Only for Individual Events - check property exists) -->
-            <div v-else-if="!isDefinitelyTeamEvent" class="mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="mb-0"><i class="fas fa-user-friends me-2 text-muted"></i> Participants</h3>
-                    <!-- Add Rating/Select Winners Button for Individual Events -->
-                    <div v-if="event.ratingsOpen && event.status === 'Completed' && canManageEvent">
-                         <button @click="goToWinnerSelection" class="btn btn-primary btn-sm" v-if="canRateEvent">
-                            <i class="fas fa-trophy me-1"></i>
-                             {{ alreadyRated ? 'View/Edit Ratings' : 'Rate Participants / Select Winners' }}
-                        </button>
-                        <span v-else-if="alreadyRated" class="text-muted small">
-                             (Ratings Submitted)
-                        </span>
-                    </div>
-                    </div>
-
-                <div v-if="event.participants && event.participants.length > 0">
-                    <ul class="list-group">
-                        <li v-for="participantId in sortedParticipants" :key="participantId"
-                            class="list-group-item d-flex justify-content-between align-items-center"
-                            :class="{ 'list-group-item-primary': participantId === currentUser?.uid }">
-                            <div class="d-flex align-items-center">
-                                <i v-if="isWinner(participantId)" class="fas fa-award text-warning me-2 fa-fw" title="Winner"></i>
-                                <i v-else class="fas fa-user me-2 text-muted fa-fw"></i>
-                                <router-link :to="{ name: 'PublicProfile', params: { userId: participantId } }" class="text-decoration-none text-dark fw-medium">
-                                    {{ getUserNameFromCache(participantId) || 'Loading...' }}
-                                </router-link>
-                                 <span v-if="participantId === currentUser?.uid" class="badge bg-primary rounded-pill ms-2">You</span>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-                <p v-else class="alert alert-light">No participants found for this event. Students may have left or none were added.</p>
-            </div>
-
-            <!-- Display Submissions Section -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h3 class="mb-0 h5"><i class="fas fa-paperclip me-2"></i> Project Submissions</h3>
-                </div>
-                <div class="card-body">
-                    <div v-if="loadingSubmissions" class="text-center">
-                        <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
-                         <span class="ms-2 text-muted small">Loading submissions...</span>
-                    </div>
-                    <div v-else-if="submissions.length === 0" class="alert alert-light mb-0 text-center">
-                        <i class="fas fa-folder-open fa-2x text-muted mb-2"></i><br>
-                         No projects submitted yet.
-                    </div>
-                    <ul v-else class="list-group list-group-flush">
-                        <li v-for="(sub, index) in submissions" :key="`sub-${index}-${sub.submittedBy}`" class="list-group-item px-0 py-3">
-                            <div class="d-flex justify-content-between align-items-start">
-                                 <div>
-                                     <h6 class="mb-1 fw-semibold">{{ sub.projectName }}</h6>
-                                     <p class="mb-1 small text-muted" v-if="sub.description">{{ sub.description }}</p>
-                                     <span class="text-muted small d-block d-sm-inline"> <!-- Stack submitter on xs -->
-                                         Submitted by: {{ getSubmitterDisplayName(sub.submittedBy) }}
-                                     </span>
-                                </div>
-                                <a :href="sub.link" target="_blank" rel="noopener noreferrer" v-if="sub.link"
-                                   class="btn btn-sm btn-outline-primary ms-sm-3 mt-2 mt-sm-0 flex-shrink-0"> <!-- Adjust margin for stacking -->
-                                    <i class="fas fa-external-link-alt me-1"></i> View Link
-                                </a>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-
-            <!-- Project Submission Modal -->
-            <div class="modal fade" id="submissionModal" tabindex="-1" aria-labelledby="submissionModalLabel" aria-hidden="true" ref="submissionModalRef">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="submissionModalLabel"><i class="fas fa-upload me-2"></i> Submit Project Details</h5>
-                            <button type="button" class="btn-close" aria-label="Close" @click="closeSubmissionModal"></button>
-                        </div>
-                        <form @submit.prevent="submitProject">
-                            <div class="modal-body">
-                                <div v-if="submissionError" class="alert alert-danger alert-sm">{{ submissionError }}</div>
-                                <div class="mb-3">
-                                    <label for="projectName" class="form-label">Project Name <span class="text-danger">*</span></label>
-                                    <input type="text" v-model.trim="submissionForm.projectName" id="projectName" class="form-control" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="projectLink" class="form-label">Project Link (GitHub, Demo, etc.) <span class="text-danger">*</span></label>
-                                    <input type="url" v-model.trim="submissionForm.link" id="projectLink" class="form-control" required placeholder="https://...">
-                                    <div class="form-text">Must be a valid URL (e.g., https://github.com/...)</div>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="projectDescription" class="form-label">Brief Description</label>
-                                    <textarea v-model.trim="submissionForm.description" id="projectDescription" class="form-control" rows="3"></textarea>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-outline-secondary" @click="closeSubmissionModal">Cancel</button>
-                                <button type="submit" class="btn btn-primary" :disabled="isSubmittingProject">
-                                    <span v-if="isSubmittingProject" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                    {{ isSubmittingProject ? 'Submitting...' : 'Submit Project' }}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Bottom Navigation Bar (Mobile Only) -->
-            <nav v-if="showBottomNav" class="bottom-nav d-md-none">
-                <div class="d-flex justify-content-around align-items-center h-100">
-                    <!-- Back Button -->
-                    <button class="btn btn-nav flex-fill" @click="$router.back()" :disabled="actionInProgress">
-                        <i class="fas fa-arrow-left d-block mb-1"></i>
-                        <small>Back</small>
-                    </button>
-
-                    <!-- Submit Project (Participant, In Progress) -->
-                    <button v-if="canSubmitProject" @click="showSubmissionModal = true" :disabled="actionInProgress" class="btn btn-nav flex-fill text-success">
-                        <i class="fas fa-upload d-block mb-1"></i>
-                        <small>Submit</small>
-                    </button>
-
-                    <!-- Leave Event (Participant, Approved) -->
-                    <button v-if="event.status === 'Approved' && isParticipantOrTeamMember" @click="leaveEvent" :disabled="actionInProgress" class="btn btn-nav flex-fill text-warning">
-                        <span v-if="actionInProgress && actionType === 'leave'" class="spinner-border spinner-border-sm d-block mb-1" role="status"></span>
-                        <i v-else class="fas fa-sign-out-alt d-block mb-1"></i>
-                        <small>Leave</small>
-                    </button>
-
-                    <!-- Edit (Admin/Org, Pending/Rejected/Approved) -->
-                    <router-link v-if="isAdmin || (isCurrentUserOrganizer && ['Pending', 'Rejected', 'Approved'].includes(event.status))"
-                                 :to="{ name: 'RequestEvent', query: { edit: event.id } }"
-                                 class="btn btn-nav flex-fill text-primary"
-                                 :class="{ disabled: actionInProgress }"
-                                 :aria-disabled="actionInProgress">
-                        <i class="fas fa-edit d-block mb-1"></i>
-                        <small>Edit</small>
-                    </router-link>
-
-                    <!-- Rate/Select Winners (Individual, Completed, Open, Manager) -->
-                     <button v-if="!isDefinitelyTeamEvent && event.ratingsOpen && event.status === 'Completed' && canManageEvent"
-                             @click="goToWinnerSelection" class="btn btn-nav flex-fill text-primary" :disabled="actionInProgress">
-                        <i class="fas fa-trophy d-block mb-1"></i>
-                        <small>{{ alreadyRated ? 'View Ratings' : 'Rate/Win' }}</small>
-                    </button>
-
-                    <!-- View/Rate Teams (Team, Completed, Open) - Link to TeamList section might be complex, maybe just show if ratings open -->
-                    <span v-if="isDefinitelyTeamEvent && event.ratingsOpen && event.status === 'Completed'" class="btn btn-nav flex-fill text-info">
-                        <i class="fas fa-star d-block mb-1"></i>
-                        <small>Rate Teams</small> <!-- Placeholder text, actual rating is in TeamList -->
-                    </span>
-
-                    <!-- Mark In Progress (Manager, Approved, Can) -->
-                     <button v-if="event.status === 'Approved' && canManageEvent" @click="updateStatus('In Progress')" class="btn btn-nav flex-fill text-info"
-                             :disabled="!canActuallyMarkInProgress || actionInProgress">
-                         <i class="fas fa-play d-block mb-1"></i>
-                         <small>Start</small>
+                <div class="flex space-x-2 items-start flex-shrink-0 mt-2 md:mt-0">
+                     <button @click="approveRequest(event.id)"
+                             class="inline-flex items-center justify-center rounded-md bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                             :disabled="isProcessing(event.id)">
+                         <svg v-if="isProcessing(event.id) && processingAction === 'approve'" class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                         <i v-else class="fas fa-check h-3 w-3"></i>
+                         <span class="ml-1 hidden sm:inline">Approve</span>
                      </button>
-
-                    <!-- Mark Completed (Manager, In Progress, Can) -->
-                     <button v-if="event.status === 'In Progress' && canManageEvent" @click="updateStatus('Completed')" class="btn btn-nav flex-fill text-success"
-                             :disabled="!canActuallyMarkCompleted || actionInProgress">
-                         <i class="fas fa-check-circle d-block mb-1"></i>
-                         <small>Complete</small>
+                     <button @click="rejectRequest(event.id)"
+                             class="inline-flex items-center justify-center rounded-md bg-yellow-500 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-yellow-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                             :disabled="isProcessing(event.id)">
+                         <svg v-if="isProcessing(event.id) && processingAction === 'reject'" class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                         <i v-else class="fas fa-times h-3 w-3"></i>
+                         <span class="ml-1 hidden sm:inline">Reject</span>
                      </button>
-
-                    <!-- Toggle Ratings (Manager, Completed) -->
-                    <button v-if="event.status === 'Completed' && canManageEvent" @click="toggleRatingsOpen(!event.ratingsOpen)" class="btn btn-nav flex-fill text-secondary"
-                           :disabled="actionInProgress">
-                       <i :class="['fas', event.ratingsOpen ? 'fa-lock-open' : 'fa-lock', 'd-block mb-1']"></i>
-                       <small>{{ event.ratingsOpen ? 'Close Rate' : 'Open Rate' }}</small>
-                    </button>
-
-                </div>
-            </nav>
-
+                     <button @click="deleteRequest(event.id)"
+                             class="inline-flex items-center justify-center rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                             :disabled="isProcessing(event.id)">
+                         <svg v-if="isProcessing(event.id) && processingAction === 'delete'" class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                         <i v-else class="fas fa-trash h-3 w-3"></i>
+                         <span class="ml-1 hidden sm:inline">Delete</span>
+                     </button>
+                 </div>
+            </div>
+            <!-- Conflict Warning -->
+            <div v-if="conflictWarnings[event.id]" class="mt-2 rounded-md bg-yellow-50 p-2 text-xs text-yellow-700 border border-yellow-200">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                Warning: Date conflict with "{{ conflictWarnings[event.id] }}"
+            </div>
         </div>
-        <div v-else-if="!loading && initialFetchError" class="alert alert-danger">
-             <i class="fas fa-exclamation-triangle me-2"></i> Error loading event: {{ initialFetchError }}
-        </div>
-        <div v-else class="alert alert-warning text-center">
-            <i class="fas fa-ghost fa-2x mb-2"></i><br>
-            Event not found or you do not have permission to view it.
-        </div>
+      </div>
     </div>
 </template>
 
@@ -484,7 +92,6 @@ import { useRouter, useRoute } from 'vue-router';
 import TeamList from '../components/TeamList.vue';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Modal } from 'bootstrap';
 import { Timestamp } from 'firebase/firestore'; // Import Timestamp
 
 // Props, Store, Router
@@ -1169,104 +776,6 @@ const submitOrganizationRatingHandler = async () => {
 </script>
 
 <style scoped>
-/* Styles rely on main.css and utilities */
-.card-header .badge {
-    font-size: 0.9em; /* Make header badge slightly larger */
-    padding: 0.4em 0.7em;
-}
-
-/* Highlight current user in participant list */
-.list-group-item-primary {
-    border-left: 4px solid var(--color-primary); /* Use theme variable */
-    font-weight: 500;
-}
-
-
-/* Ensure icons have fixed width for alignment */
-.fa-fw {
-    text-align: center;
-    width: 1.25em;
-}
-
-/* Style winner card */
-.border-warning {
-    border-width: 2px !important;
-}
-
-/* Fade effect for copied message */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.5s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-/* Add some spacing for the radio buttons */
-.form-check-inline {
-    margin-bottom: 0.5rem; /* Add space below radios when wrapping */
-}
-
-/* Bottom Navigation Bar Styles */
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 65px; /* Adjust height as needed */
-    background-color: var(--bs-body-bg); /* Use theme background */
-    border-top: 1px solid var(--bs-border-color-translucent);
-    z-index: 1030; /* Ensure it's above content, below modals */
-    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
-    padding: 0 0.5rem; /* Add some horizontal padding */
-}
-
-.bottom-nav .btn-nav {
-    background: none;
-    border: none;
-    color: var(--bs-body-color); /* Use theme text color */
-    font-size: 0.7rem; /* Smaller text */
-    padding: 0.5rem 0.2rem; /* Adjust padding */
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    flex-grow: 1;
-    flex-basis: 0; /* Distribute space evenly */
-    min-width: 50px; /* Prevent extreme squishing */
-}
-
-.bottom-nav .btn-nav:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.bottom-nav .btn-nav i {
-    font-size: 1.2rem; /* Icon size */
-}
-
-.bottom-nav .spinner-border-sm {
-    width: 1.2rem; /* Match icon size */
-    height: 1.2rem;
-}
-
-/* Add padding to main container when bottom nav is visible */
-.pb-mobile-nav {
-    padding-bottom: 80px; /* Height of nav + some buffer */
-}
-
-/* Responsive adjustments for submission list */
-@media (max-width: 575.98px) {
-    .list-group-item .d-flex {
-        flex-direction: column;
-        align-items: stretch !important; /* Override inline style */
-    }
-    .list-group-item .btn {
-        margin-left: 0 !important; /* Override inline style */
-        margin-top: 0.5rem !important;
-        width: 100%; /* Make button full width */
-    }
-}
+/* Remove specific padding/vertical-align from previous BS table styles if they existed */
+/* Keep any non-Bootstrap styles if needed */
 </style>

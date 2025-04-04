@@ -1,44 +1,53 @@
 // src/views/RatingForm.vue
 <template>
-    <div class="container mt-4">
-        <button @click="goBack" class="btn btn-outline-secondary mb-3">
-            <i class="fas fa-arrow-left me-2"></i>Back
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> <!-- Tailwind Container -->
+        <button @click="goBack" class="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 mb-4">
+            <i class="fas fa-arrow-left mr-2 h-3 w-3"></i>Back
         </button>
         
-        <h2 v-if="!loading && eventName" class="text-center mb-3">
+        <h2 v-if="!loading && eventName" class="text-center text-xl font-semibold text-gray-800 mb-2">
             Rate {{ isTeamEvent ? `Team: ${teamIdToRate}` : `Participant` }}
         </h2>
         <!-- Display Team Members -->
         <div v-if="isTeamEvent && teamMembersToDisplay.length > 0" class="text-center mb-3">
-            <p class="mb-1 text-muted"><small><strong>Members:</strong></small></p>
-            <ul class="list-inline small">
-                <li v-for="memberId in teamMembersToDisplay" :key="memberId" class="list-inline-item">
-                    <span class="badge bg-secondary">{{ nameCache[memberId] || memberId }}</span>
-                </li>
-            </ul>
+            <p class="mb-1 text-gray-500 text-xs"><strong class="font-medium">Members:</strong></p>
+            <div class="flex flex-wrap justify-center gap-1">
+                <span v-for="memberId in teamMembersToDisplay" :key="memberId" 
+                      class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-500/10">
+                    {{ nameCache[memberId] || memberId }}
+                </span>
+            </div>
         </div>
         <!-- End Display Team Members -->
-        <p v-if="!loading && eventName" class="text-center text-muted mb-4 small">Event: {{ eventName }}</p>
+        <p v-if="!loading && eventName" class="text-center text-gray-500 mb-6 text-sm">Event: {{ eventName }}</p>
 
-        <div v-if="loading" class="text-center my-5">
-            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        <div v-if="loading" class="flex justify-center items-center my-10">
+            <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
         </div>
-        <div v-if="errorMessage && !loading" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+        <div v-if="errorMessage && !loading" 
+             class="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-200" 
+             role="alert">{{ errorMessage }}
+        </div>
 
-        <div v-else-if="!event" class="alert alert-warning">Event not found or ratings are not open.</div>
-        <div v-else-if="!hasValidRatingCriteria" class="alert alert-warning">
+        <div v-else-if="!event" class="rounded-md bg-yellow-50 p-4 text-sm text-yellow-700 border border-yellow-200">
+            Event not found or ratings are not open.
+        </div>
+        <div v-else-if="!hasValidRatingCriteria" class="rounded-md bg-yellow-50 p-4 text-sm text-yellow-700 border border-yellow-200">
             This event has no valid rating criteria defined or they are incomplete. Please contact an event organizer.
         </div>
         <div v-else>
-            <div class="card">
-                <div class="card-body">
-                    <form @submit.prevent="submitRating">
+            <div class="bg-white shadow sm:rounded-lg overflow-hidden">
+                <div class="px-4 py-5 sm:p-6">
+                    <form @submit.prevent="submitRating" class="space-y-6">
                         <!-- Team Event Rating -->
                         <div v-if="isTeamEvent">
-                            <h5 class="mb-4">Rate based on the following criteria:</h5>
-                            <div v-for="allocation in sortedXpAllocation" :key="allocation.constraintIndex" class="mb-4">
-                                <label :for="'rating-' + allocation.constraintIndex" class="form-label fw-bold">{{ allocation.constraintLabel }}</label>
-                                <div class="rating-wrapper mb-2">
+                            <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Rate based on the following criteria:</h3>
+                            <div v-for="allocation in sortedXpAllocation" :key="allocation.constraintIndex" class="space-y-2 border-b border-gray-200 pb-4 last:border-b-0 last:pb-0">
+                                <label :for="'rating-' + allocation.constraintIndex" class="block text-sm font-medium leading-6 text-gray-900">{{ allocation.constraintLabel }}</label>
+                                <div class="flex justify-center sm:justify-start">
                                     <CustomStarRating
                                         :id="'rating-' + allocation.constraintIndex"
                                         v-model="ratings[`constraint${allocation.constraintIndex}`].score"
@@ -46,25 +55,26 @@
                                         :show-rating="true"
                                     />
                                 </div>
-                                <p class="text-muted small mt-1 mb-0">
-                                    <i class="fas fa-trophy me-1"></i>Worth up to {{ allocation.points }} XP 
-                                    ({{ formatRoleName(allocation.role) }})
+                                <p class="text-xs text-gray-500 flex items-center mt-1">
+                                    <i class="fas fa-trophy mr-1 text-yellow-500"></i>Worth up to {{ allocation.points }} XP
+                                    <span class="ml-1 text-gray-400">({{ formatRoleName(allocation.role) }})</span>
                                 </p>
                             </div>
                         </div>
                         
                         <!-- Individual Event Winner Selection -->
                         <div v-else>
-                            <h5 class="mb-4">Select Winners for Each Criterion:</h5>
-                            <div v-for="allocation in sortedXpAllocation" :key="allocation.constraintIndex" class="mb-4">
-                                <div class="constraint-section p-3 border rounded bg-light-subtle">
-                                    <h6 class="mb-3">{{ allocation.constraintLabel }}</h6>
-                                    <div class="form-group">
-                                        <label :for="'winner-' + allocation.constraintIndex" class="form-label">Select Winner for {{ allocation.constraintLabel }}</label>
+                            <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Select Winners for Each Criterion:</h3>
+                            <div class="space-y-4">
+                                <div v-for="allocation in sortedXpAllocation" :key="allocation.constraintIndex" 
+                                     class="p-4 border border-gray-200 rounded-md bg-gray-50">
+                                    <h4 class="text-sm font-medium text-gray-800 mb-3">{{ allocation.constraintLabel }}</h4>
+                                    <div>
+                                        <label :for="'winner-' + allocation.constraintIndex" class="block text-xs font-medium leading-6 text-gray-700 mb-1">Select Winner for {{ allocation.constraintLabel }}</label>
                                         <select
                                             :id="'winner-' + allocation.constraintIndex"
                                             v-model="ratings[`constraint${allocation.constraintIndex}`].winnerId"
-                                            class="form-select form-select-sm"
+                                            class="block w-full rounded-md border-gray-300 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 disabled:opacity-50 disabled:bg-gray-100"
                                             required
                                             :disabled="isSubmitting"
                                         >
@@ -77,9 +87,9 @@
                                                 {{ nameCache[participantId] || participantId }}
                                             </option>
                                         </select>
-                                        <p v-if="allocation.points" class="text-muted small mt-2 mb-0">
-                                            <i class="fas fa-trophy me-1"></i>Winner gets {{ allocation.points }} XP 
-                                            ({{ formatRoleName(allocation.role) }})
+                                        <p v-if="allocation.points" class="text-xs text-gray-500 mt-2 flex items-center">
+                                            <i class="fas fa-trophy mr-1 text-yellow-500"></i>Winner gets {{ allocation.points }} XP
+                                            <span class="ml-1 text-gray-400">({{ formatRoleName(allocation.role) }})</span>
                                         </p>
                                     </div>
                                 </div>
@@ -87,9 +97,17 @@
                         </div>
 
                         <!-- Submit Button -->
-                        <button type="submit" class="btn btn-primary mt-3 w-100" :disabled="isSubmitting || !isValid">
-                            <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status"></span>
-                            {{ submitButtonText }}
+                        <button type="submit" 
+                                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                :disabled="isSubmitting || !isValid">
+                            <span v-if="isSubmitting" class="flex items-center">
+                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Submitting...
+                            </span>
+                            <span v-else>{{ submitButtonText }}</span>
                         </button>
                     </form>
                 </div>
@@ -359,14 +377,5 @@ const goBack = () => {
 </script>
 
 <style scoped>
-.rating-wrapper {
-    display: flex;
-    justify-content: center; /* Center stars */
-    align-items: center;
-    min-height: 40px; /* Ensure space even if stars don't load */
-}
-
-.constraint-section {
-    margin-bottom: 1rem; /* Add space between sections */
-}
+/* Remove any Bootstrap-specific styles */
 </style>

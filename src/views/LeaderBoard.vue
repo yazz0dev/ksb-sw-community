@@ -1,39 +1,53 @@
 <template>
-    <div class="container mt-4">
-        <h2 class="mb-3">Leaderboard</h2>
-        <div class="mb-4 role-filter-container">
-            <label class="form-label d-block mb-2">Filter by Role:</label>
-            <div class="d-flex flex-nowrap overflow-x-auto pb-2">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> <!-- Main container -->
+        <h2 class="text-2xl font-bold text-gray-900 mb-5">Leaderboard</h2>
+        
+        <!-- Role Filter -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Role:</label>
+            <div class="flex space-x-2 overflow-x-auto pb-2 -mx-1 px-1"> <!-- Added padding/margin for scrollbar visibility -->
                 <button
                     v-for="role in availableRoles"
                     :key="role"
                     @click="selectRoleFilter(role)"
                     type="button"
-                    class="btn btn-sm me-2 flex-shrink-0 text-nowrap"
-                    :class="selectedRole === role ? 'btn-primary active' : 'btn-outline-secondary'"
+                    class="inline-flex items-center px-3 py-1 border rounded text-sm font-medium transition-colors flex-shrink-0 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    :class="selectedRole === role ? 
+                               'bg-blue-600 text-white border-transparent shadow-sm' : 
+                               'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
                 >
-                    {{ formatRoleName(role) }} 
+                    {{ formatRoleName(role) }}
                 </button>
             </div>
         </div>
   
-        <div v-if="loading" class="text-center my-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+        <!-- Loading State -->
+        <div v-if="loading" class="flex justify-center py-10">
+             <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+             </svg>
         </div>
-        <div v-else-if="filteredUsers.length === 0" class="alert alert-info">No users found matching the criteria.</div>
-         <ul v-else class="list-group">
-            <li v-for="(user, index) in filteredUsers" :key="user.uid" class="list-group-item d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center">
-                    <span class="leaderboard-rank me-3">{{ index + 1 }}.</span>
+        
+        <!-- Empty State -->
+        <div v-else-if="filteredUsers.length === 0" class="bg-blue-50 text-blue-700 p-4 rounded-md text-sm">
+            No users found matching the criteria.
+        </div>
+        
+        <!-- Leaderboard List -->
+         <ul v-else class="bg-white shadow overflow-hidden sm:rounded-md divide-y divide-gray-200">
+            <li v-for="(user, index) in filteredUsers" :key="user.uid" class="px-4 py-4 sm:px-6 flex justify-between items-center">
+                <div class="flex items-center min-w-0"> <!-- Added min-w-0 for truncation -->
+                    <span class="text-sm font-semibold text-gray-500 w-8 text-right mr-4 flex-shrink-0">{{ index + 1 }}.</span>
                     
-                    <router-link :to="{ name: 'PublicProfile', params: { userId: user.uid }}">
-                         {{ user.name || 'Anonymous User' }} 
+                    <router-link 
+                        :to="{ name: 'PublicProfile', params: { userId: user.uid }}"
+                        class="text-sm font-medium text-blue-600 hover:text-blue-700 truncate">
+                         {{ user.name || 'Anonymous User' }}
                     </router-link>
                 </div>
                 
-                <span class="badge bg-primary rounded-pill fs-6"> 
+                <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 ml-2 flex-shrink-0"> 
                     {{ user.displayXp }} XP
                   </span>
             </li>
@@ -64,13 +78,15 @@
           .replace(/([A-Z])/g, ' $1') // Add space before capital letters
           .replace(/^./, (str) => str.toUpperCase()); // Capitalize first letter
       // Special cases for display
-      if (name === 'Xp By Role') return 'Overall';
+      if (name === 'Xp By Role') return 'Overall'; // This might need adjustment based on actual keys
+      if (name === 'Problem Solver') return 'Problem Solver'; // Ensure exact match for display
       return name;
   };
   
   
   const availableRoles = ref([ // Use keys from xpByRole + 'Overall'
       'Overall', 'fullstack', 'presenter', 'designer', 'organizer', 'problemSolver'
+      // Add other roles based on your actual data structure in Firestore xpByRole field
   ]);
   const selectedRole = ref('Overall'); // Default filter
   const users = ref([]);
@@ -132,18 +148,12 @@
   
   </script>
   
-  <style scoped>
+<!-- <style scoped>
   /* Link styling from main.css */
   /* .list-group-item a { ... } */
   
-  .role-filter-container .overflow-x-auto {
-      scrollbar-width: thin;
-      scrollbar-color: var(--color-border) var(--color-background);
-  }
-  .role-filter-container .overflow-x-auto::-webkit-scrollbar { height: 6px; }
-  .role-filter-container .overflow-x-auto::-webkit-scrollbar-track { background: var(--color-background); border-radius: 3px; }
-  .role-filter-container .overflow-x-auto::-webkit-scrollbar-thumb { background-color: var(--color-border); border-radius: 3px; border: 1px solid var(--color-background); }
-  .role-filter-container .overflow-x-auto::-webkit-scrollbar-thumb:hover { background-color: var(--color-text-muted); }
+  /* Custom scrollbar styles removed, rely on default browser or plugin */
+  /* .role-filter-container .overflow-x-auto { ... } */
   
   .leaderboard-rank {
       font-weight: 600;
@@ -155,4 +165,4 @@
       font-size: 0.9rem !important; /* Adjust badge size */
       padding: 0.4em 0.7em;
   }
-  </style>
+</style> -->

@@ -126,7 +126,7 @@ onUnmounted(() => {
 /* Keep transition styles */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.3s ease; /* Increased duration from 0.2s to 0.3s */
 }
 .fade-enter-from,
 .fade-leave-to {

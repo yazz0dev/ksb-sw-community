@@ -1,32 +1,37 @@
 <template>
-    <div class="container mt-4"> 
-        <h2 class="mb-4">Resources</h2>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> <!-- Container -->
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Resources</h2>
 
-        <div v-if="categories.length === 0" class="alert alert-info">No resources available at the moment.</div>
+        <!-- Empty State -->
+        <div v-if="categories.length === 0" class="bg-blue-50 text-blue-700 p-4 rounded-md text-sm">
+            No resources available at the moment.
+        </div>
 
-        <div v-else class="resource-categories row g-4"> 
-            <div v-for="(category, index) in categories" :key="index" class="col-md-6 col-lg-4"> <!-- Adjusted column classes -->
-                 <div class="card h-100">
-                    <div class="card-header">
-                        <h3 class="mb-0">{{ category.title }}</h3>
+        <!-- Resource Categories Grid -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> 
+            <div v-for="(category, index) in categories" :key="index">
+                 <div class="bg-white shadow-md rounded-lg overflow-hidden flex flex-col h-full transition duration-200 ease-in-out hover:shadow-lg hover:-translate-y-1"> <!-- Card Styling -->
+                    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 class="text-base font-semibold text-gray-800">{{ category.title }}</h3>
                     </div>
-                     <ul v-if="category.items && category.items.length > 0" class="list-group list-group-flush">
+                     <ul v-if="category.items && category.items.length > 0" 
+                         class="divide-y divide-gray-100 flex-grow"> <!-- List Styling -->
                         <li v-for="(resource, rIndex) in category.items"
                             :key="rIndex"
-                            class="list-group-item">
+                            class="px-4 py-3 group"> <!-- List Item with group for hover -->
                             <a :href="resource.content"
                                target="_blank"
                                rel="noopener noreferrer"
-                               class="d-flex justify-content-between align-items-center text-decoration-none">
-                                <span>
-                                    <i :class="['fas', getIconClass(resource.type), 'fa-fw me-2 text-muted']" :title="resource.type"></i>
-                                    {{ resource.title }}
+                               class="flex justify-between items-center text-sm text-gray-700 hover:text-blue-600">
+                                <span class="flex items-center min-w-0"> <!-- Ensure text truncates if needed -->
+                                    <i :class="['fas', getIconClass(resource.type), 'fa-fw w-4 mr-2 text-gray-400 flex-shrink-0']" :title="resource.type"></i>
+                                    <span class="truncate">{{ resource.title }}</span>
                                 </span>
-                                <i class="fas fa-external-link-alt fa-xs text-muted opacity-50"></i> 
+                                <i class="fas fa-external-link-alt fa-xs text-gray-400 opacity-0 group-hover:opacity-60 transition-opacity duration-150"></i> 
                             </a>
                         </li>
                     </ul>
-                     <div v-else class="card-body text-muted">
+                     <div v-else class="p-4 text-sm text-gray-500 flex-grow">
                          No items in this category.
                      </div>
                 </div>
@@ -68,6 +73,7 @@ const predefinedResources = ref([ // Make it a ref
         title: "Community Links",
         items: [
             // Add relevant community links if available
+            { title: "KSB GitHub Organization", type: "Link", content: "#" } // Example
         ]
     }
 ]);
@@ -87,40 +93,7 @@ const getIconClass = (type) => {
 
 </script>
 
-<style scoped>
+<!-- <style scoped>
 /* Styles from main.css (card, list-group) are used */
-.card-header h3 { font-size: 1.15rem; } /* Slightly smaller header */
-.list-group-item a { color: var(--color-text); }
-.list-group-item a:hover { color: var(--color-primary); background-color: var(--color-background); }
-.fa-xs { font-size: 0.75em; }
-.opacity-50 { opacity: 0.5; }
-
-.card {
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    border: none;
-}
-
-.card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-md) !important;
-}
-
-.card-title {
-    font-size: 1.05rem; /* Slightly smaller title */
-}
-
-.card-text {
-    font-size: 0.875rem;
-    color: var(--color-text-secondary);
-}
-
-/* Adjust padding for medium screens and up if needed */
-@media (min-width: 768px) {
-    .card-body {
-        padding: var(--space-4); /* Restore larger padding on md+ */
-    }
-    .card-title {
-        font-size: 1.1rem;
-    }
-}
-</style>
+/* Removed custom styles, relying on Tailwind */
+</style> -->

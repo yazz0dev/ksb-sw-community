@@ -1,13 +1,20 @@
 // /src/components/UserCard.vue
 <template>
-    <!-- Use a specific class for styling -->
-    <div class="list-group-item user-card-item">
-      <p>
-          {{ userId }}
-          <span v-if="averageRating !== null">
-               - <vue3-star-ratings :rating="averageRating" :star-size="18" :read-only="true" :show-rating="false"/>
-          </span>
-      </p>
+    <!-- Replaced list-group-item and scoped styles with Tailwind utilities -->
+    <div class="flex items-center p-3 bg-white border-b border-gray-200 space-x-2">
+        <span class="text-sm font-medium text-gray-700">{{ userId }}</span>
+        <span v-if="averageRating !== null" class="flex items-center">
+            <span class="text-sm text-gray-500 mr-1">-</span>
+            <vue3-star-ratings
+                :rating="averageRating"
+                :star-size="16" 
+                :read-only="true"
+                :show-rating="false"
+                inactive-color="#d1d5db" /* Tailwind gray-300 */
+                active-color="#f59e0b"   /* Tailwind amber-500 */
+                :star-spacing="1"
+            />
+        </span>
     </div>
 </template>
 
@@ -59,7 +66,8 @@ export default {
 };
 </script>
 
-<!-- Scoped styles can refine positioning if needed -->
+<!-- Scoped styles removed -->
+<!--
 <style scoped>
 .user-card-item p {
     display: flex;
@@ -67,5 +75,5 @@ export default {
     gap: 0.5rem; /* Space between ID and stars */
     margin-bottom: 0;
 }
-
 </style>
+-->

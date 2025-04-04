@@ -757,257 +757,328 @@ onMounted(async () => {
 
 </script>
 
-<!-- Template and Style remain the same -->
 <template>
-    <div class="container mt-4 mb-5"> <!-- Added mb-5 for bottom padding -->
-        <!-- Header with Step Indicator -->
-        <div class="d-flex align-items-center mb-4">
-            <button class="btn btn-outline-secondary me-3" @click="handleBack" :disabled="isSubmitting">
-                <i class="fas fa-arrow-left me-1"></i>Back
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 mb-20"> <!-- Container, Added mb-20 for sticky footer space -->
+        <!-- Header with Back Button -->
+        <div class="flex items-center mb-6">
+            <button 
+                class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                @click="handleBack" :disabled="isSubmitting">
+                <i class="fas fa-arrow-left mr-1 h-3 w-3"></i>Back
             </button>
-            <h2 class="mb-0">{{ editingEventId ? 'Edit Event Request' : (isAdmin ? 'Create New Event' : 'Request New Event') }}</h2>
+            <h2 class="ml-4 text-2xl font-bold text-gray-900">{{ editingEventId ? 'Edit Event Request' : (isAdmin ? 'Create New Event' : 'Request New Event') }}</h2>
         </div>
 
          <!-- Display Rejection Reason if applicable -->
-         <div v-if="rejectionReason" class="alert alert-warning mb-4 border border-warning">
-             <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Reason for Previous Rejection:</h5>
-             <p class="mb-0">{{ rejectionReason }}</p>
-             <hr>
-             <p class="mb-0 small">Please review the reason above and make the necessary changes before resubmitting.</p>
+         <div v-if="rejectionReason" class="mb-6 border border-yellow-300 rounded-md bg-yellow-50 p-4">
+             <h5 class="text-sm font-medium text-yellow-800 flex items-center"><i class="fas fa-exclamation-triangle mr-2"></i>Reason for Previous Rejection:</h5>
+             <p class="mt-2 text-sm text-yellow-700">{{ rejectionReason }}</p>
+             <hr class="my-2 border-yellow-200">
+             <p class="text-sm text-yellow-700 mb-0">Please review the reason above and make the necessary changes before resubmitting.</p>
          </div>
 
-        <!-- Progress Steps -->
-        <div v-if="isTeamEvent && !loadingCheck && !hasActiveRequest && !isAdmin && !editingEventId" class="progress mb-4" style="height: 25px;">
-            <div class="progress-bar" role="progressbar"
-                 :style="{ width: currentStep === 1 ? '50%' : '100%' }"
-                 :class="{ 'bg-success': currentStep === 2, 'bg-primary': currentStep === 1 }"
-                 aria-valuenow="currentStep" aria-valuemin="1" aria-valuemax="2">
-                Step {{ currentStep }} of 2: {{ currentStep === 1 ? 'Event Details & XP' : 'Team Definition' }}
+        <!-- Progress Steps (Visual Indicator) -->
+        <div v-if="isTeamEvent && !loadingCheck && !hasActiveRequest && !isAdmin && !editingEventId" class="mb-6">
+             <nav aria-label="Progress">
+                <ol role="list" class="flex items-center">
+                    <li class="relative pr-8 sm:pr-20 flex-1">
+                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                           <div :class="[currentStep > 1 ? 'bg-blue-600' : 'bg-gray-200', 'h-0.5 w-full']"></div>
             </div>
+                        <a href="#" @click.prevent="currentStep = 1" class="relative flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 hover:bg-blue-900">
+                           <span class="text-white font-bold">1</span>
+                        </a>
+                         <div class="absolute -bottom-6 left-0 transform -translate-x-1/2 ml-4">
+                            <span class="text-xs font-medium text-blue-600">Details & XP</span>
+                        </div>
+                    </li>
+                    <li class="relative flex-shrink-0">
+                         <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                            <div class="h-0.5 w-full bg-gray-200"></div>
+                        </div>
+                        <a href="#" @click.prevent="currentStep = 2" 
+                           :class="[currentStep === 2 ? 'bg-blue-600 hover:bg-blue-900' : 'border-2 border-gray-300 bg-white hover:border-gray-400', 'relative flex h-8 w-8 items-center justify-center rounded-full']">
+                           <span :class="[currentStep === 2 ? 'text-white' : 'text-gray-500', 'font-bold']">2</span>
+                        </a>
+                         <div class="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
+                            <span :class="[currentStep === 2 ? 'text-blue-600' : 'text-gray-500', 'text-xs font-medium']">Teams</span>
+                        </div>
+                    </li>
+                </ol>
+            </nav>
         </div>
-
 
         <!-- Loading & Error States -->
-        <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
-             <i class="fas fa-times-circle me-2"></i> {{ errorMessage }}
-             <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close"></button>
+        <div v-if="errorMessage" 
+            class="mb-4 rounded-md bg-red-50 p-4 border border-red-200 flex justify-between items-center" 
+            role="alert">
+            <div class="flex items-center">
+                <i class="fas fa-times-circle mr-2 text-red-400"></i> 
+                <span class="text-sm font-medium text-red-800">{{ errorMessage }}</span>
         </div>
-        <div v-if="!isAdmin && loadingCheck" class="text-center my-4">
-            <div class="spinner-border spinner-border-sm" role="status"></div>
-            <span class="ms-2">Checking existing requests...</span>
+             <button type="button" class="ml-4 -mr-1 -my-1 p-1 rounded-md text-red-500 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-red-50" @click="errorMessage = ''" aria-label="Dismiss">
+                 <span class="sr-only">Dismiss</span>
+                 <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+            </button>
         </div>
-        <div v-else-if="!isAdmin && hasActiveRequest && !editingEventId" class="alert alert-info" role="alert">
-            <i class="fas fa-info-circle me-2"></i> You already have an active or pending event request. You cannot submit another until it is resolved or cancelled.
-            <router-link to="/profile" class="alert-link"> View your profile</router-link> to manage it.
+        <div v-if="!isAdmin && loadingCheck" class="flex justify-center items-center text-sm text-gray-500 my-4">
+            <svg class="animate-spin h-4 w-4 text-gray-400 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            Checking existing requests...
         </div>
-         <div v-if="loadingStudents || isLoadingEventData" class="text-center my-4">
-             <div class="spinner-border spinner-border" role="status"></div> <!-- Larger spinner -->
-             <p class="mt-2">{{ loadingStudents ? 'Loading student list...' : 'Loading event data...' }}</p>
+        <div v-else-if="!isAdmin && hasActiveRequest && !editingEventId" 
+            class="mb-4 rounded-md bg-blue-50 p-4 text-sm text-blue-700" 
+            role="alert">
+            <i class="fas fa-info-circle mr-2"></i> You already have an active or pending event request. You cannot submit another until it is resolved or cancelled.
+            <router-link to="/profile" class="font-medium underline hover:text-blue-800"> View your profile</router-link> to manage it.
+        </div>
+         <div v-if="loadingStudents || isLoadingEventData" class="flex flex-col items-center justify-center my-6">
+             <svg class="animate-spin h-8 w-8 text-blue-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+             <p class="text-sm text-gray-500">{{ loadingStudents ? 'Loading student list...' : 'Loading event data...' }}</p>
          </div>
 
 
         <!-- Step 1: Event Details & XP -->
-        <div v-if="currentStep === 1 && (!loadingStudents || isAdmin) && !isLoadingEventData">
-            <form @submit.prevent="handleStep1Submit" novalidate> <!-- Disable browser validation -->
-                <!-- Event Type Selection Card -->
-                 <div class="card mb-4">
-                    <div class="card-body">
-                         <h5 class="card-title mb-3">Event Format</h5>
-                         <div class="btn-group w-100">
-                            <input type="radio" class="btn-check" name="eventTypeToggle" id="individualEvent"
-                                   v-model="isTeamEvent" :value="false" :disabled="isSubmitting || !!editingEventId" autocomplete="off">
-                            <label class="btn btn-outline-primary w-50 py-2" for="individualEvent">
-                                <i class="fas fa-user me-1"></i> Individual Event
+        <div v-show="currentStep === 1 && (!loadingStudents || isAdmin) && !isLoadingEventData" class="space-y-6"> <!-- Use v-show to keep state -->
+            <form @submit.prevent="handleStep1Submit" novalidate> 
+                <!-- Event Type Selection -->
+                 <div class="bg-white shadow sm:rounded-lg overflow-hidden">
+                    <div class="p-4 sm:p-6">
+                         <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Event Format</h3>
+                         <fieldset>
+                            <legend class="sr-only">Event format</legend>
+                            <div class="grid grid-cols-2 gap-3">
+                                <!-- Individual Event Radio -->
+                                <label :class="[ !isTeamEvent ? 'bg-blue-50 border-blue-200 z-10 ring-2 ring-blue-500' : 'border-gray-200', 'relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none']">
+                                <input type="radio" name="event-format" v-model="isTeamEvent" :value="false" class="sr-only" aria-labelledby="format-option-0-label" :disabled="isSubmitting || !!editingEventId">
+                                <span class="flex flex-1">
+                                    <span class="flex flex-col">
+                                    <span id="format-option-0-label" class="block text-sm font-medium text-gray-900">Individual Event</span>
+                                    <span class="mt-1 flex items-center text-xs text-gray-500"><i class="fas fa-user mr-1"></i>Participants work alone</span>
+                                    </span>
+                                </span>
+                                <svg :class="[!isTeamEvent ? 'border-blue-500' : 'border-transparent', 'absolute -inset-px rounded-lg border-2 pointer-events-none']" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M-20 100C-20 44.7715 -64.7715 0 -120 0C-175.228 0 -220 44.7715 -220 100C-220 155.228 -175.228 200 -120 200C-64.7715 200 -20 155.228 -20 100Z" stroke="currentColor" stroke-width="4" /></svg>
                             </label>
-
-                            <input type="radio" class="btn-check" name="eventTypeToggle" id="teamEvent"
-                                   v-model="isTeamEvent" :value="true" :disabled="isSubmitting || !!editingEventId" autocomplete="off">
-                            <label class="btn btn-outline-primary w-50 py-2" for="teamEvent">
-                                <i class="fas fa-users me-1"></i> Team Event
+                                <!-- Team Event Radio -->
+                                <label :class="[ isTeamEvent ? 'bg-blue-50 border-blue-200 z-10 ring-2 ring-blue-500' : 'border-gray-200', 'relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none']">
+                                <input type="radio" name="event-format" v-model="isTeamEvent" :value="true" class="sr-only" aria-labelledby="format-option-1-label" :disabled="isSubmitting || !!editingEventId">
+                                <span class="flex flex-1">
+                                    <span class="flex flex-col">
+                                    <span id="format-option-1-label" class="block text-sm font-medium text-gray-900">Team Event</span>
+                                    <span class="mt-1 flex items-center text-xs text-gray-500"><i class="fas fa-users mr-1"></i>Participants work in teams</span>
+                                    </span>
+                                </span>
+                                <svg :class="[isTeamEvent ? 'border-blue-500' : 'border-transparent', 'absolute -inset-px rounded-lg border-2 pointer-events-none']" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M-20 100C-20 44.7715 -64.7715 0 -120 0C-175.228 0 -220 44.7715 -220 100C-220 155.228 -175.228 200 -120 200C-64.7715 200 -20 155.228 -20 100Z" stroke="currentColor" stroke-width="4" /></svg>
                             </label>
                         </div>
-                        <div v-if="editingEventId" class="form-text text-muted small mt-2">
+                         </fieldset>
+                        <div v-if="editingEventId" class="mt-3 text-xs text-gray-500">
                             Event format (Individual/Team) cannot be changed after creation.
                         </div>
                     </div>
                 </div>
 
-                <!-- Basic Event Details Card -->
-                <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Basic Information</h5></div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label for="eventName" class="form-label">Event Name <span class="text-danger">*</span></label>
-                            <input type="text" id="eventName" v-model.trim="eventName" required class="form-control" :disabled="isSubmitting" placeholder="e.g., Spring Hackathon 2024" />
-                             <!-- Add validation feedback if needed -->
+                <!-- Basic Event Details -->
+                <div class="bg-white shadow sm:rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 class="text-base font-semibold leading-6 text-gray-900">Basic Information</h3>
                         </div>
-                        <div class="mb-3">
-                            <label for="eventTypeSelect" class="form-label">Event Category <span class="text-danger">*</span></label>
-                            <select id="eventTypeSelect" v-model="eventType" required class="form-select" :disabled="isSubmitting">
+                    <div class="p-4 sm:p-6 space-y-4">
+                        <div>
+                            <label for="eventName" class="block text-sm font-medium leading-6 text-gray-900">Event Name <span class="text-red-600">*</span></label>
+                            <input type="text" id="eventName" v-model.trim="eventName" required 
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50 disabled:bg-gray-100" 
+                                   :disabled="isSubmitting" placeholder="e.g., Spring Hackathon 2024" />
+                        </div>
+                        <div>
+                            <label for="eventTypeSelect" class="block text-sm font-medium leading-6 text-gray-900">Event Category <span class="text-red-600">*</span></label>
+                            <select id="eventTypeSelect" v-model="eventType" required 
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50 disabled:bg-gray-100">
                                 <option value="" disabled>-- Select a Category --</option>
                                 <option v-for="category in availableEventCategories" :key="category.value" :value="category.value">
                                     {{ category.label }}
                                 </option>
                                 <option v-if="!availableEventCategories.some(c => c.value === eventType) && eventType" :value="eventType" disabled>{{ eventType }} (Invalid for current format)</option>
                             </select>
-                             <!-- Add validation feedback if needed -->
                         </div>
-                        <div class="mb-3">
-                            <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
-                            <textarea id="description" v-model.trim="description" required class="form-control" rows="4" :disabled="isSubmitting" placeholder="Provide a brief overview of the event, goals, and any important rules."></textarea>
-                             <!-- Add validation feedback if needed -->
+                        <div>
+                            <label for="description" class="block text-sm font-medium leading-6 text-gray-900">Description <span class="text-red-600">*</span></label>
+                            <textarea id="description" v-model.trim="description" required rows="4" 
+                                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50 disabled:bg-gray-100" 
+                                      :disabled="isSubmitting" placeholder="Provide a brief overview of the event, goals, and any important rules."></textarea>
                         </div>
                     </div>
                 </div>
 
-
-                <!-- Organizer Selection Card -->
-                 <div class="card mb-4">
-                     <div class="card-header"><h5 class="mb-0">Organizer(s)</h5></div>
-                     <div class="card-body">
-                         <label for="organizerSearchInput" class="form-label">
-                             Select Student Organizers (1-5 total) <span v-if="isAdmin" class="text-danger">*</span>
+                <!-- Organizer Selection -->
+                 <div class="bg-white shadow sm:rounded-lg overflow-hidden">
+                     <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 class="text-base font-semibold leading-6 text-gray-900">Organizer(s)</h3>
+                     </div>
+                     <div class="p-4 sm:p-6">
+                         <label for="organizerSearchInput" class="block text-sm font-medium leading-6 text-gray-900">
+                             Select Student Organizers (1-5 total) <span v-if="isAdmin" class="text-red-600">*</span>
                          </label>
-                         <p v-if="!isAdmin" class="form-text text-muted small mt-0 mb-2">You are automatically the primary organizer. You can add up to 4 co-organizers.</p>
-                         <div class="position-relative mb-2">
+                         <p v-if="!isAdmin" class="mt-1 text-xs text-gray-500">You are automatically the primary organizer. You can add up to 4 co-organizers.</p>
+                         <div class="relative mt-2">
                              <input type="text" id="organizerSearchInput"
                                     v-model="organizerSearch"
-                                    class="form-control"
+                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50 disabled:bg-gray-100"
                                     placeholder="Search students by name..."
                                     @focus="handleSearchFocus"
                                     @blur="handleSearchBlur"
                                     :disabled="!canAddMoreOrganizers || isSubmitting || loadingStudents"
                                     autocomplete="off">
+                             <!-- Tailwind Dropdown -->
+                             <transition leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100" leave-to-class="opacity-0">
                              <div v-if="showOrganizerDropdown && organizerSearch && filteredStudentsForDropdown.length > 0"
-                                  class="dropdown-menu d-block position-absolute w-100 shadow" style="max-height: 200px; overflow-y: auto; z-index: 1050;">
+                                      class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
                                   <button v-for="student in filteredStudentsForDropdown"
                                           :key="student.uid"
-                                          class="dropdown-item" type="button"
-                                          @mousedown.prevent="addOrganizer(student)"> <!-- Use mousedown to register before blur -->
+                                              class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                              type="button"
+                                              @mousedown.prevent="addOrganizer(student)">
                                       {{ student.name }}
                                   </button>
                              </div>
-                             <div v-if="showOrganizerDropdown && organizerSearch && !filteredStudentsForDropdown.length" class="dropdown-menu d-block position-absolute w-100 shadow">
-                                 <span class="dropdown-item text-muted disabled">No matching students found.</span>
+                                 <div v-else-if="showOrganizerDropdown && organizerSearch && !filteredStudentsForDropdown.length"
+                                      class="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md p-4 text-sm text-gray-500 ring-1 ring-black ring-opacity-5">
+                                     No matching students found.
                              </div>
+                             </transition>
                          </div>
-                         <div v-if="!canAddMoreOrganizers" class="form-text text-warning small">
-                            <i class="fas fa-exclamation-circle me-1"></i> Maximum of 5 organizers reached.
+                         <div v-if="!canAddMoreOrganizers" class="mt-1 text-xs text-yellow-600">
+                            <i class="fas fa-exclamation-circle mr-1"></i> Maximum of 5 organizers reached.
                          </div>
                          <!-- Selected Organizers List -->
-                         <div v-if="selectedOrganizers.length > 0" class="mt-2 d-flex flex-wrap gap-2">
-                             <span v-for="uid in selectedOrganizers" :key="uid" class="badge text-bg-secondary d-flex align-items-center py-1 px-2">
-                                 <i class="fas fa-user me-1"></i>
+                         <div v-if="selectedOrganizers.length > 0" class="mt-3 flex flex-wrap gap-2">
+                             <span v-for="uid in selectedOrganizers" :key="uid" class="inline-flex items-center gap-x-0.5 rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
+                                 <i class="fas fa-user mr-1 h-3 w-3"></i>
                                  {{ studentNameCache[uid] || uid }}
-                                 <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove"
-                                         @click="removeOrganizer(uid)" :disabled="isSubmitting"
-                                         style="font-size: 0.7em; padding: 0.1em 0.2em;"></button>
+                                 <button type="button" class="group relative -mr-1 h-3.5 w-3.5 rounded-sm hover:bg-gray-500/20 disabled:opacity-50" @click="removeOrganizer(uid)" :disabled="isSubmitting" aria-label="Remove organizer">
+                                    <span class="sr-only">Remove</span>
+                                    <svg viewBox="0 0 14 14" class="h-3.5 w-3.5 stroke-gray-700/50 group-hover:stroke-gray-700/75"><path d="M4 4l6 6m0-6l-6 6" /></svg>
+                                    <span class="absolute -inset-1"></span>
+                                </button>
                              </span>
                          </div>
-                         <div v-if="isAdmin && selectedOrganizers.length === 0" class="form-text text-danger small mt-1">
-                             <i class="fas fa-exclamation-triangle me-1"></i> At least one organizer selection is required for Admin creation.
+                         <div v-if="isAdmin && selectedOrganizers.length === 0" class="mt-1 text-xs text-red-600">
+                             <i class="fas fa-exclamation-triangle mr-1"></i> At least one organizer selection is required for Admin creation.
                          </div>
                     </div>
                 </div>
 
-                 <!-- Date Selection Card -->
-                <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">{{ isAdmin ? 'Event Dates' : 'Desired Event Dates' }}</h5></div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                             <div class="col-md-6">
-                                <label :for="'date-start'" class="form-label">
-                                    Start Date <span class="text-danger">*</span>
+                 <!-- Date Selection -->
+                <div class="bg-white shadow sm:rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h3 class="text-base font-semibold leading-6 text-gray-900">{{ isAdmin ? 'Event Dates' : 'Desired Event Dates' }}</h3>
+                    </div>
+                    <div class="p-4 sm:p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <div>
+                                <label :for="'date-start'" class="block text-sm font-medium leading-6 text-gray-900">
+                                    Start Date <span class="text-red-600">*</span>
                                 </label>
-                                <div class="input-group" :class="{ 'is-invalid': dateErrorMessages.startDate }">
+                                <div class="mt-1 flex rounded-md shadow-sm">
                                     <input type="date" :id="'date-start'"
-                                           v-model="startDate" required class="form-control"
+                                           v-model="startDate" required 
+                                           class="block w-full min-w-0 flex-1 rounded-none rounded-l-md border-0 py-1.5 ring-1 ring-inset focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 disabled:opacity-50 disabled:bg-gray-100"
+                                           :class="dateErrorMessages.startDate ? 'text-red-900 ring-red-300 placeholder:text-red-300 focus:ring-red-500' : 'text-gray-900 ring-gray-300 placeholder:text-gray-400 focus:ring-blue-600'"
                                            :min="minDate" :disabled="isSubmitting || isFindingNextDate"
                                            placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"
                                            aria-describedby="startDateFeedback startDateHelp"/>
-                                    <button class="btn btn-outline-secondary" type="button"
+                                    <button 
+                                        class="relative -ml-px inline-flex items-center gap-x-1.5 rounded-r-md px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                        type="button"
                                             @click="setNextAvailableDate"
                                             :disabled="isFindingNextDate || isSubmitting"
                                             title="Find next available start date">
-                                        <span v-if="isFindingNextDate" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                        <i v-else class="fas fa-calendar-check"></i>
-                                        <span class="d-none d-sm-inline ms-1">Next Available</span>
+                                        <span v-if="isFindingNextDate" class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>
+                                        <i v-else class="fas fa-calendar-check h-4 w-4 text-gray-500"></i>
+                                        <span class="hidden sm:inline">Next Available</span>
                                     </button>
-                                     <div id="startDateFeedback" class="invalid-feedback w-100"> <!-- Use invalid-feedback -->
-                                         {{ dateErrorMessages.startDate }}
                                      </div>
+                                <p v-if="dateErrorMessages.startDate" class="mt-1 text-xs text-red-600" id="startDateFeedback">{{ dateErrorMessages.startDate }}</p>
+                                <p v-else class="mt-1 text-xs text-gray-500" id="startDateHelp">Select the day the event begins. Must be tomorrow or later.</p>
                                 </div>
-                                <div id="startDateHelp" class="form-text" v-if="!dateErrorMessages.startDate">Select the day the event begins. Must be tomorrow or later.</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label :for="'date-end'" class="form-label">
-                                    End Date <span class="text-danger">*</span>
+                            <div>
+                                <label :for="'date-end'" class="block text-sm font-medium leading-6 text-gray-900">
+                                    End Date <span class="text-red-600">*</span>
                                 </label>
-                                 <div class="input-group" :class="{ 'is-invalid': dateErrorMessages.endDate && dateErrorMessages.endDate.trim() }"> <!-- Check trim -->
                                     <input type="date" :id="'date-end'"
-                                           v-model="endDate" required class="form-control"
+                                       v-model="endDate" required 
+                                       class="mt-1 block w-full rounded-md border-0 py-1.5 ring-1 ring-inset focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 disabled:opacity-50 disabled:bg-gray-100"
+                                       :class="dateErrorMessages.endDate && dateErrorMessages.endDate.trim() ? 'text-red-900 ring-red-300 placeholder:text-red-300 focus:ring-red-500' : 'text-gray-900 ring-gray-300 placeholder:text-gray-400 focus:ring-blue-600'"
                                            :min="startDate || minDate" :disabled="isSubmitting || !startDate || isFindingNextDate"
                                            placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}"
                                            aria-describedby="endDateFeedback endDateHelp"/>
-                                    <div id="endDateFeedback" class="invalid-feedback w-100"> <!-- Use invalid-feedback -->
-                                         {{ dateErrorMessages.endDate }}
+                                <p v-if="dateErrorMessages.endDate && dateErrorMessages.endDate.trim()" class="mt-1 text-xs text-red-600" id="endDateFeedback">{{ dateErrorMessages.endDate }}</p>
+                                <p v-else class="mt-1 text-xs text-gray-500" id="endDateHelp">Select the day the event ends. Must be on or after the start date.</p>
                                      </div>
                                  </div>
-                                <div id="endDateHelp" class="form-text" v-if="!dateErrorMessages.endDate || !dateErrorMessages.endDate.trim()">Select the day the event ends. Must be on or after the start date.</div>
+                         <!-- Combined Date Feedback Message -->
+                         <div v-if="dateErrorMessages.startDate && dateErrorMessages.startDate.includes('conflict')" class="mt-4 rounded-md bg-yellow-50 p-3 border border-yellow-200">
+                             <div class="flex">
+                                <div class="flex-shrink-0"><i class="fas fa-exclamation-triangle text-yellow-400 h-5 w-5"></i></div>
+                                <div class="ml-3"><p class="text-xs text-yellow-700">{{ dateErrorMessages.startDate }} Use "Next Available" or choose different dates.</p></div>
                             </div>
                         </div>
-                         <!-- Display Combined Date Feedback -->
-                         <div v-if="dateErrorMessages.startDate && dateErrorMessages.startDate.includes('conflict')" class="alert alert-warning alert-sm mt-3 py-2 px-3"> <!-- More prominent warning -->
-                             <i class="fas fa-exclamation-triangle me-1"></i> {{ dateErrorMessages.startDate }} Use "Next Available" or choose different dates.
+                         <div v-else-if="dateErrorMessages.startDate && !dateErrorMessages.startDate.includes('conflict') && !dateErrorMessages.startDate.includes('available date')" class="mt-4 rounded-md bg-red-50 p-3 border border-red-200">
+                             <div class="flex">
+                                <div class="flex-shrink-0"><i class="fas fa-times-circle text-red-400 h-5 w-5"></i></div>
+                                <div class="ml-3"><p class="text-xs text-red-700">Error: {{ dateErrorMessages.startDate }}</p></div>
                          </div>
-                         <div v-else-if="dateErrorMessages.startDate && !dateErrorMessages.startDate.includes('conflict') && !dateErrorMessages.startDate.includes('available date')" class="alert alert-danger alert-sm mt-3 py-2 px-3">
-                            <i class="fas fa-times-circle me-1"></i> Error: {{ dateErrorMessages.startDate }}
                          </div>
-                         <div v-else-if="dateErrorMessages.startDate && dateErrorMessages.startDate.includes('available date')" class="alert alert-success alert-sm mt-3 py-2 px-3">
-                             <i class="fas fa-check-circle me-1"></i> {{ dateErrorMessages.startDate }}
+                         <div v-else-if="dateErrorMessages.startDate && dateErrorMessages.startDate.includes('available date')" class="mt-4 rounded-md bg-green-50 p-3 border border-green-200">
+                             <div class="flex">
+                                <div class="flex-shrink-0"><i class="fas fa-check-circle text-green-400 h-5 w-5"></i></div>
+                                <div class="ml-3"><p class="text-xs text-green-700">{{ dateErrorMessages.startDate }}</p></div>
+                             </div>
                          </div>
                     </div>
                 </div>
 
 
-                <!-- XP Allocation Section Card -->
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Rating Criteria & XP Allocation (Total: 50 XP)</h5>
+                <!-- XP Allocation Section -->
+                <div class="bg-white shadow sm:rounded-lg overflow-hidden">
+                     <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                        <h3 class="text-base font-semibold leading-6 text-gray-900">Rating Criteria & XP Allocation (Total: 50 XP)</h3>
                         <button
                             type="button"
-                            class="btn btn-sm btn-outline-success"
+                            class="inline-flex items-center gap-x-1.5 rounded-md bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
                             @click="addConstraint"
                             :disabled="ratingCriteria.length >= 5 || isSubmitting">
-                            <i class="fas fa-plus"></i> Add Criterion
+                            <i class="fas fa-plus h-3 w-3"></i> Add Criterion
                         </button>
                     </div>
-                    <div class="card-body">
-                         <p class="text-muted small mb-3">Define up to 5 criteria for rating submissions. The total XP across all criteria must equal 50. Optionally, link criteria to specific roles for automatic winner calculation in team events.</p>
-                        <div v-if="ratingCriteria.length === 0" class="alert alert-warning small py-2">
+                    <div class="p-4 sm:p-6">
+                         <p class="text-sm text-gray-500 mb-4">Define up to 5 criteria for rating submissions. The total XP across all criteria must equal 50. Optionally, link criteria to specific roles for automatic winner calculation in team events.</p>
+                        <div v-if="ratingCriteria.length === 0" class="rounded-md bg-yellow-50 p-4 text-sm text-yellow-700">
                             At least one rating criterion is required. Click 'Add Criterion'.
                         </div>
+                        <!-- Criteria Rows -->
+                        <div class="space-y-4">
                         <div v-for="(criteria, index) in ratingCriteria" :key="index"
-                             class="row g-3 mb-3 pb-3 border-bottom align-items-center position-relative">
-                             <!-- Input fields for label, role, points -->
-                             <div class="col-md-4 col-lg-4">
-                                <label :for="'criteriaLabel'+index" class="form-label">
-                                    Criteria {{ index + 1 }} Label <span class="text-danger">*</span>
+                                class="flex flex-wrap items-end gap-4 border-b border-gray-200 pb-4">
+                                <!-- Label Input -->
+                                <div class="flex-grow min-w-[150px]">
+                                    <label :for="'criteriaLabel'+index" class="block text-xs font-medium leading-6 text-gray-900">
+                                        Criteria {{ index + 1 }} Label <span class="text-red-600">*</span>
                                 </label>
                                 <input type="text" :id="'criteriaLabel'+index"
                                        v-model.trim="criteria.label"
-                                       class="form-control form-control-sm"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50"
                                        required
                                        :placeholder="getDefaultCriteriaLabel(index)"
                                        :disabled="isSubmitting">
                             </div>
-                             <div class="col-md-3 col-lg-3">
-                                <label :for="'roleSelect'+index" class="form-label">Associated Role</label>
+                                <!-- Role Select -->
+                                <div class="flex-grow min-w-[150px]">
+                                    <label :for="'roleSelect'+index" class="block text-xs font-medium leading-6 text-gray-900">Associated Role</label>
                                 <select :id="'roleSelect'+index"
                                         v-model="criteria.role"
-                                        class="form-select form-select-sm"
+                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50"
                                         :disabled="isSubmitting">
-                                    <option value="" disabled>-- Select Role (Optional) --</option>
+                                        <option value="">-- General (Optional) --</option>
                                     <option v-for="role in availableRoles"
                                             :key="role.value"
                                             :value="role.value">
@@ -1015,69 +1086,60 @@ onMounted(async () => {
                                     </option>
                                 </select>
                             </div>
-                             <div class="col-md-4 col-lg-4">
-                                <label :for="'xpPoints'+index" class="form-label">
-                                    XP Points
+                                <!-- Points Input/Slider -->
+                                <div class="flex-grow min-w-[200px]">
+                                    <label :for="'xpPointsNum'+index" class="block text-xs font-medium leading-6 text-gray-900">
+                                        XP Points ({{ criteria.points }})
                                 </label>
-                                <div class="input-group input-group-sm">
+                                    <div class="flex items-center gap-2 mt-1">
                                      <input type="number" :id="'xpPointsNum'+index"
                                            v-model.number="criteria.points"
-                                           class="form-control" min="0" :max="50" step="1"
-                                           style="max-width: 70px;"
+                                            class="block w-16 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:opacity-50" 
+                                            min="0" :max="50" step="1"
                                            :disabled="isSubmitting">
-                                     <span class="input-group-text">pts</span>
                                     <input type="range" :id="'xpPoints'+index"
                                            v-model.number="criteria.points"
-                                           class="form-range w-auto flex-grow-1 mx-2" min="0" max="50" step="1"
+                                            class="h-2 w-full flex-grow cursor-pointer appearance-none rounded-lg bg-gray-200 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 disabled:opacity-50"
+                                            min="0" max="50" step="1"
                                            :disabled="isSubmitting"
                                            aria-label="XP Points Slider">
                                 </div>
                             </div>
-                            <div class="col-md-1 col-lg-1 text-end align-self-center pt-3"> <!-- Align button nicely -->
+                                <!-- Remove Button -->
+                                <div class="flex-shrink-0">
                                 <button
                                     v-if="ratingCriteria.length > 0"
                                     type="button"
-                                    class="btn btn-sm btn-outline-danger"
+                                        class="rounded bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
                                     @click="removeConstraint(index)"
                                     title="Remove this criterion"
                                     :disabled="isSubmitting">
-                                    <i class="fas fa-trash-alt"></i>
+                                        <i class="fas fa-trash-alt text-red-500"></i>
                                 </button>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Display Total XP -->
-                        <div class="mt-3 text-end">
-                            <span class="fw-bold fs-5" :class="{ 'text-danger': totalAllocatedXp !== 50, 'text-success': totalAllocatedXp === 50 }">
+                         <div class="mt-4 text-right">
+                            <span class="text-lg font-semibold" :class="{ 'text-red-600': totalAllocatedXp !== 50, 'text-green-600': totalAllocatedXp === 50 }">
                                 Total Allocated XP: {{ totalAllocatedXp }} / 50
                             </span>
-                            <p v-if="totalAllocatedXp !== 50" class="form-text text-danger small text-end mb-0">
-                                <i class="fas fa-exclamation-triangle me-1"></i> Total XP must sum to exactly 50.
+                            <p v-if="totalAllocatedXp !== 50" class="mt-1 text-xs text-red-600">
+                                <i class="fas fa-exclamation-triangle mr-1"></i> Total XP must sum to exactly 50.
                             </p>
                          </div>
                     </div>
                 </div>
 
-                <!-- Step 1 Submit Button & Validation Summary -->
-                 <div class="mt-4 sticky-bottom bg-light p-3 border-top d-flex justify-content-end align-items-center"> <!-- Sticky Footer -->
-                     <div class="me-auto">
-                         <p v-if="!isSubmitting && (isCheckingConflict || (isAdmin && selectedOrganizers.length === 0) || dateErrorMessages.startDate || dateErrorMessages.endDate || totalAllocatedXp !== 50 || !eventName || !eventType || !description)" class="text-danger small mb-0">
-                             <i class="fas fa-exclamation-circle me-1"></i> Please correct the errors highlighted above.
-                         </p>
-                     </div>
-                    <button type="submit" class="btn btn-primary btn-lg"
-                            :disabled="isSubmitting || isCheckingConflict || (isAdmin && selectedOrganizers.length === 0) || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate || totalAllocatedXp !== 50 || !eventName || !eventType || !description">
-                        <span v-if="isSubmitting || isCheckingConflict" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        <i v-else-if="isTeamEvent" class="fas fa-arrow-right me-2"></i>
-                        <i v-else class="fas fa-paper-plane me-2"></i>
-                        {{ isSubmitting ? 'Processing...' : (isCheckingConflict ? 'Checking Dates...' : (isTeamEvent ? 'Next: Define Teams' : (editingEventId ? 'Update Event' : (isAdmin ? 'Create Event' : 'Submit Request')))) }}
-                    </button>
-                 </div>
-            </form>
-        </div>
+                <!-- Step 1 Sticky Footer - Buttons moved here, combined logic -->
+                <!-- The sticky footer will be outside the form but controlled by its state -->
+            </form> <!-- End of Step 1 form -->
+        </div> <!-- End of v-show for Step 1 -->
 
         <!-- Step 2: Team Definition -->
-        <div v-if="currentStep === 2 && isTeamEvent">
+        <div v-show="currentStep === 2 && isTeamEvent"> <!-- Use v-show to keep state -->
+             <!-- ManageTeamsComponent is already refactored -->
             <ManageTeamsComponent
                 :initial-teams="teams"
                 :students="availableStudents"
@@ -1087,58 +1149,84 @@ onMounted(async () => {
                 @update:teams="updateTeams"
                 @can-add-team="updateCanAddTeam"
             />
-             <!-- Step 2 Buttons & Validation Summary -->
-             <div class="mt-4 sticky-bottom bg-light p-3 border-top d-flex justify-content-between align-items-center"> <!-- Sticky Footer -->
-                 <button type="button" class="btn btn-outline-secondary" @click="currentStep = 1" :disabled="isSubmitting">
-                    <i class="fas fa-arrow-left me-1"></i> Back to Details
+             <!-- Step 2 Buttons & Validation Summary - Placed in Sticky Footer -->
+        </div>
+
+         <!-- Sticky Footer for Actions -->
+         <div class="fixed inset-x-0 bottom-0 z-10 bg-gray-50 border-t border-gray-200 p-4 shadow-inner">
+            <div class="max-w-4xl mx-auto flex justify-between items-center">
+                <!-- Back Button (Conditional) -->
+                <button 
+                    v-if="currentStep === 2 && isTeamEvent" 
+                    type="button" 
+                    class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                    @click="currentStep = 1" :disabled="isSubmitting">
+                    <i class="fas fa-arrow-left mr-1"></i> Back to Details
                 </button>
-                 <div class="text-end">
-                    <p v-if="!isSubmitting && (!hasValidTeams || (isAdmin && selectedOrganizers.length === 0) || dateErrorMessages.startDate || dateErrorMessages.endDate || totalAllocatedXp !== 50)" class="text-danger small mb-1 me-2">
-                         <i class="fas fa-exclamation-circle me-1"></i>
-                         <span v-if="!hasValidTeams">Min. 2 valid teams required. </span>
-                         <span v-if="(isAdmin && selectedOrganizers.length === 0)">Organizer needed. </span>
-                         <span v-if="dateErrorMessages.startDate || dateErrorMessages.endDate">Date conflict. </span>
-                         <span v-if="totalAllocatedXp !== 50">XP total != 50.</span>
-                         <span>(Check Step 1 if needed)</span>
-                    </p>
-                    <button type="button" class="btn btn-success btn-lg"
+                <div v-else></div> <!-- Placeholder to keep submit button right-aligned -->
+
+                <!-- Validation Summary & Submit Button Container -->
+                <div class="flex items-center space-x-4">
+                    <!-- Validation Message -->
+                     <p v-if="!isSubmitting && (isCheckingConflict || (isAdmin && selectedOrganizers.length === 0) || dateErrorMessages.startDate || dateErrorMessages.endDate || totalAllocatedXp !== 50 || !eventName || !eventType || !description || (isTeamEvent && !hasValidTeams))" 
+                         class="text-xs text-red-600 hidden md:block">
+                         <i class="fas fa-exclamation-circle mr-1"></i> Please correct errors before submitting.
+                         <span v-if="isTeamEvent && !hasValidTeams"> (Min. 2 valid teams)</span>
+                     </p>
+
+                    <!-- Submit / Next Button -->
+                    <button 
+                        v-if="currentStep === 1" 
+                        type="submit" form="step1Form" 
+                        class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="isSubmitting || isCheckingConflict || (isAdmin && selectedOrganizers.length === 0) || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate || totalAllocatedXp !== 50 || !eventName || !eventType || !description">
+                         <span v-if="isSubmitting || isCheckingConflict" class="flex items-center">
+                           <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                           {{ isSubmitting ? 'Processing...' : 'Checking Dates...' }}
+                         </span>
+                         <span v-else class="flex items-center">
+                           {{ isTeamEvent ? 'Next: Define Teams' : (editingEventId ? 'Update Event' : (isAdmin ? 'Create Event' : 'Submit Request')) }}
+                           <i v-if="isTeamEvent" class="fas fa-arrow-right ml-2 h-3 w-3"></i>
+                           <i v-else class="fas fa-paper-plane ml-2 h-3 w-3"></i>
+                         </span>
+                    </button>
+                    
+                    <!-- Final Submit Button (Step 2) -->
+                    <button 
+                        v-if="currentStep === 2 && isTeamEvent"
+                        type="button" 
+                        class="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
                             @click="handleSubmit"
                             :disabled="isSubmitting || isCheckingConflict || !hasValidTeams || (isAdmin && selectedOrganizers.length === 0) || !!dateErrorMessages.startDate || !!dateErrorMessages.endDate || totalAllocatedXp !== 50"
                             :title="!hasValidTeams ? 'Ensure at least two teams are defined, each with a name and at least one member.' : (dateErrorMessages.startDate || dateErrorMessages.endDate ? 'Resolve date conflicts first (Step 1).' : (totalAllocatedXp !== 50 ? 'Total XP must be 50 (Step 1).' : 'Submit Event'))">
-                         <span v-if="isSubmitting || isCheckingConflict" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                         <i v-else class="fas fa-check-circle me-2"></i>
-                        {{ isSubmitting ? 'Submitting...' : (isCheckingConflict ? 'Checking Dates...' : (editingEventId ? 'Update Event' : (isAdmin ? 'Create Event' : 'Submit Request'))) }}
+                         <span v-if="isSubmitting || isCheckingConflict" class="flex items-center">
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            {{ isSubmitting ? 'Submitting...' : 'Checking Dates...' }}
+                         </span>
+                         <span v-else class="flex items-center">
+                             {{ editingEventId ? 'Update Event' : (isAdmin ? 'Create Event' : 'Submit Request') }}
+                            <i class="fas fa-check-circle ml-2 h-3 w-3"></i>
+                         </span>
                     </button>
                  </div>
             </div>
         </div>
+
     </div>
 </template>
 
-<style scoped>
-/* Add styles for better visual feedback and layout */
-.input-group.is-invalid .form-control,
-.input-group.is-invalid .btn {
-  border-color: #dc3545; /* Ensure button border also turns red */
-  z-index: 2; /* Keep button clickable */
-}
-.input-group.is-invalid .invalid-feedback {
-  display: block; /* Ensure feedback is shown */
-}
-.dropdown-menu {
-    z-index: 1050; /* Ensure dropdown appears above other elements */
-}
-/* Sticky footer for action buttons */
-.sticky-bottom {
-    position: sticky;
-    bottom: 0;
-    z-index: 1020; /* Below dropdowns but above page content */
-    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
-}
-/* Smaller alerts removed - using global style */
 
-/* Ensure range input takes available space correctly */
-.form-range.w-auto {
-    width: auto;
+<style scoped>
+/* Minimal scoped styles if needed, e.g., for complex radio buttons or specific overrides */
+/* Ensure range input thumb is visible */
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  /* Size and background color handled by Tailwind classes */
 }
+
+input[type=range]::-moz-range-thumb {
+   /* Size and background color handled by Tailwind classes */
+}
+
 </style>

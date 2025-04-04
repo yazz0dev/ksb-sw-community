@@ -1,24 +1,24 @@
 // src/components/CustomStarRating.vue
 <template>
   <div
-    class="custom-star-rating"
+    class="inline-flex items-center leading-none"
     @mouseleave="!readOnly ? (hoverRating = 0) : null"
   >
     <span
       v-for="starIndex in maxRating"
       :key="starIndex"
-      class="star-item"
+      class="inline-block transition-colors duration-100 ease-in-out"
       :style="starStyle(starIndex)"
       @mouseover="!readOnly ? (hoverRating = starIndex) : null"
       @click="!readOnly ? setRating(starIndex) : null"
     >
-      <i class="fas fa-star"></i>
+      <i class="fas fa-star block"></i>
     </span>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 
 const props = defineProps({
   modelValue: { // Current rating value (for v-model)
@@ -35,19 +35,19 @@ const props = defineProps({
   },
   activeColor: { // Color for selected/hovered stars
     type: String,
-    default: 'var(--color-warning)', // Use CSS variable
+    default: '#f59e0b', // Tailwind 'amber-500'
   },
   inactiveColor: { // Color for unselected stars
     type: String,
-    default: 'var(--color-border)', // Use CSS variable
+    default: '#d1d5db', // Tailwind 'gray-300'
   },
   starSize: { // Size in pixels
     type: Number,
-    default: 35,
+    default: 20, // Adjusted default size
   },
   starSpacing: { // Gap between stars in pixels
       type: Number,
-      default: 4,
+      default: 2, // Adjusted default spacing
   }
 });
 
@@ -89,7 +89,7 @@ const setRating = (starIndex) => {
 };
 </script>
 
-<style scoped>
+<!-- <style scoped>
 .custom-star-rating {
   display: inline-flex; /* Allows centering by parent */
   align-items: center;
@@ -104,4 +104,4 @@ const setRating = (starIndex) => {
 .star-item i {
    display: block; /* Ensures icon sizing is consistent */
 }
-</style>
+</style> -->

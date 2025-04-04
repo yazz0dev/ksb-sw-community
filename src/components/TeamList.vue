@@ -1,52 +1,60 @@
 // /src/components/TeamList.vue (Handles 'Show Members' correctly and uses name getter)
 <template>
-    <div>
+    <div class="space-y-4"> <!-- Added vertical spacing -->
         <!-- Loop over the reactive teamsWithDetails ref -->
-        <div v-for="team in teamsWithDetails" :key="team.teamName" class="card mb-3 team-card"> 
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h4 class="card-title mb-0">{{ team.teamName }}</h4>
-                    <!-- Rating Button - text changes based on whether user has rated -->
+        <div v-for="team in teamsWithDetails" :key="team.teamName" class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden"> 
+            <div class="p-4"> <!-- Use Tailwind padding -->
+                <div class="flex justify-between items-center mb-3"> <!-- Flex layout, added bottom margin -->
+                    <h4 class="text-lg font-semibold text-gray-800">{{ team.teamName }}</h4> <!-- Tailwind text style -->
+                    <!-- Rating Button - styled with Tailwind, conditional classes -->
                     <button v-if="ratingsOpen && canRate" @click="goToRatingForm(team.teamName)"
-                        class="btn btn-sm btn-inline-mobile" 
-                        :class="currentUserHasRatedTeam ? 'btn-outline-secondary' : 'btn-info'">
-                        <i class="fas fa-star me-1"></i> 
+                        class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors"
+                        :class="currentUserHasRatedTeam ? 
+                                   'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 focus:ring-indigo-500' : 
+                                   'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'">
+                        <i class="fas fa-star mr-1"></i> <!-- Adjusted margin -->
                         {{ currentUserHasRatedTeam ? 'View/Edit Ratings' : 'Rate Team' }}
                     </button>
                 </div>
 
-                <!-- Toggle Button -->
+                <!-- Toggle Button - styled with Tailwind -->
                 <button @click="toggleTeamDetails(team.teamName)"
-                    class="btn btn-secondary btn-sm mt-2 mb-3 btn-inline-mobile">
-                    <i :class="['fas', team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down', 'me-1']"></i>
+                    class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    <i :class="['fas', team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down', 'mr-1']"></i>
                     {{ team.showDetails ? 'Hide Members' : 'Show Members' }}
                 </button>
 
-                <!-- Member List (Conditional) -->
-                <div v-if="team.showDetails" class="list-group list-group-flush mt-2">
-                    <div v-if="organizerNamesLoading" class="list-group-item text-muted">Loading members...</div>
-                    <!-- Display member names using the passed-in function -->
-                    <div v-else-if="team.members && team.members.length > 0">
-                        <div v-for="memberId in team.members" :key="memberId"
-                            class="list-group-item user-card-item px-0"
-                            :class="{ 'highlighted-user': memberId === currentUserUid }">
-                            <p class="mb-0">
-                                <!-- Link to public profile -->
-                                <router-link :to="{ name: 'PublicProfile', params: { userId: memberId } }">
-                                    <i class="fas fa-user me-2 text-muted"></i>{{ getUserName(memberId) || memberId }}
-                                </router-link>
-                                <!-- Star ratings can potentially be added back here if UserCard logic is integrated or refetched -->
-                            </p>
+                <!-- Member List (Conditional) - Using Tailwind for list structure -->
+                 <transition name="fade-fast">
+                    <div v-if="team.showDetails" class="mt-4 border-t border-gray-200 divide-y divide-gray-200">
+                        <div v-if="organizerNamesLoading" class="py-3 text-sm text-gray-500">Loading members...</div>
+                        <div v-else-if="team.members && team.members.length > 0">
+                            <!-- Use ul for semantic list -->
+                            <ul role="list">
+                                <li v-for="memberId in team.members" :key="memberId"
+                                    class="py-3 flex items-center"
+                                    :class="{ 'bg-blue-50 rounded px-2 -mx-2 font-medium': memberId === currentUserUid }"> <!-- Tailwind highlighting -->
+                                    <i class="fas fa-user mr-2 text-gray-400 flex-shrink-0"></i> <!-- Styled icon -->
+                                    <router-link 
+                                        :to="{ name: 'PublicProfile', params: { userId: memberId } }"
+                                        class="text-sm text-gray-800 hover:text-blue-600 truncate" 
+                                        :class="{'text-blue-700': memberId === currentUserUid}">
+                                        {{ getUserName(memberId) || memberId }}
+                                    </router-link>
+                                </li>
+                            </ul>
+                        </div>
+                        <div v-else class="py-3 text-sm text-gray-500">
+                            No members in this team.
                         </div>
                     </div>
-                    <div v-else class="list-group-item text-muted px-0">
-                        No members in this team.
-                    </div>
-                </div>
-
+                 </transition>
             </div>
         </div>
-        <div v-if="teamsWithDetails.length === 0" class="alert alert-light mt-3">No teams created yet.</div>
+        <!-- No teams alert - styled with Tailwind -->
+        <div v-if="teamsWithDetails.length === 0" class="bg-gray-50 text-gray-700 px-4 py-3 rounded-md text-sm mt-4">
+             No teams created yet.
+        </div>
     </div>
 </template>
 
@@ -112,16 +120,19 @@ const goToRatingForm = (teamId) => {
     router.push({ name: 'RatingForm', params: { eventId: props.eventId, teamId: teamId } }); // Use named route
 };
 
-// Add new computed property to check if all students are assigned
-const areAllStudentsAssigned = computed(() => {
-    // Get all unique students from all teams
-    const assignedStudents = new Set(
-        teamsWithDetails.value.flatMap(team => team.members || [])
-    );
+// // Add new computed property to check if all students are assigned
+// // This logic seems more relevant in ManageTeamsComponent, keeping it commented here for reference
+// const areAllStudentsAssigned = computed(() => {
+//     // Get all unique students from all teams
+//     const assignedStudents = new Set(
+//         teamsWithDetails.value.flatMap(team => team.members || [])
+//     );
 
-    // Compare with total available students
-    return props.students.every(student => assignedStudents.has(student.uid));
-});
+//     // Compare with total available students (props.students would be needed)
+//     // Assuming props.students is available:
+//     // return props.students.every(student => assignedStudents.has(student.uid));
+//     return false; // Placeholder
+// });
 
 // Pass this to parent slot or emit as needed
 defineEmits(['update:teams', 'canAddTeam']);
@@ -129,10 +140,16 @@ defineEmits(['update:teams', 'canAddTeam']);
 </script>
 
 <style scoped>
-/* Scoped styles for the TeamList component */
+/* Scoped styles removed, replaced by Tailwind utilities */
 
-.highlighted-user {
-    background-color: rgba(var(--color-primary-rgb), 0.1); /* Light primary background */
-    border-left: 4px solid var(--color-primary); /* Primary border on left */
+/* Added transition for member list visibility */
+.fade-fast-enter-active,
+.fade-fast-leave-active {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.fade-fast-enter-from,
+.fade-fast-leave-to {
+  opacity: 0;
 }
 </style>

@@ -1,73 +1,85 @@
 <template>
-    <div class="container mt-4">
-      <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
-         <h2 class="mb-0 me-3">Manage Event Requests</h2>
-         <div class="d-flex gap-2">
-             <button class="btn btn-secondary btn-sm" @click="$router.push('/home')">
-                 <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+         <h2 class="text-2xl font-bold text-gray-900">Manage Event Requests</h2>
+         <div class="flex space-x-2">
+             <button 
+                class="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                @click="$router.push('/home')">
+                 <i class="fas fa-arrow-left mr-1 h-3 w-3"></i> Back to Dashboard
              </button>
-             <router-link to="/request-event" class="btn btn-success btn-sm">
-                 <i class="fas fa-calendar-plus me-1"></i> Create Event
+             <router-link 
+                to="/request-event" 
+                class="inline-flex items-center rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600">
+                 <i class="fas fa-calendar-plus mr-1 h-3 w-3"></i> Create Event
              </router-link>
          </div>
       </div>
 
-      <div v-if="loading" class="text-center my-5">
-          <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading requests...</span>
-          </div>
+      <div v-if="loading" class="flex justify-center py-10">
+          <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
       </div>
-      <div v-else-if="pendingEvents.length === 0" class="alert alert-info">
+      <div v-else-if="pendingEvents.length === 0" class="rounded-md bg-blue-50 p-4 text-sm text-blue-700 border border-blue-200">
           No pending requests to review at this time.
       </div>
-      <div v-else>
-        <ul class="list-group">
-          <li v-for="event in pendingEvents" :key="event.id" class="list-group-item mb-3">
-            <div class="d-flex justify-content-between align-items-start flex-wrap">
-                <div class="me-3 mb-2">
-                   <h5 class="mb-1">{{ event.eventName }} <span class="fw-normal text-muted">({{ event.eventType }})</span></h5>
-                   <p class="mb-1 small"><strong class="me-1">Requested by:</strong> {{ nameCache[event.requester] || '(Name not found)' }}</p>
-                   <p class="mb-1 small"><strong class="me-1">Desired Dates:</strong> {{ formatDate(event.desiredStartDate) }} - {{ formatDate(event.desiredEndDate) }}</p>
-                   <p class="mb-1 small"><strong class="me-1">Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}</p>
-                   <p v-if="event.organizers && event.organizers.length > 0" class="mb-1 small">
-                       <strong>Organizers:</strong>
+      <div v-else class="space-y-4">
+        <div v-for="event in pendingEvents" :key="event.id" class="bg-white shadow overflow-hidden sm:rounded-lg p-4 sm:p-6 border border-gray-200">
+            <div class="flex flex-col md:flex-row justify-between md:items-start gap-4">
+                <div class="flex-1 min-w-0">
+                   <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ event.eventName }} <span class="font-normal text-gray-600">({{ event.eventType }})</span></h3>
+                   <p class="text-xs text-gray-500 mb-0.5"><strong class="font-medium text-gray-700 mr-1">Requested by:</strong> {{ nameCache[event.requester] || '(Name not found)' }}</p>
+                   <p class="text-xs text-gray-500 mb-0.5"><strong class="font-medium text-gray-700 mr-1">Desired Dates:</strong> {{ formatDate(event.desiredStartDate) }} - {{ formatDate(event.desiredEndDate) }}</p>
+                   <p class="text-xs text-gray-500 mb-0.5"><strong class="font-medium text-gray-700 mr-1">Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}</p>
+                   <p v-if="event.organizers && event.organizers.length > 0" class="text-xs text-gray-500 mb-1">
+                       <strong class="font-medium text-gray-700">Co-Organizers:</strong>
                        <span v-for="(orgId, idx) in event.organizers" :key="orgId">
                            {{ nameCache[orgId] || '(Name not found)' }}{{ idx < event.organizers.length - 1 ? ', ' : '' }}
                        </span>
                    </p>
-                   <p class="mb-2 small">Description: {{ event.description }}</p>
-                   <!-- Display XP/Constraint Info from xpAllocation -->
-                   <div v-if="event.xpAllocation && event.xpAllocation.length > 0" class="mt-2 small">
-                       <strong class="d-block mb-1">Rating Criteria & XP:</strong>
-                       <ul class="list-unstyled ps-3 mb-1">
+                   <p class="text-sm text-gray-600 mb-2 mt-1"><strong class="font-medium text-gray-700">Description:</strong> {{ event.description }}</p>
+                   <!-- Display XP/Constraint Info -->
+                   <div v-if="event.xpAllocation && event.xpAllocation.length > 0" class="mt-2 text-xs">
+                       <strong class="block mb-1 font-medium text-gray-700">Rating Criteria & XP:</strong>
+                       <ul class="list-disc list-inside space-y-0.5 text-gray-600 pl-2">
                            <li v-for="(alloc, index) in event.xpAllocation" :key="index">
                                {{ alloc.constraintLabel || 'Unnamed Criteria' }}: {{ alloc.points }} XP ({{ formatRoleName(alloc.role) }})
                            </li>
                        </ul>
                    </div>
                 </div>
-                <div class="d-flex gap-2 align-self-start flex-shrink-0">
-                     <button @click="approveRequest(event.id)" class="btn btn-success btn-sm" :disabled="isProcessing(event.id)">
-                         <i class="fas" :class="processingAction === 'approve' ? 'fa-spinner fa-spin' : 'fa-check'"></i>
-                         Approve
+                <div class="flex space-x-2 items-start flex-shrink-0 mt-2 md:mt-0">
+                     <button @click="approveRequest(event.id)" 
+                             class="inline-flex items-center justify-center rounded-md bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                             :disabled="isProcessing(event.id)">
+                         <svg v-if="isProcessing(event.id) && processingAction === 'approve'" class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                         <i v-else class="fas fa-check h-3 w-3"></i>
+                         <span class="ml-1 hidden sm:inline">Approve</span>
                      </button>
-                     <button @click="rejectRequest(event.id)" class="btn btn-warning btn-sm" :disabled="isProcessing(event.id)">
-                         <i class="fas" :class="processingAction === 'reject' ? 'fa-spinner fa-spin' : 'fa-times'"></i>
-                         Reject
+                     <button @click="rejectRequest(event.id)" 
+                             class="inline-flex items-center justify-center rounded-md bg-yellow-500 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-yellow-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                             :disabled="isProcessing(event.id)">
+                         <svg v-if="isProcessing(event.id) && processingAction === 'reject'" class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                         <i v-else class="fas fa-times h-3 w-3"></i>
+                         <span class="ml-1 hidden sm:inline">Reject</span>
                      </button>
-                     <button @click="deleteRequest(event.id)" class="btn btn-danger btn-sm" :disabled="isProcessing(event.id)">
-                         <i class="fas" :class="processingAction === 'delete' ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
-                         Delete
+                     <button @click="deleteRequest(event.id)" 
+                             class="inline-flex items-center justify-center rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                             :disabled="isProcessing(event.id)">
+                         <svg v-if="isProcessing(event.id) && processingAction === 'delete'" class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                         <i v-else class="fas fa-trash h-3 w-3"></i>
+                         <span class="ml-1 hidden sm:inline">Delete</span>
                      </button>
                  </div>
             </div>
             <!-- Conflict Warning -->
-            <div v-if="conflictWarnings[event.id]" class="mt-2 alert alert-warning alert-sm p-2 small">
-                <i class="fas fa-exclamation-triangle me-1"></i>
+            <div v-if="conflictWarnings[event.id]" class="mt-2 rounded-md bg-yellow-50 p-2 text-xs text-yellow-700 border border-yellow-200">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
                 Warning: Date conflict with "{{ conflictWarnings[event.id] }}"
             </div>
-          </li>
-        </ul>
+        </div>
       </div>
     </div>
 </template>
@@ -259,6 +271,6 @@ const deleteRequest = async (eventId) => {
 </script>
 
 <style scoped>
- .list-group-item { border: 1px solid var(--color-border); background-color: var(--color-surface); }
- .alert-sm { font-size: var(--font-size-sm); }
+/* Remove specific padding/vertical-align from previous BS table styles if they existed */
+/* Keep any non-Bootstrap styles if needed */
 </style>

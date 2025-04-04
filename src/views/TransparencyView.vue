@@ -1,70 +1,78 @@
 <template>
-    <div class="container mt-4 mb-5">
-      <h2 class="mb-4 text-center">Community Transparency & Guidelines</h2>
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 mb-12">
+      <h2 class="text-3xl font-bold text-gray-900 mb-8 text-center">Community Transparency & Guidelines</h2>
 
-      <!-- Use card structure similar to ResourcesView -->
-      <div class="transparency-content">
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="mb-0 h5"><i class="fas fa-info-circle me-2"></i>Introduction</h3>
+      <div class="space-y-6">
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-blue-600 text-white">
+                    <i class="fas fa-info-circle h-4 w-4 mr-2"></i>
+                    <h3 class="text-base font-semibold">Introduction</h3>
                 </div>
-                <div class="card-body p-3 p-md-4" v-html="renderSection(introductionContent)"></div>
+                <div class="p-4 sm:p-6" v-html="renderSection(introductionContent)"></div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h3 class="mb-0 h5"><i class="fas fa-users-cog me-2"></i>Roles & Permissions</h3>
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-gray-600 text-white">
+                    <i class="fas fa-users-cog h-4 w-4 mr-2"></i>
+                    <h3 class="text-base font-semibold">Roles & Permissions</h3>
                 </div>
-                <div class="card-body p-3 p-md-4" v-html="renderSection(rolesContent)"></div>
+                <div class="p-4 sm:p-6" v-html="renderSection(rolesContent)"></div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header bg-info text-dark">
-                    <h3 class="mb-0 h5"><i class="fas fa-project-diagram me-2"></i>Event Lifecycle</h3>
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                 <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-cyan-600 text-white">
+                     <i class="fas fa-project-diagram h-4 w-4 mr-2"></i>
+                    <h3 class="text-base font-semibold">Event Lifecycle</h3>
                 </div>
-                <div class="card-body p-3 p-md-4" v-html="renderSection(eventLifecycleContent)"></div>
+                <div class="p-4 sm:p-6" v-html="renderSection(eventLifecycleContent)"></div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h3 class="mb-0 h5"><i class="fas fa-users me-2"></i>Team Management</h3>
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-gray-600 text-white">
+                    <i class="fas fa-users h-4 w-4 mr-2"></i>
+                    <h3 class="text-base font-semibold">Team Management</h3>
                 </div>
-                <div class="card-body p-3 p-md-4" v-html="renderSection(teamsContent)"></div>
+                <div class="p-4 sm:p-6" v-html="renderSection(teamsContent)"></div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header bg-warning text-dark">
-                    <h3 class="mb-0 h5"><i class="fas fa-star-half-alt me-2"></i>Rating System</h3>
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-yellow-500 text-gray-800">
+                     <i class="fas fa-star-half-alt h-4 w-4 mr-2"></i>
+                    <h3 class="text-base font-semibold">Rating System</h3>
                 </div>
-                <div class="card-body p-3 p-md-4" v-html="renderSection(ratingContent)"></div>
+                <div class="p-4 sm:p-6" v-html="renderSection(ratingContent)"></div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="mb-0 h5"><i class="fas fa-star me-2"></i>Experience Points (XP) System</h3>
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-blue-600 text-white">
+                    <i class="fas fa-star h-4 w-4 mr-2"></i>
+                    <h3 class="text-base font-semibold">Experience Points (XP) System</h3>
                 </div>
-                <div class="card-body p-3 p-md-4" v-html="renderSection(xpContent)"></div>
+                <div class="p-4 sm:p-6" v-html="renderSection(xpContent)"></div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header bg-success text-white">
-                     <h3 class="mb-0 h5"><i class="fas fa-file-pdf me-2"></i>Portfolio & Projects</h3>
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                 <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-green-600 text-white">
+                     <i class="fas fa-file-pdf h-4 w-4 mr-2"></i>
+                     <h3 class="text-base font-semibold">Portfolio & Projects</h3>
                 </div>
-                <div class="card-body p-3 p-md-4" v-html="renderSection(portfolioContent)"></div>
+                <div class="p-4 sm:p-6" v-html="renderSection(portfolioContent)"></div>
             </div>
 
-             <div class="card mb-4">
-                <div class="card-header bg-warning text-dark">
-                    <h3 class="mb-0 h5"><i class="fas fa-trophy me-2"></i>Leaderboard</h3>
+             <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-yellow-500 text-gray-800">
+                    <i class="fas fa-trophy h-4 w-4 mr-2"></i>
+                    <h3 class="text-base font-semibold">Leaderboard</h3>
                 </div>
-                <div class="card-body p-3 p-md-4" v-html="renderSection(leaderboardContent)"></div>
+                <div class="p-4 sm:p-6" v-html="renderSection(leaderboardContent)"></div>
             </div>
 
-             <div class="card mb-4">
-                 <div class="card-header bg-light text-dark">
-                    <h3 class="mb-0 h5"><i class="fas fa-book-open me-2"></i>General Information</h3>
+             <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                 <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-gray-100 text-gray-800">
+                    <i class="fas fa-book-open h-4 w-4 mr-2"></i>
+                    <h3 class="text-base font-semibold">General Information</h3>
                 </div>
-                <div class="card-body p-3 p-md-4" v-html="renderSection(generalContent)"></div>
+                <div class="p-4 sm:p-6" v-html="renderSection(generalContent)"></div>
             </div>
       </div>
     </div>

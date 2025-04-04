@@ -1,83 +1,95 @@
 <template>
-    <div class="manage-teams-component">
-        <h4 class="mb-3">Define Teams</h4>
-        <p class="text-muted small mb-3">Define at least two teams for this event. Add members to each team.</p>
+    <div class="manage-teams-component space-y-4">
+        <h4 class="text-xl font-semibold text-gray-800">Define Teams</h4>
+        <p class="text-sm text-gray-600">Define at least two teams for this event. Add members to each team.</p>
 
-        <div v-if="teams.length === 0" class="alert alert-warning small py-2">
-            No teams defined yet. Click "Add Team".
+        <div v-if="teams.length === 0" class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-md text-sm">
+            No teams defined yet. Click "Add Another Team".
         </div>
 
-        <div v-for="(team, index) in teams" :key="index" class="card mb-3 team-card">
-            <div class="card-body p-3"> <!-- Adjusted padding -->
-                <div class="row g-3 align-items-center">
-                    <!-- Team Name Input -->
-                    <div class="col-md-4">
-                        <label :for="'teamName-' + index" class="form-label small mb-1">Team {{ index + 1 }} Name <span class="text-danger">*</span></label>
+        <div v-for="(team, index) in teams" :key="index" class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            <div class="p-4 space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                    <div class="md:col-span-4">
+                        <label :for="'teamName-' + index" class="block text-sm font-medium text-gray-700 mb-1">Team {{ index + 1 }} Name <span class="text-red-600">*</span></label>
                         <input type="text" :id="'teamName-' + index"
                                v-model.trim="team.teamName"
-                               class="form-control form-control-sm"
+                               class="block w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                placeholder="Enter team name"
                                :disabled="isSubmitting"
                                @input="emitUpdate">
                     </div>
 
-                    <!-- Member Selection -->
-                    <div class="col-md-6">
-                        <label :for="'memberSearch-' + index" class="form-label small mb-1">Add Members ({{ team.members.length }}) <span class="text-danger">*</span></label>
-                        <div class="position-relative">
+                    <div class="md:col-span-6">
+                        <label :for="'memberSearch-' + index" class="block text-sm font-medium text-gray-700 mb-1">Add Members ({{ team.members.length }}) <span class="text-red-600">*</span></label>
+                        <div class="relative">
                             <input type="text" :id="'memberSearch-' + index"
                                    v-model="searchQueries[index]"
-                                   class="form-control form-control-sm"
+                                   class="block w-full px-3 py-1.5 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                    placeholder="Search students..."
                                    @focus="showDropdown(index)"
                                    @blur="hideDropdown(index)"
                                    :disabled="isSubmitting"
                                    autocomplete="off">
-                            <!-- Dropdown for suggestions -->
-                            <div v-if="dropdownVisible[index] && filteredStudents(index).length > 0"
-                                 class="dropdown-menu d-block position-absolute w-100 shadow mt-1" style="max-height: 150px; overflow-y: auto; z-index: 1050;">
-                                <button v-for="student in filteredStudents(index)"
-                                        :key="student.uid"
-                                        class="dropdown-item dropdown-item-sm py-1" type="button"
-                                        @mousedown.prevent="addMember(index, student)">
-                                    {{ student.name }}
-                                </button>
-                            </div>
-                             <div v-if="dropdownVisible[index] && searchQueries[index] && !filteredStudents(index).length"
-                                  class="dropdown-menu d-block position-absolute w-100 shadow mt-1">
-                                 <span class="dropdown-item dropdown-item-sm text-muted disabled py-1">No matching students found.</span>
-                             </div>
+                            <transition
+                                enter-active-class="transition ease-out duration-100"
+                                enter-from-class="transform opacity-0 scale-95"
+                                enter-to-class="transform opacity-100 scale-100"
+                                leave-active-class="transition ease-in duration-75"
+                                leave-from-class="transform opacity-100 scale-100"
+                                leave-to-class="transform opacity-0 scale-95"
+                            >
+                                <div v-if="dropdownVisible[index]"
+                                     class="absolute z-50 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                                    <button v-for="student in filteredStudents(index)"
+                                            :key="student.uid"
+                                            class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                            type="button"
+                                            @mousedown.prevent="addMember(index, student)">
+                                        {{ student.name }}
+                                    </button>
+                                    <div v-if="searchQueries[index] && !filteredStudents(index).length"
+                                         class="px-4 py-2 text-sm text-gray-500">
+                                         No matching students found.
+                                    </div>
+                                </div>
+                            </transition>
                         </div>
-                        <!-- Selected Members List -->
-                        <div v-if="team.members.length > 0" class="mt-2 d-flex flex-wrap gap-1">
+                        <div v-if="team.members.length > 0" class="mt-2 flex flex-wrap gap-1.5">
                             <span v-for="memberId in team.members" :key="memberId"
-                                  class="badge text-bg-light border d-flex align-items-center py-1 px-2">
+                                  class="inline-flex items-center py-0.5 pl-2 pr-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
                                 {{ nameCache[memberId] || memberId }}
-                                <button type="button" class="btn-close ms-1" aria-label="Remove"
+                                <button type="button"
+                                        class="flex-shrink-0 ml-1 h-4 w-4 rounded-full inline-flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-500 focus:outline-none focus:bg-gray-500 focus:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                                         @click="removeMember(index, memberId)" :disabled="isSubmitting"
-                                        style="font-size: 0.6em; padding: 0.1em 0.2em;"></button>
+                                        aria-label="Remove">
+                                    <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                                        <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />
+                                    </svg>
+                                </button>
                             </span>
                         </div>
                     </div>
 
-                    <!-- Remove Team Button -->
-                    <div class="col-md-2 text-md-end align-self-center pt-3 pt-md-0">
-                        <button type="button" class="btn btn-sm btn-outline-danger w-100 w-md-auto" <!-- Adjusted width -->
+                    <div class="md:col-span-2 md:text-right self-center">
+                        <button type="button"
+                                class="inline-flex justify-center items-center w-full md:w-auto px-3 py-1.5 border border-red-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 @click="removeTeam(index)"
                                 :disabled="isSubmitting || teams.length <= 1">
-                            <i class="fas fa-trash-alt"></i> <span class="d-none d-md-inline">Remove</span>
+                            <i class="fas fa-trash-alt mr-1 h-3 w-3"></i> <span class="hidden md:inline">Remove</span>
                         </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Add Team Button -->
-        <div class="mt-3 text-center">
-            <button type="button" class="btn btn-sm btn-outline-success" @click="addTeam" :disabled="isSubmitting || !canAddTeam">
-                <i class="fas fa-plus me-1"></i> Add Another Team
+        <div class="mt-4 text-center">
+            <button type="button"
+                    class="inline-flex items-center px-3 py-1.5 border border-green-300 shadow-sm text-xs font-medium rounded text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    @click="addTeam" :disabled="isSubmitting || !canAddTeam">
+                <i class="fas fa-plus mr-1 h-3 w-3"></i> Add Another Team
             </button>
-            <p v-if="!canAddTeam" class="form-text text-warning small mt-1">
+            <p v-if="!canAddTeam" class="text-yellow-600 text-xs mt-1">
                 Maximum number of teams reached or cannot add more based on available students.
             </p>
         </div>
