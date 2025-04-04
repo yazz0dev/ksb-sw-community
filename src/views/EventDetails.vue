@@ -1,6 +1,6 @@
 // src/views/EventDetails.vue
 <template>
-    <div class="container mt-4 mb-5">
+    <div class="container mt-4 mb-5" :class="{ 'pb-mobile-nav': showBottomNav }">
         <div v-if="loading" class="text-center my-5">
             <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
                 <span class="visually-hidden">Loading Event Details...</span>
@@ -345,12 +345,12 @@
                                  <div>
                                      <h6 class="mb-1 fw-semibold">{{ sub.projectName }}</h6>
                                      <p class="mb-1 small text-muted" v-if="sub.description">{{ sub.description }}</p>
-                                     <span class="text-muted small">
+                                     <span class="text-muted small d-block d-sm-inline"> <!-- Stack submitter on xs -->
                                          Submitted by: {{ getSubmitterDisplayName(sub.submittedBy) }}
                                      </span>
                                 </div>
                                 <a :href="sub.link" target="_blank" rel="noopener noreferrer" v-if="sub.link"
-                                   class="btn btn-sm btn-outline-primary ms-3 flex-shrink-0">
+                                   class="btn btn-sm btn-outline-primary ms-sm-3 mt-2 mt-sm-0 flex-shrink-0"> <!-- Adjust margin for stacking -->
                                     <i class="fas fa-external-link-alt me-1"></i> View Link
                                 </a>
                             </div>
@@ -396,6 +396,75 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Bottom Navigation Bar (Mobile Only) -->
+            <nav v-if="showBottomNav" class="bottom-nav d-md-none">
+                <div class="d-flex justify-content-around align-items-center h-100">
+                    <!-- Back Button -->
+                    <button class="btn btn-nav flex-fill" @click="$router.back()" :disabled="actionInProgress">
+                        <i class="fas fa-arrow-left d-block mb-1"></i>
+                        <small>Back</small>
+                    </button>
+
+                    <!-- Submit Project (Participant, In Progress) -->
+                    <button v-if="canSubmitProject" @click="showSubmissionModal = true" :disabled="actionInProgress" class="btn btn-nav flex-fill text-success">
+                        <i class="fas fa-upload d-block mb-1"></i>
+                        <small>Submit</small>
+                    </button>
+
+                    <!-- Leave Event (Participant, Approved) -->
+                    <button v-if="event.status === 'Approved' && isParticipantOrTeamMember" @click="leaveEvent" :disabled="actionInProgress" class="btn btn-nav flex-fill text-warning">
+                        <span v-if="actionInProgress && actionType === 'leave'" class="spinner-border spinner-border-sm d-block mb-1" role="status"></span>
+                        <i v-else class="fas fa-sign-out-alt d-block mb-1"></i>
+                        <small>Leave</small>
+                    </button>
+
+                    <!-- Edit (Admin/Org, Pending/Rejected/Approved) -->
+                    <router-link v-if="isAdmin || (isCurrentUserOrganizer && ['Pending', 'Rejected', 'Approved'].includes(event.status))"
+                                 :to="{ name: 'RequestEvent', query: { edit: event.id } }"
+                                 class="btn btn-nav flex-fill text-primary"
+                                 :class="{ disabled: actionInProgress }"
+                                 :aria-disabled="actionInProgress">
+                        <i class="fas fa-edit d-block mb-1"></i>
+                        <small>Edit</small>
+                    </router-link>
+
+                    <!-- Rate/Select Winners (Individual, Completed, Open, Manager) -->
+                     <button v-if="!isDefinitelyTeamEvent && event.ratingsOpen && event.status === 'Completed' && canManageEvent"
+                             @click="goToWinnerSelection" class="btn btn-nav flex-fill text-primary" :disabled="actionInProgress">
+                        <i class="fas fa-trophy d-block mb-1"></i>
+                        <small>{{ alreadyRated ? 'View Ratings' : 'Rate/Win' }}</small>
+                    </button>
+
+                    <!-- View/Rate Teams (Team, Completed, Open) - Link to TeamList section might be complex, maybe just show if ratings open -->
+                    <span v-if="isDefinitelyTeamEvent && event.ratingsOpen && event.status === 'Completed'" class="btn btn-nav flex-fill text-info">
+                        <i class="fas fa-star d-block mb-1"></i>
+                        <small>Rate Teams</small> <!-- Placeholder text, actual rating is in TeamList -->
+                    </span>
+
+                    <!-- Mark In Progress (Manager, Approved, Can) -->
+                     <button v-if="event.status === 'Approved' && canManageEvent" @click="updateStatus('In Progress')" class="btn btn-nav flex-fill text-info"
+                             :disabled="!canActuallyMarkInProgress || actionInProgress">
+                         <i class="fas fa-play d-block mb-1"></i>
+                         <small>Start</small>
+                     </button>
+
+                    <!-- Mark Completed (Manager, In Progress, Can) -->
+                     <button v-if="event.status === 'In Progress' && canManageEvent" @click="updateStatus('Completed')" class="btn btn-nav flex-fill text-success"
+                             :disabled="!canActuallyMarkCompleted || actionInProgress">
+                         <i class="fas fa-check-circle d-block mb-1"></i>
+                         <small>Complete</small>
+                     </button>
+
+                    <!-- Toggle Ratings (Manager, Completed) -->
+                    <button v-if="event.status === 'Completed' && canManageEvent" @click="toggleRatingsOpen(!event.ratingsOpen)" class="btn btn-nav flex-fill text-secondary"
+                           :disabled="actionInProgress">
+                       <i :class="['fas', event.ratingsOpen ? 'fa-lock-open' : 'fa-lock', 'd-block mb-1']"></i>
+                       <small>{{ event.ratingsOpen ? 'Close Rate' : 'Open Rate' }}</small>
+                    </button>
+
+                </div>
+            </nav>
 
         </div>
         <div v-else-if="!loading && initialFetchError" class="alert alert-danger">
@@ -447,6 +516,13 @@ const isSubmittingOrgRating = ref(false); // Loading state for org rating submis
 
 // Global Feedback (for actions like status update, delete, etc.)
 const globalFeedback = ref({ message: '', type: 'success' }); // type: 'success' or 'error'
+
+// Determine if the bottom nav should be shown (based on screen size potentially, but for now, always true if event data exists)
+const showBottomNav = computed(() => {
+    // Basic check: We need event data to show relevant actions.
+    // In a real app, you might also check screen width here or rely purely on CSS hiding.
+    return !!event.value;
+});
 
 function setGlobalFeedback(message, type = 'success', duration = 4000) {
     globalFeedback.value = { message, type };
@@ -1130,5 +1206,67 @@ const submitOrganizationRatingHandler = async () => {
 /* Add some spacing for the radio buttons */
 .form-check-inline {
     margin-bottom: 0.5rem; /* Add space below radios when wrapping */
+}
+
+/* Bottom Navigation Bar Styles */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 65px; /* Adjust height as needed */
+    background-color: var(--bs-body-bg); /* Use theme background */
+    border-top: 1px solid var(--bs-border-color-translucent);
+    z-index: 1030; /* Ensure it's above content, below modals */
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+    padding: 0 0.5rem; /* Add some horizontal padding */
+}
+
+.bottom-nav .btn-nav {
+    background: none;
+    border: none;
+    color: var(--bs-body-color); /* Use theme text color */
+    font-size: 0.7rem; /* Smaller text */
+    padding: 0.5rem 0.2rem; /* Adjust padding */
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1;
+    flex-basis: 0; /* Distribute space evenly */
+    min-width: 50px; /* Prevent extreme squishing */
+}
+
+.bottom-nav .btn-nav:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bottom-nav .btn-nav i {
+    font-size: 1.2rem; /* Icon size */
+}
+
+.bottom-nav .spinner-border-sm {
+    width: 1.2rem; /* Match icon size */
+    height: 1.2rem;
+}
+
+/* Add padding to main container when bottom nav is visible */
+.pb-mobile-nav {
+    padding-bottom: 80px; /* Height of nav + some buffer */
+}
+
+/* Responsive adjustments for submission list */
+@media (max-width: 575.98px) {
+    .list-group-item .d-flex {
+        flex-direction: column;
+        align-items: stretch !important; /* Override inline style */
+    }
+    .list-group-item .btn {
+        margin-left: 0 !important; /* Override inline style */
+        margin-top: 0.5rem !important;
+        width: 100%; /* Make button full width */
+    }
 }
 </style>

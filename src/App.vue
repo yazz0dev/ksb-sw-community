@@ -45,14 +45,14 @@
     </nav>
 
     
-    <main class="container main-content py-4"> 
+    <main class="container main-content py-4" :class="{ 'pb-mobile-nav': isAuthenticated }"> 
          <router-view v-slot="{ Component }">
              <transition name="fade" mode="out-in">
                  <component :is="Component" />
              </transition>
          </router-view>
     </main>
-    <BottomNav v-if="isAuthenticated" /> <!-- Add BottomNav, conditionally rendered -->
+    <BottomNav v-if="isAuthenticated" class="d-lg-none" /> <!-- Hide BottomNav on lg screens -->
   </div>
 </template>
 
@@ -61,13 +61,12 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth'; // Import signOut
-import { Collapse } from 'bootstrap';
 import BottomNav from './components/BottomNav.vue'; // Import BottomNav
 
 const store = useStore();
 const router = useRouter();
 const navbarCollapseRef = ref(null); // Renamed ref
-let collapseInstance = null;
+const isNavbarOpen = ref(false); // State for mobile navbar toggle
 
 // Computed properties
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
@@ -75,15 +74,11 @@ const isAdmin = computed(() => store.getters['user/isAdmin']);
 
 // Methods
 const toggleNavbar = () => {
-  if (collapseInstance) {
-    collapseInstance.toggle();
-  }
+  isNavbarOpen.value = !isNavbarOpen.value;
 };
 
 const closeNavbar = () => {
-  if (collapseInstance && navbarCollapseRef.value?.classList.contains('show')) {
-    collapseInstance.hide();
-  }
+  isNavbarOpen.value = false;
 };
 
 const logout = () => {
@@ -104,9 +99,6 @@ const logout = () => {
 
 // Lifecycle Hooks
 onMounted(() => {
-  if (navbarCollapseRef.value) {
-    collapseInstance = new Collapse(navbarCollapseRef.value, { toggle: false });
-  }
   // Close navbar on route change
   router.afterEach(() => {
     closeNavbar();
@@ -115,7 +107,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   // Dispose collapse instance on component unmount
-  collapseInstance?.dispose();
+  // collapseInstance?.dispose();
 });
 
 </script>
@@ -140,5 +132,13 @@ onUnmounted(() => {
 .nav-link.active {
      color: var(--color-primary) !important;
      background-color: var(--color-primary-light);
+}
+
+/* Add padding to main container when bottom nav is visible on mobile */
+.pb-mobile-nav {
+  /* Apply padding only on smaller screens where bottom nav is potentially visible */
+  @media (max-width: 991.98px) { /* Below lg breakpoint */
+    padding-bottom: 80px; /* Adjust to match bottom nav height + buffer */
+  }
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <div class="card h-100 shadow-sm event-card" :class="cardClass">
+  <div v-if="event && event.id" class="card h-100 shadow-sm event-card">
     <div class="card-body p-3"> <!-- Adjusted padding -->
       <div class="d-flex justify-content-between align-items-start mb-2">
         <h5 class="card-title mb-0 me-2">{{ event.eventName }}</h5>
