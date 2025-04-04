@@ -1,113 +1,168 @@
 <template>
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> <!-- Container -->
-        <h2 class="text-2xl font-bold text-gray-900 mb-6">Leaderboard</h2>
-
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> <!-- Main container -->
+        <h2 class="text-2xl font-bold text-gray-900 mb-5">Leaderboard</h2>
+        
+        <!-- Role Filter -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Role:</label>
+            <div class="flex space-x-2 overflow-x-auto pb-2 -mx-1 px-1"> <!-- Added padding/margin for scrollbar visibility -->
+                <button
+                    v-for="role in availableRoles"
+                    :key="role"
+                    @click="selectRoleFilter(role)"
+                    type="button"
+                    class="inline-flex items-center px-3 py-1 border rounded text-sm font-medium transition-colors flex-shrink-0 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    :class="selectedRole === role ? 
+                               'bg-blue-600 text-white border-transparent shadow-sm' : 
+                               'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                >
+                    {{ formatRoleName(role) }}
+                </button>
+            </div>
+        </div>
+  
         <!-- Loading State -->
         <div v-if="loading" class="flex justify-center py-10">
-            <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+             <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+             </svg>
         </div>
         
-        <!-- Error State -->
-        <div v-else-if="error" class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm">
-             {{ error }}
+        <!-- Empty State -->
+        <div v-else-if="filteredUsers.length === 0" class="bg-blue-50 text-blue-700 p-4 rounded-md text-sm">
+            No users found matching the criteria.
         </div>
         
-        <!-- Leaderboard Table -->
-        <div v-else class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-            <table class="min-w-full divide-y divide-gray-300">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900">Rank</th>
-                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">User</th>
-                        <th scope="col" class="hidden px-3 py-3.5 text-center text-sm font-semibold text-gray-900 md:table-cell">Skills</th> <!-- Hide on small screens -->
-                        <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900">Total XP</th>
-                        <th scope="col" class="hidden px-3 py-3.5 text-center text-sm font-semibold text-gray-900 sm:table-cell">Profile</th> <!-- Hide on extra-small screens -->
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 bg-white">
-                    <tr v-for="(user, index) in leaderboard" :key="user.uid">
-                        <td class="whitespace-nowrap px-3 py-4 text-sm text-center font-semibold text-gray-900">{{ index + 1 }}</td>
-                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
-                            <div class="flex items-center">
-                                <div class="h-8 w-8 flex-shrink-0">
-                                    <img class="h-8 w-8 rounded-full object-cover" 
-                                         :src="user.photoURL || defaultAvatarUrl"
-                                         alt="User avatar"
-                                         @error="handleImageError">
-                                </div>
-                                <div class="ml-3">
-                                    <div class="font-medium text-gray-900">{{ user.name }}</div>
-                                    <!-- Optional: Email or other info -->
-                                    <!-- <div class="text-gray-500">{{ user.email }}</div> -->
-                                </div>
-                            </div>
-                        </td>
-                        <td class="hidden whitespace-nowrap px-3 py-4 text-sm text-center text-gray-500 md:table-cell"> <!-- Hide on small screens -->
-                            <template v-if="user.skills?.length">
-                                <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 mr-1 mb-1" v-for="skill in user.skills.slice(0, 2)" :key="skill">{{ skill }}</span>
-                                <span v-if="user.skills.length > 2" class="text-xs text-gray-400">+{{ user.skills.length - 2 }}</span>
-                            </template>
-                            <span v-else class="text-xs text-gray-400">-</span>
-                        </td>
-                        <td class="whitespace-nowrap px-3 py-4 text-sm text-center font-semibold text-blue-600">{{ user.totalXp }}</td>
-                        <td class="hidden whitespace-nowrap px-3 py-4 text-sm text-center text-gray-500 sm:table-cell"> <!-- Hide on extra-small screens -->
-                            <router-link :to="{ name: 'PublicProfile', params: { userId: user.uid } }" 
-                                         class="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                View
-                            </router-link>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <!-- Leaderboard List -->
+         <ul v-else class="bg-white shadow overflow-hidden sm:rounded-md divide-y divide-gray-200">
+            <li v-for="(user, index) in filteredUsers" :key="user.uid" class="px-4 py-4 sm:px-6 flex justify-between items-center">
+                <div class="flex items-center min-w-0"> <!-- Added min-w-0 for truncation -->
+                    <span class="text-sm font-semibold text-gray-500 w-8 text-right mr-4 flex-shrink-0">{{ index + 1 }}.</span>
+                    
+                    <router-link 
+                        :to="{ name: 'PublicProfile', params: { userId: user.uid }}"
+                        class="text-sm font-medium text-blue-600 hover:text-blue-700 truncate">
+                         {{ user.name || 'Anonymous User' }}
+                    </router-link>
+                </div>
+                
+                <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 ml-2 flex-shrink-0"> 
+                    {{ user.displayXp }} XP
+                  </span>
+            </li>
+        </ul>
     </div>
-</template>
-
-<script setup>
-import { ref, onMounted } from 'vue';
-import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
-import { db } from '../firebase';
-
-const leaderboard = ref([]);
-const loading = ref(true);
-const error = ref(null);
-
-// Import default avatar or define path
-const defaultAvatarUrl = new URL('../assets/default-avatar.png', import.meta.url).href;
-
-const handleImageError = (event) => {
-  event.target.src = defaultAvatarUrl;
-};
-
-onMounted(async () => {
-  loading.value = true;
-  error.value = null;
-  try {
-    const usersRef = collection(db, "users");
-    // Query requires an index on totalXp. Create this in Firebase console.
-    const q = query(usersRef, orderBy("totalXp", "desc"), limit(100)); // Get top 100 users
-
-    const querySnapshot = await getDocs(q);
-    leaderboard.value = querySnapshot.docs
-      .map(doc => ({
-        uid: doc.id,
-        ...doc.data(),
-        totalXp: doc.data().totalXp || 0 // Ensure totalXp exists and is a number
-      }))
-      .filter(user => user.role !== 'Admin'); // Filter out admins
-
-  } catch (err) {
-    console.error("Error fetching leaderboard:", err);
-    error.value = "Failed to load leaderboard data. Please try again later.";
-  } finally {
-    loading.value = false;
-  }
-});
-</script>
-
+  </template>
+  
+  <script setup> // Using setup script
+  import { ref, computed, onMounted } from 'vue';
+  import { collection, getDocs, query } from 'firebase/firestore';
+  import { db } from '../firebase';
+  
+  // Function to convert display role name to xpByRole key
+  const getRoleKey = (roleName) => {
+    if (!roleName) return '';
+    const lower = roleName.toLowerCase();
+    if (lower === 'overall') return 'overall';
+    if (lower === 'problem solver') return 'problemSolver';
+    // Simple conversion (assumes single word roles or camelCase in xpByRole)
+    return lower.charAt(0) + lower.slice(1).replace(/\s+/g, '');
+  };
+  
+  // Helper to format role keys/names for display
+  const formatRoleName = (roleKeyOrName) => {
+      if (!roleKeyOrName) return '';
+      // Handle potential keys or display names
+      const name = roleKeyOrName
+          .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+          .replace(/^./, (str) => str.toUpperCase()); // Capitalize first letter
+      // Special cases for display
+      if (name === 'Xp By Role') return 'Overall'; // This might need adjustment based on actual keys
+      if (name === 'Problem Solver') return 'Problem Solver'; // Ensure exact match for display
+      return name;
+  };
+  
+  
+  const availableRoles = ref([ // Use keys from xpByRole + 'Overall'
+      'Overall', 'fullstack', 'presenter', 'designer', 'organizer', 'problemSolver'
+      // Add other roles based on your actual data structure in Firestore xpByRole field
+  ]);
+  const selectedRole = ref('Overall'); // Default filter
+  const users = ref([]);
+  const loading = ref(true);
+  
+  onMounted(async () => {
+      loading.value = true;
+      try {
+          const q = query(collection(db, 'users'));
+          const querySnapshot = await getDocs(q);
+          users.value = querySnapshot.docs
+              .map(doc => ({
+                  uid: doc.id,
+                  name: doc.data().name || 'Anonymous User', // Add fallback for missing names
+                  role: doc.data().role || 'Student',
+                  xpByRole: doc.data().xpByRole || {} // Ensure xpByRole exists
+              }))
+              .filter(user => user.role !== 'Admin'); // Filter out Admins
+      } catch (error) {
+          console.error("Error fetching leaderboard users:", error);
+          users.value = []; // Set empty on error
+      } finally {
+          loading.value = false;
+      }
+  });
+  
+  const filteredUsers = computed(() => {
+      const roleKey = getRoleKey(selectedRole.value);
+  
+      return users.value
+          .map(user => {
+              let displayXp = 0;
+              const userXpMap = user.xpByRole || {};
+  
+              if (roleKey === 'overall') {
+                  // Calculate sum from the map for Overall
+                  displayXp = Object.values(userXpMap).reduce((sum, val) => sum + (Number(val) || 0), 0);
+              } else {
+                  // Get specific role XP using the calculated key
+                  displayXp = Number(userXpMap[roleKey]) || 0; // Use Number() and default to 0
+              }
+              return { ...user, displayXp }; // Return user data with the calculated XP
+          })
+          // Filter out users with 0 XP for the selected category (optional)
+          // .filter(user => user.displayXp > 0)
+          .sort((a, b) => {
+               // Primary sort: XP descending
+               if (b.displayXp !== a.displayXp) {
+                   return b.displayXp - a.displayXp;
+               }
+               // Secondary sort: Name ascending for ties
+               return (a.name || a.uid || '').localeCompare(b.name || b.uid || '');
+           });
+  });
+  
+  const selectRoleFilter = (role) => {
+      selectedRole.value = role;
+  };
+  
+  </script>
+  
 <!-- <style scoped>
-/* Removed scoped styles - relying on Tailwind */
+  /* Link styling from main.css */
+  /* .list-group-item a { ... } */
+  
+  /* Custom scrollbar styles removed, rely on default browser or plugin */
+  /* .role-filter-container .overflow-x-auto { ... } */
+  
+  .leaderboard-rank {
+      font-weight: 600;
+      color: var(--color-text-muted);
+      min-width: 2.5ch; /* Ensure space for rank number */
+      text-align: right;
+  }
+  .badge.fs-6 {
+      font-size: 0.9rem !important; /* Adjust badge size */
+      padding: 0.4em 0.7em;
+  }
 </style> -->
