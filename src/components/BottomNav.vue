@@ -1,17 +1,21 @@
 <template>
-    <nav class="bottom-nav">
-        <router-link to="/home" class="bottom-nav-item" active-class="router-link-exact-active">
-            <i class="fas fa-home"></i>
-            <span>Home</span>
+    <nav class="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 flex justify-around items-center shadow-[0_-2px_5px_rgba(0,0,0,0.1)] z-40">
+        <router-link to="/home" class="bottom-nav-item" active-class="active">
+            <i class="fas fa-home text-xl mb-1"></i>
+            <span class="text-xs">Home</span>
         </router-link>
-        <router-link to="/leaderboard" class="bottom-nav-item" active-class="router-link-exact-active">
-            <i class="fas fa-trophy"></i>
-            <span>Leaderboard</span>
+        <router-link to="/request-event" class="bottom-nav-item" active-class="active">
+            <i class="fas fa-calendar-plus text-xl mb-1"></i>
+            <span class="text-xs">Request</span>
         </router-link>
-        <router-link to="/profile" class="bottom-nav-item" active-class="router-link-exact-active">
-            <img v-if="userPhotoUrl" :src="userPhotoUrl" alt="Profile" class="profile-icon" @error="handleImageError" />
-            <i v-else class="fas fa-user-circle"></i>
-            <span>Profile</span>
+        <router-link to="/leaderboard" class="bottom-nav-item" active-class="active">
+            <i class="fas fa-trophy text-xl mb-1"></i>
+            <span class="text-xs">Leaderboard</span>
+        </router-link>
+        <router-link to="/profile" class="bottom-nav-item" active-class="active">
+            <img v-if="userProfilePic" :src="userProfilePic" alt="Profile" class="profile-icon" @error="handleImageError" />
+            <i v-else class="fas fa-user-circle text-xl mb-1"></i>
+            <span class="text-xs">Profile</span>
         </router-link>
     </nav>
 </template>
@@ -25,7 +29,7 @@ const store = useStore();
 // Use new URL pattern for asset handling
 const defaultAvatarUrl = new URL('../assets/default-avatar.png', import.meta.url).href;
 
-const userPhotoUrl = computed(() => store.getters['user/getUser']?.photoURL);
+const userProfilePic = computed(() => store.getters['user/profilePictureUrl']);
 
 const handleImageError = (e) => {
     // If the user's photo fails, don't fallback to default, show icon instead
@@ -37,8 +41,19 @@ const handleImageError = (e) => {
 </script>
 
 <style scoped>
-/* Styles are defined globally in main.css */
-.bottom-nav-item span {
-    font-size: 0.7rem; /* Slightly smaller text */
+.bottom-nav-item {
+    @apply flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1;
+}
+
+.bottom-nav-item i {
+    /* Size is handled by text-xl in template, mb-1 adds margin */
+}
+
+.profile-icon {
+    @apply w-6 h-6 rounded-full object-cover mb-1 border border-gray-300;
+}
+
+.bottom-nav-item.active {
+    @apply text-blue-600 font-medium;
 }
 </style>
