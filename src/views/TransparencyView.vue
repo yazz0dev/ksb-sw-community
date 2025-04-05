@@ -1,89 +1,91 @@
 <template>
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 mb-12">
-      <h2 class="text-3xl font-bold text-gray-900 mb-8 text-center">Community Transparency & Guidelines</h2>
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="max-w-3xl mx-auto">
+        <h1 class="text-3xl font-bold text-text-primary mb-6 pb-2 border-b border-border">Community Transparency & Guidelines</h1>
 
-      <div class="space-y-6">
-            <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-blue-600 text-white">
-                    <i class="fas fa-info-circle h-4 w-4 mr-2"></i>
-                    <h3 class="text-base font-semibold">Introduction</h3>
+        <div class="space-y-6">
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-info-circle h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Introduction</h2>
                 </div>
-                <div class="p-4 sm:p-6" v-html="renderSection(introductionContent)"></div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(introductionContent)"></div>
             </div>
 
-            <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-gray-600 text-white">
-                    <i class="fas fa-users-cog h-4 w-4 mr-2"></i>
-                    <h3 class="text-base font-semibold">Roles & Permissions</h3>
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-users-cog h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Roles & Permissions</h2>
                 </div>
-                <div class="p-4 sm:p-6" v-html="renderSection(rolesContent)"></div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(rolesContent)"></div>
             </div>
 
-            <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                 <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-cyan-600 text-white">
-                     <i class="fas fa-project-diagram h-4 w-4 mr-2"></i>
-                    <h3 class="text-base font-semibold">Event Lifecycle</h3>
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-project-diagram h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Event Lifecycle</h2>
                 </div>
-                <div class="p-4 sm:p-6" v-html="renderSection(eventLifecycleContent)"></div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(eventLifecycleContent)"></div>
             </div>
 
-            <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-gray-600 text-white">
-                    <i class="fas fa-users h-4 w-4 mr-2"></i>
-                    <h3 class="text-base font-semibold">Team Management</h3>
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-users h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Team Management</h2>
                 </div>
-                <div class="p-4 sm:p-6" v-html="renderSection(teamsContent)"></div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(teamsContent)"></div>
             </div>
 
-            <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-yellow-500 text-gray-800">
-                     <i class="fas fa-star-half-alt h-4 w-4 mr-2"></i>
-                    <h3 class="text-base font-semibold">Rating System</h3>
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-star-half-alt h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Rating System</h2>
                 </div>
-                <div class="p-4 sm:p-6" v-html="renderSection(ratingContent)"></div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(ratingContent)"></div>
             </div>
 
-            <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-blue-600 text-white">
-                    <i class="fas fa-star h-4 w-4 mr-2"></i>
-                    <h3 class="text-base font-semibold">Experience Points (XP) System</h3>
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-star h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Experience Points (XP) System</h2>
                 </div>
-                <div class="p-4 sm:p-6" v-html="renderSection(xpContent)"></div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(xpContent)"></div>
             </div>
 
-            <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                 <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-green-600 text-white">
-                     <i class="fas fa-file-pdf h-4 w-4 mr-2"></i>
-                     <h3 class="text-base font-semibold">Portfolio & Projects</h3>
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-file-pdf h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Portfolio & Projects</h2>
                 </div>
-                <div class="p-4 sm:p-6" v-html="renderSection(portfolioContent)"></div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(portfolioContent)"></div>
             </div>
 
-             <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-yellow-500 text-gray-800">
-                    <i class="fas fa-trophy h-4 w-4 mr-2"></i>
-                    <h3 class="text-base font-semibold">Leaderboard</h3>
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-trophy h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Leaderboard</h2>
                 </div>
-                <div class="p-4 sm:p-6" v-html="renderSection(leaderboardContent)"></div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(leaderboardContent)"></div>
             </div>
 
-             <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                 <div class="px-4 py-3 border-b border-gray-200 flex items-center bg-gray-100 text-gray-800">
-                    <i class="fas fa-book-open h-4 w-4 mr-2"></i>
-                    <h3 class="text-base font-semibold">General Information</h3>
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-book-open h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">General Information</h2>
                 </div>
-                <div class="p-4 sm:p-6" v-html="renderSection(generalContent)"></div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(generalContent)"></div>
             </div>
+        </div>
       </div>
     </div>
-  </template>
+</template>
 
 <script setup>
 import { ref } from 'vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
-// Configure marked options (optional, but good practice)
+// Configure marked options
 marked.setOptions({
   breaks: true,
   gfm: true,

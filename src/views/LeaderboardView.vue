@@ -1,20 +1,20 @@
 <template>
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> <!-- Main container -->
-        <h2 class="text-2xl font-bold text-gray-900 mb-5">Leaderboard</h2>
+        <h2 class="text-2xl font-bold text-text-primary mb-5">Leaderboard</h2>
         
         <!-- Role Filter -->
         <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Role:</label>
+            <label class="block text-sm font-medium text-text-secondary mb-2">Filter by Role:</label>
             <div class="flex space-x-2 overflow-x-auto pb-2 -mx-1 px-1"> <!-- Added padding/margin for scrollbar visibility -->
                 <button
                     v-for="role in availableRoles"
                     :key="role"
                     @click="selectRoleFilter(role)"
                     type="button"
-                    class="inline-flex items-center px-3 py-1 border rounded text-sm font-medium transition-colors flex-shrink-0 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    class="inline-flex items-center px-3 py-1 border rounded text-sm font-medium transition-colors flex-shrink-0 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                     :class="selectedRole === role ? 
-                               'bg-blue-600 text-white border-transparent shadow-sm' : 
-                               'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                               'bg-primary text-primary-text border-transparent shadow-sm' : 
+                               'bg-surface text-text-secondary border-border hover:bg-surface-hover'"
                 >
                     {{ formatRoleName(role) }}
                 </button>
@@ -23,31 +23,31 @@
   
         <!-- Loading State -->
         <div v-if="loading" class="flex justify-center py-10">
-             <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+             <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
              </svg>
         </div>
         
         <!-- Empty State -->
-        <div v-else-if="filteredUsers.length === 0" class="bg-blue-50 text-blue-700 p-4 rounded-md text-sm">
+        <div v-else-if="filteredUsers.length === 0" class="bg-info-light text-info-dark p-4 rounded-md text-sm">
             No users found matching the criteria.
         </div>
         
         <!-- Leaderboard List -->
-         <ul v-else class="bg-white shadow overflow-hidden sm:rounded-md divide-y divide-gray-200">
+         <ul v-else class="bg-surface shadow overflow-hidden sm:rounded-md divide-y divide-border">
             <li v-for="(user, index) in filteredUsers" :key="user.uid" class="px-4 py-4 sm:px-6 flex justify-between items-center">
                 <div class="flex items-center min-w-0"> <!-- Added min-w-0 for truncation -->
-                    <span class="text-sm font-semibold text-gray-500 w-8 text-right mr-4 flex-shrink-0">{{ index + 1 }}.</span>
+                    <span class="text-sm font-semibold text-text-disabled w-8 text-right mr-4 flex-shrink-0">{{ index + 1 }}.</span>
                     
                     <router-link 
                         :to="{ name: 'PublicProfile', params: { userId: user.uid }}"
-                        class="text-sm font-medium text-blue-600 hover:text-blue-700 truncate">
+                        class="text-sm font-medium text-primary hover:text-primary-dark truncate">
                          {{ user.name || 'Anonymous User' }}
                     </router-link>
                 </div>
                 
-                <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 ml-2 flex-shrink-0"> 
+                <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-primary-light text-primary-dark ml-2 flex-shrink-0"> 
                     {{ user.displayXp }} XP
                   </span>
             </li>

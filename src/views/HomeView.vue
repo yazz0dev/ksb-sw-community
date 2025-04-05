@@ -1,36 +1,36 @@
 <template>
   <!-- Use theme background -->
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-secondary-light min-h-[calc(100vh-8rem)]">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-background min-h-[calc(100vh-8rem)]">
     <!-- Header and Actions: Improved spacing and button styling -->
-    <div class="flex flex-wrap justify-between items-center gap-4 mb-8 pb-4 border-b border-secondary">
-       <h2 class="text-3xl font-bold text-gray-800 whitespace-nowrap">Events Dashboard</h2>
+    <div class="flex flex-wrap justify-between items-center gap-4 mb-8 pb-4 border-b border-border">
+       <h2 class="text-3xl font-bold text-text-primary whitespace-nowrap">Events Dashboard</h2>
        <div class="flex space-x-3 flex-wrap justify-end"> <!-- Adjusted spacing -->
            <!-- Request Event Button: Use primary color -->
            <router-link
               v-if="canRequestEvent && !isAdmin"
               to="/request-event"
-              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
                <i class="fas fa-plus mr-1.5"></i> Request Event
            </router-link>
            <!-- Create Event Button: Use primary color -->
            <router-link
               v-if="isAdmin"
               to="/create-event"
-              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
                <i class="fas fa-calendar-plus mr-1.5"></i> Create Event
            </router-link>
            <!-- Manage Requests Button: Use secondary style -->
            <router-link
               v-if="isAdmin"
               to="/manage-requests"
-              class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light transition-colors">
+              class="inline-flex items-center px-4 py-2 border border-border text-sm font-medium rounded-md shadow-sm text-text-secondary bg-surface hover:bg-neutral-extraLight focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light transition-colors">
                <i class="fas fa-tasks mr-1.5"></i> Manage Requests
            </router-link>
        </div>
     </div>
 
     <!-- Loading State: Use theme color -->
-    <div v-if="loading" class="flex flex-col items-center justify-center py-16 text-gray-500">
+    <div v-if="loading" class="flex flex-col items-center justify-center py-16 text-text-secondary">
         <svg class="animate-spin h-10 w-10 text-primary mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -43,10 +43,10 @@
       <!-- Upcoming Events -->
       <section>
         <!-- Section Title: Enhanced styling -->
-        <h3 class="text-2xl font-semibold text-primary-dark mb-5 border-b-2 border-primary-light pb-2">Upcoming Events</h3>
+        <h3 class="text-2xl font-semibold text-text-primary mb-5 border-b-2 border-border pb-2">Upcoming Events</h3>
         <!-- No Events Message: Enhanced styling -->
-        <div v-if="upcomingEvents.length === 0" class="bg-secondary border border-secondary-dark text-gray-500 p-6 rounded-lg text-center text-sm italic shadow-sm">
-            <i class="fas fa-calendar-times block text-2xl mb-2 text-gray-400"></i> No upcoming events scheduled.
+        <div v-if="upcomingEvents.length === 0" class="bg-info-light border border-info-light text-info-dark p-6 rounded-lg text-center text-sm italic shadow-sm">
+            <i class="fas fa-calendar-times block text-2xl mb-2 text-info-dark"></i> No upcoming events scheduled.
         </div>
         <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"> <!-- Added xl:grid-cols-4 -->
             <EventCard 
@@ -60,9 +60,9 @@
 
       <!-- Active Events -->
       <section>
-        <h3 class="text-2xl font-semibold text-primary-dark mb-5 border-b-2 border-primary-light pb-2">Active Events</h3>
-        <div v-if="activeEvents.length === 0" class="bg-secondary border border-secondary-dark text-gray-500 p-6 rounded-lg text-center text-sm italic shadow-sm">
-            <i class="fas fa-running block text-2xl mb-2 text-gray-400"></i> No events currently in progress.
+        <h3 class="text-2xl font-semibold text-text-primary mb-5 border-b-2 border-border pb-2">Active Events</h3>
+        <div v-if="activeEvents.length === 0" class="bg-info-light border border-info-light text-info-dark p-6 rounded-lg text-center text-sm italic shadow-sm">
+            <i class="fas fa-running block text-2xl mb-2 text-info-dark"></i> No events currently in progress.
         </div>
         <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <EventCard 
@@ -76,9 +76,9 @@
 
       <!-- Completed Events -->
       <section>
-        <h3 class="text-2xl font-semibold text-primary-dark mb-5 border-b-2 border-primary-light pb-2">Completed Events</h3>
-        <div v-if="completedEvents.length === 0" class="bg-secondary border border-secondary-dark text-gray-500 p-6 rounded-lg text-center text-sm italic shadow-sm">
-            <i class="fas fa-check-circle block text-2xl mb-2 text-gray-400"></i> No completed events yet.
+        <h3 class="text-2xl font-semibold text-text-primary mb-5 border-b-2 border-border pb-2">Completed Events</h3>
+        <div v-if="completedEvents.length === 0" class="bg-info-light border border-info-light text-info-dark p-6 rounded-lg text-center text-sm italic shadow-sm">
+            <i class="fas fa-check-circle block text-2xl mb-2 text-info-dark"></i> No completed events yet.
         </div>
         <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <EventCard 
@@ -92,12 +92,12 @@
 
       <!-- Cancelled Events (Collapsible): Improved styling -->
       <section v-if="cancelledEvents.length > 0">
-         <div class="border-t border-secondary pt-8 mt-8">
+         <div class="border-t border-border pt-8 mt-8">
             <button
-              class="flex items-center text-sm font-medium text-gray-600 hover:text-primary w-full text-left mb-4 transition-colors group"
+              class="flex items-center text-sm font-medium text-text-secondary hover:text-primary w-full text-left mb-4 transition-colors group"
               type="button"
               @click="showCancelled = !showCancelled">
-              <i :class="['fas transition-transform duration-200', showCancelled ? 'fa-chevron-down' : 'fa-chevron-right', 'mr-2 text-gray-400 group-hover:text-primary h-3 w-3']"></i>
+              <i :class="['fas transition-transform duration-200', showCancelled ? 'fa-chevron-down' : 'fa-chevron-right', 'mr-2 text-text-disabled group-hover:text-primary h-3 w-3']"></i>
               Cancelled Events ({{ cancelledEvents.length }})
             </button>
             <transition name="fade-fast">

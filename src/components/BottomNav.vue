@@ -1,10 +1,10 @@
 <template>
-    <nav class="fixed bottom-0 left-0 right-0 h-14 bg-white border-t border-gray-200 flex justify-around items-center shadow-[0_-2px_5px_rgba(0,0,0,0.1)] z-40">
+    <nav class="fixed bottom-0 left-0 right-0 h-12 bg-surface border-t border-border flex justify-around items-center shadow-[0_-2px_5px_rgba(0,0,0,0.1)] z-40">
         <!-- Home (Always Visible) -->
         <router-link
             to="/home"
-            active-class="text-blue-600 font-medium"
-            class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
+            active-class="text-primary font-medium"
+            class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
         >
             <i class="fas fa-home text-xl mb-0.5"></i>
             <span class="text-xs">Home</span>
@@ -14,8 +14,8 @@
         <router-link
             v-if="!isAdmin"
             to="/request-event"
-            active-class="text-blue-600 font-medium"
-            class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
+            active-class="text-primary font-medium"
+            class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
         >
             <i class="fas fa-calendar-plus text-xl mb-0.5"></i>
             <span class="text-xs">Request</span>
@@ -25,8 +25,8 @@
         <router-link
             v-if="isAdmin"
             to="/create-event"
-            active-class="text-blue-600 font-medium"
-            class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
+            active-class="text-primary font-medium"
+            class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
         >
             <i class="fas fa-plus-circle text-xl mb-0.5"></i> <!-- Different icon -->
             <span class="text-xs">Create</span>
@@ -35,8 +35,8 @@
         <!-- Leaderboard (Always Visible) -->
         <router-link
             to="/leaderboard"
-            active-class="text-blue-600 font-medium"
-            class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
+            active-class="text-primary font-medium"
+            class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
         >
             <i class="fas fa-trophy text-xl mb-0.5"></i>
             <span class="text-xs">Leaderboard</span>
@@ -46,8 +46,8 @@
         <router-link
             v-if="isAdmin"
             to="/manage-requests"
-            active-class="text-blue-600 font-medium"
-            class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
+            active-class="text-primary font-medium"
+            class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
         >
             <i class="fas fa-tasks text-xl mb-0.5"></i> <!-- Different icon -->
             <span class="text-xs">Manage</span>
@@ -57,10 +57,10 @@
         <router-link
             v-if="!isAdmin"
             to="/profile"
-            active-class="text-blue-600 font-medium"
-            class="flex flex-col items-center justify-center flex-1 text-gray-500 no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-blue-700"
+            active-class="text-primary font-medium"
+            class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
         >
-            <img v-if="userProfilePic" :src="userProfilePic" alt="Profile" class="w-6 h-6 rounded-full object-cover mb-0.5 border border-gray-300" @error="handleImageError" />
+            <img v-if="userProfilePic" :src="userProfilePic" alt="Profile" class="w-6 h-6 rounded-full object-cover mb-0.5 border border-border" @error="handleImageError" />
             <i v-else class="fas fa-user-circle text-xl mb-0.5"></i>
             <span class="text-xs">Profile</span>
         </router-link>

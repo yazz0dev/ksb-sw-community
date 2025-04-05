@@ -4,14 +4,14 @@
          <h2 class="text-2xl font-bold text-gray-900">Manage Event Requests</h2>
          <div class="flex space-x-2">
              <button 
-                class="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-gray-800 bg-secondary hover:bg-secondary-dark focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-secondary transition-colors"
                 @click="$router.push('/home')">
                  <i class="fas fa-arrow-left mr-1 h-3 w-3"></i> Back to Dashboard
              </button>
              <router-link 
                 to="/create-event" 
-                class="inline-flex items-center rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600">
-                 <i class="fas fa-calendar-plus mr-1 h-3 w-3"></i> Create Event
+                class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-bold rounded-md shadow-sm text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary transition-colors">
+                 <i class="fas fa-calendar-plus mr-1 h-3 w-3 text-primary"></i> Create Event
              </router-link>
          </div>
       </div>
@@ -226,5 +226,3 @@ const deleteRequest = async (eventId) => {
 }
 
 </script>
-
-

@@ -1,35 +1,35 @@
 <template>
     <div class="manage-teams-component space-y-6">
-        <div v-if="teams.length === 0" class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md text-sm shadow-sm italic">
+        <div v-if="teams.length === 0" class="bg-info-extraLight border border-info-light text-info-text px-4 py-3 rounded-md text-sm shadow-sm italic">
             <i class="fas fa-info-circle mr-1"></i> No teams defined yet. Click "Add Another Team" to begin.
         </div>
         <div class="manage-teams-component space-y-4">
-            <h4 class="text-xl font-semibold text-gray-800">Define Teams</h4>
-            <p class="text-sm text-gray-600">Define at least two teams for this event. Add members to each team.</p>
+            <h4 class="text-xl font-semibold text-text-primary">Define Teams</h4>
+            <p class="text-sm text-text-secondary">Define at least two teams for this event. Add members to each team.</p>
 
-            <div v-if="teams.length === 0" class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-md text-sm">
+            <div v-if="teams.length === 0" class="bg-warning-extraLight border border-warning-light text-warning-text px-4 py-2 rounded-md text-sm">
                 No teams defined yet. Click "Add Another Team".
             </div>
 
-            <div v-for="(team, index) in teams" :key="team._internalId || index" class="bg-white border border-secondary rounded-lg shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md">
+            <div v-for="(team, index) in teams" :key="index" class="bg-surface border border-border rounded-lg shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md">
                 <div class="p-4 sm:p-5 space-y-4">
                     <div>
-                        <label :for="'teamName-' + index" class="block text-sm font-medium text-gray-700 mb-1">Team {{ index + 1 }} Name <span class="text-red-500">*</span></label>
+                        <label :for="'teamName-' + index" class="block text-sm font-medium text-text-secondary mb-1">Team {{ index + 1 }} Name <span class="text-danger">*</span></label>
                         <input type="text" :id="'teamName-' + index"
                                v-model.trim="team.teamName"
-                               class="block w-full px-3 py-2 border border-secondary rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                               class="block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm disabled:opacity-50 disabled:bg-gray-200 disabled:cursor-not-allowed transition-colors bg-surface text-text-primary"
                                placeholder="Enter team name (e.g., Team Alpha)"
                                :disabled="isSubmitting"
                                @input="emitUpdate">
-                        <p v-if="duplicateTeamNames.has(team.teamName)" class="mt-1 text-xs text-red-600">Team name must be unique.</p>
+                        <p v-if="duplicateTeamNames.has(team.teamName)" class="mt-1 text-xs text-danger">Team name must be unique.</p>
                     </div>
 
                     <div>
-                        <label :for="'memberSearch-' + index" class="block text-sm font-medium text-gray-700 mb-1">Team Members ({{ team.members.length }}) <span class="text-red-500">*</span></label>
+                        <label :for="'memberSearch-' + index" class="block text-sm font-medium text-text-secondary mb-1">Team Members ({{ team.members.length }}) <span class="text-danger">*</span></label>
                         <div class="relative">
                             <input type="text" :id="'memberSearch-' + index"
                                    v-model="searchQueries[index]"
-                                   class="block w-full px-3 py-2 border border-secondary rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                                   class="block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm disabled:opacity-50 disabled:bg-gray-200 disabled:cursor-not-allowed transition-colors bg-surface text-text-primary"
                                    placeholder="Search available students to add..."
                                    @focus="showDropdown(index)"
                                    @blur="hideDropdown(index)"
@@ -37,16 +37,16 @@
                                    autocomplete="off">
                             <transition name="fade-fast">
                                 <div v-if="dropdownVisible[index]"
-                                     class="absolute z-50 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm border border-secondary">
+                                     class="absolute z-50 mt-1 w-full bg-surface shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm border border-border">
                                     <button v-for="student in filteredStudents(index)"
                                             :key="student.uid"
-                                            class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-primary-light hover:text-white transition-colors"
+                                            class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-primary-light hover:text-white transition-colors"
                                             type="button"
                                             @mousedown.prevent="addMember(index, student)">
-                                        {{ student.name || props.nameCache[student.uid] || student.uid }}
+                                        {{ props.nameCache[student.uid] || student.uid }}
                                     </button>
                                     <div v-if="!filteredStudents(index).length"
-                                         class="px-4 py-2 text-sm text-gray-500 italic">
+                                         class="px-4 py-2 text-sm text-text-secondary italic">
                                         {{ searchQueries[index] ? 'No matching students found.' : 'No more students available.' }}
                                     </div>
                                 </div>
@@ -55,24 +55,24 @@
 
                         <div v-if="team.members.length > 0" class="mt-3 flex flex-wrap gap-2">
                             <span v-for="memberId in team.members" :key="memberId"
-                                  class="inline-flex items-center py-1 pl-2.5 pr-1 rounded-full text-xs font-medium bg-secondary text-gray-700 border border-secondary-dark shadow-sm">
-                                {{ nameCache[memberId] || memberId }}
+                                  class="inline-flex items-center py-1 pl-2.5 pr-1 rounded-full text-xs font-medium bg-gray-200 text-text-primary border border-gray-300 shadow-sm">
+                                {{ props.nameCache[memberId] || memberId }}
                                 <button type="button"
-                                        class="flex-shrink-0 ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-gray-400 hover:bg-red-100 hover:text-red-600 focus:outline-none focus:ring-1 focus:ring-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        class="flex-shrink-0 ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-gray-400 hover:bg-danger-extraLight hover:text-danger focus:outline-none focus:ring-1 focus:ring-danger disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                         @click="removeMember(index, memberId)" :disabled="isSubmitting"
-                                        :aria-label="`Remove ${nameCache[memberId] || memberId}`">
+                                        :aria-label="`Remove ${props.nameCache[memberId] || memberId}`">
                                     <svg class="h-2.5 w-2.5" stroke="currentColor" fill="none" viewBox="0 0 8 8">
                                         <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />
                                     </svg>
                                 </button>
                             </span>
                         </div>
-                        <p v-if="showValidationErrors && team.members.length === 0" class="mt-1 text-xs text-red-600">Each team must have at least one member.</p>
+                        <p v-if="showValidationErrors && team.members.length === 0" class="mt-1 text-xs text-danger">Each team must have at least one member.</p>
                     </div>
 
-                    <div class="pt-3 border-t border-secondary text-right">
+                    <div class="pt-3 border-t border-border text-right">
                         <button type="button"
-                                class="inline-flex justify-center items-center px-3 py-1.5 border border-red-300 shadow-sm text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                class="inline-flex justify-center items-center px-3 py-1.5 border border-danger-light shadow-sm text-xs font-medium rounded-md text-danger bg-surface hover:bg-danger-extraLight focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-danger disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 @click="removeTeam(index)"
                                 :disabled="isSubmitting || teams.length <= minTeams">
                             <i class="fas fa-trash-alt mr-1.5 h-3 w-3"></i> Remove Team
@@ -87,12 +87,12 @@
                         @click="addTeam" :disabled="isSubmitting || !canAddMoreTeams">
                     <i class="fas fa-plus mr-1.5 h-4 w-4"></i> Add Another Team
                 </button>
-                <p v-if="!canAddMoreTeams" class="text-gray-500 text-xs mt-1 italic">
+                <p v-if="!canAddMoreTeams" class="text-text-secondary text-xs mt-1 italic">
                     Maximum number of teams reached or no more students available.
                 </p>
             </div>
 
-            <p v-if="showValidationErrors && !overallValidation.isValid" class="mt-4 text-sm text-red-600 text-center">
+            <p v-if="showValidationErrors && !overallValidation.isValid" class="mt-4 text-sm text-danger text-center">
                 <i class="fas fa-exclamation-triangle mr-1"></i> {{ overallValidation.message }}
             </p>
         </div>
@@ -101,19 +101,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
-
-interface Team {
-    teamName: string;
-    members: string[];
-}
-
-interface Student {
-    uid: string;
-}
+import { EventTeam } from '../types/event';
 
 interface Props {
-    initialTeams: Team[];
-    students: Student[];
+    initialTeams: EventTeam[];
+    students: { uid: string }[];
     nameCache: Record<string, string>;
     isSubmitting: boolean;
     canAutoGenerate: boolean;
@@ -127,21 +119,21 @@ const autoGenErrorMessage = ref<string>('');
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-    'update:teams': [teams: Team[]];
+    'update:teams': [teams: EventTeam[]];
     'can-add-team': [canAdd: boolean];
     'auto-generate': [config: { generationType: string; value: number }];
 }>();
 
 // --- Local State ---
 // Directly use localTeams as the primary reactive source for the template
-const localTeams = ref<Team[]>([]);
+const localTeams = ref<EventTeam[]>([]);
 
 // Added: States for search and dropdown visibility, reactive for each team
 const searchQueries = reactive<Record<number, string>>({});
 const dropdownVisible = reactive<Record<number, boolean>>({});
 
 // Current team being edited
-const currentTeam = reactive<Team>({ teamName: '', members: [] });
+const currentTeam = reactive<EventTeam>({ teamName: '', members: [], ratings: [], submissions: [] });
 const editingTeamName = ref<string | null>(null);
 const studentSearch = ref<string>('');
 const addTeamErrorMessage = ref<string>('');
@@ -173,7 +165,7 @@ const canAddMoreTeams = computed(() => {
 
 // --- Initialization ---
 // Helper to initialize or reset local teams
-function initializeTeams(initialData: Team[]) {
+function initializeTeams(initialData: EventTeam[]) {
     localTeams.value = JSON.parse(JSON.stringify(initialData || []));
     // Ensure searchQueries and dropdownVisible have entries for each team
     // Clear existing keys first to handle cases where teams are removed
@@ -230,7 +222,7 @@ const assignedStudentIds = computed<Set<string>>(() => {
 });
 
 // Filtered list of students available to be added to the *current* team being edited/created
-const filteredAvailableStudents = computed<Student[]>(() => {
+const filteredAvailableStudents = computed<{ uid: string }[]>(() => {
     if (!Array.isArray(props.students)) return [];
 
     // Students not already in the *current* team's member list
@@ -255,7 +247,7 @@ const filteredAvailableStudents = computed<Student[]>(() => {
 });
 
 // Sorted list of teams for display purposes
-const sortedTeams = computed<Team[]>(() => {
+const sortedTeams = computed<EventTeam[]>(() => {
      // Filter out any potential invalid/empty placeholder teams before sorting
      const validTeams = localTeams.value.filter(team => team && team.teamName);
      return [...validTeams].sort((a, b) =>
@@ -272,7 +264,7 @@ const hasValidTeamsConfiguration = computed<boolean>(() => {
 
 // Computed property to enable/disable the save button for the current team form
 const canSaveTeam = computed<boolean>(() => {
-    return currentTeam.teamName.trim() &&
+    return !!currentTeam.teamName.trim() &&
            currentTeam.members.length > 0 &&
            !props.isSubmitting;
 });
@@ -288,50 +280,20 @@ const areAllStudentsAssigned = computed<boolean>(() => {
 
 // Check if adding another team is possible
 const canAddTeam = computed<boolean>(() => { 
-     if (!Array.isArray(props.students)) return false;
      const maxTeams = 10; // Example limit
-     return (!areAllStudentsAssigned.value || localTeams.value.length < 2) && localTeams.value.length < maxTeams;
+     return localTeams.value.length < maxTeams && !props.isSubmitting;
 });
 
 // --- Auto-Generation Computed ---
 const canTriggerAutoGenerate = computed<boolean>(() => {
-    autoGenErrorMessage.value = ''; // Clear previous errors
+    autoGenErrorMessage.value = '';
     if (props.isSubmitting) return false;
     if (!Array.isArray(props.students) || props.students.length === 0) {
         autoGenErrorMessage.value = 'No students available to generate teams.';
         return false;
     }
-    const value = Number(autoGenValue.value);
-     if (isNaN(value) || !Number.isInteger(value) || value <= 0) { // Ensure integer > 0
-        autoGenErrorMessage.value = 'Please enter a valid positive whole number.';
-        return false;
-    }
-
-    if (autoGenType.value === 'numberOfTeams') {
-        if (value < 2) {
-             autoGenErrorMessage.value = 'Must generate at least 2 teams.';
-             return false;
-        }
-        if (value > props.students.length) {
-            autoGenErrorMessage.value = 'Cannot generate more teams than available students.';
-            return false;
-        }
-    } else if (autoGenType.value === 'maxMembers') {
-         if (value < 1) {
-             // This case is already handled by the positive integer check above
-             // autoGenErrorMessage.value = 'Max members per team must be at least 1.';
-             // return false;
-             return false; // Should not happen due to integer check
-         }
-         // Check if max members allows for at least 2 teams (if more than 1 student exists)
-         if (props.students.length > 1 && Math.ceil(props.students.length / value) < 2 ) {
-             autoGenErrorMessage.value = `Max members (${value}) results in only 1 team for ${props.students.length} students. Adjust to create at least 2 teams.`;
-             return false;
-         }
-    }
-    return true; // All checks passed
+    return true;
 });
-
 
 // --- Helper Methods ---
 
@@ -366,6 +328,8 @@ const prepareNewTeam = (): void => {
     editingTeamName.value = null; // Ensure we are not in edit mode
     currentTeam.teamName = '';
     currentTeam.members = [];
+    currentTeam.ratings = [];
+    currentTeam.submissions = [];
     studentSearch.value = '';
     addTeamErrorMessage.value = '';
     showNewTeamForm.value = true; // Show the form
@@ -379,6 +343,8 @@ const editTeam = (teamName: string): void => {
         currentTeam.teamName = teamToEdit.teamName;
         // Deep copy members to avoid modifying original array directly during edit
         currentTeam.members = teamToEdit.members ? [...teamToEdit.members] : [];
+        currentTeam.ratings = teamToEdit.ratings ? [...teamToEdit.ratings] : [];
+        currentTeam.submissions = teamToEdit.submissions ? [...teamToEdit.submissions] : [];
         studentSearch.value = '';
         addTeamErrorMessage.value = '';
         showNewTeamForm.value = false; // Ensure add mode is off
@@ -394,6 +360,8 @@ const cancelEdit = (): void => {
     showNewTeamForm.value = false;
     currentTeam.teamName = '';
     currentTeam.members = [];
+    currentTeam.ratings = [];
+    currentTeam.submissions = [];
     studentSearch.value = '';
     addTeamErrorMessage.value = '';
 };
@@ -424,9 +392,11 @@ const saveTeam = (): void => {
     }
 
     // --- Update Logic ---
-    const teamData: Team = {
+    const teamData: EventTeam = {
         teamName: teamNameTrimmed,
-        members: [...currentTeam.members] // Create a copy of members
+        members: [...currentTeam.members], // Create a copy of members
+        ratings: [...currentTeam.ratings],
+        submissions: [...currentTeam.submissions]
     };
 
     const existingTeamIndex = localTeams.value.findIndex(t => t.teamName === editingTeamName.value);
@@ -527,7 +497,7 @@ const hideDropdown = (index: number) => {
 };
 
 // Add a member to a specific team
-const addMember = (teamIndex: number, student: Student) => {
+const addMember = (teamIndex: number, student: { uid: string }) => {
     const team = localTeams.value[teamIndex];
     if (!team) return;
     
@@ -583,8 +553,10 @@ const removeTeam = (index: number) => {
 // Add a new team
 const addTeam = () => {
     localTeams.value.push({
-        teamName: `Team ${localTeams.value.length + 1}`,
-        members: []
+        teamName: '',
+        members: [],
+        ratings: [],
+        submissions: []
     });
     
     // Initialize search and dropdown for the new team
@@ -595,33 +567,3 @@ const addTeam = () => {
     emitUpdate();
 };
 </script>
-
-<style scoped>
-.team-card {
-    background-color: #f8f9fa; /* Light background for team cards */
-    border: 1px solid #dee2e6;
-}
-
-.form-label.small {
-    font-size: 0.8rem;
-    font-weight: 500;
-}
-
-.dropdown-menu {
-    z-index: 1050; /* Ensure dropdown is on top */
-}
-
-.dropdown-item-sm {
-    font-size: 0.875rem;
-}
-
-/* Responsive adjustments */
-@media (max-width: 767.98px) { /* Below md */
-    .col-md-2.text-md-end {
-        text-align: center !important; /* Center button on small screens */
-    }
-    .w-md-auto {
-        width: auto !important; /* Allow button to shrink on mobile */
-    }
-}
-</style>

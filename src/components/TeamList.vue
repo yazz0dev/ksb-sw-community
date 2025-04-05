@@ -3,16 +3,16 @@
     <!-- Added padding to the container if it's the root element -->
     <div class="p-4 sm:p-6 space-y-4"> <!-- Applied padding directly here as requested in parent -->
         <!-- Team Card: Improved styling -->
-        <div v-for="team in teamsWithDetails" :key="team.teamName" class="bg-white border border-secondary rounded-lg shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md">
+        <div v-for="team in teamsWithDetails" :key="team.teamName" class="bg-surface border border-border rounded-lg shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md"> <!-- Updated bg, border -->
             <div class="p-4 sm:p-5"> <!-- Adjusted padding -->
                 <div class="flex justify-between items-start mb-3"> <!-- Align items start for better wrap -->
-                    <h4 class="text-lg font-semibold text-primary-dark">{{ team.teamName }}</h4>
+                    <h4 class="text-lg font-semibold text-primary">{{ team.teamName }}</h4> <!-- Updated text color -->
                     <!-- Rating Button: Refined styling -->
                     <button v-if="ratingsOpen && canRate" @click="goToRatingForm(team.teamName)"
                         class="ml-2 flex-shrink-0 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors"
                         :class="currentUserHasRatedTeam ?
-                                   'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 focus:ring-primary-light' :
-                                   'text-white bg-primary hover:bg-primary-dark focus:ring-primary'">
+                                   'text-text-primary bg-surface border border-border hover:bg-neutral-light focus:ring-primary-light' : // Secondary/Outline Style
+                                   'text-white bg-primary hover:bg-primary-dark focus:ring-primary'"> // Primary Style
                         <i class="fas fa-star mr-1.5"></i>
                         {{ currentUserHasRatedTeam ? 'View/Edit Ratings' : 'Rate Team' }}
                     </button>
@@ -20,34 +20,34 @@
 
                 <!-- Toggle Button: Refined styling -->
                 <button @click="toggleTeamDetails(team.teamName)"
-                    class="inline-flex items-center px-3 py-1.5 border border-secondary shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-light transition-colors">
+                    class="inline-flex items-center px-3 py-1.5 border border-border shadow-sm text-xs font-medium rounded-md text-text-secondary bg-surface hover:bg-neutral-light focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-light transition-colors"> <!-- Secondary/Outline Style -->
                     <i :class="['fas w-3 transition-transform duration-200', team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down', 'mr-1.5']"></i>
                     {{ team.showDetails ? 'Hide Members' : `Show Members (${team.members?.length || 0})` }}
                 </button>
 
                 <!-- Member List (Conditional): Improved styling and structure -->
                  <transition name="fade-fast">
-                    <div v-if="team.showDetails" class="mt-4 pt-4 border-t border-secondary">
-                        <div v-if="organizerNamesLoading" class="py-3 text-sm text-gray-500 italic">
+                    <div v-if="team.showDetails" class="mt-4 pt-4 border-t border-border"> <!-- Updated border -->
+                        <div v-if="organizerNamesLoading" class="py-3 text-sm text-text-secondary italic"> <!-- Updated text color -->
                             <i class="fas fa-spinner fa-spin mr-1"></i> Loading members...
                         </div>
                         <div v-else-if="team.members && team.members.length > 0">
-                            <h5 class="text-xs font-semibold text-gray-500 uppercase mb-2">Team Members</h5>
+                            <h5 class="text-xs font-semibold text-text-secondary uppercase mb-2">Team Members</h5> <!-- Updated text color -->
                             <ul role="list" class="space-y-2">
                                 <li v-for="memberId in team.members" :key="memberId"
                                     class="flex items-center p-2 rounded-md transition-colors duration-150"
-                                    :class="{ 'bg-primary-light bg-opacity-10 font-medium': memberId === currentUserUid }">
-                                    <i class="fas fa-user mr-2 text-gray-400 flex-shrink-0 w-4 text-center"></i>
+                                    :class="{ 'bg-primary-extraLight font-medium': memberId === currentUserUid }"> <!-- Updated highlight bg -->
+                                    <i class="fas fa-user mr-2 text-text-secondary flex-shrink-0 w-4 text-center"></i> <!-- Updated icon color -->
                                     <router-link
                                         :to="{ name: 'PublicProfile', params: { userId: memberId } }"
-                                        class="text-sm text-gray-800 hover:text-primary truncate"
-                                        :class="{'text-primary-dark font-semibold': memberId === currentUserUid}">
+                                        class="text-sm text-text-primary hover:text-primary truncate" <!-- Updated text color -->
+                                        :class="{'text-primary font-semibold': memberId === currentUserUid}"> <!-- Updated highlight text -->
                                         {{ getUserName(memberId) || memberId }} {{ memberId === currentUserUid ? '(You)' : '' }}
                                     </router-link>
                                 </li>
                             </ul>
                         </div>
-                        <div v-else class="py-3 text-sm text-gray-500 italic">
+                        <div v-else class="py-3 text-sm text-text-secondary italic"> <!-- Updated text color -->
                             No members assigned to this team yet.
                         </div>
                     </div>
@@ -55,7 +55,7 @@
             </div>
         </div>
         <!-- No teams alert: Improved styling -->
-        <div v-if="teamsWithDetails.length === 0" class="bg-secondary text-gray-700 px-4 py-3 rounded-md text-sm mt-4 border border-secondary-dark italic">
+        <div v-if="teamsWithDetails.length === 0" class="bg-info-light text-info-dark px-4 py-3 rounded-md text-sm mt-4 border border-info-light italic"> <!-- Updated alert style -->
              <i class="fas fa-info-circle mr-1"></i> No teams have been created for this event yet.
         </div>
     </div>

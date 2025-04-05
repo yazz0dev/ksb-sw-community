@@ -1,18 +1,18 @@
 <template>
   <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
-      <h2 class="mt-6 text-center text-2xl font-bold text-gray-900">Forgot your password?</h2>
+      <h2 class="mt-6 text-center text-2xl font-bold text-text-primary">Forgot your password?</h2>
     </div>
 
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-        <p class="text-sm text-center text-gray-600 mb-6">Enter your email address and we will send you a link to reset your password.</p>
+      <div class="bg-surface py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <p class="text-sm text-center text-text-secondary mb-6">Enter your email address and we will send you a link to reset your password.</p>
 
         <!-- Success/Error Message -->
         <div v-if="message" 
              :class="[
                'mb-4 rounded-md p-4 border',
-               isError ? 'bg-red-50 border-red-200 text-red-800' : 'bg-green-50 border-green-200 text-green-800'
+               isError ? 'bg-error-extraLight border-error-light text-error-dark' : 'bg-success-extraLight border-success-light text-success-dark'
              ]"
              role="alert">
             <div class="flex">
@@ -34,7 +34,7 @@
         <!-- Form (shown initially or on error) -->
         <form @submit.prevent="sendPasswordResetEmail" v-if="!message || isError" class="space-y-6">
           <div>
-            <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+            <label for="email" class="block text-sm font-medium text-text-secondary">Email Address</label>
             <div class="mt-1">
               <input
                 type="email"
@@ -42,7 +42,7 @@
                 v-model="email"
                 required
                 autocomplete="email"
-                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                class="appearance-none block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-text-disabled focus:outline-none focus:ring-primary-light focus:border-primary sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="you@example.com"
                 :disabled="isLoading" />
             </div>
@@ -50,9 +50,9 @@
 
           <div>
             <button type="submit" 
-                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     :disabled="isLoading">
-              <svg v-if="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg v-if="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-text" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -66,13 +66,13 @@
           <router-link 
              v-if="!message || isError" 
              to="/login" 
-             class="text-sm font-medium text-blue-600 hover:text-blue-500 hover:underline">
+             class="text-sm font-medium text-primary hover:text-primary-dark hover:underline">
             Back to Login
           </router-link>
           <router-link 
              v-else 
              to="/login" 
-             class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+             class="w-full inline-flex justify-center py-2 px-4 border border-border rounded-md shadow-sm bg-surface text-sm font-medium text-text-secondary hover:bg-neutral-extraLight focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light transition-colors">
             Back to Login
            </router-link> 
         </div>
@@ -122,4 +122,3 @@ const sendPasswordResetEmail = async () => { // Renamed handler function
 };
 
 </script>
-

@@ -1,17 +1,17 @@
 // /src/components/UserCard.vue
 <template>
     <!-- Replaced list-group-item and scoped styles with Tailwind utilities -->
-    <div class="flex items-center p-3 bg-white border-b border-gray-200 space-x-2">
-        <span class="text-sm font-medium text-gray-700">{{ userId }}</span>
+    <div class="flex items-center p-3 bg-surface border-b border-border space-x-2">
+        <span class="text-sm font-medium text-text-primary">{{ userId }}</span>
         <span v-if="averageRating !== null" class="flex items-center">
-            <span class="text-sm text-gray-500 mr-1">-</span>
+            <span class="text-sm text-text-secondary mr-1">-</span>
             <vue3-star-ratings
                 :rating="averageRating"
                 :star-size="16" 
                 :read-only="true"
                 :show-rating="false"
-                inactive-color="#d1d5db" 
-                active-color="#f59e0b"   
+                inactive-color="var(--color-border)"  
+                active-color="var(--color-warning)"   
                 :star-spacing="1"
             />
         </span>
@@ -65,4 +65,3 @@ export default {
     }
 };
 </script>
-

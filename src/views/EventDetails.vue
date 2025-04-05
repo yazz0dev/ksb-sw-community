@@ -1,9 +1,9 @@
 // src/views/EventDetails.vue
 <template>
     <!-- Use theme background, adjusted padding -->
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-secondary-light min-h-[calc(100vh-8rem)]"> <!-- Added min-height to prevent jumpy footer -->
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-background min-h-[calc(100vh-8rem)]"> <!-- Updated bg; Added min-height to prevent jumpy footer -->
       <!-- Loading State: Centered with spinner -->
-      <div v-if="loading" class="flex flex-col items-center justify-center py-16 text-gray-500">
+      <div v-if="loading" class="flex flex-col items-center justify-center py-16 text-text-secondary"> <!-- Updated text color -->
           <svg class="animate-spin h-10 w-10 text-primary mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -11,17 +11,17 @@
           <p>Loading event details...</p>
       </div>
       <!-- Error State: Styled error box -->
-      <div v-else-if="initialFetchError" class="rounded-md bg-red-100 p-4 text-sm text-red-800 border border-red-200 shadow-sm">
+      <div v-else-if="initialFetchError" class="rounded-md bg-error-light p-4 text-sm text-error-dark border border-error-light shadow-sm"> <!-- Updated error styles -->
         <i class="fas fa-exclamation-triangle mr-2"></i> Error: {{ initialFetchError }}
       </div>
       <!-- Not Found State: Styled info box -->
-      <div v-else-if="!event" class="rounded-md bg-yellow-100 p-4 text-sm text-yellow-800 border border-yellow-200 shadow-sm">
+      <div v-else-if="!event" class="rounded-md bg-warning-light p-4 text-sm text-warning-dark border border-warning-light shadow-sm"> <!-- Updated warning styles -->
           <i class="fas fa-info-circle mr-2"></i> Event data not found or not yet loaded.
       </div>
       <!-- Main Content: Apply fade-in, space between cards -->
       <div v-else class="space-y-6 animate-fade-in">
           <!-- Event Display Card Section: Wrapped in styled container -->
-          <div class="bg-white shadow-md overflow-hidden rounded-lg border border-secondary">
+          <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border"> <!-- Updated bg, border -->
             <div class="px-4 py-5 sm:p-6"> <!-- Adjusted padding -->
                  <EventDisplayCard :event="event" :nameCache="Object.fromEntries(nameCache)" :showStatus="true" />
             </div>
@@ -38,13 +38,13 @@
               :ratingsOpen="event.ratingsOpen"
               :getUserName="getUserNameFromCache"
               @teamRated="handleTeamRated"
-              class="bg-white shadow-md rounded-lg border border-secondary overflow-hidden" /> <!-- Added base styling, internal padding handled by component -->
+              class="bg-surface shadow-md rounded-lg border border-border overflow-hidden" /> <!-- Updated bg, border; internal padding handled by component -->
 
           <!-- Global Feedback Message Area -->
           <div v-if="globalFeedback.message"
                :class="[
                     'rounded-md p-4 text-sm mb-4 shadow-sm transition-opacity duration-300',
-                    globalFeedback.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
+                    globalFeedback.type === 'success' ? 'bg-success-light text-success-dark border border-success-light' : 'bg-error-light text-error-dark border border-error-light' // Updated semantic colors
                ]"
                role="alert"
             >
@@ -53,20 +53,20 @@
           </div>
 
           <!-- Submission Section: Wrapped in styled container -->
-          <div class="bg-white shadow-md overflow-hidden rounded-lg border border-secondary">
+          <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border"> <!-- Updated bg, border -->
              <div class="px-4 py-5 sm:p-6"> <!-- Adjusted padding -->
-                 <h3 class="text-lg font-semibold leading-6 text-gray-800 mb-4 border-b border-secondary pb-3">Project Submissions</h3>
+                 <h3 class="text-lg font-semibold leading-6 text-text-primary mb-4 border-b border-border pb-3">Project Submissions</h3> <!-- Updated text color, border -->
                  <!-- Submission content placeholder -->
-                 <p class="text-sm text-gray-500">Submission details will appear here.</p>
+                 <p class="text-sm text-text-secondary">Submission details will appear here.</p> <!-- Updated text color -->
              </div>
           </div>
 
           <!-- Rating Section: Wrapped in styled container -->
-          <div class="bg-white shadow-md overflow-hidden rounded-lg border border-secondary">
+          <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border"> <!-- Updated bg, border -->
               <div class="px-4 py-5 sm:p-6"> <!-- Adjusted padding -->
-                  <h3 class="text-lg font-semibold leading-6 text-gray-800 mb-4 border-b border-secondary pb-3">Ratings</h3>
+                  <h3 class="text-lg font-semibold leading-6 text-text-primary mb-4 border-b border-border pb-3">Ratings</h3> <!-- Updated text color, border -->
                    <!-- Rating content placeholder -->
-                   <p class="text-sm text-gray-500">Rating information will appear here.</p>
+                   <p class="text-sm text-text-secondary">Rating information will appear here.</p> <!-- Updated text color -->
               </div>
           </div>
 
@@ -77,35 +77,35 @@
 
       <!-- Submission Modal: Improved styling -->
       <div v-if="showSubmissionModal" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-60 flex items-center justify-center p-4 transition-opacity duration-300" @click.self="closeSubmissionModal"> <!-- Added background overlay and close on click outside -->
-          <div ref="submissionModalRef" class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 relative animate-fade-in"> <!-- Styled modal panel -->
-              <button @click="closeSubmissionModal" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors">
+          <div ref="submissionModalRef" class="bg-surface rounded-lg shadow-xl max-w-lg w-full p-6 relative animate-fade-in"> <!-- Updated bg; Styled modal panel -->
+              <button @click="closeSubmissionModal" class="absolute top-3 right-3 text-text-secondary hover:text-text-primary transition-colors"> <!-- Updated text colors -->
                   <i class="fas fa-times text-xl"></i>
                   <span class="sr-only">Close modal</span>
               </button>
-              <h3 class="text-xl font-semibold text-gray-800 mb-4">Submit Your Project</h3>
+              <h3 class="text-xl font-semibold text-text-primary mb-4">Submit Your Project</h3> <!-- Updated text color -->
               <form @submit.prevent="submitProject" class="space-y-4">
                   <div>
-                      <label for="projectName" class="block text-sm font-medium text-gray-700 mb-1">Project Name <span class="text-red-500">*</span></label>
-                      <input type="text" id="projectName" v-model="submissionForm.projectName" required class="mt-1 block w-full rounded-md border-secondary shadow-sm focus:border-primary focus:ring focus:ring-primary-light focus:ring-opacity-50 sm:text-sm">
+                      <label for="projectName" class="block text-sm font-medium text-text-secondary mb-1">Project Name <span class="text-error">*</span></label> <!-- Updated text color, error color -->
+                      <input type="text" id="projectName" v-model="submissionForm.projectName" required class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary-light focus:ring-opacity-50 sm:text-sm"> <!-- Updated border -->
                   </div>
                   <div>
-                      <label for="projectLink" class="block text-sm font-medium text-gray-700 mb-1">Project Link (GitHub, Demo, etc.) <span class="text-red-500">*</span></label>
-                      <input type="url" id="projectLink" v-model="submissionForm.link" required placeholder="https://..." class="mt-1 block w-full rounded-md border-secondary shadow-sm focus:border-primary focus:ring focus:ring-primary-light focus:ring-opacity-50 sm:text-sm">
+                      <label for="projectLink" class="block text-sm font-medium text-text-secondary mb-1">Project Link (GitHub, Demo, etc.) <span class="text-error">*</span></label> <!-- Updated text color, error color -->
+                      <input type="url" id="projectLink" v-model="submissionForm.link" required placeholder="https://..." class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary-light focus:ring-opacity-50 sm:text-sm"> <!-- Updated border -->
                   </div>
                   <div>
-                      <label for="projectDescription" class="block text-sm font-medium text-gray-700 mb-1">Brief Description</label>
-                      <textarea id="projectDescription" v-model="submissionForm.description" rows="3" class="mt-1 block w-full rounded-md border-secondary shadow-sm focus:border-primary focus:ring focus:ring-primary-light focus:ring-opacity-50 sm:text-sm"></textarea>
+                      <label for="projectDescription" class="block text-sm font-medium text-text-secondary mb-1">Brief Description</label> <!-- Updated text color -->
+                      <textarea id="projectDescription" v-model="submissionForm.description" rows="3" class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary-light focus:ring-opacity-50 sm:text-sm"></textarea> <!-- Updated border -->
                   </div>
-                  <p v-if="submissionError" class="text-sm text-red-600"><i class="fas fa-exclamation-circle mr-1"></i> {{ submissionError }}</p>
+                  <p v-if="submissionError" class="text-sm text-error"><i class="fas fa-exclamation-circle mr-1"></i> {{ submissionError }}</p> <!-- Updated error color -->
                   <div class="pt-4 flex justify-end">
-                      <button type="button" @click="closeSubmissionModal" class="mr-3 inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-offset-2 transition-colors">
+                      <button type="button" @click="closeSubmissionModal" class="mr-3 inline-flex justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary shadow-sm hover:bg-neutral-light focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-offset-2 transition-colors"> <!-- Updated secondary/outline button styles -->
                           Cancel
                       </button>
                       <button type="submit" :disabled="isSubmittingProject || actionInProgress"
-                              class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                          <svg v-if="isSubmittingProject" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-text shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"> <!-- Updated text color -->
+                          <svg v-if="isSubmittingProject" class="animate-spin -ml-1 mr-2 h-4 w-4 text-primary-text" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"> <!-- Updated text color -->
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
                           {{ isSubmittingProject ? 'Submitting...' : 'Submit Project' }}
                       </button>
@@ -327,5 +327,3 @@ onMounted(() => {
 <style scoped>
 /* Add component-specific styles if needed */
 </style>
-
-

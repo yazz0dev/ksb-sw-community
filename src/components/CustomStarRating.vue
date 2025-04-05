@@ -35,11 +35,11 @@ const props = defineProps({
   },
   activeColor: { // Color for selected/hovered stars
     type: String,
-    default: '#f59e0b', // Tailwind 'amber-500'
+    default: 'var(--color-warning)', // Use CSS variable for warning color
   },
   inactiveColor: { // Color for unselected stars
     type: String,
-    default: '#d1d5db', // Tailwind 'gray-300'
+    default: 'var(--color-border)', // Use CSS variable for border/inactive color
   },
   starSize: { // Size in pixels
     type: Number,
