@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --color-primary: #7c3aed;
-  --color-primary-light: #8b5cf6;
-  --color-primary-dark: #6d28d9;
+  --color-primary: #0891b2; /* Teal 600 */
+  --color-primary-light: #06b6d4; /* Teal 500 */
+  --color-primary-dark: #0e7490; /* Teal 700 */
   --color-primary-text: #ffffff;
   
-  --color-secondary: #fcd34d;
-  --color-secondary-light: #fde68a;
-  --color-secondary-dark: #fbbf24;
+  --color-secondary: #f97316; /* Orange 500 */
+  --color-secondary-light: #fb923c; /* Orange 400 */
+  --color-secondary-dark: #ea580c; /* Orange 600 */
   
-  --color-text-primary: #1e293b;
-  --color-text-secondary: #475569;
-  --color-text-disabled: #94a3b8;
+  --color-text-primary: #1e293b; /* Slate 800 */
+  --color-text-secondary: #475569; /* Slate 600 */
+  --color-text-disabled: #94a3b8; /* Slate 400 */
   
   --color-surface: #ffffff;
-  --color-surface-hover: #f8fafc;
+  --color-surface-hover: #f8fafc; /* Slate 50 */
   
-  --color-border: #e2e8f0;
+  --color-border: #e2e8f0; /* Slate 200 */
   
-  --color-info-light: #dbeafe;
-  --color-info-dark: #2563eb;
+  --color-info-light: #cffafe; /* Cyan 100 */
+  --color-info-dark: #0891b2; /* Cyan 600 */
 }
 
 /* Apply custom colors to Tailwind classes */

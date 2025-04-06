@@ -468,18 +468,48 @@ const overallValidation = computed(() => {
 
 
 // --- Watchers ---
-watch(() => props.initialTeams, (newTeams) => {
+watch(() => props.initialTeams, (newTeams, oldTeams) => {
     // Skip if we're already in the process of updating
     if (isUpdatingFromParent.value) return;
     
-    console.log("Initial teams prop changed, re-initializing component.");
-    isUpdatingFromParent.value = true;
+    // Check if the teams actually changed in a meaningful way
+    const hasRealChange = () => {
+        if (!newTeams && !oldTeams) return false;
+        if (!newTeams || !oldTeams) return true;
+        if (newTeams.length !== oldTeams.length) return true;
+        
+        // Compare team properties that matter
+        for (let i = 0; i < newTeams.length; i++) {
+            const newTeam = newTeams[i];
+            const oldTeam = oldTeams[i];
+            
+            // Check team name
+            if (newTeam.teamName !== oldTeam.teamName) return true;
+            
+            // Check members array
+            if (!newTeam.members && oldTeam.members) return true;
+            if (newTeam.members && !oldTeam.members) return true;
+            if (newTeam.members && oldTeam.members) {
+                if (newTeam.members.length !== oldTeam.members.length) return true;
+                for (let j = 0; j < newTeam.members.length; j++) {
+                    if (newTeam.members[j] !== oldTeam.members[j]) return true;
+                }
+            }
+        }
+        
+        return false;
+    };
     
-    // Use setTimeout to break the reactive chain
-    setTimeout(() => {
-        initializeTeams(newTeams);
-        isUpdatingFromParent.value = false;
-    }, 0);
+    if (hasRealChange()) {
+        console.log("Initial teams prop changed, re-initializing component.");
+        isUpdatingFromParent.value = true;
+        
+        // Use setTimeout to break the reactive chain
+        setTimeout(() => {
+            initializeTeams(newTeams);
+            isUpdatingFromParent.value = false;
+        }, 0);
+    }
 }, { immediate: true, deep: true });
 
 // --- Lifecycle Hooks ---

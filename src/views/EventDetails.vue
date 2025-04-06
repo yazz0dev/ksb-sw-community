@@ -2,6 +2,13 @@
 <template>
     <!-- Use theme background, adjusted padding -->
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-background min-h-[calc(100vh-8rem)]"> <!-- Updated bg; Added min-height to prevent jumpy footer -->
+      <!-- Back Button -->
+      <div class="mb-6">
+        <button @click="$router.back()" class="inline-flex items-center px-3 py-2 border border-border rounded-md text-sm font-medium text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors">
+          <i class="fas fa-arrow-left mr-1.5"></i> Back
+        </button>
+      </div>
+      
       <!-- Loading State: Centered with spinner -->
       <div v-if="loading" class="flex flex-col items-center justify-center py-16 text-text-secondary"> <!-- Updated text color -->
           <svg class="animate-spin h-10 w-10 text-primary mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

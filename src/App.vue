@@ -2,11 +2,11 @@
 <template>
   <div id="app" class="flex flex-col min-h-screen bg-background">
     <!-- Top Navigation Bar -->
-    <nav class="sticky top-0 z-30 bg-surface/90 shadow-sm flex items-center h-12 lg:h-16 border-b border-border backdrop-blur-sm">
+    <nav class="sticky top-0 z-30 bg-surface shadow-sm flex items-center h-12 lg:h-16 border-b border-border">
       <div class="container mx-auto flex items-center justify-between h-full px-4 sm:px-6 lg:px-8">
         <router-link to="/" class="text-lg lg:text-xl font-bold text-primary mr-4 lg:mr-8 flex items-center h-full whitespace-nowrap" @click="closeNavbar">KSB MCA S/W Community</router-link>
 
-        <button class="lg:hidden border-none bg-transparent p-2 rounded text-text-secondary hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-opacity-75" type="button" @click="toggleNavbar" aria-controls="navbarNav" :aria-expanded="isNavbarOpen.toString()" aria-label="Toggle navigation">
+        <button class="lg:hidden border-none bg-transparent p-2 rounded text-text-secondary hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-opacity-75" type="button" @click.stop="toggleNavbar" aria-controls="navbarNav" :aria-expanded="isNavbarOpen.toString()" aria-label="Toggle navigation">
           <i class="fas fa-bars text-xl"></i>
         </button>
 
@@ -14,33 +14,33 @@
         <div 
           v-if="isNavbarOpen"
           class="fixed inset-0 bg-black/30 lg:hidden z-20"
-          @click="closeNavbar"
+          @click.stop="closeNavbar"
           aria-hidden="true"
         ></div>
         
         <div
           :class="[
             'fixed lg:static lg:flex top-12 lg:top-auto left-0 right-0 w-full bg-surface shadow-lg lg:shadow-none lg:w-auto lg:items-center lg:bg-transparent transition-all duration-300 ease-in-out overflow-hidden border-b border-border lg:border-none z-20',
-            isNavbarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full lg:translate-y-0 opacity-0 lg:opacity-100'
+            isNavbarOpen ? 'translate-y-0 opacity-100 h-auto' : '-translate-y-full lg:translate-y-0 opacity-0 lg:opacity-100 h-0 lg:h-auto'
           ]"
           id="navbarNav"
           ref="navbarCollapseRef"
         >
           <!-- Menu navigation -->
           <ul class="flex flex-col lg:flex-row list-none lg:mr-auto px-4 lg:px-0 py-3 lg:py-0 divide-y divide-border lg:divide-y-0">
-            <li v-if="isAuthenticated" class="lg:mr-1">
+            <li v-if="isAuthenticated" class="hidden lg:block lg:mr-1">
               <router-link to="/home"
                 class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
                 :class="{ 'font-semibold text-primary bg-secondary-light': $route.path === '/home' }"
                 @click="closeNavbar">Home</router-link>
             </li>
-            <li v-if="isAuthenticated && !isAdmin" class="lg:mr-1">
+            <li v-if="isAuthenticated && !isAdmin" class="hidden lg:block lg:mr-1">
               <router-link to="/profile"
                 class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
                 :class="{ 'font-semibold text-primary bg-secondary-light': $route.path === '/profile' }"
                 @click="closeNavbar">Profile</router-link>
             </li>
-            <li v-if="isAuthenticated" class="lg:mr-1">
+            <li v-if="isAuthenticated" class="hidden lg:block lg:mr-1">
               <router-link
                 to="/leaderboard"
                 class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
@@ -118,15 +118,21 @@ const isNavbarOpen = ref(false);
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 const isAdmin = computed(() => store.getters['user/isAdmin']);
 
-const toggleNavbar = () => {
+const toggleNavbar = (event) => {
+  // Prevent event propagation to avoid triggering other click handlers
+  if (event) event.stopPropagation();
   isNavbarOpen.value = !isNavbarOpen.value;
 };
 
-const closeNavbar = () => {
+const closeNavbar = (event) => {
+  // Prevent event propagation to avoid triggering other click handlers
+  if (event) event.stopPropagation();
   isNavbarOpen.value = false;
 };
 
-const logout = () => {
+const logout = (event) => {
+  // Prevent event propagation to avoid triggering other click handlers
+  if (event) event.stopPropagation();
   closeNavbar(); // Close navbar immediately on click
   const auth = getAuth();
   signOut(auth).then(() => {

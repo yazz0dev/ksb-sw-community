@@ -2,6 +2,48 @@
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> <!-- Main container -->
         <h2 class="text-2xl font-bold text-text-primary mb-5">Leaderboard</h2>
         
+        <!-- Top 3 Users Cards -->
+        <div v-if="!loading && filteredUsers.length > 0" class="mb-8">
+            <h3 class="text-lg font-semibold text-text-primary mb-3">Top Performers</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Top 1 -->
+                <div v-if="filteredUsers.length >= 1" class="bg-primary/10 border border-primary rounded-lg shadow-sm overflow-hidden transition-all hover:shadow-md">
+                    <div class="p-4 text-center">
+                        <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-text text-xl font-bold mb-3">1</div>
+                        <h4 class="font-semibold text-primary truncate mb-1">{{ filteredUsers[0].name || 'Anonymous User' }}</h4>
+                        <div class="text-sm text-text-secondary mb-2">{{ formatRoleName(selectedRole) }}</div>
+                        <div class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary text-primary-text">
+                            {{ filteredUsers[0].displayXp }} XP
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Top 2 -->
+                <div v-if="filteredUsers.length >= 2" class="bg-secondary/10 border border-secondary rounded-lg shadow-sm overflow-hidden transition-all hover:shadow-md">
+                    <div class="p-4 text-center">
+                        <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-secondary text-text-primary text-xl font-bold mb-3">2</div>
+                        <h4 class="font-semibold text-text-primary truncate mb-1">{{ filteredUsers[1].name || 'Anonymous User' }}</h4>
+                        <div class="text-sm text-text-secondary mb-2">{{ formatRoleName(selectedRole) }}</div>
+                        <div class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-secondary text-text-primary">
+                            {{ filteredUsers[1].displayXp }} XP
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Top 3 -->
+                <div v-if="filteredUsers.length >= 3" class="bg-neutral/10 border border-neutral rounded-lg shadow-sm overflow-hidden transition-all hover:shadow-md">
+                    <div class="p-4 text-center">
+                        <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral text-text-primary text-xl font-bold mb-3">3</div>
+                        <h4 class="font-semibold text-text-primary truncate mb-1">{{ filteredUsers[2].name || 'Anonymous User' }}</h4>
+                        <div class="text-sm text-text-secondary mb-2">{{ formatRoleName(selectedRole) }}</div>
+                        <div class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-neutral text-text-primary">
+                            {{ filteredUsers[2].displayXp }} XP
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Role Filter -->
         <div class="mb-6">
             <label class="block text-sm font-medium text-text-secondary mb-2">Filter by Role:</label>
