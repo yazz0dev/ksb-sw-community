@@ -25,6 +25,7 @@ firestore.indexes.json
 .vscode/*
 !.vscode/extensions.json
 .idea
+.firebase
 .DS_Store
 *.suo
 *.ntvs*
