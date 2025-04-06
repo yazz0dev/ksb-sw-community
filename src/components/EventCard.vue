@@ -4,6 +4,7 @@
     class="bg-surface rounded-lg overflow-hidden shadow-md border border-border flex flex-col h-full transition duration-200 ease-in-out hover:shadow-lg hover:-translate-y-1"
     :class="{ 'opacity-75 bg-neutral': event.status === 'Cancelled' || event.status === 'Rejected' }"
   >
+    <!-- Replace HTML comments with curly brace comments -->
     <div class="p-5 flex flex-col flex-grow">
       <div class="flex justify-between items-start mb-2">
         <h5

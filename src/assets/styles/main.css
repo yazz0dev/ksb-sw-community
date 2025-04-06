@@ -1,1 +1,84 @@
-@import "tailwindcss";
+/* src/assets/styles/main.css */
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+:root {
+  --color-primary-extraLight: #fff7ed;
+  --color-primary-light: #fed7aa;
+  --color-primary: #f97316;
+  --color-primary-dark: #ea580c;
+  --color-primary-text: #ffffff;
+
+  --color-secondary-extraLight: #fafaf9;
+  --color-secondary-light: #f5f5f4;
+  --color-secondary: #e7e5e4;
+  --color-secondary-dark: #d6d3d1;
+  --color-secondary-hover: #f5f5f4;
+
+  --color-background: #fafaf9;
+  --color-surface: #ffffff;
+  --color-surface-variant: #f5f5f4;
+  --color-surface-hover: #f5f5f4;
+  --color-surface-disabled: #e7e5e4;
+  --color-border: #e7e5e4;
+  --color-border-light: #f5f5f4;
+
+  --color-text-primary: #292524;
+  --color-text-secondary: #78716c;
+  --color-text-disabled: #a8a29e;
+  --color-text-onPrimary: var(--color-primary-text);
+  --color-text-placeholder: #a8a29e;
+
+  --color-success-extraLight: #f0fdf4;
+  --color-success-light: #dcfce7;
+  --color-success: #22c55e;
+  --color-success-dark: #16a34a;
+  --color-success-text: #14532d;
+
+  --color-error-extraLight: #fff1f2;
+  --color-error-light: #ffe4e6;
+  --color-error: #f43f5e;
+  --color-error-dark: #e11d48;
+  --color-error-text: #881337;
+
+  --color-warning-extraLight: #fffbeb;
+  --color-warning-light: #fef3c7;
+  --color-warning: #f59e0b;
+  --color-warning-dark: #d97706;
+  --color-warning-text: #78350f;
+
+  --color-info-extraLight: #f0f9ff;
+  --color-info-light: #e0f2fe;
+  --color-info: #38bdf8;
+  --color-info-dark: #0ea5e9;
+  --color-info-text: #075985;
+
+  --color-neutral-extraLight: #f5f5f4;
+  --color-neutral-light: #e7e5e4;
+  --color-neutral: #d6d3d1;
+  --color-neutral-dark: #a8a29e;
+  --color-neutral-text: #57534e;
+}
+
+/* Basic body styles - Tailwind handles these via base import */
+body {
+  margin: 0;
+}
+
+/* Add general fade-in animation */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Style for scrollbars (optional) */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--color-secondary-light); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background-color: var(--color-neutral); border-radius: 4px; border: 2px solid var(--color-secondary-light); }
+::-webkit-scrollbar-thumb:hover { background-color: var(--color-neutral-dark); }
+* { scrollbar-width: thin; scrollbar-color: var(--color-neutral) var(--color-secondary-light); }

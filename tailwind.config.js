@@ -7,94 +7,151 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          extraLight: '#dbeafe', // blue-100
-          light: '#60a5fa', // blue-400
-          DEFAULT: '#3b82f6', // blue-500
-          dark: '#2563eb', // blue-600
-        },
-        primary: { // Updated primary color palette to warmer tones
+        // --- Updated Warm Palette ---
+        primary: { // Orange-based primary
           extraLight: '#fff7ed',  // orange-50
           light: '#fed7aa',   // orange-200
           DEFAULT: '#f97316',   // orange-500
           dark: '#ea580c',    // orange-600
+          text: '#ffffff',      // White text on primary bg
         },
-        secondary: { // Updated secondary color palette to warmer grays/beiges
-          light: '#f5f5f4',  // gray-100
-          DEFAULT: '#e0e0e0',  // gray-200
-          dark: '#d4d4d4',   // gray-300
+        secondary: { // Warmer grays/beiges
+          extraLight: '#fafaf9', // stone-50 (slightly warmer than gray)
+          light: '#f5f5f4',   // stone-100
+          DEFAULT: '#e7e5e4',   // stone-200
+          dark: '#d6d3d1',    // stone-300
+          hover: '#f5f5f4'   // stone-100 for hover on white surface
         },
-        // Semantic colors - unchanged
-        background: '#f5f5f4', // gray-100 - using secondary light for background
-        surface: '#ffffff',     // white
-        border: '#e0e0e0',     // gray-200 - using secondary DEFAULT for border
+        background: '#fafaf9', // stone-50 (Warm light background)
+        surface: '#ffffff',     // white (For cards, modals, etc.)
+        'surface-variant': '#f5f5f4', // stone-100 (Slightly off-white variant)
+        'surface-hover': '#f5f5f4', // stone-100 (Hover effect on surface)
+        'surface-disabled': '#e7e5e4', // stone-200 (Disabled background)
+        border: '#e7e5e4',     // stone-200 (Primary border color)
+        'border-light': '#f5f5f4', // stone-100 (Lighter border variant)
         text: {
-          primary: '#374151',   // gray-700 - slightly darker for better readability on warmer backgrounds
-          secondary: '#6b7280', // gray-500 - unchanged
-          onPrimary: '#ffffff', // white (for text on primary color bg)
-          disabled: '#9ca3af', // gray-400 - muted color for disabled text
+          primary: '#292524',   // stone-800 (Darker text for contrast)
+          secondary: '#78716c', // stone-500 (Medium emphasis text)
+          disabled: '#a8a29e', // stone-400 (Muted/disabled text)
+          onPrimary: '#ffffff', // White text on primary color bg
+          placeholder: '#a8a29e', // stone-400 for placeholders
         },
-        // State colors - semantic colors remain mostly unchanged
+        // --- Semantic State Colors ---
         success: {
-          light: '#dcfce7',
-          DEFAULT: '#22c55e',
-          dark: '#16a34a',
-          text: '#14532d'
+          extraLight: '#f0fdf4', // green-50
+          light: '#dcfce7',   // green-100
+          DEFAULT: '#22c55e',   // green-500
+          dark: '#16a34a',    // green-600
+          text: '#14532d'     // green-900
         },
-        danger: {
-          extraLight: '#fee2e2',
-          light: '#fecaca',
-          DEFAULT: '#ef4444',
-          dark: '#dc2626',
-          text: '#7f1d1d'
+        error: { // Renamed from danger
+          extraLight: '#fff1f2', // rose-50
+          light: '#ffe4e6',   // rose-100
+          DEFAULT: '#f43f5e',   // rose-500
+          dark: '#e11d48',    // rose-600
+          text: '#881337'     // rose-900
         },
         warning: {
-          extraLight: '#fef9c3',
-          light: '#fef08a',
-          DEFAULT: '#eab308',
-          dark: '#ca8a04',
-          text: '#713f12'
+          extraLight: '#fffbeb', // amber-50
+          light: '#fef3c7',   // amber-100
+          DEFAULT: '#f59e0b',   // amber-500
+          dark: '#d97706',    // amber-600
+          text: '#78350f'     // amber-900
         },
-        info: { // Still using gray shades for info, but adjusted to secondary palette
-          light: '#f5f5f4', // secondary light
-          DEFAULT: '#717171', // gray-500 - slightly darker info color
-          dark: '#4a4a4a', // gray-700 - even darker for contrast
-          text: '#272727'  // gray-900 - darkest for info text
+        info: { // Using a muted blue for info
+          extraLight: '#f0f9ff', // sky-50
+          light: '#e0f2fe',   // sky-100
+          DEFAULT: '#38bdf8',   // sky-400
+          dark: '#0ea5e9',    // sky-500
+          text: '#075985'     // sky-800
         },
-        neutral: { // Added neutral color for muted elements
-          light: '#f5f5f5',
-          DEFAULT: '#d4d4d4',
-          dark: '#a8a8a8',
-          extraDark: '#444444'
+        neutral: { // For general muted/secondary elements
+          extraLight: '#f5f5f4', // stone-100
+          light: '#e7e5e4',   // stone-200
+          DEFAULT: '#d6d3d1',   // stone-300
+          dark: '#a8a29e',    // stone-400
+          text: '#57534e'     // stone-600
         },
       },
-      extend: { // Keeping existing keyframes and animations, placing them under extend
-        keyframes: {
-          fadeIn: {
-            '0%': { opacity: '0' },
-            '100%': { opacity: '1' },
-          }
-        },
-        animation: {
-          'fade-in': 'fadeIn 0.5s ease-out forwards',
-        },
-        spacing: { // Example of adding custom spacing if needed, can remove if not used
-          '72': '18rem',
-          '84': '21rem',
-          '96': '24rem',
-        },
-        // Example of extending border width, can remove or add more as needed
-        borderWidth: {
-          DEFAULT: '1px',
-          '0': '0',
-          '2': '2px',
-          '3': '3px',
-          '4': '4px',
-          '6': '6px',
-          '8': '8px',
+      // Keep existing keyframes and animations under extend
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
         }
-      }
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.5s ease-out forwards',
+      },
+      spacing: { // Example spacing extensions (keep or remove as needed)
+        '72': '18rem',
+        '84': '21rem',
+        '96': '24rem',
+      },
+      borderWidth: { // Example border width extensions (keep or remove as needed)
+        DEFAULT: '1px',
+        '0': '0',
+        '2': '2px',
+        '3': '3px',
+        '4': '4px',
+        '6': '6px',
+        '8': '8px',
+      },
+      // Add prose styles for TransparencyView markdown
+      typography: (theme) => ({
+        DEFAULT: {
+          css: {
+            color: theme('colors.text.secondary'),
+            a: {
+              color: theme('colors.primary.DEFAULT'),
+              '&:hover': {
+                color: theme('colors.primary.dark'),
+              },
+              textDecoration: 'none',
+            },
+            h1: { color: theme('colors.text.primary') },
+            h2: { color: theme('colors.text.primary') },
+            h3: { color: theme('colors.text.primary') },
+            h4: { color: theme('colors.text.primary') },
+            strong: { color: theme('colors.text.primary') },
+            code: {
+              color: theme('colors.primary.dark'),
+              backgroundColor: theme('colors.primary.extraLight'),
+              padding: '0.2em 0.4em',
+              borderRadius: '0.25rem',
+              fontWeight: '500',
+             },
+            pre: {
+              color: theme('colors.text.secondary'),
+              backgroundColor: theme('colors.secondary.light'),
+            },
+             ul: { paddingLeft: '1.5em' }, // Adjust list padding if needed
+             ol: { paddingLeft: '1.5em' },
+             li: { marginTop: '0.5em', marginBottom: '0.5em' },
+            'li > p': { marginTop: '0.25em', marginBottom: '0.25em' }, // Reduce space within list items if needed
+            'li::marker': { color: theme('colors.text.disabled') },
+            blockquote: {
+              color: theme('colors.neutral.text'),
+              borderLeftColor: theme('colors.neutral.DEFAULT'),
+            },
+          },
+        },
+        // Define size variants if needed, e.g., prose-sm
+        sm: {
+           css: {
+               fontSize: '0.875rem', // text-sm
+               lineHeight: '1.5rem',
+               p: { marginTop: '0.75em', marginBottom: '0.75em' },
+               h2: { fontSize: '1.125rem', marginTop: '1.5em', marginBottom: '0.75em' },
+               h3: { fontSize: '1.05rem', marginTop: '1.25em', marginBottom: '0.5em' },
+               h4: { fontSize: '1rem', marginTop: '1em', marginBottom: '0.5em' },
+           }
+        }
+      }),
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'), // Add typography plugin
+    require('@tailwindcss/forms'), // Add forms plugin for better defaults
+  ],
 }

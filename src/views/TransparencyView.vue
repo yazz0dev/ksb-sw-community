@@ -4,6 +4,7 @@
         <h1 class="text-3xl font-bold text-text-primary mb-6 pb-2 border-b border-border">Community Transparency & Guidelines</h1>
 
         <div class="space-y-6">
+            <!-- Introduction Section -->
             <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
                 <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
                     <i class="fas fa-info-circle h-5 w-5 mr-3 text-primary-dark"></i>
@@ -12,68 +13,19 @@
                 <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(introductionContent)"></div>
             </div>
 
+            <!-- Roles Section -->
             <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
                 <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-users-cog h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Roles & Permissions</h2>
+                    <i class="fas fa-user-shield h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Community Roles</h2>
                 </div>
                 <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(rolesContent)"></div>
             </div>
 
+            <!-- Guidelines Section -->
             <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-project-diagram h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Event Lifecycle</h2>
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light">
                 </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(eventLifecycleContent)"></div>
-            </div>
-
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-users h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Team Management</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(teamsContent)"></div>
-            </div>
-
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-star-half-alt h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Rating System</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(ratingContent)"></div>
-            </div>
-
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-star h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Experience Points (XP) System</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(xpContent)"></div>
-            </div>
-
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-file-pdf h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Portfolio & Projects</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(portfolioContent)"></div>
-            </div>
-
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-trophy h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Leaderboard</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(leaderboardContent)"></div>
-            </div>
-
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-book-open h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">General Information</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(generalContent)"></div>
             </div>
         </div>
       </div>
