@@ -167,26 +167,31 @@ const searchQueries = reactive<Record<number, string>>({});
 const dropdownVisible = reactive<Record<number, boolean>>({});
 const showValidationErrors = ref<boolean>(false);
 const memberSearchInputs = ref<Record<number, HTMLInputElement | null>>({});
+// Flag to prevent recursive updates
+const isUpdatingFromParent = ref(false);
 
 // --- Helper Methods ---
-
-// Emit the current valid teams list to the parent (exclude internalId, ensure arrays)
-const emitUpdate = (): void => {
-    showValidationErrors.value = true;
-    const teamsToEmit = localTeams.value.map(({ internalId, ...rest }) => ({
-        ...rest,
-        // Ensure ratings and submissions are always arrays, even if empty
-        ratings: rest.ratings ?? [],
-        submissions: rest.submissions ?? [],
-    }));
-    emit('update:teams', teamsToEmit);
-};
 
 // Add unique internal ID for stable list rendering
 const addInternalId = (team: EventTeam): LocalEventTeam => ({
     ...team,
     internalId: uuidv4(),
 });
+
+// Emit updated teams to parent
+const emitUpdate = () => {
+    const teamsToEmit = localTeams.value.map(({ internalId, ...rest }) => ({
+        ...rest,
+        // Ensure ratings and submissions are always arrays, even if empty
+        ratings: rest.ratings ?? [],
+        submissions: rest.submissions ?? [],
+    }));
+    
+    // Only emit if we're not already in an update cycle
+    if (!isUpdatingFromParent.value) {
+        emit('update:teams', teamsToEmit);
+    }
+};
 
 // Check for duplicate team names (case-insensitive)
 const duplicateTeamNames = computed(() => {
@@ -203,7 +208,6 @@ const duplicateTeamNames = computed(() => {
     });
     return duplicates;
 });
-
 
 // Helper to initialize or reset local teams
 const initializeTeams = (initialData: EventTeam[] | undefined) => {
@@ -232,9 +236,14 @@ const initializeTeams = (initialData: EventTeam[] | undefined) => {
         dropdownVisible[index] = false;
     });
 
-    emitUpdate(); // Emit initial state
+    // Use nextTick to ensure DOM is updated before emitting
+    nextTick(() => {
+        // Only emit if we're not updating from parent
+        if (!isUpdatingFromParent.value) {
+            emitUpdate();
+        }
+    });
 };
-
 
 // Get all student IDs currently assigned to any team
 const assignedStudentIds = computed<Set<string>>(() => {
@@ -249,7 +258,6 @@ const getStudentTeamAssignment = (studentId: string, currentTeamIndex: number): 
      );
      return team ? team.teamName : null;
 };
-
 
 // Function to filter and sort students for a specific team's dropdown
 const filteredAndSortedStudents = (teamIndex: number): TeamMember[] => {
@@ -297,43 +305,64 @@ const addMember = async (teamIndex: number, student: TeamMember) => {
     // Ensure team and members array exist, check student uid
     if (!team || !Array.isArray(team.members) || !student.uid || team.members.includes(student.uid)) return;
 
-    const currentAssignment = getStudentTeamAssignment(student.uid, teamIndex);
+    // Set flag to prevent circular updates
+    isUpdatingFromParent.value = true;
+    
+    try {
+        const currentAssignment = getStudentTeamAssignment(student.uid, teamIndex);
 
-    if (currentAssignment) {
-        const studentName = props.nameCache[student.uid] || student.uid;
-        if (!confirm(`${studentName} is already in "${currentAssignment}". Move to "${team.teamName}"?`)) {
-            searchQueries[teamIndex] = '';
-            dropdownVisible[teamIndex] = false;
-            return;
-        }
-        // Remove from other team(s)
-        localTeams.value.forEach((t) => {
-             if (Array.isArray(t.members) && t.members.includes(student.uid)) {
-                t.members = t.members.filter(id => id !== student.uid);
+        if (currentAssignment) {
+            const studentName = props.nameCache[student.uid] || student.uid;
+            if (!confirm(`${studentName} is already in "${currentAssignment}". Move to "${team.teamName}"?`)) {
+                searchQueries[teamIndex] = '';
+                dropdownVisible[teamIndex] = false;
+                return;
             }
-        });
+            // Remove from other team(s)
+            localTeams.value.forEach((t) => {
+                if (Array.isArray(t.members) && t.members.includes(student.uid)) {
+                    t.members = t.members.filter(id => id !== student.uid);
+                }
+            });
+        }
+
+        // Add to current team
+        team.members.push(student.uid);
+        searchQueries[teamIndex] = '';
+        emitUpdate();
+
+        await nextTick();
+        const inputElement = memberSearchInputs.value[teamIndex];
+        inputElement?.focus();
+        showDropdown(teamIndex);
+    } finally {
+        // Reset flag after a delay
+        setTimeout(() => {
+            isUpdatingFromParent.value = false;
+        }, 0);
     }
-
-    // Add to current team
-    team.members.push(student.uid);
-    searchQueries[teamIndex] = '';
-    emitUpdate();
-
-    await nextTick();
-    const inputElement = memberSearchInputs.value[teamIndex];
-    inputElement?.focus();
-    showDropdown(teamIndex);
 };
 
 const removeMember = (teamIndex: number, memberId: string) => {
     const team = localTeams.value[teamIndex];
     if (!team || !Array.isArray(team.members)) return;
-    team.members = team.members.filter(id => id !== memberId);
-    emitUpdate();
+    
+    // Set flag to prevent circular updates
+    isUpdatingFromParent.value = true;
+    
+    try {
+        team.members = team.members.filter(id => id !== memberId);
+        emitUpdate();
+    } finally {
+        // Reset flag after a delay
+        setTimeout(() => {
+            isUpdatingFromParent.value = false;
+        }, 0);
+    }
 };
 
 // Add/Remove Teams
-const addTeam = async () => { // Made async for nextTick
+const addTeam = async () => { 
     if (!canAddMoreTeams.value) return;
 
     const newTeamNumber = localTeams.value.length + 1;
@@ -344,22 +373,34 @@ const addTeam = async () => { // Made async for nextTick
         newTeamName = `Team ${newTeamNumber} (${counter++})`;
     }
 
-    // Ensure new team has empty arrays for ratings/submissions
-    const newTeam = addInternalId({ teamName: newTeamName, members: [], ratings: [], submissions: [] });
-    localTeams.value.push(newTeam);
+    // Set flag to prevent circular updates
+    isUpdatingFromParent.value = true;
+    
+    try {
+        // Ensure new team has empty arrays for ratings/submissions
+        const newTeam = addInternalId({ teamName: newTeamName, members: [], ratings: [], submissions: [] });
+        localTeams.value.push(newTeam);
 
-    const newIndex = localTeams.value.length - 1;
-    searchQueries[newIndex] = '';
-    dropdownVisible[newIndex] = false;
+        const newIndex = localTeams.value.length - 1;
+        searchQueries[newIndex] = '';
+        dropdownVisible[newIndex] = false;
 
-    emitUpdate();
+        // Emit update with the flag set to prevent circular updates
+        emitUpdate();
 
-     await nextTick();
-     const teamInputElement = memberSearchInputs.value[newIndex]; // Target input instead of label
-     teamInputElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-     teamInputElement?.focus();
+        await nextTick();
+        const teamInputElement = memberSearchInputs.value[newIndex]; 
+        teamInputElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        teamInputElement?.focus();
+    } finally {
+        // Reset flag after a delay to ensure all reactive updates have completed
+        setTimeout(() => {
+            isUpdatingFromParent.value = false;
+        }, 0);
+    }
 };
 
+// Remove team function
 const removeTeam = (index: number) => {
     if (localTeams.value.length <= minTeams) {
         alert(`At least ${minTeams} teams are required.`);
@@ -369,25 +410,36 @@ const removeTeam = (index: number) => {
         return;
     }
 
-    // Use the actual team's internalId if available, otherwise fallback to index
-    const teamToRemoveId = localTeams.value[index]?.internalId;
+    // Set flag to prevent circular updates
+    isUpdatingFromParent.value = true;
+    
+    try {
+        // Use the actual team's internalId if available, otherwise fallback to index
+        const teamToRemoveId = localTeams.value[index]?.internalId;
+        localTeams.value = localTeams.value.filter((_, i) => i !== index);
 
-    // Clean up state associated with the removed team index/id
-    delete searchQueries[index];
-    delete dropdownVisible[index];
-    if (memberSearchInputs.value[index]) {
-        memberSearchInputs.value[index] = null; // Clear ref
+        // Clean up search/dropdown state
+        delete searchQueries[index];
+        delete dropdownVisible[index];
+        
+        // Re-index remaining teams' search/dropdown state
+        localTeams.value.forEach((_, i) => {
+            if (i >= index) {
+                searchQueries[i] = searchQueries[i + 1] || '';
+                dropdownVisible[i] = dropdownVisible[i + 1] || false;
+                delete searchQueries[i + 1];
+                delete dropdownVisible[i + 1];
+            }
+        });
+
+        emitUpdate();
+    } finally {
+        // Reset flag after a delay
+        setTimeout(() => {
+            isUpdatingFromParent.value = false;
+        }, 0);
     }
-
-    localTeams.value.splice(index, 1);
-
-    // Important: Re-index the reactive state objects after removal if keys were based on index
-    // This is complex, simpler approach is using Map or object keyed by internalId if needed
-
-    emitUpdate();
 };
-
-// --- Computed Properties ---
 
 const teams = computed(() => localTeams.value);
 const totalStudents = computed(() => props.students?.length || 0);
@@ -417,8 +469,17 @@ const overallValidation = computed(() => {
 
 // --- Watchers ---
 watch(() => props.initialTeams, (newTeams) => {
+    // Skip if we're already in the process of updating
+    if (isUpdatingFromParent.value) return;
+    
     console.log("Initial teams prop changed, re-initializing component.");
-    initializeTeams(newTeams);
+    isUpdatingFromParent.value = true;
+    
+    // Use setTimeout to break the reactive chain
+    setTimeout(() => {
+        initializeTeams(newTeams);
+        isUpdatingFromParent.value = false;
+    }, 0);
 }, { immediate: true, deep: true });
 
 // --- Lifecycle Hooks ---

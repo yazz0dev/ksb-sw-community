@@ -325,7 +325,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useStore } from 'vuex';
 import { Timestamp } from 'firebase/firestore';
 import { XPAllocation, EventCreateDTO, EventRequest, EventTeam, EventFormData } from '../types/event';
@@ -400,21 +400,38 @@ const availableEventTypes = computed(() => {
     return formData.value.isTeamEvent ? teamEventTypes : individualEventTypes;
 });
 
-// Update the handleFormatChange function:
+// Update the handleFormatChange function to avoid circular updates:
 const handleFormatChange = async () => {
     formData.value.eventType = '';
     
+    // Create new teams array without causing circular updates
     if (formData.value.isTeamEvent) {
         // Ensure we have the latest student data
         const initialTeams = [
             { teamName: 'Team 1', members: [], ratings: [], submissions: [] },
             { teamName: 'Team 2', members: [], ratings: [], submissions: [] }
         ];
-        teamsList.value = initialTeams;
-        formData.value.teams = initialTeams;
+        
+        // Set teams without triggering the watcher in ManageTeamsComponent
+        // by temporarily disabling the watch
+        const updatingFlag = isUpdatingTeamsInternally;
+        updatingFlag.value = true;
+        formData.value.teams = JSON.parse(JSON.stringify(initialTeams));
+        teamsList.value = JSON.parse(JSON.stringify(initialTeams));
+        
+        // Re-enable the watch after a delay
+        setTimeout(() => {
+            updatingFlag.value = false;
+        }, 0);
     } else {
-        teamsList.value = [];
+        const updatingFlag = isUpdatingTeamsInternally;
+        updatingFlag.value = true;
         formData.value.teams = [];
+        teamsList.value = [];
+        
+        setTimeout(() => {
+            updatingFlag.value = false;
+        }, 0);
     }
 };
 
@@ -476,12 +493,17 @@ const addAllocation = () => {
         return;
     }
 
-    formData.value.xpAllocation.push({
-        constraintIndex: formData.value.xpAllocation.length,
+    // Create a new array to avoid triggering the watcher during modification
+    const newAllocations = [...formData.value.xpAllocation];
+    newAllocations.push({
+        constraintIndex: newAllocations.length,
         constraintLabel: '',
         role: 'fullstack', // Default role
         points: Math.min(10, remainingXP) // Default points or remaining XP
     });
+    
+    // Replace the entire array at once
+    formData.value.xpAllocation = newAllocations;
 };
 
 const removeAllocation = (index: number) => {
@@ -630,7 +652,6 @@ const handleSubmit = async () => {
                 desiredStartDate: Timestamp.fromDate(proposedStartUTC), // Convert UTC Date to Timestamp
                 desiredEndDate: Timestamp.fromDate(proposedEndUTC),     // Convert UTC Date to Timestamp
                 requester: store.getters['user/userId'],
-                status: 'Pending',
                 teams: []
             };
             await store.dispatch('events/requestEvent', userEventData);
@@ -727,7 +748,7 @@ const checkNextAvailableDate = async () => {
     }
 };
 
-// Update findNextAvailableDate to suggest the next available *day*
+// Update findNextAvailableDate to suggest the next available *day* without recursive updates
 const findNextAvailableDate = async () => {
     const events = store.getters['events/getAllEvents'] || [];
     const startField = isAdmin.value ? 'startDate' : 'desiredStartDate';
@@ -786,17 +807,24 @@ const findNextAvailableDate = async () => {
         if (!isConflicting) {
             found = true;
             const nextAvailableDayStr = searchDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-
-            formData.value[startField] = nextAvailableDayStr;
-
-            // Set end date (e.g., same day or +N days)
             const endDate = new Date(searchDate);
-            // endDate.setUTCDate(endDate.getUTCDate() + 2); // Example: 3-day event (0 + 2)
-            formData.value[endField] = endDate.toISOString().split('T')[0]; // Set end date to same day by default
+            const endDateStr = endDate.toISOString().split('T')[0];
 
-            nextAvailableDate.value = searchDate; // Store the found date object
+            // Store the found date object first
+            nextAvailableDate.value = searchDate;
             isDateAvailable.value = true;
-            checkNextAvailableDate(); // Re-run check to update UI message based on new dates
+            
+            // Update form fields in the next tick to avoid recursive updates
+            nextTick(() => {
+                // Update form fields without triggering the watcher
+                formData.value[startField] = nextAvailableDayStr;
+                formData.value[endField] = endDateStr;
+                
+                // Call checkNextAvailableDate in the next tick to avoid recursive updates
+                nextTick(() => {
+                    checkNextAvailableDate();
+                });
+            });
             break;
         }
 
@@ -826,13 +854,34 @@ const validatePoints = (index: number) => {
     }
 };
 
-// Add watch for points changes
+// Add watch for points changes with improved handling to prevent recursive updates
 watch(() => formData.value.xpAllocation, () => {
-    formData.value.xpAllocation.forEach((alloc, index) => {
+    // Create a local copy to avoid modifying during iteration
+    const allocations = [...formData.value.xpAllocation];
+    let needsUpdate = false;
+    
+    allocations.forEach((alloc, index) => {
         if (alloc.points) {
-            validatePoints(index);
+            const originalPoints = alloc.points;
+            // Calculate max points without exceeding 50 total
+            const otherPointsTotal = allocations.reduce((sum, a, i) => 
+                i !== index ? sum + (Number(a.points) || 0) : sum, 0);
+            const maxPoints = 50 - otherPointsTotal;
+            
+            // Adjust points if needed
+            if (alloc.points > maxPoints) {
+                alloc.points = maxPoints;
+                needsUpdate = true;
+            }
         }
     });
+    
+    // Only update if changes were made, and do it in the next tick
+    if (needsUpdate) {
+        nextTick(() => {
+            formData.value.xpAllocation = [...allocations];
+        });
+    }
 }, { deep: true });
 
 // Initialize form with initial data if editing
@@ -899,10 +948,24 @@ const nameCache = computed(() => {
     return Object.fromEntries(users.map(user => [user.uid, user.name || user.uid]));
 });
 
-// Add updateTeams method
+// Add updateTeams method with improved handling to avoid circular updates
 const updateTeams = (teams: any[]) => {
-    teamsList.value = teams;
-    formData.value.teams = teams;
+    // Skip if we're already updating teams internally
+    if (isUpdatingTeamsInternally.value) return;
+    
+    // Set flag to prevent recursive updates
+    const updatingFlag = isUpdatingTeamsInternally;
+    updatingFlag.value = true;
+    
+    // Create deep copies to break references
+    const teamsCopy = JSON.parse(JSON.stringify(teams));
+    formData.value.teams = teamsCopy;
+    teamsList.value = teamsCopy;
+    
+    // Reset flag after a delay
+    setTimeout(() => {
+        updatingFlag.value = false;
+    }, 0);
 };
 
 // Fix window.setTimeout error by removing the reference
@@ -912,12 +975,17 @@ const hideCoOrganizerDropdown = () => {
     }, 200);
 };
 
-// Add these state refs after formData:
+// Define state refs before they're used
 const teamSearchQuery = ref('');
 const teamsList = ref<EventTeam[]>([]);
+// Flag to prevent recursive updates
+const isUpdatingTeamsInternally = ref(false);
 
 // Add this watch to ensure students are loaded properly
 watch(() => formData.value.isTeamEvent, async (newVal) => {
+    // Skip the watch if we're already updating teams internally
+    if (isUpdatingTeamsInternally.value) return;
+    
     // if (newVal) { // No longer needed here, onMounted handles initial fetch
     //     // Force refresh of students list when switching to team mode
     //     await store.dispatch('user/fetchAllUsers');
