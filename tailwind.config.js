@@ -8,30 +8,30 @@ export default {
     extend: {
       colors: {
         primary: {
-          light: '#60a5fa', // blue-400
-          DEFAULT: '#3b82f6', // blue-500
-          dark: '#2563eb', // blue-600
+          light: '#8b5cf6', // purple-500
+          DEFAULT: '#7c3aed', // purple-600
+          dark: '#6d28d9', // purple-700
           text: '#ffffff',  // text color on primary background
         },
         secondary: {
-          light: '#f3f4f6', // gray-100
-          DEFAULT: '#e5e7eb', // gray-200
-          dark: '#d1d5db', // gray-300
+          light: '#fde68a', // amber-200
+          DEFAULT: '#fcd34d', // amber-300
+          dark: '#fbbf24', // amber-400
         },
         // Add missing color variables used in your components
         text: {
-          primary: '#111827',   // dark text for headings
-          secondary: '#4b5563', // medium text for labels
-          disabled: '#9ca3af',  // light text for numbers/disabled
+          primary: '#1e293b',   // slate-800 for headings
+          secondary: '#475569', // slate-600 for labels
+          disabled: '#94a3b8',  // slate-400 for numbers/disabled
         },
         surface: {
           DEFAULT: '#ffffff',   // card/container backgrounds
-          hover: '#f9fafb',     // hover state for surface
+          hover: '#f8fafc',     // slate-50 for hover state
         },
-        border: '#e5e7eb',      // border color
+        border: '#e2e8f0',      // slate-200 for borders
         info: {
-          light: '#e0f2fe',     // light blue background
-          dark: '#0369a1',      // dark blue text
+          light: '#dbeafe',     // blue-100 background
+          dark: '#2563eb',      // blue-600 text
         }
       },
       keyframes: {

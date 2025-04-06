@@ -1,1 +1,47 @@
 @import "tailwindcss";
+
+:root {
+  --color-primary: #7c3aed;
+  --color-primary-light: #8b5cf6;
+  --color-primary-dark: #6d28d9;
+  --color-primary-text: #ffffff;
+  
+  --color-secondary: #fcd34d;
+  --color-secondary-light: #fde68a;
+  --color-secondary-dark: #fbbf24;
+  
+  --color-text-primary: #1e293b;
+  --color-text-secondary: #475569;
+  --color-text-disabled: #94a3b8;
+  
+  --color-surface: #ffffff;
+  --color-surface-hover: #f8fafc;
+  
+  --color-border: #e2e8f0;
+  
+  --color-info-light: #dbeafe;
+  --color-info-dark: #2563eb;
+}
+
+/* Apply custom colors to Tailwind classes */
+.text-primary { color: var(--color-primary) !important; }
+.bg-primary { background-color: var(--color-primary) !important; }
+.text-primary-dark { color: var(--color-primary-dark) !important; }
+.bg-primary-light { background-color: var(--color-primary-light) !important; }
+.text-primary-text { color: var(--color-primary-text) !important; }
+
+.text-secondary { color: var(--color-secondary) !important; }
+.bg-secondary { background-color: var(--color-secondary) !important; }
+
+.text-text-primary { color: var(--color-text-primary) !important; }
+.text-text-secondary { color: var(--color-text-secondary) !important; }
+.text-text-disabled { color: var(--color-text-disabled) !important; }
+
+.bg-surface { background-color: var(--color-surface) !important; }
+.bg-surface-hover { background-color: var(--color-surface-hover) !important; }
+
+.border-border { border-color: var(--color-border) !important; }
+.divide-border { border-color: var(--color-border) !important; }
+
+.bg-info-light { background-color: var(--color-info-light) !important; }
+.text-info-dark { color: var(--color-info-dark) !important; }
