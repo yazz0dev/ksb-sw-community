@@ -219,7 +219,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, defineProps, toRefs } from 'vue';
+import { ref, computed, watch, onMounted, toRefs } from 'vue';
 import { useStore } from 'vuex';
 import { db } from '../firebase';
 import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';

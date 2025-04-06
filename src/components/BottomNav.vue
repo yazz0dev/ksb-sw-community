@@ -1,5 +1,4 @@
 <template>
-    <!-- Removed backdrop-blur and bg-opacity. Added solid bg-surface and subtle top shadow/border -->
     <nav class="fixed bottom-0 left-0 right-0 h-12 bg-surface border-t border-border flex justify-around items-center shadow-[0_-1px_4px_rgba(0,0,0,0.08)] z-40">
         <!-- Home -->
         <router-link
@@ -13,7 +12,7 @@
 
         <!-- Unified Event Creation/Request Link -->
         <router-link
-            v-if="isAuthenticated"
+            v-if="typeof isAuthenticated === 'boolean' && isAuthenticated != null && isAuthenticated"
             to="/create-event"
             active-class="text-primary font-medium"
             class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
@@ -35,7 +34,7 @@
 
         <!-- Manage Requests (Admin Only) -->
         <router-link
-            v-if="isAdmin"
+            v-if="isAdmin != null && isAdmin"
             to="/manage-requests"
             active-class="text-primary font-medium"
             class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
@@ -46,7 +45,7 @@
 
         <!-- Profile (User Only) -->
         <router-link
-            v-if="isAuthenticated && !isAdmin" <!-- Ensure authenticated check -->
+            v-if="typeof isAuthenticated === 'boolean' && typeof isAdmin === 'boolean' && isAuthenticated && !isAdmin"
             to="/profile"
             active-class="text-primary font-medium"
             class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
