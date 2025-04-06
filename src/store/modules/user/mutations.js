@@ -26,6 +26,7 @@ export const userMutations = {
         state.isAuthenticated = !!userData.isAuthenticated;
         // hasFetched is set separately in the action's finally block
     },
+
     clearUserData(state) {
         state.uid = null;
         state.name = null;
@@ -37,6 +38,7 @@ export const userMutations = {
         state.isAuthenticated = false;
         // state.hasFetched = false; // Don't reset hasFetched on clear, only on new fetch attempt start
     },
+
     setUserXpByRole(state, xpByRoleMap) {
         // Ensure the map structure is correct and includes all roles
         const defaultXpStructure = { fullstack: 0, presenter: 0, designer: 0, organizer: 0, problemSolver: 0, participation: 0, general: 0 };
@@ -46,9 +48,11 @@ export const userMutations = {
             return acc;
         }, {});
     },
+
     setHasFetched(state, fetched) {
         state.hasFetched = !!fetched; // Ensure boolean
     },
+
     incrementUserXpRole(state, { role, amount }) {
         if (state.xpByRole && typeof state.xpByRole[role] === 'number') {
             state.xpByRole[role] += amount;
@@ -59,7 +63,28 @@ export const userMutations = {
         } else {
             // Should ideally not happen if initialized correctly, but handle it
             state.xpByRole = { [role]: amount };
-             console.warn(`Initialized xpByRole object which was previously missing.`);
+            console.warn(`Initialized xpByRole object which was previously missing.`);
+        }
+    },
+
+    // Add mutations for handling all users
+    setAllUsers(state, users) {
+        state.allUsers = users;
+    },
+
+    updateUser(state, userData) {
+        const index = state.allUsers.findIndex(u => u.uid === userData.uid);
+        if (index !== -1) {
+            state.allUsers.splice(index, 1, userData);
+        } else {
+            state.allUsers.push(userData);
+        }
+    },
+
+    removeUser(state, uid) {
+        const index = state.allUsers.findIndex(u => u.uid === uid);
+        if (index !== -1) {
+            state.allUsers.splice(index, 1);
         }
     }
 };

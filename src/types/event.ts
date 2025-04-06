@@ -13,21 +13,23 @@ export interface RatingCriteria {
 }
 
 export interface TeamMember {
-    teamName: string;
-    members: string[];
-    ratings?: any[];
-    submissions?: any[];
-    isNew?: boolean;
+    uid: string;
+    name?: string;
+    role?: string;
 }
 
-// renamed from EventTeam to TeamMember for consistency
-export type EventTeam = Omit<TeamMember, 'isNew'>;
+export interface EventTeam {
+    teamName: string;
+    members: string[];
+    ratings: any[];
+    submissions: any[];
+}
 
 export interface XPAllocation {
     constraintIndex: number;
     constraintLabel: string;
+    role: 'fullstack' | 'presenter' | 'designer' | 'problemSolver';
     points: number;
-    role: string;
 }
 
 export type EventStatus = 'Pending' | 'Approved' | 'InProgress' | 'Completed' | 'Cancelled' | 'Rejected';
@@ -75,14 +77,14 @@ export interface EventCreateDTO {
     eventType: string;
     description: string;
     isTeamEvent: boolean;
-    startDate: Date;
-    endDate: Date;
+    startDate?: Date;
+    endDate?: Date;
+    location: string;
     organizers: string[];
     xpAllocation: XPAllocation[];
-    teams?: Partial<EventTeam>[];
+    teams: EventTeam[];
 }
 
-// Add EventRequest interface
 export interface EventRequest {
     eventName: string;
     eventType: string;
@@ -98,5 +100,19 @@ export interface EventRequest {
     status: 'Pending';
 }
 
-// Add EventData type (used in CreateEditEventView)
 export type EventData = Omit<Event, 'id'>;
+
+export interface EventFormData {
+    isTeamEvent: boolean;
+    eventType: string;
+    eventName: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+    desiredStartDate: string;
+    desiredEndDate: string;
+    location: string;
+    organizers: string[];
+    xpAllocation: XPAllocation[];
+    teams: EventTeam[];
+}

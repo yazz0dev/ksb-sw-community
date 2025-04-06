@@ -17,6 +17,7 @@ const state = {
     preferredRoles: [],
     isAuthenticated: false,
     hasFetched: false, // Flag to track if initial fetch attempt completed
+    allUsers: [], // Add state for all users
 };
 
 const getters = {
@@ -32,6 +33,8 @@ const getters = {
     }),
     isAdmin: state => state.role === 'Admin',
     hasFetchedUserData: state => state.hasFetched,
+    getAllUsers: state => state.allUsers,
+    getUserById: state => uid => state.allUsers.find(user => user.uid === uid),
     // Getter specifically for total XP, sums up the xpByRole map
     currentUserTotalXp: (state) => {
         // Add null/undefined check for xpByRole itself

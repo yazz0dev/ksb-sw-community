@@ -10,28 +10,17 @@
             <span class="text-xs">Home</span>
         </router-link>
         
-        <!-- Request Event (User Only) -->
+        <!-- Unified Event Creation Link -->
         <router-link
-            v-if="!isAdmin"
-            to="/request-event"
-            active-class="text-primary font-medium"
-            class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
-        >
-            <i class="fas fa-calendar-plus text-xl mb-0.5"></i>
-            <span class="text-xs">Request</span>
-        </router-link>
-
-        <!-- Create Event (Admin Only) -->
-        <router-link
-            v-if="isAdmin"
+            v-if="isAuthenticated"
             to="/create-event"
             active-class="text-primary font-medium"
             class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
         >
-            <i class="fas fa-plus-circle text-xl mb-0.5"></i> <!-- Different icon -->
-            <span class="text-xs">Create</span>
+            <i :class="['fas', isAdmin ? 'fa-plus-circle' : 'fa-calendar-plus', 'text-xl mb-0.5']"></i>
+            <span class="text-xs">{{ isAdmin ? 'Create' : 'Request' }}</span>
         </router-link>
-        
+
         <!-- Leaderboard (Always Visible) -->
         <router-link
             to="/leaderboard"
@@ -75,6 +64,8 @@ const store = useStore();
 
 // Get isAdmin status
 const isAdmin = computed(() => store.getters['user/isAdmin']);
+// Add missing isAuthenticated computed property
+const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 
 // Use new URL pattern for asset handling
 const defaultAvatarUrl = new URL('../assets/default-avatar.png', import.meta.url).href;

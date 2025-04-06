@@ -400,5 +400,44 @@ export const userActions = {
              // For now, just log it, as it's often a background task
              // throw new Error(`Failed to update XP for user ${userId}.`);
         }
-    }
+    },
+
+    async fetchAllStudents({ commit }) {
+        try {
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('role', '!=', 'Admin')); // Exclude Admins
+            const querySnapshot = await getDocs(q);
+
+            const students = querySnapshot.docs
+                .map(doc => ({ 
+                    uid: doc.id, 
+                    name: doc.data().name || 'Unnamed',
+                    role: doc.data().role || 'Student'
+                }))
+                .sort((a, b) => (a.name || a.uid).localeCompare(b.name || b.uid));
+
+            return students;
+        } catch (error) {
+            console.error("Error fetching all students:", error);
+            return [];
+        }
+    },
+
+    async fetchAllUsers({ commit }) {
+        try {
+            const usersRef = collection(db, 'users');
+            const querySnapshot = await getDocs(usersRef);
+
+            const users = querySnapshot.docs.map(doc => ({
+                uid: doc.id,
+                ...doc.data(),
+            }));
+
+            commit('setAllUsers', users);
+            return users;
+        } catch (error) {
+            console.error("Error fetching all users:", error);
+            return [];
+        }
+    },
 };

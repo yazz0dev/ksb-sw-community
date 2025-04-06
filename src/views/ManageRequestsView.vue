@@ -10,8 +10,8 @@
              </button>
              <router-link 
                 to="/create-event" 
-                class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-bold rounded-md shadow-sm text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary transition-colors">
-                 <i class="fas fa-calendar-plus mr-1 h-3 w-3 text-primary"></i> Create Event
+                class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary transition-colors">
+                 <i class="fas fa-plus mr-1 h-3 w-3"></i> Create Event
              </router-link>
          </div>
       </div>

@@ -8,15 +8,13 @@ import LeaderboardView from '../views/LeaderboardView.vue';
 import RatingForm from '../views/RatingForm.vue';
 import Resources from '../views/ResourcesView.vue';
 import Transparency from '../views/TransparencyView.vue';
-import RequestEventView from '../views/RequestEventView.vue';
-import CreateEditEventView from '../views/CreateEditEventView.vue';
+import CreateEventView from '../views/CreateEventView.vue';
 import ManageRequestsView from '../views/ManageRequestsView.vue'; 
 import store from '../store';
 import UserProfile from '../views/UserProfile.vue';
 import ForgotPasswordView from '../views/ForgotPasswordView.vue';
 import LandingView from '../views/LandingView.vue';
 import PublicProfile from '../views/PublicProfile.vue';
-
 
 const routes = [
   { path: '/', name: 'Landing', component: LandingView, meta: { requiresAuth: false, guestOnly: true } },
@@ -28,22 +26,15 @@ const routes = [
   { path: '/resources', name: 'Resources', component: Resources, meta: { requiresAuth: false } },
   { path: '/transparency', name: 'Transparency', component: Transparency, meta: { requiresAuth: false } },
   { 
-    path: '/request-event', 
-    name: 'RequestEvent', 
-    component: RequestEventView, 
-    meta: { requiresAuth: true, adminForbidden: true },
-    props: route => ({ step: route.query.step || '1' })
-  },
-  { 
     path: '/create-event', 
     name: 'CreateEvent', 
-    component: CreateEditEventView, 
-    meta: { requiresAuth: true, requiresAdmin: true } 
+    component: CreateEventView, 
+    meta: { requiresAuth: true }
   },
   { 
     path: '/edit-event/:eventId', 
     name: 'EditEvent', 
-    component: CreateEditEventView, 
+    component: CreateEventView, 
     meta: { requiresAuth: true, requiresAdmin: true },
     props: true
   },
@@ -67,7 +58,6 @@ const routes = [
     meta: { requiresAuth: false }
   },
   { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPasswordView, meta: { requiresAuth: false, guestOnly: true } },
-
 ];
 
 const router = createRouter({

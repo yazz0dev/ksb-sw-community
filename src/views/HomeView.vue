@@ -4,20 +4,14 @@
     <!-- Header and Actions: Improved spacing and button styling -->
     <div class="flex flex-wrap justify-between items-center gap-4 mb-8 pb-4 border-b border-border">
        <h2 class="text-3xl font-bold text-text-primary whitespace-nowrap">Events Dashboard</h2>
-       <div class="flex space-x-3 flex-wrap justify-end"> <!-- Adjusted spacing -->
-           <!-- Request Event Button: Use primary color -->
+       <div class="flex space-x-3 flex-wrap justify-end">
+           <!-- Unified Event Creation Button -->
            <router-link
-              v-if="canRequestEvent && !isAdmin"
-              to="/request-event"
-              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
-               <i class="fas fa-plus mr-1.5"></i> Request Event
-           </router-link>
-           <!-- Create Event Button: Use primary color -->
-           <router-link
-              v-if="isAdmin"
+              v-if="canRequestEvent"
               to="/create-event"
               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
-               <i class="fas fa-calendar-plus mr-1.5"></i> Create Event
+               <i :class="['fas', isAdmin ? 'fa-plus' : 'fa-calendar-plus', 'mr-1.5']"></i>
+               {{ isAdmin ? 'Create Event' : 'Request Event' }}
            </router-link>
            <!-- Manage Requests Button: Use secondary style -->
            <router-link
