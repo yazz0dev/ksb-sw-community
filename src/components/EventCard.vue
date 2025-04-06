@@ -13,7 +13,7 @@
           {{ event.eventName }}
         </h5>
         <span
-          class="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full whitespace-nowrap border"
+          class="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full whitespace-nowrap"
           :class="statusBadgeClass"
         >
           {{ event.status }}
@@ -21,22 +21,22 @@
       </div>
       <div class="text-xs text-text-secondary mb-3 flex items-center flex-wrap gap-x-3">
         <span class="inline-flex items-center">
-            <i class="fas fa-tag mr-1 text-text-secondary"></i>{{ event.eventType }}
+            <i class="fas fa-tag mr-1 text-text-disabled"></i>{{ event.eventType }}
         </span>
         <span class="inline-flex items-center">
-            <i class="fas fa-calendar-alt mr-1 text-text-secondary"></i>{{ formatDateRange(event.startDate, event.endDate) }}
+            <i class="fas fa-calendar-alt mr-1 text-text-disabled"></i>{{ formatDateRange(event.startDate, event.endDate) }}
         </span>
       </div>
       <p class="text-sm text-text-secondary mb-4 flex-grow">{{ truncatedDescription }}</p>
       <div class="flex justify-between items-center mt-auto pt-3 border-t border-border">
         <router-link
           :to="{ name: 'EventDetails', params: { id: event.id } }"
-          class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-light transition-colors shadow-md"
+          class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary transition-colors shadow-md"
         >
           View Details
         </router-link>
         <span class="text-sm text-text-secondary inline-flex items-center">
-          <i class="fas fa-users mr-1.5 text-text-secondary"></i> {{ participantCount }}
+          <i class="fas fa-users mr-1.5 text-text-disabled"></i> {{ participantCount }}
         </span>
       </div>
     </div>

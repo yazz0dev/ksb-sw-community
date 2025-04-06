@@ -9,12 +9,12 @@ import RatingForm from '../views/RatingForm.vue';
 import Resources from '../views/ResourcesView.vue';
 import Transparency from '../views/TransparencyView.vue';
 import CreateEventView from '../views/CreateEventView.vue';
-import ManageRequestsView from '../views/ManageRequestsView.vue'; 
+import ManageRequestsView from '../views/ManageRequestsView.vue';
 import store from '../store';
-import UserProfile from '../views/UserProfile.vue';
+// Removed UserProfile and PublicProfile imports
 import ForgotPasswordView from '../views/ForgotPasswordView.vue';
 import LandingView from '../views/LandingView.vue';
-import PublicProfile from '../views/PublicProfile.vue';
+import ProfileView from '../views/ProfileView.vue'; // Import the new unified view
 
 const routes = [
   { path: '/', name: 'Landing', component: LandingView, meta: { requiresAuth: false, guestOnly: true } },
@@ -45,17 +45,18 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true } 
   },
   {
-    path: '/profile',
+    path: '/profile', // Route for the current user's profile
     name: 'Profile',
-    component: UserProfile,
-    meta: { requiresAuth: true, adminForbidden: true }
+    component: ProfileView, // Use the new unified view
+    meta: { requiresAuth: true, adminForbidden: true } // Keep meta fields
+    // No props needed here, the component determines user from auth state
   },
   {
-    path: '/user/:userId',
+    path: '/user/:userId', // Route for public profiles
     name: 'PublicProfile',
-    component: PublicProfile,
-    props: true,
-    meta: { requiresAuth: false }
+    component: ProfileView, // Use the new unified view
+    props: true, // Pass route params (userId) as props
+    meta: { requiresAuth: false } // Keep meta fields
   },
   { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPasswordView, meta: { requiresAuth: false, guestOnly: true } },
 ];

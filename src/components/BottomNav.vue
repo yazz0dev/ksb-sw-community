@@ -1,5 +1,5 @@
 <template>
-    <nav class="fixed bottom-0 left-0 right-0 h-12 bg-surface border-t border-border flex justify-around items-center shadow-[0_-2px_5px_rgba(0,0,0,0.1)] z-40">
+    <nav class="fixed bottom-0 left-0 right-0 h-12 bg-surface border-t border-border flex justify-around items-center shadow-[0_-2px_5px_rgba(0,0,0,0.1)] z-40 backdrop-blur-sm bg-opacity-90">
         <!-- Home (Always Visible) -->
         <router-link
             to="/home"

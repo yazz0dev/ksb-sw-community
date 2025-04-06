@@ -1,7 +1,7 @@
 // /src/App.vue
 <template>
   <div id="app" class="flex flex-col min-h-screen bg-background">
-    <nav class="sticky top-0 z-30 bg-surface shadow-sm flex items-center h-12 lg:h-16 border-b border-border">
+    <nav class="sticky top-0 z-30 bg-surface shadow-sm flex items-center h-12 lg:h-16 border-b border-border backdrop-blur-sm bg-opacity-90">
       <div class="container mx-auto flex items-center justify-between h-full px-4 sm:px-6 lg:px-8">
         <router-link to="/" class="text-lg lg:text-xl font-bold text-primary mr-4 lg:mr-8 flex items-center h-full whitespace-nowrap" @click="closeNavbar">KSB MCA S/W Community</router-link>
 
