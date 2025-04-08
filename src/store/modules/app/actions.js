@@ -1,14 +1,12 @@
 // src/store/modules/app/actions.js
-import { enableIndexedDbPersistence, disableNetwork, enableNetwork } from 'firebase/firestore';
+import { disableNetwork, enableNetwork } from 'firebase/firestore'; // Removed enableIndexedDbPersistence
 import { db } from '../../../firebase';
 
 export default {
-  async initOfflineCapabilities({ commit, state, dispatch }) {
+  initOfflineCapabilities({ commit, state, dispatch }) { // Removed async as enableIndexedDbPersistence was the only async part
+    // Persistence is now handled during Firestore initialization in firebase.js
+    // We just need to set up the online/offline listeners here.
     try {
-      // Enable IndexedDB persistence for offline support
-      await enableIndexedDbPersistence(db);
-      console.log('Offline persistence enabled successfully');
-      
       // Set up online/offline listeners
       window.addEventListener('online', () => {
         commit('SET_ONLINE_STATUS', true);
@@ -24,14 +22,10 @@ export default {
       
       // Initial sync timestamp
       commit('SET_LAST_SYNC_TIMESTAMP', Date.now());
+      console.log('Offline listeners initialized.'); // Added log for clarity
     } catch (error) {
-      if (error.code === 'failed-precondition') {
-        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time');
-      } else if (error.code === 'unimplemented') {
-        console.warn('The current browser does not support offline persistence');
-      } else {
-        console.error('Error enabling offline persistence:', error);
-      }
+      // Handle potential errors setting up listeners, though less likely
+      console.error('Error setting up offline listeners:', error);
     }
   },
 

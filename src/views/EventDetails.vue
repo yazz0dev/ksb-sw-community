@@ -47,8 +47,8 @@
               @teamRated="handleTeamRated"
               class="bg-surface shadow-md rounded-lg border border-border overflow-hidden" /> <!-- Updated bg, border; internal padding handled by component -->
           
-          <!-- Participants Section: Show all members who participated -->
-          <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border">
+          <!-- Participants Section: Show only if NOT a team event -->
+          <div v-if="!event.isTeamEvent" class="bg-surface shadow-md overflow-hidden rounded-lg border border-border">
             <div class="px-4 py-5 sm:p-6">
               <div class="flex justify-between items-center mb-4 border-b border-border pb-3">
                 <h3 class="text-lg font-semibold leading-6 text-text-primary">Participants</h3>
@@ -104,8 +104,41 @@
           <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border"> <!-- Updated bg, border -->
              <div class="px-4 py-5 sm:p-6"> <!-- Adjusted padding -->
                  <h3 class="text-lg font-semibold leading-6 text-text-primary mb-4 border-b border-border pb-3">Project Submissions</h3> <!-- Updated text color, border -->
-                 <!-- Submission content placeholder -->
-                 <p class="text-sm text-text-secondary">Submission details will appear here.</p> <!-- Updated text color -->
+                 
+                 <!-- Individual Event Submissions -->
+                 <div v-if="!event.isTeamEvent">
+                    <div v-if="!event.submissions || event.submissions.length === 0" class="text-sm text-text-secondary italic">
+                        No project submissions yet for this event.
+                    </div>
+                    <ul v-else class="space-y-4">
+                        <li v-for="(submission, index) in event.submissions" :key="`ind-sub-${index}`" class="p-3 bg-background rounded-md border border-border-light">
+                            <p class="text-sm font-medium text-text-primary">{{ submission.projectName }}</p>
+                            <p class="text-xs text-text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy) || submission.submittedBy }}</p>
+                            <a :href="submission.link" target="_blank" rel="noopener noreferrer" class="text-sm text-primary hover:underline break-all">{{ submission.link }}</a>
+                            <p v-if="submission.description" class="mt-1 text-sm text-text-secondary">{{ submission.description }}</p>
+                        </li>
+                    </ul>
+                 </div>
+
+                 <!-- Team Event Submissions -->
+                 <div v-else>
+                    <div v-if="!teams || teams.length === 0 || teams.every(t => !t.submissions || t.submissions.length === 0)" class="text-sm text-text-secondary italic">
+                        No project submissions yet for this event.
+                    </div>
+                    <div v-else class="space-y-5">
+                        <div v-for="team in teams.filter(t => t.submissions && t.submissions.length > 0)" :key="`team-sub-${team.teamName}`">
+                             <h4 class="text-md font-semibold text-text-secondary mb-2">Team: {{ team.teamName }}</h4>
+                             <ul class="space-y-3 pl-4 border-l-2 border-border-light">
+                                <li v-for="(submission, index) in team.submissions" :key="`team-${team.teamName}-sub-${index}`" class="p-3 bg-background rounded-md border border-border-light">
+                                    <p class="text-sm font-medium text-text-primary">{{ submission.projectName }}</p>
+                                     <p class="text-xs text-text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy) || submission.submittedBy }}</p>
+                                    <a :href="submission.link" target="_blank" rel="noopener noreferrer" class="text-sm text-primary hover:underline break-all">{{ submission.link }}</a>
+                                    <p v-if="submission.description" class="mt-1 text-sm text-text-secondary">{{ submission.description }}</p>
+                                </li>
+                             </ul>
+                        </div>
+                    </div>
+                 </div>
              </div>
           </div>
 
@@ -113,8 +146,21 @@
           <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border"> <!-- Updated bg, border -->
               <div class="px-4 py-5 sm:p-6"> <!-- Adjusted padding -->
                   <h3 class="text-lg font-semibold leading-6 text-text-primary mb-4 border-b border-border pb-3">Ratings</h3> <!-- Updated text color, border -->
-                   <!-- Rating content placeholder -->
-                   <p class="text-sm text-text-secondary">Rating information will appear here.</p> <!-- Updated text color -->
+                   
+                   <!-- Display Rating Status -->
+                   <div v-if="event.status === 'Completed'">
+                      <div v-if="event.ratingsOpen" class="text-sm text-success-dark bg-success-light p-3 rounded-md border border-success-light">
+                          <i class="fas fa-star mr-1"></i> Ratings are currently open for this event.
+                          <!-- Add link/button to rating form if applicable and user hasn't rated -->
+                      </div>
+                      <div v-else class="text-sm text-text-secondary italic">
+                          Ratings are currently closed for this event.
+                          <!-- Optionally display aggregated results here -->
+                      </div>
+                   </div>
+                   <div v-else class="text-sm text-text-secondary italic">
+                       Ratings will be available once the event is completed.
+                   </div>
               </div>
           </div>
 
@@ -295,13 +341,14 @@ async function fetchEventData() {
   loading.value = true;
   initialFetchError.value = '';
   try {
-    // Fetch event data from Vuex store
-    await store.dispatch('events/fetchEvent', props.id);
+    // Fetch event data from Vuex store using the correct action name
+    await store.dispatch('events/fetchEventDetails', props.id);
     
-    // Get event from store after fetching
-    const storeEvent = store.getters['events/getEventById'](props.id);
+    // Get event directly from the dedicated state property after fetching
+    const storeEvent = store.state.events.currentEventDetails; 
     
-    if (!storeEvent) {
+    // Ensure the fetched event matches the current route ID before proceeding
+    if (!storeEvent || storeEvent.id !== props.id) { 
       initialFetchError.value = 'Event not found';
       return;
     }

@@ -108,16 +108,17 @@
                             {{ isAdmin ? 'Start Date' : 'Desired Start Date' }} <span class="text-error">*</span>
                         </label>
                         <div class="flex space-x-2">
-                            <input
-                                type="date"
-                                :id="isAdmin ? 'startDate' : 'desiredStartDate'"
-                                v-model="formData[isAdmin ? 'startDate' : 'desiredStartDate']"
-                                required
-                                class="flex-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                                :disabled="isSubmitting"
-                                @change="checkNextAvailableDate"
-                            >
-
+                            <!-- Datepicker component -->
+                            <DatePicker
+                              v-model="formData[isAdmin ? 'startDate' : 'desiredStartDate']"
+                              :config="{
+                                format: 'yyyy-MM-dd', // Adjust format to match your needs
+                                autoApply: true,
+                              }"
+                              :disabled="isSubmitting"
+                              @change="checkNextAvailableDate"
+                              class="flex-1"
+                            />
                         </div>
                         <div v-if="nextAvailableDate" class="text-sm">
                             <span v-if="isDateAvailable" class="text-success">
@@ -135,24 +136,26 @@
                         <label :for="isAdmin ? 'endDate' : 'desiredEndDate'" class="block text-sm font-medium text-text-secondary">
                             {{ isAdmin ? 'End Date' : 'Desired End Date' }} <span class="text-error">*</span>
                         </label>
-                        <input
-                            type="date"
-                            :id="isAdmin ? 'endDate' : 'desiredEndDate'"
-                            v-model="formData[isAdmin ? 'endDate' : 'desiredEndDate']"
-                            required
-                            class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                            :disabled="isSubmitting"
-                            :min="formData[isAdmin ? 'startDate' : 'desiredStartDate']"
-                            @change="checkNextAvailableDate"
-                        >
+                        <!-- Datepicker component for End Date -->
+                        <DatePicker
+                          v-model="formData[isAdmin ? 'endDate' : 'desiredEndDate']"
+                          :config="{
+                            format: 'yyyy-MM-dd', // Keep format consistent
+                            autoApply: true,
+                            is ফুdAfter: formData[isAdmin ? 'startDate' : 'desiredStartDate'] // minDate prop
+                          }"
+                          :disabled="isSubmitting"
+                          @change="checkNextAvailableDate"
+                          class="flex-1 block"
+                        />
                         <button
-                                type="button"
-                                @click="findNextAvailableDate"
-                                class="px-3 py-1 text-sm rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
-                                :disabled="isSubmitting"
-                            >
-                                <i class="fas fa-calendar-plus"></i> Find Next
-                            </button>
+                            type="button"
+                            @click="findNextAvailableDate"
+                            class="px-3 py-1 text-sm rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors mt-2 sm:mt-0 sm:ml-2 inline-flex items-center"
+                            :disabled="isSubmitting"
+                        >
+                            <i class="fas fa-calendar-plus"></i> Find Next
+                        </button>
                     </div>
 
                 </div>

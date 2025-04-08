@@ -8,6 +8,9 @@
 </template>
 
 <script setup>
+import { defineProps } from 'vue';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 const props = defineProps({
   user: {
@@ -21,8 +24,54 @@ const props = defineProps({
 });
 
 const generatePDF = async () => {
-  // TODO: Implement PDF generation logic
-  console.log('Generating PDF for:', props.user.name);
-  console.log('Projects:', props.projects);
+  const pdf = new jsPDF();
+  pdf.setFontSize(22);
+  pdf.text(`Portfolio of ${props.user.name}`, 20, 20);
+
+  pdf.setFontSize(16);
+  pdf.text('User Profile', 20, 40);
+
+  pdf.setFontSize(12);
+  let yPosition = 50;
+  pdf.text(`Name: ${props.user.name}`, 20, yPosition);
+  yPosition += 10;
+  pdf.text(`Role: ${props.user.role}`, 20, yPosition);
+  yPosition += 10;
+
+  if (props.user.xpByRole) {
+    pdf.text('XP Breakdown:', 20, yPosition);
+    yPosition += 10;
+    for (const role in props.user.xpByRole) {
+      if (props.user.xpByRole.hasOwnProperty(role)) {
+        pdf.text(`- ${role}: ${props.user.xpByRole[role]} XP`, 30, yPosition);
+        yPosition += 10;
+      }
+    }
+  }
+
+
+  pdf.text('Projects', 20, yPosition);
+  yPosition += 10;
+
+  if (props.projects && props.projects.length > 0) {
+    const projectData = props.projects.map(project => [
+      project.projectName,
+      project.link,
+      project.description || ''
+    ]);
+
+    (pdf as any).autoTable({ // Type assertion to bypass jsPDF type limitations
+      head: [['Project Name', 'Link', 'Description']],
+      body: projectData,
+      startY: yPosition,
+      margin: { left: 20, right: 20 },
+      columnStyles: { 1: { cellWidth: 'auto' } } // Adjust column widths as needed
+    });
+  } else {
+    pdf.text('No projects to display.', 30, yPosition);
+  }
+
+
+  pdf.save(`portfolio-${props.user.name}.pdf`);
 };
 </script>

@@ -125,9 +125,14 @@
         <div v-if="canAutoGenerate" class="mt-6 pt-4 border-t border-border text-center space-y-2 bg-secondary-light p-4 rounded-md">
             <p class="text-sm text-text-secondary">Or auto-generate teams:</p>
             <!-- Auto-generate UI elements would go here -->
-             <button type="button" class="text-primary text-sm hover:underline" disabled>
-                (Auto-generation not yet implemented)
-            </button>
+             <!-- Auto-generate UI elements would go here -->
+             <button
+                 type="button"
+                 class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                 @click="generateTeams" :disabled="isSubmitting || teams.length < minTeams"
+             >
+                 <i class="fas fa-magic mr-1.5 h-4 w-4"></i> Generate Teams
+             </button>
         </div>
 
     </div>
@@ -135,6 +140,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue';
+import { useStore } from 'vuex';
 import { EventTeam, User as TeamMember } from '../types/event'; // Use User as TeamMember
 import { v4 as uuidv4 } from 'uuid';
 
@@ -168,9 +174,426 @@ const dropdownVisible = reactive<Record<number, boolean>>({});
 const showValidationErrors = ref<boolean>(false);
 const memberSearchInputs = ref<Record<number, HTMLInputElement | null>>({});
 // Flag to prevent recursive updates
+const maxTeams = 10;
+
+// --- Local State ---
+const localTeams = ref<LocalEventTeam[]>([]);
+// Corrected: Removed invalid Reactive<> type hints
+const searchQueries = reactive<Record<number, string>>({});
+const dropdownVisible = reactive<Record<number, boolean>>({});
+const showValidationErrors = ref<boolean>(false);
+const memberSearchInputs = ref<Record<number, HTMLInputElement | null>>({});
+const autoGeneratingTeams = ref(false);
+// Flag to prevent recursive updates
 const isUpdatingFromParent = ref(false);
 
+// --- Store ---
+const store = useStore();
+
 // --- Helper Methods ---
+
+// Add unique internal ID for stable list rendering
+const addInternalId = (team: EventTeam): LocalEventTeam => ({
+    ...team,
+    internalId: uuidv4(),
+});
+
+// Emit updated teams to parent
+const emitUpdate = () => {
+    const teamsToEmit = localTeams.value.map(({ internalId, ...rest }) => ({
+        ...rest,
+        // Ensure ratings and submissions are always arrays, even if empty
+        ratings: rest.ratings ?? [],
+        submissions: rest.submissions ?? [],
+    }));
+    
+    // Only emit if we're not already in an update cycle
+    if (!isUpdatingFromParent.value) {
+        emit('update:teams', teamsToEmit);
+    }
+};
+
+// Check for duplicate team names (case-insensitive)
+const duplicateTeamNames = computed(() => {
+    const names = new Map<string, number>();
+    const duplicates = new Set<string>();
+    localTeams.value.forEach(team => {
+        const name = team.teamName?.trim().toLowerCase();
+        if (!name) return;
+        const count = (names.get(name) || 0) + 1;
+        names.set(name, count);
+        if (count > 1) {
+            duplicates.add(name); // Store the lowercase name for checking
+        }
+    });
+    return duplicates;
+});
+
+// Helper to initialize or reset local teams
+const initializeTeams = (initialData: EventTeam[] | undefined) => {
+    let teamsToSet: EventTeam[];
+    if (!initialData || initialData.length === 0) {
+        teamsToSet = [
+            { teamName: 'Team 1', members: [], ratings: [], submissions: [] },
+            { teamName: 'Team 2', members: [], ratings: [], submissions: [] }
+        ];
+    } else {
+        // Ensure ratings/submissions are arrays during initialization/copying
+        teamsToSet = JSON.parse(JSON.stringify(initialData)).map((team: EventTeam) => ({
+             ...team,
+             ratings: team.ratings ?? [],
+             submissions: team.submissions ?? [],
+        }));
+    }
+
+    localTeams.value = teamsToSet.map(addInternalId);
+
+    // Reset search/dropdown state correctly
+    Object.keys(searchQueries).forEach(key => delete searchQueries[Number(key)]);
+    Object.keys(dropdownVisible).forEach(key => delete dropdownVisible[Number(key)]);
+    localTeams.value.forEach((_, index) => {
+        searchQueries[index] = '';
+        dropdownVisible[index] = false;
+    });
+
+    // Use nextTick to ensure DOM is updated before emitting
+    nextTick(() => {
+        // Only emit if we're not updating from parent
+        if (!isUpdatingFromParent.value) {
+            emitUpdate();
+        }
+    });
+};
+
+// Get all student IDs currently assigned to any team
+const assignedStudentIds = computed<Set<string>>(() => {
+    return new Set(localTeams.value.flatMap(team => team.members || []));
+});
+
+// Get the team name a student is assigned to (excluding the current team being searched)
+const getStudentTeamAssignment = (studentId: string, currentTeamIndex: number): string | null => {
+     // Find team where member exists and index is different
+     const team = localTeams.value.find((t, idx) =>
+        idx !== currentTeamIndex && Array.isArray(t.members) && t.members.includes(studentId)
+     );
+     return team ? team.teamName : null;
+};
+
+// Function to filter and sort students for a specific team's dropdown
+const filteredAndSortedStudents = (teamIndex: number): TeamMember[] => {
+    if (!Array.isArray(props.students)) return [];
+
+    const currentSearch = searchQueries[teamIndex]?.trim().toLowerCase() || '';
+    const currentTeamMembers = new Set(localTeams.value[teamIndex]?.members || []);
+
+    // Filter students:
+    // 1. Must have a valid uid
+    // 2. Must NOT be assigned to ANOTHER team
+    // 3. Must match search query if present
+    const available = props.students.filter(student => {
+        if (!student.uid) return false; // Ignore students without UID
+
+        const assignedElsewhere = assignedStudentIds.value.has(student.uid) && !currentTeamMembers.has(student.uid);
+        if (assignedElsewhere) return false; // Exclude if in another team
+
+        // Apply search if query exists
+        if (currentSearch) {
+             const name = (props.nameCache[student.uid] || student.uid).toLowerCase();
+             return name.includes(currentSearch);
+        }
+
+        return true; // Include if not assigned elsewhere and no search query
+    });
+
+    // Sort alphabetically by name
+    return available.sort((a, b) => {
+        const nameA = props.nameCache[a.uid] || a.uid;
+        const nameB = props.nameCache[b.uid] || b.uid;
+        return nameA.localeCompare(nameB);
+    });
+};
+
+// Show/Hide Dropdown
+const showDropdown = (index: number) => { dropdownVisible[index] = true; };
+const hideDropdownWithDelay = (index: number) => {
+    setTimeout(() => { dropdownVisible[index] = false; }, 200); // Delay to allow click
+};
+
+// Add/Remove Members
+const addMember = async (teamIndex: number, student: TeamMember) => {
+    const team = localTeams.value[teamIndex];
+    // Ensure team and members array exist, check student uid
+    if (!team || !Array.isArray(team.members) || !student.uid || team.members.includes(student.uid)) return;
+
+    // Set flag to prevent circular updates
+    isUpdatingFromParent.value = true;
+    
+    try {
+        const currentAssignment = getStudentTeamAssignment(student.uid, teamIndex);
+
+        if (currentAssignment) {
+            const studentName = props.nameCache[student.uid] || student.uid;
+            if (!confirm(`${studentName} is already in "${currentAssignment}". Move to "${team.teamName}"?`)) {
+                searchQueries[teamIndex] = '';
+                dropdownVisible[teamIndex] = false;
+                return;
+            }
+            // Remove from other team(s)
+            localTeams.value.forEach((t) => {
+                if (Array.isArray(t.members) && t.members.includes(student.uid)) {
+                    t.members = t.members.filter(id => id !== student.uid);
+                }
+            });
+        }
+
+        // Add to current team
+        team.members.push(student.uid);
+        searchQueries[teamIndex] = '';
+        emitUpdate();
+
+        await nextTick();
+        const inputElement = memberSearchInputs.value[teamIndex];
+        inputElement?.focus();
+        showDropdown(teamIndex);
+    } finally {
+        // Reset flag after a delay
+        setTimeout(() => {
+            isUpdatingFromParent.value = false;
+        }, 0);
+    }
+};
+
+const removeMember = (teamIndex: number, memberId: string) => {
+    const team = localTeams.value[teamIndex];
+    if (!team || !Array.isArray(team.members)) return;
+    
+    // Set flag to prevent circular updates
+    isUpdatingFromParent.value = true;
+    
+    try {
+        team.members = team.members.filter(id => id !== memberId);
+        emitUpdate();
+    } finally {
+        // Reset flag after a delay
+        setTimeout(() => {
+            isUpdatingFromParent.value = false;
+        }, 0);
+    }
+};
+
+// Add/Remove Teams
+const addTeam = async () => { 
+    if (!canAddMoreTeams.value) return;
+
+    const newTeamNumber = localTeams.value.length + 1;
+    let newTeamName = `Team ${newTeamNumber}`;
+    const existingNamesLower = new Set(localTeams.value.map(t => t.teamName?.trim().toLowerCase()));
+    let counter = 1;
+    while (existingNamesLower.has(newTeamName.toLowerCase())) {
+        newTeamName = `Team ${newTeamNumber} (${counter++})`;
+    }
+
+    // Set flag to prevent circular updates
+    isUpdatingFromParent.value = true;
+    
+    try {
+        // Ensure new team has empty arrays for ratings/submissions
+        const newTeam = addInternalId({ teamName: newTeamName, members: [], ratings: [], submissions: [] });
+        localTeams.value.push(newTeam);
+
+        const newIndex = localTeams.value.length - 1;
+        searchQueries[newIndex] = '';
+        dropdownVisible[newIndex] = false;
+
+        // Emit update with the flag set to prevent circular updates
+        emitUpdate();
+
+        await nextTick();
+        const teamInputElement = memberSearchInputs.value[newIndex]; 
+        teamInputElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        teamInputElement?.focus();
+    } finally {
+        // Reset flag after a delay to ensure all reactive updates have completed
+        setTimeout(() => {
+            isUpdatingFromParent.value = false;
+        }, 0);
+    }
+};
+
+// Remove team function
+const removeTeam = (index: number) => {
+    if (localTeams.value.length <= minTeams) {
+        alert(`At least ${minTeams} teams are required.`);
+        return;
+    }
+    if (!confirm(`Are you sure you want to remove "${localTeams.value[index].teamName}"?`)) {
+        return;
+    }
+
+    // Set flag to prevent circular updates
+    isUpdatingFromParent.value = true;
+    
+    try {
+        // Use the actual team's internalId if available, otherwise fallback to index
+        const teamToRemoveId = localTeams.value[index]?.internalId;
+        localTeams.value = localTeams.value.filter((_, i) => i !== index);
+
+        // Clean up search/dropdown state
+        delete searchQueries[index];
+        delete dropdownVisible[index];
+        
+        // Re-index remaining teams' search/dropdown state
+        localTeams.value.forEach((_, i) => {
+            if (i >= index) {
+                searchQueries[i] = searchQueries[i + 1] || '';
+                dropdownVisible[i] = dropdownVisible[i + 1] || false;
+                delete searchQueries[i + 1];
+                delete dropdownVisible[i + 1];
+            }
+        });
+
+        emitUpdate();
+    } finally {
+        // Reset flag after a delay
+        setTimeout(() => {
+            isUpdatingFromParent.value = false;
+        }, 0);
+// Emit updated teams to parent
+const emitUpdate = () => {
+    const teamsToEmit = localTeams.value.map(({ internalId, ...rest }) => ({
+        ...rest,
+        // Ensure ratings and submissions are always arrays, even if empty
+        ratings: rest.ratings ?? [],
+        submissions: rest.submissions ?? [],
+    }));
+    
+    // Only emit if we're not already in an update cycle
+    if (!isUpdatingFromParent.value) {
+        emit('update:teams', teamsToEmit);
+    }
+};
+
+// Check for duplicate team names (case-insensitive)
+const duplicateTeamNames = computed(() => {
+    const names = new Map<string, number>();
+    const duplicates = new Set<string>();
+    localTeams.value.forEach(team => {
+        const name = team.teamName?.trim().toLowerCase();
+        if (!name) return;
+        const count = (names.get(name) || 0) + 1;
+        names.set(name, count);
+        if (count > 1) {
+            duplicates.add(name); // Store the lowercase name for checking
+        }
+    });
+    return duplicates;
+});
+
+// Helper to initialize or reset local teams
+const initializeTeams = (initialData: EventTeam[] | undefined) => {
+    let teamsToSet: EventTeam[];
+    if (!initialData || initialData.length === 0) {
+        teamsToSet = [
+            { teamName: 'Team 1', members: [], ratings: [], submissions: [] },
+            { teamName: 'Team 2', members: [], ratings: [], submissions: [] }
+        ];
+    } else {
+        // Ensure ratings/submissions are arrays during initialization/copying
+        teamsToSet = JSON.parse(JSON.stringify(initialData)).map((team: EventTeam) => ({
+             ...team,
+             ratings: team.ratings ?? [],
+             submissions: team.submissions ?? [],
+        }));
+    }
+
+    localTeams.value = teamsToSet.map(addInternalId);
+
+    // Reset search/dropdown state correctly
+    Object.keys(searchQueries).forEach(key => delete searchQueries[Number(key)]);
+    Object.keys(dropdownVisible).forEach(key => delete dropdownVisible[Number(key)]);
+    localTeams.value.forEach((_, index) => {
+        searchQueries[index] = '';
+        dropdownVisible[index] = false;
+    });
+
+    // Use nextTick to ensure DOM is updated before emitting
+    nextTick(() => {
+        // Only emit if we're not updating from parent
+        if (!isUpdatingFromParent.value) {
+            emitUpdate();
+        }
+    });
+};
+
+// Get all student IDs currently assigned to any team
+const assignedStudentIds = computed<Set<string>>(() => {
+    return new Set(localTeams.value.flatMap(team => team.members || []));
+});
+
+// Get the team name a student is assigned to (excluding the current team being searched)
+const getStudentTeamAssignment = (studentId: string, currentTeamIndex: number): string | null => {
+     // Find team where member exists and index is different
+     const team = localTeams.value.find((t, idx) =>
+        idx !== currentTeamIndex && Array.isArray(t.members) && t.members.includes(studentId)
+     );
+     return team ? team.teamName : null;
+};
+
+// Function to filter and sort students for a specific team's dropdown
+const filteredAndSortedStudents = (teamIndex: number): TeamMember[] => {
+    if (!Array.isArray(props.students)) return [];
+
+    const currentSearch = searchQueries[teamIndex]?.trim().toLowerCase() || '';
+    const currentTeamMembers = new Set(localTeams.value[teamIndex]?.members || []);
+
+    // Filter students:
+    // 1. Must have a valid uid
+    // 2. Must NOT be assigned to ANOTHER team
+    // 3. Must match search query if present
+    const available = props.students.filter(student => {
+        if (!student.uid) return false; // Ignore students without UID
+
+        const assignedElsewhere = assignedStudentIds.value.has(student.uid) && !currentTeamMembers.has(student.uid);
+        if (assignedElsewhere) return false; // Exclude if in another team
+
+        // Apply search if query exists
+        if (currentSearch) {
+             const name = (props.nameCache[student.uid] || student.uid).toLowerCase();
+             return name.includes(currentSearch);
+        }
+
+        return true; // Include if not assigned elsewhere and no search query
+    });
+
+    // Sort alphabetically by name
+    return available.sort((a, b) => {
+        const nameA = props.nameCache[a.uid] || a.uid;
+        const nameB = props.nameCache[b.uid] || b.uid;
+        return nameA.localeCompare(nameB);
+    });
+};
+
+// Show/Hide Dropdown
+const showDropdown = (index: number) => { dropdownVisible[index] = true; };
+const hideDropdownWithDelay = (index: number) => {
+    setTimeout(() => { dropdownVisible[index] = false; }, 200); // Delay to allow click
+};
+
+// Add/Remove Members
+const addMember = async (teamIndex: number, student: TeamMember) => {
+    const team = localTeams.value[teamIndex];
+    // Ensure team and members array exist, check student uid
+    if (!team || !Array.isArray(team.members) || !student.uid || team.members.includes(student.uid)) return;
+
+    // Set flag to prevent circular updates
+    isUpdatingFromParent.value = true;
+    
+    try {
+        const currentAssignment = getStudentTeamAssignment(student.uid, teamIndex);
+
+        if (currentAssignment) {
+            const studentName = props.nameCache[student.uid] || student.uid;
+            if (!confirm(`$
 
 // Add unique internal ID for stable list rendering
 const addInternalId = (team: EventTeam): LocalEventTeam => ({
