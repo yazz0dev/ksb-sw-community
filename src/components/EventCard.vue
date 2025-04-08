@@ -85,20 +85,22 @@ const truncatedDescription = computed(() => {
 
 // Participant count (Handles arrays and potentially objects/maps)
 const participantCount = computed(() => {
+    // For team events, count all team members
+    if (props.event.isTeamEvent && Array.isArray(props.event.teams)) {
+        let count = 0;
+        props.event.teams.forEach(team => {
+            count += team.members?.length || 0;
+        });
+        return count;
+    }
+    
+    // For non-team events, count participants
     const participants = props.event?.participants;
     if (Array.isArray(participants)) {
         return participants.length;
     }
     if (typeof participants === 'object' && participants !== null) {
-        let count = 0;
-        if (props.event.isTeamEvent && Array.isArray(props.event.teams)) {
-            props.event.teams.forEach(team => {
-                count += team.members?.length || 0;
-            });
-        } else {
-            count = Object.keys(participants).length;
-        }
-         return count;
+        return Object.keys(participants).length;
     }
     return 0;
 });

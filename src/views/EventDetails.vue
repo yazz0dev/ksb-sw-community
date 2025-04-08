@@ -46,6 +46,47 @@
               :getUserName="getUserNameFromCache"
               @teamRated="handleTeamRated"
               class="bg-surface shadow-md rounded-lg border border-border overflow-hidden" /> <!-- Updated bg, border; internal padding handled by component -->
+          
+          <!-- Participants Section: Show all members who participated -->
+          <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border">
+            <div class="px-4 py-5 sm:p-6">
+              <div class="flex justify-between items-center mb-4 border-b border-border pb-3">
+                <h3 class="text-lg font-semibold leading-6 text-text-primary">Participants</h3>
+                <button 
+                  @click="showParticipants = !showParticipants"
+                  class="inline-flex items-center px-3 py-1.5 border border-border shadow-sm text-xs font-medium rounded-md text-text-secondary bg-surface hover:bg-neutral-light focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-light transition-colors">
+                  <i :class="['fas w-3 transition-transform duration-200', showParticipants ? 'fa-chevron-up' : 'fa-chevron-down', 'mr-1.5']"></i>
+                  {{ showParticipants ? 'Hide Participants' : `Show Participants (${participantCount})` }}
+                </button>
+              </div>
+              
+              <transition name="fade-fast">
+                <div v-if="showParticipants" class="animate-fade-in">
+                  <div v-if="organizerNamesLoading" class="py-3 text-sm text-text-secondary italic">
+                    <i class="fas fa-spinner fa-spin mr-1"></i> Loading participants...
+                  </div>
+                  <div v-else-if="participantCount === 0" class="py-3 text-sm text-text-secondary italic">
+                    No participants have joined this event yet.
+                  </div>
+                  <div v-else>
+                    <ul role="list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      <li v-for="userId in allParticipants" :key="userId"
+                          class="flex items-center p-2 rounded-md transition-colors duration-150 border border-border"
+                          :class="{ 'bg-primary-extraLight': userId === currentUserId }">
+                        <i class="fas fa-user mr-2 text-text-secondary flex-shrink-0 w-4 text-center"></i>
+                        <router-link
+                          :to="{ name: 'PublicProfile', params: { userId } }"
+                          class="text-sm text-text-primary hover:text-primary truncate"
+                          :class="{'text-primary font-semibold': userId === currentUserId}">
+                          {{ getUserNameFromCache(userId) || userId }} {{ userId === currentUserId ? '(You)' : '' }}
+                        </router-link>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </transition>
+            </div>
+          </div>
 
           <!-- Global Feedback Message Area -->
           <div v-if="globalFeedback.message"
@@ -154,6 +195,7 @@ const organizerNamesLoading = ref(false);
 const submissionModalRef = ref(null);
 let submissionModalInstance = null;
 const showSubmissionModal = ref(false);
+const showParticipants = ref(false); // Control visibility of participants list
 const submissionForm = ref({ projectName: '', link: '', description: '' });
 const submissionError = ref(''); // Specific error for submission modal
 const isSubmittingProject = ref(false);
@@ -170,6 +212,46 @@ const isCurrentUserOrganizer = computed(() => {
 
 // Determine if the bottom nav should be shown
 const showBottomNav = computed(() => !!event.value);
+
+// Get all participants from the event
+const allParticipants = computed(() => {
+    if (!event.value) return [];
+    
+    let participants = [];
+    
+    // For team events, collect all team members
+    if (event.value.isTeamEvent && Array.isArray(event.value.teams)) {
+        event.value.teams.forEach(team => {
+            if (Array.isArray(team.members)) {
+                participants = [...participants, ...team.members];
+            }
+        });
+    }
+    // For non-team events or additional participants
+    else if (event.value.participants) {
+        if (Array.isArray(event.value.participants)) {
+            participants = [...participants, ...event.value.participants];
+        } else if (typeof event.value.participants === 'object') {
+            participants = [...participants, ...Object.keys(event.value.participants)];
+        }
+    }
+    
+    // Add organizers if they exist
+    if (Array.isArray(event.value.organizers)) {
+        participants = [...participants, ...event.value.organizers];
+    }
+    
+    // Add requester if it exists
+    if (event.value.requester) {
+        participants.push(event.value.requester);
+    }
+    
+    // Remove duplicates and return
+    return [...new Set(participants)];
+});
+
+// Count of all participants
+const participantCount = computed(() => allParticipants.value.length);
 
 function setGlobalFeedback(message, type = 'success', duration = 4000) {
     globalFeedback.value = { message, type };
@@ -209,45 +291,76 @@ async function fetchUserNames(userIds) {
 }
 
 // --- Fetch Event and Related Data ---
-const fetchEventData = async () => {
-    loading.value = true;
-    initialFetchError.value = '';
-    try {
-        // Use Vuex action to get event by ID - UPDATED ACTION NAME
-        const fetchedEvent = await store.dispatch('events/fetchEventDetails', props.id);
-
-        if (!fetchedEvent) {
-            throw new Error('Event not found.');
-        }
-
-        // Store the fetched event reactively
-        event.value = fetchedEvent;
-        teams.value = fetchedEvent.teams || []; // Ensure teams is an array
-
-        // Gather all user IDs to fetch names for (requester, organizers)
-        let userIdsToFetch = new Set();
-        if (event.value.requester) userIdsToFetch.add(event.value.requester);
-        if (event.value.organizers) event.value.organizers.forEach(id => userIdsToFetch.add(id));
-        
-        // Also fetch names for team members if it's a team event
-        if (event.value.isTeamEvent && teams.value.length > 0) {
-            teams.value.forEach(team => {
-                if (team.members) team.members.forEach(memberId => userIdsToFetch.add(memberId));
-            });
-        }
-
-        await fetchUserNames(Array.from(userIdsToFetch).filter(Boolean));
-
-    } catch (error) {
-        console.error("Failed to fetch event details:", error);
-        initialFetchError.value = error.message || 'Failed to load event details. Please try again later.';
-        event.value = null; // Clear event data on error
-    } finally {
-        loading.value = false;
+async function fetchEventData() {
+  loading.value = true;
+  initialFetchError.value = '';
+  try {
+    // Fetch event data from Vuex store
+    await store.dispatch('events/fetchEvent', props.id);
+    
+    // Get event from store after fetching
+    const storeEvent = store.getters['events/getEventById'](props.id);
+    
+    if (!storeEvent) {
+      initialFetchError.value = 'Event not found';
+      return;
     }
-};
+    
+    event.value = storeEvent;
+    
+    // Check if event is closed
+    const isClosed = storeEvent.status === 'Completed' && !storeEvent.ratingsOpen;
+    if (isClosed) {
+      store.dispatch('app/setEventClosedState', { eventId: props.id, isClosed: true });
+    }
+    
+    // Extract teams if it's a team event
+    if (storeEvent.isTeamEvent && Array.isArray(storeEvent.teams)) {
+      teams.value = [...storeEvent.teams];
+    }
+    
+    // Collect user IDs to fetch names
+    const userIdsToFetch = [];
+    
+    // Add organizers
+    if (Array.isArray(storeEvent.organizers)) {
+      userIdsToFetch.push(...storeEvent.organizers);
+    }
+    
+    // Add requester
+    if (storeEvent.requester) {
+      userIdsToFetch.push(storeEvent.requester);
+    }
+    
+    // Add team members if applicable
+    if (storeEvent.isTeamEvent && Array.isArray(storeEvent.teams)) {
+      storeEvent.teams.forEach(team => {
+        if (Array.isArray(team.members)) {
+          userIdsToFetch.push(...team.members);
+        }
+      });
+    }
+    
+    // Add participants if applicable
+    if (storeEvent.participants) {
+      if (Array.isArray(storeEvent.participants)) {
+        userIdsToFetch.push(...storeEvent.participants);
+      } else if (typeof storeEvent.participants === 'object') {
+        userIdsToFetch.push(...Object.keys(storeEvent.participants));
+      }
+    }
+    
+    // Fetch user names for all collected IDs
+    await fetchUserNames(userIdsToFetch);
+    
+  } catch (error) {
+    console.error('Error fetching event data:', error);
+    initialFetchError.value = error.message || 'Failed to load event data';
+  } finally {
+    loading.value = false;
+  }
+}
 
-// --- Modal Handling ---
 const triggerSubmitModalOpen = () => {
     // Logic to open the submission modal (likely sets showSubmissionModal = true)
     // You might need to initialize the modal instance here if using a library like Bootstrap

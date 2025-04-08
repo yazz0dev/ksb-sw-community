@@ -1,6 +1,10 @@
 // /src/App.vue
 <template>
   <div id="app" class="flex flex-col min-h-screen bg-background">
+    <!-- Offline State Handler -->
+    <OfflineStateHandler />
+    <!-- Notification System -->
+    <NotificationSystem />
     <!-- Top Navigation Bar -->
     <nav class="sticky top-0 z-30 bg-surface shadow-sm flex items-center h-12 lg:h-16 border-b border-border">
       <div class="container mx-auto flex items-center justify-between h-full px-4 sm:px-6 lg:px-8">
@@ -109,6 +113,8 @@ import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
 import BottomNav from './components/BottomNav.vue';
+import OfflineStateHandler from './components/OfflineStateHandler.vue';
+import NotificationSystem from './components/NotificationSystem.vue';
 
 const store = useStore();
 const router = useRouter();
@@ -157,6 +163,16 @@ onMounted(() => {
   router.afterEach(() => {
     closeNavbar();
   });
+});
+
+// Initialize offline capabilities when the app mounts
+onMounted(() => {
+  router.afterEach(() => {
+    closeNavbar();
+  });
+  
+  // Initialize offline capabilities
+  store.dispatch('app/initOfflineCapabilities');
 });
 
 // No specific unmount logic needed for this component in this case

@@ -15,6 +15,7 @@ import store from '../store';
 import ForgotPasswordView from '../views/ForgotPasswordView.vue';
 import LandingView from '../views/LandingView.vue';
 import ProfileView from '../views/ProfileView.vue'; // Import the new unified view
+import NotFoundView from '../views/NotFoundView.vue'; // Import 404 page component
 
 const routes = [
   { path: '/', name: 'Landing', component: LandingView, meta: { requiresAuth: false, guestOnly: true } },
@@ -59,6 +60,8 @@ const routes = [
     meta: { requiresAuth: false } // Keep meta fields
   },
   { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPasswordView, meta: { requiresAuth: false, guestOnly: true } },
+  // 404 page - must be last route
+  { path: '/:pathMatch(.*)*', name: 'NotFound', component: NotFoundView, meta: { requiresAuth: false } },
 ];
 
 const router = createRouter({
