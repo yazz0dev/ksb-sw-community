@@ -46,10 +46,45 @@ const getters = {
     }
 };
 
+// Add this constant before the mutations
+const defaultXpStructure = {
+    fullstack: 0,
+    presenter: 0,
+    designer: 0,
+    organizer: 0,
+    problemSolver: 0
+};
+
+const mutations = {
+    ...userMutations,
+    setUserData(state, userData) {
+        state.uid = userData.uid || null;
+        state.name = userData.name || null;
+        state.role = userData.role || null;
+        state.isAuthenticated = !!userData.uid;
+        state.hasFetched = true;
+
+        if (state.role === 'Admin') {
+            state.xpByRole = {}; // No XP structure for Admins
+            state.skills = [];
+            state.preferredRoles = [];
+        } else {
+            // Set student-specific fields only for non-Admins
+            const dbXp = userData.xpByRole || {};
+            state.xpByRole = Object.keys(defaultXpStructure).reduce((acc, key) => {
+                acc[key] = Number(dbXp[key]) || 0;
+                return acc;
+            }, {});
+            state.skills = Array.isArray(userData.skills) ? userData.skills : [];
+            state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
+        }
+    }
+};
+
 export default {
     namespaced: true,
     state,
     getters,
     actions: userActions,
-    mutations: userMutations
+    mutations
 };

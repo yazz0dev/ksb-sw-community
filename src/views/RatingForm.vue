@@ -251,71 +251,116 @@ watch(availableParticipants, (participants) => {
 onMounted(async () => {
     loading.value = true;
     errorMessage.value = '';
-    // Prioritize prop, fallback to query param for team ID
-    teamIdToRate.value = props.teamId || route.query.teamId || null;
 
     try {
+        // Check if user is admin
+        const currentUser = store.getters['user/getUser'];
+        if (currentUser?.role === 'Admin') {
+            errorMessage.value = 'Administrators cannot submit ratings.';
+            loading.value = false;
+            return;
+        }
+
         const eventDetails = await store.dispatch('events/fetchEventDetails', props.eventId);
         if (!eventDetails) throw new Error('Event not found or not accessible.');
         
-        // Assign to ref *before* checks that depend on it
         event.value = eventDetails;
         eventName.value = eventDetails.eventName;
         isTeamEvent.value = !!eventDetails.isTeamEvent;
-        
-        // Pre-populate form if user has already rated/selected winners
-        if (currentUser.value) {
-            const userId = currentUser.value.uid;
-            if (isTeamEvent.value && teamIdToRate.value) {
-                const team = eventDetails.teams?.find(t => t.teamName === teamIdToRate.value);
-                if (team) {
-                    teamMembersToDisplay.value = team.members || []; // Store members
-                    teamMembersToDisplay.value.forEach(fetchAndCacheUserName); // Fetch names
-                    const existingRating = team.ratings?.find(r => r.ratedBy === userId);
-                    if (existingRating?.scores) {
-                        didLoadExistingRating.value = true; // Set flag
-                        console.log("Found existing team ratings:", existingRating.scores);
-                        // Pre-populate team scores
-                        for (const key in existingRating.scores) {
-                            if (ratings[key] !== undefined) { // Check if key exists from allocation
-                                // Try reassigning the object to potentially improve reactivity
-                                ratings[key] = { 
-                                    ...ratings[key], // Keep other potential properties if they exist
-                                    score: Number(existingRating.scores[key] || 0)
-                                }; 
+
+        // Check if user is trying to rate their own team
+        if (isTeamEvent.value && teamIdToRate.value) {
+            const team = eventDetails.teams?.find(t => t.teamName === teamIdToRate.value);
+            if (team?.members?.includes(currentUser.uid)) {
+                errorMessage.value = 'You cannot rate your own team.';
+                loading.value = false;
+                return;
+            }
+        }
+
+        // Check if user has already rated twice
+        const userRatings = isTeamEvent.value ? 
+            team?.ratings?.filter(r => r.ratedBy === currentUser.uid) :
+            eventDetails.ratings?.filter(r => r.ratedBy === currentUser.uid);
+
+        if (userRatings && userRatings.length >= 2) {
+            errorMessage.value = 'You have already submitted the maximum number of ratings (2) for this team/participant.';
+            loading.value = false;
+            return;
+        }
+
+        // Prioritize prop, fallback to query param for team ID
+        teamIdToRate.value = props.teamId || route.query.teamId || null;
+
+        try {
+            const eventDetails = await store.dispatch('events/fetchEventDetails', props.eventId);
+            if (!eventDetails) throw new Error('Event not found or not accessible.');
+            
+            // Assign to ref *before* checks that depend on it
+            event.value = eventDetails;
+            eventName.value = eventDetails.eventName;
+            isTeamEvent.value = !!eventDetails.isTeamEvent;
+            
+            // Pre-populate form if user has already rated/selected winners
+            if (currentUser.value) {
+                const userId = currentUser.value.uid;
+                if (isTeamEvent.value && teamIdToRate.value) {
+                    const team = eventDetails.teams?.find(t => t.teamName === teamIdToRate.value);
+                    if (team) {
+                        teamMembersToDisplay.value = team.members || []; // Store members
+                        teamMembersToDisplay.value.forEach(fetchAndCacheUserName); // Fetch names
+                        const existingRating = team.ratings?.find(r => r.ratedBy === userId);
+                        if (existingRating?.scores) {
+                            didLoadExistingRating.value = true; // Set flag
+                            console.log("Found existing team ratings:", existingRating.scores);
+                            // Pre-populate team scores
+                            for (const key in existingRating.scores) {
+                                if (ratings[key] !== undefined) { // Check if key exists from allocation
+                                    // Try reassigning the object to potentially improve reactivity
+                                    ratings[key] = { 
+                                        ...ratings[key], // Keep other potential properties if they exist
+                                        score: Number(existingRating.scores[key] || 0)
+                                    }; 
+                                }
                             }
                         }
                     }
-                }
-            } else if (!isTeamEvent.value) {
-                const existingSelectionRecord = eventDetails.ratings?.find(r => r.ratedBy === userId && r.type === 'winner_selection');
-                if (existingSelectionRecord && eventDetails.winnersPerRole) {
-                    didLoadExistingRating.value = true; // Set flag
-                    console.log("Found existing winner selections, pre-populating...");
-                    // Pre-populate individual winner selections based on winnersPerRole
-                    sortedXpAllocation.value.forEach(alloc => {
-                        const role = alloc.role || 'general';
-                        const winnerId = eventDetails.winnersPerRole[role]?.[0]; // Assuming single winner per role
-                        const key = `constraint${alloc.constraintIndex}`;
-                        if (winnerId && ratings[key] !== undefined) {
-                            ratings[key].winnerId = winnerId;
-                        }
-                    });
+                } else if (!isTeamEvent.value) {
+                    const existingSelectionRecord = eventDetails.ratings?.find(r => r.ratedBy === userId && r.type === 'winner_selection');
+                    if (existingSelectionRecord && eventDetails.winnersPerRole) {
+                        didLoadExistingRating.value = true; // Set flag
+                        console.log("Found existing winner selections, pre-populating...");
+                        // Pre-populate individual winner selections based on winnersPerRole
+                        sortedXpAllocation.value.forEach(alloc => {
+                            const role = alloc.role || 'general';
+                            const winnerId = eventDetails.winnersPerRole[role]?.[0]; // Assuming single winner per role
+                            const key = `constraint${alloc.constraintIndex}`;
+                            if (winnerId && ratings[key] !== undefined) {
+                                ratings[key].winnerId = winnerId;
+                            }
+                        });
+                    }
                 }
             }
-        }
-        
-        // Validity check now uses computed property based on sortedXpAllocation
-        if (!hasValidRatingCriteria.value) {
-            // Error message is handled by the v-else-if in the template
-            console.warn("Event lacks valid rating criteria.");
-        }
-        
-        // If it's an individual event, pre-fetch names
-        if (!isTeamEvent.value && event.value.participants) {
-            availableParticipants.value.forEach(fetchAndCacheUserName); 
-        }
+            
+            // Validity check now uses computed property based on sortedXpAllocation
+            if (!hasValidRatingCriteria.value) {
+                // Error message is handled by the v-else-if in the template
+                console.warn("Event lacks valid rating criteria.");
+            }
+            
+            // If it's an individual event, pre-fetch names
+            if (!isTeamEvent.value && event.value.participants) {
+                availableParticipants.value.forEach(fetchAndCacheUserName); 
+            }
 
+        } catch (error) {
+            console.error("Error loading rating form:", error);
+            errorMessage.value = error.message || 'Failed to load rating details. Please try again.';
+            event.value = null; // Ensure event is null on error
+        } finally {
+            loading.value = false;
+        }
     } catch (error) {
         console.error("Error loading rating form:", error);
         errorMessage.value = error.message || 'Failed to load rating details. Please try again.';
@@ -374,4 +419,13 @@ const goBack = () => {
     router.back();
 };
 
+const initializeForm = async () => {
+    const currentUser = store.getters['user/getUser'];
+    if (currentUser?.role === 'Admin') {
+        error.value = 'Administrators cannot submit ratings.';
+        router.push({ name: 'Home' });
+        return;
+    }
+    // ...existing form initialization code...
+}
 </script>

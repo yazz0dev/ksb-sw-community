@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import '@tailwindcss/forms';
 
 :root {
   --color-primary: #0891b2; /* Teal 600 */
@@ -21,6 +22,25 @@
   
   --color-info-light: #cffafe; /* Cyan 100 */
   --color-info-dark: #0891b2; /* Cyan 600 */
+  
+  --color-success-light: #bbf7d0;
+  --color-success: #22c55e;
+  --color-success-dark: #15803d;
+  --color-success-text: #166534;
+  
+  --color-error-light: #fecaca;
+  --color-error: #ef4444;
+  --color-error-dark: #b91c1c;
+  --color-error-text: #991b1b;
+  
+  --color-warning-light: #fef08a;
+  --color-warning: #eab308;
+  --color-warning-dark: #a16207;
+  --color-warning-text: #854d0e;
+  
+  --color-neutral-light: #f1f5f9;
+  --color-neutral: #e2e8f0;
+  --color-neutral-dark: #64748b;
 }
 
 /* Apply custom colors to Tailwind classes */
@@ -45,3 +65,22 @@
 
 .bg-info-light { background-color: var(--color-info-light) !important; }
 .text-info-dark { color: var(--color-info-dark) !important; }
+
+.bg-success { background-color: var(--color-success) !important; }
+.bg-success-light { background-color: var(--color-success-light) !important; }
+.text-success { color: var(--color-success) !important; }
+.text-success-dark { color: var(--color-success-dark) !important; }
+
+.bg-error { background-color: var(--color-error) !important; }
+.bg-error-light { background-color: var(--color-error-light) !important; }
+.text-error { color: var(--color-error) !important; }
+.text-error-dark { color: var(--color-error-dark) !important; }
+
+.bg-warning { background-color: var(--color-warning) !important; }
+.bg-warning-light { background-color: var(--color-warning-light) !important; }
+.text-warning { color: var(--color-warning) !important; }
+.text-warning-dark { color: var(--color-warning-dark) !important; }
+
+.bg-neutral-light { background-color: var(--color-neutral-light) !important; }
+.bg-neutral { background-color: var(--color-neutral) !important; }
+.text-neutral-dark { color: var(--color-neutral-dark) !important; }

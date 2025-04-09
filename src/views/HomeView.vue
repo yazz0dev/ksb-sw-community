@@ -1,104 +1,111 @@
 <template>
-  <!-- Use theme background -->
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-background min-h-[calc(100vh-8rem)]">
-    <!-- Header and Actions: Improved spacing and button styling -->
-    <div class="flex flex-wrap justify-between items-center gap-4 mb-8 pb-4 border-b border-border">
-       <h2 class="text-3xl font-bold text-text-primary whitespace-nowrap">Events Dashboard</h2>
-       <div class="flex space-x-3 flex-wrap justify-end">
-           <!-- Unified Event Creation Button -->
-           <router-link
+    <!-- Use template v-if instead of HTML comments -->
+    <template v-if="loading">
+      <div class="text-center py-16">
+        <i class="fas fa-spinner fa-spin text-3xl text-primary mb-2"></i>
+        <p class="text-text-secondary">Loading...</p>
+      </div>
+    </template>
+    <template v-else>
+      <!-- Rest of your template -->
+      <div class="flex flex-wrap justify-between items-center gap-4 mb-8 pb-4 border-b border-border">
+        <h2 class="text-3xl font-bold text-text-primary whitespace-nowrap">Events Dashboard</h2>
+        <div class="flex space-x-3 flex-wrap justify-end">
+            <!-- Unified Event Creation Button -->
+            <router-link
               v-if="canRequestEvent"
               to="/create-event"
               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
-               <i :class="['fas', isAdmin ? 'fa-plus' : 'fa-calendar-plus', 'mr-1.5']"></i>
-               {{ isAdmin ? 'Create Event' : 'Request Event' }}
-           </router-link>
-           <!-- Manage Requests Button: Use secondary style -->
-           <router-link
+                <i :class="['fas', isAdmin ? 'fa-plus' : 'fa-calendar-plus', 'mr-1.5']"></i>
+                {{ isAdmin ? 'Create Event' : 'Request Event' }}
+            </router-link>
+            <!-- Manage Requests Button: Use secondary style -->
+            <router-link
               v-if="isAdmin"
               to="/manage-requests"
               class="inline-flex items-center px-4 py-2 border border-border text-sm font-medium rounded-md shadow-sm text-text-secondary bg-surface hover:bg-neutral-extraLight focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light transition-colors">
-               <i class="fas fa-tasks mr-1.5"></i> Manage Requests
-           </router-link>
-       </div>
-    </div>
+                <i class="fas fa-tasks mr-1.5"></i> Manage Requests
+            </router-link>
+        </div>
+      </div>
 
-    <!-- Event Sections: Increased spacing -->
-    <!-- Use v-if="loading" for skeleton, v-else for content -->
-    <div class="space-y-12">
-      <!-- Upcoming Events -->
-      <section>
-        <h3 class="text-2xl font-semibold text-text-primary mb-5 border-b-2 border-border pb-2">Upcoming Events</h3>
-        <!-- Skeleton Loader -->
-        <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <EventCardSkeleton v-for="n in 4" :key="`upcoming-skel-${n}`" />
-        </div>
-        <!-- Actual Content -->
-        <div v-else>
-          <div v-if="upcomingEvents.length === 0" class="bg-info-light border border-info-light text-info-dark p-6 rounded-lg text-center text-sm italic shadow-sm">
-              <i class="fas fa-calendar-times block text-2xl mb-2 text-info-dark"></i> No upcoming events scheduled.
+      <!-- Event Sections: Increased spacing -->
+      <!-- Use v-if="loading" for skeleton, v-else for content -->
+      <div class="space-y-12">
+        <!-- Upcoming Events -->
+        <section>
+          <h3 class="text-2xl font-semibold text-text-primary mb-5 border-b-2 border-border pb-2">Upcoming Events</h3>
+          <!-- Skeleton Loader -->
+          <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <EventCardSkeleton v-for="n in 4" :key="`upcoming-skel-${n}`" />
           </div>
-          <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              <EventCard
-                v-for="event in upcomingEvents"
-                :key="`upcoming-${event.id}`"
-                :event="event"
-                class="animate-fade-in cursor-pointer"
-                @click="router.push(`/event/${event.id}`)" />
+          <!-- Actual Content -->
+          <div v-else>
+            <div v-if="upcomingEvents.length === 0" class="bg-info-light border border-info-light text-info-dark p-6 rounded-lg text-center text-sm italic shadow-sm">
+                <i class="fas fa-calendar-times block text-2xl mb-2 text-info-dark"></i> No upcoming events scheduled.
+            </div>
+            <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <EventCard
+                  v-for="event in upcomingEvents"
+                  :key="`upcoming-${event.id}`"
+                  :event="event"
+                  class="animate-fade-in cursor-pointer"
+                  @click="router.push(`/event/${event.id}`)" />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Active Events -->
-      <section>
-        <h3 class="text-2xl font-semibold text-text-primary mb-5 border-b-2 border-border pb-2">Active Events</h3>
-        <!-- Skeleton Loader -->
-        <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <EventCardSkeleton v-for="n in 4" :key="`active-skel-${n}`" />
-        </div>
-        <!-- Actual Content -->
-        <div v-else>
-          <div v-if="activeEvents.length === 0" class="bg-info-light border border-info-light text-info-dark p-6 rounded-lg text-center text-sm italic shadow-sm">
-              <i class="fas fa-running block text-2xl mb-2 text-info-dark"></i> No events currently in progress.
+        <!-- Active Events -->
+        <section>
+          <h3 class="text-2xl font-semibold text-text-primary mb-5 border-b-2 border-border pb-2">Active Events</h3>
+          <!-- Skeleton Loader -->
+          <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <EventCardSkeleton v-for="n in 4" :key="`active-skel-${n}`" />
           </div>
-          <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              <EventCard
-                v-for="event in activeEvents"
-                :key="`active-${event.id}`"
-                :event="event"
-                class="animate-fade-in cursor-pointer"
-                @click="router.push(`/event/${event.id}`)" />
+          <!-- Actual Content -->
+          <div v-else>
+            <div v-if="activeEvents.length === 0" class="bg-info-light border border-info-light text-info-dark p-6 rounded-lg text-center text-sm italic shadow-sm">
+                <i class="fas fa-running block text-2xl mb-2 text-info-dark"></i> No events currently in progress.
+            </div>
+            <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <EventCard
+                  v-for="event in activeEvents"
+                  :key="`active-${event.id}`"
+                  :event="event"
+                  class="animate-fade-in cursor-pointer"
+                  @click="router.push(`/event/${event.id}`)" />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Completed Events -->
-      <section>
-        <h3 class="text-2xl font-semibold text-text-primary mb-5 border-b-2 border-border pb-2">Completed Events</h3>
-        <!-- Skeleton Loader -->
-        <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <EventCardSkeleton v-for="n in 4" :key="`completed-skel-${n}`" />
-        </div>
-        <!-- Actual Content -->
-        <div v-else>
-          <div v-if="completedEvents.length === 0" class="bg-info-light border border-info-light text-info-dark p-6 rounded-lg text-center text-sm italic shadow-sm">
-              <i class="fas fa-check-circle block text-2xl mb-2 text-info-dark"></i> No completed events yet.
+        <!-- Completed Events -->
+        <section>
+          <h3 class="text-2xl font-semibold text-text-primary mb-5 border-b-2 border-border pb-2">Completed Events</h3>
+          <!-- Skeleton Loader -->
+          <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <EventCardSkeleton v-for="n in 4" :key="`completed-skel-${n}`" />
           </div>
-          <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              <EventCard
-                v-for="event in completedEvents"
-                :key="`completed-${event.id}`"
-                :event="event"
-                class="animate-fade-in cursor-pointer"
-                @click="router.push(`/event/${event.id}`)" />
+          <!-- Actual Content -->
+          <div v-else>
+            <div v-if="completedEvents.length === 0" class="bg-info-light border border-info-light text-info-dark p-6 rounded-lg text-center text-sm italic shadow-sm">
+                <i class="fas fa-check-circle block text-2xl mb-2 text-info-dark"></i> No completed events yet.
+            </div>
+            <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <EventCard
+                  v-for="event in completedEvents"
+                  :key="`completed-${event.id}`"
+                  :event="event"
+                  class="animate-fade-in cursor-pointer"
+                  @click="router.push(`/event/${event.id}`)" />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Cancelled Events (Collapsible): Improved styling -->
-      <!-- No skeleton for cancelled as it's initially hidden and less critical -->
-      <section v-if="!loading && cancelledEvents.length > 0">
-         <div class="border-t border-border pt-8 mt-8">
+        <!-- Cancelled Events (Collapsible): Improved styling -->
+        <!-- No skeleton for cancelled as it's initially hidden and less critical -->
+        <section v-if="!loading && cancelledEvents.length > 0">
+          <div class="border-t border-border pt-8 mt-8">
             <button
               class="flex items-center text-sm font-medium text-text-secondary hover:text-primary w-full text-left mb-4 transition-colors group"
               type="button"
@@ -117,9 +124,10 @@
                 </div>
             </transition>
           </div>
-      </section>
+        </section>
 
-    </div>
+      </div>
+    </template>
   </div>
 </template>
 

@@ -1,16 +1,13 @@
-<!-- src/components/EventForm.vue -->
 <template>
     <form @submit.prevent="handleSubmit" class="space-y-6">
-        <!-- Basic Info Section -->
         <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
             <div class="px-4 py-5 sm:p-6 space-y-4">
                 <h3 class="text-lg font-medium text-text-primary">Event Details</h3>
-
-                <!-- Event Format Selection (Moved to top) -->
+                
                 <div class="space-y-2">
                     <label class="block text-sm font-medium text-text-secondary">Event Format <span class="text-error">*</span></label>
                     <div class="flex gap-4">
-                        <label class="inline-flex items-center">
+                        <label class="inline-flex items-center cursor-pointer">
                             <input
                                 type="radio"
                                 v-model="formData.isTeamEvent"
@@ -21,7 +18,7 @@
                             >
                             <span class="ml-2 text-sm text-text-secondary">Individual</span>
                         </label>
-                        <label class="inline-flex items-center">
+                        <label class="inline-flex items-center cursor-pointer">
                             <input
                                 type="radio"
                                 v-model="formData.isTeamEvent"
@@ -34,8 +31,7 @@
                         </label>
                     </div>
                 </div>
-                
-                <!-- Event Name -->
+
                 <div>
                     <label for="eventName" class="block text-sm font-medium text-text-secondary">Event Name <span class="text-error">*</span></label>
                     <input
@@ -43,30 +39,28 @@
                         id="eventName"
                         v-model="formData.eventName"
                         required
-                        class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                        class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
                         :disabled="isSubmitting"
                     >
                 </div>
 
-                <!-- Event Type -->
                 <div>
                     <label for="eventType" class="block text-sm font-medium text-text-secondary">Event Type <span class="text-error">*</span></label>
                     <select
                         id="eventType"
                         v-model="formData.eventType"
                         required
-                        class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                        class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
                         :disabled="isSubmitting"
                         @change="handleEventTypeChange"
                     >
-                        <option value="">Select Type</option>
-                        <option v-for="type in availableEventTypes" 
-                                :key="type" 
+                        <option disabled value="">Select Type</option>
+                        <option v-for="type in availableEventTypes"
+                                :key="type"
                                 :value="type">{{ type }}</option>
                     </select>
                 </div>
 
-                <!-- Description -->
                 <div>
                     <label for="description" class="block text-sm font-medium text-text-secondary">Description <span class="text-error">*</span></label>
                     <textarea
@@ -74,143 +68,153 @@
                         v-model="formData.description"
                         rows="4"
                         required
-                        class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                        class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
                         :disabled="isSubmitting"
                     ></textarea>
                 </div>
 
-                <!-- Team Configuration (shown only when isTeamEvent is true) -->
-                <div v-if="formData.isTeamEvent" class="space-y-4 border-t border-border pt-4">
+                <div v-if="formData.isTeamEvent" class="space-y-4 border-t border-border pt-4 mt-4">
                     <h4 class="text-md font-medium text-text-primary">Team Configuration</h4>
-                    
-                    <!-- Add Teams Management Component -->
-                    <ManageTeamsComponent 
+
+                    <ManageTeamsComponent
                         :initial-teams="formData.teams"
                         :students="availableStudents"
                         :name-cache="nameCache"
                         :is-submitting="isSubmitting"
                         :can-auto-generate="true"
+                        :event-id="eventId || ''"
                         @update:teams="updateTeams"
                     />
                 </div>
             </div>
         </div>
 
-        <!-- Dates Section -->
         <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
             <div class="px-4 py-5 sm:p-6 space-y-4">
                 <h3 class="text-lg font-medium text-text-primary">Event Schedule</h3>
-                
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <!-- Start Date -->
-                    <div class="space-y-2">
-                        <label :for="isAdmin ? 'startDate' : 'desiredStartDate'" class="block text-sm font-medium text-text-secondary">
+
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div class="space-y-1">
+                        <label :for="dateFields.startField" class="block text-sm font-medium text-text-secondary">
                             {{ isAdmin ? 'Start Date' : 'Desired Start Date' }} <span class="text-error">*</span>
                         </label>
-                        <div class="flex space-x-2">
-                            <!-- Datepicker component -->
-                            <DatePicker
-                              v-model="formData[isAdmin ? 'startDate' : 'desiredStartDate']"
-                              :config="{
-                                format: 'yyyy-MM-dd', // Adjust format to match your needs
-                                autoApply: true,
-                              }"
-                              :disabled="isSubmitting"
-                              @change="checkNextAvailableDate"
-                              class="flex-1"
-                            />
-                        </div>
-                        <div v-if="nextAvailableDate" class="text-sm">
-                            <span v-if="isDateAvailable" class="text-success">
-                                <i class="fas fa-check-circle mr-1"></i> Selected date is available!
-                            </span>
-                            <span v-else class="text-warning">
-                                <i class="fas fa-exclamation-circle mr-1"></i>
-                                Next available: {{ formatDate(nextAvailableDate) }}
-                            </span>
+                        <DatePicker
+                            :id="dateFields.startField"
+                            v-model="formData[dateFields.startField]"
+                            :enable-time-picker="false"
+                            :disabled="isSubmitting"
+                            @update:model-value="checkNextAvailableDate"
+                            model-type="yyyy-MM-dd"
+                            :min-date="new Date()"
+                            class="w-full"
+                            :input-class-name="dpInputClass(!isDateAvailable)"
+                            :auto-apply="true"
+                            :teleport="true"
+                            :clearable="false"
+                            placeholder="Select start date"
+                        />
+                        <div v-if="formData[dateFields.startField]" class="text-xs flex items-center pt-1" :class="{'text-success': isDateAvailable, 'text-error': !isDateAvailable}">
+                            <i class="fas mr-1" :class="{'fa-check-circle': isDateAvailable, 'fa-exclamation-circle': !isDateAvailable}"></i>
+                            <span>{{ isDateAvailable ? 'Date available' : 'Date conflict detected' }}</span>
                         </div>
                     </div>
 
-                    <!-- End Date -->
-                    <div>
-                        <label :for="isAdmin ? 'endDate' : 'desiredEndDate'" class="block text-sm font-medium text-text-secondary">
+                    <div class="space-y-1">
+                        <label :for="dateFields.endField" class="block text-sm font-medium text-text-secondary">
                             {{ isAdmin ? 'End Date' : 'Desired End Date' }} <span class="text-error">*</span>
                         </label>
-                        <!-- Datepicker component for End Date -->
                         <DatePicker
-                          v-model="formData[isAdmin ? 'endDate' : 'desiredEndDate']"
-                          :config="{
-                            format: 'yyyy-MM-dd', // Keep format consistent
-                            autoApply: true,
-                            minDate: formData[isAdmin ? 'startDate' : 'desiredStartDate'] // Use minDate prop
-                          }"
-                          :disabled="isSubmitting"
-                          @change="checkNextAvailableDate"
-                          class="flex-1 block"
+                            :id="dateFields.endField"
+                            v-model="formData[dateFields.endField]"
+                            :enable-time-picker="false"
+                            :disabled="isSubmitting || !formData[dateFields.startField]"
+                            @update:model-value="checkNextAvailableDate"
+                            model-type="yyyy-MM-dd"
+                            :min-date="formData[dateFields.startField] ? new Date(formData[dateFields.startField]) : new Date()"
+                            class="w-full"
+                            :input-class-name="dpInputClass(!isDateAvailable || !formData[dateFields.startField])"
+                            :auto-apply="true"
+                            :teleport="true"
+                            :clearable="false"
+                            placeholder="Select end date"
                         />
-                        <button
-                            type="button"
-                            @click="findNextAvailableDate"
-                            class="px-3 py-1 text-sm rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors mt-2 sm:mt-0 sm:ml-2 inline-flex items-center"
-                            :disabled="isSubmitting"
-                        >
-                            <i class="fas fa-calendar-plus"></i> Find Next
-                        </button>
                     </div>
+                </div>
 
+                <div v-if="!isDateAvailable && nextAvailableDate" class="mt-4 p-4 bg-warning-light rounded-lg border border-warning">
+                    <div class="flex items-start space-x-3">
+                        <i class="fas fa-exclamation-triangle text-warning mt-1 flex-shrink-0"></i>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-warning-dark">Date Conflict Detected</p>
+                            <p class="text-sm text-text-secondary mt-1">
+                                The selected dates conflict with another event.
+                                Next available start date is <span class="font-semibold">{{ formatDate(nextAvailableDate) }}</span>.
+                            </p>
+                            <div class="mt-3">
+                                <button
+                                    type="button"
+                                    @click="useNextAvailableDate"
+                                    class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors disabled:opacity-50"
+                                    :disabled="isSubmitting"
+                                >
+                                    <i class="fas fa-calendar-check mr-1.5"></i>
+                                    Use Next Available Date
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- XP Allocation Section -->
         <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
             <div class="px-4 py-5 sm:p-6 space-y-4">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-lg font-medium text-text-primary">Rating Criteria & XP</h3>
+                <div class="flex justify-between items-center mb-2">
+                    <div>
+                        <h3 class="text-lg font-medium text-text-primary">Rating Criteria & XP</h3>
+                        <p class="text-sm text-text-secondary">Define how participants earn XP (Max 4 criteria, Total 50 XP).</p>
+                    </div>
                     <button
                         type="button"
                         @click="addAllocation"
-                        class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
-                        :disabled="isSubmitting || formData.xpAllocation.length >= 4"
+                        class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="isSubmitting || formData.xpAllocation.length >= 4 || totalXP >= 50"
                     >
                         <i class="fas fa-plus mr-1.5"></i> Add Criteria
                     </button>
                 </div>
-                
-                <!-- Add total XP display -->
-                <div class="text-sm text-text-secondary">
-                    Total XP: {{ totalXP }}/50
+
+                <div class="text-sm font-medium text-text-secondary mb-4">
+                    Total XP Allocated: <span class="font-bold text-text-primary">{{ totalXP }} / 50</span>
+                    <div v-if="totalXP > 50" class="text-error text-xs mt-1">Total XP exceeds the maximum of 50. Please adjust.</div>
                 </div>
 
-                <!-- XP Allocations List -->
-                <div class="space-y-3">
+                <div v-if="formData.xpAllocation.length > 0" class="space-y-4">
                     <div
                         v-for="(alloc, index) in formData.xpAllocation"
-                        :key="index"
-                        class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-background rounded-md border border-border"
+                        :key="`allocation-${index}`"
+                        class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-background rounded-md border border-border relative"
                     >
-                        <!-- Criteria Label -->
-                        <div>
-                            <label :for="'criteria-'+index" class="block text-sm font-medium text-text-secondary">Criteria</label>
+                        <div class="sm:col-span-1">
+                            <label :for="'criteria-'+index" class="block text-sm font-medium text-text-secondary">Criteria <span class="text-error">*</span></label>
                             <input
                                 :id="'criteria-'+index"
                                 type="text"
                                 v-model="alloc.constraintLabel"
                                 required
                                 placeholder="e.g., Functionality"
-                                class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                                class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
                                 :disabled="isSubmitting"
                             >
                         </div>
 
-                        <!-- Role -->
-                        <div>
-                            <label :for="'role-'+index" class="block text-sm font-medium text-text-secondary">Role</label>
+                        <div class="sm:col-span-1">
+                            <label :for="'role-'+index" class="block text-sm font-medium text-text-secondary">Role <span class="text-error">*</span></label>
                             <select
                                 :id="'role-'+index"
                                 v-model="alloc.role"
                                 required
-                                class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                                class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
                                 :disabled="isSubmitting"
                             >
                                 <option value="fullstack">Fullstack</option>
@@ -220,107 +224,115 @@
                             </select>
                         </div>
 
-                        <!-- Points -->
-                        <div class="relative">
+                        <div class="sm:col-span-1">
                             <label :for="'points-'+index" class="block text-sm font-medium text-text-secondary">
-                                XP Points: {{ alloc.points }}
+                                XP Points: <span class="font-semibold">{{ alloc.points }}</span>
                             </label>
-                            <div class="flex items-center space-x-2">
-                                <input
-                                    :id="'points-'+index"
-                                    type="range"
-                                    v-model="alloc.points"
-                                    min="1"
-                                    max="50"
-                                    step="1"
-                                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                    :disabled="isSubmitting"
-                                    @input="validatePoints(index)"
-                                >
-                                <button
-                                    type="button"
-                                    @click="removeAllocation(index)"
-                                    class="text-error hover:text-error-dark transition-colors"
-                                    :disabled="isSubmitting"
-                                >
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </div>
+                            <input
+                                :id="'points-'+index"
+                                type="range"
+                                v-model.number="alloc.points"
+                                min="1"
+                                :max="maxPointsForAllocation(index)"
+                                step="1"
+                                class="mt-1 w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-primary disabled:opacity-50"
+                                :disabled="isSubmitting"
+                                @input="handlePointsInput(index)"
+                            >
                         </div>
+
+                        <button
+                            type="button"
+                            @click="removeAllocation(index)"
+                            class="absolute top-2 right-2 text-gray-400 hover:text-error transition-colors disabled:opacity-50"
+                            :disabled="isSubmitting"
+                            title="Remove Criteria"
+                        >
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
 
-                <p v-if="formData.xpAllocation.length === 0" class="text-sm text-text-secondary italic">
-                    Add rating criteria to define how participants will be evaluated and earn XP.
+                <p v-else class="text-sm text-text-secondary italic text-center py-4">
+                    Click "Add Criteria" to define how participants will be evaluated and earn XP.
                 </p>
             </div>
         </div>
 
-        <!-- Co-organizers Section -->
         <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
             <div class="px-4 py-5 sm:p-6 space-y-4">
-                <h3 class="text-lg font-medium text-text-primary">Co-organizers</h3>
-                
-                <div class="flex items-center space-x-2">
-                    <div class="flex-1 relative">
-                        <input
-                            type="text"
-                            v-model="coOrganizerSearch"
-                            placeholder="Search users to add as co-organizers..."
-                            class="block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                            :disabled="isSubmitting"
-                            @focus="showCoOrganizerDropdown = true"
-                            @blur="hideCoOrganizerDropdown"
-                        >
-                        
-                        <!-- Dropdown for co-organizer selection -->
-                        <div v-if="showCoOrganizerDropdown && filteredUsers.length > 0" class="absolute z-10 mt-1 w-full bg-surface shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
-                            <div
-                                v-for="user in filteredUsers"
-                                :key="user.uid"
-                                class="cursor-pointer select-none relative py-2 pl-3 pr-9 text-text-primary hover:bg-primary-light hover:text-white"
-                                @mousedown="addCoOrganizer(user)"
-                            >
-                                {{ user.name || user.uid }}
-                            </div>
+                <h3 class="text-lg font-medium text-text-primary" v-html="coOrganizerSectionTitle"></h3>
+                <p class="text-sm text-text-secondary">Add other users who can help manage this event.</p>
+
+                <div class="relative">
+                    <label for="coOrganizerSearch" class="sr-only">Search for co-organizers</label>
+                    <input
+                        id="coOrganizerSearch"
+                        type="text"
+                        v-model="coOrganizerSearch"
+                        placeholder="Search users by name or ID..."
+                        class="block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
+                        :disabled="isSubmitting"
+                        @focus="showCoOrganizerDropdown = true"
+                        @blur="hideCoOrganizerDropdown"
+                        @input="showCoOrganizerDropdown = true"
+                        autocomplete="off"
+                    >
+
+                    <transition name="fade">
+                        <div v-if="showCoOrganizerDropdown && filteredUsers.length > 0" class="absolute z-20 mt-1 w-full bg-surface shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                            <ul>
+                                <li
+                                    v-for="user in filteredUsers"
+                                    :key="user.uid"
+                                    class="cursor-pointer select-none relative py-2 px-3 text-text-primary hover:bg-primary-light hover:text-white"
+                                    @mousedown.prevent="addCoOrganizer(user)"
+                                >
+                                    {{ user.name || 'Unnamed User' }}
+                                </li>
+                            </ul>
                         </div>
-                    </div>
+                        <div v-else-if="showCoOrganizerDropdown && coOrganizerSearch && filteredUsers.length === 0" class="absolute z-20 mt-1 w-full bg-surface shadow-lg rounded-md p-3 text-sm text-text-secondary ring-1 ring-black ring-opacity-5">
+                            No matching users found.
+                        </div>
+                    </transition>
                 </div>
 
-                <!-- Selected co-organizers -->
-                <div v-if="formData.organizers.length > 0" class="flex flex-wrap gap-2">
+                <div v-if="formData.organizers.length > 0" class="flex flex-wrap gap-2 pt-2">
                     <span
                         v-for="orgId in formData.organizers"
                         :key="orgId"
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm bg-primary-light text-white"
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-text"
                     >
                         {{ getUserName(orgId) }}
                         <button
                             type="button"
                             @click="removeCoOrganizer(orgId)"
-                            class="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full hover:bg-primary-dark focus:outline-none"
+                            class="ml-1.5 flex-shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full text-secondary-text hover:bg-secondary-dark hover:text-white focus:outline-none focus:bg-secondary-dark disabled:opacity-50"
                             :disabled="isSubmitting"
+                            :aria-label="`Remove ${getUserName(orgId)}`"
                         >
-                            <i class="fas fa-times text-xs"></i>
                             <span class="sr-only">Remove co-organizer</span>
+                            <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                                <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />
+                            </svg>
                         </button>
                     </span>
                 </div>
-                <p v-else class="text-sm text-text-secondary italic">
+                <p v-else class="text-sm text-text-secondary italic pt-2">
                     No co-organizers added yet.
                 </p>
             </div>
         </div>
 
-        <!-- Submit Button -->
-        <div class="flex justify-end">
+        <div class="flex justify-end pt-4">
             <button
                 type="submit"
-                class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors disabled:opacity-50"
-                :disabled="isSubmitting"
+                class="inline-flex items-center justify-center px-6 py-2 text-sm font-medium rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="isSubmitting || !isFormValid || totalXP > 50"
             >
                 <i v-if="isSubmitting" class="fas fa-spinner fa-spin mr-2"></i>
-                <i v-else class="fas fa-save mr-2"></i>
+                <i v-else class="fas fa-paper-plane mr-2"></i>
                 {{ submitButtonText }}
             </button>
         </div>
@@ -333,10 +345,19 @@ import { useStore } from 'vuex';
 import { Timestamp } from 'firebase/firestore';
 import { XPAllocation, EventCreateDTO, EventRequest, EventTeam, EventFormData } from '../types/event';
 import ManageTeamsComponent from './ManageTeamsComponent.vue';
-import DatePicker from '@vuepic/vue-datepicker'; // Import from package
-import '@vuepic/vue-datepicker/dist/main.css'; // Import datepicker CSS
+import DatePicker from '@vuepic/vue-datepicker';
+import '@vuepic/vue-datepicker/dist/main.css';
 
-// Define form data with proper typing
+const getStartOfDayUTC = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+};
+
+const getEndOfDayUTC = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+};
+
 const props = defineProps({
     eventId: {
         type: String,
@@ -348,25 +369,23 @@ const props = defineProps({
     }
 });
 
-declare const window: Window & typeof globalThis;
+const emit = defineEmits(['submit', 'error']);
 
-const emit = defineEmits(['submit']);
 const store = useStore();
-
-// Form state
 const isSubmitting = ref(false);
 const coOrganizerSearch = ref('');
 const showCoOrganizerDropdown = ref(false);
+const usersLoaded = ref(false);
+const nextAvailableDate = ref<Date | null>(null);
+const isDateAvailable = ref(true);
+const teamsList = ref<EventTeam[]>([]);
+const isUpdatingTeamsInternally = ref(false);
 
-const isAdmin = computed(() => store.getters['user/getUser']?.role === 'Admin');
+const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
 
-// Form data with defaults
-const formData = ref<EventFormData>({
-    // Format selection (moved to top)
+const defaultFormData: EventFormData = {
     isTeamEvent: false,
     eventType: '',
-    
-    // Basic event details
     eventName: '',
     description: '',
     startDate: '',
@@ -374,17 +393,18 @@ const formData = ref<EventFormData>({
     desiredStartDate: '',
     desiredEndDate: '',
     location: '',
-    
-    // Other fields
     organizers: [],
-    xpAllocation: [],
-    teams: [
-        { teamName: '', members: [], ratings: [], submissions: [] },
-        { teamName: '', members: [], ratings: [], submissions: [] }
-    ], // Add teams array
-});
+    xpAllocation: [{
+        constraintIndex: 0,
+        constraintLabel: 'Overall Quality',
+        role: 'fullstack',
+        points: 10
+    }],
+    teams: [],
+};
 
-// Add available event types
+const formData = ref<EventFormData>(JSON.parse(JSON.stringify(defaultFormData)));
+
 const individualEventTypes = [
     'Workshop',
     'Presentation',
@@ -405,115 +425,99 @@ const availableEventTypes = computed(() => {
     return formData.value.isTeamEvent ? teamEventTypes : individualEventTypes;
 });
 
-// Update the handleFormatChange function to avoid circular updates:
-const handleFormatChange = async () => {
+const dpInputClass = (hasError: boolean) => {
+    let base = 'dp-custom-input block w-full rounded-md shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100';
+    return hasError ? `${base} border-error` : `${base} border-border`;
+};
+
+const handleFormatChange = () => {
     formData.value.eventType = '';
-    
-    // Create new teams array without causing circular updates
     if (formData.value.isTeamEvent) {
-        // Ensure we have the latest student data
-        const initialTeams = [
-            { teamName: 'Team 1', members: [], ratings: [], submissions: [] },
-            { teamName: 'Team 2', members: [], ratings: [], submissions: [] }
+        formData.value.teams = [
+            {
+                teamName: 'Team 1',
+                members: [],
+                submissions: [],
+                ratings: []
+            },
+            {
+                teamName: 'Team 2',
+                members: [],
+                submissions: [],
+                ratings: []
+            }
         ];
-        
-        // Set teams without triggering the watcher in ManageTeamsComponent
-        // by temporarily disabling the watch
-        const updatingFlag = isUpdatingTeamsInternally;
-        updatingFlag.value = true;
-        formData.value.teams = JSON.parse(JSON.stringify(initialTeams));
-        teamsList.value = JSON.parse(JSON.stringify(initialTeams));
-        
-        // Re-enable the watch after a delay
-        setTimeout(() => {
-            updatingFlag.value = false;
-        }, 0);
     } else {
-        const updatingFlag = isUpdatingTeamsInternally;
-        updatingFlag.value = true;
         formData.value.teams = [];
-        teamsList.value = [];
-        
-        setTimeout(() => {
-            updatingFlag.value = false;
-        }, 0);
     }
 };
 
 const handleEventTypeChange = () => {
-    // Reset team-related fields when switching to individual
-    if (!formData.value.isTeamEvent) {
-        formData.value.teams = [];
-    }
 };
 
-// Computed
 const submitButtonText = computed(() => {
     if (isSubmitting.value) return 'Saving...';
     if (props.eventId) return 'Update Event';
     return isAdmin.value ? 'Create Event' : 'Submit Request';
 });
 
-const filteredUsers = computed(() => {
-    // Ensure users are loaded before attempting to filter
-    if (!usersLoaded.value) return []; 
+const isFormValid = computed(() => {
+    const data = formData.value;
+    const datesValid = !!data[dateFields.value.startField] && !!data[dateFields.value.endField];
+    const xpValid = data.xpAllocation.every(a => a.constraintLabel && a.role && a.points > 0) && totalXP.value <= 50;
+    const basicInfoValid = !!data.eventName && !!data.eventType && !!data.description;
+    const teamsValid = data.isTeamEvent ? data.teams.length > 0 && data.teams.every(t => t.teamName) : true;
+    
+    // Add organizer validation for admins
+    const organizersValid = !isAdmin.value || (Array.isArray(data.organizers) && data.organizers.length > 0);
 
+    return datesValid && xpValid && basicInfoValid && teamsValid && isDateAvailable.value && organizersValid;
+});
+
+// Update co-organizers section UI to show required status for admins
+const coOrganizerSectionTitle = computed(() => {
+    return `Co-organizers ${isAdmin.value ? '<span class="text-error">*</span>' : '(Optional)'}`;
+});
+
+const filteredUsers = computed(() => {
+    if (!usersLoaded.value) return [];
     const search = coOrganizerSearch.value.trim().toLowerCase();
-    if (!search) return []; 
-    
+    if (!search) return [];
+
     const allUsers = store.getters['user/getAllUsers'] || [];
-    const currentUserId = store.getters['user/userId']; 
-    
-    // Add logging to check data
-    // console.log("All Users for filtering:", allUsers); 
-    // console.log("Current User ID:", currentUserId);
-    // console.log("Search Term:", search);
+    const currentUserId = store.getters['user/userId'];
 
     return allUsers
         .filter(user => {
-            if (!user || !user.uid) return false; // Basic check for valid user object
-
-            if (user.uid === currentUserId || 
-                formData.value.organizers.includes(user.uid) ||
+            // Skip if user is invalid, current user, already an organizer, or is an admin
+            if (!user?.uid || 
+                user.uid === currentUserId || 
+                formData.value.organizers.includes(user.uid) || 
                 user.role === 'Admin') {
                 return false;
             }
-            
             const userName = (user.name || '').toLowerCase();
-            const userUid = user.uid.toLowerCase(); 
-            return userName.includes(search) || userUid.includes(search);
+            return userName.includes(search);
         })
         .slice(0, 10);
 });
 
 const addAllocation = () => {
-    if (formData.value.xpAllocation.length >= 4) {
-        alert('Maximum 4 criteria allowed');
-        return;
-    }
-    
-    const remainingXP = 50 - totalXP.value;
-    if (remainingXP <= 0) {
-        alert('Maximum total XP of 50 reached');
-        return;
-    }
+    if (formData.value.xpAllocation.length >= 4 || totalXP.value >= 50) return;
 
-    // Create a new array to avoid triggering the watcher during modification
-    const newAllocations = [...formData.value.xpAllocation];
-    newAllocations.push({
-        constraintIndex: newAllocations.length,
+    const remainingXP = 50 - totalXP.value;
+    const defaultPoints = Math.min(10, Math.max(1, remainingXP));
+
+    formData.value.xpAllocation.push({
+        constraintIndex: formData.value.xpAllocation.length,
         constraintLabel: '',
-        role: 'fullstack', // Default role
-        points: Math.min(10, remainingXP) // Default points or remaining XP
+        role: 'fullstack',
+        points: defaultPoints
     });
-    
-    // Replace the entire array at once
-    formData.value.xpAllocation = newAllocations;
 };
 
 const removeAllocation = (index: number) => {
     formData.value.xpAllocation.splice(index, 1);
-    // Update constraint indices
     formData.value.xpAllocation.forEach((alloc, idx) => {
         alloc.constraintIndex = idx;
     });
@@ -524,428 +528,260 @@ const addCoOrganizer = (user: { uid: string }) => {
         formData.value.organizers.push(user.uid);
     }
     coOrganizerSearch.value = '';
-    // Explicitly hide dropdown after selection
-    showCoOrganizerDropdown.value = false; 
+    showCoOrganizerDropdown.value = false;
 };
 
 const removeCoOrganizer = (userId: string) => {
-    const index = formData.value.organizers.indexOf(userId);
-    if (index > -1) {
-        formData.value.organizers.splice(index, 1);
-    }
+    formData.value.organizers = formData.value.organizers.filter(id => id !== userId);
 };
 
-// Update handleSubmit to include client-side validation aligned with backend check
 const handleSubmit = async () => {
-    isSubmitting.value = true; // Set submitting flag early
+    isSubmitting.value = true;
+    emit('error', '');
 
-    // --- Client-side Date Validation ---
-    const startField = isAdmin.value ? 'startDate' : 'desiredStartDate';
-    const endField = isAdmin.value ? 'endDate' : 'desiredEndDate';
-    const proposedStartDateStr = formData.value[startField]; // Should be 'YYYY-MM-DD'
-    const proposedEndDateStr = formData.value[endField];   // Should be 'YYYY-MM-DD'
-
-    if (!proposedStartDateStr || !proposedEndDateStr) {
-        alert('Please select both start and end dates.');
+    if (!isFormValid.value) {
+        emit('error', 'Please fill all required fields correctly and ensure dates are available.');
         isSubmitting.value = false;
         return;
     }
-
-    // Convert YYYY-MM-DD string to Date objects representing start/end of day UTC for reliable comparison
-    // Important: new Date('YYYY-MM-DD') can be timezone-dependent. Use UTC for consistency.
-    const getStartOfDayUTC = (dateStr: string): Date => {
-        const [year, month, day] = dateStr.split('-').map(Number);
-        return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-    };
-    const getEndOfDayUTC = (dateStr: string): Date => {
-        const [year, month, day] = dateStr.split('-').map(Number);
-        return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
-    };
-
-    let proposedStartUTC, proposedEndUTC;
-    try {
-        proposedStartUTC = getStartOfDayUTC(proposedStartDateStr);
-        proposedEndUTC = getEndOfDayUTC(proposedEndDateStr); // Use end of the selected end day
-
-        if (isNaN(proposedStartUTC.getTime()) || isNaN(proposedEndUTC.getTime())) {
-            throw new Error("Invalid date format selected.");
-        }
-    } catch (e) {
-        alert(e.message || "Invalid date format selected.");
-        isSubmitting.value = false;
-        return;
-    }
-
-    // Ensure end date is not before start date (day-based)
-    if (proposedEndUTC < proposedStartUTC) {
-         alert('End date cannot be before start date.');
-         isSubmitting.value = false;
-         return;
-    }
-
-    // --- Client-side Date Validation (Day-based UTC) ---
-    const events = store.getters['events/getAllEvents'] || [];
-    const existingEvents = events
-        .filter(event =>
-            ['Approved', 'InProgress'].includes(event.status) &&
-            event.id !== props.eventId &&
-            event.startDate && event.endDate // Ensure dates exist (should be Timestamps)
-        )
-        .map(event => {
-            try {
-                // Convert Firestore Timestamps to UTC Date objects for comparison
-                const eventStartUTC = getStartOfDayUTC(event.startDate.toDate().toISOString().split('T')[0]);
-                const eventEndUTC = getEndOfDayUTC(event.endDate.toDate().toISOString().split('T')[0]);
-
-                if (isNaN(eventStartUTC.getTime()) || isNaN(eventEndUTC.getTime())) return null;
-
-                return {
-                    name: event.eventName,
-                    start: eventStartUTC,
-                    end: eventEndUTC
-                };
-            } catch (e) {
-                console.warn(`Skipping event ${event.id} in client conflict check due to date issue:`, e);
-                return null;
-            }
-        })
-        .filter(Boolean);
-
-    const checkOverlapDayBased = (start1: Date, end1: Date, start2: Date, end2: Date): boolean => {
-        // Check if day ranges overlap (inclusive)
-        return start1 <= end2 && end1 >= start2;
-    };
-
-    const conflictingEvent = existingEvents.find(event =>
-        checkOverlapDayBased(proposedStartUTC, proposedEndUTC, event.start, event.end)
-    );
-
-    if (conflictingEvent) {
-        alert(`Date conflict detected with event "${conflictingEvent.name}" on the same day(s). Please choose different dates.`);
-        isSubmitting.value = false;
-        return;
-    }
-    // --- End Client-side Date Validation ---
 
     try {
-        const baseEventData: Omit<EventCreateDTO, 'startDate' | 'endDate'> = {
-            // ... other fields ...
+        const { startField, endField } = dateFields.value;
+        const proposedStartDateStr = formData.value[startField];
+        const proposedEndDateStr = formData.value[endField];
+
+        const proposedStartDate = getStartOfDayUTC(proposedStartDateStr);
+        const proposedEndDate = getEndOfDayUTC(proposedEndDateStr);
+
+        const payload: Partial<EventCreateDTO | EventRequest> = {
             eventName: formData.value.eventName,
             eventType: formData.value.eventType,
             description: formData.value.description,
             isTeamEvent: formData.value.isTeamEvent,
             location: formData.value.location,
             organizers: formData.value.organizers,
-            xpAllocation: formData.value.xpAllocation,
-            teams: formData.value.teams
+            xpAllocation: formData.value.xpAllocation.map(a => ({ ...a, points: Number(a.points) })),
+            teams: formData.value.isTeamEvent ? formData.value.teams : [],
         };
 
-        // For saving, use the start of the selected day (UTC or local based on backend needs)
-        // Let's use the UTC start date objects we created for consistency
         if (isAdmin.value) {
-            const adminEventData: EventCreateDTO = {
-                ...baseEventData,
-                startDate: proposedStartUTC, // Save start of day UTC
-                endDate: proposedEndUTC      // Save end of day UTC (or start of next day depending on backend interpretation)
-                                             // Using end of day UTC seems safer for inclusive checks
-            };
-            const newEventId = await store.dispatch('events/createEvent', adminEventData);
-            emit('submit', adminEventData);
+            (payload as EventCreateDTO).startDate = Timestamp.fromDate(proposedStartDate);
+            (payload as EventCreateDTO).endDate = Timestamp.fromDate(proposedEndDate);
         } else {
-            const userEventData: Omit<EventRequest, 'requestedAt'> = {
-                ...baseEventData,
-                desiredStartDate: Timestamp.fromDate(proposedStartUTC), // Convert UTC Date to Timestamp
-                desiredEndDate: Timestamp.fromDate(proposedEndUTC),     // Convert UTC Date to Timestamp
-                requester: store.getters['user/userId'],
-                teams: []
-            };
-            await store.dispatch('events/requestEvent', userEventData);
-            emit('submit', userEventData);
+            (payload as EventRequest).desiredStartDate = Timestamp.fromDate(proposedStartDate);
+            (payload as EventRequest).desiredEndDate = Timestamp.fromDate(proposedEndDate);
+            (payload as EventRequest).requester = store.getters['user/userId'];
         }
-    } catch (error) {
+
+        emit('submit', payload);
+
+    } catch (error: any) {
         console.error('Form submission error:', error);
-        alert(error.message || 'Failed to submit form');
+        emit('error', error.message || 'Failed to prepare event data.');
     } finally {
-        isSubmitting.value = false;
     }
 };
 
-// Add new state for date availability
-const nextAvailableDate = ref<Date | null>(null);
-const isDateAvailable = ref(true);
-
-// Add new methods for date handling
-const formatDate = (date: Date): string => {
+const formatDate = (date: Date | string | null): string => {
     if (!date) return '';
-    return date.toLocaleDateString('en-CA'); // Use 'en-CA' for YYYY-MM-DD format, or adjust as needed
+    try {
+        const d = typeof date === 'string' ? new Date(date + 'T00:00:00Z') : date;
+        return d.toLocaleDateString('en-CA');
+    } catch (e) {
+        console.warn("Error formatting date:", date, e);
+        return '';
+    }
 };
 
-// Update checkNextAvailableDate to use the day-based check for consistency
+const dateFields = computed(() => ({
+    startField: isAdmin.value ? 'startDate' : 'desiredStartDate',
+    endField: isAdmin.value ? 'endDate' : 'desiredEndDate'
+}));
+
+const useNextAvailableDate = () => {
+    if (nextAvailableDate.value) {
+        const { startField, endField } = dateFields.value;
+        const startDateStr = formatDate(nextAvailableDate.value);
+        formData.value[startField] = startDateStr;
+
+        const originalStartStr = formData.value[startField];
+        const originalEndStr = formData.value[endField];
+        let endDate = new Date(nextAvailableDate.value);
+        if (originalStartStr && originalEndStr) {
+            try {
+                const duration = getEndOfDayUTC(originalEndStr).getTime() - getStartOfDayUTC(originalStartStr).getTime();
+                if (duration >= 0) {
+                    endDate = new Date(nextAvailableDate.value.getTime() + duration);
+                }
+            } catch { }
+        }
+        formData.value[endField] = formatDate(endDate);
+
+        checkNextAvailableDate();
+    }
+};
+
 const checkNextAvailableDate = async () => {
-    const startField = isAdmin.value ? 'startDate' : 'desiredStartDate';
-    const endField = isAdmin.value ? 'endDate' : 'desiredEndDate';
+    const { startField, endField } = dateFields.value;
     const selectedStartDateStr = formData.value[startField];
     const selectedEndDateStr = formData.value[endField];
 
     if (!selectedStartDateStr) {
-        nextAvailableDate.value = null;
         isDateAvailable.value = true;
+        nextAvailableDate.value = null;
         return;
     }
 
-    const getStartOfDayUTC = (dateStr: string): Date => {
-        const [year, month, day] = dateStr.split('-').map(Number);
-        return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-    };
-    const getEndOfDayUTC = (dateStr: string): Date => {
-        const [year, month, day] = dateStr.split('-').map(Number);
-        return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
-    };
+    try {
+        const checkStartDate = getStartOfDayUTC(selectedStartDateStr);
+        const checkEndDate = selectedEndDateStr ? getEndOfDayUTC(selectedEndDateStr) : getEndOfDayUTC(selectedStartDateStr);
 
-    const checkStartUTC = getStartOfDayUTC(selectedStartDateStr);
-    // Use end date if available, otherwise assume single day event for check
-    const checkEndUTC = selectedEndDateStr ? getEndOfDayUTC(selectedEndDateStr) : getEndOfDayUTC(selectedStartDateStr);
+        // Use proper error handling for the date check response
+        const dateCheck = await store.dispatch('events/checkDateConflict', {
+            startDate: checkStartDate,
+            endDate: checkEndDate,
+            excludeEventId: props.eventId
+        });
 
-    if (isNaN(checkStartUTC.getTime()) || isNaN(checkEndUTC.getTime())) {
-        isDateAvailable.value = false; // Mark as unavailable if dates are invalid
-        nextAvailableDate.value = null;
-        console.warn("Invalid date selected for checking.");
-        return;
-    }
-     if (checkEndUTC < checkStartUTC) {
-         isDateAvailable.value = false; // End date is before start date
-         nextAvailableDate.value = null;
-         console.warn("End date is before start date.");
-         return;
-     }
-
-    const events = store.getters['events/getAllEvents'] || [];
-    const existingEvents = events
-        .filter(event =>
-            ['Approved', 'InProgress'].includes(event.status) &&
-            event.startDate && event.endDate
-        )
-        .map(event => {
-             try {
-                const eventStartUTC = getStartOfDayUTC(event.startDate.toDate().toISOString().split('T')[0]);
-                const eventEndUTC = getEndOfDayUTC(event.endDate.toDate().toISOString().split('T')[0]);
-                if (isNaN(eventStartUTC.getTime()) || isNaN(eventEndUTC.getTime())) return null;
-                return { name: event.eventName, start: eventStartUTC, end: eventEndUTC };
-            } catch { return null; }
-        })
-        .filter(Boolean);
-
-    const checkOverlapDayBased = (start1: Date, end1: Date, start2: Date, end2: Date): boolean => {
-        return start1 <= end2 && end1 >= start2;
-    };
-
-    const conflictingEvent = existingEvents.find(event =>
-        checkOverlapDayBased(checkStartUTC, checkEndUTC, event.start, event.end)
-    );
-
-    if (conflictingEvent) {
-        isDateAvailable.value = false;
-        nextAvailableDate.value = null; // Clear specific suggestion for now
-        console.warn(`Selected date range conflicts with "${conflictingEvent.name}" on the same day(s).`);
-    } else {
-        isDateAvailable.value = true;
-        nextAvailableDate.value = null; // No conflict, clear suggestion
-    }
-};
-
-// Update findNextAvailableDate to suggest the next available *day* without recursive updates
-const findNextAvailableDate = async () => {
-    const events = store.getters['events/getAllEvents'] || [];
-    const startField = isAdmin.value ? 'startDate' : 'desiredStartDate';
-    const endField = isAdmin.value ? 'endDate' : 'desiredEndDate';
-
-    // Start searching from tomorrow or day after current selection
-    let searchDate = formData.value[startField]
-        ? new Date(formData.value[startField] + 'T00:00:00Z') // Treat input as UTC start
-        : new Date();
-    searchDate.setUTCDate(searchDate.getUTCDate() + 1); // Start check from next day
-    searchDate.setUTCHours(0, 0, 0, 0);
-
-    const getStartOfDayUTC = (date: Date): Date => {
-        const d = new Date(date);
-        d.setUTCHours(0, 0, 0, 0);
-        return d;
-    };
-     const getEndOfDayUTC = (date: Date): Date => {
-        const d = new Date(date);
-        d.setUTCHours(23, 59, 59, 999);
-        return d;
-    };
-
-    const existingEvents = events
-        .filter(event =>
-            ['Approved', 'InProgress'].includes(event.status) &&
-            event.startDate && event.endDate
-        )
-        .map(event => {
-             try {
-                const eventStartUTC = getStartOfDayUTC(event.startDate.toDate());
-                const eventEndUTC = getEndOfDayUTC(event.endDate.toDate());
-                if (isNaN(eventStartUTC.getTime()) || isNaN(eventEndUTC.getTime())) return null;
-                return { start: eventStartUTC, end: eventEndUTC };
-            } catch { return null; }
-        })
-        .filter(Boolean)
-        .sort((a, b) => a.start.getTime() - b.start.getTime()); // Sort by start date
-
-    const checkOverlapDayBased = (start1: Date, end1: Date, start2: Date, end2: Date): boolean => {
-        return start1 <= end2 && end1 >= start2;
-    };
-
-    let found = false;
-    let attempts = 0; // Prevent infinite loop
-    const maxAttempts = 365; // Search up to a year ahead
-
-    while (!found && attempts < maxAttempts) {
-        const checkStartUTC = getStartOfDayUTC(searchDate);
-        const checkEndUTC = getEndOfDayUTC(searchDate); // Assume single day for finding next available start
-
-        const isConflicting = existingEvents.some(event =>
-            checkOverlapDayBased(checkStartUTC, checkEndUTC, event.start, event.end)
-        );
-
-        if (!isConflicting) {
-            found = true;
-            const nextAvailableDayStr = searchDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-            const endDate = new Date(searchDate);
-            const endDateStr = endDate.toISOString().split('T')[0];
-
-            // Store the found date object first
-            nextAvailableDate.value = searchDate;
-            isDateAvailable.value = true;
-            
-            // Update form fields in the next tick to avoid recursive updates
-            nextTick(() => {
-                // Update form fields without triggering the watcher
-                formData.value[startField] = nextAvailableDayStr;
-                formData.value[endField] = endDateStr;
+        // Handle the response properly
+        if (dateCheck && typeof dateCheck.hasConflict === 'boolean') {
+            isDateAvailable.value = !dateCheck.hasConflict;
+            nextAvailableDate.value = dateCheck.hasConflict && dateCheck.nextAvailableDate ? 
+                new Date(dateCheck.nextAvailableDate) : null;
                 
-                // Call checkNextAvailableDate in the next tick to avoid recursive updates
-                nextTick(() => {
-                    checkNextAvailableDate();
-                });
-            });
-            break;
+            if (!isDateAvailable.value && nextAvailableDate.value) {
+                const conflictEventName = dateCheck.conflictingEvent?.eventName || 'another event';
+                emit('error', `Date conflict with ${conflictEventName}. Next available: ${formatDate(nextAvailableDate.value)}`);
+            } else {
+                emit('error', '');
+            }
+        } else {
+            console.error('Invalid date check response:', dateCheck);
+            throw new Error('Invalid date check response from server');
         }
-
-        // Increment search date by one day (UTC)
-        searchDate.setUTCDate(searchDate.getUTCDate() + 1);
-        attempts++;
+    } catch (error) {
+        console.error('Error checking date availability:', error);
+        isDateAvailable.value = false;
+        nextAvailableDate.value = null;
+        emit('error', 'Could not verify date availability.');
     }
-     if (!found) {
-         alert("Could not find an available date within the next year.");
-     }
 };
 
-// Add computed for total XP
 const totalXP = computed(() => {
     return formData.value.xpAllocation.reduce((sum, alloc) => sum + (Number(alloc.points) || 0), 0);
 });
 
-// Add validation for points
-const validatePoints = (index: number) => {
-    const alloc = formData.value.xpAllocation[index];
-    const newTotal = totalXP.value;
-    
-    if (newTotal > 50) {
-        const excess = newTotal - 50;
-        alloc.points = Math.max(1, alloc.points - excess);
-        alert('Total XP cannot exceed 50');
-    }
+const maxPointsForAllocation = (index: number): number => {
+    const currentPoints = Number(formData.value.xpAllocation[index]?.points) || 0;
+    const otherPointsTotal = formData.value.xpAllocation.reduce((sum, alloc, i) => {
+        return i !== index ? sum + (Number(alloc.points) || 0) : sum;
+    }, 0);
+    return Math.max(1, 50 - otherPointsTotal);
 };
 
-// Add watch for points changes with improved handling to prevent recursive updates
-watch(() => formData.value.xpAllocation, () => {
-    // Create a local copy to avoid modifying during iteration
-    const allocations = [...formData.value.xpAllocation];
-    let needsUpdate = false;
-    
-    allocations.forEach((alloc, index) => {
-        if (alloc.points) {
-            const originalPoints = alloc.points;
-            // Calculate max points without exceeding 50 total
-            const otherPointsTotal = allocations.reduce((sum, a, i) => 
-                i !== index ? sum + (Number(a.points) || 0) : sum, 0);
-            const maxPoints = 50 - otherPointsTotal;
-            
-            // Adjust points if needed
-            if (alloc.points > maxPoints) {
-                alloc.points = maxPoints;
-                needsUpdate = true;
-            }
-        }
+const handlePointsInput = (index: number) => {
+};
+
+watch(() => formData.value.xpAllocation, (newAllocations, oldAllocations) => {
+    newAllocations.forEach(alloc => {
+        alloc.points = Number(alloc.points) || 1;
     });
-    
-    // Only update if changes were made, and do it in the next tick
-    if (needsUpdate) {
+
+    let currentTotal = newAllocations.reduce((sum, alloc) => sum + alloc.points, 0);
+
+    if (currentTotal > 50) {
+        const lastChangedIndex = findLastChangedIndex(newAllocations, oldAllocations);
+        if (lastChangedIndex !== -1) {
+            const excess = currentTotal - 50;
+            const currentPoints = newAllocations[lastChangedIndex].points;
+            nextTick(() => {
+                formData.value.xpAllocation[lastChangedIndex].points = Math.max(1, currentPoints - excess);
+            });
+        }
+    }
+
+    if (newAllocations.length !== oldAllocations?.length) {
         nextTick(() => {
-            formData.value.xpAllocation = [...allocations];
+             formData.value.xpAllocation.forEach((alloc, idx) => {
+                 alloc.constraintIndex = idx;
+             });
         });
     }
+
 }, { deep: true });
 
-// Initialize form with initial data if editing
-watch(() => props.initialData, (newData) => {
-    if (newData && Object.keys(newData).length > 0) {
-        const dateFields = isAdmin.value ? ['startDate', 'endDate'] : ['desiredStartDate', 'desiredEndDate'];
-        const dates = dateFields.reduce((acc, field) => {
-            const date = newData[field]?.toDate?.();
-            if (date) {
-                acc[field] = date.toISOString().slice(0, 16); // Format for datetime-local input
-            }
-            return acc;
-        }, {} as Record<string, string>);
-
-        // Create a complete form data object with all required fields
-        formData.value = {
-            isTeamEvent: newData.isTeamEvent || false,
-            eventType: newData.eventType || '',
-            eventName: newData.eventName || '',
-            description: newData.description || '',
-            location: newData.location || '',
-            organizers: newData.organizers || [],
-            xpAllocation: newData.xpAllocation || [],
-            teams: newData.teams || [],
-            startDate: dates['startDate'] || '',
-            endDate: dates['endDate'] || '',
-            desiredStartDate: dates['desiredStartDate'] || '',
-            desiredEndDate: dates['desiredEndDate'] || ''
-        };
+const findLastChangedIndex = (newArr, oldArr) => {
+    if (!oldArr || newArr.length !== oldArr.length) {
+        return newArr.length - 1;
     }
-}, { immediate: true });
+    for (let i = newArr.length - 1; i >= 0; i--) {
+        if (JSON.stringify(newArr[i]) !== JSON.stringify(oldArr[i])) {
+            return i;
+        }
+    }
+    return newArr.length - 1;
+};
 
-// Load users for co-organizer selection
+watch(() => props.initialData, (newData) => {
+    if (newData && Object.keys(newData).length > 0 && !props.eventId) {
+        return;
+    }
+    if (newData && Object.keys(newData).length > 0 && props.eventId) {
+        const dataToLoad = JSON.parse(JSON.stringify(newData));
+
+        const formatInitialDate = (dateInput: any): string => {
+            if (!dateInput) return '';
+            try {
+                const date = dateInput.toDate ? dateInput.toDate() : new Date(dateInput);
+                return formatDate(date);
+            } catch {
+                return '';
+            }
+        };
+
+        formData.value = {
+            ...defaultFormData,
+            ...dataToLoad,
+            startDate: formatInitialDate(dataToLoad.startDate),
+            endDate: formatInitialDate(dataToLoad.endDate),
+            desiredStartDate: formatInitialDate(dataToLoad.desiredStartDate),
+            desiredEndDate: formatInitialDate(dataToLoad.desiredEndDate),
+            xpAllocation: (dataToLoad.xpAllocation || []).map((a: any) => ({ ...a, points: Number(a.points) || 1 })),
+            teams: Array.isArray(dataToLoad.teams) ? dataToLoad.teams : [],
+        };
+
+        nextTick(() => {
+            checkNextAvailableDate();
+        });
+    } else {
+        formData.value = JSON.parse(JSON.stringify(defaultFormData));
+        isDateAvailable.value = true;
+        nextAvailableDate.value = null;
+    }
+}, { immediate: true, deep: true });
+
 onMounted(async () => {
-    // Fetch users if not already loaded
     const currentUsers = store.getters['user/getAllUsers'];
-    if (!currentUsers || currentUsers.length === 0) { 
+    if (!currentUsers || currentUsers.length === 0) {
         try {
-            console.log("Fetching users in onMounted..."); // Add log
             await store.dispatch('user/fetchAllUsers');
-            usersLoaded.value = true; // Set flag after successful fetch
-            console.log("Users fetched successfully."); // Add log
+            usersLoaded.value = true;
         } catch (error) {
             console.error("Failed to fetch users on mount:", error);
-            // Handle error appropriately
+            emit('error', 'Failed to load user data for co-organizer selection.');
         }
     } else {
-        usersLoaded.value = true; // Users were already loaded
-        console.log("Users already loaded in store."); // Add log
+        usersLoaded.value = true;
     }
 });
 
-// Add computed properties for team management
 const availableStudents = computed(() => {
     const allUsers = store.getters['user/getAllUsers'] || [];
-    const students = allUsers.filter(user => 
-        (user.role === 'Student' || user.role === undefined)
+    return allUsers.filter(user =>
+        user.role !== 'Admin' &&
+        user.uid !== store.getters['user/userId'] &&
+        !formData.value.organizers.includes(user.uid)
     );
-    return students;
 });
 
 const nameCache = computed(() => {
@@ -953,71 +789,67 @@ const nameCache = computed(() => {
     return Object.fromEntries(users.map(user => [user.uid, user.name || user.uid]));
 });
 
-// Add updateTeams method with improved handling to avoid circular updates
-const updateTeams = (teams: any[]) => {
-    // Skip if we're already updating teams internally
+const updateTeams = (teams: EventTeam[]) => {
     if (isUpdatingTeamsInternally.value) return;
-    
-    // Set flag to prevent recursive updates
-    const updatingFlag = isUpdatingTeamsInternally;
-    updatingFlag.value = true;
-    
-    // Create deep copies to break references
-    const teamsCopy = JSON.parse(JSON.stringify(teams));
-    formData.value.teams = teamsCopy;
-    teamsList.value = teamsCopy;
-    
-    // Reset flag after a delay
-    setTimeout(() => {
-        updatingFlag.value = false;
-    }, 0);
+    isUpdatingTeamsInternally.value = true;
+    formData.value.teams = JSON.parse(JSON.stringify(teams));
+    nextTick(() => {
+        isUpdatingTeamsInternally.value = false;
+    });
 };
 
-// Fix window.setTimeout error by removing the reference
 const hideCoOrganizerDropdown = () => {
     setTimeout(() => {
         showCoOrganizerDropdown.value = false;
     }, 200);
 };
 
-// Define state refs before they're used
-const teamSearchQuery = ref('');
-const teamsList = ref<EventTeam[]>([]);
-// Flag to prevent recursive updates
-const isUpdatingTeamsInternally = ref(false);
-
-// Add this watch to ensure students are loaded properly
-watch(() => formData.value.isTeamEvent, async (newVal) => {
-    // Skip the watch if we're already updating teams internally
-    if (isUpdatingTeamsInternally.value) return;
-    
-    // if (newVal) { // No longer needed here, onMounted handles initial fetch
-    //     // Force refresh of students list when switching to team mode
-    //     await store.dispatch('user/fetchAllUsers');
-    // }
-}, { immediate: true });
-
-// Add getUserName method
-const getUserName = (userId: string) => {
-    // Ensure store and getter are available
-    if (!store || !store.getters['user/getUserById']) {
-        console.warn('Store or getUserById getter not available yet.');
-        return userId; // Fallback
-    }
-    const user = store.getters['user/getUserById'](userId);
-    return user?.name || userId; // Fallback to userId if name is missing
+const getUserName = (userId: string): string => {
+    return nameCache.value[userId] || userId;
 };
 
-const usersLoaded = ref(false); // Add state to track user loading
 </script>
 
 <style>
-/* Replace @apply with direct classes */
-input[type="range"] {
+.dp-custom-input {
+    border: 1px solid var(--color-border);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    width: 100%;
+    border-radius: 0.375rem;
+}
+.dp-custom-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light-transparent);
+    outline: none;
+}
+.dp-custom-input.border-error {
+    border-color: var(--color-error);
+}
+.dp-custom-input::placeholder {
+    color: var(--color-text-secondary);
+    opacity: 0.7;
+}
+
+.range-primary {
   accent-color: var(--color-primary);
 }
 
-input[type="range"]::-webkit-slider-thumb {
+.range-primary::-webkit-slider-thumb {
+  width: 1rem;
+  height: 1rem;
+  background-color: var(--color-primary);
+  border-radius: 9999px;
+  border: none;
+  appearance: none;
+  cursor: pointer;
+  margin-top: -6px;
+}
+
+.range-primary::-moz-range-thumb {
   width: 1rem;
   height: 1rem;
   background-color: var(--color-primary);
@@ -1027,13 +859,13 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
 }
 
-input[type="range"]::-moz-range-thumb {
-  width: 1rem;
-  height: 1rem;
-  background-color: var(--color-primary);
-  border-radius: 9999px;
-  border: none;
-  appearance: none;
-  cursor: pointer;
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.1s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

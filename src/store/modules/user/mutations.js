@@ -4,15 +4,14 @@ export const userMutations = {
         state.name = userData.name;
         state.role = userData.role || 'Student'; // Default role if missing
 
-        // Define the full default XP structure including new roles
-        const defaultXpStructure = { fullstack: 0, presenter: 0, designer: 0, organizer: 0, problemSolver: 0, participation: 0, general: 0 };
-
         if (state.role === 'Admin') {
-            state.xpByRole = { ...defaultXpStructure }; // Admins have the structure but 0 XP
+            // Admins have no XP structure, skills, or preferred roles
+            state.xpByRole = null;
             state.skills = [];
             state.preferredRoles = [];
         } else {
             // Set student-specific fields only for non-Admins
+            const defaultXpStructure = { fullstack: 0, presenter: 0, designer: 0, organizer: 0, problemSolver: 0, participation: 0, general: 0 };
             const dbXp = userData.xpByRole || {};
             state.xpByRole = Object.keys(defaultXpStructure).reduce((acc, key) => {
                 acc[key] = Number(dbXp[key]) || 0; // Ensure number, default to 0 for all keys
@@ -20,7 +19,7 @@ export const userMutations = {
             }, {});
 
             state.skills = Array.isArray(userData.skills) ? userData.skills : [];
-         state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
+            state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
         }
 
         state.isAuthenticated = !!userData.isAuthenticated;

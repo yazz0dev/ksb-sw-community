@@ -34,6 +34,13 @@
             </div>
           </div>
 
+          <!-- Event Management Controls - Add this section -->
+          <EventManageControls
+              v-if="canManageEvent"
+              :event="event"
+              class="mb-6"
+          />
+
           <!-- Team List Section: Wrapped in styled container -->
           <TeamList
               v-if="event.isTeamEvent"
@@ -142,12 +149,23 @@
              </div>
           </div>
 
-          <!-- Rating Section: Wrapped in styled container -->
-          <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border"> <!-- Updated bg, border -->
-              <div class="px-4 py-5 sm:p-6"> <!-- Adjusted padding -->
-                  <h3 class="text-lg font-semibold leading-6 text-text-primary mb-4 border-b border-border pb-3">Ratings</h3> <!-- Updated text color, border -->
+          <!-- Rating Section -->
+          <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border">
+              <div class="px-4 py-5 sm:p-6">
+                  <div class="flex items-center justify-between mb-4">
+                      <h3 class="text-lg font-semibold leading-6 text-text-primary">Ratings</h3>
+                      <div class="flex items-center">
+                          <span 
+                              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                              :class="event.ratingsOpen ? 'bg-success-light text-success-dark' : 'bg-warning-light text-warning-dark'">
+                              <i :class="['fas', 'mr-1', event.ratingsOpen ? 'fa-lock-open' : 'fa-lock']"></i>
+                              {{ event.ratingsOpen ? 'Open' : 'Closed' }}
+                          </span>
+                          <span class="ml-2 text-xs text-text-disabled">({{ event.ratingsOpenCount }}/2 periods used)</span>
+                      </div>
+                  </div>
                    
-                   <!-- Display Rating Status -->
+                   <!-- Rest of the rating section content -->
                    <div v-if="event.status === 'Completed'">
                       <div v-if="event.ratingsOpen" class="text-sm text-success-dark bg-success-light p-3 rounded-md border border-success-light">
                           <i class="fas fa-star mr-1"></i> Ratings are currently open for this event.
@@ -162,6 +180,15 @@
                        Ratings will be available once the event is completed.
                    </div>
               </div>
+          </div>
+
+          <!-- Rating Status shown in status section -->
+          <div v-if="event.status === 'Completed' || event.status === 'RatingsClosed'" 
+               class="text-sm mt-2" 
+               :class="event.ratingsOpen ? 'text-success' : 'text-warning'">
+              <i class="fas" :class="event.ratingsOpen ? 'fa-lock-open' : 'fa-lock'"></i>
+              {{ event.ratingsOpen ? 'Ratings Open' : 'Ratings Closed' }}
+              <span class="text-text-secondary ml-2">({{ event.ratingsOpenCount }}/2 periods used)</span>
           </div>
 
       </div>
@@ -219,6 +246,8 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Timestamp } from 'firebase/firestore'; // Import Timestamp
 import EventDisplayCard from '../components/EventDisplayCard.vue'; // Import the display card
+import EventManageControls from '../components/EventManageControls.vue'; // Import EventManageControls
+
 // Removed import for EventActionsNav
 
 // Props, Store, Router
@@ -230,6 +259,7 @@ const route = useRoute();
 // Getters
 const currentUserId = computed(() => store.getters['user/userId']);
 const currentUserRole = computed(() => store.getters['user/userRole']);
+const currentUser = computed(() => store.getters['user/getUser']);
 
 // --- State Refs ---
 const loading = ref(true);
@@ -487,6 +517,12 @@ onMounted(() => {
     
     // Watch for route changes if needed (e.g., navigating between event details)
     // watch(() => props.id, fetchEventData);
+});
+
+const canManageEvent = computed(() => {
+    if (!currentUser.value || !event.value) return false;
+    return currentUser.value.role === 'Admin' || 
+           (event.value.organizers || []).includes(currentUser.value.uid);
 });
 
 </script>

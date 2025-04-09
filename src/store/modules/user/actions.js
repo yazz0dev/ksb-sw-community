@@ -221,10 +221,10 @@ export const userActions = {
             if (changed) {
                 console.log("XP map changed. Updating Firestore and local state.");
                 const userRef = doc(db, 'users', state.uid);
-                await updateDoc(userDocRef, { 
+                await updateDoc(userRef, { 
                     xpByRole: totalXpByRole,
                     lastXpCalculationTimestamp: Timestamp.now() // Update last sync time
-                 });
+                });
                 commit('setUserXpByRole', totalXpByRole);
                 commit('setLastXpCalculationTimestamp', Date.now()); // Update local timestamp as well
             } else {

@@ -54,8 +54,19 @@ export const eventMutations = {
     },
 
     updateCurrentEventDetails(state, { id, changes }) {
-        // Only update if the currently viewed details match the ID
         if (state.currentEventDetails?.id === id) {
+            // Track individual rating counts per user
+            if (changes.ratings || changes.teams) {
+                const currentUser = rootState.user.uid;
+                if (currentUser) {
+                    const userRatingCount = changes.isTeamEvent ?
+                        changes.teams?.reduce((count, team) => 
+                            count + (team.ratings?.filter(r => r.ratedBy === currentUser).length || 0), 0) :
+                        changes.ratings?.filter(r => r.ratedBy === currentUser).length || 0;
+
+                    state.currentEventDetails.userRatingCount = userRatingCount;
+                }
+            }
             state.currentEventDetails = { ...state.currentEventDetails, ...changes };
         }
     },

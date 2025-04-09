@@ -1,129 +1,91 @@
 // src/types/event.ts
 import { Timestamp } from 'firebase/firestore';
 
-// --- Base User/Member Types ---
-export interface User {
-    uid: string;
-    name?: string;
-    email?: string;
-    role?: 'Student' | 'Admin' | 'Organizer'; // Keep specific roles
-    photoURL?: string;
-    skills?: string[];
-    preferredRoles?: string[];
-    xpByRole?: Record<string, number>;
+// Basic structure for XP allocation criteria
+export interface XPAllocation {
+    constraintIndex: number; // Index within the array (0-3)
+    constraintLabel: string; // e.g., "Functionality", "Presentation Clarity"
+    role: 'fullstack' | 'presenter' | 'designer' | 'problemSolver' | string; // Role this criteria applies to
+    points: number; // XP points awarded for meeting this criteria
 }
 
-// --- Event Related Types ---
-
-export interface RatingCriteria {
-    label: string;
-    role: string;
-    points: number;
-}
-
-// Make ratings/submissions consistently optional
+// Structure for a team within an event
 export interface EventTeam {
     teamName: string;
     members: string[]; // Array of user UIDs
-    ratings?: any[]; // Optional
-    submissions?: any[]; // Optional
+    submissions: any[]; // Array of submission objects (define structure if needed)
+    ratings: any[]; // Array of rating objects (define structure if needed)
 }
 
-export interface XPAllocation {
-    constraintIndex: number;
-    constraintLabel: string;
-    role: 'fullstack' | 'presenter' | 'designer' | 'problemSolver';
-    points: number;
+export interface Student {
+    uid: string;
+    name?: string;
+    role?: string;
 }
 
-// Keep only one EventStatus definition
-export type EventStatus = 'Pending' | 'Approved' | 'InProgress' | 'Completed' | 'Cancelled' | 'Rejected' | 'RatingOpen';
-
-// Main Event Interface (As stored in DB)
-export interface Event {
-    id?: string;
+// Base Event structure (Common fields)
+interface EventBase {
+    id?: string; // Optional Firestore document ID
     eventName: string;
     eventType: string;
     description: string;
     isTeamEvent: boolean;
-
-    // Dates & Status
-    startDate?: Timestamp; // Optional until approved
-    endDate?: Timestamp;   // Optional until approved
-    desiredStartDate?: Timestamp; // From request
-    desiredEndDate?: Timestamp;   // From request
-    createdAt: Timestamp;
-    status: EventStatus;
-    rejectionReason?: string;
-    completedAt?: Timestamp;
-    ratingsLastOpenedAt?: Timestamp;
+    location?: string; // Optional location field
+    organizers: string[]; // Array of user UIDs (includes requester/creator)
+    xpAllocation: XPAllocation[];
+    teams: EventTeam[];
+    status: 'Pending' | 'Approved' | 'InProgress' | 'Completed' | 'Cancelled' | 'Rejected';
+    createdAt?: Timestamp; // Firestore Timestamp
+    lastUpdatedAt?: Timestamp; // Firestore Timestamp
+    // Fields populated after creation/approval
+    participants?: string[]; // Array of user UIDs (for individual events)
+    ratingsOpen?: boolean;
+    winnersPerRole?: Record<string, string[]>; // Map of role to array of winner UIDs
+    submissions?: any[]; // Submissions for individual events
+    ratings?: any[]; // Ratings for individual events or overall event ratings
+    organizationRatings?: number[]; // Array of scores (e.g., 1-5)
+    completedAt?: Timestamp | null;
+    ratingsLastOpenedAt?: Timestamp | null;
     ratingsOpenCount?: number;
-    lastUpdatedAt?: Timestamp;
-
-    // Users
-    requester: string; // UID
-    organizers: string[]; // Array of UIDs
-
-    // Configuration
-    location?: string; // Make location optional here too
-    xpAllocation: XPAllocation[];
-    ratingsOpen: boolean;
-
-    // Dynamic Data
-    participants?: string[]; // Optional list of UIDs for individual events
-    winnersPerRole?: Record<string, string[]>; // Optional
-    winners?: string[]; // Optional
-    teams?: EventTeam[]; // Optional, only if isTeamEvent is true
-    submissions?: any[]; // Optional
-    ratings?: any[]; // Optional
+    rejectionReason?: string | null;
 }
 
-// Data Transfer Object for Creating an event (Admin/Organizer)
-export interface EventCreateDTO {
-    eventName: string;
-    eventType: string;
-    description: string;
-    isTeamEvent: boolean;
-    startDate: Date; // Required JS Date for creation DTO input
-    endDate: Date;   // Required JS Date for creation DTO input
-    location?: string; // Optional
-    organizers: string[];
-    xpAllocation: XPAllocation[];
-    teams: EventTeam[]; // Expects potentially optional ratings/submissions
+// Structure for creating a new event (Admin)
+export interface EventCreateDTO extends Omit<EventBase, 'id' | 'status' | 'desiredStartDate' | 'desiredEndDate' | 'requester' | 'createdAt' | 'lastUpdatedAt'> {
+    startDate: Timestamp; // Admin sets actual dates
+    endDate: Timestamp;
 }
 
-// Interface for Submitting an Event Request (Student)
-export interface EventRequest {
-    eventName: string;
-    eventType: string;
-    description: string;
-    isTeamEvent: boolean;
-    desiredStartDate: Timestamp; // Required Timestamp
-    desiredEndDate: Timestamp;   // Required Timestamp
-    location?: string; // Optional
-    organizers: string[];
-    requester: string; // UID
-    xpAllocation: XPAllocation[];
-    teams: EventTeam[]; // Use EventTeam[], expects potentially optional ratings/submissions
-    // requestedAt: Timestamp; // Set by backend/action
-    // status: 'Pending';    // Set by backend/action
+// Structure for requesting a new event (Non-Admin)
+export interface EventRequest extends Omit<EventBase, 'id' | 'status' | 'startDate' | 'endDate' | 'createdAt' | 'lastUpdatedAt'> {
+    desiredStartDate: Timestamp; // User requests desired dates
+    desiredEndDate: Timestamp;
+    requester: string; // UID of the user making the request
 }
 
-// Represents the full event data structure, omitting the ID (Remove duplicate)
-// export type EventData = Omit<Event, 'id'>;
+// Combined type representing an event document in Firestore
+export interface EventDocument extends EventBase {
+    // Fields specific to Firestore document structure if any
+    startDate?: Timestamp | null; // Actual start date (set on approval/creation)
+    endDate?: Timestamp | null; // Actual end date (set on approval/creation)
+    desiredStartDate?: Timestamp | null; // Requested start date (for pending requests)
+    desiredEndDate?: Timestamp | null; // Requested end date (for pending requests)
+    requester?: string | null; // UID of the user who requested (if applicable)
+}
 
-// Represents the data structure bound to the form inputs
+// --- NEW: Structure for the form data in EventForm.vue ---
 export interface EventFormData {
     isTeamEvent: boolean;
     eventType: string;
     eventName: string;
     description: string;
-    startDate: string;
-    endDate: string;
-    desiredStartDate: string;
-    desiredEndDate: string;
-    location: string; // Keep as string, make optional if needed based on UI
-    organizers: string[]; // Array of UIDs
+    // Dates are handled as YYYY-MM-DD strings in the form
+    startDate: string; // Used by Admin for actual start date
+    endDate: string; // Used by Admin for actual end date
+    desiredStartDate: string; // Used by User for requested start date
+    desiredEndDate: string; // Used by User for requested end date
+    location: string; // Optional location
+    organizers: string[]; // Array of co-organizer UIDs (creator/requester added in action)
     xpAllocation: XPAllocation[];
-    teams: EventTeam[]; // Use EventTeam[], matches the source/target types
+    teams: EventTeam[];
 }

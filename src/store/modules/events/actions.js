@@ -110,7 +110,11 @@ export const eventActions = {
                 console.warn(`Skipping event ${doc.id} in conflict check due to date issue:`, dateError);
             }
         });
-        return conflictingEvent; // Returns null or the first conflicting event found
+        return {
+            hasConflict: !!conflictingEvent,
+            nextAvailableDate: conflictingEvent ? new Date(conflictingEvent.endDate.toDate().getTime() + 24*60*60*1000) : null,
+            conflictingEvent: conflictingEvent
+        };
     },
 
     // --- REVERTED: createEvent ACTION (Admin only) ---
@@ -155,9 +159,10 @@ export const eventActions = {
                 endDate: mappedData.endDate.toDate(),
                 excludeEventId: null
             });
-            if (conflictingEvent) {
+            if (conflictingEvent.hasConflict) {
+                const conflictEventName = conflictingEvent.conflictingEvent?.eventName || 'another event';
                 throw new Error(
-                    `Creation failed: Date conflict with event "${conflictingEvent.eventName}". Please choose different dates.`
+                    `Creation failed: Date conflict with ${conflictEventName}. Please choose different dates.`
                 );
             }
 
@@ -184,6 +189,18 @@ export const eventActions = {
                 const studentUIDs = await dispatch('user/fetchAllStudentUIDs', null, { root: true });
                 mappedData.participants = studentUIDs || [];
                 delete mappedData.teams;
+            }
+
+            // Remove current Admin from any participation lists
+            const adminUid = currentUser.uid;
+            if (mappedData.participants) {
+                mappedData.participants = mappedData.participants.filter(uid => uid !== adminUid);
+            }
+            if (mappedData.teams) {
+                mappedData.teams = mappedData.teams.map(team => ({
+                    ...team,
+                    members: team.members.filter(uid => uid !== adminUid)
+                }));
             }
 
             const docRef = await addDoc(collection(db, 'events'), mappedData);
@@ -442,48 +459,53 @@ export const eventActions = {
     },
 
     // --- REVERTED toggleRatingsOpen ---
-    async toggleRatingsOpen({ dispatch, rootGetters }, { eventId, isOpen }) {
+    async toggleRatingsOpen({ dispatch, rootGetters }, { eventId, isOpen, permanentClose }) {
         const eventRef = doc(db, 'events', eventId);
         try {
             const eventSnap = await getDoc(eventRef);
-            if (!eventSnap.exists()) throw new Error("Event not found.");
-            const currentEvent = eventSnap.data();
+            if (!eventSnap.exists()) throw new Error('Event not found.');
+            const eventData = eventSnap.data();
 
             // Permission Check: Admin OR any Organizer
             const currentUser = rootGetters['user/getUser'];
             const isAdmin = currentUser?.role === 'Admin';
-            const isOrganizer = (currentEvent.organizers || []).includes(currentUser?.uid);
+            const isOrganizer = (eventData.organizers || []).includes(currentUser?.uid);
             if (!isAdmin && !isOrganizer) throw new Error("Permission denied to toggle ratings.");
 
-            if (currentEvent.status !== 'Completed') {
+            if (eventData.status !== 'Completed') {
                 throw new Error("Ratings can only be toggled for completed events.");
             }
+
+            // Check if ratings were permanently closed by admin
+            if (eventData.ratingsClosed) {
+                throw new Error("Ratings have been permanently closed by an administrator.");
+            }
+
             const updates = {};
             const now = Timestamp.now();
-            const ratingsOpenCount = currentEvent.ratingsOpenCount || 0;
+
             if (isOpen) {
-                if (ratingsOpenCount >= 2) {
-                    throw new Error("Rating period can only be opened a maximum of two times.");
+                if (eventData.ratingsOpenCount >= 2) {
+                    throw new Error("Rating period can only be opened twice.");
                 }
-                let eventCompletedAt = currentEvent.completedAt;
-                if (!eventCompletedAt && currentEvent.status === 'Completed') {
-                    console.warn(`Event ${eventId} marked as Completed but missing completedAt timestamp. Setting it now.`);
-                    updates.completedAt = now;
-                } else if (!eventCompletedAt) {
-                    console.warn(`Proceeding to open ratings for completed event ${eventId} despite missing completedAt timestamp.`);
-                }
+
                 updates.ratingsOpen = true;
                 updates.ratingsLastOpenedAt = now;
                 updates.ratingsOpenCount = increment(1);
             } else {
                 updates.ratingsOpen = false;
+                if (permanentClose) {
+                    updates.ratingsClosed = true;
+                    updates.status = 'RatingsClosed';  // Add new status
+                }
             }
+
             await updateDoc(eventRef, updates);
             dispatch('updateLocalEvent', { id: eventId, changes: updates });
             return { status: 'success' };
         } catch (error) {
             console.error(`Error toggling ratings for event ${eventId}:`, error);
-            return { status: 'error', message: error.message || 'Unknown error' };
+            throw error;
         }
     },
 
@@ -515,7 +537,7 @@ export const eventActions = {
      },
 
     // --- REVERTED autoGenerateTeams ---
-    async autoGenerateTeams({ dispatch, rootGetters }, { eventId, generationType, value }) {
+    async autoGenerateTeams({ dispatch, rootGetters }, { eventId, generationType, value, maxTeams = 8 }) {
         const eventRef = doc(db, 'events', eventId);
         try {
             const eventSnap = await getDoc(eventRef);
@@ -532,10 +554,71 @@ export const eventActions = {
                 throw new Error(`Cannot generate teams for event with status '${eventData.status}'. Allowed only for 'Pending' or 'Approved'.`);
             }
             if (!eventData.isTeamEvent) throw new Error("Cannot generate teams: This is not a team event.");
-            // ... (rest of generation logic remains unchanged) ...
+
+            // Fetch all available students
             const allStudents = await dispatch('user/fetchAllStudents', null, { root: true });
-            // ... check students, shuffle, divide ...
-            const newTeams = [ /* ... */ ];
+            if (!allStudents || allStudents.length === 0) {
+                throw new Error("No students available for team generation.");
+            }
+
+            // Remove students who are already in teams
+            const assignedStudents = new Set(eventData.teams?.flatMap(t => t.members || []) || []);
+            const availableStudents = allStudents.filter(student => !assignedStudents.has(student.uid)).map(s => s.uid);
+
+            if (availableStudents.length < 2) {
+                throw new Error("Not enough available students to generate teams (minimum 2 required).");
+            }
+
+            // Shuffle available students
+            const shuffledStudents = [...availableStudents].sort(() => Math.random() - 0.5);
+
+            let newTeams = [];
+            if (generationType === 'fixed-size') {
+                // Generate teams of fixed size
+                const teamSize = Math.max(2, Math.min(10, Number(value) || 3)); // Min 2, max 10 members
+                for (let i = 0; i < shuffledStudents.length && newTeams.length < maxTeams; i += teamSize) {
+                    const teamMembers = shuffledStudents.slice(i, i + teamSize);
+                    if (teamMembers.length >= 2) { // Only create teams with at least 2 members
+                        newTeams.push({
+                            teamName: `Team ${newTeams.length + 1}`,
+                            members: teamMembers,
+                            submissions: [],
+                            ratings: []
+                        });
+                    }
+                }
+            } else if (generationType === 'fixed-count') {
+                // Generate fixed number of teams
+                const requestedTeams = Math.min(maxTeams, Math.max(1, Number(value) || 2));
+                const teamCount = Math.min(requestedTeams, Math.floor(shuffledStudents.length / 2));
+                const baseSize = Math.floor(shuffledStudents.length / teamCount);
+                const extras = shuffledStudents.length % teamCount;
+
+                let currentIndex = 0;
+                for (let i = 0; i < teamCount; i++) {
+                    const teamSize = baseSize + (i < extras ? 1 : 0);
+                    if (teamSize < 2) break; // Stop if we can't form teams with at least 2 members
+                    const teamMembers = shuffledStudents.slice(currentIndex, currentIndex + teamSize);
+                    newTeams.push({
+                        teamName: `Team ${i + 1}`,
+                        members: teamMembers,
+                        submissions: [],
+                        ratings: []
+                    });
+                    currentIndex += teamSize;
+                }
+            } else {
+                throw new Error("Invalid generation type. Must be 'fixed-size' or 'fixed-count'.");
+            }
+
+            if (newTeams.length === 0) {
+                throw new Error("Could not generate any valid teams with the given parameters.");
+            }
+
+            if (newTeams.length > maxTeams) {
+                throw new Error(`Cannot create more than ${maxTeams} teams.`);
+            }
+
             await updateDoc(eventRef, { teams: newTeams });
             dispatch('updateLocalEvent', { id: eventId, changes: { teams: newTeams } });
             console.log(`Teams auto-generated successfully for event ${eventId}. ${newTeams.length} teams created.`);
@@ -543,147 +626,6 @@ export const eventActions = {
         } catch (error) {
             console.error(`Error auto-generating teams for event ${eventId}:`, error);
             throw error;
-        }
-    },
-
-    // --- deleteEvent --- (Permission logic updated)
-    async deleteEvent({ commit, rootGetters }, eventId) {
-        const eventRef = doc(db, 'events', eventId);
-        try {
-           const eventSnap = await getDoc(eventRef);
-           if (!eventSnap.exists()) { console.warn(`Event ${eventId} already deleted or never existed.`); return; }
-           const eventData = eventSnap.data();
-           const currentUser = rootGetters['user/getUser'];
-           const isAdmin = currentUser?.role === 'Admin';
-           const isRequester = eventData.requester === currentUser?.uid;
-
-           let canDelete = false;
-            if (isAdmin) {
-                 if (eventData.status === 'In Progress') {
-                     throw new Error("Cannot delete 'In Progress' event. Cancel it first.");
-                 }
-                 canDelete = true;
-            }
-            // Requester can delete their *own* pending/rejected requests
-            else if (isRequester && ['Pending', 'Rejected'].includes(eventData.status)) {
-                canDelete = true;
-            }
-
-           if (!canDelete) {
-               throw new Error(`Permission denied to delete this event (Status: ${eventData.status}). Admins can delete most events, requesters can delete their pending/rejected ones.`);
-           }
-
-           await deleteDoc(eventRef);
-           commit('removeEvent', eventId);
-           commit('clearCurrentEventDetailsIfMatching', eventId);
-           console.log(`Event ${eventId} deleted successfully.`);
-        } catch (error) { console.error(`Error deleting event ${eventId}:`, error); throw error; }
-    },
-
-    // --- calculateWinnersAuto --- (Unchanged)
-    async calculateWinnersAuto({ dispatch, state, getters }, eventId) {
-        console.log(`Attempting auto-calculation of winners per role for event: ${eventId}`);
-        try {
-            const event = getters.getEventById(eventId) || await dispatch('fetchEventDetails', eventId);
-            if (!event) { throw new Error("Event not found."); }
-            if (event.status !== 'Completed') { throw new Error("Winner calculation only allowed for 'Completed' events."); }
-            const xpAlloc = getters.getEventXPAllocation(eventId);
-            if (!Array.isArray(xpAlloc) || xpAlloc.length === 0) {
-                throw new Error("Event has no XP allocation defined or allocation is empty.");
-            }
-            const scoresPerRolePerEntity = {};
-            const roleToCriteriaIndices = {};
-            xpAlloc.forEach(alloc => {
-               if (alloc.role && alloc.points > 0) {
-                   if (!roleToCriteriaIndices[alloc.role]) {
-                       roleToCriteriaIndices[alloc.role] = [];
-                   }
-                   roleToCriteriaIndices[alloc.role].push(alloc.constraintIndex);
-               }
-            });
-            const participantsOrTeams = event.isTeamEvent
-                ? (event.teams || []).map(t => ({
-                    id: t.teamName,
-                    type: 'team',
-                    ratings: t.ratings || []
-                  }))
-                : (event.participants || []).map(pId => ({
-                    id: pId,
-                    type: 'individual',
-                    ratings: (event.ratings || []).filter(r => r.ratedTo === pId)
-                  }));
-            if (participantsOrTeams.length === 0) {
-                alert('Winner calculation: No participants or teams found for this event.');
-                await dispatch('setWinnersPerRole', { eventId, winnersMap: {} });
-                return;
-            }
-            for (const entity of participantsOrTeams) {
-                scoresPerRolePerEntity[entity.id] = {};
-                xpAlloc.forEach(alloc => {
-                     if (alloc.role && alloc.points > 0) {
-                         scoresPerRolePerEntity[entity.id][alloc.role] = { totalScoreSum: 0, ratingCount: 0 };
-                     }
-                });
-                for (const ratingEntry of entity.ratings) {
-                    if (!ratingEntry?.rating || typeof ratingEntry.rating !== 'object' || !ratingEntry.ratedBy) continue;
-                    for (const roleKey of Object.keys(roleToCriteriaIndices)) {
-                        const relevantIndices = roleToCriteriaIndices[roleKey];
-                        if (!relevantIndices || relevantIndices.length === 0) continue;
-                        let criteriaSumForThisRater = 0;
-                        let criteriaCountForThisRater = 0;
-                        relevantIndices.forEach(index => {
-                            const constraintKey = `constraint${index}`;
-                            const ratingValue = Number(ratingEntry.rating[constraintKey]);
-                            if (!isNaN(ratingValue) && ratingValue >= 0) {
-                                criteriaSumForThisRater += ratingValue;
-                                criteriaCountForThisRater++;
-                            }
-                        });
-                        if (criteriaCountForThisRater > 0) {
-                            const averageScoreFromThisRaterForRole = criteriaSumForThisRater / criteriaCountForThisRater;
-                            scoresPerRolePerEntity[entity.id][roleKey].totalScoreSum += averageScoreFromThisRaterForRole;
-                            scoresPerRolePerEntity[entity.id][roleKey].ratingCount++;
-                        }
-                    }
-                }
-            }
-            const winnersMap = {};
-            let winnersFound = false;
-            xpAlloc.forEach(alloc => {
-               const roleKey = alloc.role;
-               if (!roleKey || alloc.points <= 0) return;
-               let topAverageScoreForRole = -1;
-               let currentWinnersForRole = [];
-               participantsOrTeams.forEach(entity => {
-                    const roleScoreData = scoresPerRolePerEntity[entity.id]?.[roleKey];
-                    let averageScore = 0;
-                    if (roleScoreData && roleScoreData.ratingCount > 0) {
-                         averageScore = roleScoreData.totalScoreSum / roleScoreData.ratingCount;
-                    }
-                    if (averageScore > topAverageScoreForRole) {
-                        topAverageScoreForRole = averageScore;
-                        currentWinnersForRole = [entity.id];
-                    } else if (averageScore === topAverageScoreForRole && topAverageScoreForRole >= 0) {
-                         if (topAverageScoreForRole > 0 || (topAverageScoreForRole === 0 && currentWinnersForRole.length > 0)) {
-                             currentWinnersForRole.push(entity.id);
-                         }
-                    }
-               });
-               if (topAverageScoreForRole >= 0 && currentWinnersForRole.length > 0) {
-                   winnersMap[roleKey] = currentWinnersForRole.sort();
-                   winnersFound = true;
-               } else {
-                   winnersMap[roleKey] = [];
-               }
-            });
-            await dispatch('setWinnersPerRole', { eventId, winnersMap });
-            alert(winnersFound
-                ? 'Automatic winner calculation per role complete. Check event details.'
-                : 'Winner calculation complete, but no definitive winners determined (scores might be zero, criteria unassigned to roles, or no ratings submitted).'
-            );
-        } catch (error) {
-            console.error(`Error auto-calculating winners for event ${eventId}:`, error);
-            alert(`Winner Calculation Error: ${error.message}`);
         }
     },
 
@@ -977,38 +919,6 @@ export const eventActions = {
         }
      },
 
-    // --- REVERTED autoGenerateTeams ---
-    async autoGenerateTeams({ dispatch, rootGetters }, { eventId, generationType, value }) {
-        const eventRef = doc(db, 'events', eventId);
-        try {
-            const eventSnap = await getDoc(eventRef);
-            if (!eventSnap.exists()) throw new Error('Event not found.');
-            const eventData = eventSnap.data();
-
-            // Permission Check: Admin OR any Organizer
-            const currentUser = rootGetters['user/getUser'];
-            const isAdmin = currentUser?.role === 'Admin';
-            const isOrganizer = (eventData.organizers || []).includes(currentUser?.uid);
-            if (!isAdmin && !isOrganizer) throw new Error("Permission denied to manage teams for this event.");
-
-            if (!['Pending', 'Approved'].includes(eventData.status)) {
-                throw new Error(`Cannot generate teams for event with status '${eventData.status}'. Allowed only for 'Pending' or 'Approved'.`);
-            }
-            if (!eventData.isTeamEvent) throw new Error("Cannot generate teams: This is not a team event.");
-            // ... (rest of generation logic remains unchanged) ...
-            const allStudents = await dispatch('user/fetchAllStudents', null, { root: true });
-            // ... check students, shuffle, divide ...
-            const newTeams = [ /* ... */ ];
-            await updateDoc(eventRef, { teams: newTeams });
-            dispatch('updateLocalEvent', { id: eventId, changes: { teams: newTeams } });
-            console.log(`Teams auto-generated successfully for event ${eventId}. ${newTeams.length} teams created.`);
-            return newTeams;
-        } catch (error) {
-            console.error(`Error auto-generating teams for event ${eventId}:`, error);
-            throw error;
-        }
-    },
-
     // --- updateLocalEvent --- (Unchanged)
     updateLocalEvent({ commit }, { id, changes }) {
         commit('addOrUpdateEvent', { id, ...changes });
@@ -1036,116 +946,139 @@ export const eventActions = {
     // Submit rating scores (for teams) or winner selections (for individuals)
     // Removed participantId from destructuring as it's not needed for winner selection payload
     async submitRating({ rootGetters, dispatch }, { eventId, ratingType, selections, teamId }) {
-        // Correctly get the user ID from the 'getUser' getter
-        const userId = rootGetters['user/getUser']?.uid; // Use optional chaining for safety
+        const userId = rootGetters['user/getUser']?.uid;
+        const currentUser = rootGetters['user/getUser'];
+
+        // Validation checks
         if (!userId) throw new Error('User must be logged in to submit ratings.');
+        if (currentUser?.role === 'Admin') throw new Error('Administrators cannot submit ratings.');
 
         const eventRef = doc(db, 'events', eventId);
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        const eventData = eventSnap.data();
 
-        try {
-            const eventSnap = await getDoc(eventRef);
-            if (!eventSnap.exists()) throw new Error('Event not found.');
-            const eventData = eventSnap.data();
+        // Additional validation checks
+        if (!eventData.ratingsOpen) throw new Error('Ratings are currently closed for this event.');
+        if (eventData.status !== 'Completed') throw new Error('Ratings can only be submitted for completed events.');
 
-            if (eventData.status !== 'Completed') throw new Error('Ratings can only be submitted for completed events.');
-            if (!eventData.ratingsOpen) throw new Error('Ratings are currently closed for this event.');
-
-            // Validate selections format (basic check)
-            if (!selections || typeof selections !== 'object' || Object.keys(selections).length === 0) {
-                throw new Error('Invalid rating/selection data provided.');
+        // Check if user is trying to rate their own team/self
+        if (ratingType === 'team') {
+            const team = eventData.teams?.find(t => t.teamName === teamId);
+            if (team?.members?.includes(userId)) {
+                throw new Error('You cannot rate your own team.');
             }
 
-            const updates = {};
-            const now = Timestamp.now();
+            // Check rating count for this team
+            const existingRatings = team?.ratings?.filter(r => r.ratedBy === userId) || [];
+            if (existingRatings.length >= 2) {
+                throw new Error('You have already submitted the maximum number of ratings (2) for this team.');
+            }
+        } else {
+            // For individual ratings, check if trying to rate self
+            if (selections.winnerId === userId) {
+                throw new Error('You cannot rate yourself.');
+            }
 
-            if (ratingType === 'team') {
-                if (!teamId) throw new Error('Team ID is missing for team rating.');
-                
-                const teams = Array.isArray(eventData.teams) ? [...eventData.teams] : [];
-                // Find team by name (adjust if using unique IDs later)
-                const teamIndex = teams.findIndex(t => t.teamName === teamId); 
-                if (teamIndex === -1) throw new Error(`Team with ID/Name '${teamId}' not found in this event.`);
+            // Check overall rating count for this event
+            const existingRatings = eventData.ratings?.filter(r => r.ratedBy === userId) || [];
+            if (existingRatings.length >= 2) {
+                throw new Error('You have already submitted the maximum number of ratings (2) for this event.');
+            }
+        }
 
-                // Ensure ratings array exists and filter previous ratings by this user
-                const existingTeamRatings = Array.isArray(teams[teamIndex].ratings) ? teams[teamIndex].ratings : [];
-                const updatedTeamRatings = existingTeamRatings.filter(r => r.ratedBy !== userId);
+        // Validate selections format (basic check)
+        if (!selections || typeof selections !== 'object' || Object.keys(selections).length === 0) {
+            throw new Error('Invalid rating/selection data provided.');
+        }
 
-                // Add the new rating scores
-                const newRatingScores = {};
-                for (const key in selections) {
-                    if (selections[key]?.score !== undefined) {
-                        newRatingScores[key] = Number(selections[key].score);
-                    }
+        const updates = {};
+        const now = Timestamp.now();
+
+        if (ratingType === 'team') {
+            if (!teamId) throw new Error('Team ID is missing for team rating.');
+            
+            const teams = Array.isArray(eventData.teams) ? [...eventData.teams] : [];
+            // Find team by name (adjust if using unique IDs later)
+            const teamIndex = teams.findIndex(t => t.teamName === teamId); 
+            if (teamIndex === -1) throw new Error(`Team with ID/Name '${teamId}' not found in this event.`);
+
+            // Ensure ratings array exists and filter previous ratings by this user
+            const existingTeamRatings = Array.isArray(teams[teamIndex].ratings) ? teams[teamIndex].ratings : [];
+            const updatedTeamRatings = existingTeamRatings.filter(r => r.ratedBy !== userId);
+
+            // Add the new rating scores
+            const newRatingScores = {};
+            for (const key in selections) {
+                if (selections[key]?.score !== undefined) {
+                    newRatingScores[key] = Number(selections[key].score);
                 }
+            }
 
-                updatedTeamRatings.push({
-                    ratedBy: userId,
-                    ratedAt: now,
-                    scores: newRatingScores // Use the processed scores
-                });
+            updatedTeamRatings.push({
+                ratedBy: userId,
+                ratedAt: now,
+                scores: newRatingScores // Use the processed scores
+            });
 
-                teams[teamIndex].ratings = updatedTeamRatings;
-                updates.teams = teams;
+            teams[teamIndex].ratings = updatedTeamRatings;
+            updates.teams = teams;
 
-            } else if (ratingType === 'individual') {
-                // Removed the check for participantId as it's no longer passed or needed for winner selection logic
-                // if (!participantId) {
-                //     console.warn('Participant ID missing for individual rating submission, proceeding without it for winner selection.');
-                // }
-                
-                // Process selections to update winnersPerRole
-                const newWinnersPerRole = { ...(eventData.winnersPerRole || {}) };
-                const criteria = eventData.xpAllocation || [];
-                let changesMade = false;
-                
-                for (const constraintKey in selections) {
-                    const winnerId = selections[constraintKey]?.winnerId;
-                    if (winnerId && typeof winnerId === 'string' && winnerId.trim() !== '') {
-                        const constraintIndex = parseInt(constraintKey.replace('constraint', ''), 10);
-                        const criterion = criteria.find(c => c.constraintIndex === constraintIndex);
-                        if (criterion) {
-                            const role = criterion.role || 'general'; 
-                            // Overwrite or set the winner for this role/criterion
-                            if (!newWinnersPerRole[role] || newWinnersPerRole[role][0] !== winnerId) {
-                                newWinnersPerRole[role] = [winnerId]; // Store as an array
-                                changesMade = true;
-                            }
+        } else if (ratingType === 'individual') {
+            // Removed the check for participantId as it's no longer passed or needed for winner selection logic
+            // if (!participantId) {
+            //     console.warn('Participant ID missing for individual rating submission, proceeding without it for winner selection.');
+            // }
+            
+            // Process selections to update winnersPerRole
+            const newWinnersPerRole = { ...(eventData.winnersPerRole || {}) };
+            const criteria = eventData.xpAllocation || [];
+            let changesMade = false;
+            
+            for (const constraintKey in selections) {
+                const winnerId = selections[constraintKey]?.winnerId;
+                if (winnerId && typeof winnerId === 'string' && winnerId.trim() !== '') {
+                    const constraintIndex = parseInt(constraintKey.replace('constraint', ''), 10);
+                    const criterion = criteria.find(c => c.constraintIndex === constraintIndex);
+                    if (criterion) {
+                        const role = criterion.role || 'general'; 
+                        // Overwrite or set the winner for this role/criterion
+                        if (!newWinnersPerRole[role] || newWinnersPerRole[role][0] !== winnerId) {
+                            newWinnersPerRole[role] = [winnerId]; // Store as an array
+                            changesMade = true;
                         }
-                    } else {
-                         // Handle cases where a winner might be removed/unselected (if applicable)
-                         // For now, we only add/overwrite based on valid selections.
                     }
+                } else {
+                     // Handle cases where a winner might be removed/unselected (if applicable)
+                     // For now, we only add/overwrite based on valid selections.
                 }
-                 if (changesMade) {
-                     updates.winnersPerRole = newWinnersPerRole;
-                 }
-
-                // Record the submission act itself
-                const existingEventRatings = Array.isArray(eventData.ratings) ? eventData.ratings : [];
-                const updatedEventRatings = existingEventRatings.filter(r => r.ratedBy !== userId || r.type !== 'winner_selection'); // Remove previous selection by this user
-                updatedEventRatings.push({
-                    ratedBy: userId,
-                    ratedAt: now,
-                    type: 'winner_selection' 
-                });
-                updates.ratings = updatedEventRatings;
-
-            } else {
-                throw new Error(`Invalid rating type: ${ratingType}`);
             }
-
-             // Only update if there are actual changes
-             if (Object.keys(updates).length > 0) {
-                await updateDoc(eventRef, updates);
-                dispatch('updateLocalEvent', { id: eventId, changes: updates });
-             } else {
-                 console.log("No changes detected in rating submission.");
+             if (changesMade) {
+                 updates.winnersPerRole = newWinnersPerRole;
              }
 
-        } catch (error) {
-            console.error('Error submitting rating:', error);
-            throw error; 
+            // Record the submission act itself
+            const existingEventRatings = Array.isArray(eventData.ratings) ? eventData.ratings : [];
+            const updatedEventRatings = existingEventRatings.filter(r => r.ratedBy !== userId || r.type !== 'winner_selection'); // Remove previous selection by this user
+            updatedEventRatings.push({
+                ratedBy: userId,
+                ratedAt: now,
+                type: 'winner_selection' 
+            });
+            updates.ratings = updatedEventRatings;
+
+        } else {
+            throw new Error(`Invalid rating type: ${ratingType}`);
         }
+
+         // Only update if there are actual changes
+         if (Object.keys(updates).length > 0) {
+            await updateDoc(eventRef, updates);
+            dispatch('updateLocalEvent', { id: eventId, changes: updates });
+         } else {
+             console.log("No changes detected in rating submission.");
+         }
+
     },
 
     // --- NEW: Submit a rating for the event organization ---
@@ -1156,6 +1089,11 @@ export const eventActions = {
         const numericScore = Number(score);
         if (isNaN(numericScore) || numericScore < 0 || numericScore > 5) { // Assuming 0-5 or 1-5 scale
             throw new Error('Invalid rating score provided. Must be a number between 0 and 5.');
+        }
+
+        const currentUser = rootGetters['user/getUser'];
+        if (currentUser?.role === 'Admin') {
+            throw new Error('Administrators cannot submit organization ratings.');
         }
 
         const eventRef = doc(db, 'events', eventId);
@@ -1196,6 +1134,52 @@ export const eventActions = {
 
         } catch (error) {
             console.error(`Error submitting organization rating for event ${eventId}:`, error);
+            throw error;
+        }
+    },
+
+    async closeEvent({ dispatch, rootGetters }, eventId) {
+        const eventRef = doc(db, 'events', eventId);
+        try {
+            const eventSnap = await getDoc(eventRef);
+            if (!eventSnap.exists()) throw new Error('Event not found.');
+            const eventData = eventSnap.data();
+
+            // Permission Check: Admin OR any Organizer
+            const currentUser = rootGetters['user/getUser'];
+            const isAdmin = currentUser?.role === 'Admin';
+            const isOrganizer = (eventData.organizers || []).includes(currentUser?.uid);
+            if (!isAdmin && !isOrganizer) throw new Error("Permission denied to close event.");
+
+            if (eventData.status !== 'Completed') {
+                throw new Error("Only completed events can be closed.");
+            }
+            
+            if (eventData.ratingsOpenCount === 0) {
+                throw new Error("Event must have at least one rating period before closure.");
+            }
+
+            if (eventData.ratingsOpen) {
+                throw new Error("Please close the current rating period before closing the event.");
+            }
+
+            await updateDoc(eventRef, {
+                closed: true,
+                closedAt: Timestamp.now(),
+                ratingsOpen: false
+            });
+
+            dispatch('updateLocalEvent', { 
+                id: eventId, 
+                changes: { 
+                    closed: true,
+                    closedAt: Timestamp.now(),
+                    ratingsOpen: false
+                } 
+            });
+
+        } catch (error) {
+            console.error(`Error closing event ${eventId}:`, error);
             throw error;
         }
     },
