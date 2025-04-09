@@ -20,10 +20,11 @@ export const userMutations = {
             }, {});
 
             state.skills = Array.isArray(userData.skills) ? userData.skills : [];
-            state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
+         state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
         }
 
         state.isAuthenticated = !!userData.isAuthenticated;
+        state.lastXpCalculationTimestamp = userData.lastXpCalculationTimestamp || null; // Add last sync timestamp
         // hasFetched is set separately in the action's finally block
     },
 
@@ -86,5 +87,12 @@ export const userMutations = {
         if (index !== -1) {
             state.allUsers.splice(index, 1);
         }
-    }
+    },
+    cacheUserNames(state, namesMap) {
+        state.userNameCache = { ...state.userNameCache, ...namesMap };
+    },
+
+    setLastXpCalculationTimestamp(state, timestamp) {
+        state.lastXpCalculationTimestamp = timestamp;
+    },
 };

@@ -142,7 +142,7 @@
                           :config="{
                             format: 'yyyy-MM-dd', // Keep format consistent
                             autoApply: true,
-                            is ফুdAfter: formData[isAdmin ? 'startDate' : 'desiredStartDate'] // minDate prop
+                            minDate: formData[isAdmin ? 'startDate' : 'desiredStartDate'] // Use minDate prop
                           }"
                           :disabled="isSubmitting"
                           @change="checkNextAvailableDate"
@@ -333,6 +333,8 @@ import { useStore } from 'vuex';
 import { Timestamp } from 'firebase/firestore';
 import { XPAllocation, EventCreateDTO, EventRequest, EventTeam, EventFormData } from '../types/event';
 import ManageTeamsComponent from './ManageTeamsComponent.vue';
+import DatePicker from '@vuepic/vue-datepicker'; // Import from package
+import '@vuepic/vue-datepicker/dist/main.css'; // Import datepicker CSS
 
 // Define form data with proper typing
 const props = defineProps({

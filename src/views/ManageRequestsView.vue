@@ -25,43 +25,8 @@
           v-for="request in pendingRequests"
           :key="request.id"
           :event="request"
-          @approve="approveRequest"
-          @reject="confirmRejectRequest(request.id)" <!-- Open confirmation modal -->
-          class="animate-fade-in"
-        />
-      </div>
-    </div>
-    </div>
-    </
-<template>
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-background min-h-[calc(100vh-8rem)]">
-    <!-- Header -->
-    <div class="mb-8 pb-4 border-b border-border">
-      <h2 class="text-3xl font-bold text-text-primary">Manage Event Requests</h2>
-    </div>
-
-    <!-- Loading state -->
-    <div v-if="loading" class="flex justify-center py-16">
-      <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-    </div>
-
-    <!-- Error state -->
-    <div v-else-if="error" class="text-error text-center py-16">
-      <p class="font-semibold">{{ error }}</p>
-    </div>
-
-    <!-- Event requests list -->
-    <div v-else class="space-y-6">
-      <div v-if="pendingRequests.length === 0" class="bg-info-light border border-info-light text-info-dark p-4 rounded-md text-center italic">
-        No pending event requests.
-      </div>
-      <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <RequestCard
-          v-for="request in pendingRequests"
-          :key="request.id"
-          :event="request"
-          @approve="approveRequest"
-          @reject="confirmRejectRequest(request.id)" <!-- Open confirmation modal -->
+          @approve="approveRequest(request.id)"
+          @reject="confirmRejectRequest(request.id)"
           class="animate-fade-in"
         />
       </div>
@@ -101,10 +66,15 @@ async function fetchRequests() {
   loading.value = true;
   error.value = null;
   try {
+    // Assuming fetchEvents fetches all events including pending ones
     await store.dispatch('events/fetchEvents');
   } catch (err) {
     error.value = 'Failed to load event requests.';
     console.error("Error fetching event requests:", err);
+     store.dispatch('notification/showNotification', {
+        message: `Failed to load requests: ${err.message || 'Unknown error'}`,
+        type: 'error'
+    });
   } finally {
     loading.value = false;
   }
@@ -115,10 +85,19 @@ const approveRequest = async (eventId) => {
   loading.value = true;
   try {
     await store.dispatch('events/approveEventRequest', eventId);
-    // Optionally show a success notification
+     store.dispatch('notification/showNotification', {
+        message: 'Event request approved successfully.',
+        type: 'success'
+    });
+    // Re-fetch or update local state if needed
+    // await fetchRequests(); // Or remove locally: pendingRequests.value = pendingRequests.value.filter(req => req.id !== eventId);
   } catch (err) {
     error.value = `Failed to approve request: ${err.message}`;
     console.error("Error approving event request:", err);
+     store.dispatch('notification/showNotification', {
+        message: `Failed to approve request: ${err.message || 'Unknown error'}`,
+        type: 'error'
+    });
   } finally {
     loading.value = false;
   }
@@ -142,17 +121,19 @@ const rejectRequestConfirmed = async () => {
   loading.value = true;
   showRejectConfirmModal.value = false; // Hide modal after confirm
   try {
-    await store.dispatch('events/rejectEventRequest', { eventId, reason: null }); // No reason for now
-    // Optionally show a success/rejection notification
+    // Assuming rejectEventRequest takes an object { eventId, reason }
+    await store.dispatch('events/rejectEventRequest', { eventId, reason: 'Rejected by admin' }); // Provide a default reason or implement input
     store.dispatch('notification/showNotification', {
         message: 'Event request rejected successfully.',
-        type: 'success'
+        type: 'success' // Or 'info'
     });
+     // Re-fetch or update local state if needed
+     // await fetchRequests(); // Or remove locally: pendingRequests.value = pendingRequests.value.filter(req => req.id !== eventId);
   } catch (err) {
     error.value = `Failed to reject request: ${err.message}`;
     console.error("Error rejecting event request:", err);
     store.dispatch('notification/showNotification', {
-        message: `Failed to reject request: ${err.message}`,
+        message: `Failed to reject request: ${err.message || 'Unknown error'}`,
         type: 'error'
     });
   } finally {

@@ -18,6 +18,7 @@ const state = {
     isAuthenticated: false,
     hasFetched: false, // Flag to track if initial fetch attempt completed
     allUsers: [], // Add state for all users
+    userNameCache: {} // Add user name cache (using object for simplicity, could use Map)
 };
 
 const getters = {
@@ -34,7 +35,9 @@ const getters = {
     isAdmin: state => state.role === 'Admin',
     hasFetchedUserData: state => state.hasFetched,
     getAllUsers: state => state.allUsers,
-    getUserById: state => uid => state.allUsers.find(user => user.uid === uid),
+    getUserNameById: (state) => (userId) => {
+      return state.userNameCache[userId] || userId; // Return cached name or ID if not found
+    },
     // Getter specifically for total XP, sums up the xpByRole map
     currentUserTotalXp: (state) => {
         // Add null/undefined check for xpByRole itself

@@ -48,7 +48,20 @@ export const userActions = {
 
         console.log("Calculating XP distribution for user:", state.uid);
         try {
-            const eventsQuery = query(collection(db, "events"), where("status", "==", "Completed"));
+            const lastSyncTime = state.lastXpCalculationTimestamp ? Timestamp.fromDate(new Date(state.lastXpCalculationTimestamp)) : null;
+            let eventsQuery;
+
+            if (lastSyncTime) {
+                console.log("Fetching events completed after:", lastSyncTime);
+                eventsQuery = query(
+                    collection(db, "events"),
+                    where("status", "==", "Completed"),
+                    where("completedAt", ">", lastSyncTime) // Only fetch newer events
+                );
+            } else {
+                console.log("Initial XP calculation, fetching all completed events.");
+                eventsQuery = query(collection(db, "events"), where("status", "==", "Completed"));
+            }
             const eventsSnapshot = await getDocs(eventsQuery);
 
             const totalXpByRole = {
@@ -188,7 +201,7 @@ export const userActions = {
                 }
             }
 
-            console.log(`Processed ${eventsSnapshot.size} completed events. User participated in ${participatedEventCount}, organized ${organizedEventCount}.`);
+            console.log(`Processed ${eventsSnapshot.size} new completed events since last sync. User participated in ${participatedEventCount}, organized ${organizedEventCount}.`);
             console.log("Final Calculated XP By Role:", totalXpByRole);
 
             // Compare and update if changed
@@ -208,19 +221,21 @@ export const userActions = {
             if (changed) {
                 console.log("XP map changed. Updating Firestore and local state.");
                 const userRef = doc(db, 'users', state.uid);
-                await updateDoc(userRef, { xpByRole: totalXpByRole });
+                await updateDoc(userDocRef, { 
+                    xpByRole: totalXpByRole,
+                    lastXpCalculationTimestamp: Timestamp.now() // Update last sync time
+                 });
                 commit('setUserXpByRole', totalXpByRole);
+                commit('setLastXpCalculationTimestamp', Date.now()); // Update local timestamp as well
             } else {
                 console.log("XP map unchanged. No update needed.");
+                commit('setLastXpCalculationTimestamp', Date.now()); // Still update sync timestamp even if no XP change
             }
 
         } catch (error) {
             console.error("Error calculating user XP distribution:", error);
         }
     },
-
-    // submitRating action has been moved to events/actions.js to avoid duplication
-    // This action was previously handling rating submissions but is now centralized in the events module
 
     async fetchAllStudentUIDs() {
         console.log("Fetching all student UIDs...");

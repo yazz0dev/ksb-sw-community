@@ -7,10 +7,17 @@
   </button>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { defineProps } from 'vue';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+
+// Define an interface for the project object
+interface Project {
+  projectName: string;
+  link: string;
+  description?: string; // Optional description
+}
 
 const props = defineProps({
   user: {
@@ -18,7 +25,7 @@ const props = defineProps({
     required: true
   },
   projects: {
-    type: Array,
+    type: Array as () => Project[], // Use the Project interface here
     required: true
   }
 });
@@ -54,10 +61,11 @@ const generatePDF = async () => {
   yPosition += 10;
 
   if (props.projects && props.projects.length > 0) {
-    const projectData = props.projects.map(project => [
+    // Explicitly type the 'project' parameter in the map function
+    const projectData = props.projects.map((project: Project) => [
       project.projectName,
       project.link,
-      project.description || ''
+      project.description || '',
     ]);
 
     (pdf as any).autoTable({ // Type assertion to bypass jsPDF type limitations
