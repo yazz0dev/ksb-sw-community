@@ -29,7 +29,7 @@
       <div v-else class="space-y-6 animate-fade-in">
           <!-- Event Display Card Section: Wrapped in styled container -->
           <div class="bg-surface shadow-md overflow-hidden rounded-lg border border-border"> <!-- Updated bg, border -->
-            <div class="px-4 py-5 sm:p-6"> <!-- Adjusted padding -->
+            <div class="px-4 py-5 sm:p-6"> 
                  <EventDisplayCard :event="event" :nameCache="Object.fromEntries(nameCache)" :showStatus="true" />
             </div>
           </div>
@@ -52,7 +52,7 @@
               :ratingsOpen="event.ratingsOpen"
               :getUserName="getUserNameFromCache"
               @teamRated="handleTeamRated"
-              class="bg-surface shadow-md rounded-lg border border-border overflow-hidden" /> <!-- Updated bg, border; internal padding handled by component -->
+              class="bg-surface shadow-md rounded-lg border border-border overflow-hidden" /> 
           
           <!-- Participants Section: Show only if NOT a team event -->
           <div v-if="!event.isTeamEvent" class="bg-surface shadow-md overflow-hidden rounded-lg border border-border">
@@ -182,19 +182,9 @@
               </div>
           </div>
 
-          <!-- Rating Status shown in status section -->
-          <div v-if="event.status === 'Completed' || event.status === 'RatingsClosed'" 
-               class="text-sm mt-2" 
-               :class="event.ratingsOpen ? 'text-success' : 'text-warning'">
-              <i class="fas" :class="event.ratingsOpen ? 'fa-lock-open' : 'fa-lock'"></i>
-              {{ event.ratingsOpen ? 'Ratings Open' : 'Ratings Closed' }}
-              <span class="text-text-secondary ml-2">({{ event.ratingsOpenCount }}/2 periods used)</span>
-          </div>
-
       </div>
 
-      <!-- Commented out Bottom Nav for now -->
-      <!-- ... -->
+
 
       <!-- Submission Modal: Improved styling -->
       <div v-if="showSubmissionModal" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-60 flex items-center justify-center p-4 transition-opacity duration-300" @click.self="closeSubmissionModal"> <!-- Added background overlay and close on click outside -->

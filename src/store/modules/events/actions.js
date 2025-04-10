@@ -117,111 +117,14 @@ export const eventActions = {
         };
     },
 
-    // --- REVERTED: createEvent ACTION (Admin only) ---
-    async createEvent({ rootGetters, commit, dispatch }, eventData) {
-        try {
-            const currentUser = rootGetters['user/getUser'];
-            if (currentUser?.role !== 'Admin') {
-                throw new Error('Unauthorized: Only Admins can create events directly.');
-            }
-
-            // Validate organizers
-            const organizers = Array.isArray(eventData.organizers) ? eventData.organizers : [];
-            if (organizers.length === 0) {
-                throw new Error("At least one organizer is required when an Admin creates an event.");
-            }
-             if (organizers.length > 5) { // Limit total organizers
-                 throw new Error("Cannot have more than 5 organizers.");
-             }
-            await validateOrganizersNotAdmin(organizers);
-
-            // Mapper handles date conversion from Date objects or strings
-            const mappedData = mapEventDataToFirestore({
-                ...eventData,
-                // Pass dates as received (should be Date objects from component)
-                startDate: eventData.startDate,
-                endDate: eventData.endDate,
-                organizers: organizers,      // Pass the combined array
-                requester: currentUser.uid,    // Admin is the requester
-            });
-
-            mappedData.status = 'Approved';
-
-            if (!mappedData.startDate || !mappedData.endDate) {
-                throw new Error("Admin event creation requires valid start and end dates.");
-            }
-            if (mappedData.startDate.toMillis() > mappedData.endDate.toMillis()) {
-               throw new Error("End date cannot be earlier than the start date.");
-            }
-
-            const conflictingEvent = await dispatch('checkDateConflict', {
-                startDate: mappedData.startDate.toDate(),
-                endDate: mappedData.endDate.toDate(),
-                excludeEventId: null
-            });
-            if (conflictingEvent.hasConflict) {
-                const conflictEventName = conflictingEvent.conflictingEvent?.eventName || 'another event';
-                throw new Error(
-                    `Creation failed: Date conflict with ${conflictEventName}. Please choose different dates.`
-                );
-            }
-
-            // Initialize Arrays and Participants/Teams
-            mappedData.ratingsOpen = false;
-            mappedData.winnersPerRole = {};
-            mappedData.submissions = Array.isArray(mappedData.submissions) ? mappedData.submissions : [];
-            mappedData.ratings = Array.isArray(mappedData.ratings) ? mappedData.ratings : [];
-            mappedData.xpAllocation = Array.isArray(mappedData.xpAllocation) ? mappedData.xpAllocation : [];
-            mappedData.organizationRatings = [];
-            mappedData.completedAt = null;
-            mappedData.ratingsLastOpenedAt = null;
-            mappedData.ratingsOpenCount = 0;
-
-            if (mappedData.isTeamEvent) {
-                mappedData.teams = Array.isArray(mappedData.teams) ? mappedData.teams.map(t => ({
-                    teamName: t.teamName || 'Unnamed Team',
-                    members: Array.isArray(t.members) ? t.members : [],
-                    submissions: [],
-                    ratings: []
-                })) : [];
-                mappedData.participants = [];
-            } else {
-                const studentUIDs = await dispatch('user/fetchAllStudentUIDs', null, { root: true });
-                mappedData.participants = studentUIDs || [];
-                delete mappedData.teams;
-            }
-
-            // Remove current Admin from any participation lists
-            const adminUid = currentUser.uid;
-            if (mappedData.participants) {
-                mappedData.participants = mappedData.participants.filter(uid => uid !== adminUid);
-            }
-            if (mappedData.teams) {
-                mappedData.teams = mappedData.teams.map(team => ({
-                    ...team,
-                    members: team.members.filter(uid => uid !== adminUid)
-                }));
-            }
-
-            const docRef = await addDoc(collection(db, 'events'), mappedData);
-            commit('addOrUpdateEvent', { id: docRef.id, ...mappedData });
-            return docRef.id;
-        } catch (error) {
-            console.error('Error creating event:', error);
-            if (error.message.startsWith('Creation failed: Date conflict')) {
-                throw error;
-            }
-            throw new Error(`Failed to create event: ${error.message || 'Unknown error'}`);
-        }
-    },
-
-    // --- REVERTED requestEvent ACTION (Non-Admin only) ---
     async requestEvent({ dispatch, rootGetters, commit }, eventData) {
         try {
             const currentUser = rootGetters['user/getUser'];
             const userId = currentUser?.uid;
             if (!userId) { throw new Error("User not authenticated."); }
-            if (currentUser.role === 'Admin') { throw new Error("Admins should use the Create Event form."); }
+            if (currentUser.role === 'Admin') { 
+                throw new Error("Administrators cannot create or request events."); 
+            }
 
             const hasActive = await dispatch('checkExistingRequests');
             if (hasActive) { throw new Error('You already have an active or pending event request.'); }
@@ -949,9 +852,10 @@ export const eventActions = {
         const userId = rootGetters['user/getUser']?.uid;
         const currentUser = rootGetters['user/getUser'];
 
-        // Validation checks
-        if (!userId) throw new Error('User must be logged in to submit ratings.');
-        if (currentUser?.role === 'Admin') throw new Error('Administrators cannot submit ratings.');
+        // Strengthen admin check
+        if (!userId || currentUser?.role === 'Admin') {
+            throw new Error('Administrators cannot submit ratings.');
+        }
 
         const eventRef = doc(db, 'events', eventId);
         const eventSnap = await getDoc(eventRef);

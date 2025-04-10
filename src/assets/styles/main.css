@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import '@tailwindcss/forms';
 
 :root {
   --color-primary: #0891b2; /* Teal 600 */

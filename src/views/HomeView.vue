@@ -14,7 +14,7 @@
         <div class="flex space-x-3 flex-wrap justify-end">
             <!-- Unified Event Creation Button -->
             <router-link
-              v-if="canRequestEvent"
+              v-if="canRequestEvent && !isAdmin"
               to="/create-event"
               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
                 <i :class="['fas', isAdmin ? 'fa-plus' : 'fa-calendar-plus', 'mr-1.5']"></i>
@@ -146,7 +146,7 @@ const userRole = computed(() => store.getters['user/getUserRole']);
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 
 
-const isAdmin = computed(() => userRole.value === 'Admin' );
+const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
 // Anyone authenticated can request (logic handled in RequestEvent view/action)
 const canRequestEvent = computed(() => isAuthenticated.value);
 

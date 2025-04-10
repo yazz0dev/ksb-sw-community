@@ -44,139 +44,205 @@ marked.setOptions({
 });
 
 const introductionContent = `
-Welcome to the KSB Software Community Platform! We foster collaboration, skill development, and friendly competition. Our goal is a transparent, fair environment where contributions are recognized. This page outlines our platform's mechanics and guidelines.
-`;
+## Welcome to KSB MCA S/W Community
+
+Our community is dedicated to fostering collaboration, learning, and growth among MCA students through hands-on software development projects and events. This transparency page outlines our community structure, guidelines, and processes.
+
+### Our Mission
+- Create opportunities for practical software development experience
+- Encourage peer learning and mentorship
+- Build a portfolio of real-world projects
+- Develop professional and technical skills`;
 
 const rolesContent = `
-Our community has three roles with distinct permissions:
+## Community Roles
 
-#### Student
-*   View events (upcoming/past).
-*   Request new events (needs Admin approval).
-*   Join **Approved** events.
-*   Form/join teams for team events.
-*   Submit projects (individual/team).
-*   Rate others after events based on Organizer's criteria.
-*   Earn XP via participation, ratings, and wins.
-*   View own profile (XP, projects, etc.) and generate portfolio PDF.
-*   View public user profiles.
+### Students
+- Participate in events and projects
+- Request and organize events
+- Submit project work
+- Provide peer feedback and ratings
+- Earn XP and build portfolios
 
-#### Event Organizer
-*   All **Student** permissions.
-*   Create and manage their own events (details, dates, XP, rating criteria).
-*   Manage team formation for their events (e.g., set size limits).
-*   Start/manage rating periods for their completed events (after a cooldown).
-*   Ensure their event runs smoothly and fairly.
-*   View detailed results/ratings for their organized events.
+### Team Leaders
+- Guide team members during events
+- Facilitate team communication
+- Ensure project deliverables
+- Help resolve team challenges
 
-#### Administrator
-*   All **Student** and **Event Organizer** permissions for *any* event.
-*   Approve/reject event requests from Students.
-*   Create events directly.
-*   Manage users, events, and system settings.
-*   Oversee the platform, enforce guidelines, resolve disputes.
-`;
+### Organizers
+- Plan and manage events
+- Set up project requirements
+- Monitor team progress
+- Provide technical support
+- Evaluate submissions
+
+### Administrators
+- Oversee community operations
+- Review and approve event requests
+- Manage user roles and permissions
+- Ensure platform functionality
+- Maintain community guidelines`;
 
 const eventLifecycleContent = `
-Events follow a clear lifecycle:
+## Event Lifecycle
 
-1.  **Request/Creation:**
-    *   **Students** request events (**Pending** state).
-    *   **Admins/Organizers** create events directly (**Approved** state).
+### 1. Event Creation
+- Students can request events
+- Admins review and approve requests
+- Event details are finalized
 
-2.  **Approval:**
-    *   **Admins** review **Pending** requests, approving or rejecting them. Approved requests become **Approved**.
+### 2. Registration
+- Solo or team participation options
+- Team formation process
+- Role assignments
 
-3.  **Event States:**
-    *   **Pending:** Awaiting Admin approval.
-    *   **Approved:** Scheduled; Students can join.
-    *   **In Progress:** Event is active; submissions open.
-    *   **Completed:** Event ended; submissions closed.
-    *   **Rating Open:** Organizer manually starts rating period after completion (post-cooldown).
-    *   **Rating Closed:** Rating period ended; XP calculated.
-    *   **Cancelled:** Event terminated early.
+### 3. Active Phase
+- Project development period
+- Regular progress updates
+- Collaboration opportunities
+- Technical support available
 
-4.  **Submission:** During **In Progress** state.
-5.  **Rating:** Initiated by Organizer after **Completed** state (requires cooldown). Participants rate based on event criteria. Ends manually or automatically; XP calculated.
-`;
+### 4. Completion
+- Project submissions
+- Peer evaluations
+- XP distribution
+- Results announcement`;
 
 const teamsContent = `
-Events can be individual or team-based:
+## Team Formation & Collaboration
 
-*   **Type:** Organizer sets event type (individual/team).
-*   **Formation:** Students form/join teams (up to size limit) for team events. Organizer may assist.
-*   **Submissions:** Teams submit work collectively.
-*   **Ratings:** Teams are rated as a unit.
-*   **XP:** Earned XP is typically shared equally among team members based on event role weights.
-`;
+### Team Structure
+- Teams typically consist of 2-5 members
+- Each team has a designated team leader
+- Members can have specific role assignments
+- Balanced skill distribution encouraged
+
+### Formation Process
+- Self-organized teams allowed
+- Random team assignment available
+- Team changes require admin approval
+- Maximum team size varies by event type
+
+### Collaboration Guidelines
+- Regular team meetings recommended
+- Use provided collaboration tools
+- Document contributions clearly
+- Share knowledge within team`;
 
 const ratingContent = `
-Peer ratings provide feedback and influence XP:
+## Rating System
 
-*   **Timing:** Occurs after an event is **Completed** and the Organizer opens the rating period.
-*   **Criteria:** Organizer defines criteria (e.g., Functionality, Design) linked to XP roles.
-*   **Scale:** Participants rate others (individuals/teams) per criterion (e.g., 0-5 stars).
-*   **Weighted Average:** Overall rating is a weighted average based on XP allocated to each criterion's role. Higher ratings on criteria with more XP contribute more.
-*   **Winner:** Participant/team with the highest weighted average rating usually wins.
-*   **Objectivity:** Provide fair, objective ratings based on criteria.
-`;
+### Rating Criteria
+- Technical implementation
+- Project presentation
+- Code quality
+- Documentation
+- Team collaboration
+
+### Rating Process
+- Peer evaluations after completion
+- Rating scale of 1-5 stars
+- Multiple rating categories
+- Anonymous feedback system
+
+### Rating Guidelines
+- Be objective and fair
+- Provide constructive feedback
+- Rate based on defined criteria
+- Consider team/individual effort`;
 
 const xpContent = `
-Experience Points (XP) track participation and achievements:
+## Experience Points (XP) System
 
-#### XP Roles/Categories
-XP is earned per skill/role (e.g., Full Stack, UI/UX, Presentation).
+### Earning XP
+- Event participation: 1-2 XP
+- Project completion: 5-20 XP
+- High ratings: Bonus XP
+- Team leadership: Extra XP
+- Event organization: 10-50 XP
 
-#### Earning XP
-*   **Participation:** Base XP for submitting (optional).
-*   **Performance (Ratings):** Main source. Weighted average rating determines XP earned per relevant role.
-*   **Winning Bonus:** Winner(s) get a flat XP bonus (e.g., +100 XP).
+### XP Categories
+- Fullstack Development
+- Frontend Design
+- Backend Implementation
+- Project Management
+- Team Collaboration
 
-#### Calculation & Tracking
-*   Calculated after **Rating Period** closes.
-*   Added to user's profile under corresponding roles (\`xpByRole\`).
-*   **Total XP** is the sum across all roles (\`currentUserTotalXp\`).
-`;
+### Level System
+- Levels based on total XP
+- Role-specific progression
+- Special badges for achievements
+- XP decay prevention system`;
 
 const portfolioContent = `
-Your profile showcases your work:
+## Portfolio Development
 
-*   **Submissions:** Link projects (e.g., GitHub) during events.
-*   **History:** Profile lists participated/organized/won events.
-*   **Showcase:** Completed projects are displayed publicly.
-*   **Skills & XP:** Profile shows skills, roles, and XP earned per category.
-*   **PDF Generation:** Create a PDF summary of your profile (XP, skills, projects) for sharing.
-`;
+### Project Documentation
+- Technical specifications
+- Role and contributions
+- Technologies used
+- Project outcomes
+
+### Portfolio Features
+- Automatic project tracking
+- XP progress visualization
+- Skills assessment
+- Achievement badges
+
+### Visibility Options
+- Public/private settings
+- Customizable layout
+- Project highlights
+- Team acknowledgments`;
 
 const leaderboardContent = `
-Ranks participants by achievement:
+## Leaderboard System
 
-*   **Basis:** Ranks users by **Total XP**.
-*   **Visibility:** Shows top community members.
-*   **Updates:** Updates automatically after event ratings are finalized.
-`;
+### Rankings
+- Overall XP ranking
+- Role-specific rankings
+- Monthly top performers
+- Team achievements
+
+### Scoring Factors
+- Event participation
+- Project ratings
+- Contribution quality
+- Leadership points
+
+### Recognition
+- Top performer badges
+- Role specialist titles
+- Achievement milestones
+- Special mentions`;
 
 const generalContent = `
-Platform guidelines:
+## General Guidelines
 
-#### Submissions
-*   Use publicly accessible links (e.g., public GitHub repos).
-*   Provide clear project descriptions.
-*   Submit before the deadline.
+### Code of Conduct
+- Professional behavior expected
+- Respect for all members
+- Academic integrity
+- Collaborative spirit
 
-#### Rating Etiquette
-*   Rate fairly based *only* on criteria. Avoid bias.
-*   Rate promptly.
+### Communication
+- Clear and timely communication
+- Appropriate channel usage
+- Professional language
+- Constructive feedback
 
-#### Scheduling
-*   Avoid scheduling overlapping events.
-*   Be mindful of rating period start/end times.
+### Participation
+- Regular engagement encouraged
+- Meeting attendance
+- Deadline adherence
+- Active contribution
 
-#### Code of Conduct
-*   Be respectful and professional.
-*   Follow KSB community's Code of Conduct.
-*   Report concerns to an Administrator.
-`;
+### Support
+- Technical assistance available
+- Mentorship opportunities
+- Resource access
+- Issue resolution process`;
 
 // Utility function to render markdown content safely
 const renderSection = (content) => {

@@ -1,6 +1,9 @@
 <template>
     <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
-        <div v-if="!isAuthenticated" class="rounded-md bg-error-light p-4 text-sm text-error-dark border border-error-light shadow-sm mb-6">
+        <div v-if="isAdmin" class="rounded-md bg-error-light p-4 text-sm text-error-dark border border-error-light shadow-sm mb-6">
+            <i class="fas fa-exclamation-circle mr-2"></i> Administrators cannot create events directly. Please manage and approve event requests instead.
+        </div>
+        <div v-else-if="!isAuthenticated" class="rounded-md bg-error-light p-4 text-sm text-error-dark border border-error-light shadow-sm mb-6">
             <i class="fas fa-exclamation-circle mr-2"></i> Please log in to create or request events.
         </div>
         <div v-else-if="loading" class="text-center py-16">
@@ -71,19 +74,8 @@ const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
 const isEditing = computed(() => !!eventId.value);
 
-const pageTitle = computed(() => {
-    if (isAdmin.value) {
-        return isEditing.value ? 'Edit Event' : 'Create New Event';
-    }
-    return 'Request New Event';
-});
-
-const pageSubtitle = computed(() => {
-    if (isAdmin.value) {
-        return isEditing.value ? 'Modify an existing event' : 'Create a new event directly';
-    }
-    return 'Submit a request for a new event';
-});
+const pageTitle = computed(() => 'Request New Event');
+const pageSubtitle = computed(() => 'Submit a request for a new event');
 
 // Methods
 const handleFormError = (message: string) => {
@@ -91,6 +83,10 @@ const handleFormError = (message: string) => {
 };
 
 const handleSubmit = async (eventData) => {
+    if (isAdmin.value) {
+        errorMessage.value = 'Administrators cannot create events directly.';
+        return;
+    }
     errorMessage.value = ''; // Clear previous errors
     try {
         if (isAdmin.value) {
