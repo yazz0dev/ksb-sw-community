@@ -42,5 +42,25 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src')
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Separate Firebase into its own chunk
+          if (id.includes('node_modules/firebase')) {
+            return 'firebase';
+          }
+          // Separate html2canvas into its own chunk
+          if (id.includes('node_modules/html2canvas')) {
+            return 'html2canvas';
+          }
+          // Separate other large vendor libs if needed
+          // if (id.includes('node_modules/some-other-large-lib')) {
+          //   return 'other-large-lib';
+          // }
+        }
+      }
+    }
   }
 })

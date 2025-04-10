@@ -1,33 +1,21 @@
 // src/router/index.js
 
 import { createRouter, createWebHistory } from 'vue-router';
-import Home from '../views/HomeView.vue';
-import Login from '../views/LoginView.vue';
-import EventDetails from '../views/EventDetails.vue';
-import LeaderboardView from '../views/LeaderboardView.vue';
-import RatingForm from '../views/RatingForm.vue';
-import Resources from '../views/ResourcesView.vue';
-import Transparency from '../views/TransparencyView.vue';
-import CreateEventView from '../views/CreateEventView.vue';
-import ManageRequestsView from '../views/ManageRequestsView.vue';
 import store from '../store';
-import ForgotPasswordView from '../views/ForgotPasswordView.vue';
-import LandingView from '../views/LandingView.vue';
-import ProfileView from '../views/ProfileView.vue'; 
-import NotFoundView from '../views/NotFoundView.vue'; 
+// Removed static imports for views, they will be dynamically imported below
 
 const routes = [
-  { path: '/', name: 'Landing', component: LandingView, meta: { requiresAuth: false, guestOnly: true } },
-  { path: '/home', name: 'Home', component: Home, meta: { requiresAuth: true } },
-  { path: '/login', name: 'Login', component: Login, meta: { requiresAuth: false, guestOnly: true } },
-  { path: '/event/:id', name: 'EventDetails', component: EventDetails, meta: { requiresAuth: true }, props: true },
-  { path: '/leaderboard', name: 'Leaderboard', component: LeaderboardView, meta: { requiresAuth: false } },
-  { path: '/rating/:eventId/:teamId?', name: 'RatingForm', component: RatingForm, meta: { requiresAuth: true }, props: true },
-  { path: '/resources', name: 'Resources', component: Resources, meta: { requiresAuth: false } },
+  { path: '/', name: 'Landing', component: () => import('../views/LandingView.vue'), meta: { requiresAuth: false, guestOnly: true } },
+  { path: '/home', name: 'Home', component: () => import('../views/HomeView.vue'), meta: { requiresAuth: true } },
+  { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { requiresAuth: false, guestOnly: true } },
+  { path: '/event/:id', name: 'EventDetails', component: () => import('../views/EventDetails.vue'), meta: { requiresAuth: true }, props: true },
+  { path: '/leaderboard', name: 'Leaderboard', component: () => import('../views/LeaderboardView.vue'), meta: { requiresAuth: false } },
+  { path: '/rating/:eventId/:teamId?', name: 'RatingForm', component: () => import('../views/RatingForm.vue'), meta: { requiresAuth: true }, props: true },
+  { path: '/resources', name: 'Resources', component: () => import('../views/ResourcesView.vue'), meta: { requiresAuth: false } },
   { 
     path: '/transparency', 
     name: 'Transparency', 
-    component: Transparency, 
+    component: () => import('../views/TransparencyView.vue'), 
     meta: { 
       requiresAuth: false,
       publicAccess: true 
@@ -36,36 +24,36 @@ const routes = [
   { 
     path: '/create-event', 
     name: 'CreateEvent', 
-    component: CreateEventView, 
+    component: () => import('../views/CreateEventView.vue'), 
     meta: { requiresAuth: true }
   },
   { 
     path: '/edit-event/:eventId', 
     name: 'EditEvent', 
-    component: CreateEventView, 
+    component: () => import('../views/CreateEventView.vue'), // Keep same component for edit
     meta: { requiresAuth: true, requiresAdmin: true },
     props: true
   },
   { 
     path: '/manage-requests', 
     name: 'ManageRequests', 
-    component: ManageRequestsView, 
+    component: () => import('../views/ManageRequestsView.vue'), 
     meta: { requiresAuth: true, requiresAdmin: true } 
   },
   {
     path: '/profile', 
     name: 'Profile',
-    component: ProfileView, 
+    component: () => import('../views/ProfileView.vue'), 
     meta: { requiresAuth: true, adminForbidden: true } 
   },
   {
     path: '/user/:userId', 
     name: 'PublicProfile',
-    component: ProfileView, 
+    component: () => import('../views/ProfileView.vue'), // Keep same component for public profile
     props: true, 
     meta: { requiresAuth: false } 
   },
-  { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPasswordView, meta: { requiresAuth: false, guestOnly: true } },
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('../views/ForgotPasswordView.vue'), meta: { requiresAuth: false, guestOnly: true } },
   {
     path: '/events', // General events list route
     name: 'EventsList',
@@ -79,9 +67,9 @@ const routes = [
     component: () => import('../views/EventsListView.vue'), 
     meta: { requiresAuth: false },
     // Optionally pass a prop or query param to filter for completed events if needed
-    // props: { defaultFilter: 'completed' } 
+    // props: { defaultFilter: 'completed' }
   },
-  { path: '/:pathMatch(.*)*', name: 'NotFound', component: NotFoundView, meta: { requiresAuth: false } },
+  { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('../views/NotFoundView.vue'), meta: { requiresAuth: false } },
 ];
 
 const router = createRouter({
