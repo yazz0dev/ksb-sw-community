@@ -2,7 +2,3 @@
 
 /* Base styles or global overrides can go here if needed, */
 /* but color definitions are now handled by tailwind.config.js */
-
-body {
-  @apply bg-neutral-light text-text-secondary; /* Example base body style */
-}

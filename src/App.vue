@@ -1,6 +1,6 @@
 // /src/App.vue
 <template>
-  <div id="app" class="flex flex-col min-h-screen bg-background">
+  <div id="app" class="flex flex-col min-h-screen bg-neutral-light text-text-secondary">
     <!-- Offline State Handler -->
     <OfflineStateHandler />
     <!-- Notification System -->
