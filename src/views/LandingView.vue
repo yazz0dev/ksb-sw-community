@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-4xl mx-auto text-center py-12 px-4 sm:px-6 lg:px-8"> <!-- Main container -->
-    <h1 class="text-3xl sm:text-4xl font-extrabold text-text-primary mb-4">Welcome to the KSB MCA S/W Community!</h1> <!-- Updated text color -->
+    <h1 class="text-3xl sm:text-4xl font-extrabold text-text-primary mb-4">Welcome to the KSB Tech Community!</h1> <!-- Updated text color -->
     <p class="text-lg text-text-secondary mb-6 max-w-2xl mx-auto"> <!-- Updated text color -->
       Manage events, collaborate on projects, and share resources within the KSB MCA community.
     </p>

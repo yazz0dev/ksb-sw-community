@@ -1,54 +1,57 @@
 <template>
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div class="max-w-3xl mx-auto">
-        <h1 class="text-3xl font-bold text-text-primary mb-6 pb-2 border-b border-border">Community Transparency & Guidelines</h1>
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div class="max-w-4xl mx-auto">
+        <h1 class="text-4xl font-extrabold text-text-primary mb-8 pb-3 border-b-2 border-primary">Community Transparency & Guidelines</h1>
 
-        <div class="space-y-6">
-            <!-- Community Guidelines -->
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-user-shield h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Community Guidelines</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(introductionContent)"></div>
-            </div>
+        <div class="space-y-8">
+            <!-- Community Guidelines Section -->
+            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
+                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
+                    <i class="fas fa-user-shield h-6 w-6 mr-3 text-primary-text"></i>
+                    <h2 class="text-xl font-bold text-primary-text">Community Guidelines</h2>
+                </header>
+                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed" v-html="renderSection(introductionContent)"></div>
+            </section>
 
-            <!-- Roles Section - Now Visible to All -->
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-users h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Community Roles</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(rolesContent)"></div>
-            </div>
+            <!-- Roles Section -->
+            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
+                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
+                    <i class="fas fa-users h-6 w-6 mr-3 text-primary-text"></i>
+                    <h2 class="text-xl font-bold text-primary-text">Community Roles</h2>
+                </header>
+                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed" v-html="renderSection(rolesContent)"></div>
+            </section>
 
-            <!-- Add other sections -->
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-tasks h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Event System</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(eventLifecycleContent)"></div>
-            </div>
+            <!-- Event System Section -->
+            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
+                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
+                    <i class="fas fa-tasks h-6 w-6 mr-3 text-primary-text"></i>
+                    <h2 class="text-xl font-bold text-primary-text">Event System</h2>
+                </header>
+                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed" v-html="renderSection(eventLifecycleContent)"></div>
+            </section>
 
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-star h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Rating & XP System</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed">
+            <!-- Rating & XP System Section -->
+            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
+                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
+                    <i class="fas fa-star h-6 w-6 mr-3 text-primary-text"></i>
+                    <h2 class="text-xl font-bold text-primary-text">Rating & XP System</h2>
+                </header>
+                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed">
                     <div v-html="renderSection(ratingContent)"></div>
-                    <div class="mt-6" v-html="renderSection(xpContent)"></div>
+                    <hr class="my-6 border-border">
+                    <div v-html="renderSection(xpContent)"></div>
                 </div>
-            </div>
+            </section>
 
-            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-book h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">General Guidelines</h2>
-                </div>
-                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(generalContent)"></div>
-            </div>
+            <!-- General Guidelines Section -->
+            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
+                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
+                    <i class="fas fa-book h-6 w-6 mr-3 text-primary-text"></i>
+                    <h2 class="text-xl font-bold text-primary-text">General Guidelines</h2>
+                </header>
+                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed" v-html="renderSection(generalContent)"></div>
+            </section>
         </div>
       </div>
     </div>
@@ -66,40 +69,40 @@ marked.setOptions({
 });
 
 const introductionContent = `
-## Welcome to KSB MCA S/W Community
+## Welcome to KSB Tech Community
 
 Our community is dedicated to fostering collaboration, learning, and growth among MCA students through hands-on software development projects and events. This transparency page outlines our community structure, guidelines, and processes.
 
 ### Our Mission
-- Create opportunities for practical software development experience
-- Encourage peer learning and mentorship
-- Build a portfolio of real-world projects
-- Develop professional and technical skills`;
+- 💡 Create opportunities for practical software development experience
+- 🤝 Encourage peer learning and mentorship
+- 📁 Build a portfolio of real-world projects
+- 🚀 Develop professional and technical skills`;
 
 const rolesContent = `
 ## Community Roles
 
-### Students
+### 🎓 Students
 - Participate in events and projects
 - Request and organize events
 - Submit project work
 - Provide peer feedback and ratings
 - Earn XP and build portfolios
 
-### Team Leaders
+### 🧑‍🏫 Team Leaders
 - Guide team members during events
 - Facilitate team communication
 - Ensure project deliverables
 - Help resolve team challenges
 
-### Organizers
+### 🗓️ Organizers
 - Plan and manage events
 - Set up project requirements
 - Monitor team progress
 - Provide technical support
 - Evaluate submissions
 
-### Administrators
+### 🛡️ Administrators
 - Oversee community operations
 - Review and approve event requests
 - Manage user roles and permissions
@@ -109,27 +112,27 @@ const rolesContent = `
 const eventLifecycleContent = `
 ## Event Lifecycle
 
-### 1. Event Creation
-- Students can request events
-- Admins review and approve requests
-- Event details are finalized
+### 1️⃣ Event Creation
+- 🙋 Students can request events
+- ✅ Admins review and approve requests
+- 📝 Event details are finalized
 
-### 2. Registration
-- Solo or team participation options
-- Team formation process
-- Role assignments
+### 2️⃣ Registration
+- 👤 Solo or 👥 team participation options
+- 🤝 Team formation process
+- 🏷️ Role assignments
 
-### 3. Active Phase
-- Project development period
-- Regular progress updates
-- Collaboration opportunities
-- Technical support available
+### 3️⃣ Active Phase
+- 💻 Project development period
+- 📊 Regular progress updates
+- 💬 Collaboration opportunities
+- 🆘 Technical support available
 
-### 4. Completion
-- Project submissions
-- Peer evaluations
-- XP distribution
-- Results announcement`;
+### 4️⃣ Completion
+- 🎉 Project submissions
+- ⭐ Peer evaluations
+- ✨ XP distribution
+- 🏆 Results announcement`;
 
 const teamsContent = `
 ## Team Formation & Collaboration
@@ -155,20 +158,20 @@ const teamsContent = `
 const ratingContent = `
 ## Rating System
 
-### Rating Criteria
-- Technical implementation
-- Project presentation
-- Code quality
-- Documentation
-- Team collaboration
+### ⭐ Rating Criteria
+- 💻 Technical implementation
+- 🎤 Project presentation
+- ✨ Code quality
+- 📄 Documentation
+- 🤝 Team collaboration
 
-### Rating Process
+### 📝 Rating Process
 - Peer evaluations after completion
 - Rating scale of 1-5 stars
 - Multiple rating categories
 - Anonymous feedback system
 
-### Rating Guidelines
+### 👍 Rating Guidelines
 - Be objective and fair
 - Provide constructive feedback
 - Rate based on defined criteria
@@ -177,21 +180,21 @@ const ratingContent = `
 const xpContent = `
 ## Experience Points (XP) System
 
-### Earning XP
+### ✨ Earning XP
 - Event participation: 1-2 XP
 - Project completion: 5-20 XP
 - High ratings: Bonus XP
 - Team leadership: Extra XP
 - Event organization: 10-50 XP
 
-### XP Categories
+### 🏷️ XP Categories
 - Fullstack Development
 - Frontend Design
 - Backend Implementation
 - Project Management
 - Team Collaboration
 
-### Level System
+### 🚀 Level System
 - Levels based on total XP
 - Role-specific progression
 - Special badges for achievements
@@ -242,25 +245,25 @@ const leaderboardContent = `
 const generalContent = `
 ## General Guidelines
 
-### Code of Conduct
+### 📜 Code of Conduct
 - Professional behavior expected
 - Respect for all members
 - Academic integrity
 - Collaborative spirit
 
-### Communication
+### 💬 Communication
 - Clear and timely communication
 - Appropriate channel usage
 - Professional language
 - Constructive feedback
 
-### Participation
+### 🙋 Participation
 - Regular engagement encouraged
 - Meeting attendance
 - Deadline adherence
 - Active contribution
 
-### Support
+### 🆘 Support
 - Technical assistance available
 - Mentorship opportunities
 - Resource access

@@ -8,7 +8,7 @@
     <!-- Top Navigation Bar -->
     <nav class="sticky top-0 z-30 bg-surface shadow-sm flex items-center h-12 lg:h-16 border-b border-border">
       <div class="container mx-auto flex items-center justify-between h-full px-4 sm:px-6 lg:px-8">
-        <router-link to="/" class="text-lg lg:text-xl font-bold text-primary mr-4 lg:mr-8 flex items-center h-full whitespace-nowrap" @click="closeNavbar">KSB MCA S/W Community</router-link>
+        <router-link to="/" class="text-lg lg:text-xl font-bold text-primary mr-4 lg:mr-8 flex items-center h-full whitespace-nowrap" @click="closeNavbar">KSB Tech Community</router-link>
 
         <button class="lg:hidden border-none bg-transparent p-2 rounded text-text-secondary hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-opacity-75" type="button" @click.stop="toggleNavbar" aria-controls="navbarNav" :aria-expanded="isNavbarOpen.toString()" aria-label="Toggle navigation">
           <i class="fas fa-bars text-xl"></i>
@@ -51,7 +51,7 @@
                 @click="closeNavbar">Events</router-link>
             </li>
             <li class="lg:mr-1" v-else>
-              <router-link to="completed-events"
+              <router-link to="/completed-events"
                 class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
                 active-class="font-semibold text-primary bg-secondary-light"
                 @click="closeNavbar">Completed Events</router-link>

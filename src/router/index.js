@@ -66,11 +66,20 @@ const routes = [
     meta: { requiresAuth: false } 
   },
   { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPasswordView, meta: { requiresAuth: false, guestOnly: true } },
-  { 
-    path: '/completed-events', 
-    name: 'CompletedEvents', 
-    component: () => import('../views/CompletedEventsView.vue'),
-    meta: { requiresAuth: false } 
+  {
+    path: '/events', // General events list route
+    name: 'EventsList',
+    component: () => import('../views/EventsListView.vue'),
+    meta: { requiresAuth: true } // Requires auth to see filters other than completed
+  },
+  {
+    path: '/completed-events',
+    name: 'CompletedEvents',
+    // Point to the existing EventsListView, assuming it handles completed events
+    component: () => import('../views/EventsListView.vue'), 
+    meta: { requiresAuth: false },
+    // Optionally pass a prop or query param to filter for completed events if needed
+    // props: { defaultFilter: 'completed' } 
   },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: NotFoundView, meta: { requiresAuth: false } },
 ];

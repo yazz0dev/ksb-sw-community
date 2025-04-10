@@ -35,7 +35,7 @@
         <div v-if="upcomingEvents.length > 0" class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-xl font-semibold text-text-primary">Upcoming Events</h3>
-            <router-link to="/events" class="text-sm text-primary hover:text-primary-dark transition-colors">
+            <router-link :to="{ name: 'EventsList', query: { filter: 'upcoming' } }" class="text-sm text-primary hover:text-primary-dark transition-colors">
               See All <i class="fas fa-arrow-right ml-1"></i>
             </router-link>
           </div>
@@ -53,7 +53,7 @@
         <div v-if="activeEvents.length > 0" class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-xl font-semibold text-text-primary">Active Events</h3>
-            <router-link to="/events?filter=active" class="text-sm text-primary hover:text-primary-dark transition-colors">
+            <router-link :to="{ name: 'EventsList', query: { filter: 'active' } }" class="text-sm text-primary hover:text-primary-dark transition-colors">
               See All <i class="fas fa-arrow-right ml-1"></i>
             </router-link>
           </div>
@@ -71,7 +71,8 @@
         <div v-if="completedEvents.length > 0" class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-xl font-semibold text-text-primary">Completed Events</h3>
-            <router-link to="/completed-events" class="text-sm text-primary hover:text-primary-dark transition-colors">
+            <!-- Link to the dedicated completed events route -->
+            <router-link :to="{ name: 'CompletedEvents' }" class="text-sm text-primary hover:text-primary-dark transition-colors">
               See All <i class="fas fa-arrow-right ml-1"></i>
             </router-link>
           </div>
