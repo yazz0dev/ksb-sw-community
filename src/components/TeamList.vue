@@ -95,7 +95,10 @@ const props = defineProps({
 
 const store = useStore();
 const router = useRouter();
-const canRate = computed(() => store.getters['user/isAuthenticated']);
+const canRate = computed(() => {
+    const userRole = store.getters['user/getUserRole'];
+    return store.getters['user/isAuthenticated'] && userRole !== 'Admin';
+});
 
 const teamsWithDetails = ref([]);
 const searchQueries = ref({});

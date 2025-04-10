@@ -20,16 +20,21 @@
       <div v-if="pendingRequests.length === 0" class="bg-info-light border border-info-light text-info-dark p-4 rounded-md text-center italic">
         No pending event requests.
       </div>
-      <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <RequestCard
-          v-for="request in pendingRequests"
-          :key="request.id"
-          :event="request"
-          @approve="approveRequest(request.id)"
-          @reject="confirmRejectRequest(request.id)"
-          class="animate-fade-in"
-        />
-      </div>
+      <template v-else>
+        <div v-for="(group, index) in groupedRequests" :key="index" class="space-y-4">
+          <h3 class="text-lg font-medium text-text-primary border-b border-border pb-2">{{ group.title }}</h3>
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <RequestCard
+              v-for="request in group.requests"
+              :key="request.id"
+              :event="request"
+              @approve="approveRequest(request.id)"
+              @reject="confirmRejectRequest(request.id)"
+              class="animate-fade-in"
+            />
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- Confirmation Modal for Reject Request -->
@@ -61,6 +66,30 @@ const pendingRequests = computed(() => store.getters['events/pendingEvents']);
 // State for confirmation modal
 const showRejectConfirmModal = ref(false);
 const eventIdToReject = ref(null);
+
+const groupedRequests = computed(() => {
+  const groups = {};
+  
+  pendingRequests.value.forEach(request => {
+    const date = request.createdAt?.toDate() || new Date();
+    const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    if (!groups[yearMonth]) {
+      groups[yearMonth] = [];
+    }
+    groups[yearMonth].push(request);
+  });
+
+  return Object.entries(groups)
+    .sort((a, b) => b[0].localeCompare(a[0])) // Sort by date descending
+    .map(([yearMonth, requests]) => {
+      const [year, month] = yearMonth.split('-');
+      const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
+      return {
+        title: `${monthName} ${year}`,
+        requests
+      };
+    });
+});
 
 async function fetchRequests() {
   loading.value = true;

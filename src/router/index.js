@@ -11,21 +11,28 @@ import Transparency from '../views/TransparencyView.vue';
 import CreateEventView from '../views/CreateEventView.vue';
 import ManageRequestsView from '../views/ManageRequestsView.vue';
 import store from '../store';
-// Removed UserProfile and PublicProfile imports
 import ForgotPasswordView from '../views/ForgotPasswordView.vue';
 import LandingView from '../views/LandingView.vue';
-import ProfileView from '../views/ProfileView.vue'; // Import the new unified view
-import NotFoundView from '../views/NotFoundView.vue'; // Import 404 page component
+import ProfileView from '../views/ProfileView.vue'; 
+import NotFoundView from '../views/NotFoundView.vue'; 
 
 const routes = [
   { path: '/', name: 'Landing', component: LandingView, meta: { requiresAuth: false, guestOnly: true } },
   { path: '/home', name: 'Home', component: Home, meta: { requiresAuth: true } },
   { path: '/login', name: 'Login', component: Login, meta: { requiresAuth: false, guestOnly: true } },
   { path: '/event/:id', name: 'EventDetails', component: EventDetails, meta: { requiresAuth: true }, props: true },
-  { path: '/leaderboard', name: 'Leaderboard', component: LeaderboardView, meta: { requiresAuth: true } },
+  { path: '/leaderboard', name: 'Leaderboard', component: LeaderboardView, meta: { requiresAuth: false } },
   { path: '/rating/:eventId/:teamId?', name: 'RatingForm', component: RatingForm, meta: { requiresAuth: true }, props: true },
   { path: '/resources', name: 'Resources', component: Resources, meta: { requiresAuth: false } },
-  { path: '/transparency', name: 'Transparency', component: Transparency, meta: { requiresAuth: false } },
+  { 
+    path: '/transparency', 
+    name: 'Transparency', 
+    component: Transparency, 
+    meta: { 
+      requiresAuth: false,
+      publicAccess: true 
+    } 
+  },
   { 
     path: '/create-event', 
     name: 'CreateEvent', 
@@ -46,21 +53,25 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true } 
   },
   {
-    path: '/profile', // Route for the current user's profile
+    path: '/profile', 
     name: 'Profile',
-    component: ProfileView, // Use the new unified view
-    meta: { requiresAuth: true, adminForbidden: true } // Keep meta fields
-    // No props needed here, the component determines user from auth state
+    component: ProfileView, 
+    meta: { requiresAuth: true, adminForbidden: true } 
   },
   {
-    path: '/user/:userId', // Route for public profiles
+    path: '/user/:userId', 
     name: 'PublicProfile',
-    component: ProfileView, // Use the new unified view
-    props: true, // Pass route params (userId) as props
-    meta: { requiresAuth: false } // Keep meta fields
+    component: ProfileView, 
+    props: true, 
+    meta: { requiresAuth: false } 
   },
   { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPasswordView, meta: { requiresAuth: false, guestOnly: true } },
-  // 404 page - must be last route
+  { 
+    path: '/completed-events', 
+    name: 'CompletedEvents', 
+    component: () => import('../views/CompletedEventsView.vue'),
+    meta: { requiresAuth: false } 
+  },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: NotFoundView, meta: { requiresAuth: false } },
 ];
 

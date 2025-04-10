@@ -4,28 +4,50 @@
         <h1 class="text-3xl font-bold text-text-primary mb-6 pb-2 border-b border-border">Community Transparency & Guidelines</h1>
 
         <div class="space-y-6">
-            <!-- Introduction Section -->
+            <!-- Community Guidelines -->
             <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
                 <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-info-circle h-5 w-5 mr-3 text-primary-dark"></i>
-                    <h2 class="text-lg font-semibold text-primary-dark">Introduction</h2>
+                    <i class="fas fa-user-shield h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Community Guidelines</h2>
                 </div>
                 <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(introductionContent)"></div>
             </div>
 
-            <!-- Roles Section -->
+            <!-- Roles Section - Now Visible to All -->
             <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
                 <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
-                    <i class="fas fa-user-shield h-5 w-5 mr-3 text-primary-dark"></i>
+                    <i class="fas fa-users h-5 w-5 mr-3 text-primary-dark"></i>
                     <h2 class="text-lg font-semibold text-primary-dark">Community Roles</h2>
                 </div>
                 <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(rolesContent)"></div>
             </div>
 
-            <!-- Guidelines Section -->
+            <!-- Add other sections -->
             <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
-                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-tasks h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Event System</h2>
                 </div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(eventLifecycleContent)"></div>
+            </div>
+
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-star h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">Rating & XP System</h2>
+                </div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed">
+                    <div v-html="renderSection(ratingContent)"></div>
+                    <div class="mt-6" v-html="renderSection(xpContent)"></div>
+                </div>
+            </div>
+
+            <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
+                <div class="px-5 py-4 bg-primary-extraLight border-b border-primary-light flex items-center">
+                    <i class="fas fa-book h-5 w-5 mr-3 text-primary-dark"></i>
+                    <h2 class="text-lg font-semibold text-primary-dark">General Guidelines</h2>
+                </div>
+                <div class="p-5 prose prose-sm max-w-none text-text-secondary leading-relaxed" v-html="renderSection(generalContent)"></div>
             </div>
         </div>
       </div>

@@ -41,17 +41,19 @@
             <ProfileViewContent v-if="targetUserId" :user-id="targetUserId" :is-current-user="isCurrentUser">
                 <!-- Slot for content specific to the current user's profile -->
                 <template #additional-content v-if="isCurrentUser">
-                    <!-- Event Requests Card -->
-                     <div class="bg-surface shadow-lg rounded-lg overflow-hidden border border-border">
-                         <div class="px-4 py-3 sm:px-6 bg-secondary border-b border-secondary-dark">
-                            <h3 class="text-base font-semibold text-text-primary flex items-center">
-                               <i class="fas fa-paper-plane mr-2 text-primary"></i>My Event Requests
-                            </h3>
+                    <AuthGuard>
+                        <!-- Event Requests Card -->
+                         <div class="bg-surface shadow-lg rounded-lg overflow-hidden border border-border">
+                             <div class="px-4 py-3 sm:px-6 bg-secondary border-b border-secondary-dark">
+                                <h3 class="text-base font-semibold text-text-primary flex items-center">
+                                   <i class="fas fa-paper-plane mr-2 text-primary"></i>My Event Requests
+                                </h3>
+                            </div>
+                            <div class="p-0">
+                                <UserRequests />
+                            </div>
                         </div>
-                        <div class="p-0">
-                            <UserRequests />
-                        </div>
-                    </div>
+                    </AuthGuard>
                 </template>
             </ProfileViewContent>
 
@@ -74,6 +76,7 @@ import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebas
 import ProfileViewContent from '../components/ProfileViewContent.vue';
 import PortfolioGeneratorButton from '../components/PortfolioGeneratorButton.vue';
 import UserRequests from '../components/UserRequests.vue';
+import AuthGuard from '../components/AuthGuard.vue';
 
 const store = useStore();
 const route = useRoute();

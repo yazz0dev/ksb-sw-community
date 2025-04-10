@@ -6,6 +6,7 @@ import store from './store';
 import { auth, db } from './firebase'; // Import auth and db from firebase.js
 import { onAuthStateChanged } from 'firebase/auth';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
+import AuthGuard from './components/AuthGuard.vue';
 
 // Import Custom Global Styles
 import './assets/styles/main.css';
@@ -59,6 +60,10 @@ function mountApp() {
         appInstance = createApp(App);
         appInstance.use(router);
         appInstance.use(store);
+        
+        // Register AuthGuard globally
+        appInstance.component('AuthGuard', AuthGuard);
+        
         appInstance.mount('#app');
         console.log("Vue app mounted.");
     } else if (appInstance) {

@@ -253,7 +253,7 @@ onMounted(async () => {
     errorMessage.value = '';
 
     try {
-        // Check if user is admin
+        // Check if user is admin - moved to top of function
         const currentUser = store.getters['user/getUser'];
         if (currentUser?.role === 'Admin') {
             errorMessage.value = 'Administrators cannot submit ratings.';

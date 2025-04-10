@@ -38,19 +38,23 @@
                 :class="{ 'font-semibold text-primary bg-secondary-light': $route.path === '/home' }"
                 @click="closeNavbar">Home</router-link>
             </li>
-            <li v-if="isAuthenticated && !isAdmin" class="hidden lg:block lg:mr-1">
-              <router-link to="/profile"
-                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
-                :class="{ 'font-semibold text-primary bg-secondary-light': $route.path === '/profile' }"
-                @click="closeNavbar">Profile</router-link>
-            </li>
-            <li v-if="isAuthenticated" class="hidden lg:block lg:mr-1">
-              <router-link
-                to="/leaderboard"
+            <li class="lg:mr-1">
+              <router-link to="/leaderboard"
                 class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
                 active-class="font-semibold text-primary bg-secondary-light"
-                @click="closeNavbar"
-              >Leaderboard</router-link>
+                @click="closeNavbar">Leaderboard</router-link>
+            </li>
+            <li class="lg:mr-1" v-if="isAuthenticated">
+              <router-link to="/home"
+                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                active-class="font-semibold text-primary bg-secondary-light"
+                @click="closeNavbar">Events</router-link>
+            </li>
+            <li class="lg:mr-1" v-else>
+              <router-link to="completed-events"
+                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                active-class="font-semibold text-primary bg-secondary-light"
+                @click="closeNavbar">Completed Events</router-link>
             </li>
             <li class="lg:mr-1">
               <router-link

@@ -10,16 +10,15 @@
             <span class="text-xs">Home</span>
         </router-link>
 
-        <!-- Unified Event Creation/Request Link -->
+        <!-- Event Request Link (Non-Admin Only) -->
         <router-link
-            v-if="typeof isAuthenticated === 'boolean' && isAuthenticated != null && isAuthenticated"
+            v-if="isAuthenticated && !isAdmin"
             to="/create-event"
             active-class="text-primary font-medium"
             class="flex flex-col items-center justify-center flex-1 text-text-secondary no-underline text-center h-full transition-colors duration-200 ease-in-out px-1 py-1 hover:text-primary"
         >
-            <!-- Icon changes based on role -->
-            <i :class="['fas', isAdmin ? 'fa-plus-circle' : 'fa-calendar-plus', 'text-xl mb-0.5']"></i>
-            <span class="text-xs">{{ isAdmin ? 'Create' : 'Request' }}</span>
+            <i class="fas fa-calendar-plus text-xl mb-0.5"></i>
+            <span class="text-xs">Request</span>
         </router-link>
 
         <!-- Leaderboard -->

@@ -38,49 +38,24 @@
          <ul v-else class="bg-surface shadow overflow-hidden sm:rounded-md divide-y divide-border">
             <li v-for="(user, index) in filteredUsers" :key="user.uid" 
                 class="px-4 py-4 sm:px-6 flex justify-between items-center"
-                :class="{
-                  'bg-primary/10 border-l-4 border-primary': index === 0,
-                  'bg-secondary/10 border-l-4 border-secondary': index === 1,
-                  'bg-neutral/10 border-l-4 border-neutral': index === 2
-                }">
+                :class="getPositionClass(index)">
                 <div class="flex items-center min-w-0"> <!-- Added min-w-0 for truncation -->
                     <span 
                       class="text-sm font-semibold w-8 text-right mr-4 flex-shrink-0"
-                      :class="{
-                        'text-primary': index === 0,
-                        'text-secondary': index === 1,
-                        'text-neutral': index === 2,
-                        'text-text-disabled': index > 2
-                      }">
+                      :class="getPositionTextClass(index)">
                       {{ index + 1 }}.
                     </span>
                     
                     <router-link 
                         :to="{ name: 'PublicProfile', params: { userId: user.uid }}"
                         class="text-sm font-medium hover:text-primary-dark truncate"
-                        :class="{
-                          'text-primary font-bold': index === 0,
-                          'text-secondary font-semibold': index === 1,
-                          'text-neutral font-semibold': index === 2,
-                          'text-primary': index > 2
-                        }">
+                        :class="getNameClass(index)">
                          {{ user.name || 'Anonymous User' }}
-                         <i v-if="index < 3" class="fas fa-trophy ml-1 text-xs"
-                            :class="{
-                              'text-primary': index === 0,
-                              'text-secondary': index === 1,
-                              'text-neutral': index === 2
-                            }"></i>
                     </router-link>
                 </div>
                 
-                <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium ml-2 flex-shrink-0"
-                      :class="{
-                        'bg-primary text-primary-text': index === 0,
-                        'bg-secondary text-text-primary': index === 1,
-                        'bg-neutral text-text-primary': index === 2,
-                        'bg-primary-light text-primary-dark': index > 2
-                      }"> 
+                <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium"
+                      :class="getBadgeClass(index)"> 
                     {{ user.displayXp }} XP
                   </span>
             </li>
@@ -165,6 +140,41 @@
   const selectRoleFilter = (role) => {
       selectedRole.value = role;
   };
+
+  const getPositionClass = (index) => {
+    return {
+      'bg-primary/10 border-l-4 border-primary': index === 0,
+      'bg-secondary/10 border-l-4 border-secondary': index === 1,
+      'bg-neutral/10 border-l-4 border-neutral': index === 2
+    };
+  };
+
+  const getPositionTextClass = (index) => {
+    return {
+      'text-primary': index === 0,
+      'text-secondary': index === 1,
+      'text-neutral': index === 2,
+      'text-text-disabled': index > 2
+    };
+  };
+
+  const getNameClass = (index) => {
+    return {
+      'text-primary font-bold': index === 0,
+      'text-secondary font-semibold': index === 1,
+      'text-neutral font-semibold': index === 2,
+      'text-primary': index > 2
+    };
+  };
+
+  const getBadgeClass = (index) => {
+    return {
+      'bg-primary text-primary-text': index === 0,
+      'bg-secondary text-text-primary': index === 1,
+      'bg-neutral text-text-primary': index === 2,
+      'bg-primary-light text-primary-dark': index > 2
+    };
+  };
   
   </script>
-  
+
