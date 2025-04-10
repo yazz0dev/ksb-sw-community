@@ -30,7 +30,7 @@ Welcome to the KSB MCA Software Community Platform! This web application provide
 *   **Routing:** Vue Router
 *   **State Management:** Vuex
 *   **Backend & Database:** Firebase (Firestore, Authentication)
-*   **Styling:** Custom Modern CSS (using CSS Variables), Bootstrap 5 (Grid, Utilities, JS Components)
+*   **Styling:** Custom Modern CSS (using CSS Variables), Tailwind 5 (Grid, Utilities, JS Components)
 *   **PDF Generation:** jsPDF
 *   **UI Components:** vue3-star-ratings
 *   **Icons:** Font Awesome

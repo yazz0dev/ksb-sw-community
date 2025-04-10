@@ -440,7 +440,6 @@ async function fetchEventData() {
 
 const triggerSubmitModalOpen = () => {
     // Logic to open the submission modal (likely sets showSubmissionModal = true)
-    // You might need to initialize the modal instance here if using a library like Bootstrap
     showSubmissionModal.value = true;
 };
 

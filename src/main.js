@@ -7,10 +7,6 @@ import { auth, db } from './firebase'; // Import auth and db from firebase.js
 import { onAuthStateChanged } from 'firebase/auth';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
 
-// Import Bootstrap CSS & JS (Ensure these are imported only once)
-// import 'bootstrap/dist/css/bootstrap.min.css'; // REMOVED
-// import 'bootstrap/dist/js/bootstrap.bundle.min.js'; // REMOVED
-
 // Import Custom Global Styles
 import './assets/styles/main.css';
 
