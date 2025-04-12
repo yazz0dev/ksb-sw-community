@@ -3,7 +3,7 @@
         <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden">
             <div class="px-4 py-5 sm:p-6 space-y-4">
                 <h3 class="text-lg font-medium text-text-primary">Event Details</h3>
-
+                
                 <div class="space-y-2">
                     <label class="block text-sm font-medium text-text-secondary">Event Format <span class="text-error">*</span></label>
                     <div class="flex gap-4">
@@ -105,7 +105,7 @@
                             :disabled="isSubmitting"
                             @update:model-value="checkNextAvailableDate"
                             model-type="yyyy-MM-dd"
-                            :min-date="minStartDate"
+                            :min-date="new Date()"
                             class="w-full"
                             :input-class-name="dpInputClass(!isDateAvailable)"
                             :auto-apply="true"
@@ -130,7 +130,7 @@
                             :disabled="isSubmitting || !formData[dateFields.startField]"
                             @update:model-value="checkNextAvailableDate"
                             model-type="yyyy-MM-dd"
-                            :min-date="formData[dateFields.startField] ? new Date(formData[dateFields.startField]) : minStartDate"
+                            :min-date="formData[dateFields.startField] ? new Date(formData[dateFields.startField]) : new Date()"
                             class="w-full"
                             :input-class-name="dpInputClass(!isDateAvailable || !formData[dateFields.startField])"
                             :auto-apply="true"
@@ -203,7 +203,7 @@
                                 v-model="alloc.constraintLabel"
                                 required
                                 placeholder="e.g., Functionality"
-                                class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-neutral-light"
+                                class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
                                 :disabled="isSubmitting"
                             >
                         </div>
@@ -214,7 +214,7 @@
                                 :id="'role-'+index"
                                 v-model="alloc.role"
                                 required
-                                class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-neutral-light"
+                                class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
                                 :disabled="isSubmitting"
                             >
                                 <option value="fullstack">Fullstack</option>
@@ -244,7 +244,7 @@
                         <button
                             type="button"
                             @click="removeAllocation(index)"
-                            class="absolute top-2 right-2 text-text-disabled hover:text-error transition-colors disabled:opacity-50"
+                            class="absolute top-2 right-2 text-gray-400 hover:text-error transition-colors disabled:opacity-50"
                             :disabled="isSubmitting"
                             title="Remove Criteria"
                         >
@@ -270,8 +270,8 @@
                         id="coOrganizerSearch"
                         type="text"
                         v-model="coOrganizerSearch"
-                        placeholder="Search users name..."
-                        class="block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-neutral-light"
+                        placeholder="Search users by name or ID..."
+                        class="block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
                         :disabled="isSubmitting"
                         @focus="showCoOrganizerDropdown = true"
                         @blur="hideCoOrganizerDropdown"
@@ -348,7 +348,6 @@ import ManageTeamsComponent from './ManageTeamsComponent.vue';
 import DatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
 
-
 const getStartOfDayUTC = (dateStr: string): Date => {
     const [year, month, day] = dateStr.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
@@ -384,15 +383,6 @@ const isUpdatingTeamsInternally = ref(false);
 
 const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
 
-const minStartDate = computed(() => {
-  const today = new Date();
-  // Set time to 00:00:00 to avoid issues with timezones/DST when adding days
-  today.setHours(0, 0, 0, 0);
-  // Add 5 days
-  today.setDate(today.getDate() + 5);
-  return today;
-});
-
 const defaultFormData: EventFormData = {
     isTeamEvent: false,
     eventType: '',
@@ -404,12 +394,7 @@ const defaultFormData: EventFormData = {
     desiredEndDate: '',
     location: '',
     organizers: [],
-    xpAllocation: [{
-        constraintIndex: 0,
-        constraintLabel: 'Overall Quality',
-        role: 'fullstack',
-        points: 10
-    }],
+    xpAllocation: [],
     teams: [],
 };
 
@@ -436,28 +421,13 @@ const availableEventTypes = computed(() => {
 });
 
 const dpInputClass = (hasError: boolean) => {
-    let base = 'dp-custom-input block w-full rounded-md shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-neutral-light';
+    let base = 'dp-custom-input block w-full rounded-md shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100';
     return hasError ? `${base} border-error` : `${base} border-border`;
 };
 
 const handleFormatChange = () => {
     formData.value.eventType = '';
-    if (formData.value.isTeamEvent) {
-        formData.value.teams = [
-            {
-                teamName: 'Team 1',
-                members: [],
-                submissions: [],
-                ratings: []
-            },
-            {
-                teamName: 'Team 2',
-                members: [],
-                submissions: [],
-                ratings: []
-            }
-        ];
-    } else {
+    if (!formData.value.isTeamEvent) {
         formData.value.teams = [];
     }
 };
@@ -477,7 +447,7 @@ const isFormValid = computed(() => {
     const xpValid = data.xpAllocation.every(a => a.constraintLabel && a.role && a.points > 0) && totalXP.value <= 50;
     const basicInfoValid = !!data.eventName && !!data.eventType && !!data.description;
     const teamsValid = data.isTeamEvent ? data.teams.length > 0 && data.teams.every(t => t.teamName) : true;
-
+    
     // Add organizer validation for admins
     const organizersValid = !isAdmin.value || (Array.isArray(data.organizers) && data.organizers.length > 0);
 
@@ -500,9 +470,9 @@ const filteredUsers = computed(() => {
     return allUsers
         .filter(user => {
             // Skip if user is invalid, current user, already an organizer, or is an admin
-            if (!user?.uid ||
-                user.uid === currentUserId ||
-                formData.value.organizers.includes(user.uid) ||
+            if (!user?.uid || 
+                user.uid === currentUserId || 
+                formData.value.organizers.includes(user.uid) || 
                 user.role === 'Admin') {
                 return false;
             }
@@ -656,9 +626,9 @@ const checkNextAvailableDate = async () => {
         // Handle the response properly
         if (dateCheck && typeof dateCheck.hasConflict === 'boolean') {
             isDateAvailable.value = !dateCheck.hasConflict;
-            nextAvailableDate.value = dateCheck.hasConflict && dateCheck.nextAvailableDate ?
+            nextAvailableDate.value = dateCheck.hasConflict && dateCheck.nextAvailableDate ? 
                 new Date(dateCheck.nextAvailableDate) : null;
-
+                
             if (!isDateAvailable.value && nextAvailableDate.value) {
                 const conflictEventName = dateCheck.conflictingEvent?.eventName || 'another event';
                 emit('error', `Date conflict with ${conflictEventName}. Next available: ${formatDate(nextAvailableDate.value)}`);

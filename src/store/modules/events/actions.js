@@ -117,14 +117,111 @@ export const eventActions = {
         };
     },
 
+    // --- REVERTED: createEvent ACTION (Admin only) ---
+    async createEvent({ rootGetters, commit, dispatch }, eventData) {
+        try {
+            const currentUser = rootGetters['user/getUser'];
+            if (currentUser?.role !== 'Admin') {
+                throw new Error('Unauthorized: Only Admins can create events directly.');
+            }
+
+            // Validate organizers
+            const organizers = Array.isArray(eventData.organizers) ? eventData.organizers : [];
+            if (organizers.length === 0) {
+                throw new Error("At least one organizer is required when an Admin creates an event.");
+            }
+             if (organizers.length > 5) { // Limit total organizers
+                 throw new Error("Cannot have more than 5 organizers.");
+             }
+            await validateOrganizersNotAdmin(organizers);
+
+            // Mapper handles date conversion from Date objects or strings
+            const mappedData = mapEventDataToFirestore({
+                ...eventData,
+                // Pass dates as received (should be Date objects from component)
+                startDate: eventData.startDate,
+                endDate: eventData.endDate,
+                organizers: organizers,      // Pass the combined array
+                requester: currentUser.uid,    // Admin is the requester
+            });
+
+            mappedData.status = 'Approved';
+
+            if (!mappedData.startDate || !mappedData.endDate) {
+                throw new Error("Admin event creation requires valid start and end dates.");
+            }
+            if (mappedData.startDate.toMillis() > mappedData.endDate.toMillis()) {
+               throw new Error("End date cannot be earlier than the start date.");
+            }
+
+            const conflictingEvent = await dispatch('checkDateConflict', {
+                startDate: mappedData.startDate.toDate(),
+                endDate: mappedData.endDate.toDate(),
+                excludeEventId: null
+            });
+            if (conflictingEvent.hasConflict) {
+                const conflictEventName = conflictingEvent.conflictingEvent?.eventName || 'another event';
+                throw new Error(
+                    `Creation failed: Date conflict with ${conflictEventName}. Please choose different dates.`
+                );
+            }
+
+            // Initialize Arrays and Participants/Teams
+            mappedData.ratingsOpen = false;
+            mappedData.winnersPerRole = {};
+            mappedData.submissions = Array.isArray(mappedData.submissions) ? mappedData.submissions : [];
+            mappedData.ratings = Array.isArray(mappedData.ratings) ? mappedData.ratings : [];
+            mappedData.xpAllocation = Array.isArray(mappedData.xpAllocation) ? mappedData.xpAllocation : [];
+            mappedData.organizationRatings = [];
+            mappedData.completedAt = null;
+            mappedData.ratingsLastOpenedAt = null;
+            mappedData.ratingsOpenCount = 0;
+
+            if (mappedData.isTeamEvent) {
+                mappedData.teams = Array.isArray(mappedData.teams) ? mappedData.teams.map(t => ({
+                    teamName: t.teamName || 'Unnamed Team',
+                    members: Array.isArray(t.members) ? t.members : [],
+                    submissions: [],
+                    ratings: []
+                })) : [];
+                mappedData.participants = [];
+            } else {
+                const studentUIDs = await dispatch('user/fetchAllStudentUIDs', null, { root: true });
+                mappedData.participants = studentUIDs || [];
+                delete mappedData.teams;
+            }
+
+            // Remove current Admin from any participation lists
+            const adminUid = currentUser.uid;
+            if (mappedData.participants) {
+                mappedData.participants = mappedData.participants.filter(uid => uid !== adminUid);
+            }
+            if (mappedData.teams) {
+                mappedData.teams = mappedData.teams.map(team => ({
+                    ...team,
+                    members: team.members.filter(uid => uid !== adminUid)
+                }));
+            }
+
+            const docRef = await addDoc(collection(db, 'events'), mappedData);
+            commit('addOrUpdateEvent', { id: docRef.id, ...mappedData });
+            return docRef.id;
+        } catch (error) {
+            console.error('Error creating event:', error);
+            if (error.message.startsWith('Creation failed: Date conflict')) {
+                throw error;
+            }
+            throw new Error(`Failed to create event: ${error.message || 'Unknown error'}`);
+        }
+    },
+
+    // --- REVERTED requestEvent ACTION (Non-Admin only) ---
     async requestEvent({ dispatch, rootGetters, commit }, eventData) {
         try {
             const currentUser = rootGetters['user/getUser'];
             const userId = currentUser?.uid;
             if (!userId) { throw new Error("User not authenticated."); }
-            if (currentUser.role === 'Admin') { 
-                throw new Error("Administrators cannot create or request events."); 
-            }
+            if (currentUser.role === 'Admin') { throw new Error("Admins should use the Create Event form."); }
 
             const hasActive = await dispatch('checkExistingRequests');
             if (hasActive) { throw new Error('You already have an active or pending event request.'); }
@@ -362,53 +459,48 @@ export const eventActions = {
     },
 
     // --- REVERTED toggleRatingsOpen ---
-    async toggleRatingsOpen({ dispatch, rootGetters }, { eventId, isOpen, permanentClose }) {
+    async toggleRatingsOpen({ dispatch, rootGetters }, { eventId, isOpen }) {
         const eventRef = doc(db, 'events', eventId);
         try {
             const eventSnap = await getDoc(eventRef);
-            if (!eventSnap.exists()) throw new Error('Event not found.');
-            const eventData = eventSnap.data();
+            if (!eventSnap.exists()) throw new Error("Event not found.");
+            const currentEvent = eventSnap.data();
 
             // Permission Check: Admin OR any Organizer
             const currentUser = rootGetters['user/getUser'];
             const isAdmin = currentUser?.role === 'Admin';
-            const isOrganizer = (eventData.organizers || []).includes(currentUser?.uid);
+            const isOrganizer = (currentEvent.organizers || []).includes(currentUser?.uid);
             if (!isAdmin && !isOrganizer) throw new Error("Permission denied to toggle ratings.");
 
-            if (eventData.status !== 'Completed') {
+            if (currentEvent.status !== 'Completed') {
                 throw new Error("Ratings can only be toggled for completed events.");
             }
-
-            // Check if ratings were permanently closed by admin
-            if (eventData.ratingsClosed) {
-                throw new Error("Ratings have been permanently closed by an administrator.");
-            }
-
             const updates = {};
             const now = Timestamp.now();
-
+            const ratingsOpenCount = currentEvent.ratingsOpenCount || 0;
             if (isOpen) {
-                if (eventData.ratingsOpenCount >= 2) {
-                    throw new Error("Rating period can only be opened twice.");
+                if (ratingsOpenCount >= 2) {
+                    throw new Error("Rating period can only be opened a maximum of two times.");
                 }
-
+                let eventCompletedAt = currentEvent.completedAt;
+                if (!eventCompletedAt && currentEvent.status === 'Completed') {
+                    console.warn(`Event ${eventId} marked as Completed but missing completedAt timestamp. Setting it now.`);
+                    updates.completedAt = now;
+                } else if (!eventCompletedAt) {
+                    console.warn(`Proceeding to open ratings for completed event ${eventId} despite missing completedAt timestamp.`);
+                }
                 updates.ratingsOpen = true;
                 updates.ratingsLastOpenedAt = now;
                 updates.ratingsOpenCount = increment(1);
             } else {
                 updates.ratingsOpen = false;
-                if (permanentClose) {
-                    updates.ratingsClosed = true;
-                    updates.status = 'RatingsClosed';  // Add new status
-                }
             }
-
             await updateDoc(eventRef, updates);
             dispatch('updateLocalEvent', { id: eventId, changes: updates });
             return { status: 'success' };
         } catch (error) {
             console.error(`Error toggling ratings for event ${eventId}:`, error);
-            throw error;
+            return { status: 'error', message: error.message || 'Unknown error' };
         }
     },
 
@@ -439,131 +531,96 @@ export const eventActions = {
          } catch (error) { console.error(`Error setting winners for event ${eventId}:`, error); throw error; }
      },
 
-    // --- REFACTORED autoGenerateTeams ---
+    // --- REVERTED autoGenerateTeams ---
     async autoGenerateTeams({ dispatch, rootGetters }, { eventId, generationType, value, maxTeams = 8 }) {
-        const MIN_TEAM_SIZE = 2;
-        const MAX_TEAM_SIZE = 10; // Define a max team size for fixed-size generation
-        const DEFAULT_TEAM_SIZE = 3;
-        const DEFAULT_TEAM_COUNT = 2;
-
         const eventRef = doc(db, 'events', eventId);
         try {
-            // 1. Fetch Event Data
             const eventSnap = await getDoc(eventRef);
             if (!eventSnap.exists()) throw new Error('Event not found.');
             const eventData = eventSnap.data();
 
-            // 2. Permission Check
+            // Permission Check: Admin OR any Organizer
             const currentUser = rootGetters['user/getUser'];
             const isAdmin = currentUser?.role === 'Admin';
             const isOrganizer = (eventData.organizers || []).includes(currentUser?.uid);
-            if (!isAdmin && !isOrganizer) {
-                throw new Error("Permission denied: Only Admins or Organizers can manage teams.");
-            }
+            if (!isAdmin && !isOrganizer) throw new Error("Permission denied to manage teams for this event.");
 
-            // 3. Status and Type Checks
             if (!['Pending', 'Approved'].includes(eventData.status)) {
                 throw new Error(`Cannot generate teams for event with status '${eventData.status}'. Allowed only for 'Pending' or 'Approved'.`);
             }
-            if (!eventData.isTeamEvent) {
-                throw new Error("Cannot generate teams: This is not a team event.");
-            }
+            if (!eventData.isTeamEvent) throw new Error("Cannot generate teams: This is not a team event.");
 
-            // 4. Fetch and Prepare Available Students
+            // Fetch all available students
             const allStudents = await dispatch('user/fetchAllStudents', null, { root: true });
             if (!allStudents || allStudents.length === 0) {
-                throw new Error("No students available in the system for team generation.");
+                throw new Error("No students available for team generation.");
             }
 
+            // Remove students who are already in teams
             const assignedStudents = new Set(eventData.teams?.flatMap(t => t.members || []) || []);
             const availableStudents = allStudents.filter(student => !assignedStudents.has(student.uid)).map(s => s.uid);
 
-            if (availableStudents.length < MIN_TEAM_SIZE) {
-                throw new Error(`Not enough available students to generate teams (minimum ${MIN_TEAM_SIZE} required, found ${availableStudents.length}).`);
+            if (availableStudents.length < 2) {
+                throw new Error("Not enough available students to generate teams (minimum 2 required).");
             }
 
-            // 5. Shuffle Students (Fisher-Yates Shuffle for better randomness)
-            const shuffledStudents = [...availableStudents];
-            for (let i = shuffledStudents.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffledStudents[i], shuffledStudents[j]] = [shuffledStudents[j], shuffledStudents[i]];
-            }
+            // Shuffle available students
+            const shuffledStudents = [...availableStudents].sort(() => Math.random() - 0.5);
 
-            // 6. Generate Teams based on Type
             let newTeams = [];
-            const generationValue = Number(value); // Ensure value is numeric
-
             if (generationType === 'fixed-size') {
-                const teamSize = Math.max(MIN_TEAM_SIZE, Math.min(MAX_TEAM_SIZE, generationValue || DEFAULT_TEAM_SIZE));
-                console.log(`Generating teams of fixed size: ${teamSize}`);
+                // Generate teams of fixed size
+                const teamSize = Math.max(2, Math.min(10, Number(value) || 3)); // Min 2, max 10 members
                 for (let i = 0; i < shuffledStudents.length && newTeams.length < maxTeams; i += teamSize) {
                     const teamMembers = shuffledStudents.slice(i, i + teamSize);
-                    // Ensure the last team also meets the minimum size requirement
-                    if (teamMembers.length >= MIN_TEAM_SIZE) {
+                    if (teamMembers.length >= 2) { // Only create teams with at least 2 members
                         newTeams.push({
                             teamName: `Team ${newTeams.length + 1}`,
                             members: teamMembers,
                             submissions: [],
                             ratings: []
                         });
-                    } else if (newTeams.length > 0 && teamMembers.length > 0) {
-                        // If the last chunk is too small, distribute members to existing teams
-                        teamMembers.forEach((member, index) => {
-                            newTeams[index % newTeams.length].members.push(member);
-                        });
-                        console.log(`Distributed ${teamMembers.length} remaining students to existing teams.`);
                     }
                 }
             } else if (generationType === 'fixed-count') {
-                const requestedTeams = Math.min(maxTeams, Math.max(1, generationValue || DEFAULT_TEAM_COUNT));
-                // Ensure we don't create more teams than possible with min size
-                const maxPossibleTeams = Math.floor(shuffledStudents.length / MIN_TEAM_SIZE);
-                const teamCount = Math.min(requestedTeams, maxPossibleTeams);
-
-                if (teamCount <= 0) {
-                     throw new Error(`Cannot form any teams with at least ${MIN_TEAM_SIZE} members from ${shuffledStudents.length} available students.`);
-                }
-                console.log(`Generating fixed number of teams: ${teamCount}`);
-
+                // Generate fixed number of teams
+                const requestedTeams = Math.min(maxTeams, Math.max(1, Number(value) || 2));
+                const teamCount = Math.min(requestedTeams, Math.floor(shuffledStudents.length / 2));
                 const baseSize = Math.floor(shuffledStudents.length / teamCount);
                 const extras = shuffledStudents.length % teamCount;
-                let currentIndex = 0;
 
+                let currentIndex = 0;
                 for (let i = 0; i < teamCount; i++) {
-                    const currentTeamSize = baseSize + (i < extras ? 1 : 0);
-                    // This check should be redundant due to maxPossibleTeams calculation, but kept for safety
-                    if (currentTeamSize < MIN_TEAM_SIZE) {
-                         console.warn(`Skipping team ${i+1} creation as calculated size (${currentTeamSize}) is less than minimum (${MIN_TEAM_SIZE}). This shouldn't normally happen.`);
-                         continue;
-                    }
-                    const teamMembers = shuffledStudents.slice(currentIndex, currentIndex + currentTeamSize);
+                    const teamSize = baseSize + (i < extras ? 1 : 0);
+                    if (teamSize < 2) break; // Stop if we can't form teams with at least 2 members
+                    const teamMembers = shuffledStudents.slice(currentIndex, currentIndex + teamSize);
                     newTeams.push({
                         teamName: `Team ${i + 1}`,
                         members: teamMembers,
                         submissions: [],
                         ratings: []
                     });
-                    currentIndex += currentTeamSize;
+                    currentIndex += teamSize;
                 }
             } else {
-                throw new Error("Invalid team generation type specified. Must be 'fixed-size' or 'fixed-count'.");
+                throw new Error("Invalid generation type. Must be 'fixed-size' or 'fixed-count'.");
             }
 
-            // 7. Final Validation
             if (newTeams.length === 0) {
-                throw new Error(`Could not generate any valid teams (min size ${MIN_TEAM_SIZE}) with the given parameters.`);
+                throw new Error("Could not generate any valid teams with the given parameters.");
             }
-            // Max teams check is handled within the generation logic
 
-            // 8. Update Firestore & Local State
+            if (newTeams.length > maxTeams) {
+                throw new Error(`Cannot create more than ${maxTeams} teams.`);
+            }
+
             await updateDoc(eventRef, { teams: newTeams });
             dispatch('updateLocalEvent', { id: eventId, changes: { teams: newTeams } });
             console.log(`Teams auto-generated successfully for event ${eventId}. ${newTeams.length} teams created.`);
-            return newTeams; // Return the generated teams
-
+            return newTeams;
         } catch (error) {
             console.error(`Error auto-generating teams for event ${eventId}:`, error);
-            throw error; // Re-throw the error for the component to handle
+            throw error;
         }
     },
 
@@ -884,140 +941,121 @@ export const eventActions = {
     // Submit rating scores (for teams) or winner selections (for individuals)
     // Removed participantId from destructuring as it's not needed for winner selection payload
     async submitRating({ rootGetters, dispatch }, { eventId, ratingType, selections, teamId }) {
-        const userId = rootGetters['user/getUser']?.uid;
-        const currentUser = rootGetters['user/getUser'];
+        // Correctly get the user ID from the 'getUser' getter
+        const userId = rootGetters['user/getUser']?.uid; // Use optional chaining for safety
+        if (!userId) throw new Error('User must be logged in to submit ratings.');
 
-        // Strengthen admin check
-        if (!userId || currentUser?.role === 'Admin') {
+        const currentUser = rootGetters['user/getUser'];
+        if (currentUser?.role === 'Admin') {
             throw new Error('Administrators cannot submit ratings.');
         }
 
         const eventRef = doc(db, 'events', eventId);
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data();
 
-        // Additional validation checks
-        if (!eventData.ratingsOpen) throw new Error('Ratings are currently closed for this event.');
-        if (eventData.status !== 'Completed') throw new Error('Ratings can only be submitted for completed events.');
+        try {
+            const eventSnap = await getDoc(eventRef);
+            if (!eventSnap.exists()) throw new Error('Event not found.');
+            const eventData = eventSnap.data();
 
-        // Check if user is trying to rate their own team/self
-        if (ratingType === 'team') {
-            const team = eventData.teams?.find(t => t.teamName === teamId);
-            if (team?.members?.includes(userId)) {
-                throw new Error('You cannot rate your own team.');
+            if (eventData.status !== 'Completed') throw new Error('Ratings can only be submitted for completed events.');
+            if (!eventData.ratingsOpen) throw new Error('Ratings are currently closed for this event.');
+
+            // Validate selections format (basic check)
+            if (!selections || typeof selections !== 'object' || Object.keys(selections).length === 0) {
+                throw new Error('Invalid rating/selection data provided.');
             }
 
-            // Check rating count for this team
-            const existingRatings = team?.ratings?.filter(r => r.ratedBy === userId) || [];
-            if (existingRatings.length >= 2) {
-                throw new Error('You have already submitted the maximum number of ratings (2) for this team.');
-            }
-        } else {
-            // For individual ratings, check if trying to rate self
-            if (selections.winnerId === userId) {
-                throw new Error('You cannot rate yourself.');
-            }
+            const updates = {};
+            const now = Timestamp.now();
 
-            // Check overall rating count for this event
-            const existingRatings = eventData.ratings?.filter(r => r.ratedBy === userId) || [];
-            if (existingRatings.length >= 2) {
-                throw new Error('You have already submitted the maximum number of ratings (2) for this event.');
-            }
-        }
+            if (ratingType === 'team') {
+                if (!teamId) throw new Error('Team ID is missing for team rating.');
+                
+                const teams = Array.isArray(eventData.teams) ? [...eventData.teams] : [];
+                // Find team by name (adjust if using unique IDs later)
+                const teamIndex = teams.findIndex(t => t.teamName === teamId); 
+                if (teamIndex === -1) throw new Error(`Team with ID/Name '${teamId}' not found in this event.`);
 
-        // Validate selections format (basic check)
-        if (!selections || typeof selections !== 'object' || Object.keys(selections).length === 0) {
-            throw new Error('Invalid rating/selection data provided.');
-        }
+                // Ensure ratings array exists and filter previous ratings by this user
+                const existingTeamRatings = Array.isArray(teams[teamIndex].ratings) ? teams[teamIndex].ratings : [];
+                const updatedTeamRatings = existingTeamRatings.filter(r => r.ratedBy !== userId);
 
-        const updates = {};
-        const now = Timestamp.now();
-
-        if (ratingType === 'team') {
-            if (!teamId) throw new Error('Team ID is missing for team rating.');
-            
-            const teams = Array.isArray(eventData.teams) ? [...eventData.teams] : [];
-            // Find team by name (adjust if using unique IDs later)
-            const teamIndex = teams.findIndex(t => t.teamName === teamId); 
-            if (teamIndex === -1) throw new Error(`Team with ID/Name '${teamId}' not found in this event.`);
-
-            // Ensure ratings array exists and filter previous ratings by this user
-            const existingTeamRatings = Array.isArray(teams[teamIndex].ratings) ? teams[teamIndex].ratings : [];
-            const updatedTeamRatings = existingTeamRatings.filter(r => r.ratedBy !== userId);
-
-            // Add the new rating scores
-            const newRatingScores = {};
-            for (const key in selections) {
-                if (selections[key]?.score !== undefined) {
-                    newRatingScores[key] = Number(selections[key].score);
-                }
-            }
-
-            updatedTeamRatings.push({
-                ratedBy: userId,
-                ratedAt: now,
-                scores: newRatingScores // Use the processed scores
-            });
-
-            teams[teamIndex].ratings = updatedTeamRatings;
-            updates.teams = teams;
-
-        } else if (ratingType === 'individual') {
-            // Removed the check for participantId as it's no longer passed or needed for winner selection logic
-            // if (!participantId) {
-            //     console.warn('Participant ID missing for individual rating submission, proceeding without it for winner selection.');
-            // }
-            
-            // Process selections to update winnersPerRole
-            const newWinnersPerRole = { ...(eventData.winnersPerRole || {}) };
-            const criteria = eventData.xpAllocation || [];
-            let changesMade = false;
-            
-            for (const constraintKey in selections) {
-                const winnerId = selections[constraintKey]?.winnerId;
-                if (winnerId && typeof winnerId === 'string' && winnerId.trim() !== '') {
-                    const constraintIndex = parseInt(constraintKey.replace('constraint', ''), 10);
-                    const criterion = criteria.find(c => c.constraintIndex === constraintIndex);
-                    if (criterion) {
-                        const role = criterion.role || 'general'; 
-                        // Overwrite or set the winner for this role/criterion
-                        if (!newWinnersPerRole[role] || newWinnersPerRole[role][0] !== winnerId) {
-                            newWinnersPerRole[role] = [winnerId]; // Store as an array
-                            changesMade = true;
-                        }
+                // Add the new rating scores
+                const newRatingScores = {};
+                for (const key in selections) {
+                    if (selections[key]?.score !== undefined) {
+                        newRatingScores[key] = Number(selections[key].score);
                     }
-                } else {
-                     // Handle cases where a winner might be removed/unselected (if applicable)
-                     // For now, we only add/overwrite based on valid selections.
                 }
+
+                updatedTeamRatings.push({
+                    ratedBy: userId,
+                    ratedAt: now,
+                    scores: newRatingScores // Use the processed scores
+                });
+
+                teams[teamIndex].ratings = updatedTeamRatings;
+                updates.teams = teams;
+
+            } else if (ratingType === 'individual') {
+                // Removed the check for participantId as it's no longer passed or needed for winner selection logic
+                // if (!participantId) {
+                //     console.warn('Participant ID missing for individual rating submission, proceeding without it for winner selection.');
+                // }
+                
+                // Process selections to update winnersPerRole
+                const newWinnersPerRole = { ...(eventData.winnersPerRole || {}) };
+                const criteria = eventData.xpAllocation || [];
+                let changesMade = false;
+                
+                for (const constraintKey in selections) {
+                    const winnerId = selections[constraintKey]?.winnerId;
+                    if (winnerId && typeof winnerId === 'string' && winnerId.trim() !== '') {
+                        const constraintIndex = parseInt(constraintKey.replace('constraint', ''), 10);
+                        const criterion = criteria.find(c => c.constraintIndex === constraintIndex);
+                        if (criterion) {
+                            const role = criterion.role || 'general'; 
+                            // Overwrite or set the winner for this role/criterion
+                            if (!newWinnersPerRole[role] || newWinnersPerRole[role][0] !== winnerId) {
+                                newWinnersPerRole[role] = [winnerId]; // Store as an array
+                                changesMade = true;
+                            }
+                        }
+                    } else {
+                         // Handle cases where a winner might be removed/unselected (if applicable)
+                         // For now, we only add/overwrite based on valid selections.
+                    }
+                }
+                 if (changesMade) {
+                     updates.winnersPerRole = newWinnersPerRole;
+                 }
+
+                // Record the submission act itself
+                const existingEventRatings = Array.isArray(eventData.ratings) ? eventData.ratings : [];
+                const updatedEventRatings = existingEventRatings.filter(r => r.ratedBy !== userId || r.type !== 'winner_selection'); // Remove previous selection by this user
+                updatedEventRatings.push({
+                    ratedBy: userId,
+                    ratedAt: now,
+                    type: 'winner_selection' 
+                });
+                updates.ratings = updatedEventRatings;
+
+            } else {
+                throw new Error(`Invalid rating type: ${ratingType}`);
             }
-             if (changesMade) {
-                 updates.winnersPerRole = newWinnersPerRole;
+
+             // Only update if there are actual changes
+             if (Object.keys(updates).length > 0) {
+                await updateDoc(eventRef, updates);
+                dispatch('updateLocalEvent', { id: eventId, changes: updates });
+             } else {
+                 console.log("No changes detected in rating submission.");
              }
 
-            // Record the submission act itself
-            const existingEventRatings = Array.isArray(eventData.ratings) ? eventData.ratings : [];
-            const updatedEventRatings = existingEventRatings.filter(r => r.ratedBy !== userId || r.type !== 'winner_selection'); // Remove previous selection by this user
-            updatedEventRatings.push({
-                ratedBy: userId,
-                ratedAt: now,
-                type: 'winner_selection' 
-            });
-            updates.ratings = updatedEventRatings;
-
-        } else {
-            throw new Error(`Invalid rating type: ${ratingType}`);
+        } catch (error) {
+            console.error('Error submitting rating:', error);
+            throw error; 
         }
-
-         // Only update if there are actual changes
-         if (Object.keys(updates).length > 0) {
-            await updateDoc(eventRef, updates);
-            dispatch('updateLocalEvent', { id: eventId, changes: updates });
-         } else {
-             console.log("No changes detected in rating submission.");
-         }
-
     },
 
     // --- NEW: Submit a rating for the event organization ---
@@ -1073,105 +1111,6 @@ export const eventActions = {
 
         } catch (error) {
             console.error(`Error submitting organization rating for event ${eventId}:`, error);
-            throw error;
-        }
-    },
-
-    // --- NEW: Submit Team Criteria Rating & Best Performer ---
-    async submitTeamCriteriaRating({ rootGetters, dispatch }, { eventId, selections }) {
-        const userId = rootGetters['user/getUser']?.uid;
-        const currentUser = rootGetters['user/getUser'];
-
-        // Basic validation
-        if (!userId || currentUser?.role === 'Admin') {
-            throw new Error('Administrators cannot submit team criteria ratings.');
-        }
-        if (!selections || typeof selections !== 'object' || !selections.criteria || !selections.bestPerformer) {
-            throw new Error('Invalid rating selections provided.');
-        }
-
-        const eventRef = doc(db, 'events', eventId);
-        try {
-            const eventSnap = await getDoc(eventRef);
-            if (!eventSnap.exists()) throw new Error('Event not found.');
-            const eventData = eventSnap.data();
-
-            // Check event status and ratings open
-            if (eventData.status !== 'Completed') throw new Error('Ratings can only be submitted for completed events.');
-            if (!eventData.ratingsOpen) throw new Error('Ratings are currently closed for this event.');
-            if (!eventData.isTeamEvent) throw new Error('This rating type is only applicable to team events.');
-
-            // Prepare the new rating entry
-            const newRatingEntry = {
-                ratedBy: userId,
-                ratedAt: Timestamp.now(), // Use Firestore Timestamp
-                criteriaSelections: selections.criteria, // { constraintIndex: teamName, ... }
-                bestPerformer: selections.bestPerformer // UID of the selected performer
-            };
-
-            // Store ratings in a subcollection or an array field. Using an array field for simplicity here.
-            // We'll store one entry per user per rating period. Overwrite previous rating by the same user.
-            const currentRatings = Array.isArray(eventData.teamCriteriaRatings) ? eventData.teamCriteriaRatings : [];
-            const updatedRatings = currentRatings.filter(r => r.ratedBy !== userId); // Remove previous rating by this user
-            updatedRatings.push(newRatingEntry); // Add the new rating
-
-            await updateDoc(eventRef, {
-                teamCriteriaRatings: updatedRatings
-            });
-
-            // Update local state
-            dispatch('updateLocalEvent', { id: eventId, changes: { teamCriteriaRatings: updatedRatings } });
-
-            console.log(`Team criteria rating submitted successfully for event ${eventId} by user ${userId}.`);
-
-        } catch (error) {
-            console.error(`Error submitting team criteria rating for event ${eventId}:`, error);
-            throw error; // Re-throw the error for the component to handle
-        }
-    },
-
-    async closeEvent({ dispatch, rootGetters }, eventId) {
-        const eventRef = doc(db, 'events', eventId);
-        try {
-            const eventSnap = await getDoc(eventRef);
-            if (!eventSnap.exists()) throw new Error('Event not found.');
-            const eventData = eventSnap.data();
-
-            // Permission Check: Admin OR any Organizer
-            const currentUser = rootGetters['user/getUser'];
-            const isAdmin = currentUser?.role === 'Admin';
-            const isOrganizer = (eventData.organizers || []).includes(currentUser?.uid);
-            if (!isAdmin && !isOrganizer) throw new Error("Permission denied to close event.");
-
-            if (eventData.status !== 'Completed') {
-                throw new Error("Only completed events can be closed.");
-            }
-            
-            if (eventData.ratingsOpenCount === 0) {
-                throw new Error("Event must have at least one rating period before closure.");
-            }
-
-            if (eventData.ratingsOpen) {
-                throw new Error("Please close the current rating period before closing the event.");
-            }
-
-            await updateDoc(eventRef, {
-                closed: true,
-                closedAt: Timestamp.now(),
-                ratingsOpen: false
-            });
-
-            dispatch('updateLocalEvent', { 
-                id: eventId, 
-                changes: { 
-                    closed: true,
-                    closedAt: Timestamp.now(),
-                    ratingsOpen: false
-                } 
-            });
-
-        } catch (error) {
-            console.error(`Error closing event ${eventId}:`, error);
             throw error;
         }
     },
