@@ -439,96 +439,131 @@ export const eventActions = {
          } catch (error) { console.error(`Error setting winners for event ${eventId}:`, error); throw error; }
      },
 
-    // --- REVERTED autoGenerateTeams ---
+    // --- REFACTORED autoGenerateTeams ---
     async autoGenerateTeams({ dispatch, rootGetters }, { eventId, generationType, value, maxTeams = 8 }) {
+        const MIN_TEAM_SIZE = 2;
+        const MAX_TEAM_SIZE = 10; // Define a max team size for fixed-size generation
+        const DEFAULT_TEAM_SIZE = 3;
+        const DEFAULT_TEAM_COUNT = 2;
+
         const eventRef = doc(db, 'events', eventId);
         try {
+            // 1. Fetch Event Data
             const eventSnap = await getDoc(eventRef);
             if (!eventSnap.exists()) throw new Error('Event not found.');
             const eventData = eventSnap.data();
 
-            // Permission Check: Admin OR any Organizer
+            // 2. Permission Check
             const currentUser = rootGetters['user/getUser'];
             const isAdmin = currentUser?.role === 'Admin';
             const isOrganizer = (eventData.organizers || []).includes(currentUser?.uid);
-            if (!isAdmin && !isOrganizer) throw new Error("Permission denied to manage teams for this event.");
+            if (!isAdmin && !isOrganizer) {
+                throw new Error("Permission denied: Only Admins or Organizers can manage teams.");
+            }
 
+            // 3. Status and Type Checks
             if (!['Pending', 'Approved'].includes(eventData.status)) {
                 throw new Error(`Cannot generate teams for event with status '${eventData.status}'. Allowed only for 'Pending' or 'Approved'.`);
             }
-            if (!eventData.isTeamEvent) throw new Error("Cannot generate teams: This is not a team event.");
-
-            // Fetch all available students
-            const allStudents = await dispatch('user/fetchAllStudents', null, { root: true });
-            if (!allStudents || allStudents.length === 0) {
-                throw new Error("No students available for team generation.");
+            if (!eventData.isTeamEvent) {
+                throw new Error("Cannot generate teams: This is not a team event.");
             }
 
-            // Remove students who are already in teams
+            // 4. Fetch and Prepare Available Students
+            const allStudents = await dispatch('user/fetchAllStudents', null, { root: true });
+            if (!allStudents || allStudents.length === 0) {
+                throw new Error("No students available in the system for team generation.");
+            }
+
             const assignedStudents = new Set(eventData.teams?.flatMap(t => t.members || []) || []);
             const availableStudents = allStudents.filter(student => !assignedStudents.has(student.uid)).map(s => s.uid);
 
-            if (availableStudents.length < 2) {
-                throw new Error("Not enough available students to generate teams (minimum 2 required).");
+            if (availableStudents.length < MIN_TEAM_SIZE) {
+                throw new Error(`Not enough available students to generate teams (minimum ${MIN_TEAM_SIZE} required, found ${availableStudents.length}).`);
             }
 
-            // Shuffle available students
-            const shuffledStudents = [...availableStudents].sort(() => Math.random() - 0.5);
+            // 5. Shuffle Students (Fisher-Yates Shuffle for better randomness)
+            const shuffledStudents = [...availableStudents];
+            for (let i = shuffledStudents.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledStudents[i], shuffledStudents[j]] = [shuffledStudents[j], shuffledStudents[i]];
+            }
 
+            // 6. Generate Teams based on Type
             let newTeams = [];
+            const generationValue = Number(value); // Ensure value is numeric
+
             if (generationType === 'fixed-size') {
-                // Generate teams of fixed size
-                const teamSize = Math.max(2, Math.min(10, Number(value) || 3)); // Min 2, max 10 members
+                const teamSize = Math.max(MIN_TEAM_SIZE, Math.min(MAX_TEAM_SIZE, generationValue || DEFAULT_TEAM_SIZE));
+                console.log(`Generating teams of fixed size: ${teamSize}`);
                 for (let i = 0; i < shuffledStudents.length && newTeams.length < maxTeams; i += teamSize) {
                     const teamMembers = shuffledStudents.slice(i, i + teamSize);
-                    if (teamMembers.length >= 2) { // Only create teams with at least 2 members
+                    // Ensure the last team also meets the minimum size requirement
+                    if (teamMembers.length >= MIN_TEAM_SIZE) {
                         newTeams.push({
                             teamName: `Team ${newTeams.length + 1}`,
                             members: teamMembers,
                             submissions: [],
                             ratings: []
                         });
+                    } else if (newTeams.length > 0 && teamMembers.length > 0) {
+                        // If the last chunk is too small, distribute members to existing teams
+                        teamMembers.forEach((member, index) => {
+                            newTeams[index % newTeams.length].members.push(member);
+                        });
+                        console.log(`Distributed ${teamMembers.length} remaining students to existing teams.`);
                     }
                 }
             } else if (generationType === 'fixed-count') {
-                // Generate fixed number of teams
-                const requestedTeams = Math.min(maxTeams, Math.max(1, Number(value) || 2));
-                const teamCount = Math.min(requestedTeams, Math.floor(shuffledStudents.length / 2));
+                const requestedTeams = Math.min(maxTeams, Math.max(1, generationValue || DEFAULT_TEAM_COUNT));
+                // Ensure we don't create more teams than possible with min size
+                const maxPossibleTeams = Math.floor(shuffledStudents.length / MIN_TEAM_SIZE);
+                const teamCount = Math.min(requestedTeams, maxPossibleTeams);
+
+                if (teamCount <= 0) {
+                     throw new Error(`Cannot form any teams with at least ${MIN_TEAM_SIZE} members from ${shuffledStudents.length} available students.`);
+                }
+                console.log(`Generating fixed number of teams: ${teamCount}`);
+
                 const baseSize = Math.floor(shuffledStudents.length / teamCount);
                 const extras = shuffledStudents.length % teamCount;
-
                 let currentIndex = 0;
+
                 for (let i = 0; i < teamCount; i++) {
-                    const teamSize = baseSize + (i < extras ? 1 : 0);
-                    if (teamSize < 2) break; // Stop if we can't form teams with at least 2 members
-                    const teamMembers = shuffledStudents.slice(currentIndex, currentIndex + teamSize);
+                    const currentTeamSize = baseSize + (i < extras ? 1 : 0);
+                    // This check should be redundant due to maxPossibleTeams calculation, but kept for safety
+                    if (currentTeamSize < MIN_TEAM_SIZE) {
+                         console.warn(`Skipping team ${i+1} creation as calculated size (${currentTeamSize}) is less than minimum (${MIN_TEAM_SIZE}). This shouldn't normally happen.`);
+                         continue;
+                    }
+                    const teamMembers = shuffledStudents.slice(currentIndex, currentIndex + currentTeamSize);
                     newTeams.push({
                         teamName: `Team ${i + 1}`,
                         members: teamMembers,
                         submissions: [],
                         ratings: []
                     });
-                    currentIndex += teamSize;
+                    currentIndex += currentTeamSize;
                 }
             } else {
-                throw new Error("Invalid generation type. Must be 'fixed-size' or 'fixed-count'.");
+                throw new Error("Invalid team generation type specified. Must be 'fixed-size' or 'fixed-count'.");
             }
 
+            // 7. Final Validation
             if (newTeams.length === 0) {
-                throw new Error("Could not generate any valid teams with the given parameters.");
+                throw new Error(`Could not generate any valid teams (min size ${MIN_TEAM_SIZE}) with the given parameters.`);
             }
+            // Max teams check is handled within the generation logic
 
-            if (newTeams.length > maxTeams) {
-                throw new Error(`Cannot create more than ${maxTeams} teams.`);
-            }
-
+            // 8. Update Firestore & Local State
             await updateDoc(eventRef, { teams: newTeams });
             dispatch('updateLocalEvent', { id: eventId, changes: { teams: newTeams } });
             console.log(`Teams auto-generated successfully for event ${eventId}. ${newTeams.length} teams created.`);
-            return newTeams;
+            return newTeams; // Return the generated teams
+
         } catch (error) {
             console.error(`Error auto-generating teams for event ${eventId}:`, error);
-            throw error;
+            throw error; // Re-throw the error for the component to handle
         }
     },
 
@@ -1039,6 +1074,59 @@ export const eventActions = {
         } catch (error) {
             console.error(`Error submitting organization rating for event ${eventId}:`, error);
             throw error;
+        }
+    },
+
+    // --- NEW: Submit Team Criteria Rating & Best Performer ---
+    async submitTeamCriteriaRating({ rootGetters, dispatch }, { eventId, selections }) {
+        const userId = rootGetters['user/getUser']?.uid;
+        const currentUser = rootGetters['user/getUser'];
+
+        // Basic validation
+        if (!userId || currentUser?.role === 'Admin') {
+            throw new Error('Administrators cannot submit team criteria ratings.');
+        }
+        if (!selections || typeof selections !== 'object' || !selections.criteria || !selections.bestPerformer) {
+            throw new Error('Invalid rating selections provided.');
+        }
+
+        const eventRef = doc(db, 'events', eventId);
+        try {
+            const eventSnap = await getDoc(eventRef);
+            if (!eventSnap.exists()) throw new Error('Event not found.');
+            const eventData = eventSnap.data();
+
+            // Check event status and ratings open
+            if (eventData.status !== 'Completed') throw new Error('Ratings can only be submitted for completed events.');
+            if (!eventData.ratingsOpen) throw new Error('Ratings are currently closed for this event.');
+            if (!eventData.isTeamEvent) throw new Error('This rating type is only applicable to team events.');
+
+            // Prepare the new rating entry
+            const newRatingEntry = {
+                ratedBy: userId,
+                ratedAt: Timestamp.now(), // Use Firestore Timestamp
+                criteriaSelections: selections.criteria, // { constraintIndex: teamName, ... }
+                bestPerformer: selections.bestPerformer // UID of the selected performer
+            };
+
+            // Store ratings in a subcollection or an array field. Using an array field for simplicity here.
+            // We'll store one entry per user per rating period. Overwrite previous rating by the same user.
+            const currentRatings = Array.isArray(eventData.teamCriteriaRatings) ? eventData.teamCriteriaRatings : [];
+            const updatedRatings = currentRatings.filter(r => r.ratedBy !== userId); // Remove previous rating by this user
+            updatedRatings.push(newRatingEntry); // Add the new rating
+
+            await updateDoc(eventRef, {
+                teamCriteriaRatings: updatedRatings
+            });
+
+            // Update local state
+            dispatch('updateLocalEvent', { id: eventId, changes: { teamCriteriaRatings: updatedRatings } });
+
+            console.log(`Team criteria rating submitted successfully for event ${eventId} by user ${userId}.`);
+
+        } catch (error) {
+            console.error(`Error submitting team criteria rating for event ${eventId}:`, error);
+            throw error; // Re-throw the error for the component to handle
         }
     },
 

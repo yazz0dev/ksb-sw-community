@@ -224,6 +224,8 @@
               </form>
           </div>
       </div>
+      
+      {/* Removed TeamRatingForm modal */}
     </div>
 </template>
 
@@ -238,8 +240,10 @@ import { Timestamp } from 'firebase/firestore'; // Import Timestamp
 import EventDisplayCard from '../components/EventDisplayCard.vue'; // Import the display card
 import EventManageControls from '../components/EventManageControls.vue'; // Import EventManageControls
 import AuthGuard from '../components/AuthGuard.vue'; // Import AuthGuard
+// Removed import for TeamRatingForm
 
 // Removed import for EventActionsNav
+
 
 // Props, Store, Router
 const props = defineProps({ id: { type: String, required: true } });
@@ -269,6 +273,9 @@ const isSubmittingProject = ref(false);
 const actionInProgress = ref(false); // Generic flag for any background action
 const actionType = ref(''); // To identify which action is in progress
 const globalFeedback = ref({ message: '', type: 'success' }); // type: 'success' or 'error'
+// Removed showTeamRatingModal state
+
+// Removed canRate computed property (will re-add if needed for button logic)
 
 // Computed property to determine if the current user is an organizer
 const isCurrentUserOrganizer = computed(() => {
@@ -500,6 +507,16 @@ const rateEventOrganization = async (rating) => {
 const handleTeamRated = (feedback) => {
     setGlobalFeedback(feedback.message, feedback.type);
 };
+
+// --- Method to handle the Rate Teams button (Reverted) ---
+const openTeamRatingForm = () => {
+    // Navigate to the unified RatingForm view for team rating
+    // Pass teamId as a param if needed by RatingForm.vue
+    // For now, just navigate based on eventId. RatingForm will need logic to fetch team details if required.
+    router.push({ name: 'RatingForm', params: { eventId: props.id } }); 
+};
+
+// Removed handleTeamRatingSubmitted method
 
 // --- Lifecycle Hooks ---
 onMounted(() => {

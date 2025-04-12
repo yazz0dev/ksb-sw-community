@@ -7,14 +7,7 @@
                 <div class="p-4 sm:p-5">
                     <div class="flex justify-between items-start mb-3">
                         <h4 class="text-lg font-semibold text-primary">{{ team.teamName }}</h4>
-                        <button v-if="ratingsOpen && canRate" @click="goToRatingForm(team.teamName)"
-                            class="ml-2 flex-shrink-0 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors"
-                            :class="currentUserHasRatedTeam ?
-                                       'text-text-primary bg-surface border border-border hover:bg-neutral-light focus:ring-primary-light' :
-                                       'text-white bg-primary hover:bg-primary-dark focus:ring-primary'">
-                            <i class="fas fa-star mr-1.5"></i>
-                            {{ currentUserHasRatedTeam ? 'View/Edit Ratings' : 'Rate Team' }}
-                        </button>
+                        {/* Rating button removed */}
                     </div>
                     <button @click="toggleTeamDetails(team.teamName)"
                         class="inline-flex items-center px-3 py-1.5 border border-border shadow-sm text-xs font-medium rounded-md text-text-secondary bg-surface hover:bg-neutral-light focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-light transition-colors">
@@ -31,7 +24,7 @@
                                 <ul role="list" class="space-y-2">
                                     <li v-for="memberId in team.members" :key="memberId"
                                         class="flex items-center p-2 rounded-md transition-colors duration-150"
-                                        :class="{ 'bg-primary-extraLight font-medium': memberId === currentUserUid }">
+                                        :class="{ 'bg-secondary-light font-medium': memberId === currentUserUid }"> {/* Changed highlight class */}
                                         <i class="fas fa-user mr-2 text-text-secondary flex-shrink-0 w-4 text-center"></i>
                                         <router-link
                                             :to="{ name: 'PublicProfile', params: { userId: memberId } }"
@@ -86,11 +79,8 @@ const props = defineProps({
     currentUserUid: { 
         type: String, 
         default: null 
-    },
-    currentUserHasRatedTeam: { 
-        type: Boolean, 
-        default: false 
     }
+    // currentUserHasRatedTeam prop removed as it's no longer needed here
 });
 
 const store = useStore();
@@ -140,9 +130,7 @@ const toggleTeamDetails = (teamName) => {
     }
 };
 
-const goToRatingForm = (teamId) => {
-    router.push({ name: 'RatingForm', params: { eventId: props.eventId, teamId: teamId } });
-};
+// goToRatingForm method removed
 
 defineEmits(['update:teams', 'canAddTeam']);
 
