@@ -224,8 +224,6 @@
               </form>
           </div>
       </div>
-      
-      {/* Removed TeamRatingForm modal */}
     </div>
 </template>
 
