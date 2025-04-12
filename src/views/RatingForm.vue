@@ -144,7 +144,6 @@
 import { ref, onMounted, computed, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
-// Removed import for CustomStarRating as it's no longer used
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
