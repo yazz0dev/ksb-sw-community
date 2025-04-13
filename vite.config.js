@@ -19,6 +19,10 @@ export default defineConfig({
       brotliSize: true,
       open: true
     }),
+    {
+      name: 'postcss',
+      config: true,
+    },
     imagemin({
       gifsicle: { optimizationLevel: 3 },
       mozjpeg: { quality: 75 },

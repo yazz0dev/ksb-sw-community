@@ -79,7 +79,7 @@
               <li v-if="!isAuthenticated">
                 <router-link
                   to="/login"
-                  class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
+                  class="inline-flex lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
                   active-class="font-semibold text-primary bg-secondary-light"
                   @click="closeNavbar"
                 >Login</router-link>
@@ -88,7 +88,7 @@
                   <a
                     href="#"
                     @click.prevent="logout"
-                    class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-error hover:bg-error-light transition-colors duration-150 flex items-center"
+                    class="inline-flex items-center px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-error hover:bg-error-light transition-colors duration-150"
                   >
                       <i class="fas fa-sign-out-alt mr-2"></i>Logout
                   </a>

@@ -6,7 +6,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-firebase.js
 yarn.lock
 
 node_modules
@@ -25,7 +24,7 @@ firestore.indexes.json
 .vscode/*
 !.vscode/extensions.json
 .idea
-.firebase
+.firebase/*
 .DS_Store
 *.suo
 *.ntvs*
