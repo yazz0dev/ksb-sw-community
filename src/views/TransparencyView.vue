@@ -1,99 +1,86 @@
 <template>
-    <CContainer maxW="4xl" py="10">
-        <CBox>
-            <CHeading as="h1" size="2xl" fontWeight="extrabold" color="text-primary" mb="8" pb="3" borderBottomWidth="2px" borderColor="primary">
+    <section class="section">
+        <div class="container is-max-desktop py-5">
+            <h1 class="title is-1 has-text-primary mb-6 pb-3" style="border-bottom: 2px solid var(--bulma-primary);">
                 Community Transparency & Guidelines
-            </CHeading>
+            </h1>
 
-            <CStack spacing="8">
+            <div class="content">
                 <!-- Community Guidelines Section -->
-                <CCard variant="outline" shadow="md">
-                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
-                        <CFlex align="center">
-                            <CIcon name="fa-user-shield" mr="3" color="primary-text" />
-                            <CHeading size="lg" color="primary-text">Community Guidelines</CHeading>
-                        </CFlex>
-                    </CCardHeader>
-                    <CCardBody>
-                        <CProse v-html="renderSection(introductionContent)" />
-                    </CCardBody>
-                </CCard>
+                <div class="card mb-5 custom-card">
+                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
+                            <span class="icon mr-3"><i class="fas fa-user-shield"></i></span>
+                            <span class="is-size-5">Community Guidelines</span>
+                        </p>
+                    </header>
+                    <div class="card-content">
+                        <div class="content" v-html="renderSection(introductionContent)"></div>
+                    </div>
+                </div>
 
                 <!-- Roles Section -->
-                <CCard variant="outline" shadow="md">
-                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
-                        <CFlex align="center">
-                            <CIcon name="fa-users" mr="3" color="primary-text" />
-                            <CHeading size="lg" color="primary-text">Community Roles</CHeading>
-                        </CFlex>
-                    </CCardHeader>
-                    <CCardBody>
-                        <CProse v-html="renderSection(rolesContent)" />
-                    </CCardBody>
-                </CCard>
+                <div class="card mb-5 custom-card">
+                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
+                            <span class="icon mr-3"><i class="fas fa-users"></i></span>
+                            <span class="is-size-5">Community Roles</span>
+                        </p>
+                    </header>
+                    <div class="card-content">
+                        <div class="content" v-html="renderSection(rolesContent)"></div>
+                    </div>
+                </div>
 
                 <!-- Event System Section -->
-                <CCard variant="outline" shadow="md">
-                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
-                        <CFlex align="center">
-                            <CIcon name="fa-tasks" mr="3" color="primary-text" />
-                            <CHeading size="lg" color="primary-text">Event System</CHeading>
-                        </CFlex>
-                    </CCardHeader>
-                    <CCardBody>
-                        <CProse v-html="renderSection(eventLifecycleContent)" />
-                    </CCardBody>
-                </CCard>
+                <div class="card mb-5 custom-card">
+                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
+                            <span class="icon mr-3"><i class="fas fa-tasks"></i></span>
+                            <span class="is-size-5">Event System</span>
+                        </p>
+                    </header>
+                    <div class="card-content">
+                        <div class="content" v-html="renderSection(eventLifecycleContent)"></div>
+                    </div>
+                </div>
 
                 <!-- Rating & XP System Section -->
-                <CCard variant="outline" shadow="md">
-                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
-                        <CFlex align="center">
-                            <CIcon name="fa-star" mr="3" color="primary-text" />
-                            <CHeading size="lg" color="primary-text">Rating & XP System</CHeading>
-                        </CFlex>
-                    </CCardHeader>
-                    <CCardBody>
-                        <CProse v-html="renderSection(ratingContent)" />
-                        <CDivider my="6" />
-                        <CProse v-html="renderSection(xpContent)" />
-                    </CCardBody>
-                </CCard>
+                <div class="card mb-5 custom-card">
+                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
+                            <span class="icon mr-3"><i class="fas fa-star"></i></span>
+                            <span class="is-size-5">Rating & XP System</span>
+                        </p>
+                    </header>
+                    <div class="card-content">
+                        <div class="content" v-html="renderSection(ratingContent)"></div>
+                        <hr class="my-5">
+                        <div class="content" v-html="renderSection(xpContent)"></div>
+                    </div>
+                </div>
 
                 <!-- General Guidelines Section -->
-                <CCard variant="outline" shadow="md">
-                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
-                        <CFlex align="center">
-                            <CIcon name="fa-book" mr="3" color="primary-text" />
-                            <CHeading size="lg" color="primary-text">General Guidelines</CHeading>
-                        </CFlex>
-                    </CCardHeader>
-                    <CCardBody>
-                        <CProse v-html="renderSection(generalContent)" />
-                    </CCardBody>
-                </CCard>
-            </CStack>
-        </CBox>
-    </CContainer>
+                <div class="card mb-5 custom-card">
+                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
+                            <span class="icon mr-3"><i class="fas fa-book"></i></span>
+                            <span class="is-size-5">General Guidelines</span>
+                        </p>
+                    </header>
+                    <div class="card-content">
+                        <div class="content" v-html="renderSection(generalContent)"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import {
-    Container as CContainer,
-    Box as CBox,
-    Heading as CHeading,
-    Stack as CStack,
-    Card as CCard,
-    CardHeader as CCardHeader,
-    CardBody as CCardBody,
-    Flex as CFlex,
-    Icon as CIcon,
-    Divider as CDivider,
-    Box as CProse
-} from '@chakra-ui/vue-next';
 
 // Configure marked options
 marked.setOptions({
@@ -246,3 +233,50 @@ const renderSection = (content) => {
     return DOMPurify.sanitize(rawHtml);
 };
 </script>
+
+<style scoped>
+/* Add some basic styling to ensure cards have a slight shadow and content is spaced */
+.custom-card {
+  box-shadow: 0 2px 4px rgba(10, 10, 10, 0.1);
+}
+
+/* Style the content rendered from markdown */
+.card-content .content h2 {
+    font-size: 1.5rem; /* is-size-4 */
+    margin-bottom: 1rem; /* mb-4 */
+    margin-top: 1.5rem; /* mt-5 */
+}
+
+.card-content .content h3 {
+    font-size: 1.25rem; /* is-size-5 */
+    margin-bottom: 0.75rem; /* mb-3 */
+    margin-top: 1.25rem; /* mt-4 */
+}
+
+.card-content .content ul {
+    list-style: disc;
+    margin-left: 1.5em;
+    margin-top: 0.5em;
+}
+
+.card-content .content p,
+.card-content .content li {
+    line-height: 1.6;
+}
+
+.has-text-primary-dark {
+    color: hsl(217, 71%, 45%); /* Adjust if needed */
+}
+
+/* Ensure primary-light background is defined if not in global styles */
+.has-background-primary-light {
+    background-color: hsl(217, 71%, 96%); /* Bulma's primary-light */
+}
+
+.py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
+.pb-3 { padding-bottom: 0.75rem; }
+.mb-5 { margin-bottom: 1.25rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mr-3 { margin-right: 0.75rem; }
+.my-5 { margin-top: 1.25rem; margin-bottom: 1.25rem; }
+</style>

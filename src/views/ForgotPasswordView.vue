@@ -1,136 +1,132 @@
 <template>
-  <CFlex minH="full" flexDir="column" justify="center" py="12" px={{ sm: '6', lg: '8' }}>
-    <CBox mx="auto" w="full" maxW="md">
-      <CHeading mt="6" textAlign="center" size="xl" fontWeight="extrabold" color="text-primary">
-        {{ viewState === 'reset' ? 'Reset Your Password' : 'Forgot Your Password?' }}
-      </CHeading>
-    </CBox>
+  <div class="section is-flex is-flex-direction-column is-align-items-center is-justify-content-center" style="min-height: 80vh;">
+    <div class="container is-max-desktop">
+      <div class="has-text-centered mb-5">
+        <h1 class="title is-2 has-text-primary">
+          {{ viewState === 'reset' ? 'Reset Your Password' : 'Forgot Your Password?' }}
+        </h1>
+      </div>
 
-    <CBox mt="8" mx="auto" w="full" maxW="md">
-      <CCard variant="outline" bg="surface" py="8" px={{ base: '4', sm: '10' }} shadow="sm">
-        <CText v-if="viewState === 'request'" fontSize="sm" textAlign="center" color="text-secondary" mb="6">
+      <div class="box" style="background-color: var(--color-surface); border: 1px solid var(--color-border); max-width: 450px; margin: 0 auto;">
+        <p v-if="viewState === 'request'" class="is-size-7 has-text-centered has-text-grey mb-5">
           Enter your email address and we will send you a link to reset your password.
-        </CText>
-        <CText v-if="viewState === 'reset'" fontSize="sm" textAlign="center" color="text-secondary" mb="6">
+        </p>
+        <p v-if="viewState === 'reset'" class="is-size-7 has-text-centered has-text-grey mb-5">
           Enter your new password below.
-        </CText>
-        <CText v-if="viewState === 'success'" fontSize="sm" textAlign="center" color="text-secondary" mb="6">
+        </p>
+        <p v-if="viewState === 'success'" class="is-size-7 has-text-centered has-text-grey mb-5">
           Your password has been successfully reset.
-        </CText>
+        </p>
 
-        <CAlert v-if="message" status={isError ? 'error' : 'success'} variant="left-accent" mb="4">
-          <CAlertIcon />
-          <CAlertDescription>{{ message }}</CAlertDescription>
-        </CAlert>
+        <div v-if="message" class="message is-small mb-4" :class="isError ? 'is-danger' : 'is-success'">
+          <div class="message-body">
+            {{ message }}
+          </div>
+        </div>
 
+        <!-- Request Reset Form -->
         <form @submit.prevent="handleSendResetEmail" v-if="viewState === 'request'">
-          <CStack spacing="6">
-            <CFormControl isRequired>
-              <CFormLabel htmlFor="email" fontSize="sm">Email Address</CFormLabel>
-              <CInput
+          <div class="field">
+            <label for="email" class="label is-small">Email Address</label>
+            <div class="control has-icons-left">
+              <input
                 id="email"
+                class="input"
                 type="email"
                 v-model="email"
                 placeholder="you@example.com"
-                :isDisabled="isLoading"
+                required
+                :disabled="isLoading"
               />
-            </CFormControl>
+              <span class="icon is-small is-left"><i class="fas fa-envelope"></i></span>
+            </div>
+          </div>
 
-            <CButton
+          <div class="field mt-5">
+            <button
               type="submit"
-              colorScheme="primary"
-              w="full"
-              :isLoading="isLoading"
-              loadingText="Sending..."
+              class="button is-primary is-fullwidth"
+              :class="{ 'is-loading': isLoading }"
+              :disabled="isLoading"
             >
               Send Reset Link
-            </CButton>
-          </CStack>
+            </button>
+          </div>
         </form>
 
+        <!-- Reset Password Form -->
         <form @submit.prevent="handleResetPassword" v-if="viewState === 'reset'">
-          <CStack spacing="6">
-            <CFormControl isRequired>
-              <CFormLabel htmlFor="newPassword" fontSize="sm">New Password</CFormLabel>
-              <CInput
+          <div class="field">
+            <label for="newPassword" class="label is-small">New Password</label>
+            <div class="control has-icons-left">
+              <input
                 id="newPassword"
+                class="input"
                 type="password"
                 v-model="newPassword"
-                placeholder="Enter new password"
-                :isDisabled="isLoading"
-                minLength="6"
+                placeholder="Enter new password (min. 6 characters)"
+                required
+                :disabled="isLoading"
+                minlength="6"
               />
-            </CFormControl>
+               <span class="icon is-small is-left"><i class="fas fa-lock"></i></span>
+            </div>
+             <p v-if="newPassword.length > 0 && newPassword.length < 6" class="help is-danger is-size-7">Password must be at least 6 characters.</p>
+          </div>
 
-            <CFormControl isRequired>
-              <CFormLabel htmlFor="confirmPassword" fontSize="sm">Confirm Password</CFormLabel>
-              <CInput
+          <div class="field">
+            <label for="confirmPassword" class="label is-small">Confirm Password</label>
+            <div class="control has-icons-left">
+              <input
                 id="confirmPassword"
+                class="input"
                 type="password"
                 v-model="confirmPassword"
                 placeholder="Confirm new password"
-                :isDisabled="isLoading"
+                required
+                :disabled="isLoading"
               />
-            </CFormControl>
+               <span class="icon is-small is-left"><i class="fas fa-lock"></i></span>
+            </div>
+             <p v-if="confirmPassword.length > 0 && newPassword !== confirmPassword" class="help is-danger is-size-7">Passwords do not match.</p>
+          </div>
 
-            <CButton
+          <div class="field mt-5">
+            <button
               type="submit"
-              colorScheme="primary"
-              w="full"
-              :isLoading="isLoading"
-              loadingText="Resetting..."
-              :isDisabled="newPassword !== confirmPassword || newPassword.length < 6"
+              class="button is-primary is-fullwidth"
+              :class="{ 'is-loading': isLoading }"
+              :disabled="isLoading || newPassword !== confirmPassword || newPassword.length < 6"
             >
               Reset Password
-            </CButton>
-          </CStack>
+            </button>
+          </div>
         </form>
 
-        <CBox mt="6" textAlign="center">
-          <CLink
+        <!-- Back/Proceed Link -->
+        <div class="mt-5 has-text-centered">
+          <router-link
             v-if="viewState !== 'success'"
-            as="router-link"
             to="/login"
-            color="primary"
-            fontWeight="medium"
-            fontSize="sm"
-            _hover={{ textDecoration: 'underline' }}
+            class="button is-text is-small"
           >
-            Back to Login
-          </CLink>
-          <CButton
+             <span class="icon is-small"><i class="fas fa-arrow-left"></i></span>
+             <span>Back to Login</span>
+          </router-link>
+          <router-link
             v-else
-            as="router-link"
             to="/login"
-            variant="outline"
-            w="full"
+            class="button is-primary is-outlined is-fullwidth"
           >
             Proceed to Login
-          </CButton>
-        </CBox>
-      </CCard>
-    </CBox>
-  </CFlex>
+          </router-link>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import {
-  Box as CBox,
-  Flex as CFlex,
-  Heading as CHeading,
-  Text as CText,
-  Button as CButton,
-  Stack as CStack,
-  Card as CCard,
-  FormControl as CFormControl,
-  FormLabel as CFormLabel,
-  Input as CInput,
-  Link as CLink,
-  Alert as CAlert,
-  AlertIcon as CAlertIcon,
-  AlertDescription as CAlertDescription
-} from '@chakra-ui/vue-next'
-
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -172,9 +168,15 @@ onMounted(async () => {
       console.error("Verify Password Reset Code Error:", error);
       message.value = 'Invalid or expired password reset link. Please request a new one.';
       isError.value = true;
-      viewState.value = 'error'; // Or back to 'request' maybe?
-      // Optionally redirect or clear the invalid query params
-      router.replace({ query: {} });
+      viewState.value = 'error'; // Show error state
+      // Optionally redirect or clear the invalid query params after a delay
+      setTimeout(() => {
+          if (viewState.value === 'error') { // Only redirect if still in error state
+             router.replace({ query: {} });
+             viewState.value = 'request'; // Go back to request form
+             message.value = ''; // Clear error message
+          }
+      }, 4000);
     } finally {
       isLoading.value = false;
     }
@@ -191,16 +193,17 @@ const handleSendResetEmail = async () => {
   isLoading.value = true;
 
   const actionCodeSettings = {
-    // Update URL to point back to this component/route
-    url: 'https://ksbtech.web.app/forgot-password',
-    handleCodeInApp: false
+    url: window.location.origin + '/forgot-password', // Use current origin
+    handleCodeInApp: false // Let Firebase handle the link
   };
 
   try {
-    await firebaseSendPasswordResetEmail(auth, email.value, actionCodeSettings);
+    await firebaseSendPasswordResetEmail(auth, email.value.trim(), actionCodeSettings);
     message.value = 'Password reset email sent. Check your inbox (and spam folder).';
     isError.value = false;
-    // Keep viewState as 'request', but show success message
+    // Keep viewState as 'request', show success message
+    // Clear email field after successful request?
+    // email.value = ''; 
   } catch (error) {
     console.error("Send Password Reset Email Error:", error);
     isError.value = true;
@@ -210,7 +213,6 @@ const handleSendResetEmail = async () => {
         message.value = 'Please enter a valid email address.';
         break;
       case 'auth/user-not-found':
-        // Avoid confirming if user exists for security, show generic message
         message.value = 'If an account exists for this email, a reset link has been sent.';
         isError.value = false; // Treat as success to prevent user enumeration
         break;
@@ -230,6 +232,7 @@ const handleResetPassword = async () => {
   message.value = '';
   isError.value = false;
 
+  // Basic client-side validation (already handled by button disable usually)
   if (newPassword.value !== confirmPassword.value) {
     message.value = 'Passwords do not match.';
     isError.value = true;
@@ -258,26 +261,26 @@ const handleResetPassword = async () => {
     newPassword.value = '';
     confirmPassword.value = '';
     oobCode.value = null; // Clear the code after use
-    // Optionally redirect after a delay
-    // setTimeout(() => router.push('/login'), 3000);
+    router.replace({ query: {} }); // Clear query params from URL
+    // No automatic redirect, let user click the button
   } catch (error) {
     console.error("Confirm Password Reset Error:", error);
     isError.value = true;
     switch (error.code) {
         case 'auth/expired-action-code':
             message.value = 'The password reset link has expired. Please request a new one.';
-            viewState.value = 'error'; // Or 'request'
+            viewState.value = 'error';
             break;
         case 'auth/invalid-action-code':
             message.value = 'The password reset link is invalid. Please request a new one.';
-            viewState.value = 'error'; // Or 'request'
+            viewState.value = 'error';
             break;
         case 'auth/user-disabled':
             message.value = 'Your account has been disabled.';
             viewState.value = 'error';
             break;
-        case 'auth/user-not-found': // Should ideally not happen if verify worked, but handle defensively
-            message.value = 'User not found.';
+        case 'auth/user-not-found': 
+            message.value = 'User not found. The account may have been deleted.';
              viewState.value = 'error';
             break;
         case 'auth/weak-password':
@@ -292,9 +295,16 @@ const handleResetPassword = async () => {
      if (error.code === 'auth/expired-action-code' || error.code === 'auth/invalid-action-code') {
          oobCode.value = null;
          router.replace({ query: {} }); // Clear query params
+         viewState.value = 'request'; // Send back to request form on code error
      }
   } finally {
     isLoading.value = false;
   }
 };
 </script>
+
+<style scoped>
+.box {
+    box-shadow: 0 4px 10px rgba(10, 10, 10, 0.1);
+}
+</style>

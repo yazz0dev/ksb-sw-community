@@ -1,39 +1,43 @@
 <template>
-  <CFlex direction="column" align="center" justify="center" minH="calc(100vh - 8rem)" p="4">
-    <CBox textAlign="center" maxW="md">
-      <CHeading as="h1" size="4xl" color="primary" mb="4">404</CHeading>
-      <CHeading as="h2" size="lg" color="text-primary" mb="4">Page Not Found</CHeading>
-      <CText color="text-secondary" mb="8">Sorry, we couldn't find the page you're looking for.</CText>
-      
-      <CButtonGroup spacing="4">
-        <CButton
-          as="router-link"
-          to="/"
-          leftIcon={<CIcon name="fa-home" />}
-          colorScheme="primary"
-        >
-          Go Home
-        </CButton>
-        <CButton
-          onClick={() => $router.go(-1)}
-          leftIcon={<CIcon name="fa-arrow-left" />}
-          variant="outline"
-        >
-          Go Back
-        </CButton>
-      </CButtonGroup>
-    </CBox>
-  </CFlex>
+  <section class="hero is-fullheight-with-navbar">
+    <div class="hero-body">
+      <div class="container has-text-centered">
+        <h1 class="title is-1 has-text-primary mb-4">404</h1>
+        <h2 class="subtitle is-3 has-text-dark mb-4">Page Not Found</h2>
+        <p class="has-text-grey mb-6">Sorry, we couldn't find the page you're looking for.</p>
+        
+        <div class="buttons is-centered">
+          <router-link to="/" class="button is-primary">
+            <span class="icon">
+              <i class="fas fa-home"></i>
+            </span>
+            <span>Go Home</span>
+          </router-link>
+          <button @click="goBack" class="button is-outlined">
+            <span class="icon">
+              <i class="fas fa-arrow-left"></i>
+            </span>
+            <span>Go Back</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
 </template>
 
 <script setup>
-import {
-  Flex as CFlex,
-  Box as CBox,
-  Heading as CHeading,
-  Text as CText,
-  Button as CButton,
-  ButtonGroup as CButtonGroup,
-  Icon as CIcon
-} from '@chakra-ui/vue-next'
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
+const goBack = () => {
+  router.go(-1);
+};
 </script>
+
+<style scoped>
+/* Adjust hero height if needed based on actual navbar height */
+.hero.is-fullheight-with-navbar {
+  min-height: calc(100vh - 3.5rem); /* Adjust 3.5rem based on your navbar height */
+}
+</style>

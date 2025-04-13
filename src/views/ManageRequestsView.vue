@@ -1,92 +1,93 @@
 <template>
-  <CBox maxW="7xl" mx="auto" :p="{ base: '4', sm: '6', lg: '8' }" bg="background" minH="calc(100vh - 8rem)">
-    <!-- Header -->
-    <CBox mb="8" pb="4" borderBottomWidth="1px" borderColor="border">
-      <CHeading size="xl" color="text-primary">Manage Event Requests</CHeading>
-    </CBox>
+  <section class="section" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
+    <div class="container is-max-desktop">
+      <!-- Header -->
+      <div class="mb-6 pb-4" style="border-bottom: 1px solid var(--color-border);">
+        <h1 class="title is-3 has-text-primary">Manage Event Requests</h1>
+      </div>
 
-    <!-- Loading state -->
-    <CFlex v-if="loading" justify="center" py="16">
-      <CSpinner size="xl" color="primary" thickness="4px" />
-    </CFlex>
+      <!-- Loading state -->
+      <div v-if="loading" class="has-text-centered py-6">
+        <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
+      </div>
 
-    <!-- Error state -->
-    <CAlert v-else-if="error" status="error" variant="subtle" textAlign="center" py="16">
-      <CAlertIcon />
-      <CAlertDescription fontWeight="semibold">{{ error }}</CAlertDescription>
-    </CAlert>
+      <!-- Error state -->
+      <div v-else-if="error" class="notification is-danger is-light has-text-centered py-6">
+         <span class="icon mr-2"><i class="fas fa-exclamation-circle"></i></span>
+        <strong class="has-text-weight-semibold">{{ error }}</strong>
+      </div>
 
-    <!-- Event requests list -->
-    <CBox v-else>
-      <CAlert v-if="pendingRequests.length === 0" status="info" variant="subtle" textAlign="center" fontStyle="italic">
-        <CAlertIcon />
-        <CAlertDescription>No pending event requests.</CAlertDescription>
-      </CAlert>
+      <!-- Event requests list -->
+      <div v-else>
+        <div v-if="pendingRequests.length === 0" class="notification is-info is-light has-text-centered">
+          <span class="icon mr-2"><i class="fas fa-info-circle"></i></span>
+          No pending event requests.
+        </div>
 
-      <CStack v-else spacing="6">
-        <CBox v-for="(group, index) in groupedRequests" :key="index" spacing="4">
-          <CHeading size="md" color="text-primary" pb="2" borderBottomWidth="1px" borderColor="border">
-            {{ group.title }}
-          </CHeading>
-          <CSimpleGrid :columns="{ base: 1, sm: 2, lg: 3 }" spacing="6" mt="4">
-            <RequestCard
-              v-for="request in group.requests"
-              :key="request.id"
-              :event="request"
-              @approve="approveRequest(request.id)"
-              @reject="confirmRejectRequest(request.id)"
-              class="animate-fade-in"
-            />
-          </CSimpleGrid>
-        </CBox>
-      </CStack>
-    </CBox>
+        <div v-else>
+          <div v-for="(group, index) in groupedRequests" :key="index" class="mb-6">
+            <h2 class="title is-5 has-text-dark mb-5 pb-2" style="border-bottom: 1px solid var(--color-border);">
+              {{ group.title }}
+            </h2>
+            <div class="columns is-multiline is-variable is-4">
+              <div 
+                v-for="request in group.requests" 
+                :key="request.id" 
+                class="column is-half-tablet is-one-third-desktop animate-fade-in"
+              >
+                <RequestCard
+                  :request="request" 
+                  :processing="isProcessing(request.id)"
+                  @approve="approveRequest(request.id)"
+                  @reject="confirmRejectRequest(request.id)" 
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    <!-- Confirmation Modal for Reject Request -->
-    <ConfirmationModal
-      v-if="showRejectConfirmModal"
-      :visible="showRejectConfirmModal"
-      title="Reject Event Request?"
-      message="Are you sure you want to reject this event request? This action cannot be undone."
-      confirm-text="Reject Request"
-      cancel-text="Cancel"
-      @confirm="rejectRequestConfirmed"
-      @cancel="cancelRejectRequest"
-      @close="cancelRejectRequest"
-    />
-  </CBox>
+      <!-- Confirmation Modal for Reject Request -->
+      <ConfirmationModal
+        :visible="showRejectConfirmModal"
+        title="Reject Event Request?"
+        message="Are you sure you want to reject this event request? This action cannot be undone."
+        confirm-text="Reject Request"
+        cancel-text="Cancel"
+        @confirm="rejectRequestConfirmed"
+        @cancel="cancelRejectRequest"
+        @close="cancelRejectRequest"
+      />
+    </div>
+  </section>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
-import {
-  Box as CBox,
-  Flex as CFlex,
-  Heading as CHeading,
-  Stack as CStack,
-  SimpleGrid as CSimpleGrid,
-  Spinner as CSpinner,
-  Alert as CAlert,
-  AlertIcon as CAlertIcon,
-  AlertDescription as CAlertDescription
-} from '@chakra-ui/vue-next';
+// Removed Chakra UI imports
 import RequestCard from '../components/RequestCard.vue';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
 
 const store = useStore();
-const loading = ref(false);
+const loading = ref(false); 
 const error = ref(null);
+const processingRequestId = ref(null); // Track which request is currently being processed
+
 const pendingRequests = computed(() => store.getters['events/pendingEvents']);
 
-// State for confirmation modal
 const showRejectConfirmModal = ref(false);
 const eventIdToReject = ref(null);
 
 const groupedRequests = computed(() => {
   const groups = {};
-  
-  pendingRequests.value.forEach(request => {
+  const sortedRequests = [...pendingRequests.value].sort((a, b) => {
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+      return dateB - dateA; // Sort newest first
+  });
+
+  sortedRequests.forEach(request => {
     const date = request.createdAt?.toDate() || new Date();
     const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     if (!groups[yearMonth]) {
@@ -96,7 +97,7 @@ const groupedRequests = computed(() => {
   });
 
   return Object.entries(groups)
-    .sort((a, b) => b[0].localeCompare(a[0])) // Sort by date descending
+    .sort((a, b) => b[0].localeCompare(a[0])) // Sort groups newest first
     .map(([yearMonth, requests]) => {
       const [year, month] = yearMonth.split('-');
       const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
@@ -107,11 +108,15 @@ const groupedRequests = computed(() => {
     });
 });
 
+// Function to check if a specific card is processing
+const isProcessing = (requestId) => {
+    return processingRequestId.value === requestId;
+};
+
 async function fetchRequests() {
   loading.value = true;
   error.value = null;
   try {
-    // Assuming fetchEvents fetches all events including pending ones
     await store.dispatch('events/fetchEvents');
   } catch (err) {
     error.value = 'Failed to load event requests.';
@@ -126,16 +131,16 @@ async function fetchRequests() {
 }
 
 const approveRequest = async (eventId) => {
-  if (loading.value) return;
-  loading.value = true;
+  if (processingRequestId.value) return; // Prevent concurrent actions
+  processingRequestId.value = eventId; 
+  error.value = null;
   try {
     await store.dispatch('events/approveEventRequest', eventId);
      store.dispatch('notification/showNotification', {
         message: 'Event request approved successfully.',
         type: 'success'
     });
-    // Re-fetch or update local state if needed
-    // await fetchRequests(); // Or remove locally: pendingRequests.value = pendingRequests.value.filter(req => req.id !== eventId);
+    // No need to fetch again if the store getter updates reactively
   } catch (err) {
     error.value = `Failed to approve request: ${err.message}`;
     console.error("Error approving event request:", err);
@@ -144,12 +149,13 @@ const approveRequest = async (eventId) => {
         type: 'error'
     });
   } finally {
-    loading.value = false;
+    processingRequestId.value = null;
   }
 };
 
 // --- Reject Request Flow with Confirmation Modal ---
 const confirmRejectRequest = (eventId) => {
+  if (processingRequestId.value) return;
   eventIdToReject.value = eventId;
   showRejectConfirmModal.value = true;
 };
@@ -161,19 +167,18 @@ const cancelRejectRequest = () => {
 
 const rejectRequestConfirmed = async () => {
   const eventId = eventIdToReject.value;
-  if (!eventId || loading.value) return;
+  if (!eventId || processingRequestId.value) return;
 
-  loading.value = true;
-  showRejectConfirmModal.value = false; // Hide modal after confirm
+  processingRequestId.value = eventId;
+  showRejectConfirmModal.value = false; 
+  error.value = null;
   try {
-    // Assuming rejectEventRequest takes an object { eventId, reason }
-    await store.dispatch('events/rejectEventRequest', { eventId, reason: 'Rejected by admin' }); // Provide a default reason or implement input
+    await store.dispatch('events/rejectEventRequest', { eventId, reason: 'Rejected by admin' });
     store.dispatch('notification/showNotification', {
         message: 'Event request rejected successfully.',
-        type: 'success' // Or 'info'
+        type: 'success'
     });
-     // Re-fetch or update local state if needed
-     // await fetchRequests(); // Or remove locally: pendingRequests.value = pendingRequests.value.filter(req => req.id !== eventId);
+     // No need to fetch again if the store getter updates reactively
   } catch (err) {
     error.value = `Failed to reject request: ${err.message}`;
     console.error("Error rejecting event request:", err);
@@ -182,7 +187,7 @@ const rejectRequestConfirmed = async () => {
         type: 'error'
     });
   } finally {
-    loading.value = false;
+    processingRequestId.value = null;
     eventIdToReject.value = null;
   }
 };
@@ -193,3 +198,54 @@ onMounted(() => {
   fetchRequests();
 });
 </script>
+
+<style scoped>
+/* Reuse loader style */
+.loader {
+  border-radius: 50%;
+  border-width: 2px;
+  border-style: solid;
+  width: 3em;
+  height: 3em;
+  animation: spinAround 1s infinite linear;
+}
+@keyframes spinAround {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(359deg); }
+}
+.mx-auto {
+    margin-left: auto;
+    margin-right: auto;
+}
+.mb-2 {
+    margin-bottom: 0.5rem;
+}
+.mr-2 {
+    margin-right: 0.5rem;
+}
+.pb-4 {
+    padding-bottom: 1rem;
+}
+.py-6 {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+}
+.mb-5 {
+    margin-bottom: 1.25rem;
+}
+.mb-6 {
+    margin-bottom: 1.5rem;
+}
+.pb-2 {
+    padding-bottom: 0.5rem;
+}
+
+/* Animation */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>

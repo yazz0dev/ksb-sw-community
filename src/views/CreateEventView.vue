@@ -1,84 +1,82 @@
 <template>
-  <CBox maxW="4xl" mx="auto" p={{ base: '4', sm: '6', lg: '8' }}>
-    <!-- Admin Warning -->
-    <CAlert v-if="isAdmin" status="error" variant="subtle" mb="6">
-      <CAlertIcon name="exclamation-circle" />
-      <CAlertDescription>
+  <section class="section">
+    <div class="container is-max-desktop">
+      <!-- Admin Warning -->
+      <div v-if="isAdmin" class="notification is-danger is-light mb-6">
+        <span class="icon mr-2"><i class="fas fa-exclamation-circle"></i></span>
         Administrators cannot create events directly. Please manage and approve event requests instead.
-      </CAlertDescription>
-    </CAlert>
+      </div>
 
-    <!-- Auth Warning -->
-    <CAlert v-else-if="!isAuthenticated" status="error" variant="subtle" mb="6">
-      <CAlertIcon name="exclamation-circle" />
-      <CAlertDescription>
+      <!-- Auth Warning -->
+      <div v-else-if="!isAuthenticated" class="notification is-danger is-light mb-6">
+        <span class="icon mr-2"><i class="fas fa-exclamation-circle"></i></span>
         Please log in to create or request events.
-      </CAlertDescription>
-    </CAlert>
+      </div>
 
-    <!-- Loading State -->
-    <CFlex v-else-if="loading" direction="column" align="center" justify="center" py="16">
-      <CSpinner size="xl" color="primary" mb="2" />
-      <CText color="text-secondary">Loading...</CText>
-    </CFlex>
+      <!-- Loading State -->
+      <div v-else-if="loading" class="has-text-centered py-6">
+        <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
+        <p class="has-text-grey">Loading...</p>
+      </div>
 
-    <!-- Active Request Warning -->
-    <CAlert v-else-if="hasActiveRequest && !isAdmin" status="warning" variant="subtle" mb="6">
-      <CAlertIcon name="exclamation-triangle" />
-      <CBox ml="3">
-        <CHeading size="sm" mb="2">Pending Request Active</CHeading>
-        <CText>You already have a pending event request. Please wait for it to be reviewed before submitting a new one.</CText>
-      </CBox>
-    </CAlert>
+      <!-- Active Request Warning -->
+      <div v-else-if="hasActiveRequest && !isAdmin" class="notification is-warning is-light mb-6">
+        <div class="media">
+          <div class="media-left">
+            <span class="icon is-medium"><i class="fas fa-exclamation-triangle"></i></span>
+          </div>
+          <div class="media-content">
+             <p class="title is-6 mb-1">Pending Request Active</p>
+             <p class="is-size-7">You already have a pending event request. Please wait for it to be reviewed before submitting a new one.</p>
+          </div>
+        </div>
+      </div>
 
-    <CBox v-else>
-      <!-- Header -->
-      <CFlex align="center" justify="space-between" mb="6" pb="4" borderBottomWidth="1px" borderColor="border">
-        <CBox>
-          <CHeading size="xl" color="text-primary">{{ pageTitle }}</CHeading>
-          <CText mt="1" fontSize="sm" color="text-secondary">{{ pageSubtitle }}</CText>
-        </CBox>
-        <CButton
-          leftIcon={<CIcon name="fa-arrow-left" />}
-          variant="outline"
-          size="sm"
-          onClick={() => $router.back()}
-        >
-          Back
-        </CButton>
-      </CFlex>
+      <div v-else>
+        <!-- Header -->
+        <div class="level is-mobile mb-6 pb-4" style="border-bottom: 1px solid var(--color-border);">
+          <div class="level-left">
+            <div class="level-item">
+              <div>
+                <h1 class="title is-3 has-text-primary mb-0">{{ pageTitle }}</h1>
+                <p class="is-size-7 has-text-grey mt-1">{{ pageSubtitle }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="level-right">
+            <div class="level-item">
+              <button
+                class="button is-outlined is-small"
+                @click="$router.back()"
+              >
+                <span class="icon"><i class="fas fa-arrow-left"></i></span>
+                <span>Back</span>
+              </button>
+            </div>
+          </div>
+        </div>
 
-      <!-- Error Message -->
-      <CAlert v-if="errorMessage" status="error" variant="subtle" mb="6">
-        <CAlertIcon name="exclamation-circle" />
-        <CAlertDescription>{{ errorMessage }}</CAlertDescription>
-      </CAlert>
+        <!-- Error Message -->
+        <div v-if="errorMessage" class="notification is-danger is-light mb-6">
+          <button class="delete" @click="errorMessage = ''"></button>
+          <span class="icon mr-1"><i class="fas fa-exclamation-circle"></i></span>
+          {{ errorMessage }}
+        </div>
 
-      <!-- Event Form -->
-      <EventForm
-        :event-id="eventId"
-        :initial-data="initialEventData"
-        @submit="handleSubmit"
-        @error="handleFormError"
-      />
-    </CBox>
-  </CBox>
+        <!-- Event Form -->
+        <EventForm
+          :event-id="eventId"
+          :initial-data="initialEventData"
+          @submit="handleSubmit"
+          @error="handleFormError"
+        />
+      </div>
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import {
-  Box as CBox,
-  Flex as CFlex,
-  Heading as CHeading,
-  Text as CText,
-  Button as CButton,
-  Alert as CAlert,
-  AlertIcon as CAlertIcon,
-  AlertDescription as CAlertDescription,
-  Icon as CIcon,
-  Spinner as CSpinner
-} from '@chakra-ui/vue-next';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import EventForm from '../components/EventForm.vue';
@@ -94,109 +92,112 @@ const eventId = computed(() => route.params.eventId as string | undefined);
 const loading = ref(true);
 const errorMessage = ref('');
 const hasActiveRequest = ref(false);
-const initialEventData = ref({});
+const initialEventData = ref<Record<string, any>>({});
 
 // Computed
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
 const isEditing = computed(() => !!eventId.value);
 
-const pageTitle = computed(() => 'Request New Event');
-const pageSubtitle = computed(() => 'Submit a request for a new event');
+const pageTitle = computed(() => (isEditing.value && isAdmin.value) ? 'Edit Event' : 'Request New Event');
+const pageSubtitle = computed(() => (isEditing.value && isAdmin.value) ? 'Modify the details of the event' : 'Submit a request for a new event');
 
 // Methods
 const handleFormError = (message: string) => {
   errorMessage.value = message;
 };
 
-const handleSubmit = async (eventData) => {
-  if (isAdmin.value) {
-    errorMessage.value = 'Administrators cannot create events directly.';
+const handleSubmit = async (eventData: any) => {
+  if (isAdmin.value && !isEditing.value) {
+    errorMessage.value = 'Administrators cannot create events directly. Approve requests instead.';
     return;
   }
-  errorMessage.value = ''; // Clear previous errors
+  errorMessage.value = ''; 
   try {
     if (isAdmin.value) {
       if (isEditing.value) {
-        // Use updateEventDetails for editing
         await store.dispatch('events/updateEventDetails', { eventId: eventId.value, updates: eventData });
         store.dispatch('notification/showNotification', { message: 'Event updated successfully!', type: 'success' });
         router.push({ name: 'EventDetails', params: { id: eventId.value } });
       } else {
-        const newEventId = await store.dispatch('events/createEvent', eventData);
-        store.dispatch('notification/showNotification', { message: 'Event created successfully!', type: 'success' });
-        router.push({ name: 'EventDetails', params: { id: newEventId } });
+          // This case should be prevented by the check above, but added for robustness
+          errorMessage.value = 'Admin create action is not permitted here.'; 
+          return;
       }
     } else {
+        if (isEditing.value) {
+            errorMessage.value = 'Users cannot edit events directly.'; // Users shouldn't reach here
+            return;
+        }
       await store.dispatch('events/requestEvent', eventData);
       store.dispatch('notification/showNotification', { message: 'Event request submitted successfully!', type: 'success' });
-      router.push({ name: 'Home' }); // Redirect to home after request
+      router.push({ name: 'Home' });
     }
   } catch (error: any) {
     console.error("Error handling event submission:", error);
     errorMessage.value = error.message || 'Failed to process event';
-    // Scroll to top to show error
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 };
 
 const loadEventData = async () => {
-  if (!eventId.value) return;
-  loading.value = true; // Ensure loading state is set
+  if (!eventId.value || !isAdmin.value) { // Only admins can load for editing
+      loading.value = false;
+      if (eventId.value) errorMessage.value = "Unauthorized to edit event.";
+      return; 
+  }
+  loading.value = true;
   try {
-    // Use fetchEventDetails which populates the store's currentEventDetails
     const eventData = await store.dispatch('events/fetchEventDetails', eventId.value);
     if (!eventData) {
-      throw new Error('Event not found or you do not have permission to edit it.');
+      throw new Error('Event not found.');
     }
-    // Map store data (which might have Timestamps) to form data (which expects strings/primitives)
     initialEventData.value = mapEventToFormData(eventData);
   } catch (error: any) {
     errorMessage.value = error.message || 'Failed to load event data';
-    initialEventData.value = {}; // Clear initial data on error
+    initialEventData.value = {}; 
   } finally {
     loading.value = false;
   }
 };
 
-// Helper to map Firestore event data (with Timestamps) to form data (with strings)
-const mapEventToFormData = (eventData) => {
-  const formData = { ...eventData }; // Shallow copy
-
-  // Convert Timestamps to YYYY-MM-DD strings
+// Helper to map Firestore event data to form data
+const mapEventToFormData = (eventData: any): Record<string, any> => {
+  const formData = { ...eventData };
   const dateFieldsToConvert = ['startDate', 'endDate', 'desiredStartDate', 'desiredEndDate'];
   dateFieldsToConvert.forEach(field => {
-    if (formData[field] && typeof formData[field].toDate === 'function') {
+    const timestamp = formData[field];
+    if (timestamp && typeof timestamp.toDate === 'function') {
       try {
-        formData[field] = formData[field].toDate().toISOString().split('T')[0];
+        formData[field] = timestamp.toDate().toISOString().split('T')[0];
       } catch (e) {
         console.warn(`Could not convert timestamp for field ${field}:`, e);
-        formData[field] = ''; // Set to empty string if conversion fails
+        formData[field] = '';
       }
-    } else if (typeof formData[field] === 'string') {
-      // If it's already a string, ensure it's in YYYY-MM-DD format if possible
+    } else if (typeof timestamp === 'string') {
       try {
-        formData[field] = new Date(formData[field]).toISOString().split('T')[0];
+        // Attempt to parse and format existing string dates
+        const parsedDate = new Date(timestamp);
+        if (!isNaN(parsedDate.getTime())) {
+             formData[field] = parsedDate.toISOString().split('T')[0];
+        } else { formData[field] = ''; } // Clear if invalid string date
       } catch (e) {
-        // Keep original string if parsing fails
+          formData[field] = '';
       }
     } else {
-      formData[field] = ''; // Ensure field exists but is empty if no valid date
+      formData[field] = ''; // Default to empty if not a valid type
     }
   });
-
-  // Ensure arrays exist
   formData.xpAllocation = Array.isArray(formData.xpAllocation) ? formData.xpAllocation : [];
   formData.organizers = Array.isArray(formData.organizers) ? formData.organizers : [];
   formData.teams = Array.isArray(formData.teams) ? formData.teams : [];
-
   return formData;
 };
 
 // Lifecycle
 onMounted(async () => {
-  loading.value = true; // Start in loading state
-  errorMessage.value = ''; // Clear errors on mount
+  loading.value = true; 
+  errorMessage.value = ''; 
   if (!isAuthenticated.value) {
     loading.value = false;
     return;
@@ -204,27 +205,76 @@ onMounted(async () => {
 
   try {
     if (!isAdmin.value) {
+      // Check for active request only for non-admins
       hasActiveRequest.value = await store.dispatch('events/checkExistingRequests');
       if (hasActiveRequest.value) {
-        loading.value = false; // Stop loading if user has active request
+        loading.value = false; // Stop loading, show warning
         return;
       }
     }
-
-    if (isEditing.value) {
+    // Admins can edit, others can only create (request)
+    if (isEditing.value && isAdmin.value) {
       await loadEventData();
-    } else {
-      // Reset initial data for creation form
+    } else if (!isEditing.value) {
+      // Reset initial data for creation/request form
       initialEventData.value = {};
+      loading.value = false; // Stop loading for create/request form
+    } else {
+        // If isEditing is true but user is not admin, set error and stop loading
+        errorMessage.value = "You do not have permission to edit this event.";
+        loading.value = false;
     }
   } catch (error: any) {
     console.error("Error during component mount:", error);
     errorMessage.value = error.message || 'Failed to initialize event form';
-  } finally {
-    // Only stop loading if not editing or if editing load finished
-    if (!isEditing.value || (isEditing.value && !loading.value)) {
-      loading.value = false;
-    }
+    loading.value = false; // Stop loading on error
   }
 });
+
 </script>
+
+<style scoped>
+/* Reuse loader style */
+.loader {
+  border-radius: 50%;
+  border-width: 2px;
+  border-style: solid;
+  width: 3em;
+  height: 3em;
+  animation: spinAround 1s infinite linear;
+}
+@keyframes spinAround {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(359deg); }
+}
+.mx-auto {
+    margin-left: auto;
+    margin-right: auto;
+}
+.mb-2 {
+    margin-bottom: 0.5rem;
+}
+.mr-1 {
+    margin-right: 0.25rem;
+}
+.mr-2 {
+    margin-right: 0.5rem;
+}
+.ml-3 {
+    margin-left: 0.75rem;
+}
+.mt-1 {
+    margin-top: 0.25rem;
+}
+.py-6 {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+}
+.pb-4 {
+    padding-bottom: 1rem;
+}
+.mb-6 {
+    margin-bottom: 1.5rem;
+}
+
+</style>

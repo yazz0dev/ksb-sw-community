@@ -100,7 +100,6 @@ export default defineConfig({
     }),
   ],
   optimizeDeps: {
-    include: ['@chakra-ui/vue-next'],
     esbuildOptions: {
       define: {
         global: 'globalThis'
@@ -123,7 +122,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           'firebase-essentials': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          'chakra': ['@chakra-ui/vue-next'],
           'ui-components': ['@vuepic/vue-datepicker', 'luxon'], 
           'pdf-lib': ['jspdf', 'jspdf-autotable'],
           'vendor': ['vue', 'vue-router', 'vuex', 'dompurify', 'marked'], 

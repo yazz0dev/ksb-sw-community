@@ -1,72 +1,78 @@
 <template>
-  <CBox maxW="7xl" mx="auto" p={{ base: '4', sm: '6', lg: '8' }} bg="background" minH="calc(100vh - 8rem)">
-    <!-- Back Button -->
-    <CBox v-if="!isCurrentUser" mb="6">
-      <CButton
-        leftIcon={<CIcon name="fa-arrow-left" />}
-        variant="outline"
-        size="sm"
-        onClick={() => $router.back()}
-      >
-        Back
-      </CButton>
-    </CBox>
+  <div class="section" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
+    <div class="container is-max-widescreen">
+      <!-- Back Button -->
+      <div v-if="!isCurrentUser" class="mb-6">
+        <button
+          class="button is-small is-outlined"
+          @click="$router.back()"
+        >
+          <span class="icon is-small"><i class="fas fa-arrow-left"></i></span>
+          <span>Back</span>
+        </button>
+      </div>
 
-    <!-- Admin View -->
-    <CAlert v-if="isAdminProfile" status="info" variant="left-accent">
-      <CFlex align="center">
-        <CIcon name="fa-user-shield" mr="2" />
-        <CBox>
-          <CHeading size="md" mb="1">Admin Account</CHeading>
-          <CText>Admin accounts do not have personal profiles. Access admin tools via the main navigation.</CText>
-        </CBox>
-      </CFlex>
-    </CAlert>
+      <!-- Admin View Message -->
+      <div v-if="isAdminProfile" class="message is-info">
+        <div class="message-body">
+          <div class="is-flex is-align-items-center">
+             <span class="icon is-medium mr-2"><i class="fas fa-user-shield"></i></span>
+             <div>
+                <p class="is-size-5 has-text-weight-semibold mb-1">Admin Account</p>
+                <p class="is-size-7">Admin accounts do not have personal profiles. Access admin tools via the main navigation.</p>
+             </div>
+          </div>
+        </div>
+      </div>
 
-    <!-- Standard User View -->
-    <template v-else>
-      <!-- Header -->
-      <CFlex v-if="isCurrentUser" wrap="wrap" justify="space-between" align="center" gap="4" mb="8" pb="4" borderBottomWidth="1px" borderColor="border">
-        <CHeading as="h2" size="xl" color="text-primary">My Profile</CHeading>
-        <!-- Portfolio Button Area -->
-        <CFlex align="center">
-          <PortfolioGeneratorButton
-            v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
-            :user="userForPortfolio"
-            :projects="userProjectsForPortfolio"
-          />
-          <CText v-else-if="loadingProjectsForPortfolio" fontSize="xs" color="text-secondary" fontStyle="italic" ml="2">
-            Loading portfolio data...
-          </CText>
-          <CText v-else fontSize="xs" color="text-secondary" fontStyle="italic" ml="2">
-            (Portfolio PDF generation available after completing events with project submissions)
-          </CText>
-        </CFlex>
-      </CFlex>
+      <!-- Standard User View -->
+      <template v-else>
+        <!-- Header for Current User -->
+        <div v-if="isCurrentUser" class="is-flex is-flex-wrap-wrap is-justify-content-space-between is-align-items-center gap-4 mb-6 pb-4" style="border-bottom: 1px solid var(--color-border);">
+          <h2 class="title is-3 has-text-primary mb-0">My Profile</h2>
+          <!-- Portfolio Button Area -->
+          <div class="is-flex is-align-items-center">
+            <PortfolioGeneratorButton
+              v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
+              :user="userForPortfolio"
+              :projects="userProjectsForPortfolio"
+            />
+            <p v-else-if="loadingProjectsForPortfolio" class="is-size-7 has-text-grey is-italic ml-2">
+              Loading portfolio data...
+            </p>
+            <p v-else class="is-size-7 has-text-grey is-italic ml-2">
+              (Portfolio PDF available after completing events with submissions)
+            </p>
+          </div>
+        </div>
 
-      <!-- Profile Content -->
-      <ProfileViewContent v-if="targetUserId" :user-id="targetUserId" :is-current-user="isCurrentUser">
-        <template #additional-content v-if="isCurrentUser">
-          <AuthGuard>
-            <CCard variant="outline" shadow="lg">
-              <CCardHeader bg="secondary" borderBottomWidth="1px" borderColor="secondary-dark">
-                <CFlex align="center">
-                  <CIcon name="fa-paper-plane" color="primary" mr="2" />
-                  <CHeading size="md" color="text-primary">My Event Requests</CHeading>
-                </CFlex>
-              </CCardHeader>
-              <UserRequests />
-            </CCard>
-          </AuthGuard>
-        </template>
-      </ProfileViewContent>
+        <!-- Profile Content -->
+        <ProfileViewContent v-if="targetUserId" :user-id="targetUserId" :is-current-user="isCurrentUser">
+           <!-- Slot for Additional Content (e.g., User Requests) -->
+           <template #additional-content v-if="isCurrentUser">
+             <AuthGuard>
+                <div class="card mt-6">
+                  <header class="card-header" style="background-color: var(--color-secondary-light); border-bottom: 1px solid var(--color-secondary-border);">
+                    <p class="card-header-title">
+                       <span class="icon has-text-primary mr-2"><i class="fas fa-paper-plane"></i></span>
+                       My Event Requests
+                    </p>
+                  </header>
+                  <div class="card-content p-0"> <!-- Remove padding if UserRequests handles it -->
+                     <UserRequests />
+                  </div>
+                </div>
+             </AuthGuard>
+           </template>
+        </ProfileViewContent>
 
-      <!-- Fallback -->
-      <CText v-else textAlign="center" color="text-secondary" py="10">
-        Could not determine user profile to display.
-      </CText>
-    </template>
-  </CBox>
+        <!-- Fallback if no target user -->
+        <p v-else class="has-text-centered has-text-grey py-6">
+          Could not determine user profile to display.
+        </p>
+      </template>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -76,17 +82,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
 
-import {
-  Box as CBox,
-  Flex as CFlex,
-  Heading as CHeading,
-  Text as CText,
-  Button as CButton,
-  Card as CCard,
-  CardHeader as CCardHeader,
-  Alert as CAlert,
-  Icon as CIcon
-} from '@chakra-ui/vue-next';
+// Removed Chakra UI imports
 
 // Import Components
 import ProfileViewContent from '../components/ProfileViewContent.vue';
@@ -96,22 +92,19 @@ import AuthGuard from '../components/AuthGuard.vue';
 
 const store = useStore();
 const route = useRoute();
-const router = useRouter(); // Added useRouter for potential navigation
+const router = useRouter();
 
 // --- State ---
 const targetUserId = ref(null);
 const isCurrentUser = ref(false);
-const isAdminProfile = ref(false); // To handle showing the admin message
-
-// Portfolio-specific state (only relevant if isCurrentUser is true)
+const isAdminProfile = ref(false);
 const userProjectsForPortfolioButton = ref([]);
-const loadingProjectsForPortfolio = ref(false); // Default to false, set true when fetching
+const loadingProjectsForPortfolio = ref(false);
 
 // --- Computed Properties ---
 const loggedInUserId = computed(() => store.state.user.uid);
 const loggedInUserIsAdmin = computed(() => store.getters['user/isAdmin']);
 
-// Computed property for portfolio button data (depends on store data)
 const userForPortfolio = computed(() => {
     if (!isCurrentUser.value) return {};
     const currentUserData = store.getters['user/getUser'];
@@ -131,13 +124,9 @@ const userProjectsForPortfolio = computed(() => {
     return userProjectsForPortfolioButton.value;
 });
 
-
 // --- Methods ---
-
-// Fetch projects specifically for the portfolio button
 const fetchUserProjectsForPortfolio = async () => {
-    if (!loggedInUserId.value) return; // Need logged-in user ID
-
+    if (!loggedInUserId.value) return;
     loadingProjectsForPortfolio.value = true;
     try {
         const submissionsQuery = query(
@@ -158,19 +147,14 @@ const fetchUserProjectsForPortfolio = async () => {
     }
 };
 
-// Determine profile context based on route and auth state
 const determineProfileContext = async () => {
     const routeUserId = route.params.userId;
     const currentLoggedInUserId = loggedInUserId.value;
-
-    isAdminProfile.value = false; // Reset admin flag
+    isAdminProfile.value = false;
 
     if (routeUserId) {
-        // Public profile view
         targetUserId.value = routeUserId;
         isCurrentUser.value = routeUserId === currentLoggedInUserId;
-
-        // Check if the target public profile is an admin
         try {
             const userDocRef = doc(db, 'users', routeUserId);
             const userDocSnap = await getDoc(userDocRef);
@@ -179,56 +163,47 @@ const determineProfileContext = async () => {
             }
         } catch (error) {
             console.error("Error checking if target user is admin:", error);
-            // Decide how to handle error - maybe show profile anyway or an error message
         }
-
     } else if (currentLoggedInUserId) {
-        // Current user's profile view (route has no userId)
         targetUserId.value = currentLoggedInUserId;
         isCurrentUser.value = true;
-        isAdminProfile.value = loggedInUserIsAdmin.value; // Show admin message if logged-in user is admin
-
-        // Fetch projects for portfolio button only when viewing own profile
-        if (!isAdminProfile.value) { // Don't fetch for admins
+        isAdminProfile.value = loggedInUserIsAdmin.value;
+        if (!isAdminProfile.value) {
              fetchUserProjectsForPortfolio();
         } else {
-             loadingProjectsForPortfolio.value = false; // Ensure loading stops for admin
-             userProjectsForPortfolioButton.value = []; // Clear projects for admin
+             loadingProjectsForPortfolio.value = false;
+             userProjectsForPortfolioButton.value = [];
         }
-
     } else {
-        // No route user ID and no logged-in user ID - cannot determine profile
         targetUserId.value = null;
         isCurrentUser.value = false;
         console.warn("Cannot determine profile: No route parameter and user not logged in.");
-        // Optionally redirect to login or show an error message
-        // router.push({ name: 'Login' });
+        // Consider redirecting if profile cannot be determined
+        // if (!route.meta.public) { // Example check if route requires auth
+        //    router.push({ name: 'Login' });
+        // }
     }
 };
 
 // --- Watchers ---
-
-// Watch route changes to update profile context
 watch(() => route.params.userId, determineProfileContext, { immediate: true });
-
-// Watch login status changes
 watch(loggedInUserId, (newUid, oldUid) => {
-    // Re-determine context if login status changes significantly
     if ((!oldUid && newUid) || (oldUid && !newUid)) {
         determineProfileContext();
     } else if (newUid && route.params.userId === newUid) {
-        // If user logs in while viewing their own public profile, update context
         determineProfileContext();
     }
 });
 
 // --- Lifecycle Hooks ---
 onMounted(() => {
-    determineProfileContext(); // Initial determination
+    // Initial determination is handled by the immediate watcher
+    // determineProfileContext(); 
 });
 
 </script>
 
 <style scoped>
-/* Add component-specific styles here if needed */
+.gap-4 { gap: 1rem; }
+.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
 </style>

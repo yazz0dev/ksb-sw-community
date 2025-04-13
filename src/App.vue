@@ -1,11 +1,8 @@
 <template>
-  <CBox 
+  <div 
     id="app" 
-    :d="'flex'" 
-    :flexDir="'column'" 
-    :minH="'100vh'" 
-    bg="var(--color-neutral-light)" 
-    color="var(--color-text-secondary)"
+    class="is-flex is-flex-direction-column" 
+    style="min-height: 100vh; background-color: var(--color-neutral-light); color: var(--color-text-secondary);"
   >
     <!-- Offline State Handler -->
     <OfflineStateHandler />
@@ -13,305 +10,174 @@
     <NotificationSystem />
 
     <!-- Top Navigation Bar -->
-    <CFlex
-      as="nav"
-      :position="'sticky'"
-      :top="0"
-      :zIndex="'sticky'"
-      bg="var(--color-surface)"
-      boxShadow="sm"
-      align="center"
-      :h="{ base: '12', lg: '16' }"
-      borderBottomWidth="1px"
-      borderColor="var(--color-border)"
+    <nav
+      class="navbar is-fixed-top has-shadow"
+      role="navigation" 
+      aria-label="main navigation"
+      style="background-color: var(--color-surface); border-bottom: 1px solid var(--color-border); z-index: 30;" /* Bulma uses z-index 30 for navbar */
     >
-      <CContainer 
-        :maxW="'container.xl'" 
-        :d="'flex'" 
-        alignItems="center" 
-        justifyContent="space-between" 
-        h="full" 
-        :px="{ base: 4, sm: 6, lg: 8 }"
-      >
-        <CLink
-          as="router-link"
-          to="/"
-          :fontSize="{ base: 'lg', lg: 'xl' }"
-          fontWeight="bold"
-          color="var(--color-primary)"
-          :mr="{ base: 4, lg: 8 }"
-          d="flex"
-          alignItems="center"
-          h="full"
-          whiteSpace="nowrap"
-          @click="closeNavbar"
-          :_hover="{ textDecoration: 'none' }"
-        >
-          KSB Tech Community
-        </CLink>
+      <div class="container">
+        <div class="navbar-brand">
+          <router-link
+            to="/"
+            class="navbar-item has-text-primary has-text-weight-bold is-size-5 is-size-4-desktop" 
+            @click="closeNavbar"
+            style="white-space: nowrap;"
+          >
+            KSB Tech Community
+          </router-link>
 
-        <CIconButton
-          :display="{ base: 'flex', lg: 'none' }"
-          variant="ghost"
-          aria-label="Toggle navigation"
-          :icon="h(CIcon, { name: 'fa-bars', size: 'xl' })"
-          @click.stop="toggleNavbar"
-          color="var(--color-text-secondary)"
-          :_hover="{ color: 'var(--color-primary)', bg: 'transparent' }"
-          :_focus="{ boxShadow: 'outline' }"
-        />
-
-        <!-- Mobile Menu Overlay -->
-        <CBox
-          v-if="isNavbarOpen"
-          position="fixed"
-          inset="0"
-          bg="blackAlpha.300"
-          :display="{ base: 'block', lg: 'none' }"
-          zIndex="overlay"
-          @click.stop="closeNavbar"
-          aria-hidden="true"
-        />
+          <a
+            role="button"
+            class="navbar-burger"
+            :class="{ 'is-active': isNavbarOpen }"
+            aria-label="menu"
+            :aria-expanded="isNavbarOpen"
+            @click.stop="toggleNavbar"
+            style="color: var(--color-text-secondary);"
+          >
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+          </a>
+        </div>
 
         <!-- Navbar Content -->
-        <CBox
-          :display="{ base: isNavbarOpen ? 'block' : 'none', lg: 'flex' }"
-          :position="{ base: 'fixed', lg: 'static' }"
-          top="12"
-          left="0"
-          right="0"
-          :w="{ base: 'full', lg: 'auto' }"
-          :bg="{ base: 'var(--color-surface)', lg: 'transparent' }"
-          :boxShadow="{ base: 'lg', lg: 'none' }"
-          :alignItems="{ lg: 'center' }"
-          transition="all 0.3s ease-in-out"
-          overflow="hidden"
-          :borderBottomWidth="{ base: '1px', lg: '0' }"
-          borderColor="var(--color-border)"
-          zIndex="popover"
+        <div 
+          id="navbarBasicExample" 
+          class="navbar-menu" 
+          :class="{ 'is-active': isNavbarOpen }"
           ref="navbarCollapseRef"
-          :opacity="{ base: isNavbarOpen ? 1 : 0, lg: 1 }"
-          :transform="{ base: isNavbarOpen ? 'translateY(0)' : 'translateY(-100%)', lg: 'translateY(0)' }"
-          :h="{ base: isNavbarOpen ? 'auto' : '0', lg: 'auto' }"
+          style="background-color: var(--color-surface);" /* Ensure mobile menu has background */
         >
           <!-- Menu Navigation -->
-          <CList
-            d="flex"
-            :flexDir="{ base: 'column', lg: 'row' }"
-            listStyleType="none"
-            :mr="{ lg: 'auto' }"
-            :px="{ base: 4, lg: 0 }"
-            :py="{ base: 3, lg: 0 }"
-            :sx="{
-              '@media screen and (max-width: 991px)': {
-                '& > *:not(style) ~ *:not(style)': {
-                  borderTopWidth: '1px',
-                  borderColor: 'var(--color-border)',
-                },
-              },
-            }"
-          >
-            <CListItem v-if="isAuthenticated" :display="{ base: 'none', lg: 'block' }" :mr="{ lg: 1 }">
-              <CLink
-                as="router-link"
-                to="/home"
-                :display="{ base: 'block', lg: 'inline-block' }"
-                px="3"
-                :py="{ base: 3, lg: 2 }"
-                borderRadius="md"
-                color="var(--color-text-secondary)"
-                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
-                :fontWeight="$route.path === '/home' ? 'semibold' : 'normal'"
-                :color="$route.path === '/home' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
-                :bg="$route.path === '/home' ? 'var(--color-secondary-light)' : 'transparent'"
-                @click="closeNavbar"
-              >
-                Home
-              </CLink>
-            </CListItem>
-            <CListItem :mr="{ lg: 1 }">
-              <CLink
-                as="router-link"
-                to="/leaderboard"
-                :display="{ base: 'block', lg: 'inline-block' }"
-                px="3"
-                :py="{ base: 3, lg: 2 }"
-                borderRadius="md"
-                color="var(--color-text-secondary)"
-                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
-                :fontWeight="$route.path === '/leaderboard' ? 'semibold' : 'normal'"
-                :color="$route.path === '/leaderboard' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
-                :bg="$route.path === '/leaderboard' ? 'var(--color-secondary-light)' : 'transparent'"
-                @click="closeNavbar"
-              >
-                Leaderboard
-              </CLink>
-            </CListItem>
-             <CListItem :mr="{ lg: 1 }" v-if="isAuthenticated">
-               <CLink
-                 as="router-link"
-                 to="/home"
-                 :display="{ base: 'block', lg: 'inline-block' }"
-                 px="3"
-                 :py="{ base: 3, lg: 2 }"
-                 borderRadius="md"
-                 color="var(--color-text-secondary)"
-                 :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
-                 :fontWeight="$route.path === '/home' ? 'semibold' : 'normal'"
-                 :color="$route.path === '/home' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
-                 :bg="$route.path === '/home' ? 'var(--color-secondary-light)' : 'transparent'"
-                 @click="closeNavbar"
-               >
-                 Events
-               </CLink>
-             </CListItem>
-             <CListItem :mr="{ lg: 1 }" v-else>
-               <CLink
-                 as="router-link"
-                 to="/completed-events"
-                 :display="{ base: 'block', lg: 'inline-block' }"
-                 px="3"
-                 :py="{ base: 3, lg: 2 }"
-                 borderRadius="md"
-                 color="var(--color-text-secondary)"
-                 :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
-                 :fontWeight="$route.path === '/completed-events' ? 'semibold' : 'normal'"
-                 :color="$route.path === '/completed-events' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
-                 :bg="$route.path === '/completed-events' ? 'var(--color-secondary-light)' : 'transparent'"
-                 @click="closeNavbar"
-               >
-                 Completed Events
-               </CLink>
-             </CListItem>
-            <CListItem :mr="{ lg: 1 }">
-              <CLink
-                as="router-link"
-                to="/resources"
-                :display="{ base: 'block', lg: 'inline-block' }"
-                px="3"
-                :py="{ base: 3, lg: 2 }"
-                borderRadius="md"
-                color="var(--color-text-secondary)"
-                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
-                :fontWeight="$route.path === '/resources' ? 'semibold' : 'normal'"
-                :color="$route.path === '/resources' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
-                :bg="$route.path === '/resources' ? 'var(--color-secondary-light)' : 'transparent'"
-                @click="closeNavbar"
-              >
-                Resources
-              </CLink>
-            </CListItem>
-            <CListItem>
-              <CLink
-                as="router-link"
-                to="/transparency"
-                :display="{ base: 'block', lg: 'inline-block' }"
-                px="3"
-                :py="{ base: 3, lg: 2 }"
-                borderRadius="md"
-                color="var(--color-text-secondary)"
-                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
-                :fontWeight="$route.path === '/transparency' ? 'semibold' : 'normal'"
-                :color="$route.path === '/transparency' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
-                :bg="$route.path === '/transparency' ? 'var(--color-secondary-light)' : 'transparent'"
-                @click="closeNavbar"
-              >
-                Transparency
-              </CLink>
-            </CListItem>
-          </CList>
+          <div class="navbar-start">
+            <router-link
+              v-if="isAuthenticated"
+              to="/home"
+              class="navbar-item"
+              :class="{ 'is-active': $route.path === '/home' }"
+              @click="closeNavbar"
+            >
+              Home
+            </router-link>
+            <router-link
+              to="/leaderboard"
+              class="navbar-item"
+              :class="{ 'is-active': $route.path === '/leaderboard' }"
+              @click="closeNavbar"
+            >
+              Leaderboard
+            </router-link>
+            <router-link
+              v-if="isAuthenticated"
+              to="/home"
+              class="navbar-item"
+              :class="{ 'is-active': $route.path === '/home' }" 
+              @click="closeNavbar"
+            >
+              Events 
+            </router-link>
+             <router-link
+               v-else
+               to="/completed-events"
+               class="navbar-item"
+               :class="{ 'is-active': $route.path === '/completed-events' }"
+               @click="closeNavbar"
+             >
+               Completed Events
+             </router-link>
+            <router-link
+              to="/resources"
+              class="navbar-item"
+              :class="{ 'is-active': $route.path === '/resources' }"
+              @click="closeNavbar"
+            >
+              Resources
+            </router-link>
+            <router-link
+              to="/transparency"
+              class="navbar-item"
+              :class="{ 'is-active': $route.path === '/transparency' }"
+              @click="closeNavbar"
+            >
+              Transparency
+            </router-link>
+          </div>
 
           <!-- Auth Links -->
-          <CList
-            d="flex"
-            :flexDir="{ base: 'column', lg: 'row' }"
-            listStyleType="none"
-            :ml="{ lg: 'auto' }"
-            :px="{ base: 4, lg: 0 }"
-            :py="{ base: 3, lg: 0 }"
-            :borderTopWidth="{ base: '1px', lg: '0' }"
-            borderColor="var(--color-border)"
-          >
-            <CListItem v-if="!isAuthenticated">
-              <CLink
-                as="router-link"
-                to="/login"
-                :display="{ base: 'inline-flex', lg: 'inline-block' }"
-                px="3"
-                :py="{ base: 3, lg: 2 }"
-                borderRadius="md"
-                color="var(--color-text-secondary)"
-                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
-                :fontWeight="$route.path === '/login' ? 'semibold' : 'normal'"
-                :color="$route.path === '/login' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
-                :bg="$route.path === '/login' ? 'var(--color-secondary-light)' : 'transparent'"
-                @click="closeNavbar"
-              >
-                Login
-              </CLink>
-            </CListItem>
-            <CListItem v-if="isAuthenticated">
-              <CLink
-                href="#"
-                @click.prevent="logout"
-                d="inline-flex"
-                alignItems="center"
-                px="3"
-                :py="{ base: 3, lg: 2 }"
-                borderRadius="md"
-                color="var(--color-text-secondary)"
-                :_hover="{ color: 'var(--color-error)', bg: 'var(--color-error-light)', textDecoration: 'none' }"
-              >
-                <CIcon name="fa-sign-out-alt" mr="2" />
-                Logout
-              </CLink>
-            </CListItem>
-          </CList>
-        </CBox>
-      </CContainer>
-    </CFlex>
+          <div class="navbar-end">
+            <div class="navbar-item">
+              <div class="buttons">
+                <router-link
+                  v-if="!isAuthenticated"
+                  to="/login"
+                  class="button is-light"
+                  :class="{ 'is-primary is-active': $route.path === '/login' }"
+                  @click="closeNavbar"
+                >
+                  Login
+                </router-link>
+                <a
+                  v-if="isAuthenticated"
+                  href="#"
+                  @click.prevent="logout"
+                  class="button is-danger is-light"
+                >
+                  <span class="icon">
+                    <i class="fas fa-sign-out-alt"></i>
+                  </span>
+                  <span>Logout</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
 
     <!-- Main Content Area -->
-    <CBox as="main" flexGrow="1" :px="{ base: 4, sm: 6, lg: 8 }" :py="{ base: 6, sm: 8 }" :pb="{ base: 16, lg: 8 }">
-      <CContainer maxW="container.xl" h="full">
+    <main class="section" style="flex-grow: 1; padding-top: 5rem; padding-bottom: 5rem;"> /* Added padding-top to account for fixed navbar */
+      <div class="container">
         <router-view v-slot="{ Component }">
           <!-- Keep the fade-in animation class if defined globally -->
           <component :is="Component" class="animate-fade-in" />
         </router-view>
-      </CContainer>
-    </CBox>
+      </div>
+    </main>
 
     <!-- Bottom Navigation -->
-    <BottomNav v-if="isAuthenticated" :display="{ base: 'flex', lg: 'none' }" />
-  </CBox>
+    <BottomNav v-if="isAuthenticated" class="is-flex is-hidden-desktop" />
+  </div>
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted, h } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue'; // Removed h
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
-import {
-  Box as CBox,
-  Flex as CFlex,
-  Container as CContainer,
-  Link as CLink,
-  IconButton as CIconButton,
-  Icon as CIcon,
-  List as CList,
-  ListItem as CListItem,
-} from '@chakra-ui/vue-next';
+// REMOVED Chakra UI Imports
+// import {
+//   Box as CBox,
+//   Flex as CFlex,
+//   Container as CContainer,
+//   Link as CLink,
+//   IconButton as CIconButton,
+//   Icon as CIcon,
+//   List as CList,
+//   ListItem as CListItem,
+// } from '@chakra-ui/vue-next'; 
 import BottomNav from './components/BottomNav.vue';
 import OfflineStateHandler from './components/OfflineStateHandler.vue';
 import NotificationSystem from './components/NotificationSystem.vue';
 
 const store = useStore();
 const router = useRouter();
-const navbarCollapseRef = ref(null);
+const navbarCollapseRef = ref(null); // Keep ref for potential click-outside logic later if needed
 const isNavbarOpen = ref(false);
 
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-const isAdmin = computed(() => store.getters['user/isAdmin']);
+const isAdmin = computed(() => store.getters['user/isAdmin']); // Keep isAdmin if used elsewhere or in BottomNav
 
 const toggleNavbar = (event) => {
   // Prevent event propagation to avoid triggering other click handlers
@@ -321,7 +187,10 @@ const toggleNavbar = (event) => {
 
 const closeNavbar = (event) => {
   // Prevent event propagation to avoid triggering other click handlers
-  if (event) event.stopPropagation();
+  // If the click is on the burger itself, toggleNavbar will handle it
+  if (event && event.currentTarget.classList.contains('navbar-burger')) {
+      return;
+  }
   isNavbarOpen.value = false;
 };
 
@@ -340,7 +209,7 @@ const logout = (event) => {
       // Use replace to prevent going back to authenticated pages
       router.replace({ name: 'Login' }).catch(err => {
           // Handle potential navigation errors if needed
-          if (err.name !== 'NavigationDuplicated') {
+          if (err.name !== 'NavigationDuplicated' && err.name !== 'NavigationCancelled') { // Added NavigationCancelled check
                console.error('Router navigation error after logout:', err);
           }
       });
@@ -352,19 +221,63 @@ onMounted(() => {
   router.afterEach(() => {
     closeNavbar();
   });
-});
-
-// Initialize offline capabilities when the app mounts
-onMounted(() => {
-  router.afterEach(() => {
-    closeNavbar();
-  });
   
   // Initialize offline capabilities
   store.dispatch('app/initOfflineCapabilities');
+
+  // Optional: Add click outside listener for mobile navbar
+  document.addEventListener('click', handleClickOutside);
 });
 
-// No specific unmount logic needed for this component in this case
 onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
 });
+
+// Click outside handler
+const handleClickOutside = (event) => {
+  if (navbarCollapseRef.value && !navbarCollapseRef.value.contains(event.target)) {
+    // Check if the click target is the burger button itself
+    const burger = document.querySelector('.navbar-burger');
+    if (burger && !burger.contains(event.target)) {
+      closeNavbar();
+    }
+  }
+};
+
 </script>
+
+<style scoped>
+/* Add styles for Bulma active navbar items if needed */
+.navbar-item.is-active {
+  background-color: var(--color-secondary-light); /* Example: use your theme color */
+  color: var(--color-primary); /* Example: use your theme color */
+}
+
+/* Ensure main content has enough padding top for the fixed navbar */
+/* Using inline style for now, but could be moved here */
+/* main.section {
+  padding-top: 5rem; /* Adjust based on navbar height */
+  /* padding-bottom: 5rem; /* Adjust based on bottom nav height if it were fixed */
+/* } */
+
+/* Ensure mobile menu takes precedence */
+.navbar-menu.is-active {
+  position: absolute; /* Or fixed depending on desired behavior */
+  width: 100%;
+  left: 0;
+  z-index: 20; /* Below navbar itself */
+  box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1);
+  border-top: 1px solid var(--color-border); /* Add separator */
+}
+
+/* Style burger lines */
+.navbar-burger span {
+  background-color: var(--color-text-secondary);
+}
+.navbar-burger:hover span {
+   background-color: var(--color-primary);
+}
+.navbar-burger.is-active span {
+   background-color: var(--color-primary);
+}
+</style>

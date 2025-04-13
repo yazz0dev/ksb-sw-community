@@ -1,98 +1,89 @@
 <template>
-  <CBox p={{ base: '4', sm: '6' }}>
+  <div class="p-4 sm:p-6">
     <TransitionGroup name="fade-fast" tag="div">
-      <CBox 
+      <div 
         v-for="team in teamsWithDetails"
         :key="team.teamName"
-        mb="4"
+        class="mb-4"
       >
-        <CCard variant="outline" shadow="sm" _hover={{ shadow: 'md' }} transition="box-shadow 0.2s">
-          <CCardBody p={{ base: '4', sm: '5' }}>
-            <CFlex justify="space-between" align="start" mb="3">
-              <CHeading size="md" color="primary">{{ team.teamName }}</CHeading>
-            </CFlex>
+        <div class="card team-card">
+          <div class="card-content p-4 sm:p-5">
+            <div class="is-flex is-justify-content-space-between is-align-items-flex-start mb-3">
+              <h3 class="title is-5 has-text-primary mb-0">{{ team.teamName }}</h3>
+              <!-- Add any badges or right-side content here if needed -->
+            </div>
 
-            <CButton
-              leftIcon={<CIcon name={team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down'} />}
-              size="sm"
-              variant="outline"
-              onClick={() => toggleTeamDetails(team.teamName)}
+            <button
+              class="button is-small is-outlined"
+              @click="toggleTeamDetails(team.teamName)"
+              :aria-expanded="team.showDetails ? 'true' : 'false'"
             >
-              {{ team.showDetails ? 'Hide Members' : `Show Members (${team.members?.length || 0})` }}
-            </CButton>
+              <span class="icon is-small">
+                <i class="fas" :class="team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+              </span>
+              <span>
+                {{ team.showDetails ? 'Hide Members' : `Show Members (${team.members?.length || 0})` }}
+              </span>
+            </button>
 
-            <CCollapse in={team.showDetails}>
-              <CBox mt="4" pt="4" borderTopWidth="1px">
-                <CText v-if="organizerNamesLoading" fontSize="sm" color="text-secondary" fontStyle="italic">
-                  <CIcon name="fa-spinner" spin mr="1" /> Loading members...
-                </CText>
-
-                <CBox v-else-if="team.members && team.members.length > 0">
-                  <CText fontSize="xs" fontWeight="semibold" color="text-secondary" textTransform="uppercase" mb="2">
-                    Team Members
-                  </CText>
-                  <CStack spacing="2">
-                    <CFlex
+            <!-- Collapsible Details Section -->
+            <Transition name="slide-fade">
+              <div v-if="team.showDetails" class="mt-4 pt-4" style="border-top: 1px solid var(--color-border);">
+                <p v-if="organizerNamesLoading" class="is-size-7 has-text-grey is-italic">
+                  <span class="icon is-small"><i class="fas fa-spinner fa-spin"></i></span> Loading members...
+                </p>
+                <div v-else-if="team.members && team.members.length > 0">
+                  <p class="heading is-size-7 mb-2">Team Members</p>
+                  <div class="is-flex is-flex-direction-column" style="gap: 0.5rem;">
+                    <div
                       v-for="memberId in team.members"
                       :key="memberId"
-                      align="center"
-                      p="2"
-                      borderRadius="md"
-                      transition="colors 0.15s"
-                      :bg="memberId === currentUserUid ? 'secondary-light' : 'transparent'"
-                      :fontWeight="memberId === currentUserUid ? 'medium' : 'normal'"
+                      class="is-flex is-align-items-center p-2 rounded-md transition-colors duration-150"
+                      :style="{
+                        backgroundColor: memberId === currentUserUid ? 'var(--color-secondary-light)' : 'transparent',
+                        fontWeight: memberId === currentUserUid ? '500' : 'normal'
+                      }"
                     >
-                      <CIcon name="fa-user" color="text-secondary" mr="2" w="4" textAlign="center" />
-                      <CLink
-                        as="router-link"
+                      <span class="icon has-text-grey mr-2" style="width: 1rem; text-align: center;">
+                        <i class="fas fa-user"></i>
+                      </span>
+                      <router-link
                         :to="{ name: 'PublicProfile', params: { userId: memberId } }"
-                        fontSize="sm"
-                        color="text-primary"
-                        _hover={{ color: 'primary' }}
-                        isTruncated
-                        :fontWeight="memberId === currentUserUid ? 'semibold' : 'normal'"
+                        class="is-size-7 has-text-primary is-truncated"
+                        :class="{ 'has-text-weight-semibold': memberId === currentUserUid }"
+                        :style="{ 
+                          '--hover-color': 'var(--bulma-primary)', 
+                          fontWeight: memberId === currentUserUid ? '600' : 'normal' 
+                        }"
+                        @mouseover="$event.target.style.color = 'var(--hover-color)'"
+                        @mouseout="$event.target.style.color = ''"
                       >
                         {{ getUserName(memberId) || memberId }} {{ memberId === currentUserUid ? '(You)' : '' }}
-                      </CLink>
-                    </CFlex>
-                  </CStack>
-                </CBox>
-
-                <CText v-else fontSize="sm" color="text-secondary" fontStyle="italic">
+                      </router-link>
+                    </div>
+                  </div>
+                </div>
+                <p v-else class="is-size-7 has-text-grey is-italic">
                   No members assigned to this team yet.
-                </CText>
-              </CBox>
-            </CCollapse>
-          </CCardBody>
-        </CCard>
-      </CBox>
+                </p>
+              </div>
+            </Transition>
+          </div>
+        </div>
+      </div>
     </TransitionGroup>
 
-    <CAlert v-if="teamsWithDetails.length === 0" status="info" variant="subtle" mt="4">
-      <CAlertIcon name="fa-info-circle" />
-      <CAlertDescription>No teams have been created for this event yet.</CAlertDescription>
-    </CAlert>
-  </CBox>
+    <div v-if="!loading && teamsWithDetails.length === 0" class="message is-info is-small mt-4">
+      <div class="message-body">
+        <span class="icon is-small mr-1"><i class="fas fa-info-circle"></i></span>
+        No teams have been created for this event yet.
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import {
-  Box as CBox,
-  Card as CCard,
-  CardBody as CCardBody,
-  Button as CButton,
-  Stack as CStack,
-  Text as CText,
-  Link as CLink,
-  Flex as CFlex,
-  Icon as CIcon,
-  Heading as CHeading,
-  Collapse as CCollapse,
-  Alert as CAlert,
-  AlertIcon as CAlertIcon,
-  AlertDescription as CAlertDescription
-} from '@chakra-ui/vue-next'
-
+// Removed Chakra UI imports
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -127,19 +118,23 @@ const props = defineProps({
 
 const store = useStore();
 const router = useRouter();
-const canRate = computed(() => {
-    const userRole = store.getters['user/getUserRole'];
-    return store.getters['user/isAuthenticated'] && userRole !== 'Admin';
-});
+// canRate computed property seems unused in the template, removed for now.
+// const canRate = computed(() => {
+//     const userRole = store.getters['user/getUserRole'];
+//     return store.getters['user/isAuthenticated'] && userRole !== 'Admin';
+// });
 
 const teamsWithDetails = ref([]);
-const searchQueries = ref({});
-const dropdownVisible = ref({});
+// searchQueries and dropdownVisible refs seem unused, removed for now.
+// const searchQueries = ref({});
+// const dropdownVisible = ref({});
+const loading = ref(true); // Add loading state
 
 let unwatchTeams = null;
 
 onMounted(() => {
     updateLocalTeams(props.teams);
+    loading.value = false; // Set loading false after initial update
     unwatchTeams = watch(() => props.teams, (newTeams) => {
         updateLocalTeams(newTeams);
     }, { deep: true });
@@ -152,11 +147,21 @@ onBeforeUnmount(() => {
 });
 
 function updateLocalTeams(teamsFromProps) {
-    if (!Array.isArray(teamsFromProps)) return;
+    if (!Array.isArray(teamsFromProps)) {
+         teamsWithDetails.value = []; // Clear if input is invalid
+         return;
+    }
     
+    // Preserve existing showDetails state if team still exists
+    const existingStates = teamsWithDetails.value.reduce((acc, team) => {
+        acc[team.teamName] = team.showDetails;
+        return acc;
+    }, {});
+
     teamsWithDetails.value = teamsFromProps.map(team => ({
         ...team,
-        showDetails: false,
+        showDetails: existingStates[team.teamName] || false, // Restore or default to false
+        // Ensure members, ratings, submissions are always arrays
         members: Array.isArray(team.members) ? [...team.members] : [],
         ratings: Array.isArray(team.ratings) ? [...team.ratings] : [],
         submissions: Array.isArray(team.submissions) ? [...team.submissions] : []
@@ -172,11 +177,55 @@ const toggleTeamDetails = (teamName) => {
     }
 };
 
-defineEmits(['update:teams', 'canAddTeam']);
+// Removed unused emits update:teams and canAddTeam
+// defineEmits(['update:teams', 'canAddTeam']);
 
 </script>
 
 <style scoped>
+.team-card {
+  transition: box-shadow 0.2s ease-in-out;
+  overflow: hidden; /* Ensure content doesn't overflow during transitions */
+}
+.team-card:hover {
+  box-shadow: 0 5px 10px rgba(10, 10, 10, 0.1);
+}
+
+.p-4 { padding: 1rem; }
+.p-5 { padding: 1.25rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.pt-4 { padding-top: 1rem; }
+.mr-1 { margin-right: 0.25rem; }
+.mr-2 { margin-right: 0.5rem; }
+
+.rounded-md {
+  border-radius: 0.375rem; /* 6px */
+}
+
+.is-truncated {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Transition for collapsible section */
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+.slide-fade-leave-active {
+  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+
+/* Transition for list items */
 .fade-fast-enter-active,
 .fade-fast-leave-active {
     transition: all 0.2s ease-out;

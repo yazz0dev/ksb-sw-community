@@ -1,7 +1,5 @@
 // src/main.js
 import { createApp } from 'vue';
-import { createChakra } from '@chakra-ui/vue-next';
-import theme from './theme';
 import App from './App.vue';
 import router from './router';
 import store from './store';
@@ -15,6 +13,9 @@ import './assets/styles/main.css';
 
 // Import Font Awesome CSS
 import '@fortawesome/fontawesome-free/css/all.css';
+
+// ADDED Bulma CSS Import
+import 'bulma/css/bulma.css';
 
 let appInstance = null;
 let authInitialized = false; // Flag to prevent multiple initializations
@@ -58,15 +59,9 @@ const unsubscribe = onAuthStateChanged(auth, async (user) => {
 
 function mountApp() {
     if (!appInstance && authInitialized) {
-        const chakra = createChakra({
-            theme,
-            cssReset: true
-        });
-        
         appInstance = createApp(App);
         appInstance.use(router);
         appInstance.use(store);
-        appInstance.use(chakra);
 
         // Register AuthGuard globally
         appInstance.component('AuthGuard', AuthGuard);

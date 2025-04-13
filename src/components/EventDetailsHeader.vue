@@ -1,102 +1,151 @@
 <template>
-  <CBox bg="surface" borderWidth="1px" borderRadius="lg" shadow="md" overflow="hidden">
-    <CBox :p="{ base: '4', sm: '6', lg: '8' }">
+  <div class="box" style="background-color: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); overflow: hidden;">
+    <div class="p-4 sm:p-6 lg:p-8">
       <!-- Header Content -->
-      <CFlex :direction="{ base: 'column', md: 'row' }" justify="space-between" align="start" gap="4">
-        <CBox flex="1">
-          <CFlex align="center" gap="2" mb="2">
-            <CBadge :colorScheme="statusColor" variant="subtle">
-              {{ event.status }}
-            </CBadge>
-            <CBadge v-if="event.closed" colorScheme="gray" variant="subtle">
-              Archived
-            </CBadge>
-          </CFlex>
+      <div class="columns is-variable is-4 is-align-items-start">
+        <!-- Left Column: Details -->
+        <div class="column is-flex-grow-1">
+          <div class="tags mb-2">
+            <span :class="['tag', statusTagClass, 'is-light']">{{ event.status }}</span>
+            <span v-if="event.closed" class="tag is-light">Archived</span>
+          </div>
 
-          <CHeading size="xl" color="text-primary" mb="2">
+          <h1 class="title is-2 has-text-primary mb-2">
             {{ event.title }}
-          </CHeading>
+          </h1>
 
-          <CStack direction="row" spacing="6" mb="4">
-            <CFlex align="center">
-              <CIcon name="fa-calendar" color="text-secondary" mr="2" />
-              <CText color="text-secondary" fontSize="sm">
+          <div class="is-flex is-flex-wrap-wrap mb-4" style="gap: 1.5rem;">
+            <div class="is-flex is-align-items-center">
+              <span class="icon has-text-grey mr-2"><i class="fas fa-calendar"></i></span>
+              <p class="is-size-7 has-text-grey">
                 {{ formatDate(event.startDate) }} - {{ formatDate(event.endDate) }}
-              </CText>
-            </CFlex>
-            <CFlex align="center">
-              <CIcon name="fa-users" color="text-secondary" mr="2" />
-              <CText color="text-secondary" fontSize="sm">
+              </p>
+            </div>
+            <div class="is-flex is-align-items-center">
+              <span class="icon has-text-grey mr-2"><i class="fas fa-users"></i></span>
+              <p class="is-size-7 has-text-grey">
                 {{ event.teamSize }} members per team
-              </CText>
-            </CFlex>
-          </CStack>
+              </p>
+            </div>
+          </div>
 
-          <CBox>
-            <CProse v-html="renderedDescription" />
-          </CBox>
-        </CBox>
+          <!-- Rendered Description -->
+          <div class="content is-small" v-html="renderedDescription"></div>
 
-        <!-- Action Buttons -->
-        <CStack spacing="3" :min-w="{ md: '200px' }">
-          <CButton
-            v-if="canJoin"
-            colorScheme="primary"
-            :left-icon="'fa-plus'"
-            @click="$emit('join')"
-            :isLoading="isJoining"
-          >
-            Join Event
-          </CButton>
+        </div>
 
-          <CButton
-            v-if="canLeave"
-            colorScheme="red"
-            variant="outline"
-            :left-icon="'fa-times'"
-            @click="$emit('leave')"
-            :isLoading="isLeaving"
-          >
-            Leave Event
-          </CButton>
+        <!-- Right Column: Action Buttons -->
+        <div class="column is-narrow">
+          <div class="buttons is-flex is-flex-direction-column" style="min-width: 180px;">
+            <button
+              v-if="canJoin"
+              class="button is-primary is-fullwidth"
+              :class="{ 'is-loading': isJoining }"
+              :disabled="isJoining"
+              @click="$emit('join')"
+            >
+              <span class="icon"><i class="fas fa-plus"></i></span>
+              <span>Join Event</span>
+            </button>
 
-          <CButton
-            v-if="canEdit"
-            variant="outline"
-            :left-icon="'fa-edit'"
-            @click="$router.push(`/event/${event.id}/edit`)"
-          >
-            Edit Event
-          </CButton>
-        </CStack>
-      </CFlex>
-    </CBox>
-  </CBox>
+            <button
+              v-if="canLeave"
+              class="button is-danger is-outlined is-fullwidth"
+              :class="{ 'is-loading': isLeaving }"
+              :disabled="isLeaving"
+              @click="$emit('leave')"
+            >
+              <span class="icon"><i class="fas fa-times"></i></span>
+              <span>Leave Event</span>
+            </button>
+
+            <button
+              v-if="canEdit"
+              class="button is-outlined is-fullwidth"
+              @click="$router.push(`/event/${event.id}/edit`)"
+            >
+               <span class="icon"><i class="fas fa-edit"></i></span>
+              <span>Edit Event</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import {
-  Box as CBox,
-  Flex as CFlex,
-  Stack as CStack,
-  Heading as CHeading,
-  Text as CText,
-  Button as CButton,
-  Badge as CBadge,
-  Icon as CIcon,
-  Box as CProse
-} from '@chakra-ui/vue-next'
+import { computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { marked } from 'marked'; 
+import DOMPurify from 'dompurify';
+import { DateTime } from 'luxon';
+// Removed Chakra UI imports
 
-// ...existing code...
+const props = defineProps({
+  event: { type: Object, required: true },
+  canJoin: { type: Boolean, default: false },
+  canLeave: { type: Boolean, default: false },
+  canEdit: { type: Boolean, default: false },
+  isJoining: { type: Boolean, default: false },
+  isLeaving: { type: Boolean, default: false },
+});
 
-const statusColor = computed(() => {
-  switch (event.status) {
-    case 'Pending': return 'yellow';
-    case 'Approved': return 'blue';
-    case 'InProgress': return 'primary';
-    case 'Completed': return 'green';
-    case 'Cancelled': return 'red';
-    default: return 'gray';
+defineEmits(['join', 'leave']);
+
+const router = useRouter();
+
+const formatDate = (dateInput) => {
+  if (!dateInput) return 'TBA';
+  const dt = dateInput.toDate ? DateTime.fromJSDate(dateInput.toDate()) : DateTime.fromISO(dateInput);
+  return dt.toLocaleString(DateTime.DATE_MED);
+};
+
+// Render description safely
+const renderedDescription = computed(() => {
+  if (!props.event.description) return '';
+  // Configure marked to add breaks
+  marked.setOptions({
+    breaks: true, // Convert single line breaks to <br>
+    gfm: true, // Use GitHub Flavored Markdown
+  });
+  const rawHtml = marked.parse(props.event.description);
+  return DOMPurify.sanitize(rawHtml);
+});
+
+// Map status to Bulma tag classes
+const statusTagClass = computed(() => {
+  switch (props.event.status) {
+    case 'Pending': return 'is-warning';
+    case 'Approved': return 'is-info'; // Using info for approved
+    case 'InProgress': return 'is-primary'; // Using primary for in progress
+    case 'Completed': return 'is-success';
+    case 'Cancelled': return 'is-danger';
+    default: return 'is-light'; // Default greyish tag
   }
 });
 </script>
+
+<style scoped>
+.p-4 { padding: 1rem; }
+.sm\:p-6 { padding: 1.5rem; }
+.lg\:p-8 { padding: 2rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mr-2 { margin-right: 0.5rem; }
+
+/* Ensure content class styles apply */
+:deep(.content p) {
+  margin-bottom: 0.5em;
+}
+:deep(.content ul) {
+  margin-left: 1.5em;
+  margin-top: 0.5em;
+}
+
+/* Ensure buttons in column stack nicely */
+.buttons.is-flex-direction-column > .button:not(:last-child) {
+    margin-bottom: 0.75rem; 
+    margin-right: 0; /* Override Bulma default */
+}
+</style>

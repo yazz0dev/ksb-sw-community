@@ -1,123 +1,157 @@
 <template>
-  <CBox maxW="7xl" mx="auto" px={{ base: '4', sm: '6', lg: '8' }} py="8" bg="background" minH="calc(100vh - 8rem)">
-    <template v-if="loading">
-      <CFlex direction="column" align="center" justify="center" py="16">
-        <CSpinner size="xl" color="primary" mb="2" />
-        <CText color="text-secondary">Loading...</CText>
-      </CFlex>
-    </template>
+  <section class="section" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
+    <div class="container is-max-desktop">
+      <!-- Loading State -->
+      <div v-if="loading" class="has-text-centered py-6">
+        <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
+        <p class="has-text-grey">Loading...</p>
+      </div>
 
-    <template v-else>
-      <CFlex wrap="wrap" justify="space-between" align="center" gap="4" mb="8" pb="4" borderBottomWidth="1px" borderColor="border">
-        <CHeading as="h2" size="xl" color="text-primary" whiteSpace="nowrap">
-          Events Dashboard
-        </CHeading>
-        
-        <CButtonGroup spacing="3" wrap="wrap" justify="end">
-          <CButton
-            v-if="canRequestEvent && !isAdmin"
-            as="router-link"
-            to="/create-event"
-            leftIcon={<CIcon name="fa-calendar-plus" />}
-            colorScheme="primary"
-          >
-            {{ isAdmin ? 'Create Event' : 'Request Event' }}
-          </CButton>
+      <!-- Content -->
+      <template v-else>
+        <div class="level is-mobile mb-6 pb-4" style="border-bottom: 1px solid var(--color-border);">
+          <!-- Left side -->
+          <div class="level-left">
+            <div class="level-item">
+              <h2 class="title is-3 has-text-primary">Events Dashboard</h2>
+            </div>
+          </div>
+          <!-- Right side -->
+          <div class="level-right">
+            <div class="level-item">
+              <div class="buttons is-flex-wrap-wrap is-justify-content-flex-end">
+                <router-link
+                  v-if="canRequestEvent && !isAdmin"
+                  to="/create-event"
+                  class="button is-primary"
+                >
+                  <span class="icon"><i class="fas fa-calendar-plus"></i></span>
+                  <span>{{ isAdmin ? 'Create Event' : 'Request Event' }}</span>
+                </router-link>
+                <router-link
+                  v-if="isAdmin"
+                  to="/manage-requests"
+                  class="button is-outlined"
+                >
+                  <span class="icon"><i class="fas fa-tasks"></i></span>
+                  <span>Manage Requests</span>
+                </router-link>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <CButton
-            v-if="isAdmin"
-            as="router-link"
-            to="/manage-requests"
-            leftIcon={<CIcon name="fa-tasks" />}
-            variant="outline"
-          >
-            Manage Requests
-          </CButton>
-        </CButtonGroup>
-      </CFlex>
+        <!-- Event Sections -->
+        <div class="mb-6">
+          <h3 class="title is-5 mb-4 has-text-dark">Active Events</h3>
+          <div v-if="activeEvents.length > 0" class="columns is-multiline is-variable is-3">
+            <div v-for="event in activeEvents" :key="event.id" class="column is-half-tablet is-one-third-desktop">
+              <EventCard :event="event" />
+            </div>
+          </div>
+          <p v-else class="has-text-grey">No active events at the moment.</p>
+        </div>
 
-      <!-- Event Sections -->
-      <CStack spacing="8">
-        <!-- ...existing event sections with Chakra components... -->
-      </CStack>
-    </template>
-  </CBox>
+        <div class="mb-6">
+          <h3 class="title is-5 mb-4 has-text-dark">Upcoming Events</h3>
+          <div v-if="upcomingEvents.length > 0" class="columns is-multiline is-variable is-3">
+            <div v-for="event in upcomingEvents" :key="event.id" class="column is-half-tablet is-one-third-desktop">
+              <EventCard :event="event" />
+            </div>
+          </div>
+          <p v-else class="has-text-grey">No upcoming events scheduled.</p>
+        </div>
+
+        <div class="mb-6">
+          <div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
+            <h3 class="title is-5 has-text-dark mb-0">Completed Events</h3>
+            <router-link to="/completed-events" class="button is-small is-link is-light">
+              View All
+            </router-link>
+          </div>
+          <div v-if="completedEvents.length > 0" class="columns is-multiline is-variable is-3">
+            <div v-for="event in completedEvents" :key="event.id" class="column is-half-tablet is-one-third-desktop">
+              <EventCard :event="event" />
+            </div>
+          </div>
+          <p v-else class="has-text-grey">No completed events yet.</p>
+        </div>
+
+        <!-- Cancelled Events Section (Toggleable) -->
+        <div class="mb-6">
+          <button class="button is-text is-small mb-4" @click="showCancelled = !showCancelled">
+            {{ showCancelled ? 'Hide' : 'Show' }} Cancelled Events
+            <span class="icon"><i :class="['fas', showCancelled ? 'fa-chevron-up' : 'fa-chevron-down']"></i></span>
+          </button>
+          <transition name="fade-fast">
+            <div v-if="showCancelled">
+              <div v-if="cancelledEvents.length > 0" class="columns is-multiline is-variable is-3">
+                <div v-for="event in cancelledEvents" :key="event.id" class="column is-half-tablet is-one-third-desktop">
+                  <EventCard :event="event" />
+                </div>
+              </div>
+              <p v-else class="has-text-grey">No cancelled events.</p>
+            </div>
+          </transition>
+        </div>
+      </template>
+    </div>
+  </section>
 </template>
 
 <script setup>
-import {
-  Box as CBox,
-  Flex as CFlex,
-  Heading as CHeading,
-  Button as CButton,
-  ButtonGroup as CButtonGroup,
-  Stack as CStack,
-  Text as CText,
-  Icon as CIcon,
-  Spinner as CSpinner
-} from '@chakra-ui/vue-next'
-
 import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import EventCard from '../components/EventCard.vue';
-import EventCardSkeleton from '../components/EventCardSkeleton.vue'; // Import skeleton
+import EventCardSkeleton from '../components/EventCardSkeleton.vue'; // Keep skeleton
+// Removed Chakra UI imports
 
 const store = useStore();
 const router = useRouter();
-const allEvents = computed(() => store.getters['events/allEvents']); // Directly use getter
+const allEvents = computed(() => store.getters['events/allEvents']);
 const loading = ref(true);
 const userRole = computed(() => store.getters['user/getUserRole']);
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-
-const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
-// Anyone authenticated can request (logic handled in RequestEvent view/action)
+const isAdmin = computed(() => userRole.value === 'Admin');
 const canRequestEvent = computed(() => isAuthenticated.value);
 
-// Update the computed properties to limit based on screen size
-const maxEventsPerSection = computed(() => {
-  // You can use window.innerWidth but it's not reactive
-  // Consider using a reactive width value or CSS Grid instead
-  if (window.innerWidth < 640) return 2; // mobile
-  if (window.innerWidth < 1024) return 4; // tablet
-  return 6; // desktop
-});
+// Limit display on dashboard, use reasonable defaults
+const maxEventsPerSection = 6; 
 
 const upcomingEvents = computed(() =>
   allEvents.value
     .filter(e => e.status === 'Upcoming' || e.status === 'Approved')
     .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0))
-    .slice(0, maxEventsPerSection.value)
+    .slice(0, maxEventsPerSection)
 );
 
 const activeEvents = computed(() =>
   allEvents.value
     .filter(e => e.status === 'In Progress' || e.status === 'InProgress')
     .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0))
-    .slice(0, maxEventsPerSection.value)
+    .slice(0, maxEventsPerSection)
 );
 
 const completedEvents = computed(() =>
   allEvents.value
     .filter(e => e.status === 'Completed')
     .sort((a, b) => (b.completedAt?.seconds ?? b.endDate?.seconds ?? 0) - (a.completedAt?.seconds ?? a.endDate?.seconds ?? 0))
-    .slice(0, maxEventsPerSection.value)
+    .slice(0, maxEventsPerSection)
 );
 
-// Add new ref for cancelled events visibility
 const showCancelled = ref(false);
 
-// Add new computed for cancelled events
 const cancelledEvents = computed(() =>
-  allEvents.value.filter(e => e.status === 'Cancelled')
-       .sort((a, b) => (b.startDate?.seconds ?? 0) - (a.startDate?.seconds ?? 0)) // Sort cancelled newest first
+  allEvents.value
+    .filter(e => e.status === 'Cancelled')
+    .sort((a, b) => (b.startDate?.seconds ?? 0) - (a.startDate?.seconds ?? 0))
 );
 
 onMounted(async () => {
   loading.value = true;
   try {
     await store.dispatch('events/fetchEvents');
-    // Data is now reactive via the computed 'allEvents'
   } catch (error) {
     console.error("Failed to load events:", error);
     // Handle error display if needed
@@ -127,13 +161,28 @@ onMounted(async () => {
 });
 </script>
 
-<!-- Keep fade-fast transition -->
 <style scoped>
+/* Simple Bulma loader */
+.loader {
+  border-radius: 50%;
+  border-width: 2px;
+  border-style: solid;
+  width: 3em;
+  height: 3em;
+  animation: spinAround 1s infinite linear;
+}
+
+@keyframes spinAround {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(359deg); }
+}
+
+/* Transitions */
 .fade-fast-enter-active,
 .fade-fast-leave-active {
   transition: opacity 0.2s ease-in-out, max-height 0.3s ease-in-out;
   overflow: hidden;
-  max-height: 1000px; /* Adjust if needed, large enough for grid */
+  max-height: 1000px; /* Adjust if needed */
 }
 
 .fade-fast-enter-from,

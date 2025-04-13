@@ -1,104 +1,110 @@
 <template>
-  <CBox bg="surface" shadow="md" borderWidth="1px" borderRadius="lg" p="4">
+  <div class="box" style="background-color: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px;">
     <!-- Status Management Section -->
-    <CStack spacing="4">
-      <CBox>
-        <CHeading size="lg" color="text-primary" mb="3">Event Management</CHeading>
-        <CFlex align="center" gap="3">
-          <CText fontSize="sm" fontWeight="medium" color="text-secondary">Current Status:</CText>
-          <CBadge :variant="statusVariant">{{ event.status }}</CBadge>
-        </CFlex>
+    <div class="mb-5">
+      <h3 class="title is-4 has-text-primary mb-3">Event Management</h3>
+      <div class="is-flex is-align-items-center mb-4">
+        <span class="is-size-7 has-text-weight-medium has-text-grey mr-3">Current Status:</span>
+        <span class="tag is-rounded" :class="statusBadgeClass">{{ event.status }}</span>
+      </div>
 
-        <!-- Status Update Controls -->
-        <CButtonGroup mt="4" spacing="2" wrap="wrap">
-          <CButton
-            v-if="canStartEvent"
-            :leftIcon="h(CIcon, { name: 'fa-play' })"
-            colorScheme="primary"
-            :isDisabled="!isWithinEventDates"
-            @click="updateStatus('InProgress')"
-          >
-            Start Event
-          </CButton>
+      <!-- Status Update Controls -->
+      <div class="buttons are-small">
+        <button
+          v-if="canStartEvent"
+          class="button is-primary"
+          :disabled="!isWithinEventDates || isActionLoading('InProgress')"
+          @click="updateStatus('InProgress')"
+          :class="{ 'is-loading': isActionLoading('InProgress') }"
+        >
+          <span class="icon is-small"><i class="fas fa-play"></i></span>
+          <span>Start Event</span>
+        </button>
 
-          <CButton
-            v-if="canComplete"
-            :leftIcon="h(CIcon, { name: 'fa-check' })"
-            colorScheme="green"
-            @click="updateStatus('Completed')"
-          >
-            Mark Complete
-          </CButton>
+        <button
+          v-if="canComplete"
+          class="button is-success"
+          :disabled="isActionLoading('Completed')"
+          @click="updateStatus('Completed')"
+          :class="{ 'is-loading': isActionLoading('Completed') }"
+        >
+          <span class="icon is-small"><i class="fas fa-check"></i></span>
+          <span>Mark Complete</span>
+        </button>
 
-          <CButton
-            v-if="canCancel"
-            :leftIcon="h(CIcon, { name: 'fa-times' })"
-            colorScheme="red"
-            @click="confirmCancel"
-          >
-            Cancel Event
-          </CButton>
-        </CButtonGroup>
-      </CBox>
+        <button
+          v-if="canCancel"
+          class="button is-danger"
+          :disabled="isActionLoading('Cancelled')"
+          @click="confirmCancel"
+          :class="{ 'is-loading': isActionLoading('Cancelled') }"
+        >
+          <span class="icon is-small"><i class="fas fa-times"></i></span>
+          <span>Cancel Event</span>
+        </button>
+      </div>
+      <p v-if="!isWithinEventDates && canStartEvent" class="is-size-7 has-text-danger mt-2">
+        The event can only be started between its start and end dates.
+      </p>
+    </div>
 
-      <!-- Rating Controls -->
-      <CBox v-if="event.status === 'Completed' && !event.closed" borderTopWidth="1px" pt="4">
-        <CFlex align="center" justify="space-between" mb="4">
-          <CHeading size="lg" color="text-primary">Ratings</CHeading>
-          <CBadge :colorScheme="event.ratingsOpen ? 'green' : 'yellow'">
-            {{ event.ratingsOpen ? 'Open' : 'Closed' }}
-          </CBadge>
-        </CFlex>
+    <!-- Rating Controls -->
+    <div v-if="event.status === 'Completed' && !event.closed" class="pt-5" style="border-top: 1px solid var(--color-border);">
+      <div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
+        <h3 class="title is-4 has-text-primary">Ratings</h3>
+        <span class="tag is-rounded" :class="event.ratingsOpen ? 'is-success' : 'is-warning'">
+          {{ event.ratingsOpen ? 'Open' : 'Closed' }}
+        </span>
+      </div>
 
-        <CButtonGroup spacing="2">
-          <CButton
-            v-if="event.ratingsOpen && canToggleRatings"
-            :leftIcon="h(CIcon, { name: 'fa-lock' })"
-            colorScheme="yellow"
-            :isLoading="isLoadingRatings"
-            @click="toggleRatings"
-          >
-            Close Ratings
-          </CButton>
+      <div class="buttons are-small">
+        <button
+          v-if="event.ratingsOpen && canToggleRatings"
+          class="button is-warning"
+          :disabled="isLoadingRatings"
+          @click="toggleRatings"
+          :class="{ 'is-loading': isLoadingRatings }"
+        >
+          <span class="icon is-small"><i class="fas fa-lock"></i></span>
+          <span>Close Ratings</span>
+        </button>
 
-          <CButton
-            v-else-if="!event.ratingsOpen && canToggleRatings"
-            :leftIcon="h(CIcon, { name: 'fa-lock-open' })"
-            colorScheme="green"
-            :isLoading="isLoadingRatings"
-            @click="toggleRatings"
-          >
-            Open Ratings
-          </CButton>
+        <button
+          v-else-if="!event.ratingsOpen && canToggleRatings"
+          class="button is-success"
+          :disabled="isLoadingRatings"
+          @click="toggleRatings"
+          :class="{ 'is-loading': isLoadingRatings }"
+        >
+          <span class="icon is-small"><i class="fas fa-lock-open"></i></span>
+          <span>Open Ratings</span>
+        </button>
 
-          <CButton
-            v-if="canCloseEvent"
-            :leftIcon="h(CIcon, { name: 'fa-archive' })"
-            colorScheme="red"
-            @click="closeEvent"
-          >
-            Close Event
-          </CButton>
-        </CButtonGroup>
-      </CBox>
-    </CStack>
-  </CBox>
+        <button
+          v-if="canCloseEvent"
+          class="button is-danger is-light"
+          :disabled="isLoadingRatings"
+          @click="confirmCloseEvent"
+          :class="{ 'is-loading': isLoadingRatings }"
+        >
+          <span class="icon is-small"><i class="fas fa-archive"></i></span>
+          <span>Close Event Permanently</span>
+        </button>
+      </div>
+      <p v-if="!canManageRatings && event.status === 'Completed' && !event.closed" class="is-size-7 has-text-grey mt-2">
+        <span v-if="event.ratingsClosed">Ratings have been manually closed by an admin.</span>
+        <span v-else>Ratings have been opened and closed twice and cannot be toggled again.</span>
+      </p>
+       <p v-if="!canCloseEvent && event.status === 'Completed' && event.ratingsOpen" class="is-size-7 has-text-grey mt-2">
+         Event must have ratings closed before it can be permanently closed.
+       </p>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { computed, ref, h } from 'vue';
+import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
-import {
-  Box as CBox,
-  Button as CButton,
-  ButtonGroup as CButtonGroup,
-  Stack as CStack,
-  Heading as CHeading,
-  Text as CText,
-  Flex as CFlex,
-  Badge as CBadge,
-  Icon as CIcon
-} from '@chakra-ui/vue-next';
 
 const props = defineProps({
     event: {
@@ -109,44 +115,47 @@ const props = defineProps({
 
 const store = useStore();
 const isLoadingRatings = ref(false);
+const loadingAction = ref(null);
 
-const statusVariant = computed(() => {
+const statusBadgeClass = computed(() => {
   switch (props.event.status) {
-    case 'Approved': return { colorScheme: 'blue', variant: 'subtle' };
-    case 'InProgress': return { colorScheme: 'primary', variant: 'subtle' };
-    case 'Completed': return { colorScheme: 'green', variant: 'subtle' };
-    case 'Cancelled': return { colorScheme: 'red', variant: 'subtle' };
-    default: return { colorScheme: 'gray', variant: 'subtle' };
+    case 'Approved': return 'is-info';
+    case 'InProgress': return 'is-primary';
+    case 'Completed': return 'is-success';
+    case 'Cancelled': return 'is-danger is-light';
+    case 'Pending': return 'is-warning';
+    case 'Rejected': return 'is-danger';
+    default: return 'is-light';
   }
 });
 
 const isWithinEventDates = computed(() => {
     if (!props.event.startDate || !props.event.endDate) return false;
     const now = new Date();
-    const start = props.event.startDate.toDate();
-    const end = props.event.endDate.toDate();
+    const start = props.event.startDate?.toDate ? props.event.startDate.toDate() : new Date(props.event.startDate);
+    const end = props.event.endDate?.toDate ? props.event.endDate.toDate() : new Date(props.event.endDate);
     return now >= start && now <= end;
 });
 
 const canManageRatings = computed(() => {
-    const isClosedByAdmin = props.event.ratingsClosed;
-    return !isClosedByAdmin && props.event.ratingsOpenCount < 2;
+    const isManuallyClosed = props.event.ratingsClosed === true;
+    const openLimitReached = props.event.ratingsOpenCount >= 2;
+
+    return !isManuallyClosed && !openLimitReached;
 });
 
 const canToggleRatings = computed(() => 
-    !props.event.closed && 
+    !props.event.closed &&
     canManageRatings.value &&
     props.event.status === 'Completed'
 );
 
 const canCloseEvent = computed(() => 
-    props.event.status === 'Completed' && 
-    props.event.ratingsOpenCount > 0 && 
-    !props.event.ratingsOpen && 
+    props.event.status === 'Completed' &&
+    !props.event.ratingsOpen &&
     !props.event.closed
 );
 
-// Status transition permissions
 const canStartEvent = computed(() => 
     props.event.status === 'Approved' && 
     !!props.event.startDate && 
@@ -158,12 +167,18 @@ const canComplete = computed(() =>
 );
 
 const canCancel = computed(() => 
-    ['Approved', 'InProgress'].includes(props.event.status)
+    ['Approved', 'InProgress'].includes(props.event.status) && !props.event.closed
 );
 
-const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
+const isAdmin = computed(() => store.getters['user/isAdmin']);
+
+const isActionLoading = (action) => {
+    return loadingAction.value === action;
+};
 
 const updateStatus = async (newStatus) => {
+    if (loadingAction.value) return;
+    loadingAction.value = newStatus;
     try {
         await store.dispatch('events/updateEventStatus', {
             eventId: props.event.id,
@@ -171,16 +186,17 @@ const updateStatus = async (newStatus) => {
         });
     } catch (error) {
         store.dispatch('notification/showNotification', {
-            message: error.message,
+            message: error.message || `Failed to update status to ${newStatus}.`,
             type: 'error'
         });
+    } finally {
+        loadingAction.value = null;
     }
 };
 
 const toggleRatings = async () => {
     if (isLoadingRatings.value || !canManageRatings.value) return;
     
-    // If admin is closing ratings, mark them as permanently closed
     const adminClosing = isAdmin.value && props.event.ratingsOpen;
     
     isLoadingRatings.value = true;
@@ -192,7 +208,7 @@ const toggleRatings = async () => {
         });
     } catch (error) {
         store.dispatch('notification/showNotification', {
-            message: error.message,
+            message: error.message || 'Failed to toggle ratings status.',
             type: 'error'
         });
     } finally {
@@ -201,20 +217,35 @@ const toggleRatings = async () => {
 };
 
 const confirmCancel = async () => {
-    if (confirm('Are you sure you want to cancel this event? This action cannot be undone.')) {
+    if (window.confirm('Are you sure you want to cancel this event? This cannot be undone.')) {
         await updateStatus('Cancelled');
     }
 };
 
-const formatDate = (timestamp) => {
-    if (!timestamp) return '';
-    const date = timestamp.toDate?.() || new Date(timestamp);
-    return new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-    }).format(date);
+const confirmCloseEvent = async () => {
+    if (window.confirm('Are you sure you want to permanently close this event? Ratings cannot be reopened, and no further changes can be made.')) {
+        await closeEventAction();
+    }
+};
+
+const closeEventAction = async () => {
+    if (isLoadingRatings.value) return;
+    isLoadingRatings.value = true;
+    try {
+         await store.dispatch('events/closeEventPermanently', { eventId: props.event.id });
+    } catch (error) {
+        store.dispatch('notification/showNotification', {
+            message: error.message || 'Failed to close the event.',
+            type: 'error'
+        });
+    } finally {
+         isLoadingRatings.value = false;
+    }
 };
 </script>
 
 <style scoped>
+.buttons.are-small .button {
+    margin-bottom: 0.5rem;
+}
 </style>

@@ -1,118 +1,102 @@
 <template>
-  <CModal isOpen @close="$emit('close')" size="2xl">
-    <CModalOverlay />
-    <CModalContent>
-      <CModalCloseButton />
-      <CModalHeader borderBottomWidth="1px">
-        Rate Teams & Select Best Performer
-      </CModalHeader>
+  <div class="modal" :class="{ 'is-active': true }"> <!-- Assume visibility controlled by parent via v-if or other means -->
+    <div class="modal-background" @click="$emit('close')"></div>
+    <div class="modal-card" style="max-width: 640px;">
+      <header class="modal-card-head">
+        <p class="modal-card-title">Rate Teams & Select Best Performer</p>
+        <button class="delete" aria-label="close" @click="$emit('close')"></button>
+      </header>
 
-      <CModalBody py="6">
-        <CFlex v-if="loading" direction="column" align="center" py="8">
-          <CSpinner size="xl" color="primary" thickness="4px" />
-          <CText mt="2" color="text-secondary">Loading event data...</CText>
-        </CFlex>
+      <section class="modal-card-body py-5">
+        <div v-if="loading" class="is-flex is-flex-direction-column is-align-items-center py-6">
+          <div class="loader is-loading mb-3" style="height: 3rem; width: 3rem;"></div>
+          <p class="has-text-grey">Loading event data...</p>
+        </div>
 
-        <CAlert v-else-if="error" status="error" variant="left-accent">
-          <CAlertIcon />
-          <CAlertDescription>{{ error }}</CAlertDescription>
-        </CAlert>
+        <div v-else-if="error" class="message is-danger">
+          <div class="message-body">{{ error }}</div>
+        </div>
 
-        <CForm v-else @submit.prevent="submitTeamRatings">
-          <CStack spacing="6">
+        <form v-else @submit.prevent="submitTeamRatings">
+          <div class="is-flex is-flex-direction-column" style="gap: 1.5rem;">
             <!-- Team Selection Section -->
-            <CBox>
-              <CHeading size="md" mb="3">Best Team per Criterion</CHeading>
-              <CText v-if="!eventCriteria?.length" fontSize="sm" fontStyle="italic" color="text-secondary">
+            <div>
+              <h3 class="title is-5 mb-3">Best Team per Criterion</h3>
+              <p v-if="!eventCriteria?.length" class="is-size-7 is-italic has-text-grey">
                 No rating criteria defined for this event.
-              </CText>
-              <CStack v-else spacing="4">
-                <CFormControl v-for="criterion in eventCriteria" :key="criterion.constraintIndex" isRequired>
-                  <CFormLabel>{{ criterion.constraintLabel }} ({{ criterion.points }} XP)</CFormLabel>
-                  <CSelect
-                    v-model="teamSelections[criterion.constraintIndex]"
-                    placeholder="Select Team..."
-                    :isDisabled="isSubmitting"
-                  >
-                    <option v-for="team in eventTeams" :key="team.teamName" :value="team.teamName">
-                      {{ team.teamName }}
-                    </option>
-                  </CSelect>
-                </CFormControl>
-              </CStack>
-            </CBox>
+              </p>
+              <div v-else class="is-flex is-flex-direction-column" style="gap: 1rem;">
+                <div v-for="criterion in eventCriteria" :key="criterion.constraintIndex" class="field">
+                  <label class="label is-small">{{ criterion.constraintLabel }} ({{ criterion.points }} XP)</label>
+                  <div class="control">
+                    <div class="select is-fullwidth">
+                      <select
+                        v-model="teamSelections[criterion.constraintIndex]"
+                        required
+                        :disabled="isSubmitting"
+                      >
+                        <option value="" disabled>Select Team...</option>
+                        <option v-for="team in eventTeams" :key="team.teamName" :value="team.teamName">
+                          {{ team.teamName }}
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <!-- Best Performer Section -->
-            <CBox borderTopWidth="1px" pt="6">
-              <CHeading size="md" mb="3">Overall Best Performer</CHeading>
-              <CText v-if="!allTeamMembers?.length" fontSize="sm" fontStyle="italic" color="text-secondary">
+            <div class="pt-5" style="border-top: 1px solid var(--color-border);">
+              <h3 class="title is-5 mb-3">Overall Best Performer</h3>
+              <p v-if="!allTeamMembers?.length" class="is-size-7 is-italic has-text-grey">
                 No participants found in teams.
-              </CText>
-              <CFormControl v-else isRequired>
-                <CFormLabel>Select the standout individual participant</CFormLabel>
-                <CSelect
-                  v-model="bestPerformerSelection"
-                  placeholder="Select Participant..."
-                  :isDisabled="isSubmitting"
-                >
-                  <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
-                    {{ member.name }} ({{ getTeamNameForMember(member.uid) }})
-                  </option>
-                </CSelect>
-              </CFormControl>
-            </CBox>
+              </p>
+              <div v-else class="field">
+                <label class="label is-small">Select the standout individual participant</label>
+                <div class="control">
+                  <div class="select is-fullwidth">
+                    <select
+                      v-model="bestPerformerSelection"
+                      required
+                      :disabled="isSubmitting"
+                    >
+                       <option value="" disabled>Select Participant...</option>
+                       <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
+                         {{ member.name }} ({{ getTeamNameForMember(member.uid) }})
+                       </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            <CAlert v-if="submissionError" status="error">
-              <CAlertIcon />
-              <CAlertDescription>{{ submissionError }}</CAlertDescription>
-            </CAlert>
-          </CStack>
-        </CForm>
-      </CModalBody>
+            <div v-if="submissionError" class="message is-danger is-small">
+              <div class="message-body">{{ submissionError }}</div>
+            </div>
+          </div>
+        </form>
+      </section>
 
-      <CModalFooter borderTopWidth="1px">
-        <CButton variant="ghost" mr="3" onClick="$emit('close')">
+      <footer class="modal-card-foot is-justify-content-flex-end">
+        <button class="button" @click="$emit('close')">
           Cancel
-        </CButton>
-        <CButton
-          colorScheme="primary"
-          :isLoading="isSubmitting"
-          :isDisabled="!isFormValid"
-          loadingText="Submitting..."
-          onClick="submitTeamRatings"
+        </button>
+        <button
+          class="button is-primary"
+          :class="{ 'is-loading': isSubmitting }"
+          :disabled="!isFormValid || isSubmitting"
+          @click="submitTeamRatings"
         >
           Submit Ratings
-        </CButton>
-      </CModalFooter>
-    </CModalContent>
-  </CModal>
+        </button>
+      </footer>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import {
-  Modal as CModal,
-  ModalOverlay as CModalOverlay,
-  ModalContent as CModalContent,
-  ModalHeader as CModalHeader,
-  ModalFooter as CModalFooter,
-  ModalBody as CModalBody,
-  ModalCloseButton as CModalCloseButton,
-  Button as CButton,
-  FormControl as CFormControl,
-  FormLabel as CFormLabel,
-  Select as CSelect,
-  Stack as CStack,
-  Box as CBox,
-  Text as CText,
-  Heading as CHeading,
-  Alert as CAlert,
-  AlertIcon as CAlertIcon,
-  AlertDescription as CAlertDescription,
-  Spinner as CSpinner,
-  Flex as CFlex,
-  Form as CForm
-} from '@chakra-ui/vue-next'
-
+// Removed all Chakra UI imports
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 
@@ -121,6 +105,11 @@ const props = defineProps({
     type: String,
     required: true,
   },
+  // Add a prop to control visibility if needed by the parent
+  // visible: { 
+  //   type: Boolean,
+  //   default: false
+  // }
 });
 
 const emit = defineEmits(['close', 'submitted']);
@@ -147,8 +136,6 @@ onMounted(async () => {
   loading.value = true;
   error.value = '';
   try {
-    // Fetch event details if not already loaded or stale
-    // For simplicity, assume EventDetails view keeps it fresh for now
     const currentEvent = store.state.events.currentEventDetails;
     if (!currentEvent || currentEvent.id !== props.eventId) {
       await store.dispatch('events/fetchEventDetails', props.eventId);
@@ -169,7 +156,10 @@ onMounted(async () => {
 
     // Initialize selections
     eventCriteria.value.forEach(c => {
-      teamSelections.value[c.constraintIndex] = '';
+      // Ensure constraintIndex is valid before using it as a key
+      if (typeof c.constraintIndex === 'number') { 
+          teamSelections.value[c.constraintIndex] = '';
+      }
     });
 
     // Prepare list of all members for best performer dropdown
@@ -177,8 +167,10 @@ onMounted(async () => {
     const tempMemberMap = {}; // Map<userId, teamName>
     eventTeams.value.forEach(team => {
       (team.members || []).forEach(memberId => {
-        memberIds.add(memberId);
-        tempMemberMap[memberId] = team.teamName;
+        if (memberId) { // Ensure memberId is not null/undefined
+            memberIds.add(memberId);
+            tempMemberMap[memberId] = team.teamName;
+        }
       });
     });
     teamMemberMap.value = tempMemberMap;
@@ -187,7 +179,7 @@ onMounted(async () => {
       const userNames = await store.dispatch('user/fetchUserNamesBatch', Array.from(memberIds));
       allTeamMembers.value = Array.from(memberIds)
         .map(uid => ({ uid, name: userNames[uid] || uid }))
-        .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Sort alphabetically, handle potential undefined names
     }
 
   } catch (err) {
@@ -203,9 +195,10 @@ const getTeamNameForMember = (memberId) => {
 };
 
 const isFormValid = computed(() => {
+  if (!eventCriteria.value || eventCriteria.value.length === 0) return false;
   // Check if all criteria have a team selected
   const allCriteriaSelected = eventCriteria.value.every(
-    c => teamSelections.value[c.constraintIndex] && teamSelections.value[c.constraintIndex] !== ''
+    c => typeof c.constraintIndex === 'number' && teamSelections.value[c.constraintIndex] && teamSelections.value[c.constraintIndex] !== ''
   );
   // Check if best performer is selected
   const bestPerformerSelected = bestPerformerSelection.value !== '';
@@ -220,22 +213,26 @@ const submitTeamRatings = async () => {
   submissionError.value = '';
 
   try {
+    const criteriaSelections = {};
+    eventCriteria.value.forEach(c => {
+        if (typeof c.constraintIndex === 'number') { 
+            criteriaSelections[c.constraintIndex] = teamSelections.value[c.constraintIndex];
+        }
+    });
+
     const ratingPayload = {
       eventId: props.eventId,
       ratingType: 'team_criteria', // New type to distinguish
       ratedBy: currentUserId.value,
       ratedAt: new Date(), // Use JS Date, Firestore action will convert
       selections: {
-        criteria: { ...teamSelections.value }, // Map of { constraintIndex: teamName }
+        criteria: criteriaSelections, // Use the constructed map
         bestPerformer: bestPerformerSelection.value, // UID of the best performer
       },
     };
 
     // Dispatch the new Vuex action
     await store.dispatch('events/submitTeamCriteriaRating', ratingPayload); 
-
-    // Remove simulation
-    // await new Promise(resolve => setTimeout(resolve, 1000)); 
     
     emit('submitted', { message: 'Team ratings submitted successfully!', type: 'success' });
     emit('close');
@@ -251,5 +248,11 @@ const submitTeamRatings = async () => {
 </script>
 
 <style scoped>
+.modal-card-foot.is-justify-content-flex-end {
+    justify-content: flex-end;
+}
 /* Add any specific styles if needed */
+.py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
+.pt-5 { padding-top: 1.25rem; }
+.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
 </style>

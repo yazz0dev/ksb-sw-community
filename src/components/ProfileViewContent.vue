@@ -1,81 +1,99 @@
 <template>
-  <CBox>
+  <div>
     <!-- Loading State -->
-    <CFlex v-if="loading" direction="column" align="center" justify="center" py={16} color="gray.500">
-      <CSpinner size="xl" color="primary.DEFAULT" mb={3} />
-      <CText>Loading profile data...</CText>
-    </CFlex>
+    <div v-if="loading" class="is-flex is-flex-direction-column is-align-items-center is-justify-content-center py-6 has-text-grey">
+      <div class="loader is-loading mb-3" style="height: 4rem; width: 4rem; border: 5px solid var(--bulma-primary); border-right-color: transparent; border-top-color: transparent;"></div>
+      <p>Loading profile data...</p>
+    </div>
 
     <!-- Error/Not Found States -->
-    <CAlert v-else-if="errorMessage || !user" status="warning" variant="left-accent">
-      <CFlex>
-        <CIcon name="warning" />
-        <CText ml={3}>{{ errorMessage || 'User profile data not available or could not be loaded.' }}</CText>
-      </CFlex>
-    </CAlert>
+    <div v-else-if="errorMessage || !user" class="message is-warning">
+      <div class="message-body">
+        <div class="is-flex is-align-items-center">
+          <span class="icon has-text-warning"><i class="fas fa-exclamation-triangle"></i></span>
+          <span class="ml-3">{{ errorMessage || 'User profile data not available or could not be loaded.' }}</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Main Content -->
-    <CGrid v-else templateColumns={{ base: '1fr', lg: '1fr 2fr' }} gap={6}>
+    <div v-else class="columns is-variable is-6-desktop">
       <!-- Left Column -->
-      <CBox>
-        <CCard variant="outline" p={5}>
-          <!-- Profile content converted to Chakra components -->
-          <CFlex direction="column" align="center">
-            <CBox mb={4}>
-              <img :src="user.photoURL || defaultAvatarUrl" :alt="user.name || 'Profile Photo'" class="w-28 h-28 sm:w-36 sm:h-36 mx-auto rounded-full object-cover shadow-md border-4 border-white ring-2 ring-primary" @error="handleImageError" />
-            </CBox>
-            <CHeading size="lg" mb={5}>{{ user.name || 'User Profile' }}</CHeading>
-            <CGrid templateColumns="repeat(3, 1fr)" gap={3} mb={6}>
-              <CBox textAlign="center" bg="primary.extraLight" border="1px" borderColor="primary.light" rounded="lg" p={3} shadow="sm">
-                <CText fontSize="2xl" fontWeight="bold" color="primary.DEFAULT">{{ stats.participatedCount }}</CText>
-                <CText fontSize="xs" color="text.secondary" textTransform="uppercase">Participated</CText>
-              </CBox>
-              <CBox textAlign="center" bg="primary.extraLight" border="1px" borderColor="primary.light" rounded="lg" p={3} shadow="sm">
-                <CText fontSize="2xl" fontWeight="bold" color="primary.DEFAULT">{{ stats.organizedCount }}</CText>
-                <CText fontSize="xs" color="text.secondary" textTransform="uppercase">Organized</CText>
-              </CBox>
-              <CBox textAlign="center" bg="primary.extraLight" border="1px" borderColor="primary.light" rounded="lg" p={3} shadow="sm">
-                <CText fontSize="2xl" fontWeight="bold" color="warning.DEFAULT">{{ stats.wonCount }}</CText>
-                <CText fontSize="xs" color="text.secondary" textTransform="uppercase">Won</CText>
-              </CBox>
-            </CGrid>
-            <CBox mb={6}>
-              <CText fontSize="sm" fontWeight="semibold" color="text.secondary" mb={1}>
-                <CIcon name="star" color="warning.DEFAULT" mr={1.5} /> Total XP Earned
-              </CText>
-              <CText fontSize="4xl" fontWeight="bold" color="text.primary">{{ totalXp }}</CText>
-            </CBox>
-          </CFlex>
-        </CCard>
-      </CBox>
+      <div class="column is-one-third-desktop">
+        <div class="card">
+          <div class="card-content has-text-centered">
+            <div class="mb-4">
+              <figure class="image is-128x128 is-inline-block">
+                 <img 
+                    :src="user.photoURL || defaultAvatarUrl" 
+                    :alt="user.name || 'Profile Photo'" 
+                    class="is-rounded" 
+                    style="object-fit: cover; border: 3px solid var(--bulma-primary); box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+                    @error="handleImageError" 
+                  />
+              </figure>
+            </div>
+            <h1 class="title is-4 mb-5">{{ user.name || 'User Profile' }}</h1>
+            <div class="level is-mobile mb-6">
+              <div class="level-item has-text-centered">
+                <div class="box" style="background-color: var(--color-primary-light); border: 1px solid var(--color-primary-border); border-radius: 6px; padding: 0.75rem;">
+                  <p class="title is-4 has-text-primary">{{ stats.participatedCount }}</p>
+                  <p class="heading is-size-7">Participated</p>
+                </div>
+              </div>
+              <div class="level-item has-text-centered">
+                <div class="box" style="background-color: var(--color-primary-light); border: 1px solid var(--color-primary-border); border-radius: 6px; padding: 0.75rem;">
+                  <p class="title is-4 has-text-primary">{{ stats.organizedCount }}</p>
+                  <p class="heading is-size-7">Organized</p>
+                </div>
+              </div>
+              <div class="level-item has-text-centered">
+                <div class="box" style="background-color: var(--color-primary-light); border: 1px solid var(--color-primary-border); border-radius: 6px; padding: 0.75rem;">
+                  <p class="title is-4 has-text-warning">{{ stats.wonCount }}</p>
+                  <p class="heading is-size-7">Won</p>
+                </div>
+              </div>
+            </div>
+            <div class="mb-6">
+              <p class="is-size-7 has-text-weight-semibold has-text-grey mb-1">
+                <span class="icon has-text-warning mr-1"><i class="fas fa-star"></i></span> Total XP Earned
+              </p>
+              <p class="title is-2 has-text-primary">{{ totalXp }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Right Column -->
-      <CStack spacing={6}>
-        <!-- XP Breakdown -->
-        <CCard v-if="hasXpData" variant="outline">
-          <CBox p={4}>
-            <CHeading size="md" mb={4}>XP Breakdown by Role</CHeading>
-            <CGrid templateColumns="repeat(2, 1fr)" gap={4}>
-              <CBox v-for="(xp, role) in user.xpByRole" :key="role" v-if="xp > 0">
-                <CFlex justify="space-between" align="center" mb={2}>
-                  <CText fontSize="sm" fontWeight="medium">{{ formatRoleName(role) }}</CText>
-                  <CBadge colorScheme="primary">{{ xp }} XP</CBadge>
-                </CFlex>
-                <CProgress value="xpPercentage(xp)" size="sm" colorScheme="primary" />
-              </CBox>
-            </CGrid>
-          </CBox>
-        </CCard>
-      </CStack>
-    </CGrid>
-  </CBox>
+      <div class="column">
+        <div class="is-flex is-flex-direction-column" style="gap: 1.5rem;">
+          <!-- XP Breakdown -->
+          <div v-if="hasXpData" class="card">
+             <header class="card-header">
+               <p class="card-header-title">XP Breakdown by Role</p>
+             </header>
+             <div class="card-content">
+               <div class="columns is-multiline is-variable is-4">
+                  <div v-for="(xp, role) in user.xpByRole" :key="role" v-if="xp > 0" class="column is-half">
+                    <div class="is-flex is-justify-content-space-between is-align-items-center mb-2">
+                      <span class="is-size-7 has-text-weight-medium">{{ formatRoleName(role) }}</span>
+                      <span class="tag is-primary is-light is-rounded">{{ xp }} XP</span>
+                    </div>
+                    <progress class="progress is-primary is-small" :value="xpPercentage(xp)" max="100"></progress>
+                  </div>
+                </div>
+             </div>
+           </div>
+
+           <!-- Additional Content Slot -->
+           <slot name="additional-content"></slot>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import {
-  CBox, CText, CFlex, CSpinner, CAlert, CGrid, CCard, 
-  CStack, CIcon, CHeading, CBadge, CProgress
-} from '@chakra-ui/vue-next';
 import { ref, computed, watch, onMounted, toRefs } from 'vue';
 import { useStore } from 'vuex';
 import { db } from '../firebase';
@@ -130,7 +148,7 @@ const formatRoleName = (roleKey) => {
 
 const xpPercentage = (xp) => {
   const total = totalXp.value;
-  return total > 0 ? Math.min(100, (xp / total * 100)) : 0;
+  return total > 0 ? Math.min(100, Math.round((xp / total) * 100)) : 0;
 };
 
 const fetchProfileData = async () => {
@@ -149,23 +167,17 @@ const fetchProfileData = async () => {
     if (!userDocSnap.exists()) {
       throw new Error('User profile not found.');
     }
-    user.value = userDocSnap.data();
+    user.value = { uid: userDocSnap.id, ...userDocSnap.data() };
 
-    if (isCurrentUser.value) {
-      await fetchUserProjects(userId.value);
-    } else {
-      await fetchEventHistory(userId.value);
-    }
+    await fetchEventHistory(userId.value);
 
-    if (isCurrentUser.value) {
-      await fetchUserStats(userId.value);
-    }
   } catch (error) {
     console.error("Error fetching profile data:", error);
     errorMessage.value = error.message || 'Failed to load profile.';
     user.value = null;
   } finally {
     loading.value = false;
+    loadingEventsOrProjects.value = false;
   }
 };
 
@@ -197,7 +209,6 @@ const fetchUserProjects = async (targetUserId) => {
 };
 
 const fetchEventHistory = async (targetUserId) => {
-  loadingEventsOrProjects.value = true;
   try {
     const eventsRef = collection(db, 'events');
     const q = query(eventsRef, orderBy('endDate', 'desc'));
@@ -213,28 +224,27 @@ const fetchEventHistory = async (targetUserId) => {
       let isParticipant = false;
       let isOrganizerFlag = false;
       let isWinnerFlag = false;
-      let projectSubmission = null;
+      let isPartOfEvent = false;
 
-      if (event.requester === targetUserId || event.organizers?.includes(targetUserId)) {
+      if (event.requester === targetUserId || (Array.isArray(event.organizers) && event.organizers.includes(targetUserId))) {
         isOrganizerFlag = true;
+        isPartOfEvent = true;
       }
 
       if (event.isTeamEvent && Array.isArray(event.teams)) {
-        const userTeam = event.teams.find(team => team.members?.includes(targetUserId));
+        const userTeam = event.teams.find(team => Array.isArray(team.members) && team.members.includes(targetUserId));
         if (userTeam) {
           isParticipant = true;
+          isPartOfEvent = true;
           if (Array.isArray(event.winners) && event.winners.includes(userTeam.teamName)) isWinnerFlag = true;
-          const teamSubmission = event.submissions?.find(sub => sub.teamId === userTeam.teamName);
-          if (teamSubmission) projectSubmission = teamSubmission;
         }
       } else if (Array.isArray(event.participants) && event.participants.includes(targetUserId)) {
         isParticipant = true;
+        isPartOfEvent = true;
         if (Array.isArray(event.winners) && event.winners.includes(targetUserId)) isWinnerFlag = true;
-        const userSubmission = event.submissions?.find(sub => sub.userId === targetUserId);
-        if (userSubmission) projectSubmission = userSubmission;
       }
 
-      if (isParticipant || isOrganizerFlag) {
+      if (isPartOfEvent) {
         if (isParticipant) participated++;
         if (isOrganizerFlag) organized++;
         if (isWinnerFlag) won++;
@@ -246,7 +256,7 @@ const fetchEventHistory = async (targetUserId) => {
           endDate: event.endDate,
           isWinner: isWinnerFlag,
           isOrganizer: isOrganizerFlag,
-          project: projectSubmission
+          project: event.submissions?.find(sub => sub.userId === targetUserId)
         });
       }
     });
@@ -262,10 +272,6 @@ const fetchEventHistory = async (targetUserId) => {
   }
 };
 
-const fetchUserStats = async (targetUserId) => {
-  await fetchEventHistory(targetUserId);
-};
-
 onMounted(() => {
   fetchProfileData();
 });
@@ -275,11 +281,33 @@ watch(userId, (newVal, oldVal) => {
     fetchProfileData();
   }
 });
-watch(isCurrentUser, () => {
-  fetchProfileData();
-});
 </script>
 
 <style scoped>
-/* Add component-specific styles here if needed */
+.box .heading {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.progress::-webkit-progress-value {
+    transition: width 0.5s ease;
+}
+.progress::-moz-progress-bar {
+    transition: width 0.5s ease;
+}
+.progress::-ms-fill {
+    transition: width 0.5s ease;
+}
+
+/* Ensure image within figure respects boundaries */
+.image img {
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+/* Adjustments for Bulma's box padding if needed */
+.box {
+  padding: 1rem; /* Example adjustment */
+}
 </style>

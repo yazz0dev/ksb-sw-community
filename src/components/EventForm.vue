@@ -1,58 +1,80 @@
 <template>
-    <CForm @submit.prevent="handleSubmit" class="space-y-6">
-        <CCard variant="outline">
-            <CCardBody>
-                <CStack spacing="4">
-                    <CHeading as="h3" size="md">Event Details</CHeading>
+  <form @submit.prevent="handleSubmit" class="mb-6">
+    <!-- Event Details Card -->
+    <div class="box mb-5">
+      <h3 class="title is-4 mb-5">Event Details</h3>
 
-                    <CFormControl isRequired>
-                        <CFormLabel>Event Format</CFormLabel>
-                        <CRadioGroup v-model="formData.isTeamEvent" @change="handleFormatChange">
-                            <CStack direction="row" spacing="4">
-                                <CRadio :value="false" :isDisabled="isSubmitting">Individual</CRadio>
-                                <CRadio :value="true" :isDisabled="isSubmitting">Team</CRadio>
-                            </CStack>
-                        </CRadioGroup>
-                    </CFormControl>
+      <div class="field">
+        <label class="label">Event Format <span class="has-text-danger">*</span></label>
+        <div class="control">
+          <label class="radio mr-4">
+            <input type="radio" name="eventFormat" :value="false" v-model="formData.isTeamEvent" @change="handleFormatChange" :disabled="isSubmitting">
+            Individual
+          </label>
+          <label class="radio">
+            <input type="radio" name="eventFormat" :value="true" v-model="formData.isTeamEvent" @change="handleFormatChange" :disabled="isSubmitting">
+            Team
+          </label>
+        </div>
+      </div>
 
-                    <CFormControl isRequired>
-                        <CFormLabel>Event Name</CFormLabel>
-                        <CInput
+      <div class="field">
+        <label class="label">Event Name <span class="has-text-danger">*</span></label>
+        <div class="control">
+          <input
+            class="input"
+            type="text"
                             v-model="formData.eventName"
-                            :isDisabled="isSubmitting"
+            :disabled="isSubmitting"
                             placeholder="Enter event name"
-                        />
-                    </CFormControl>
+            required
+          />
+        </div>
+      </div>
 
-                    <CFormControl isRequired>
-                        <CFormLabel>Event Type</CFormLabel>
-                        <CSelect
+      <div class="field">
+        <label class="label">Event Type <span class="has-text-danger">*</span></label>
+        <div class="control has-icons-left">
+          <div class="select is-fullwidth">
+            <select
                             v-model="formData.eventType"
-                            :isDisabled="isSubmitting"
+              :disabled="isSubmitting"
                             @change="handleEventTypeChange"
-                            placeholder="Select Type"
+              required
                         >
+              <option value="" disabled>Select Type</option>
                             <option
                                 v-for="type in availableEventTypes"
                                 :key="type"
                                 :value="type"
                             >{{ type }}</option>
-                        </CSelect>
-                    </CFormControl>
+            </select>
+          </div>
+           <span class="icon is-small is-left">
+            <i class="fas fa-tag"></i>
+          </span>
+        </div>
+      </div>
 
-                    <CFormControl isRequired>
-                        <CFormLabel>Description</CFormLabel>
-                        <CTextarea
+      <div class="field">
+        <label class="label">Description <span class="has-text-danger">*</span></label>
+        <div class="control">
+          <textarea
+            class="textarea"
+            rows="4"
                             v-model="formData.description"
-                            :isDisabled="isSubmitting"
-                            rows="4"
-                            placeholder="Enter event description"
-                        />
-                    </CFormControl>
+            :disabled="isSubmitting"
+            placeholder="Enter event description (supports Markdown)"
+            required
+          ></textarea>
+           <p class="help is-info is-size-7">You can use Markdown for formatting.</p>
+        </div>
+      </div>
 
-                    <div v-if="formData.isTeamEvent">
-                        <CDivider my="4" />
-                        <CHeading as="h4" size="sm" mb="4">Team Configuration</CHeading>
+      <!-- Team Configuration Section (Conditional) -->
+      <template v-if="formData.isTeamEvent">
+        <hr class="my-5">
+        <h4 class="title is-5 mb-4">Team Configuration</h4>
                         <ManageTeamsComponent
                             :initial-teams="formData.teams"
                             :students="availableStudents"
@@ -62,19 +84,17 @@
                             :event-id="eventId || ''"
                             @update:teams="updateTeams"
                         />
+      </template>
                     </div>
-                </CStack>
-            </CCardBody>
-        </CCard>
 
-        <CCard variant="outline">
-            <CCardBody>
-                <CStack spacing="4">
-                    <CHeading as="h3" size="md">Event Schedule</CHeading>
-
-                    <CGrid :templateColumns="{ base: '1fr', sm: 'repeat(2, 1fr)' }" :gap="6">
-                        <CFormControl isRequired>
-                            <CFormLabel>{{ isAdmin ? 'Start Date' : 'Desired Start Date' }}</CFormLabel>
+    <!-- Event Schedule Card -->
+    <div class="box mb-5">
+      <h3 class="title is-4 mb-5">Event Schedule</h3>
+      <div class="columns is-multiline">
+        <div class="column is-half">
+          <div class="field">
+            <label class="label">{{ dateFields.startLabel }} <span class="has-text-danger">*</span></label>
+            <div class="control">
                             <DatePicker
                                 v-model="formData[dateFields.startField]"
                                 :enable-time-picker="false"
@@ -82,25 +102,28 @@
                                 @update:model-value="checkNextAvailableDate"
                                 model-type="yyyy-MM-dd"
                                 :min-date="new Date()"
-                                :input-class-name="!isDateAvailable ? 'chakra-input error' : 'chakra-input'"
+                :input-class-name="!isDateAvailable ? 'input is-danger' : 'input'"
                                 :auto-apply="true"
                                 :teleport="true"
                                 :clearable="false"
                                 placeholder="Select start date"
-                            />
-                            <CText
-                                v-if="formData[dateFields.startField]"
-                                fontSize="sm"
-                                :color="isDateAvailable ? 'green.500' : 'red.500'"
-                                mt="1"
-                            >
-                                <CIcon :as="isDateAvailable ? 'check-circle' : 'exclamation-circle'" mr="1" />
-                                {{ isDateAvailable ? 'Date available' : 'Date conflict detected' }}
-                            </CText>
-                        </CFormControl>
-
-                        <CFormControl isRequired>
-                            <CFormLabel>{{ isAdmin ? 'End Date' : 'Desired End Date' }}</CFormLabel>
+                required
+              />
+            </div>
+             <p v-if="formData[dateFields.startField] && !isDateAvailable" class="help is-danger">
+               <span class="icon is-small"><i class="fas fa-exclamation-circle"></i></span>
+               Date conflict detected
+             </p>
+              <p v-else-if="formData[dateFields.startField] && isDateAvailable" class="help is-success">
+               <span class="icon is-small"><i class="fas fa-check-circle"></i></span>
+               Date available
+             </p>
+          </div>
+        </div>
+        <div class="column is-half">
+          <div class="field">
+            <label class="label">{{ dateFields.endLabel }} <span class="has-text-danger">*</span></label>
+            <div class="control">
                             <DatePicker
                                 v-model="formData[dateFields.endField]"
                                 :enable-time-picker="false"
@@ -108,116 +131,190 @@
                                 @update:model-value="checkNextAvailableDate"
                                 model-type="yyyy-MM-dd"
                                 :min-date="formData[dateFields.startField] ? new Date(formData[dateFields.startField]) : new Date()"
-                                :input-class-name="!isDateAvailable || !formData[dateFields.startField] ? 'chakra-input error' : 'chakra-input'"
+                :input-class-name="!isDateAvailable || !formData[dateFields.startField] ? 'input is-danger' : 'input'"
                                 :auto-apply="true"
                                 :teleport="true"
                                 :clearable="false"
                                 placeholder="Select end date"
-                            />
-                        </CFormControl>
-                    </CGrid>
+                required
+              />
+            </div>
+            <p v-if="!formData[dateFields.startField]" class="help">Select start date first</p>
+          </div>
+        </div>
+      </div>
 
-                    <CAlert
-                        v-if="!isDateAvailable && nextAvailableDate"
-                        status="warning"
-                        variant="subtle"
-                    >
-                        <CAlertIcon />
-                        <CBox>
-                            <CAlertTitle>Date Conflict Detected</CAlertTitle>
-                            <CAlertDescription>
-                                The selected dates conflict with another event.
-                                Next available start date is <CText as="span" fontWeight="semibold">{{ formatDate(nextAvailableDate) }}</CText>.
-                            </CAlertDescription>
-                            <CButton
-                                mt="3"
-                                size="sm"
-                                colorScheme="blue"
-                                leftIcon="calendar-check"
-                                @click="useNextAvailableDate"
-                                :isDisabled="isSubmitting"
-                            >
-                                Use Next Available Date
-                            </CButton>
-                        </CBox>
-                    </CAlert>
-                </CStack>
-            </CCardBody>
-        </CCard>
+      <div v-if="!isDateAvailable && nextAvailableDate" class="notification is-warning is-light mt-4">
+         <div class="media">
+          <div class="media-left">
+            <span class="icon is-medium"><i class="fas fa-exclamation-triangle"></i></span>
+          </div>
+          <div class="media-content">
+             <p class="title is-6 mb-1">Date Conflict Detected</p>
+             <p class="is-size-7 mb-3">The selected dates conflict with another event. Next available start date is <strong class="has-text-weight-semibold">{{ formatDate(nextAvailableDate) }}</strong>.</p>
+              <button
+                type="button"
+                class="button is-link is-small"
+                @click="useNextAvailableDate"
+                :disabled="isSubmitting"
+              >
+                 <span class="icon is-small"><i class="fas fa-calendar-check"></i></span>
+                 <span>Use Next Available Date</span>
+              </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-        <!-- Additional sections (Rating Criteria, Co-organizers) follow the same pattern -->
-        
-        <CButton
+     <!-- Rating Criteria Card -->
+    <div class="box mb-5">
+        <h3 class="title is-4 mb-5">Rating Criteria & XP Allocation</h3>
+        <p class="is-size-7 has-text-grey mb-4">Define how teams/participants will be rated and earn XP. Total XP cannot exceed 50.</p>
+        <div v-for="(alloc, index) in formData.xpAllocation" :key="index" class="mb-4 p-4" style="background-color: #fafafa; border-radius: 4px; border: 1px solid #dbdbdb;">
+            <div class="columns is-mobile is-vcentered">
+                <div class="column">
+                    <div class="field">
+                        <label class="label is-small">Criteria Label</label>
+                        <div class="control">
+                            <input class="input is-small" type="text" v-model="alloc.constraintLabel" :disabled="isSubmitting" placeholder="e.g., Code Quality">
+                        </div>
+                    </div>
+                </div>
+                <div class="column is-narrow">
+                    <div class="field">
+                         <label class="label is-small">XP Points</label>
+                        <div class="control">
+                            <input class="input is-small" type="number" v-model.number="alloc.points" :disabled="isSubmitting" min="1" max="50">
+                        </div>
+                    </div>
+                </div>
+                <div class="column is-narrow">
+                     <label class="label is-small">&nbsp;</label> <!-- Placeholder for alignment -->
+                    <button type="button" class="button is-danger is-outlined is-small" @click="removeXPAllocation(index)" :disabled="isSubmitting">
+                        <span class="icon is-small"><i class="fas fa-trash"></i></span>
+                    </button>
+                </div>
+            </div>
+            <div class="field">
+                 <label class="label is-small">Role</label>
+                <div class="control">
+                    <div class="select is-small is-fullwidth">
+                        <select v-model="alloc.role" :disabled="isSubmitting">
+                            <option value="Team">Team (Overall Project/Performance)</option>
+                            <option value="Individual">Individual (Contribution/Skill)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="is-flex is-justify-content-space-between is-align-items-center">
+             <button type="button" class="button is-link is-light is-small" @click="addXPAllocation" :disabled="isSubmitting">
+                 <span class="icon is-small"><i class="fas fa-plus"></i></span>
+                 <span>Add Criteria</span>
+             </button>
+             <p class="is-size-7 has-text-weight-medium" :class="{ 'has-text-danger': totalXP > 50, 'has-text-success': totalXP > 0 && totalXP <= 50 }">
+                 Total XP: {{ totalXP }} / 50
+             </p>
+        </div>
+        <p v-if="totalXP > 50" class="help is-danger mt-2">Total XP cannot exceed 50.</p>
+    </div>
+
+    <!-- Co-organizers Card -->
+     <div class="box mb-5">
+        <h3 class="title is-4 mb-5">Co-organizers (Optional)</h3>
+        <div class="field">
+            <label class="label is-small">Add Co-organizers</label>
+            <div class="control has-icons-left dropdown is-up" :class="{ 'is-active': showCoOrganizerDropdown && filteredUsers.length > 0 }">
+                <input
+                    class="input is-small"
+                    type="text"
+                    v-model="coOrganizerSearch"
+                    @input="searchUsers"
+                    @focus="showCoOrganizerDropdown = true"
+                    @blur="() => setTimeout(() => showCoOrganizerDropdown = false, 150)"
+                    placeholder="Search by name..."
+                    :disabled="isSubmitting"
+                >
+                 <span class="icon is-small is-left">
+                    <i class="fas fa-search"></i>
+                  </span>
+                <div class="dropdown-menu" style="width: 100%;">
+                    <div class="dropdown-content">
+                        <a
+                            v-for="user in filteredUsers"
+                            :key="user.uid"
+                            href="#"
+                            class="dropdown-item is-size-7"
+                            @mousedown.prevent="addOrganizer(user.uid)"
+                         >
+                            {{ user.name }} ({{ user.email }})
+                        </a>
+                    </div>
+                </div>
+            </div>
+             <p v-if="!usersLoaded && coOrganizerSearch" class="help is-info">Loading users...</p>
+        </div>
+        <div v-if="formData.organizers.length > 0" class="tags mt-3">
+            <span v-for="orgId in formData.organizers" :key="orgId" class="tag is-light is-medium">
+                {{ nameCache[orgId] || orgId }}
+                <button class="delete is-small" @click="removeOrganizer(orgId)" :disabled="isSubmitting"></button>
+            </span>
+        </div>
+         <p v-else class="is-size-7 has-text-grey">No co-organizers added.</p>
+    </div>
+
+
+    <!-- Submit Button -->
+    <div class="field">
+      <div class="control">
+        <button
             type="submit"
-            colorScheme="blue"
-            size="lg"
-            :isLoading="isSubmitting"
-            :isDisabled="!isFormValid || totalXP > 50"
-            :leftIcon="isSubmitting ? 'fa-spinner' : 'fa-paper-plane'"
+            class="button is-primary is-medium is-fullwidth"
+            :class="{ 'is-loading': isSubmitting }"
+            :disabled="!isFormValid || totalXP > 50 || isSubmitting"
         >
-            {{ submitButtonText }}
-        </CButton>
-    </CForm>
+            <span class="icon is-small">
+               <i :class="['fas', isSubmitting ? 'fa-spinner fa-spin' : 'fa-paper-plane']"></i>
+            </span>
+            <span>{{ submitButtonText }}</span>
+        </button>
+      </div>
+       <p v-if="!isFormValid" class="help is-danger mt-2">Please fill in all required fields (*).</p>
+    </div>
+  </form>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { useStore } from 'vuex'
-import { Timestamp } from 'firebase/firestore'
-import type { XPAllocation, EventCreateDTO, EventRequest, EventTeam, EventFormData } from '../types'
-import {
-  Box as CBox,
-  Card as CCard,
-  CardBody as CCardBody,
-  Stack as CStack,
-  Heading as CHeading,
-  FormControl as CFormControl,
-  FormLabel as CFormLabel,
-  Input as CInput, 
-  Select as CSelect,
-  Textarea as CTextarea,
-  RadioGroup as CRadioGroup,
-  Radio as CRadio,
-  Divider as CDivider,
-  Grid as CGrid,
-  Alert as CAlert,
-  AlertIcon as CAlertIcon,
-  AlertTitle as CAlertTitle,
-  AlertDescription as CAlertDescription,
-  Button as CButton,
-  Text as CText,
-  Icon as CIcon
-} from '@chakra-ui/vue-next'
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
+import { useStore } from 'vuex';
+import { Timestamp } from 'firebase/firestore';
+import type { XPAllocation, EventCreateDTO, EventRequest, EventTeam, EventFormData, UserProfile } from '../types';
+import DatePicker from '@vuepic/vue-datepicker';
+import '@vuepic/vue-datepicker/dist/main.css'; // Import datepicker CSS
+import ManageTeamsComponent from './ManageTeamsComponent.vue'; // Assuming path is correct
 
-// Fix maxGenerateValue type
-const maxGenerateValue = computed(() => {
-  return generationType.value === 'fixed-size' ? 10 : Math.min(maxTeams, Math.floor(props.students.length / 2))
-})
-
-// Add component aliases
+// Helper Functions (Keep unchanged)
 const getStartOfDayUTC = (dateStr: string): Date => {
     const [year, month, day] = dateStr.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 };
-
 const getEndOfDayUTC = (dateStr: string): Date => {
     const [year, month, day] = dateStr.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
 };
+const formatDate = (date: Date | null): string => {
+  if (!date) return 'N/A';
+  return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
+};
 
+// Props & Emits (Keep unchanged)
 const props = defineProps({
-    eventId: {
-        type: String,
-        required: false
-    },
-    initialData: {
-        type: Object,
-        default: () => ({})
-    }
+    eventId: { type: String, required: false },
+    initialData: { type: Object, default: () => ({}) }
 });
-
 const emit = defineEmits(['submit', 'error']);
 
+// Store & State
 const store = useStore();
 const isSubmitting = ref(false);
 const coOrganizerSearch = ref('');
@@ -227,8 +324,11 @@ const nextAvailableDate = ref<Date | null>(null);
 const isDateAvailable = ref(true);
 const teamsList = ref<EventTeam[]>([]);
 const isUpdatingTeamsInternally = ref(false);
+const availableStudents = ref<UserProfile[]>([]); // For team assignment
+const nameCache = ref<Record<string, string>>({}); // For displaying names
 
 const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
+const allUsers = ref<UserProfile[]>([]); // Store all users for co-organizer search
 
 const defaultFormData: EventFormData = {
     isTeamEvent: false,
@@ -239,7 +339,7 @@ const defaultFormData: EventFormData = {
     endDate: '',
     desiredStartDate: '',
     desiredEndDate: '',
-    location: '',
+    location: '', // Keep location if needed
     organizers: [],
     xpAllocation: [],
     teams: [],
@@ -247,427 +347,336 @@ const defaultFormData: EventFormData = {
 
 const formData = ref<EventFormData>(JSON.parse(JSON.stringify(defaultFormData)));
 
-const individualEventTypes = [
-    'Workshop',
-    'Presentation',
-    'Individual Project',
-    'Training Session',
-    'Tutorial'
-];
+// Event Types (Adjust based on team/individual)
+const individualEventTypes = ['Workshop', 'Seminar', 'Presentation', 'Competition (Individual)', 'Training', 'Guest Lecture', 'Other'];
+const teamEventTypes = ['Project', 'Competition (Team)', 'Hackathon', 'Collaboration', 'Study Group', 'Other'];
+const availableEventTypes = computed(() => formData.value.isTeamEvent ? teamEventTypes : individualEventTypes);
 
-const teamEventTypes = [
-    'Hackathon',
-    'Team Project',
-    'Group Challenge',
-    'Team Competition',
-    'Collaborative Workshop'
-];
+// Date Field Logic
+const dateFields = computed(() => ({
+    startField: isAdmin.value ? 'startDate' : 'desiredStartDate',
+    endField: isAdmin.value ? 'endDate' : 'desiredEndDate',
+    startLabel: isAdmin.value ? 'Start Date' : 'Desired Start Date',
+    endLabel: isAdmin.value ? 'End Date' : 'Desired End Date',
+}));
 
-const availableEventTypes = computed(() => {
-    return formData.value.isTeamEvent ? teamEventTypes : individualEventTypes;
+// Watchers
+watch(() => props.initialData, (newData) => {
+  if (newData && Object.keys(newData).length > 0) {
+    // Deep clone and merge, ensuring all default keys exist
+     formData.value = { ...JSON.parse(JSON.stringify(defaultFormData)), ...JSON.parse(JSON.stringify(newData)) };
+     // Ensure nested arrays are properly initialized if missing in newData
+     formData.value.xpAllocation = formData.value.xpAllocation || [];
+     formData.value.organizers = formData.value.organizers || [];
+     formData.value.teams = formData.value.teams || [];
+     teamsList.value = formData.value.teams; // Sync internal teams list
+  } else {
+    formData.value = JSON.parse(JSON.stringify(defaultFormData));
+    teamsList.value = [];
+  }
+}, { immediate: true, deep: true });
+
+watch(() => formData.value.isTeamEvent, (isTeam) => {
+  if (!isTeam) {
+    formData.value.teams = []; // Clear teams if switching to individual
+    teamsList.value = [];
+  }
+   // Reset event type if it's not valid for the new format
+  if (!availableEventTypes.value.includes(formData.value.eventType)) {
+       formData.value.eventType = '';
+   }
 });
 
-const dpInputClass = (hasError: boolean) => {
-    let base = 'dp-custom-input block w-full rounded-md shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100';
-    return hasError ? `${base} border-error` : `${base} border-border`;
-};
-
+// Methods
 const handleFormatChange = () => {
+  // Reset dependent fields if needed, e.g., teams or event type
     formData.value.eventType = '';
     if (!formData.value.isTeamEvent) {
         formData.value.teams = [];
+    teamsList.value = [];
     }
 };
 
 const handleEventTypeChange = () => {
+    // Placeholder for future logic if needed
 };
 
-const submitButtonText = computed(() => {
-    if (isSubmitting.value) return 'Saving...';
-    if (props.eventId) return 'Update Event';
-    return isAdmin.value ? 'Create Event' : 'Submit Request';
-});
-
-const isFormValid = computed(() => {
-    const data = formData.value;
-    const datesValid = !!data[dateFields.value.startField] && !!data[dateFields.value.endField];
-    const xpValid = data.xpAllocation.every(a => a.constraintLabel && a.role && a.points > 0) && totalXP.value <= 50;
-    const basicInfoValid = !!data.eventName && !!data.eventType && !!data.description;
-    const teamsValid = data.isTeamEvent ? data.teams.length > 0 && data.teams.every(t => t.teamName) : true;
-    
-    // Add organizer validation for admins
-    const organizersValid = !isAdmin.value || (Array.isArray(data.organizers) && data.organizers.length > 0);
-
-    return datesValid && xpValid && basicInfoValid && teamsValid && isDateAvailable.value && organizersValid;
-});
-
-// Update co-organizers section UI to show required status for admins
-const coOrganizerSectionTitle = computed(() => {
-    return `Co-organizers ${isAdmin.value ? '<span class="text-error">*</span>' : '(Optional)'}`;
-});
-
-const filteredUsers = computed(() => {
-    if (!usersLoaded.value) return [];
-    const search = coOrganizerSearch.value.trim().toLowerCase();
-    if (!search) return [];
-
-    const allUsers = store.getters['user/getAllUsers'] || [];
-    const currentUserId = store.getters['user/userId'];
-
-    return allUsers
-        .filter(user => {
-            // Skip if user is invalid, current user, already an organizer, or is an admin
-            if (!user?.uid || 
-                user.uid === currentUserId || 
-                formData.value.organizers.includes(user.uid) || 
-                user.role === 'Admin') {
-                return false;
-            }
-            const userName = (user.name || '').toLowerCase();
-            return userName.includes(search);
-        })
-        .slice(0, 10);
-});
-
-const addAllocation = () => {
-    if (formData.value.xpAllocation.length >= 4 || totalXP.value >= 50) return;
-
-    const remainingXP = 50 - totalXP.value;
-    const defaultPoints = Math.min(10, Math.max(1, remainingXP));
-
-    formData.value.xpAllocation.push({
-        constraintIndex: formData.value.xpAllocation.length,
-        constraintLabel: '',
-        role: 'fullstack',
-        points: defaultPoints
-    });
-};
-
-const removeAllocation = (index: number) => {
-    formData.value.xpAllocation.splice(index, 1);
-    formData.value.xpAllocation.forEach((alloc, idx) => {
-        alloc.constraintIndex = idx;
-    });
-};
-
-const addCoOrganizer = (user: { uid: string }) => {
-    if (!formData.value.organizers.includes(user.uid)) {
-        formData.value.organizers.push(user.uid);
-    }
-    coOrganizerSearch.value = '';
-    showCoOrganizerDropdown.value = false;
-};
-
-const removeCoOrganizer = (userId: string) => {
-    formData.value.organizers = formData.value.organizers.filter(id => id !== userId);
-};
-
-const handleSubmit = async () => {
-    isSubmitting.value = true;
-    emit('error', '');
-
-    if (!isFormValid.value) {
-        emit('error', 'Please fill all required fields correctly and ensure dates are available.');
-        isSubmitting.value = false;
-        return;
-    }
-
-    try {
-        const { startField, endField } = dateFields.value;
-        const proposedStartDateStr = formData.value[startField];
-        const proposedEndDateStr = formData.value[endField];
-
-        const proposedStartDate = getStartOfDayUTC(proposedStartDateStr);
-        const proposedEndDate = getEndOfDayUTC(proposedEndDateStr);
-
-        const payload: Partial<EventCreateDTO | EventRequest> = {
-            eventName: formData.value.eventName,
-            eventType: formData.value.eventType,
-            description: formData.value.description,
-            isTeamEvent: formData.value.isTeamEvent,
-            location: formData.value.location,
-            organizers: formData.value.organizers,
-            xpAllocation: formData.value.xpAllocation.map(a => ({ ...a, points: Number(a.points) })),
-            teams: formData.value.isTeamEvent ? formData.value.teams : [],
-        };
-
-        if (isAdmin.value) {
-            (payload as EventCreateDTO).startDate = Timestamp.fromDate(proposedStartDate);
-            (payload as EventCreateDTO).endDate = Timestamp.fromDate(proposedEndDate);
-        } else {
-            (payload as EventRequest).desiredStartDate = Timestamp.fromDate(proposedStartDate);
-            (payload as EventRequest).desiredEndDate = Timestamp.fromDate(proposedEndDate);
-            (payload as EventRequest).requester = store.getters['user/userId'];
-        }
-
-        emit('submit', payload);
-
-    } catch (error: any) {
-        console.error('Form submission error:', error);
-        emit('error', error.message || 'Failed to prepare event data.');
-    } finally {
-    }
-};
-
-const formatDate = (date: Date | string | null): string => {
-    if (!date) return '';
-    try {
-        const d = typeof date === 'string' ? new Date(date + 'T00:00:00Z') : date;
-        return d.toLocaleDateString('en-CA');
-    } catch (e) {
-        console.warn("Error formatting date:", date, e);
-        return '';
-    }
-};
-
-const dateFields = computed(() => ({
-    startField: isAdmin.value ? 'startDate' : 'desiredStartDate',
-    endField: isAdmin.value ? 'endDate' : 'desiredEndDate'
-}));
-
-const useNextAvailableDate = () => {
-    if (nextAvailableDate.value) {
-        const { startField, endField } = dateFields.value;
-        const startDateStr = formatDate(nextAvailableDate.value);
-        formData.value[startField] = startDateStr;
-
-        const originalStartStr = formData.value[startField];
-        const originalEndStr = formData.value[endField];
-        let endDate = new Date(nextAvailableDate.value);
-        if (originalStartStr && originalEndStr) {
-            try {
-                const duration = getEndOfDayUTC(originalEndStr).getTime() - getStartOfDayUTC(originalStartStr).getTime();
-                if (duration >= 0) {
-                    endDate = new Date(nextAvailableDate.value.getTime() + duration);
-                }
-            } catch { }
-        }
-        formData.value[endField] = formatDate(endDate);
-
-        checkNextAvailableDate();
-    }
+const updateTeams = (newTeams: EventTeam[]) => {
+  if (isUpdatingTeamsInternally.value) return;
+  formData.value.teams = [...newTeams];
+  teamsList.value = [...newTeams]; // Keep internal ref synced
 };
 
 const checkNextAvailableDate = async () => {
-    const { startField, endField } = dateFields.value;
-    const selectedStartDateStr = formData.value[startField];
-    const selectedEndDateStr = formData.value[endField];
-
-    if (!selectedStartDateStr) {
-        isDateAvailable.value = true;
+    const start = formData.value[dateFields.value.startField];
+    const end = formData.value[dateFields.value.endField];
+    if (!start || !end) {
+        isDateAvailable.value = true; // Cannot check availability without both dates
         nextAvailableDate.value = null;
         return;
     }
 
     try {
-        const checkStartDate = getStartOfDayUTC(selectedStartDateStr);
-        const checkEndDate = selectedEndDateStr ? getEndOfDayUTC(selectedEndDateStr) : getEndOfDayUTC(selectedStartDateStr);
+        const startDateUTC = getStartOfDayUTC(start);
+        const endDateUTC = getEndOfDayUTC(end);
 
-        // Use proper error handling for the date check response
-        const dateCheck = await store.dispatch('events/checkDateConflict', {
-            startDate: checkStartDate,
-            endDate: checkEndDate,
-            excludeEventId: props.eventId
+        if (endDateUTC < startDateUTC) {
+             isDateAvailable.value = false;
+             nextAvailableDate.value = null; // Invalid range
+             emit('error', 'End date cannot be before start date.');
+             return;
+        }
+
+        const checkResult = await store.dispatch('events/checkDateAvailability', {
+            startDate: startDateUTC,
+            endDate: endDateUTC,
+            excludeEventId: props.eventId // Exclude current event if editing
         });
 
-        // Handle the response properly
-        if (dateCheck && typeof dateCheck.hasConflict === 'boolean') {
-            isDateAvailable.value = !dateCheck.hasConflict;
-            nextAvailableDate.value = dateCheck.hasConflict && dateCheck.nextAvailableDate ? 
-                new Date(dateCheck.nextAvailableDate) : null;
-                
-            if (!isDateAvailable.value && nextAvailableDate.value) {
-                const conflictEventName = dateCheck.conflictingEvent?.eventName || 'another event';
-                emit('error', `Date conflict with ${conflictEventName}. Next available: ${formatDate(nextAvailableDate.value)}`);
-            } else {
-                emit('error', '');
-            }
-        } else {
-            console.error('Invalid date check response:', dateCheck);
-            throw new Error('Invalid date check response from server');
-        }
+        isDateAvailable.value = checkResult.available;
+        nextAvailableDate.value = checkResult.nextAvailableDate ? new Date(checkResult.nextAvailableDate) : null;
     } catch (error) {
-        console.error('Error checking date availability:', error);
-        isDateAvailable.value = false;
+        console.error("Error checking date availability:", error);
+        isDateAvailable.value = false; // Assume unavailable on error
         nextAvailableDate.value = null;
-        emit('error', 'Could not verify date availability.');
+        emit('error', 'Could not verify date availability. Please try again.');
     }
+};
+
+const useNextAvailableDate = () => {
+    if (nextAvailableDate.value) {
+        const nextStartDateStr = nextAvailableDate.value.toISOString().split('T')[0];
+        
+        // Calculate potential end date (e.g., same duration or default 1 day)
+        const start = formData.value[dateFields.value.startField];
+        const end = formData.value[dateFields.value.endField];
+        let duration = 0; // Default duration 0 days (same day event)
+        if (start && end) {
+             try {
+                 duration = getEndOfDayUTC(end).getTime() - getStartOfDayUTC(start).getTime();
+             } catch (e) { /* ignore date parsing errors here */ }
+        }
+        
+        const nextEndDate = new Date(nextAvailableDate.value.getTime() + duration);
+        const nextEndDateStr = nextEndDate.toISOString().split('T')[0];
+
+        formData.value[dateFields.value.startField] = nextStartDateStr;
+        formData.value[dateFields.value.endField] = nextEndDateStr;
+        
+        // Re-check availability for the new dates
+        nextTick(() => {
+        checkNextAvailableDate();
+        });
+    }
+};
+
+const addXPAllocation = () => {
+    formData.value.xpAllocation.push({ constraintLabel: '', points: 10, role: 'Team' });
+};
+
+const removeXPAllocation = (index: number) => {
+    formData.value.xpAllocation.splice(index, 1);
 };
 
 const totalXP = computed(() => {
     return formData.value.xpAllocation.reduce((sum, alloc) => sum + (Number(alloc.points) || 0), 0);
 });
 
-const maxPointsForAllocation = (index: number): number => {
-    const currentPoints = Number(formData.value.xpAllocation[index]?.points) || 0;
-    const otherPointsTotal = formData.value.xpAllocation.reduce((sum, alloc, i) => {
-        return i !== index ? sum + (Number(alloc.points) || 0) : sum;
-    }, 0);
-    return Math.max(1, 50 - otherPointsTotal);
-};
 
-const handlePointsInput = (index: number) => {
-};
-
-watch(() => formData.value.xpAllocation, (newAllocations, oldAllocations) => {
-    newAllocations.forEach(alloc => {
-        alloc.points = Number(alloc.points) || 1;
-    });
-
-    let currentTotal = newAllocations.reduce((sum, alloc) => sum + alloc.points, 0);
-
-    if (currentTotal > 50) {
-        const lastChangedIndex = findLastChangedIndex(newAllocations, oldAllocations);
-        if (lastChangedIndex !== -1) {
-            const excess = currentTotal - 50;
-            const currentPoints = newAllocations[lastChangedIndex].points;
-            nextTick(() => {
-                formData.value.xpAllocation[lastChangedIndex].points = Math.max(1, currentPoints - excess);
-            });
-        }
-    }
-
-    if (newAllocations.length !== oldAllocations?.length) {
-        nextTick(() => {
-             formData.value.xpAllocation.forEach((alloc, idx) => {
-                 alloc.constraintIndex = idx;
-             });
+// Co-organizer Methods
+const loadUsers = async () => {
+    if (usersLoaded.value) return;
+    try {
+        // Assuming 'user/fetchAllUsers' fetches { uid, name, email } needed for display and ID
+        allUsers.value = await store.dispatch('user/fetchAllUsers');
+        // Update name cache with fetched users
+        allUsers.value.forEach(user => {
+            nameCache.value[user.uid] = user.name;
         });
+        usersLoaded.value = true;
+    } catch (error) {
+        console.error("Failed to load users:", error);
+        // Handle error appropriately
     }
-
-}, { deep: true });
-
-const findLastChangedIndex = (newArr, oldArr) => {
-    if (!oldArr || newArr.length !== oldArr.length) {
-        return newArr.length - 1;
-    }
-    for (let i = newArr.length - 1; i >= 0; i--) {
-        if (JSON.stringify(newArr[i]) !== JSON.stringify(oldArr[i])) {
-            return i;
-        }
-    }
-    return newArr.length - 1;
 };
 
-watch(() => props.initialData, (newData) => {
-    if (newData && Object.keys(newData).length > 0 && !props.eventId) {
+const filteredUsers = computed(() => {
+    if (!coOrganizerSearch.value) return [];
+    const searchTerm = coOrganizerSearch.value.toLowerCase();
+    const currentUserId = store.state.user.user?.uid; // Exclude self
+    return allUsers.value.filter(user =>
+        user.uid !== currentUserId && // Exclude self
+        !formData.value.organizers.includes(user.uid) && // Exclude already added
+        user.name.toLowerCase().includes(searchTerm)
+    ).slice(0, 5); // Limit results
+});
+
+const searchUsers = () => {
+    loadUsers(); // Ensure users are loaded when searching
+    showCoOrganizerDropdown.value = true;
+};
+
+const addOrganizer = (uid: string) => {
+    if (!formData.value.organizers.includes(uid)) {
+        formData.value.organizers.push(uid);
+    }
+    coOrganizerSearch.value = '';
+    showCoOrganizerDropdown.value = false;
+};
+
+const removeOrganizer = (uid: string) => {
+    formData.value.organizers = formData.value.organizers.filter(orgId => orgId !== uid);
+};
+
+
+// Form Validation
+const isFormValid = computed(() => {
+    const data = formData.value;
+    const datesValid = !!data[dateFields.value.startField] && !!data[dateFields.value.endField] && isDateAvailable.value;
+    const requiredFields = !!data.eventName && !!data.eventType && !!data.description && datesValid;
+    
+    const teamConfigValid = data.isTeamEvent ? data.teams.length > 0 && data.teams.every(t => t.members.length > 0) : true;
+    
+    const xpValid = totalXP.value <= 50 && formData.value.xpAllocation.every(a => a.constraintLabel && a.points > 0 && a.role);
+
+    return requiredFields && teamConfigValid && xpValid;
+});
+
+// Submit Logic
+const submitButtonText = computed(() => {
+    if (isSubmitting.value) return 'Processing...';
+    return isAdmin.value ? 'Update Event' : 'Submit Request';
+});
+
+const handleSubmit = () => {
+    if (!isFormValid.value || totalXP.value > 50) {
+        emit('error', 'Please correct the errors in the form.');
         return;
     }
-    if (newData && Object.keys(newData).length > 0 && props.eventId) {
-        const dataToLoad = JSON.parse(JSON.stringify(newData));
+    isSubmitting.value = true;
 
-        const formatInitialDate = (dateInput: any): string => {
-            if (!dateInput) return '';
-            try {
-                const date = dateInput.toDate ? dateInput.toDate() : new Date(dateInput);
-                return formatDate(date);
-            } catch {
-                return '';
-            }
-        };
-
-        formData.value = {
-            ...defaultFormData,
-            ...dataToLoad,
-            startDate: formatInitialDate(dataToLoad.startDate),
-            endDate: formatInitialDate(dataToLoad.endDate),
-            desiredStartDate: formatInitialDate(dataToLoad.desiredStartDate),
-            desiredEndDate: formatInitialDate(dataToLoad.desiredEndDate),
-            xpAllocation: (dataToLoad.xpAllocation || []).map((a: any) => ({ ...a, points: Number(a.points) || 1 })),
-            teams: Array.isArray(dataToLoad.teams) ? dataToLoad.teams : [],
-        };
-
-        nextTick(() => {
-            checkNextAvailableDate();
-        });
-    } else {
-        formData.value = JSON.parse(JSON.stringify(defaultFormData));
-        isDateAvailable.value = true;
-        nextAvailableDate.value = null;
+    // Prepare data: Convert date strings to Timestamps for Firestore
+    const submissionData = JSON.parse(JSON.stringify(formData.value));
+    try {
+         submissionData[dateFields.value.startField] = Timestamp.fromDate(getStartOfDayUTC(submissionData[dateFields.value.startField]));
+         submissionData[dateFields.value.endField] = Timestamp.fromDate(getEndOfDayUTC(submissionData[dateFields.value.endField]));
+    } catch (e) {
+         console.error("Date conversion error before submit:", e);
+         emit('error', 'Invalid date format encountered.');
+         isSubmitting.value = false;
+         return;
     }
-}, { immediate: true, deep: true });
 
-onMounted(async () => {
-    const currentUsers = store.getters['user/getAllUsers'];
-    if (!currentUsers || currentUsers.length === 0) {
-        try {
-            await store.dispatch('user/fetchAllUsers');
-            usersLoaded.value = true;
-        } catch (error) {
-            console.error("Failed to fetch users on mount:", error);
-            emit('error', 'Failed to load user data for co-organizer selection.');
+    // Clean up unnecessary fields based on admin status
+    if (isAdmin.value) {
+        delete submissionData.desiredStartDate;
+        delete submissionData.desiredEndDate;
+    } else {
+        delete submissionData.startDate;
+        delete submissionData.endDate;
+    }
+    
+    // Ensure points are numbers
+    submissionData.xpAllocation = submissionData.xpAllocation.map(alloc => ({
+        ...alloc,
+        points: Number(alloc.points) || 0
+    }));
+
+    emit('submit', submissionData);
+
+    // Resetting submit state is handled by the parent view after promise resolves/rejects
+    // But we can add a timeout failsafe
+    setTimeout(() => { isSubmitting.value = false; }, 10000); // Reset after 10s if parent doesn't
+};
+
+
+// Lifecycle
+onMounted(() => {
+    loadUsers(); // Load users for co-organizer search
+    if (props.initialData && Object.keys(props.initialData).length > 0) {
+         formData.value = { ...JSON.parse(JSON.stringify(defaultFormData)), ...JSON.parse(JSON.stringify(props.initialData)) };
+         formData.value.xpAllocation = formData.value.xpAllocation || [];
+         formData.value.organizers = formData.value.organizers || [];
+         formData.value.teams = formData.value.teams || [];
+         teamsList.value = formData.value.teams;
+         // Pre-fill name cache for initial organizers
+        if (formData.value.organizers.length > 0) {
+            store.dispatch('user/fetchUserNames', formData.value.organizers).then(names => {
+                nameCache.value = { ...nameCache.value, ...names };
+            });
+        }
+         if (formData.value[dateFields.value.startField] && formData.value[dateFields.value.endField]) {
+             checkNextAvailableDate(); // Check availability on load if editing
         }
     } else {
-        usersLoaded.value = true;
+         formData.value = JSON.parse(JSON.stringify(defaultFormData));
+         teamsList.value = [];
     }
-});
 
-const availableStudents = computed(() => {
-    const allUsers = store.getters['user/getAllUsers'] || [];
-    return allUsers.filter(user =>
-        user.role !== 'Admin' &&
-        user.uid !== store.getters['user/userId'] &&
-        !formData.value.organizers.includes(user.uid)
-    );
-});
-
-const nameCache = computed(() => {
-    const users = store.getters['user/getAllUsers'] || [];
-    return Object.fromEntries(users.map(user => [user.uid, user.name || user.uid]));
-});
-
-const updateTeams = (teams: EventTeam[]) => {
-    if (isUpdatingTeamsInternally.value) return;
-    isUpdatingTeamsInternally.value = true;
-    formData.value.teams = JSON.parse(JSON.stringify(teams));
-    nextTick(() => {
-        isUpdatingTeamsInternally.value = false;
+     // Load students needed for ManageTeamsComponent
+    store.dispatch('user/fetchStudents').then(students => {
+        availableStudents.value = students;
+        // Update name cache
+         students.forEach(student => {
+            nameCache.value[student.uid] = student.name;
+        });
     });
-};
-
-const hideCoOrganizerDropdown = () => {
-    setTimeout(() => {
-        showCoOrganizerDropdown.value = false;
-    }, 200);
-};
-
-const getUserName = (userId: string): string => {
-    return nameCache.value[userId] || userId;
-};
+});
 
 </script>
 
 <style>
-/* Only keep DatePicker customization */
+/* Scoped styles are okay, but for datepicker overrides, global might be needed */
+.dp__input {
+  font-size: 0.875rem; /* Match Bulma input size */
+  border-radius: 4px;
+  border: 1px solid #dbdbdb;
+  padding: calc(0.5em - 1px) 1em;
+   line-height: 1.5;
+   height: 2.5em; /* Match Bulma input height */
+   box-shadow: inset 0 0.0625em 0.125em rgba(10, 10, 10, 0.05);
+   width: 100%;
+   background-color: white;
+    color: #363636;
+}
+.dp__input:focus {
+     border-color: #485fc7; /* Bulma primary */
+     box-shadow: 0 0 0 0.125em rgba(72, 95, 199, 0.25);
+}
+.dp__input.is-danger,
+.input.is-danger { /* Ensure our custom class targets Bulma too */
+    border-color: #f14668; /* Bulma danger */
+}
+.dp__input.is-danger:focus {
+    box-shadow: 0 0 0 0.125em rgba(241, 70, 104, 0.25);
+}
+
+/* Style placeholder */
+.dp__input_placeholder {
+     color: #7a7a7a; /* Bulma input placeholder color */
+      opacity: 0.5;
+}
+
+/* Ensure dropdown menu position for datepicker */
+.dp__menu {
+  z-index: 50 !important; /* Ensure it appears above other elements */
+}
+
+/* Adjust Chakra compatibility classes if they exist */
 .chakra-input {
+    /* Apply Bulma input styles here if using this class */
+     font-size: 1rem;
+     border-radius: 4px;
+     border: 1px solid #dbdbdb;
+     padding: calc(0.5em - 1px) 1em;
+      line-height: 1.5;
+      height: 2.5em; 
+      box-shadow: inset 0 0.0625em 0.125em rgba(10, 10, 10, 0.05);
     width: 100%;
-    min-width: 0px;
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    position: relative;
-    appearance: none;
-    font-size: 1rem;
-    padding-inline-start: 1rem;
-    padding-inline-end: 1rem;
-    height: 2.5rem;
-    border-radius: 0.375rem;
-    border: 1px solid;
-    border-color: inherit;
-    background: inherit;
+       background-color: white;
+       color: #363636;
 }
-
 .chakra-input.error {
-    border-color: var(--chakra-colors-red-500);
-}
-
-/* Keep existing transitions */
-.fade-enter-active,
-.fade-leave-active {
-    transition: opacity 0.1s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-    opacity: 0;
+    border-color: #f14668; /* Bulma danger */
 }
 </style>

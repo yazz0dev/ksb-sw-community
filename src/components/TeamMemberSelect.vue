@@ -1,21 +1,20 @@
 <template>
-  <CBox>
-    <CFormControl>
-      <CFormLabel fontSize="sm" fontWeight="medium" color="text-secondary">
-        Add Team Members
-        <CText as="span" color="error">*</CText>
-        <CText as="span" fontSize="xs" color="text-disabled" ml="1">
-          ({{ selectedMembers.length }}/{{ maxMembers }} members)
-        </CText>
-      </CFormLabel>
-      <CFlex>
-        <CSelect
+  <div class="field">
+    <label class="label is-small has-text-grey">
+      Add Team Members
+      <span class="has-text-danger">*</span>
+      <span class="is-size-7 has-text-grey-light ml-1">
+        ({{ selectedMembers.length }}/{{ maxMembers }} members)
+      </span>
+    </label>
+    <div class="control is-expanded">
+      <div class="select is-fullwidth">
+        <select
           v-model="selectedMember"
-          w="full"
-          :isDisabled="isSubmitting || selectedMembers.length >= maxMembers"
+          :disabled="isSubmitting || selectedMembers.length >= maxMembers"
           @change="addMember"
-          placeholder="Select a member..."
         >
+          <option value="" disabled selected>Select a member...</option>
           <option
             v-for="student in availableStudents"
             :key="student.uid"
@@ -24,22 +23,14 @@
           >
             {{ nameCache[student.uid] || student.uid }}
           </option>
-        </CSelect>
-      </CFlex>
-    </CFormControl>
-  </CBox>
+        </select>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import {
-  Box as CBox,
-  Flex as CFlex,
-  FormControl as CFormControl,
-  FormLabel as CFormLabel,
-  Select as CSelect,
-  Text as CText
-} from '@chakra-ui/vue-next';
+import { ref, watch, onMounted } from 'vue';
 
 const props = defineProps({
   selectedMembers: {
@@ -79,7 +70,7 @@ const addMember = () => {
       emit('update:members', newMembers);
     }
   }
-  selectedMember.value = ''; // Reset selection
+  selectedMember.value = '';
 };
 
 watch(() => props.selectedMembers, (newMembers) => {
@@ -87,4 +78,15 @@ watch(() => props.selectedMembers, (newMembers) => {
     emit('update:members', newMembers.slice(0, props.maxMembers));
   }
 }, { deep: true });
+
+onMounted(() => {
+  selectedMember.value = '';
+});
 </script>
+
+<style scoped>
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+</style>

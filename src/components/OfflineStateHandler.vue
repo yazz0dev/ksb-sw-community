@@ -1,43 +1,32 @@
 <template>
-  <CBox v-if="!isOnline" position="fixed" insetX="0" top="0" zIndex="banner">
-    <CFlex
-      bg="error.50"
-      color="error.700"
-      p="4"
-      boxShadow="md"
-      borderBottomWidth="1px"
-      borderColor="error.200"
-      justify="space-between"
-      align="center"
-    >
-      <CFlex align="center">
-        <CIcon name="fa-wifi-slash" mr="2" />
-        <CText>You are currently offline. Some features may be limited.</CText>
-      </CFlex>
-      <CButton
-        variant="link"
-        size="sm"
-        color="error.700"
-        textDecoration="underline"
-        :_hover="{ color: 'error.800' }"
-        @click="checkConnection"
-      >
-        Retry
-      </CButton>
-    </CFlex>
-  </CBox>
+  <div v-if="!isOnline" class="notification is-danger is-light is-radiusless is-fixed-top is-fullwidth p-0" style="z-index: 1000;"> 
+    <div class="level mx-4 my-2">
+      <!-- Left side -->
+      <div class="level-left">
+        <div class="level-item">
+          <span class="icon mr-2">
+            <i class="fas fa-wifi"></i> <!-- Changed to fa-wifi, will add slash via CSS -->
+          </span>
+          <span>You are currently offline. Some features may be limited.</span>
+        </div>
+      </div>
+
+      <!-- Right side -->
+      <div class="level-right">
+        <div class="level-item">
+          <button class="button is-danger is-small is-inverted is-underlined" @click="checkConnection">
+            Retry
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
-import {
-  Box as CBox,
-  Flex as CFlex,
-  Text as CText,
-  Button as CButton,
-  Icon as CIcon
-} from '@chakra-ui/vue-next';
+// Removed Chakra UI imports
 
 const store = useStore();
 const isOnline = ref(navigator.onLine);
@@ -50,7 +39,8 @@ const checkConnection = () => {
 const handleOnline = () => {
   isOnline.value = true;
   store.commit('app/SET_ONLINE_STATUS', true);
-  store.dispatch('app/syncOfflineChanges');
+  // Optionally sync changes when back online
+  // store.dispatch('app/syncOfflineChanges');
 };
 
 const handleOffline = () => {
@@ -61,6 +51,7 @@ const handleOffline = () => {
 onMounted(() => {
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
+  // Initial check
   checkConnection();
 });
 
@@ -69,3 +60,28 @@ onUnmounted(() => {
   window.removeEventListener('offline', handleOffline);
 });
 </script>
+
+<style scoped>
+.is-fixed-top {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+/* Add the slash through the wifi icon */
+.fa-wifi::after {
+  content: "/";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(20deg);
+  font-weight: bold;
+  font-size: 1.2em; /* Adjust size as needed */
+  color: currentColor; /* Inherit icon color */
+}
+
+.is-underlined {
+  text-decoration: underline;
+}
+</style>

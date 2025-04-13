@@ -1,46 +1,48 @@
 <template>
-  <CBox>
+  <div>
     <!-- Show content when authenticated -->
     <slot v-if="isAuthenticated"></slot>
 
     <!-- Auth required message -->
-    <CBox v-else position="relative">
+    <div v-else>
       <slot name="public" v-if="$slots.public"></slot>
       
-      <CBox 
+      <div 
         v-else 
-        bg="var(--color-neutral-light)" 
-        borderWidth="1px" 
-        borderColor="var(--color-border)" 
-        borderRadius="lg" 
-        p="4" 
-        textAlign="center"
+        class="message is-warning"
+        style="background-color: var(--color-neutral-light); border: 1px solid var(--color-border);"
       >
-        <CIcon name="fa-lock" color="var(--color-neutral-dark)" mb="2" fontSize="xl" />
-        <CHeading as="h3" size="sm" fontWeight="medium" color="var(--color-text-primary)" mb="1">Authentication Required</CHeading>
-        <CText fontSize="sm" color="var(--color-text-secondary)" mb="3">{{ message || 'Please log in to access this feature' }}</CText>
-        <CButton 
-          as="router-link" 
-          to="/login" 
-          colorScheme="primary" 
-          size="sm" 
-          color="var(--color-primary-text)" 
-          bg="var(--color-primary)"
-          :_hover="{ bg: 'var(--color-primary-dark)' }"
-          transition="background-color 0.2s"
-        >
-          <CIcon name="fa-sign-in-alt" mr="2" />
-          Log In
-        </CButton>
-      </CBox>
-    </CBox>
-  </CBox>
+        <div class="message-body has-text-centered">
+          <p class="mb-2">
+             <span class="icon is-large" style="color: var(--color-neutral-dark);">
+               <i class="fas fa-lock fa-2x"></i>
+             </span>
+          </p>
+          <h3 class="title is-5 has-text-weight-medium mb-1" style="color: var(--color-text-primary);">Authentication Required</h3>
+          <p class="is-size-7 mb-3" style="color: var(--color-text-secondary);">{{ message || 'Please log in to access this feature' }}</p>
+          <router-link 
+            to="/login" 
+            class="button is-primary is-small"
+            style="color: var(--color-primary-text); background-color: var(--color-primary); transition: background-color 0.2s;"
+            @mouseover="$event.target.style.backgroundColor = 'var(--color-primary-dark)'"
+            @mouseout="$event.target.style.backgroundColor = 'var(--color-primary)'"
+          >
+            <span class="icon is-small">
+              <i class="fas fa-sign-in-alt"></i>
+            </span>
+            <span>Log In</span>
+          </router-link>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { useStore } from 'vuex';
-import { CBox, CButton, CIcon, CText, CHeading } from '@chakra-ui/vue-next';
+// Removed Chakra UI imports
+// import { CBox, CButton, CIcon, CText, CHeading } from '@chakra-ui/vue-next';
 
 const props = defineProps({
   message: {
@@ -52,3 +54,10 @@ const props = defineProps({
 const store = useStore();
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 </script>
+
+<style scoped>
+/* Optional: Add custom styles if needed */
+.message.is-warning {
+    border-radius: 6px; /* Match Chakra's borderRadius='lg' */
+}
+</style>
