@@ -2,7 +2,7 @@
   <CBox bg="surface" borderWidth="1px" borderRadius="lg" shadow="md" overflow="hidden">
     <CBox :p="{ base: '4', sm: '6', lg: '8' }">
       <!-- Header Content -->
-      <CFlex direction={{ base: 'column', md: 'row' }} justify="space-between" align="start" gap="4">
+      <CFlex :direction="{ base: 'column', md: 'row' }" justify="space-between" align="start" gap="4">
         <CBox flex="1">
           <CFlex align="center" gap="2" mb="2">
             <CBadge :colorScheme="statusColor" variant="subtle">
@@ -38,11 +38,11 @@
         </CBox>
 
         <!-- Action Buttons -->
-        <CStack spacing="3" minW={{ md: '200px' }}>
+        <CStack spacing="3" :min-w="{ md: '200px' }">
           <CButton
             v-if="canJoin"
             colorScheme="primary"
-            leftIcon={<CIcon name="fa-plus" />}
+            :left-icon="'fa-plus'"
             @click="$emit('join')"
             :isLoading="isJoining"
           >
@@ -53,7 +53,7 @@
             v-if="canLeave"
             colorScheme="red"
             variant="outline"
-            leftIcon={<CIcon name="fa-times" />}
+            :left-icon="'fa-times'"
             @click="$emit('leave')"
             :isLoading="isLeaving"
           >
@@ -63,7 +63,7 @@
           <CButton
             v-if="canEdit"
             variant="outline"
-            leftIcon={<CIcon name="fa-edit" />}
+            :left-icon="'fa-edit'"
             @click="$router.push(`/event/${event.id}/edit`)"
           >
             Edit Event

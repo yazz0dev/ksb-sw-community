@@ -8,7 +8,8 @@ import { fileURLToPath, URL } from 'url';
 export default defineConfig({
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)) 
+      '@': fileURLToPath(new URL('./src', import.meta.url))
+      // Removed react aliases
     }
   },
   plugins: [
@@ -99,7 +100,22 @@ export default defineConfig({
     }),
   ],
   optimizeDeps: {
-    include: ['@chakra-ui/vue-next']
+    include: ['@chakra-ui/vue-next'],
+    esbuildOptions: {
+      define: {
+        global: 'globalThis'
+      },
+      plugins: [
+        {
+          name: 'load-js-files-as-jsx',
+          setup(build) {
+            build.onLoad({ filter: /\.js$/ }, async (args) => ({
+              loader: 'jsx',
+            }))
+          },
+        },
+      ],
+    }
   },
   build: {
     target: 'es2015', 

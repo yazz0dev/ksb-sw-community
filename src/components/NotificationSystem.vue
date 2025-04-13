@@ -33,11 +33,11 @@
           <CIconButton
             size="sm"
             variant="ghost"
-            icon={<CIcon name="fa-times" />}
-            onClick={() => dismissNotification(notification.id)}
+            icon="fa-times"
+            @click="dismissNotification(notification.id)"
             aria-label="Dismiss notification"
             color="gray.400"
-            _hover={{ color: 'gray.600' }}
+            :_hover="{ color: 'gray.600' }"
           />
         </CFlex>
       </transition-group>

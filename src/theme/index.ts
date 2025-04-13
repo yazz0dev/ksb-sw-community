@@ -1,4 +1,4 @@
-import { defineStyle, defineStyleConfig, extendTheme } from '@chakra-ui/vue-next'
+import { extendTheme } from '@chakra-ui/vue-next'
 
 const theme = extendTheme({
   colors: {
@@ -20,58 +20,38 @@ const theme = extendTheme({
       700: '#334155',
       800: '#1e293b',
       900: '#0f172a',
+    },
+    // Add standard color palettes
+    red: {
+      50: '#fee2e2',
+      100: '#fecaca',
+      500: '#ef4444',
+      600: '#dc2626',
+      700: '#b91c1c',
+    },
+    yellow: {
+      50: '#fefce8',
+      100: '#fef9c3',
+      500: '#eab308',
+      600: '#ca8a04',
+      700: '#a16207',
+    },
+    green: {
+      50: '#f0fdf4',
+      100: '#dcfce7',
+      500: '#22c55e',
+      600: '#16a34a',
+      700: '#15803d',
+    },
+    blue: {
+      50: '#eff6ff',
+      100: '#dbeafe',
+      500: '#3b82f6',
+      600: '#2563eb',
+      700: '#1d4ed8',
     }
-  },
-  components: {
-    Button: defineStyleConfig({
-      baseStyle: defineStyle({
-        fontWeight: 'medium',
-        borderRadius: 'md'
-      }),
-      variants: {
-        primary: defineStyle({
-          bg: 'primary.500',
-          color: 'white',
-          _hover: { bg: 'primary.600' }
-        }),
-        outline: defineStyle({
-          borderColor: 'gray.200',
-          _hover: { bg: 'gray.50' }
-        })
-      }
-    }),
-    Card: defineStyleConfig({
-      baseStyle: defineStyle({
-        container: {
-          bg: 'white',
-          borderRadius: 'lg',
-          boxShadow: 'sm',
-          borderWidth: '1px',
-          borderColor: 'gray.200'
-        }
-      })
-    }),
-    Form: defineStyleConfig({
-      baseStyle: defineStyle({
-        helperText: {
-          fontSize: 'sm',
-          color: 'gray.600'
-        },
-        errorText: {
-          fontSize: 'sm',
-          color: 'red.500'
-        }
-      })
-    }),
-    FormLabel: defineStyleConfig({
-      baseStyle: defineStyle({
-        marginBottom: '2',
-        fontSize: 'sm',
-        fontWeight: 'medium',
-        color: 'gray.700'
-      })
-    })
   }
+  // Removed components section relying on defineStyle/defineStyleConfig
 })
 
 export default theme

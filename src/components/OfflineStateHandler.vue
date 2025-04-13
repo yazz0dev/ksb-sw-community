@@ -19,8 +19,8 @@
         size="sm"
         color="error.700"
         textDecoration="underline"
-        _hover={{ color: 'error.800' }}
-        onClick={checkConnection}
+        :_hover="{ color: 'error.800' }"
+        @click="checkConnection"
       >
         Retry
       </CButton>
