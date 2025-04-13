@@ -1,31 +1,29 @@
 <template>
-  <div class="field">
-    <label class="label is-small has-text-grey">
+  <div class="mb-3">
+    <label class="form-label small text-secondary">
       Add Team Members
-      <span class="has-text-danger">*</span>
-      <span class="is-size-7 has-text-grey-light ml-1">
+      <span class="text-danger">*</span>
+      <span class="text-muted ms-1">
         ({{ selectedMembers.length }}/{{ maxMembers }} members)
       </span>
     </label>
-    <div class="control is-expanded">
-      <div class="select is-fullwidth">
-        <select
-          v-model="selectedMember"
-          :disabled="isSubmitting || selectedMembers.length >= maxMembers"
-          @change="addMember"
-        >
-          <option value="" disabled selected>Select a member...</option>
-          <option
-            v-for="student in availableStudents"
-            :key="student.uid"
-            :value="student.uid"
-            :disabled="selectedMembers.includes(student.uid)"
-          >
-            {{ nameCache[student.uid] || student.uid }}
-          </option>
-        </select>
-      </div>
-    </div>
+    <select
+      class="form-select"
+      v-model="selectedMember"
+      :disabled="isSubmitting || selectedMembers.length >= maxMembers"
+      @change="addMember"
+    >
+      <option value="" disabled selected>Select a member to add...</option>
+      <option
+        v-for="student in availableStudents"
+        :key="student.uid"
+        :value="student.uid"
+        :disabled="selectedMembers.includes(student.uid)"
+      >
+        {{ nameCache[student.uid] || student.uid }}
+      </option>
+    </select>
+    <!-- Selected members are typically displayed in the parent component -->
   </div>
 </template>
 
@@ -70,7 +68,8 @@ const addMember = () => {
       emit('update:members', newMembers);
     }
   }
-  selectedMember.value = '';
+  // Reset dropdown after selection
+  selectedMember.value = ''; 
 };
 
 watch(() => props.selectedMembers, (newMembers) => {
@@ -79,14 +78,12 @@ watch(() => props.selectedMembers, (newMembers) => {
   }
 }, { deep: true });
 
+// Reset selection on mount
 onMounted(() => {
   selectedMember.value = '';
 });
 </script>
 
 <style scoped>
-select:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
+/* Removed Bulma-specific styles */
 </style>

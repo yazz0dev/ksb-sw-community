@@ -459,7 +459,7 @@ export const eventActions = {
     },
 
     // --- REVERTED toggleRatingsOpen ---
-    async toggleRatingsOpen({ dispatch, rootGetters }, { eventId, isOpen }) {
+    async toggleRatingsOpen({ dispatch, rootGetters }, { eventId, isOpen, permanentClose = false }) {
         const eventRef = doc(db, 'events', eventId);
         try {
             const eventSnap = await getDoc(eventRef);
@@ -1112,6 +1112,53 @@ export const eventActions = {
         } catch (error) {
             console.error(`Error submitting organization rating for event ${eventId}:`, error);
             throw error;
+        }
+    },
+
+    // --- ADDED ACTION ---
+    async closeEventPermanently({ commit, rootGetters }, { eventId }) {
+        const currentUser = rootGetters['user/getUser'];
+        if (currentUser?.role !== 'Admin') {
+            throw new Error("Unauthorized: Only Admins can permanently close events.");
+        }
+
+        if (!eventId) {
+            throw new Error("Event ID is required to close an event.");
+        }
+
+        const eventRef = doc(db, 'events', eventId);
+        try {
+            const eventSnap = await getDoc(eventRef);
+            if (!eventSnap.exists()) {
+                throw new Error("Event not found.");
+            }
+            const eventData = eventSnap.data();
+
+            // Double-check conditions (must be Completed, ratings must NOT be open)
+            if (eventData.status !== 'Completed') {
+                 throw new Error("Event must be marked as 'Completed' before closing.");
+            }
+            if (eventData.ratingsOpen === true) {
+                 throw new Error("Ratings must be closed before permanently closing the event.");
+            }
+            if (eventData.closed === true) {
+                console.warn(`Event ${eventId} is already closed.`);
+                return; // Already closed, do nothing further
+            }
+
+            await updateDoc(eventRef, {
+                closed: true, // Set the closed flag
+                ratingsOpen: false // Ensure ratings are marked closed just in case
+            });
+
+            // Commit mutations to update local state
+            const changes = { closed: true, ratingsOpen: false };
+            commit('addOrUpdateEvent', { id: eventId, ...changes }); // Update in the main list
+            commit('updateCurrentEventDetails', { id: eventId, changes }); // Update in the detail view if matching
+        } catch (error) {
+            console.error(`Error permanently closing event ${eventId}:`, error);
+            // Rethrow a more user-friendly message or the original error
+            throw new Error(error.message || 'Failed to permanently close the event.');
         }
     },
 };

@@ -1,20 +1,21 @@
 <template>
-  <section class="section leaderboard-section">
-    <div class="container is-max-desktop">
-      <h1 class="title is-2 has-text-primary mb-5">Leaderboard</h1>
+  <section class="py-5 leaderboard-section">
+    <div class="container-lg">
+      <h1 class="h1 text-primary mb-5">Leaderboard</h1>
       
       <!-- Role Filter -->
-      <div class="mb-6">
-        <p class="label is-small has-text-grey mb-2">Filter by Role:</p>
-        <div class="buttons">
+      <div class="mb-5">
+        <label class="form-label small text-secondary mb-2">Filter by Role:</label>
+        <div class="btn-group flex-wrap" role="group" aria-label="Role Filter">
           <button
             v-for="role in availableRoles"
             :key="role"
             @click="selectRoleFilter(role)"
-            class="button is-small"
+            type="button"
+            class="btn btn-sm"
             :class="{ 
-              'is-primary': selectedRole === role, 
-              'is-light': selectedRole !== role 
+              'btn-primary': selectedRole === role, 
+              'btn-outline-primary': selectedRole !== role 
             }"
           >
             {{ formatRoleName(role) }}
@@ -23,34 +24,36 @@
       </div>
     
       <!-- Loading State -->
-      <div v-if="loading" class="has-text-centered py-6">
-         <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
-         <p class="has-text-grey">Loading...</p>
+      <div v-if="loading" class="text-center py-5">
+         <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+             <span class="visually-hidden">Loading...</span>
+         </div>
+         <p class="text-secondary mt-2">Loading...</p>
       </div>
 
       <!-- Leaderboard Content -->
       <div v-else>
-         <div v-if="filteredUsers.length === 0" class="notification is-info is-light has-text-centered">
+         <div v-if="filteredUsers.length === 0" class="alert alert-info text-center" role="alert">
             No users found for this role.
         </div>
-        <div v-else class="table-container">
-          <table class="table is-fullwidth is-hoverable is-striped">
+        <div v-else class="table-responsive">
+          <table class="table table-hover table-striped align-middle">
             <thead>
               <tr>
-                <th class="has-text-centered" style="width: 5%;">Rank</th>
+                <th class="text-center" style="width: 5%;">Rank</th>
                 <th>Name</th>
-                <th class="has-text-right">XP</th>
+                <th class="text-end">XP</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(user, index) in filteredUsers" :key="user.uid">
-                <td class="has-text-centered has-text-weight-medium">{{ index + 1 }}</td>
+                <td class="text-center fw-medium">{{ index + 1 }}</td>
                 <td>
-                  <router-link :to="`/profile/${user.uid}`" class="has-text-link has-text-weight-medium">
+                  <router-link :to="`/profile/${user.uid}`" class="text-primary fw-medium text-decoration-none">
                      {{ user.name }}
                   </router-link>
                 </td>
-                <td class="has-text-right has-text-weight-semibold">{{ user.displayXp }}</td>
+                <td class="text-end fw-semibold">{{ user.displayXp }}</td>
               </tr>
             </tbody>
           </table>
@@ -128,8 +131,6 @@ const filteredUsers = computed(() => {
             }
             return { ...user, displayXp };
         })
-        // Filter out users with 0 XP AFTER calculating displayXp
-        .filter(user => user.displayXp > 0)
         .sort((a, b) => {
              if (b.displayXp !== a.displayXp) {
                  return b.displayXp - a.displayXp;
@@ -145,46 +146,11 @@ const selectRoleFilter = (role) => {
 
 <style scoped>
 .leaderboard-section {
-  background-color: var(--color-background);
+  background-color: var(--bs-body-bg); /* Updated variable */
 }
 
-/* Loader Styles */
-.loader {
-  border-radius: 50%;
-  border-width: 2px;
-  border-style: solid;
-  width: 3em;
-  height: 3em;
-  animation: spinAround 1s infinite linear;
-}
-@keyframes spinAround {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(359deg); }
-}
+/* Loader Styles Removed */
 
-/* Custom Table Styles (Optional) */
-table {
-    margin-top: 1.5rem;
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
-}
-
-thead th {
-  background-color: var(--color-surface-variant);
-  border-color: var(--color-border);
-  color: var(--color-text-primary);
-}
-
-tbody td {
-  border-color: var(--color-border-light);
-}
-
-.table.is-striped tbody tr:nth-child(even) {
-  background-color: var(--color-surface-variant);
-}
-
-.table.is-hoverable tbody tr:hover {
-  background-color: var(--color-neutral-light); /* Assuming this exists, otherwise use surface-variant */
-}
+/* Custom Table Styles Removed */
 </style>
 

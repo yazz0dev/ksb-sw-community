@@ -1,22 +1,22 @@
 <template>
-    <section class="section resources-section">
-        <div class="container is-max-widescreen">
-            <h2 class="title is-2 has-text-primary mb-6">Resources</h2>
+    <section class="py-5 resources-section">
+        <div class="container-xxl">
+            <h1 class="h1 text-primary mb-5">Resources</h1>
 
             <!-- Empty State -->
-            <div v-if="categories.length === 0" class="notification is-info is-light">
-                <span class="icon mr-2"><i class="fas fa-info-circle"></i></span>
+            <div v-if="categories.length === 0" class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
                 No resources available at the moment.
             </div>
 
             <!-- Resource Categories Grid -->
-            <div v-else class="columns is-multiline is-variable is-4">
-                <div v-for="(category, index) in categories" :key="index" class="column is-one-third-desktop is-half-tablet">
-                    <div class="card resource-card is-fullheight">
-                        <header class="card-header resource-card-header">
-                            <p class="card-header-title has-text-primary is-size-6">{{ category.title }}</p>
-                        </header>
-                        <div class="card-content p-0">
+            <div v-else class="row g-4">
+                <div v-for="(category, index) in categories" :key="index" class="col-lg-4 col-md-6">
+                    <div class="card resource-card h-100">
+                        <div class="card-header resource-card-header">
+                            <h6 class="card-title text-primary mb-0">{{ category.title }}</h6>
+                        </div>
+                        <div class="list-group list-group-flush">
                             <div v-if="category.items && category.items.length > 0">
                                 <a 
                                     v-for="(resource, rIndex) in category.items" 
@@ -24,20 +24,22 @@
                                     :href="resource.content"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="list-item is-flex is-justify-content-space-between is-align-items-center p-3 has-text-grey resource-link"
+                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center resource-link"
                                 >
-                                    <span class="is-flex is-align-items-center" style="min-width: 0;">
-                                        <span class="icon mr-2 has-text-grey-light"><i :class="['fas', getIconClass(resource.type)]"></i></span>
-                                        <span class="is-truncated">{{ resource.title }}</span>
+                                    <span class="d-flex align-items-center" style="min-width: 0;">
+                                        <i :class="['fas', getIconClass(resource.type), 'me-2', 'text-secondary']"></i>
+                                        <span class="text-truncate">{{ resource.title }}</span>
                                     </span>
-                                    <span class="icon is-small has-text-grey-light external-link-icon">
-                                        <i class="fas fa-external-link-alt"></i>
+                                    <span class="external-link-icon text-secondary">
+                                        <i class="fas fa-external-link-alt fa-sm"></i>
                                     </span>
                                 </a>
                             </div>
-                            <p v-else class="p-4 has-text-grey-light is-size-7">
-                                No items in this category.
-                            </p>
+                            <div v-else class="list-group-item">
+                                <p class="p-0 m-0 text-secondary small">
+                                    No items in this category.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -103,8 +105,8 @@ const getIconClass = (type) => {
 
 .resource-card {
     transition: all 0.2s;
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
+    background-color: var(--bs-card-bg);
+    border: 1px solid var(--bs-border-color);
     box-shadow: 0 2px 3px rgba(10, 10, 10, 0.05);
 }
 
@@ -114,16 +116,8 @@ const getIconClass = (type) => {
 }
 
 .resource-card-header {
-    background-color: var(--color-surface-variant);
-    border-bottom: 1px solid var(--color-border);
-}
-
-.list-item + .list-item {
-    border-top: 1px solid var(--color-border-light);
-}
-
-.list-item:hover {
-    background-color: var(--color-surface-variant);
+    background-color: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
 }
 
 .resource-link {
@@ -142,6 +136,10 @@ const getIconClass = (type) => {
 
 .resource-link:hover .external-link-icon {
     opacity: 0.6;
+}
+
+[style*="min-width: 0"] {
+    min-width: 0 !important;
 }
 
 </style>

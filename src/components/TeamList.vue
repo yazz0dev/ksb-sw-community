@@ -1,26 +1,25 @@
 <template>
-  <div class="p-4 sm:p-6">
+  <div class="p-4 p-sm-5">
     <TransitionGroup name="fade-fast" tag="div">
       <div 
         v-for="team in teamsWithDetails"
         :key="team.teamName"
         class="mb-4"
       >
-        <div class="card team-card">
-          <div class="card-content p-4 sm:p-5">
-            <div class="is-flex is-justify-content-space-between is-align-items-flex-start mb-3">
-              <h3 class="title is-5 has-text-primary mb-0">{{ team.teamName }}</h3>
+        <div class="card team-card shadow-sm">
+          <div class="card-body p-4 p-sm-5">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <h5 class="h5 text-primary mb-0">{{ team.teamName }}</h5>
               <!-- Add any badges or right-side content here if needed -->
             </div>
 
             <button
-              class="button is-small is-outlined"
+              class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
               @click="toggleTeamDetails(team.teamName)"
               :aria-expanded="team.showDetails ? 'true' : 'false'"
+              type="button"
             >
-              <span class="icon is-small">
-                <i class="fas" :class="team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-              </span>
+              <i class="fas fa-fw me-1" :class="team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
               <span>
                 {{ team.showDetails ? 'Hide Members' : `Show Members (${team.members?.length || 0})` }}
               </span>
@@ -28,42 +27,33 @@
 
             <!-- Collapsible Details Section -->
             <Transition name="slide-fade">
-              <div v-if="team.showDetails" class="mt-4 pt-4" style="border-top: 1px solid var(--color-border);">
-                <p v-if="organizerNamesLoading" class="is-size-7 has-text-grey is-italic">
-                  <span class="icon is-small"><i class="fas fa-spinner fa-spin"></i></span> Loading members...
+              <div v-if="team.showDetails" class="mt-4 pt-4 border-top" style="border-color: var(--bs-border-color) !important;">
+                <p v-if="organizerNamesLoading" class="small text-secondary fst-italic">
+                  <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Loading members...
                 </p>
                 <div v-else-if="team.members && team.members.length > 0">
-                  <p class="heading is-size-7 mb-2">Team Members</p>
-                  <div class="is-flex is-flex-direction-column" style="gap: 0.5rem;">
+                  <p class="text-muted small fw-bold text-uppercase mb-2">Team Members</p>
+                  <div class="d-flex flex-column" style="gap: 0.5rem;">
                     <div
                       v-for="memberId in team.members"
                       :key="memberId"
-                      class="is-flex is-align-items-center p-2 rounded-md transition-colors duration-150"
-                      :style="{
-                        backgroundColor: memberId === currentUserUid ? 'var(--color-secondary-light)' : 'transparent',
-                        fontWeight: memberId === currentUserUid ? '500' : 'normal'
-                      }"
+                      class="d-flex align-items-center p-2 rounded transition-colors duration-150"
+                      :class="{ 'bg-primary-subtle': memberId === currentUserUid }"
                     >
-                      <span class="icon has-text-grey mr-2" style="width: 1rem; text-align: center;">
+                      <span class="text-secondary me-2" style="width: 1rem; text-align: center;">
                         <i class="fas fa-user"></i>
                       </span>
                       <router-link
                         :to="{ name: 'PublicProfile', params: { userId: memberId } }"
-                        class="is-size-7 has-text-primary is-truncated"
-                        :class="{ 'has-text-weight-semibold': memberId === currentUserUid }"
-                        :style="{ 
-                          '--hover-color': 'var(--bulma-primary)', 
-                          fontWeight: memberId === currentUserUid ? '600' : 'normal' 
-                        }"
-                        @mouseover="$event.target.style.color = 'var(--hover-color)'"
-                        @mouseout="$event.target.style.color = ''"
+                        class="small text-primary text-truncate"
+                        :class="{ 'fw-semibold': memberId === currentUserUid }"
                       >
                         {{ getUserName(memberId) || memberId }} {{ memberId === currentUserUid ? '(You)' : '' }}
                       </router-link>
                     </div>
                   </div>
                 </div>
-                <p v-else class="is-size-7 has-text-grey is-italic">
+                <p v-else class="small text-secondary fst-italic">
                   No members assigned to this team yet.
                 </p>
               </div>
@@ -73,17 +63,14 @@
       </div>
     </TransitionGroup>
 
-    <div v-if="!loading && teamsWithDetails.length === 0" class="message is-info is-small mt-4">
-      <div class="message-body">
-        <span class="icon is-small mr-1"><i class="fas fa-info-circle"></i></span>
+    <div v-if="!loading && teamsWithDetails.length === 0" class="alert alert-info small d-flex align-items-center mt-4" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
         No teams have been created for this event yet.
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-// Removed Chakra UI imports
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -118,16 +105,8 @@ const props = defineProps({
 
 const store = useStore();
 const router = useRouter();
-// canRate computed property seems unused in the template, removed for now.
-// const canRate = computed(() => {
-//     const userRole = store.getters['user/getUserRole'];
-//     return store.getters['user/isAuthenticated'] && userRole !== 'Admin';
-// });
 
 const teamsWithDetails = ref([]);
-// searchQueries and dropdownVisible refs seem unused, removed for now.
-// const searchQueries = ref({});
-// const dropdownVisible = ref({});
 const loading = ref(true); // Add loading state
 
 let unwatchTeams = null;
@@ -177,8 +156,7 @@ const toggleTeamDetails = (teamName) => {
     }
 };
 
-// Removed unused emits update:teams and canAddTeam
-// defineEmits(['update:teams', 'canAddTeam']);
+// Removed unused emits
 
 </script>
 
@@ -187,9 +165,8 @@ const toggleTeamDetails = (teamName) => {
   transition: box-shadow 0.2s ease-in-out;
   overflow: hidden; /* Ensure content doesn't overflow during transitions */
 }
-.team-card:hover {
-  box-shadow: 0 5px 10px rgba(10, 10, 10, 0.1);
-}
+/* Removed hover style as Bootstrap cards have subtle hover effects or can be customized globally */
+/* .team-card:hover { ... } */
 
 /* Transition for collapsible section */
 .slide-fade-enter-active {
@@ -219,5 +196,13 @@ const toggleTeamDetails = (teamName) => {
 
 .fade-fast-move {
     transition: transform 0.3s ease-out;
+}
+
+/* Ensure router links don't have default underline if not desired */
+.router-link {
+  text-decoration: none;
+}
+.router-link:hover {
+  text-decoration: underline;
 }
 </style>

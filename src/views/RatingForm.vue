@@ -1,157 +1,155 @@
 <template>
-  <div class="section">
-    <div class="container is-max-desktop">
+  <div class="py-5">
+    <div class="container-lg">
       <button
-        class="button is-small is-outlined mb-4"
+        class="btn btn-sm btn-outline-secondary mb-4 d-inline-flex align-items-center"
         @click="goBack"
       >
-        <span class="icon is-small"><i class="fas fa-arrow-left"></i></span>
+        <i class="fas fa-arrow-left me-1"></i>
         <span>Back</span>
       </button>
 
-      <div v-if="!loading && eventName" class="has-text-centered mb-6">
-        <h1 class="title is-3">
+      <div v-if="!loading && eventName" class="text-center mb-5">
+        <h1 class="h3">
            {{ isTeamEvent ? 'Rate Teams & Select Best Performer' : 'Select Winners' }}
         </h1>
-        <p class="subtitle is-6 has-text-grey">
+        <p class="fs-6 text-secondary">
            Event: {{ eventName }}
         </p>
       </div>
 
-      <div v-if="loading" class="is-flex is-justify-content-center my-6 py-6">
-         <div class="loader is-loading" style="height: 4rem; width: 4rem;"></div>
+      <div v-if="loading" class="d-flex justify-content-center my-5 py-5">
+         <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+         </div>
       </div>
 
-      <div v-else-if="errorMessage" class="message is-danger">
-         <div class="message-body">{{ errorMessage }}</div>
+      <div v-else-if="errorMessage" class="alert alert-danger" role="alert">
+         {{ errorMessage }}
       </div>
 
-      <div v-else-if="!event" class="message is-warning">
-         <div class="message-body">Event not found or ratings are not open.</div>
+      <div v-else-if="!event" class="alert alert-warning" role="alert">
+         Event not found or ratings are not open.
       </div>
 
-      <div v-else-if="!hasValidRatingCriteria" class="message is-warning">
-         <div class="message-body">This event has no valid rating criteria defined. Please contact an event organizer.</div>
+      <div v-else-if="!hasValidRatingCriteria" class="alert alert-warning" role="alert">
+         This event has no valid rating criteria defined. Please contact an event organizer.
       </div>
 
       <div v-else>
-        <div class="box" style="background-color: var(--color-surface); border: 1px solid var(--color-border);">
-            <form @submit.prevent="submitRating">
-               <div class="is-flex is-flex-direction-column" style="gap: 1.5rem;">
-                  <template v-if="isTeamEvent">
-                    <!-- Team Event Rating Section -->
-                    <div>
-                      <h3 class="title is-5 mb-4">Select Best Team per Criterion:</h3>
-                      <div class="is-flex is-flex-direction-column mb-5" style="gap: 1rem;">
-                        <div
-                          v-for="allocation in sortedXpAllocation"
-                          :key="`team-crit-${allocation.constraintIndex}`"
-                          class="field"
-                        >
-                           <label class="label is-small">{{ allocation.constraintLabel }} ({{ allocation.points }} XP)</label>
-                           <div class="control">
-                             <div class="select is-fullwidth">
+        <div class="card shadow-sm" style="background-color: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+           <div class="card-body">
+              <form @submit.prevent="submitRating">
+                 <div class="d-flex flex-column gap-4">
+                    <template v-if="isTeamEvent">
+                      <!-- Team Event Rating Section -->
+                      <div>
+                        <h5 class="h5 mb-4">Select Best Team per Criterion:</h5>
+                        <div class="d-flex flex-column mb-4 gap-3">
+                          <div
+                            v-for="allocation in sortedXpAllocation"
+                            :key="`team-crit-${allocation.constraintIndex}`"
+                            class="mb-2" 
+                          >
+                             <label :for="`team-select-${allocation.constraintIndex}`" class="form-label small">{{ allocation.constraintLabel }} ({{ allocation.points }} XP)</label>
+                             <select
+                               :id="`team-select-${allocation.constraintIndex}`"
+                               class="form-select form-select-sm"
+                               v-model="ratings[`constraint${allocation.constraintIndex}`].teamName"
+                               required
+                               :disabled="isSubmitting"
+                             >
+                               <option disabled value="">Select Team...</option>
+                               <option v-for="team in eventTeams" :key="team.teamName" :value="team.teamName">
+                                 {{ team.teamName }}
+                               </option>
+                             </select>
+                          </div>
+                        </div>
+
+                        <h5 class="h5 mb-3 pt-4 border-top">
+                          Select Overall Best Performer:
+                        </h5>
+                        <p v-if="!allTeamMembers || allTeamMembers.length === 0" class="small text-secondary fst-italic">
+                          No participants found in teams.
+                        </p>
+                        <div v-else>
+                          <div class="mb-3">
+                             <label for="best-performer-select" class="form-label small mb-1">Select the standout individual participant</label>
+                             <select
+                               id="best-performer-select"
+                               class="form-select form-select-sm"
+                               v-model="ratings.bestPerformer"
+                               required
+                               :disabled="isSubmitting"
+                             >
+                               <option disabled value="">Select Participant...</option>
+                               <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
+                                 {{ nameCache[member.uid] || member.uid }} ({{ getTeamNameForMember(member.uid) }})
+                               </option>
+                             </select>
+                             <div class="form-text small text-secondary mt-2 d-flex align-items-center">
+                                <i class="fas fa-award text-info me-1"></i> Best Performer gets a bonus 10 XP (General)
+                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template v-else>
+                      <!-- Individual Event Winner Selection Section -->
+                      <div>
+                        <h5 class="h5 mb-4">Select Winners for Each Criterion:</h5>
+                        <div class="d-flex flex-column gap-3">
+                          <div
+                            v-for="allocation in sortedXpAllocation"
+                            :key="`ind-crit-${allocation.constraintIndex}`"
+                            class="p-3 border rounded bg-light"
+                          >
+                             <h6 class="h6 mb-3">
+                               {{ allocation.constraintLabel }}
+                             </h6>
+                             <div class="mb-2">
+                               <label :for="`winner-select-${allocation.constraintIndex}`" class="form-label small mb-1">Select Winner</label>
                                <select
-                                 v-model="ratings[`constraint${allocation.constraintIndex}`].teamName"
+                                 :id="`winner-select-${allocation.constraintIndex}`"
+                                 class="form-select form-select-sm"
+                                 v-model="ratings[`constraint${allocation.constraintIndex}`].winnerId"
                                  required
                                  :disabled="isSubmitting"
                                >
-                                 <option disabled value="">Select Team...</option>
-                                 <option v-for="team in eventTeams" :key="team.teamName" :value="team.teamName">
-                                   {{ team.teamName }}
-                                 </option>
-                               </select>
-                             </div>
-                           </div>
-                        </div>
-                      </div>
-
-                      <h3 class="title is-5 mb-3 pt-4" style="border-top: 1px solid var(--color-border);">
-                        Select Overall Best Performer:
-                      </h3>
-                      <p v-if="!allTeamMembers || allTeamMembers.length === 0" class="is-size-7 has-text-grey is-italic">
-                        No participants found in teams.
-                      </p>
-                      <div v-else>
-                        <div class="field">
-                           <label class="label is-small mb-1">Select the standout individual participant</label>
-                           <div class="control">
-                             <div class="select is-fullwidth">
-                               <select
-                                 v-model="ratings.bestPerformer"
-                                 required
-                                 :disabled="isSubmitting"
-                               >
-                                 <option disabled value="">Select Participant...</option>
-                                 <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
-                                   {{ nameCache[member.uid] || member.uid }} ({{ getTeamNameForMember(member.uid) }})
-                                 </option>
-                               </select>
-                             </div>
-                           </div>
-                           <p class="help is-size-7 has-text-grey mt-2 is-flex is-align-items-center">
-                              <span class="icon is-small has-text-info mr-1"><i class="fas fa-award"></i></span> Best Performer gets a bonus 10 XP (General)
-                           </p>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-
-                  <template v-else>
-                    <!-- Individual Event Winner Selection Section -->
-                    <div>
-                      <h3 class="title is-5 mb-4">Select Winners for Each Criterion:</h3>
-                      <div class="is-flex is-flex-direction-column" style="gap: 1rem;">
-                        <div
-                          v-for="allocation in sortedXpAllocation"
-                          :key="`ind-crit-${allocation.constraintIndex}`"
-                          class="box is-shadowless p-4" style="background-color: var(--color-surface-variant); border: 1px solid var(--color-border-light);"
-                        >
-                           <h4 class="title is-6 mb-3">
-                             {{ allocation.constraintLabel }}
-                           </h4>
-                           <div class="field">
-                             <label class="label is-small mb-1">Select Winner</label>
-                             <div class="control">
-                               <div class="select is-fullwidth">
-                                 <select
-                                   v-model="ratings[`constraint${allocation.constraintIndex}`].winnerId"
-                                   required
-                                   :disabled="isSubmitting"
+                                 <option value="">Choose winner...</option>
+                                 <option
+                                   v-for="participantId in availableParticipants"
+                                   :key="`ind-part-${participantId}`"
+                                   :value="participantId"
                                  >
-                                   <option value="">Choose winner...</option>
-                                   <option
-                                     v-for="participantId in availableParticipants"
-                                     :key="`ind-part-${participantId}`"
-                                     :value="participantId"
-                                   >
-                                     {{ nameCache[participantId] || participantId }}
-                                   </option>
-                                 </select>
+                                   {{ nameCache[participantId] || participantId }}
+                                 </option>
+                               </select>
+                               <div v-if="allocation.points" class="form-text small text-secondary mt-2 d-flex align-items-center">
+                                 <i class="fas fa-trophy text-warning me-1"></i> Winner gets {{ allocation.points }} XP
+                                 <span class="ms-1 text-body-tertiary">({{ formatRoleName(allocation.role) }})</span>
                                </div>
                              </div>
-                             <p v-if="allocation.points" class="help is-size-7 has-text-grey mt-2 is-flex is-align-items-center">
-                               <span class="icon is-small has-text-warning mr-1"><i class="fas fa-trophy"></i></span> Winner gets {{ allocation.points }} XP
-                               <span class="ml-1 has-text-grey-light">({{ formatRoleName(allocation.role) }})</span>
-                             </p>
-                           </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </template>
+                    </template>
 
-                  <div class="field mt-5">
-                     <button
-                       type="submit"
-                       class="button is-primary is-fullwidth"
-                       :class="{ 'is-loading': isSubmitting }"
-                       :disabled="!isValid || isSubmitting"
-                     >
-                       {{ submitButtonText }}
-                     </button>
-                  </div>
-               </div>
-            </form>
+                    <div class="mt-4 d-grid">
+                       <button
+                         type="submit"
+                         class="btn btn-primary"
+                         :disabled="!isValid || isSubmitting"
+                       >
+                         <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                         {{ submitButtonText }}
+                       </button>
+                    </div>
+                 </div>
+              </form>
+           </div>
         </div>
       </div>
     </div>
@@ -502,7 +500,5 @@ const initializeIndividualEventForm = async (eventDetails, loadExisting = false)
 </script>
 
 <style scoped>
-.box {
-    box-shadow: 0 4px 10px rgba(10, 10, 10, 0.1);
-}
+/* Removed .box shadow style */
 </style>

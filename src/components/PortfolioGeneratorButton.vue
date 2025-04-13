@@ -1,14 +1,13 @@
 <template>
   <button
-    class="button is-primary is-small has-shadow"
+    type="button"
+    class="btn btn-primary btn-sm shadow-sm d-inline-flex align-items-center"
     @click="generatePDF"
     :disabled="isGenerating"
-    :class="{ 'is-loading': isGenerating }"
     style="transition: background-color 0.2s;"
   >
-    <span class="icon is-small">
-      <i :class="['fas', isGenerating ? 'fa-spinner fa-spin' : 'fa-file-pdf']"></i>
-    </span>
+    <span v-if="isGenerating" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+    <i v-else class="fas fa-file-pdf me-2"></i>
     <span>{{ isGenerating ? 'Generating...' : 'Generate Portfolio PDF' }}</span>
   </button>
 </template>
@@ -60,20 +59,8 @@ const generatePDF = async () => {
 </script>
 
 <style scoped>
-.button.has-shadow {
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); /* Approximate shadow-sm */
-}
-
-.button:hover {
-  background-color: var(--color-primary-dark); /* Assuming you have this variable */
-}
-
-.button:focus {
-  /* Bulma handles focus outlines, but you can customize if needed */
-  /* box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.6); */ 
-}
-
-.button:disabled {
-  opacity: 0.5;
+/* Removed Bulma-specific styles */
+.btn {
+    min-width: 150px; /* Optional: give button a min-width */
 }
 </style>

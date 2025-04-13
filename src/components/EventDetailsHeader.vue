@@ -1,70 +1,70 @@
 <template>
-  <div class="box" style="background-color: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); overflow: hidden;">
-    <div class="p-4 p-6-tablet p-8-desktop">
+  <div class="event-details-header bg-light border rounded shadow-sm overflow-hidden">
+    <div class="p-4 p-md-5">
       <!-- Header Content -->
-      <div class="columns is-variable is-4 is-align-items-start">
+      <div class="row g-4 align-items-start">
         <!-- Left Column: Details -->
-        <div class="column is-flex-grow-1">
-          <div class="tags mb-2">
-            <span :class="['tag', statusTagClass, 'is-light']">{{ event.status }}</span>
-            <span v-if="event.closed" class="tag is-light">Archived</span>
+        <div class="col-md">
+          <div class="d-flex gap-2 mb-2 flex-wrap">
+            <span :class="['badge rounded-pill fs-6', statusTagClass]">{{ event.status }}</span>
+            <span v-if="event.closed" class="badge rounded-pill bg-light text-dark fs-6">Archived</span>
           </div>
 
-          <h1 class="title is-2 has-text-primary mb-2">
+          <h1 class="display-5 text-primary mb-2">
             {{ event.title }}
           </h1>
 
-          <div class="is-flex is-flex-wrap-wrap mb-4" style="gap: 1.5rem;">
-            <div class="is-flex is-align-items-center">
-              <span class="icon has-text-grey mr-2"><i class="fas fa-calendar"></i></span>
-              <p class="is-size-7 has-text-grey">
+          <div class="d-flex flex-wrap mb-4 gap-4">
+            <div class="d-flex align-items-center">
+              <span class="text-secondary me-2"><i class="fas fa-calendar"></i></span>
+              <small class="text-secondary">
                 {{ formatDate(event.startDate) }} - {{ formatDate(event.endDate) }}
-              </p>
+              </small>
             </div>
-            <div class="is-flex is-align-items-center">
-              <span class="icon has-text-grey mr-2"><i class="fas fa-users"></i></span>
-              <p class="is-size-7 has-text-grey">
+            <div class="d-flex align-items-center">
+              <span class="text-secondary me-2"><i class="fas fa-users"></i></span>
+              <small class="text-secondary">
                 {{ event.teamSize }} members per team
-              </p>
+              </small>
             </div>
           </div>
 
           <!-- Rendered Description -->
-          <div class="content is-small" v-html="renderedDescription"></div>
+          <div class="rendered-description small" v-html="renderedDescription"></div>
 
         </div>
 
         <!-- Right Column: Action Buttons -->
-        <div class="column is-narrow">
-          <div class="buttons is-flex is-flex-direction-column" style="min-width: 180px;">
+        <div class="col-md-auto">
+          <div class="d-flex flex-column gap-2" style="min-width: 180px;">
             <button
               v-if="canJoin"
-              class="button is-primary is-fullwidth"
-              :class="{ 'is-loading': isJoining }"
+              class="btn btn-primary w-100 d-flex align-items-center justify-content-center"
               :disabled="isJoining"
               @click="$emit('join')"
             >
-              <span class="icon"><i class="fas fa-plus"></i></span>
+              <span v-if="isJoining" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              <i v-else class="fas fa-plus me-2"></i>
               <span>Join Event</span>
             </button>
 
             <button
               v-if="canLeave"
-              class="button is-danger is-outlined is-fullwidth"
-              :class="{ 'is-loading': isLeaving }"
+              class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center"
               :disabled="isLeaving"
               @click="$emit('leave')"
             >
-              <span class="icon"><i class="fas fa-times"></i></span>
+              <span v-if="isLeaving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              <i v-else class="fas fa-times me-2"></i>
               <span>Leave Event</span>
             </button>
 
             <button
               v-if="canEdit"
-              class="button is-outlined is-fullwidth"
+              class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center"
               @click="$router.push(`/event/${event.id}/edit`)"
             >
-               <span class="icon"><i class="fas fa-edit"></i></span>
+               <i class="fas fa-edit me-2"></i>
               <span>Edit Event</span>
             </button>
           </div>
@@ -80,7 +80,6 @@ import { useRouter } from 'vue-router';
 import { marked } from 'marked'; 
 import DOMPurify from 'dompurify';
 import { DateTime } from 'luxon';
-// Removed Chakra UI imports
 
 const props = defineProps({
   event: { type: Object, required: true },
@@ -113,32 +112,31 @@ const renderedDescription = computed(() => {
   return DOMPurify.sanitize(rawHtml);
 });
 
-// Map status to Bulma tag classes
+// Map status to Bootstrap badge classes
 const statusTagClass = computed(() => {
   switch (props.event.status) {
-    case 'Pending': return 'is-warning';
-    case 'Approved': return 'is-info'; // Using info for approved
-    case 'InProgress': return 'is-primary'; // Using primary for in progress
-    case 'Completed': return 'is-success';
-    case 'Cancelled': return 'is-danger';
-    default: return 'is-light'; // Default greyish tag
+    case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
+    case 'Approved': return 'bg-info-subtle text-info-emphasis'; 
+    case 'InProgress': return 'bg-primary-subtle text-primary-emphasis'; 
+    case 'Completed': return 'bg-success-subtle text-success-emphasis';
+    case 'Cancelled': return 'bg-danger-subtle text-danger-emphasis';
+    default: return 'bg-secondary-subtle text-secondary-emphasis'; // Default greyish badge
   }
 });
 </script>
 
 <style scoped>
-/* Ensure content class styles apply */
-:deep(.content p) {
-  margin-bottom: 0.5em;
+/* Minor style adjustments if needed for rendered HTML */
+.rendered-description :deep(p:last-child) {
+  margin-bottom: 0; /* Remove extra margin from last paragraph */
 }
-:deep(.content ul) {
-  margin-left: 1.5em;
-  margin-top: 0.5em;
+.rendered-description :deep(ul) {
+  padding-left: 1.5rem; /* Adjust list padding if needed */
+  margin-top: 0.5rem;
 }
 
-/* Ensure buttons in column stack nicely */
-.buttons.is-flex-direction-column > .button:not(:last-child) {
-    margin-bottom: 0.75rem; 
-    margin-right: 0; /* Override Bulma default */
+/* Ensure buttons maintain consistent height with spinner */
+.btn {
+  min-height: 38px; /* Adjust based on Bootstrap's default btn height */
 }
 </style>

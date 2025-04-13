@@ -1,85 +1,85 @@
 <template>
   <div>
     <!-- Loading State -->
-    <div v-if="loading" class="is-flex is-flex-direction-column is-align-items-center is-justify-content-center py-6 has-text-grey">
-      <div class="loader is-loading mb-3" style="height: 4rem; width: 4rem; border: 5px solid var(--bulma-primary); border-right-color: transparent; border-top-color: transparent;"></div>
+    <div v-if="loading" class="d-flex flex-column align-items-center justify-content-center py-5 text-secondary">
+      <div class="spinner-border text-primary mb-3" role="status" style="width: 4rem; height: 4rem;">
+        <span class="visually-hidden">Loading...</span>
+      </div>
       <p>Loading profile data...</p>
     </div>
 
     <!-- Error/Not Found States -->
-    <div v-else-if="errorMessage || !user" class="message is-warning">
-      <div class="message-body">
-        <div class="is-flex is-align-items-center">
-          <span class="icon has-text-warning"><i class="fas fa-exclamation-triangle"></i></span>
-          <span class="ml-3">{{ errorMessage || 'User profile data not available or could not be loaded.' }}</span>
-        </div>
-      </div>
+    <div v-else-if="errorMessage || !user" class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="fas fa-exclamation-triangle me-3"></i>
+        <div>{{ errorMessage || 'User profile data not available or could not be loaded.' }}</div>
     </div>
 
     <!-- Main Content -->
-    <div v-else class="columns is-variable is-6-desktop">
+    <div v-else class="row g-4 g-lg-5">
       <!-- Left Column -->
-      <div class="column is-one-third-desktop">
-        <div class="card">
-          <div class="card-content has-text-centered">
+      <div class="col-lg-4">
+        <div class="card shadow-sm">
+          <div class="card-body text-center p-4">
             <div class="mb-4">
-              <figure class="image is-128x128 is-inline-block">
-                 <img 
-                    :src="user.photoURL || defaultAvatarUrl" 
-                    :alt="user.name || 'Profile Photo'" 
-                    class="is-rounded" 
-                    style="object-fit: cover; border: 3px solid var(--bulma-primary); box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
-                    @error="handleImageError" 
-                  />
-              </figure>
+              <img 
+                :src="user.photoURL || defaultAvatarUrl" 
+                :alt="user.name || 'Profile Photo'" 
+                class="img-fluid rounded-circle border border-3 border-primary shadow-sm" 
+                style="width: 128px; height: 128px; object-fit: cover;" 
+                @error="handleImageError" 
+              />
             </div>
-            <h1 class="title is-4 mb-5">{{ user.name || 'User Profile' }}</h1>
-            <div class="level is-mobile mb-6">
-              <div class="level-item has-text-centered">
-                <div class="box" style="background-color: var(--color-primary-light); border: 1px solid var(--color-primary-border); border-radius: 6px; padding: 0.75rem;">
-                  <p class="title is-4 has-text-primary">{{ stats.participatedCount }}</p>
-                  <p class="heading is-size-7">Participated</p>
+            <h1 class="h4 mb-4">{{ user.name || 'User Profile' }}</h1>
+            <!-- Stats Section -->
+            <div class="d-flex justify-content-around mb-5">
+              <div class="text-center">
+                <div class="bg-primary-subtle text-primary-emphasis p-2 rounded mb-1">
+                  <h4 class="h4 mb-0">{{ stats.participatedCount }}</h4>
                 </div>
+                <small class="text-muted text-uppercase">Participated</small>
               </div>
-              <div class="level-item has-text-centered">
-                <div class="box" style="background-color: var(--color-primary-light); border: 1px solid var(--color-primary-border); border-radius: 6px; padding: 0.75rem;">
-                  <p class="title is-4 has-text-primary">{{ stats.organizedCount }}</p>
-                  <p class="heading is-size-7">Organized</p>
-                </div>
+              <div class="text-center">
+                 <div class="bg-primary-subtle text-primary-emphasis p-2 rounded mb-1">
+                  <h4 class="h4 mb-0">{{ stats.organizedCount }}</h4>
+                 </div>
+                <small class="text-muted text-uppercase">Organized</small>
               </div>
-              <div class="level-item has-text-centered">
-                <div class="box" style="background-color: var(--color-primary-light); border: 1px solid var(--color-primary-border); border-radius: 6px; padding: 0.75rem;">
-                  <p class="title is-4 has-text-warning">{{ stats.wonCount }}</p>
-                  <p class="heading is-size-7">Won</p>
-                </div>
+              <div class="text-center">
+                 <div class="bg-warning-subtle text-warning-emphasis p-2 rounded mb-1">
+                  <h4 class="h4 mb-0">{{ stats.wonCount }}</h4>
+                 </div>
+                <small class="text-muted text-uppercase">Won</small>
               </div>
             </div>
-            <div class="mb-6">
-              <p class="is-size-7 has-text-weight-semibold has-text-grey mb-1">
-                <span class="icon has-text-warning mr-1"><i class="fas fa-star"></i></span> Total XP Earned
+            <!-- Total XP Section -->
+            <div class="mb-4">
+              <p class="small fw-semibold text-secondary mb-1">
+                <i class="fas fa-star text-warning me-1"></i> Total XP Earned
               </p>
-              <p class="title is-2 has-text-primary">{{ totalXp }}</p>
+              <p class="display-5 text-primary fw-bold">{{ totalXp }}</p>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Right Column -->
-      <div class="column">
-        <div class="is-flex is-flex-direction-column" style="gap: 1.5rem;">
+      <div class="col-lg-8">
+        <div class="d-flex flex-column gap-4">
           <!-- XP Breakdown -->
-          <div v-if="hasXpData" class="card">
-             <header class="card-header">
-               <p class="card-header-title">XP Breakdown by Role</p>
-             </header>
-             <div class="card-content">
-               <div class="columns is-multiline is-variable is-4">
-                  <div v-for="(xp, role) in filteredXpByRole" :key="role" class="column is-half">
-                    <div class="is-flex is-justify-content-space-between is-align-items-center mb-2">
-                      <span class="is-size-7 has-text-weight-medium">{{ formatRoleName(role) }}</span>
-                      <span class="tag is-primary is-light is-rounded">{{ xp }} XP</span>
+          <div v-if="hasXpData" class="card shadow-sm">
+             <div class="card-header">
+               <h5 class="card-title mb-0">XP Breakdown by Role</h5>
+             </div>
+             <div class="card-body">
+               <div class="row g-4">
+                  <div v-for="(xp, role) in filteredXpByRole" :key="role" class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <span class="small fw-medium">{{ formatRoleName(role) }}</span>
+                      <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ xp }} XP</span>
                     </div>
-                    <progress class="progress is-primary is-small" :value="xpPercentage(xp)" max="100"></progress>
+                    <div class="progress" role="progressbar" :aria-valuenow="xpPercentage(xp)" aria-valuemin="0" aria-valuemax="100" style="height: 8px;">
+                      <div class="progress-bar bg-primary" :style="{ width: xpPercentage(xp) + '%' }"></div>
+                    </div>
                   </div>
                 </div>
              </div>
@@ -249,75 +249,38 @@ const fetchEventHistory = async (targetUserId) => {
           if (Array.isArray(event.winners) && event.winners.includes(userTeam.teamName)) isWinnerFlag = true;
         }
       } else if (Array.isArray(event.participants) && event.participants.includes(targetUserId)) {
-        isParticipant = true;
-        isPartOfEvent = true;
-        if (Array.isArray(event.winners) && event.winners.includes(targetUserId)) isWinnerFlag = true;
+          isParticipant = true;
+          isPartOfEvent = true;
+          if (Array.isArray(event.winners) && event.winners.includes(targetUserId)) isWinnerFlag = true;
       }
 
       if (isPartOfEvent) {
-        if (isParticipant) participated++;
-        if (isOrganizerFlag) organized++;
-        if (isWinnerFlag) won++;
-
-        eventsHistory.push({
-          id: event.id,
-          eventName: event.eventName,
-          eventType: event.eventType,
-          endDate: event.endDate,
-          isWinner: isWinnerFlag,
-          isOrganizer: isOrganizerFlag,
-          project: event.submissions?.find(sub => sub.userId === targetUserId)
-        });
+          eventsHistory.push(event);
+          if (isParticipant) participated++;
+          if (isOrganizerFlag) organized++;
+          if (isWinnerFlag) won++;
       }
     });
 
     participatedEvents.value = eventsHistory;
     stats.value = { participatedCount: participated, organizedCount: organized, wonCount: won };
+
   } catch (error) {
     console.error("Error fetching event history:", error);
     participatedEvents.value = [];
     stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
-  } finally {
-    loadingEventsOrProjects.value = false;
   }
 };
 
-onMounted(() => {
-  fetchProfileData();
-});
-
-watch(userId, (newVal, oldVal) => {
-  if (newVal && newVal !== oldVal) {
+// Watch for userId changes to refetch data
+watch(userId, (newUserId) => {
+  if (newUserId) {
     fetchProfileData();
   }
-});
+}, { immediate: true });
+
 </script>
 
 <style scoped>
-.box .heading {
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.progress::-webkit-progress-value {
-    transition: width 0.5s ease;
-}
-.progress::-moz-progress-bar {
-    transition: width 0.5s ease;
-}
-.progress::-ms-fill {
-    transition: width 0.5s ease;
-}
-
-/* Ensure image within figure respects boundaries */
-.image img {
-  display: block;
-  height: auto;
-  width: 100%;
-}
-
-/* Adjustments for Bulma's box padding if needed */
-.box {
-  padding: 1rem; /* Example adjustment */
-}
+/* Add any component-specific styles here */
 </style>

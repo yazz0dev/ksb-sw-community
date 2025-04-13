@@ -1,99 +1,88 @@
 <template>
     <nav
-        class="navbar is-fixed-bottom is-flex is-justify-content-space-around is-align-items-center has-shadow is-hidden-desktop" 
+        class="navbar fixed-bottom d-flex justify-content-around align-items-center shadow-sm d-lg-none bg-light"
         role="navigation" 
         aria-label="bottom navigation"
-        style="height: 4rem; background-color: var(--color-surface); border-top: 1px solid var(--color-border); z-index: 30;"
+        style="height: 4rem; border-top: 1px solid var(--bs-border-color); z-index: 1030;"
     >
-        <!-- Home -->
-        <router-link
-            to="/home"
-            class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
-            :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/home' }"
-            style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="is-active-nav-item"
-        >
-            <span class="icon is-medium"><i class="fas fa-home fa-xl"></i></span>
-            <span class="is-size-7">Home</span>
-        </router-link>
+        <!-- Using a simple div container for flex items -->
+        <div class="d-flex justify-content-around align-items-stretch w-100 h-100">
+            <!-- Home -->
+            <router-link
+                to="/home"
+                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+                active-class="active"
+                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
+            >
+                <span class="fs-4 mb-1"><i class="fas fa-home"></i></span>
+                <span class="fs-7">Home</span>
+            </router-link>
 
-        <!-- Event Request Link (Non-Admin Only) -->
-        <router-link
-            v-if="isAuthenticated && !isAdmin"
-            to="/create-event"
-            class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
-            :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/create-event' }"
-            style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="is-active-nav-item"
-        >
-            <span class="icon is-medium"><i class="fas fa-calendar-plus fa-xl"></i></span>
-            <span class="is-size-7">Request</span>
-        </router-link>
+            <!-- Event Request Link (Non-Admin Only) -->
+            <router-link
+                v-if="isAuthenticated && !isAdmin"
+                to="/create-event"
+                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+                active-class="active"
+                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
+            >
+                <span class="fs-4 mb-1"><i class="fas fa-calendar-plus"></i></span>
+                <span class="fs-7">Request</span>
+            </router-link>
 
-        <!-- Leaderboard -->
-        <router-link
-            to="/leaderboard"
-            class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
-            :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/leaderboard' }"
-            style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="is-active-nav-item"
-        >
-            <span class="icon is-medium"><i class="fas fa-trophy fa-xl"></i></span>
-            <span class="is-size-7">Leaderboard</span>
-        </router-link>
+            <!-- Leaderboard -->
+            <router-link
+                to="/leaderboard"
+                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+                active-class="active"
+                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
+            >
+                <span class="fs-4 mb-1"><i class="fas fa-trophy"></i></span>
+                <span class="fs-7">Leaderboard</span>
+            </router-link>
 
-        <!-- Manage Requests (Admin Only) -->
-        <router-link
-            v-if="isAdmin != null && isAdmin"
-            to="/manage-requests"
-            class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
-            :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/manage-requests' }"
-            style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="is-active-nav-item"
-        >
-            <span class="icon is-medium"><i class="fas fa-tasks fa-xl"></i></span>
-            <span class="is-size-7">Manage</span>
-        </router-link>
+            <!-- Manage Requests (Admin Only) -->
+            <router-link
+                v-if="isAdmin != null && isAdmin"
+                to="/manage-requests"
+                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+                active-class="active"
+                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
+            >
+                <span class="fs-4 mb-1"><i class="fas fa-tasks"></i></span>
+                <span class="fs-7">Manage</span>
+            </router-link>
 
-        <!-- Profile (User Only) -->
-        <router-link
-            v-if="typeof isAuthenticated === 'boolean' && typeof isAdmin === 'boolean' && isAuthenticated && !isAdmin"
-            to="/profile"
-            class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
-            :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/profile' }"
-            style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="is-active-nav-item"
-        >
-            <!-- Profile Pic or Icon -->
-            <figure v-if="userProfilePicUrl && !imgError" class="image is-28x28 mb-1" ref="profileImageRef">
-                <img 
-                    class="is-rounded" 
-                    :src="userProfilePicUrl" 
-                    :alt="userName || 'Profile'" 
-                    style="border: 1px solid var(--color-border); object-fit: cover;" 
-                    @error="handleImageError" 
-                />
-            </figure>
-            <span v-else class="icon is-medium"><i class="fas fa-user-circle fa-xl"></i></span>
-            <span class="is-size-7">Profile</span>
-        </router-link>
+            <!-- Profile (User Only) -->
+            <router-link
+                v-if="typeof isAuthenticated === 'boolean' && typeof isAdmin === 'boolean' && isAuthenticated && !isAdmin"
+                to="/profile"
+                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+                active-class="active"
+                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
+            >
+                <!-- Profile Pic or Icon -->
+                <figure v-if="userProfilePicUrl && !imgError" class="mb-1 profile-pic-figure">
+                    <img 
+                        class="rounded-circle" 
+                        :src="userProfilePicUrl" 
+                        :alt="userName || 'Profile'" 
+                        style="border: 1px solid var(--bs-border-color); object-fit: cover; width: 28px; height: 28px;" 
+                        @error="handleImageError" 
+                    />
+                </figure>
+                <span v-else class="fs-4 mb-1"><i class="fas fa-user-circle"></i></span>
+                <span class="fs-7">Profile</span>
+            </router-link>
+        </div>
     </nav>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
-// REMOVED Chakra UI Imports
-// import { 
-//   CFlex, 
-//   CLink, 
-//   CIcon, 
-//   CText,
-//   Avatar as CAvatar 
-// } from '@chakra-ui/vue-next';
 
 const store = useStore();
-const profileImageRef = ref(null); // Ref for the figure element
 const imgError = ref(false); // Track image loading error
 
 // Computed properties for user state
@@ -110,36 +99,54 @@ const handleImageError = () => {
 </script>
 
 <style scoped>
-.navbar-item {
-  border-top: 3px solid transparent; /* Reserve space for active border */
-  padding-top: calc(0.5rem - 3px); /* Adjust padding */
-  padding-bottom: 0.5rem;
+.nav-link {
+  border-top: 3px solid transparent; /* Reserve space for active indicator */
+  /* padding adjusted via flex properties */
+  height: 100%; /* Ensure links fill height */
 }
 
-.navbar-item:hover,
-.navbar-item:focus,
-.navbar-item:active {
-    color: var(--color-primary) !important; /* Ensure hover/focus/active color overrides default */
-    background-color: transparent !important; /* Prevent default background */
-    border-top-color: transparent; /* Keep hover/focus/active border transparent */
-    outline: none; /* Remove default focus outline if desired */
+.nav-link:hover,
+.nav-link:focus {
+    color: var(--bs-primary) !important; /* Bootstrap primary color on hover/focus */
+    background-color: transparent !important; /* Prevent background */
+    border-top-color: transparent;
+    outline: none;
 }
 
-.navbar-item.is-active-nav-item {
-  border-top-color: var(--color-primary);
-  color: var(--color-primary) !important;
-  font-weight: 600; /* Semibold */
-  background-color: transparent !important; /* Explicitly ensure no background for active */
+.nav-link.active {
+  border-top-color: var(--bs-primary);
+  color: var(--bs-primary) !important;
+  font-weight: 500; /* Bootstrap medium weight */
+  background-color: transparent !important;
 }
 
-.navbar-item.is-active-nav-item .icon i,
-.navbar-item.is-active-nav-item span {
-    color: var(--color-primary);
+/* Icon and text color for active state */
+.nav-link.active .fas,
+.nav-link.active span {
+    color: var(--bs-primary) !important; /* Ensure icons/text also use primary color */
 }
 
-/* Specific style for profile image */
-.image.is-28x28 {
-  height: 28px;
+/* Ensure secondary color is used for non-active icons/text */
+.nav-link:not(.active) .fas,
+.nav-link:not(.active) span {
+    color: var(--bs-secondary);
+}
+.nav-link:hover .fas,
+.nav-link:hover span {
+    color: var(--bs-primary);
+}
+
+
+/* Specific style for profile image container */
+.profile-pic-figure {
   width: 28px;
+  height: 28px;
+  display: flex; /* Use flex to center the image if it's smaller */
+  align-items: center;
+  justify-content: center;
+}
+
+.fs-7 {
+    font-size: 0.75rem !important; /* Define fs-7 if not globally available */
 }
 </style>

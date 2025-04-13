@@ -1,57 +1,70 @@
 <!-- src/components/ConfirmationModal.vue -->
 <template>
-  <div class="modal" :class="{ 'is-active': visible }">
-    <div class="modal-background" @click="closeModal"></div>
-    <div class="modal-card" style="background-color: var(--color-surface); border-radius: 6px; max-width: 480px;">
-      <header class="modal-card-head" style="background-color: var(--color-surface); border-bottom: 1px solid var(--color-border);">
-        <p class="modal-card-title is-size-6 has-text-weight-medium" style="color: var(--color-text-primary);">
-          {{ title }}
-        </p>
-        <button class="delete" aria-label="close" @click="closeModal" style="background-color: transparent;"></button>
-      </header>
-      <section class="modal-card-body py-6">
-        <div class="media is-align-items-flex-start">
-          <div class="media-left">
-            <span 
-              class="icon is-large has-text-danger is-flex is-align-items-center is-justify-content-center"
-              style="height: 2.5rem; width: 2.5rem; border-radius: 50%; background-color: var(--color-error-light);"
-            >
-              <i class="fas fa-exclamation-triangle fa-lg" style="color: var(--color-error-dark);"></i>
-            </span>
+  <Teleport to="body">
+    <div 
+      class="modal fade" 
+      :class="{ 'show d-block': visible }" 
+      tabindex="-1" 
+      :aria-labelledby="modalId + 'Label'" 
+      :aria-hidden="!visible"
+      role="dialog"
+      @click.self="closeModal" 
+    >
+      <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
+        <div class="modal-content" style="background-color: var(--bs-body-bg); border-radius: var(--bs-border-radius);">
+          <div class="modal-header" style="border-bottom: 1px solid var(--bs-border-color);">
+            <h6 class="modal-title fs-6 fw-medium" :id="modalId + 'Label'" style="color: var(--bs-body-color);">
+              {{ title }}
+            </h6>
+            <button type="button" class="btn-close" aria-label="Close" @click="closeModal"></button>
           </div>
-          <div class="media-content">
-            <p class="is-size-7" style="color: var(--color-text-secondary);">
-              {{ message }}
-            </p>
+          <div class="modal-body py-4">
+            <div class="d-flex align-items-start">
+              <div class="flex-shrink-0 me-3">
+                <span 
+                  class="icon-wrapper d-inline-flex align-items-center justify-content-center bg-danger-subtle text-danger-emphasis rounded-circle"
+                  style="height: 2.5rem; width: 2.5rem;"
+                >
+                  <i class="fas fa-exclamation-triangle fa-lg"></i>
+                </span>
+              </div>
+              <div class="flex-grow-1">
+                <p class="small" style="color: var(--bs-secondary-color);">
+                  {{ message }}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div 
+            class="modal-footer justify-content-end"
+            style="background-color: var(--bs-tertiary-bg); border-top: 1px solid var(--bs-border-color); border-bottom-left-radius: var(--bs-border-radius); border-bottom-right-radius: var(--bs-border-radius);"
+          >
+            <button 
+              type="button"
+              class="btn btn-sm btn-outline-secondary me-2"
+              @click="cancelAction"
+              ref="cancelButtonRef"
+            >
+              {{ cancelText }}
+            </button>
+            <button 
+              type="button"
+              class="btn btn-sm btn-danger"
+              @click="confirmAction"
+            >
+              {{ confirmText }}
+            </button>
           </div>
         </div>
-      </section>
-      <footer 
-        class="modal-card-foot is-justify-content-flex-end"
-        style="background-color: var(--color-background); border-top: 1px solid var(--color-border); border-bottom-left-radius: 6px; border-bottom-right-radius: 6px;"
-      >
-        <button 
-          class="button is-small is-outlined mr-2"
-          @click="cancelAction"
-          ref="cancelButtonRef"
-          style="border-color: var(--color-border); color: var(--color-text-secondary);"
-        >
-          {{ cancelText }}
-        </button>
-        <button 
-          class="button is-danger is-small"
-          @click="confirmAction"
-          style="background-color: var(--color-error); color: var(--color-error-text);"
-        >
-          {{ confirmText }}
-        </button>
-      </footer>
+      </div>
     </div>
-  </div>
+    <!-- Backdrop -->
+    <div v-if="visible" class="modal-backdrop fade show"></div>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue';
 
 const props = defineProps({
   visible: Boolean,
@@ -70,6 +83,7 @@ const props = defineProps({
 const emit = defineEmits(['confirm', 'cancel', 'close']);
 
 const cancelButtonRef = ref(null);
+const modalId = computed(() => `confirmationModal-${Math.random().toString(36).substring(2, 9)}`);
 
 const confirmAction = () => {
   emit('confirm');
@@ -87,7 +101,7 @@ const closeModal = () => {
 
 // Add keyboard listener for Escape key
 const handleKeydown = (event) => {
-  if (event.key === 'Escape') {
+  if (props.visible && event.key === 'Escape') {
     closeModal();
   }
 };
@@ -103,28 +117,25 @@ onUnmounted(() => {
 // Watch for visibility change to focus the cancel button
 watch(() => props.visible, (newValue) => {
   if (newValue) {
-    // Use nextTick to ensure the element is in the DOM
+    // Use nextTick to ensure the element is in the DOM and modal is shown
     nextTick(() => {
       cancelButtonRef.value?.focus();
     });
+  } else {
+      // Optional: Add logic to handle body overflow when modal closes if needed
+      // document.body.style.overflow = ''; 
   }
+  // Optional: Add logic to handle body overflow when modal opens if needed
+  // if (newValue) {
+  //     document.body.style.overflow = 'hidden';
+  // }
 });
 </script>
 
 <style scoped>
-.modal-card {
-  overflow: hidden; /* Prevent content bleed */
+/* Ensure modal shows correctly */
+.modal.show {
+  display: block;
 }
 
-.modal-card-foot.is-justify-content-flex-end {
-  justify-content: flex-end;
-}
-
-/* Adjust button hover styles if needed */
-.button.is-outlined:hover {
-  background-color: var(--color-neutral-light);
-}
-.button.is-danger:hover {
-  background-color: var(--color-error-dark);
-}
 </style>

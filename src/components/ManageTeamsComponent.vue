@@ -2,33 +2,28 @@
   <div class="mb-4">
     <!-- Existing Teams -->
     <div v-if="teams.length > 0" class="mb-4">
-      <div v-for="(team, index) in teams" :key="index" class="box mb-4 p-4 team-box">
-        <div class="level is-mobile">
-          <div class="level-left">
-            <div class="field level-item">
-              <div class="control">
-                <input
-                  class="input is-small has-text-weight-medium"
-                  v-model="team.teamName"
-                  placeholder="Team Name"
-                  :disabled="isSubmitting"
-                  required
-                />
-              </div>
-            </div>
+      <div v-for="(team, index) in teams" :key="index" class="p-4 mb-4 border rounded bg-light-subtle team-box">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="flex-grow-1 me-3">
+            <input
+              type="text"
+              class="form-control form-control-sm fw-medium"
+              v-model="team.name"
+              placeholder="Team Name"
+              :disabled="isSubmitting"
+              required
+            />
           </div>
-          <div class="level-right">
-            <div class="level-item">
-              <button
-                type="button"
-                class="button is-danger is-light is-small"
-                :disabled="isSubmitting"
-                @click="removeTeam(index)"
-                aria-label="Remove team"
-              >
-                <span class="icon is-small"><i class="fas fa-times"></i></span>
-              </button>
-            </div>
+          <div>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger"
+              :disabled="isSubmitting"
+              @click="removeTeam(index)"
+              aria-label="Remove team"
+            >
+              <i class="fas fa-times"></i>
+            </button>
           </div>
         </div>
         
@@ -45,87 +40,77 @@
         </div>
           
         <div v-if="team.members.length > 0" class="mt-2">
-          <div class="tags">
+          <!-- Display selected members using badges -->
+          <div class="d-flex flex-wrap gap-2 mb-1">
             <span
               v-for="memberId in team.members"
               :key="memberId"
-              class="tag is-primary is-light is-medium"
+              class="badge rounded-pill bg-primary-subtle text-primary-emphasis d-inline-flex align-items-center"
             >
               {{ nameCache[memberId] || memberId }}
               <button 
-                class="delete is-small" 
+                type="button"
+                class="btn-close btn-close-sm ms-1"
                 :disabled="isSubmitting"
                 @click="removeMember(index, memberId)"
                 aria-label="Remove member"
                ></button>
             </span>
           </div>
-          <p class="help is-size-7" :class="{ 'has-text-danger': team.members.length < 2 }">
+          <small class="form-text" :class="{ 'text-danger': team.members.length < 2 }">
             {{ team.members.length }}/10 members
             <span v-if="team.members.length < 2">
               (Minimum 2 members required)
             </span>
-          </p>
+          </small>
         </div>
       </div>
     </div>
-     <p v-else class="has-text-grey is-size-7 mb-4">No teams added yet.</p>
+     <p v-else class="text-secondary small mb-4">No teams added yet.</p>
 
     <!-- Actions: Add Team / Auto-Generate -->
-    <div class="level is-mobile">
-        <div class="level-left">
-            <div class="level-item">
-                <button
-                  type="button"
-                  class="button is-primary is-light is-small"
-                  :disabled="isSubmitting || teams.length >= maxTeams"
-                  @click="addTeam"
-                 >
-                   <span class="icon is-small"><i class="fas fa-plus"></i></span>
-                   <span>Add Team</span>
-                </button>
-            </div>
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary d-inline-flex align-items-center"
+              :disabled="isSubmitting || teams.length >= maxTeams"
+              @click="addTeam"
+             >
+               <i class="fas fa-plus me-1"></i>
+               <span>Add Team</span>
+            </button>
         </div>
         
-        <div class="level-right" v-if="canAutoGenerate">
-           <div class="level-item">
-             <div class="field is-grouped is-grouped-multiline">
-                <div class="control">
-                    <div class="select is-small">
-                         <select v-model="generationType" :disabled="isSubmitting">
-                            <option value="fixed-size">Fixed Size Teams</option>
-                            <option value="fixed-count">Fixed Number of Teams</option>
-                        </select>
-                    </div>
-                </div>
-                 <div class="control">
-                     <input 
-                        class="input is-small" 
-                        type="number" 
-                        v-model.number="generateValue" 
-                        style="width: 5em;"
-                        :min="2" 
-                        :max="maxGenerateValue" 
-                        :disabled="isSubmitting"
-                      />
-                </div>
-                <div class="control">
-                    <button
-                      type="button"
-                      class="button is-link is-light is-small"
-                      :disabled="isSubmitting || !canGenerate || !hasValidEventId"
-                      :title="autoGenerateButtonTitle"
-                      @click="handleAutoGenerate"
-                    >
-                       <span class="icon is-small"><i class="fas fa-random"></i></span>
-                       <span>Auto-Generate</span>
-                    </button>
-                </div>
-             </div>
+        <div v-if="canAutoGenerate">
+           <div class="d-flex flex-wrap align-items-center gap-2">
+              <select class="form-select form-select-sm" v-model="generationType" :disabled="isSubmitting" style="width: auto;">
+                  <option value="fixed-size">Fixed Size Teams</option>
+                  <option value="fixed-count">Fixed Number of Teams</option>
+              </select>
+              <input 
+                  class="form-control form-control-sm" 
+                  type="number" 
+                  v-model.number="generateValue" 
+                  style="width: 5em;"
+                  :min="2" 
+                  :max="maxGenerateValue" 
+                  :disabled="isSubmitting"
+              />
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-info d-inline-flex align-items-center"
+                :disabled="isSubmitting || !canGenerate || !hasValidEventId"
+                :title="autoGenerateButtonTitle"
+                @click="handleAutoGenerate"
+              >
+                 <i class="fas fa-random me-1"></i>
+                 <span>Auto-Generate</span>
+              </button>
            </div>
         </div>
     </div>
-     <p v-if="teams.length >= maxTeams" class="help is-warning">Maximum number of teams ({{maxTeams}}) reached.</p>
+     <p v-if="teams.length >= maxTeams" class="form-text text-warning mt-2">Maximum number of teams ({{maxTeams}}) reached.</p>
 
   </div>
 </template>
@@ -135,16 +120,16 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import TeamMemberSelect from './TeamMemberSelect.vue'; 
 
+// Interface for a team object
 interface Team {
-  teamName: string;
+  name: string;
   members: string[];
-  submissions?: any[]; // Kept optional fields
-  ratings?: any[];
 }
 
+// Interface for a student object
 interface Student {
   uid: string;
-  name?: string;
+  name: string;
 }
 
 const props = defineProps<{
@@ -209,16 +194,14 @@ const initializeTeams = () => {
     // Ensure existing teams have the correct structure
     teams.value.forEach(team => {
         team.members = Array.isArray(team.members) ? team.members : [];
-        team.teamName = team.teamName || '';
-        team.submissions = Array.isArray(team.submissions) ? team.submissions : [];
-        team.ratings = Array.isArray(team.ratings) ? team.ratings : [];
+        team.name = team.name || '';
     });
   }
 };
 
 const addTeam = () => {
   if (teams.value.length < maxTeams) {
-    teams.value.push({ teamName: '', members: [], submissions: [], ratings: [] });
+    teams.value.push({ name: '', members: [] });
     emitTeamsUpdate();
   }
 };
@@ -237,7 +220,10 @@ const updateTeamMembers = (teamIndex: number, members: string[]) => {
 
 const removeMember = (teamIndex: number, memberId: string) => {
   if (teams.value[teamIndex]) {
-    teams.value[teamIndex].members = teams.value[teamIndex].members.filter(id => id !== memberId);
+    const memberIndex = teams.value[teamIndex].members.indexOf(memberId);
+    if (memberIndex !== -1) {
+      teams.value[teamIndex].members.splice(memberIndex, 1);
+    }
     emitTeamsUpdate();
   }
 };
@@ -267,10 +253,8 @@ const handleAutoGenerate = async () => {
     // Ensure the response is correctly structured before updating
     if (Array.isArray(generatedTeamsData)) {
          teams.value = generatedTeamsData.map(team => ({ // Ensure structure
-            teamName: team.teamName || '', 
-            members: Array.isArray(team.members) ? team.members : [],
-            submissions: Array.isArray(team.submissions) ? team.submissions : [],
-            ratings: Array.isArray(team.ratings) ? team.ratings : []
+            name: team.name || '', 
+            members: Array.isArray(team.members) ? team.members : []
          }));
          emitTeamsUpdate();
     } else {
@@ -307,15 +291,17 @@ onMounted(() => {
 
 <style scoped>
 .team-box {
-  background-color: #f9f9f9; /* Lighter background for team boxes */
-  border: 1px solid #e0e0e0;
+  background-color: var(--bs-light-bg-subtle); /* Use Bootstrap variable */
+  border-color: var(--bs-border-color-translucent); /* Use Bootstrap variable */
 }
-.help {
+
+.form-text {
     margin-top: 0.25rem;
+    display: block; /* Ensure it takes block space */
 }
-/* Ensure vertical alignment in grouped fields */
-.field.is-grouped .control {
-    display: flex;
-    align-items: center;
+
+/* Adjust badge button size/padding */
+.badge .btn-close {
+    padding: 0.25em 0.4em;
 }
 </style>

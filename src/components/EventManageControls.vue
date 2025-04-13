@@ -1,101 +1,107 @@
 <template>
-  <div class="box" style="background-color: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px;">
+  <div class="event-manage-controls p-4 border bg-light rounded shadow-sm">
     <!-- Status Management Section -->
     <div class="mb-5">
-      <h3 class="title is-4 has-text-primary mb-3">Event Management</h3>
-      <div class="is-flex is-align-items-center mb-4">
-        <span class="is-size-7 has-text-weight-medium has-text-grey mr-3">Current Status:</span>
-        <span class="tag is-rounded" :class="statusBadgeClass">{{ event.status }}</span>
+      <h3 class="h4 text-primary mb-3">Event Management</h3>
+      <div class="d-flex align-items-center mb-4">
+        <span class="small fw-medium text-secondary me-3">Current Status:</span>
+        <span class="badge rounded-pill fs-6" :class="statusBadgeClass">{{ event.status }}</span>
       </div>
 
       <!-- Status Update Controls -->
-      <div class="buttons are-small">
+      <div class="d-flex flex-wrap gap-2">
         <button
           v-if="canStartEvent"
-          class="button is-primary"
+          type="button"
+          class="btn btn-sm btn-primary d-inline-flex align-items-center"
           :disabled="!isWithinEventDates || isActionLoading('InProgress')"
           @click="updateStatus('InProgress')"
-          :class="{ 'is-loading': isActionLoading('InProgress') }"
         >
-          <span class="icon is-small"><i class="fas fa-play"></i></span>
+          <span v-if="isActionLoading('InProgress')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-play me-1"></i>
           <span>Start Event</span>
         </button>
 
         <button
           v-if="canComplete"
-          class="button is-success"
+          type="button"
+          class="btn btn-sm btn-success d-inline-flex align-items-center"
           :disabled="isActionLoading('Completed')"
           @click="updateStatus('Completed')"
-          :class="{ 'is-loading': isActionLoading('Completed') }"
         >
-          <span class="icon is-small"><i class="fas fa-check"></i></span>
+          <span v-if="isActionLoading('Completed')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-check me-1"></i>
           <span>Mark Complete</span>
         </button>
 
         <button
           v-if="canCancel"
-          class="button is-danger"
+          type="button"
+          class="btn btn-sm btn-danger d-inline-flex align-items-center"
           :disabled="isActionLoading('Cancelled')"
           @click="confirmCancel"
-          :class="{ 'is-loading': isActionLoading('Cancelled') }"
         >
-          <span class="icon is-small"><i class="fas fa-times"></i></span>
+          <span v-if="isActionLoading('Cancelled')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-times me-1"></i>
           <span>Cancel Event</span>
         </button>
       </div>
-      <p v-if="!isWithinEventDates && canStartEvent" class="is-size-7 has-text-danger mt-2">
+      <p v-if="!isWithinEventDates && canStartEvent" class="small text-danger mt-2">
         The event can only be started between its start and end dates.
       </p>
     </div>
 
     <!-- Rating Controls -->
-    <div v-if="event.status === 'Completed' && !event.closed" class="pt-5" style="border-top: 1px solid var(--color-border);">
-      <div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
-        <h3 class="title is-4 has-text-primary">Ratings</h3>
-        <span class="tag is-rounded" :class="event.ratingsOpen ? 'is-success' : 'is-warning'">
+    <div v-if="event.status === 'Completed' && !event.closed" class="pt-5 border-top">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="h4 text-primary mb-0">Ratings</h3>
+        <span class="badge rounded-pill fs-6" :class="event.ratingsOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-warning-subtle text-warning-emphasis'">
           {{ event.ratingsOpen ? 'Open' : 'Closed' }}
         </span>
       </div>
 
-      <div class="buttons are-small">
+      <div class="d-flex flex-wrap gap-2">
         <button
           v-if="event.ratingsOpen && canToggleRatings"
-          class="button is-warning"
+          type="button"
+          class="btn btn-sm btn-warning d-inline-flex align-items-center"
           :disabled="isLoadingRatings"
           @click="toggleRatings"
-          :class="{ 'is-loading': isLoadingRatings }"
         >
-          <span class="icon is-small"><i class="fas fa-lock"></i></span>
+          <span v-if="isLoadingRatings" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-lock me-1"></i>
           <span>Close Ratings</span>
         </button>
 
         <button
           v-else-if="!event.ratingsOpen && canToggleRatings"
-          class="button is-success"
+          type="button"
+          class="btn btn-sm btn-success d-inline-flex align-items-center"
           :disabled="isLoadingRatings"
           @click="toggleRatings"
-          :class="{ 'is-loading': isLoadingRatings }"
         >
-          <span class="icon is-small"><i class="fas fa-lock-open"></i></span>
+          <span v-if="isLoadingRatings" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-lock-open me-1"></i>
           <span>Open Ratings</span>
         </button>
 
         <button
           v-if="canCloseEvent"
-          class="button is-danger is-light"
+          type="button"
+          class="btn btn-sm btn-outline-danger d-inline-flex align-items-center"
           :disabled="isLoadingRatings"
           @click="confirmCloseEvent"
-          :class="{ 'is-loading': isLoadingRatings }"
         >
-          <span class="icon is-small"><i class="fas fa-archive"></i></span>
+          <span v-if="isLoadingRatings" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+           <i v-else class="fas fa-archive me-1"></i>
           <span>Close Event Permanently</span>
         </button>
       </div>
-      <p v-if="!canManageRatings && event.status === 'Completed' && !event.closed" class="is-size-7 has-text-grey mt-2">
+      <p v-if="!canManageRatings && event.status === 'Completed' && !event.closed" class="small text-secondary mt-2">
         <span v-if="event.ratingsClosed">Ratings have been manually closed by an admin.</span>
         <span v-else>Ratings have been opened and closed twice and cannot be toggled again.</span>
       </p>
-       <p v-if="!canCloseEvent && event.status === 'Completed' && event.ratingsOpen" class="is-size-7 has-text-grey mt-2">
+       <p v-if="!canCloseEvent && event.status === 'Completed' && event.ratingsOpen" class="small text-secondary mt-2">
          Event must have ratings closed before it can be permanently closed.
        </p>
     </div>
@@ -119,13 +125,13 @@ const loadingAction = ref(null);
 
 const statusBadgeClass = computed(() => {
   switch (props.event.status) {
-    case 'Approved': return 'is-info';
-    case 'InProgress': return 'is-primary';
-    case 'Completed': return 'is-success';
-    case 'Cancelled': return 'is-danger is-light';
-    case 'Pending': return 'is-warning';
-    case 'Rejected': return 'is-danger';
-    default: return 'is-light';
+    case 'Approved': return 'bg-info-subtle text-info-emphasis';
+    case 'InProgress': return 'bg-primary-subtle text-primary-emphasis';
+    case 'Completed': return 'bg-success-subtle text-success-emphasis';
+    case 'Cancelled': return 'bg-secondary-subtle text-secondary-emphasis'; // Using subtle grey
+    case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
+    case 'Rejected': return 'bg-danger-subtle text-danger-emphasis';
+    default: return 'bg-light text-dark'; // Default light
   }
 });
 
@@ -245,7 +251,5 @@ const closeEventAction = async () => {
 </script>
 
 <style scoped>
-.buttons.are-small .button {
-    margin-bottom: 0.5rem;
-}
+/* Remove Bulma specific button margin */
 </style>

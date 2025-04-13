@@ -1,39 +1,41 @@
 <template>
-  <section class="section" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
-    <div class="container is-max-desktop">
+  <section class="py-5" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
+    <div class="container-lg">
       <!-- Header -->
-      <div class="mb-6 pb-4" style="border-bottom: 1px solid var(--color-border);">
-        <h1 class="title is-3 has-text-primary">Manage Event Requests</h1>
+      <div class="mb-5 pb-4" style="border-bottom: 1px solid var(--bs-border-color);">
+        <h1 class="h1 text-primary">Manage Event Requests</h1>
       </div>
 
       <!-- Loading state -->
-      <div v-if="loading" class="has-text-centered py-6">
-        <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
+      <div v-if="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
       </div>
 
       <!-- Error state -->
-      <div v-else-if="error" class="notification is-danger is-light has-text-centered py-6">
-         <span class="icon mr-2"><i class="fas fa-exclamation-circle"></i></span>
-        <strong class="has-text-weight-semibold">{{ error }}</strong>
+      <div v-else-if="error" class="alert alert-danger text-center py-4" role="alert">
+         <i class="fas fa-exclamation-circle me-2"></i>
+         <strong class="fw-semibold">{{ error }}</strong>
       </div>
 
       <!-- Event requests list -->
       <div v-else>
-        <div v-if="pendingRequests.length === 0" class="notification is-info is-light has-text-centered">
-          <span class="icon mr-2"><i class="fas fa-info-circle"></i></span>
+        <div v-if="pendingRequests.length === 0" class="alert alert-info text-center" role="alert">
+          <i class="fas fa-info-circle me-2"></i>
           No pending event requests.
         </div>
 
         <div v-else>
-          <div v-for="(group, index) in groupedRequests" :key="index" class="mb-6">
-            <h2 class="title is-5 has-text-dark mb-5 pb-2" style="border-bottom: 1px solid var(--color-border);">
+          <div v-for="(group, index) in groupedRequests" :key="index" class="mb-5">
+            <h2 class="h2 text-dark mb-4 pb-2" style="border-bottom: 1px solid var(--bs-border-color);">
               {{ group.title }}
             </h2>
-            <div class="columns is-multiline is-variable is-4">
+            <div class="row g-4">
               <div 
                 v-for="request in group.requests" 
                 :key="request.id" 
-                class="column is-half-tablet is-one-third-desktop animate-fade-in"
+                class="col-md-6 col-lg-4 animate-fade-in"
               >
                 <RequestCard
                   :request="request" 
@@ -200,19 +202,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Reuse loader style */
-.loader {
-  border-radius: 50%;
-  border-width: 2px;
-  border-style: solid;
-  width: 3em;
-  height: 3em;
-  animation: spinAround 1s infinite linear;
-}
-@keyframes spinAround {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(359deg); }
-}
+/* Removed custom loader styles */
 
 /* Animation */
 .animate-fade-in {

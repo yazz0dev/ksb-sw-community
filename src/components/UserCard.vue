@@ -1,16 +1,16 @@
 // /src/components/UserCard.vue
 <template>
-  <div class="is-flex is-align-items-center p-3" style="background-color: var(--color-surface); border-bottom: 1px solid var(--color-border);">
-    <p class="is-size-7 has-text-weight-medium has-text-primary mr-2">{{ name || userId }}</p> 
-    <div v-if="averageRating !== null" class="is-flex is-align-items-center">
-      <span class="is-size-7 has-text-grey mr-1">-</span>
+  <div class="d-flex align-items-center p-3" style="background-color: var(--bs-light); border-bottom: 1px solid var(--bs-border-color);">
+    <p class="fs-7 fw-medium text-primary me-2 mb-0">{{ name || userId }}</p> 
+    <div v-if="averageRating !== null" class="d-flex align-items-center">
+      <span class="fs-7 text-secondary me-1">-</span>
       <vue3-star-ratings
         v-model:rating="averageRating" 
         :star-size="14" 
         :read-only="true"
         :show-rating="false"
-        inactive-color="#dbdbdb"  
-        active-color="#ffdd57" 
+        inactive-color="var(--bs-gray-300)"  
+        active-color="var(--bs-warning)" 
         :star-spacing="1"
       />
     </div>
@@ -20,6 +20,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
+import vue3StarRatings from 'vue3-star-ratings'; // Assuming global registration or import here
 
 const props = defineProps({
   userId: { 
@@ -72,4 +73,8 @@ onMounted(async () => {
   margin-bottom: 0 !important; /* Override potential default margins */
 }
 
+/* Define fs-7 if not already defined globally */
+.fs-7 {
+    font-size: 0.8rem !important; /* Adjust size as needed */
+}
 </style>

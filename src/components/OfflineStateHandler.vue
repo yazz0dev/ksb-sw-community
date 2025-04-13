@@ -1,23 +1,19 @@
 <template>
-  <div v-if="!isOnline" class="notification is-danger is-light is-radiusless is-fixed-top is-fullwidth p-0" style="z-index: 1000;"> 
-    <div class="level mx-4 my-2">
+  <div v-if="!isOnline" class="alert alert-danger rounded-0 fixed-top p-0" style="z-index: 1040;" role="alert"> 
+    <div class="d-flex justify-content-between align-items-center mx-4 my-2">
       <!-- Left side -->
-      <div class="level-left">
-        <div class="level-item">
-          <span class="icon mr-2">
-            <i class="fas fa-wifi"></i> <!-- Changed to fa-wifi, will add slash via CSS -->
-          </span>
-          <span>You are currently offline. Some features may be limited.</span>
-        </div>
+      <div class="d-flex align-items-center">
+        <span class="me-2">
+          <i class="fas fa-wifi"></i> <!-- Slash added via CSS -->
+        </span>
+        <span>You are currently offline. Some features may be limited.</span>
       </div>
 
       <!-- Right side -->
-      <div class="level-right">
-        <div class="level-item">
-          <button class="button is-danger is-small is-inverted is-underlined" @click="checkConnection">
-            Retry
-          </button>
-        </div>
+      <div>
+        <button class="btn btn-link text-danger text-decoration-underline btn-sm p-0" @click="checkConnection">
+          Retry
+        </button>
       </div>
     </div>
   </div>
@@ -26,7 +22,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
-// Removed Chakra UI imports
 
 const store = useStore();
 const isOnline = ref(navigator.onLine);
@@ -63,6 +58,10 @@ onUnmounted(() => {
 
 <style scoped>
 /* Add the slash through the wifi icon */
+.fa-wifi {
+  position: relative; /* Needed for absolute positioning of pseudo-element */
+  display: inline-block; /* Ensure it takes space */
+}
 .fa-wifi::after {
   content: "/";
   position: absolute;
@@ -74,4 +73,12 @@ onUnmounted(() => {
   color: currentColor; /* Inherit icon color */
 }
 
+/* Ensure link button retains danger color */
+.btn-link.text-danger {
+  color: var(--bs-danger) !important;
+}
+.btn-link.text-danger:hover,
+.btn-link.text-danger:focus {
+  color: var(--bs-danger) !important; /* Keep color on hover/focus */
+}
 </style>

@@ -1,30 +1,32 @@
 <template>
-  <div class="box p-5" style="background-color: var(--color-surface); border: 1px solid var(--color-border);">
-    <div v-if="loadingRequests" class="has-text-centered py-6">
-      <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
-      <p class="has-text-grey ml-2">Loading...</p>
+  <div class="user-requests-container bg-light p-4 rounded border shadow-sm">
+    <div v-if="loadingRequests" class="text-center py-5">
+      <div class="spinner-border text-primary mb-2" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="text-secondary">Loading requests...</p>
     </div>
 
     <div
       v-else-if="requests.length === 0 && !errorMessage"
-      class="notification is-info is-light has-text-centered is-size-7"
-      style="border-radius: 6px; font-style: italic;"
+      class="alert alert-info text-center small p-3"
+      role="alert"
     >
-      <span class="icon is-large mb-2 has-text-info-dark">
+      <div class="mb-2 text-info-emphasis">
         <i class="fas fa-calendar-times fa-2x"></i>
-      </span>
-      <p>No pending requests</p>
+      </div>
+      <p class="mb-0" style="font-style: italic;">No pending requests found.</p>
     </div>
 
     <transition name="fade">
       <div v-if="!loadingRequests && requests.length > 0">
         <div v-for="(request, index) in requests" :key="request.id" class="py-3 request-item">
-          <h3 class="title is-6 has-text-primary mb-1">
+          <h6 class="h6 text-primary mb-1">
             {{ request.eventName }}
-          </h3>
-          <div class="is-flex is-align-items-center">
-            <p class="is-size-7 has-text-grey mr-2">Status:</p>
-            <span :class="['tag', 'is-light', getStatusClass(request.status)]">
+          </h6>
+          <div class="d-flex align-items-center">
+            <small class="text-secondary me-2">Status:</small>
+            <span :class="['badge rounded-pill', getStatusClass(request.status)]">
               {{ request.status }}
             </span>
           </div>
@@ -32,9 +34,9 @@
       </div>
     </transition>
 
-    <div v-if="errorMessage" class="notification is-danger is-light mt-4">
-       <button class="delete" @click="errorMessage = ''"></button>
+    <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mt-4" role="alert">
       {{ errorMessage }}
+      <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close"></button>
     </div>
   </div>
 </template>
@@ -52,10 +54,10 @@ const errorMessage = ref('');
 
 const getStatusClass = (status) => {
   switch (status) {
-    case 'Pending': return 'is-warning';
-    case 'Approved': return 'is-success';
-    case 'Rejected': return 'is-danger';
-    default: return 'is-light'; // Default greyish tag
+    case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
+    case 'Approved': return 'bg-success-subtle text-success-emphasis';
+    case 'Rejected': return 'bg-danger-subtle text-danger-emphasis';
+    default: return 'bg-secondary-subtle text-secondary-emphasis'; // Default greyish badge
   }
 };
 
@@ -71,7 +73,7 @@ const fetchRequests = async () => {
     loadingRequests.value = true;
     errorMessage.value = '';
     const q = query(
-      collection(db, 'eventRequests'), // Corrected collection name
+      collection(db, 'eventRequests'),
       where('requester', '==', user.uid),
       where('status', '==', 'Pending') // Only fetch pending requests
     );
@@ -105,20 +107,8 @@ onMounted(fetchRequests);
 }
 
 .request-item + .request-item {
-    border-top: 1px solid #dbdbdb; /* Bulma default border color */
+    border-top: 1px solid var(--bs-border-color); /* Use Bootstrap border color */
 }
 
-/* Loader Styles (copied from other views) */
-.loader {
-  border-radius: 50%;
-  border-width: 2px;
-  border-style: solid;
-  width: 2.5em; /* Adjusted size */
-  height: 2.5em;
-  animation: spinAround 1s infinite linear;
-}
-@keyframes spinAround {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(359deg); }
-}
+/* Removed Bulma loader styles */
 </style>

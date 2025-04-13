@@ -1,46 +1,42 @@
 <template>
-  <div class="section profile-section" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
-    <div class="container is-max-widescreen">
+  <div class="py-5 profile-section" style="background-color: var(--bs-body-bg); min-height: calc(100vh - 8rem);">
+    <div class="container-lg">
       <!-- Back Button -->
-      <div v-if="!isCurrentUser" class="mb-6">
+      <div v-if="!isCurrentUser" class="mb-5">
         <button
-          class="button is-small is-outlined"
+          class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
           @click="$router.back()"
         >
-          <span class="icon is-small"><i class="fas fa-arrow-left"></i></span>
+          <i class="fas fa-arrow-left me-1"></i>
           <span>Back</span>
         </button>
       </div>
 
       <!-- Admin View Message -->
-      <div v-if="isAdminProfile" class="message is-info">
-        <div class="message-body">
-          <div class="is-flex is-align-items-center">
-             <span class="icon is-medium mr-2"><i class="fas fa-user-shield"></i></span>
-             <div>
-                <p class="is-size-5 has-text-weight-semibold mb-1">Admin Account</p>
-                <p class="is-size-7">Admin accounts do not have personal profiles. Access admin tools via the main navigation.</p>
-             </div>
-          </div>
-        </div>
+      <div v-if="isAdminProfile" class="alert alert-info d-flex align-items-center" role="alert">
+        <i class="fas fa-user-shield fs-4 me-3"></i>
+         <div>
+            <h5 class="fw-semibold mb-1">Admin Account</h5>
+            <p class="small mb-0">Admin accounts do not have personal profiles. Access admin tools via the main navigation.</p>
+         </div>
       </div>
 
       <!-- Standard User View -->
       <template v-else>
         <!-- Header for Current User -->
-        <div v-if="isCurrentUser" class="is-flex is-flex-wrap-wrap is-justify-content-space-between is-align-items-center gap-4 mb-6 pb-4" style="border-bottom: 1px solid var(--color-border);">
-          <h2 class="title is-3 has-text-primary mb-0">My Profile</h2>
+        <div v-if="isCurrentUser" class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5 pb-4" style="border-bottom: 1px solid var(--bs-border-color);">
+          <h2 class="h2 text-primary mb-0">My Profile</h2>
           <!-- Portfolio Button Area -->
-          <div class="is-flex is-align-items-center">
+          <div class="d-flex align-items-center">
             <PortfolioGeneratorButton
               v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
               :user="userForPortfolio"
               :projects="userProjectsForPortfolio"
             />
-            <p v-else-if="loadingProjectsForPortfolio" class="is-size-7 has-text-grey is-italic ml-2">
+            <p v-else-if="loadingProjectsForPortfolio" class="small text-secondary fst-italic ms-2 mb-0">
               Loading portfolio data...
             </p>
-            <p v-else class="is-size-7 has-text-grey is-italic ml-2">
+            <p v-else class="small text-secondary fst-italic ms-2 mb-0">
               (Portfolio PDF available after completing events with submissions)
             </p>
           </div>
@@ -51,14 +47,14 @@
            <!-- Slot for Additional Content (e.g., User Requests) -->
            <template #additional-content v-if="isCurrentUser">
              <AuthGuard>
-                <div class="card mt-6">
-                  <header class="card-header requests-card-header">
-                    <p class="card-header-title">
-                       <span class="icon has-text-primary mr-2"><i class="fas fa-paper-plane"></i></span>
+                <div class="card mt-5">
+                  <div class="card-header requests-card-header">
+                     <h6 class="mb-0 d-flex align-items-center">
+                       <i class="fas fa-paper-plane text-primary me-2"></i>
                        My Event Requests
-                    </p>
-                  </header>
-                  <div class="card-content p-0"> <!-- Remove padding if UserRequests handles it -->
+                     </h6>
+                  </div>
+                  <div class="card-body p-0"> <!-- Bootstrap uses card-body -->
                      <UserRequests />
                   </div>
                 </div>
@@ -67,7 +63,7 @@
         </ProfileViewContent>
 
         <!-- Fallback if no target user -->
-        <p v-else class="has-text-centered has-text-grey py-6">
+        <p v-else class="text-center text-secondary py-5">
           Could not determine user profile to display.
         </p>
       </template>
@@ -205,14 +201,14 @@ onMounted(() => {
 
 <style scoped>
 .profile-section {
-  background-color: var(--color-background);
+  background-color: var(--bs-body-bg);
   min-height: calc(100vh - 8rem); /* Keep min-height */
 }
 
 .requests-card-header {
-  background-color: var(--color-secondary-light);
-  border-bottom: 1px solid var(--color-secondary-dark); /* Use secondary dark or border */
+  background-color: var(--bs-tertiary-bg); /* Using BS variable */
+  border-bottom: 1px solid var(--bs-border-color); /* Using BS variable */
 }
 
-.gap-4 { gap: 1rem; }
+/* Removed custom gap-4 class */
 </style>

@@ -1,52 +1,46 @@
 <template>
   <div
     v-if="event && event.id"
-    class="card event-card is-flex is-flex-direction-column is-fullheight"
-    :style="cardStyle"
+    class="card event-card h-100 shadow-sm border"
+    :class="{ 'bg-light opacity-75': isCancelledOrRejected }"
+    style="border-radius: var(--bs-border-radius); overflow: hidden; transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;"
   >
-    <div class="card-content is-flex is-flex-direction-column is-flex-grow-1 p-5">
-      <div class="level is-mobile mb-2">
-        <div class="level-left">
-          <h5
-            class="title is-5 has-text-primary level-item mb-0 mr-2"
-            :class="{ 
-              'has-text-grey-light has-text-decoration-line-through': isCancelledOrRejected,
-              'has-text-primary': !isCancelledOrRejected
-            }"
-            style="flex-grow: 1; flex-shrink: 1; white-space: normal; overflow-wrap: break-word;"
-          >
-            {{ event.eventName }}
-          </h5>
+    <div class="card-body d-flex flex-column p-4">
+      <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap">
+        <h5
+          class="card-title h5 mb-0 me-2 text-break"
+          :class="{ 
+            'text-secondary text-decoration-line-through': isCancelledOrRejected,
+            'text-primary': !isCancelledOrRejected
+          }"
+        >
+          {{ event.eventName }}
+        </h5>
+        <span 
+          class="badge rounded-pill fs-7 flex-shrink-0"
+          :class="statusBadgeClass"
+        >
+          {{ event.status }}
+        </span>
+      </div>
+      <div class="d-flex small text-secondary mb-3 flex-wrap" style="gap: 0.75rem;">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-tag fa-fw me-1 text-muted"></i>{{ event.eventType }}
         </div>
-        <div class="level-right">
-          <span 
-            class="tag is-rounded is-light level-item is-size-7"
-            :class="statusBadgeClass"
-            style="white-space: nowrap;"
-          >
-            {{ event.status }}
-          </span>
+        <div class="d-flex align-items-center">
+            <i class="fas fa-calendar-alt fa-fw me-1 text-muted"></i>{{ formatDateRange(event.startDate, event.endDate) }}
         </div>
       </div>
-      <div class="is-flex is-size-7 has-text-grey mb-3 is-flex-wrap-wrap" style="gap: 0.75rem;">
-        <div class="is-flex is-align-items-center">
-            <span class="icon is-small mr-1 has-text-grey-light"><i class="fas fa-tag"></i></span>{{ event.eventType }}
-        </div>
-        <div class="is-flex is-align-items-center">
-            <span class="icon is-small mr-1 has-text-grey-light"><i class="fas fa-calendar-alt"></i></span>{{ formatDateRange(event.startDate, event.endDate) }}
-        </div>
-      </div>
-      <p class="is-size-7 has-text-grey mb-4" style="flex-grow: 1;">{{ truncatedDescription }}</p>
-      <div class="is-flex is-justify-content-space-between is-align-items-center mt-auto pt-3" style="border-top: 1px solid var(--color-border);">
+      <p class="card-text small text-secondary mb-4 flex-grow-1">{{ truncatedDescription }}</p>
+      <div class="d-flex justify-content-between align-items-center mt-auto pt-3 border-top">
         <router-link
           :to="{ name: 'EventDetails', params: { id: event.id } }"
-          class="button is-primary is-small has-shadow"
-          style="color: var(--color-primary-text); background-color: var(--color-primary);"
+          class="btn btn-primary btn-sm shadow-sm"
         >
           View Details
         </router-link>
-        <div class="is-flex is-align-items-center is-size-7 has-text-grey">
-          <span class="icon is-small mr-1 has-text-grey-light"><i class="fas fa-users"></i></span> {{ participantCount }}
+        <div class="d-flex align-items-center small text-secondary">
+          <i class="fas fa-users fa-fw me-1 text-muted"></i> {{ participantCount }}
         </div>
       </div>
     </div>
@@ -56,7 +50,6 @@
 <script setup>
 import { computed } from 'vue';
 import { DateTime } from 'luxon';
-// Removed Chakra UI imports
 
 const props = defineProps({
   event: {
@@ -68,16 +61,6 @@ const props = defineProps({
 const isCancelledOrRejected = computed(() => 
   props.event.status === 'Cancelled' || props.event.status === 'Rejected'
 );
-
-const cardStyle = computed(() => ({
-  backgroundColor: isCancelledOrRejected.value ? 'var(--color-neutral)' : 'var(--color-surface)',
-  borderRadius: '6px',
-  overflow: 'hidden',
-  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', // shadow-md
-  border: '1px solid var(--color-border)',
-  opacity: isCancelledOrRejected.value ? 0.75 : 1,
-  transition: 'box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out',
-}));
 
 // Helper to format date range
 const formatDateRange = (start, end) => {
@@ -126,25 +109,25 @@ const participantCount = computed(() => {
     return 0;
 });
 
-// Map status to Bulma tag classes
+// Map status to Bootstrap badge classes
 const statusBadgeClass = computed(() => {
   switch (props.event?.status) {
     case 'Approved':
     case 'Upcoming':
-      return 'is-success';
+      return 'bg-success-subtle text-success-emphasis';
     case 'Pending':
-      return 'is-warning';
+      return 'bg-warning-subtle text-warning-emphasis';
     case 'In Progress':
     case 'Ongoing':
-      return 'is-info';
+      return 'bg-info-subtle text-info-emphasis';
     case 'Rejected':
-      return 'is-danger';
+      return 'bg-danger-subtle text-danger-emphasis';
     case 'Completed':
-      return 'is-dark'; // Use is-dark for completed
+      return 'bg-dark text-white'; // Using dark bg for completed
     case 'Cancelled':
-      return 'is-light'; // Keep is-light for cancelled
+      return 'bg-secondary-subtle text-secondary-emphasis'; // Using secondary/grey for cancelled
     default:
-      return 'is-light';
+      return 'bg-secondary-subtle text-secondary-emphasis';
   }
 });
 
@@ -152,14 +135,12 @@ const statusBadgeClass = computed(() => {
 
 <style scoped>
 .event-card:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important; /* shadow-lg */
+  box-shadow: var(--bs-box-shadow-lg) !important; /* Use Bootstrap variable for consistency */
   transform: translateY(-4px);
 }
 
-.button.has-shadow {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-.button.is-primary:hover {
-   background-color: var(--color-primary-dark) !important; 
+/* Removed Bulma button shadow/hover styles */
+.fs-7 {
+    font-size: 0.75rem !important; /* Define fs-7 if not global */
 }
 </style>

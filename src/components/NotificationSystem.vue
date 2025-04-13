@@ -1,32 +1,30 @@
 <template>
-  <div class="notification-container">
+  <div class="notification-container toast-container position-fixed top-0 end-0 p-3">
     <transition-group name="notification" tag="div">
       <div
         v-for="notification in notifications"
         :key="notification.id"
-        class="notification m-2 is-light"
-        :class="getNotificationClass(notification.type)"
-        style="width: 20rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);"
+        class="toast show m-2 shadow"
+        role="alert" 
+        aria-live="assertive" 
+        aria-atomic="true"
+        :class="getToastClass(notification.type)" 
+        style="width: 20rem;" 
       >
-        <button 
-          class="delete" 
-          @click="dismissNotification(notification.id)"
-          aria-label="Dismiss notification"
-        ></button>
-        <div class="media is-align-items-flex-start">
-          <div class="media-left">
-            <span class="icon is-medium">
-              <i :class="['fas', getTypeIcon(notification.type), 'fa-lg']"></i>
-            </span>
-          </div>
-          <div class="media-content">
-            <p v-if="notification.title" class="is-size-6 has-text-weight-medium mb-1">
-              {{ notification.title }}
-            </p>
-            <p class="is-size-7">
-              {{ notification.message }}
-            </p>
-          </div>
+        <div class="toast-header" :class="getToastHeaderClass(notification.type)">
+          <span class="me-2">
+            <i :class="['fas', getTypeIcon(notification.type)]"></i>
+          </span>
+          <strong class="me-auto">{{ notification.title || notification.type.charAt(0).toUpperCase() + notification.type.slice(1) }}</strong>
+          <button 
+            type="button"
+            class="btn-close"
+            @click="dismissNotification(notification.id)"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="toast-body">
+          {{ notification.message }}
         </div>
       </div>
     </transition-group>
@@ -44,13 +42,25 @@ const dismissNotification = (id) => {
   store.dispatch('app/dismissNotification', id);
 };
 
-const getNotificationClass = (type) => {
+// Bootstrap classes for the toast background/border
+const getToastClass = (type) => {
   switch (type) {
-    case 'success': return 'is-success';
-    case 'error': return 'is-danger';
-    case 'warning': return 'is-warning';
+    case 'success': return 'border-success';
+    case 'error': return 'border-danger';
+    case 'warning': return 'border-warning';
     case 'info': 
-    default: return 'is-info';
+    default: return 'border-info';
+  }
+};
+
+// Bootstrap classes for the toast header background/text
+const getToastHeaderClass = (type) => {
+  switch (type) {
+    case 'success': return 'bg-success-subtle text-success-emphasis';
+    case 'error': return 'bg-danger-subtle text-danger-emphasis';
+    case 'warning': return 'bg-warning-subtle text-warning-emphasis';
+    case 'info': 
+    default: return 'bg-info-subtle text-info-emphasis';
   }
 };
 
@@ -67,20 +77,12 @@ const getTypeIcon = (type) => {
 
 <style scoped>
 .notification-container {
-  position: fixed;
-  top: 1rem;      /* Adjust as needed */
-  right: 1rem;    /* Adjust as needed */
-  z-index: 1050;  /* Ensure it's above most elements */
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end; /* Align notifications to the right */
+  /* Position fixed is handled by toast-container */
+  z-index: 1100; /* Ensure it's above Bootstrap modals (1050+) */
 }
 
-.notification {
-  border-radius: 6px; /* Optional: match Chakra */
-}
 
-/* Transition styles */
+/* Transition styles - Adapt if needed for toast */
 .notification-enter-active,
 .notification-leave-active {
   transition: all 0.3s ease;
@@ -94,8 +96,7 @@ const getTypeIcon = (type) => {
   transform: scale(0.8);
 }
 
-/* Adjust icon size if needed */
-.icon.is-medium {
-  font-size: 1.5rem;
-}
+/* Adjust close button color if needed based on header */
+/* .toast-header .btn-close { ... } */
+
 </style>

@@ -14,8 +14,13 @@ import './assets/styles/main.css';
 // Import Font Awesome CSS
 import '@fortawesome/fontawesome-free/css/all.css';
 
-// ADDED Bulma CSS Import
-import 'bulma/css/bulma.css';
+// REMOVE Bulma CSS Import
+// import 'bulma/css/bulma.css';
+
+// ADD Bootstrap CSS
+import 'bootstrap/dist/css/bootstrap.min.css';
+// ADD Bootstrap JS (optional, but often needed for components like dropdowns, modals, etc.)
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 let appInstance = null;
 let authInitialized = false; // Flag to prevent multiple initializations

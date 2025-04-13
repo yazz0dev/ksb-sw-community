@@ -1,96 +1,94 @@
 <template>
-  <section class="section" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
-    <div class="container is-max-desktop">
+  <section class="py-5" style="background-color: var(--bs-body-bg); min-height: calc(100vh - 8rem);">
+    <div class="container-lg">
       <!-- Loading State -->
-      <div v-if="loading" class="has-text-centered py-6">
-        <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
-        <p class="has-text-grey">Loading...</p>
+      <div v-if="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-secondary mt-2">Loading...</p>
       </div>
 
       <!-- Content -->
       <template v-else>
-        <div class="level is-mobile mb-6 pb-4" style="border-bottom: 1px solid var(--color-border);">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 pb-4" style="border-bottom: 1px solid var(--bs-border-color);">
           <!-- Left side -->
-          <div class="level-left">
-            <div class="level-item">
-              <h2 class="title is-3 has-text-primary">Events Dashboard</h2>
-            </div>
+          <div>
+            <h2 class="h2 text-primary mb-0">Events Dashboard</h2>
           </div>
           <!-- Right side -->
-          <div class="level-right">
-            <div class="level-item">
-              <div class="buttons is-flex-wrap-wrap is-justify-content-flex-end">
-                <router-link
-                  v-if="canRequestEvent && !isAdmin"
-                  to="/create-event"
-                  class="button is-primary"
-                >
-                  <span class="icon"><i class="fas fa-calendar-plus"></i></span>
-                  <span>{{ isAdmin ? 'Create Event' : 'Request Event' }}</span>
-                </router-link>
-                <router-link
-                  v-if="isAdmin"
-                  to="/manage-requests"
-                  class="button is-outlined"
-                >
-                  <span class="icon"><i class="fas fa-tasks"></i></span>
-                  <span>Manage Requests</span>
-                </router-link>
-              </div>
+          <div class="mt-3 mt-md-0 ms-md-auto">
+            <div class="d-flex flex-wrap justify-content-end gap-2">
+              <router-link
+                v-if="canRequestEvent && !isAdmin"
+                to="/create-event"
+                class="btn btn-primary d-inline-flex align-items-center"
+              >
+                <i class="fas fa-calendar-plus me-2"></i>
+                <span>{{ isAdmin ? 'Create Event' : 'Request Event' }}</span>
+              </router-link>
+              <router-link
+                v-if="isAdmin"
+                to="/manage-requests"
+                class="btn btn-outline-secondary d-inline-flex align-items-center"
+              >
+                <i class="fas fa-tasks me-2"></i>
+                <span>Manage Requests</span>
+              </router-link>
             </div>
           </div>
         </div>
 
         <!-- Event Sections -->
-        <div class="mb-6">
-          <h3 class="title is-5 mb-4 has-text-dark">Active Events</h3>
-          <div v-if="activeEvents.length > 0" class="columns is-multiline is-variable is-3">
-            <div v-for="event in activeEvents" :key="event.id" class="column is-half-tablet is-one-third-desktop">
+        <div class="mb-5">
+          <h4 class="h4 text-dark mb-4">Active Events</h4>
+          <div v-if="activeEvents.length > 0" class="row g-3">
+            <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
               <EventCard :event="event" />
             </div>
           </div>
-          <p v-else class="has-text-grey">No active events at the moment.</p>
+          <p v-else class="text-secondary">No active events at the moment.</p>
         </div>
 
-        <div class="mb-6">
-          <h3 class="title is-5 mb-4 has-text-dark">Upcoming Events</h3>
-          <div v-if="upcomingEvents.length > 0" class="columns is-multiline is-variable is-3">
-            <div v-for="event in upcomingEvents" :key="event.id" class="column is-half-tablet is-one-third-desktop">
+        <div class="mb-5">
+          <h4 class="h4 text-dark mb-4">Upcoming Events</h4>
+          <div v-if="upcomingEvents.length > 0" class="row g-3">
+            <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
               <EventCard :event="event" />
             </div>
           </div>
-          <p v-else class="has-text-grey">No upcoming events scheduled.</p>
+          <p v-else class="text-secondary">No upcoming events scheduled.</p>
         </div>
 
-        <div class="mb-6">
-          <div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
-            <h3 class="title is-5 has-text-dark mb-0">Completed Events</h3>
-            <router-link to="/completed-events" class="button is-small is-link is-light">
+        <div class="mb-5">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="h4 text-dark mb-0">Completed Events</h4>
+            <router-link to="/completed-events" class="btn btn-link btn-sm text-decoration-none">
               View All
             </router-link>
           </div>
-          <div v-if="completedEvents.length > 0" class="columns is-multiline is-variable is-3">
-            <div v-for="event in completedEvents" :key="event.id" class="column is-half-tablet is-one-third-desktop">
+          <div v-if="completedEvents.length > 0" class="row g-3">
+            <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
               <EventCard :event="event" />
             </div>
           </div>
-          <p v-else class="has-text-grey">No completed events yet.</p>
+          <p v-else class="text-secondary">No completed events yet.</p>
         </div>
 
         <!-- Cancelled Events Section (Toggleable) -->
-        <div class="mb-6">
-          <button class="button is-text is-small mb-4" @click="showCancelled = !showCancelled">
+        <div class="mb-5">
+          <button class="btn btn-link btn-sm text-decoration-none text-secondary mb-4" @click="showCancelled = !showCancelled">
             {{ showCancelled ? 'Hide' : 'Show' }} Cancelled Events
-            <span class="icon"><i :class="['fas', showCancelled ? 'fa-chevron-up' : 'fa-chevron-down']"></i></span>
+            <i :class="['fas', showCancelled ? 'fa-chevron-up' : 'fa-chevron-down', 'ms-1']"></i>
           </button>
           <transition name="fade-fast">
             <div v-if="showCancelled">
-              <div v-if="cancelledEvents.length > 0" class="columns is-multiline is-variable is-3">
-                <div v-for="event in cancelledEvents" :key="event.id" class="column is-half-tablet is-one-third-desktop">
+              <div v-if="cancelledEvents.length > 0" class="row g-3">
+                <div v-for="event in cancelledEvents" :key="event.id" class="col-md-6 col-lg-4">
                   <EventCard :event="event" />
                 </div>
               </div>
-              <p v-else class="has-text-grey">No cancelled events.</p>
+              <p v-else class="text-secondary">No cancelled events.</p>
             </div>
           </transition>
         </div>
@@ -162,20 +160,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Simple Bulma loader */
-.loader {
-  border-radius: 50%;
-  border-width: 2px;
-  border-style: solid;
-  width: 3em;
-  height: 3em;
-  animation: spinAround 1s infinite linear;
-}
-
-@keyframes spinAround {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(359deg); }
-}
+/* Removed custom loader styles */
 
 /* Transitions */
 .fade-fast-enter-active,

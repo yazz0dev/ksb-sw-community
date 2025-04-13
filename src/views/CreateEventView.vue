@@ -1,66 +1,62 @@
 <template>
-  <section class="section create-event-section">
-    <div class="container is-max-desktop">
+  <section class="py-5 create-event-section">
+    <div class="container-lg">
       <!-- Admin Warning -->
-      <div v-if="isAdmin" class="notification is-danger is-light mb-6">
-        <span class="icon mr-2"><i class="fas fa-exclamation-circle"></i></span>
-        Administrators cannot create events directly. Please manage and approve event requests instead.
+      <div v-if="isAdmin" class="alert alert-danger d-flex align-items-center mb-5" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <div>
+          Administrators cannot create events directly. Please manage and approve event requests instead.
+        </div>
       </div>
 
       <!-- Auth Warning -->
-      <div v-else-if="!isAuthenticated" class="notification is-danger is-light mb-6">
-        <span class="icon mr-2"><i class="fas fa-exclamation-circle"></i></span>
-        Please log in to create or request events.
+      <div v-else-if="!isAuthenticated" class="alert alert-danger d-flex align-items-center mb-5" role="alert">
+         <i class="fas fa-exclamation-circle me-2"></i>
+         <div>
+           Please log in to create or request events.
+         </div>
       </div>
 
       <!-- Loading State -->
-      <div v-else-if="loading" class="has-text-centered py-6">
-        <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
-        <p class="has-text-grey">Loading...</p>
+      <div v-else-if="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-muted mt-2">Loading...</p>
       </div>
 
       <!-- Active Request Warning -->
-      <div v-else-if="hasActiveRequest && !isAdmin" class="notification is-warning is-light mb-6">
-        <div class="media">
-          <div class="media-left">
-            <span class="icon is-medium"><i class="fas fa-exclamation-triangle"></i></span>
+      <div v-else-if="hasActiveRequest && !isAdmin" class="alert alert-warning d-flex align-items-start mb-5" role="alert">
+         <i class="fas fa-exclamation-triangle me-3 fs-5"></i>
+          <div>
+             <h6 class="alert-heading mb-1">Pending Request Active</h6>
+             <small>You already have a pending event request. Please wait for it to be reviewed before submitting a new one.</small>
           </div>
-          <div class="media-content">
-             <p class="title is-6 mb-1">Pending Request Active</p>
-             <p class="is-size-7">You already have a pending event request. Please wait for it to be reviewed before submitting a new one.</p>
-          </div>
-        </div>
       </div>
 
       <div v-else>
         <!-- Header -->
-        <div class="level is-mobile mb-6 pb-4" style="border-bottom: 1px solid var(--color-border);">
-          <div class="level-left">
-            <div class="level-item">
-              <div>
-                <h1 class="title is-3 has-text-primary mb-0">{{ pageTitle }}</h1>
-                <p class="is-size-7 has-text-grey mt-1">{{ pageSubtitle }}</p>
-              </div>
-            </div>
+        <div class="d-flex justify-content-between align-items-center mb-5 pb-4" style="border-bottom: 1px solid var(--bs-border-color);">
+          <div>
+            <h3 class="text-primary mb-0">{{ pageTitle }}</h3>
+            <p class="small text-muted mt-1">{{ pageSubtitle }}</p>
           </div>
-          <div class="level-right">
-            <div class="level-item">
-              <button
-                class="button is-outlined is-small"
-                @click="$router.back()"
-              >
-                <span class="icon"><i class="fas fa-arrow-left"></i></span>
-                <span>Back</span>
-              </button>
-            </div>
+          <div>
+            <button
+              class="btn btn-outline-secondary btn-sm"
+              @click="$router.back()"
+            >
+              <i class="fas fa-arrow-left me-1"></i>
+              <span>Back</span>
+            </button>
           </div>
         </div>
 
         <!-- Error Message -->
-        <div v-if="errorMessage" class="notification is-danger is-light mb-6">
-          <button class="delete" @click="errorMessage = ''"></button>
-          <span class="icon mr-1"><i class="fas fa-exclamation-circle"></i></span>
-          {{ errorMessage }}
+        <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-5" role="alert">
+          <i class="fas fa-exclamation-circle me-2"></i>
+          <div>{{ errorMessage }}</div>
+          <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close"></button>
         </div>
 
         <!-- Event Form -->
@@ -80,6 +76,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import EventForm from '../components/EventForm.vue';
+import type { FormData as EventFormData } from '../components/EventForm.vue';
 
 const store = useStore();
 const router = useRouter();
@@ -92,7 +89,7 @@ const eventId = computed(() => route.params.eventId as string | undefined);
 const loading = ref(true);
 const errorMessage = ref('');
 const hasActiveRequest = ref(false);
-const initialEventData = ref<Record<string, any>>({});
+const initialEventData = ref<EventFormData | null>(null);
 
 // Computed
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
@@ -107,7 +104,7 @@ const handleFormError = (message: string) => {
   errorMessage.value = message;
 };
 
-const handleSubmit = async (eventData: any) => {
+const handleSubmit = async (eventData: EventFormData) => {
   if (isAdmin.value && !isEditing.value) {
     errorMessage.value = 'Administrators cannot create events directly. Approve requests instead.';
     return;
@@ -155,42 +152,65 @@ const loadEventData = async () => {
     initialEventData.value = mapEventToFormData(eventData);
   } catch (error: any) {
     errorMessage.value = error.message || 'Failed to load event data';
-    initialEventData.value = {}; 
+    initialEventData.value = null;
   } finally {
     loading.value = false;
   }
 };
 
 // Helper to map Firestore event data to form data
-const mapEventToFormData = (eventData: any): Record<string, any> => {
-  const formData = { ...eventData };
-  const dateFieldsToConvert = ['startDate', 'endDate', 'desiredStartDate', 'desiredEndDate'];
+const mapEventToFormData = (eventData: any): EventFormData => {
+  // Create a default form structure matching EventFormData
+  const defaultForm: EventFormData = {
+    eventName: '',
+    eventType: '',
+    description: '',
+    isTeamEvent: false,
+    startDate: null,
+    endDate: null,
+    desiredStartDate: null,
+    desiredEndDate: null,
+    teams: [],
+    xpAllocation: [],
+    organizers: [],
+    status: 'Pending' // Default status or based on context
+  };
+
+  // Merge fetched data into the default structure
+  const formData: EventFormData = { ...defaultForm, ...eventData };
+
+  // Convert dates
+  const dateFieldsToConvert: (keyof EventFormData)[] = ['startDate', 'endDate', 'desiredStartDate', 'desiredEndDate'];
   dateFieldsToConvert.forEach(field => {
-    const timestamp = formData[field];
+    const timestamp = formData[field] as any; // Cast to any for conversion
     if (timestamp && typeof timestamp.toDate === 'function') {
       try {
-        formData[field] = timestamp.toDate().toISOString().split('T')[0];
+        (formData[field] as any) = timestamp.toDate().toISOString().split('T')[0];
       } catch (e) {
         console.warn(`Could not convert timestamp for field ${field}:`, e);
-        formData[field] = '';
+        (formData[field] as any) = null;
       }
     } else if (typeof timestamp === 'string') {
       try {
-        // Attempt to parse and format existing string dates
         const parsedDate = new Date(timestamp);
         if (!isNaN(parsedDate.getTime())) {
-             formData[field] = parsedDate.toISOString().split('T')[0];
-        } else { formData[field] = ''; } // Clear if invalid string date
+            (formData[field] as any) = parsedDate.toISOString().split('T')[0];
+        } else { 
+            (formData[field] as any) = null; 
+        } 
       } catch (e) {
-          formData[field] = '';
+          (formData[field] as any) = null;
       }
     } else {
-      formData[field] = ''; // Default to empty if not a valid type
+      (formData[field] as any) = null; // Default to null if not a valid type
     }
   });
+
+  // Ensure arrays are present
   formData.xpAllocation = Array.isArray(formData.xpAllocation) ? formData.xpAllocation : [];
   formData.organizers = Array.isArray(formData.organizers) ? formData.organizers : [];
   formData.teams = Array.isArray(formData.teams) ? formData.teams : [];
+
   return formData;
 };
 
@@ -217,7 +237,7 @@ onMounted(async () => {
       await loadEventData();
     } else if (!isEditing.value) {
       // Reset initial data for creation/request form
-      initialEventData.value = {};
+      initialEventData.value = null;
       loading.value = false; // Stop loading for create/request form
     } else {
         // If isEditing is true but user is not admin, set error and stop loading
@@ -238,17 +258,5 @@ onMounted(async () => {
   background-color: var(--color-background);
 }
 
-/* Reuse loader style */
-.loader {
-  border-radius: 50%;
-  border-width: 2px;
-  border-style: solid;
-  width: 3em;
-  height: 3em;
-  animation: spinAround 1s infinite linear;
-}
-@keyframes spinAround {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(359deg); }
-}
+/* Removed custom loader styles */
 </style>

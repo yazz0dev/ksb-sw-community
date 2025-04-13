@@ -1,125 +1,131 @@
 <template>
-  <div class="section is-flex is-flex-direction-column is-align-items-center is-justify-content-center" style="min-height: 80vh;">
-    <div class="container is-max-desktop">
-      <div class="has-text-centered mb-5">
-        <h1 class="title is-2 has-text-primary">
+  <div class="d-flex align-items-center justify-content-center py-5" style="min-height: calc(100vh - 120px);">
+    <div class="container container-sm">
+      <div class="text-center mb-5">
+        <h2 class="h2 fw-bold text-primary">
           {{ viewState === 'reset' ? 'Reset Your Password' : 'Forgot Your Password?' }}
-        </h1>
+        </h2>
       </div>
 
-      <div class="box" style="background-color: var(--color-surface); border: 1px solid var(--color-border); max-width: 450px; margin: 0 auto;">
-        <p v-if="viewState === 'request'" class="is-size-7 has-text-centered has-text-grey mb-5">
-          Enter your email address and we will send you a link to reset your password.
-        </p>
-        <p v-if="viewState === 'reset'" class="is-size-7 has-text-centered has-text-grey mb-5">
-          Enter your new password below.
-        </p>
-        <p v-if="viewState === 'success'" class="is-size-7 has-text-centered has-text-grey mb-5">
-          Your password has been successfully reset.
-        </p>
+      <div class="card shadow-sm border-0" style="max-width: 450px; margin: 0 auto; background-color: var(--bs-tertiary-bg);">
+         <div class="card-body p-4 p-md-5">
+            <p v-if="viewState === 'request'" class="small text-center text-secondary mb-4">
+              Enter your email address and we will send you a link to reset your password.
+            </p>
+            <p v-if="viewState === 'reset'" class="small text-center text-secondary mb-4">
+              Enter your new password below.
+            </p>
+            <p v-if="viewState === 'success'" class="small text-center text-secondary mb-4">
+              Your password has been successfully reset.
+            </p>
 
-        <div v-if="message" class="message is-small mb-4" :class="isError ? 'is-danger' : 'is-success'">
-          <div class="message-body">
-            {{ message }}
-          </div>
-        </div>
-
-        <!-- Request Reset Form -->
-        <form @submit.prevent="handleSendResetEmail" v-if="viewState === 'request'">
-          <div class="field">
-            <label for="email" class="label is-small">Email Address</label>
-            <div class="control has-icons-left">
-              <input
-                id="email"
-                class="input"
-                type="email"
-                v-model="email"
-                placeholder="you@example.com"
-                required
-                :disabled="isLoading"
-              />
-              <span class="icon is-small is-left"><i class="fas fa-envelope"></i></span>
+            <div v-if="message" class="alert alert-sm mb-4 text-center" :class="isError ? 'alert-danger' : 'alert-success'" role="alert">
+              {{ message }}
             </div>
-          </div>
 
-          <div class="field mt-5">
-            <button
-              type="submit"
-              class="button is-primary is-fullwidth"
-              :class="{ 'is-loading': isLoading }"
-              :disabled="isLoading"
-            >
-              Send Reset Link
-            </button>
-          </div>
-        </form>
+            <!-- Request Reset Form -->
+            <form @submit.prevent="handleSendResetEmail" v-if="viewState === 'request'">
+              <div class="mb-3">
+                <label for="email" class="form-label small">Email Address</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                  <input
+                    id="email"
+                    class="form-control"
+                    type="email"
+                    v-model="email"
+                    placeholder="you@example.com"
+                    required
+                    :disabled="isLoading"
+                  />
+                </div>
+              </div>
 
-        <!-- Reset Password Form -->
-        <form @submit.prevent="handleResetPassword" v-if="viewState === 'reset'">
-          <div class="field">
-            <label for="newPassword" class="label is-small">New Password</label>
-            <div class="control has-icons-left">
-              <input
-                id="newPassword"
-                class="input"
-                type="password"
-                v-model="newPassword"
-                placeholder="Enter new password (min. 6 characters)"
-                required
-                :disabled="isLoading"
-                minlength="6"
-              />
-               <span class="icon is-small is-left"><i class="fas fa-lock"></i></span>
+              <div class="d-grid mt-4">
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  :disabled="isLoading"
+                >
+                  <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                  {{ isLoading ? 'Sending...' : 'Send Reset Link' }}
+                </button>
+              </div>
+            </form>
+
+            <!-- Reset Password Form -->
+            <form @submit.prevent="handleResetPassword" v-if="viewState === 'reset'">
+              <div class="mb-3">
+                <label for="newPassword" class="form-label small">New Password</label>
+                <div class="input-group has-validation">
+                   <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                  <input
+                    id="newPassword"
+                    class="form-control"
+                    :class="{ 'is-invalid': newPassword.length > 0 && newPassword.length < 6 }"
+                    type="password"
+                    v-model="newPassword"
+                    placeholder="Enter new password (min. 6 characters)"
+                    required
+                    :disabled="isLoading"
+                    minlength="6"
+                  />
+                  <div class="invalid-feedback">
+                      Password must be at least 6 characters.
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="confirmPassword" class="form-label small">Confirm Password</label>
+                 <div class="input-group has-validation">
+                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                    <input
+                      id="confirmPassword"
+                      class="form-control"
+                      :class="{ 'is-invalid': confirmPassword.length > 0 && newPassword !== confirmPassword }"
+                      type="password"
+                      v-model="confirmPassword"
+                      placeholder="Confirm new password"
+                      required
+                      :disabled="isLoading"
+                    />
+                    <div class="invalid-feedback">
+                      Passwords do not match.
+                    </div>
+                </div>
+              </div>
+
+              <div class="d-grid mt-4">
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  :disabled="isLoading || newPassword !== confirmPassword || newPassword.length < 6"
+                >
+                  <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                  {{ isLoading ? 'Resetting...' : 'Reset Password' }}
+                </button>
+              </div>
+            </form>
+
+            <!-- Back/Proceed Link -->
+            <div class="mt-4 text-center">
+              <router-link
+                v-if="viewState !== 'success'"
+                to="/login"
+                class="btn btn-link btn-sm text-secondary text-decoration-none"
+              >
+                 <i class="fas fa-arrow-left me-1"></i>
+                 <span>Back to Login</span>
+              </router-link>
+              <router-link
+                v-else
+                to="/login"
+                class="btn btn-outline-primary w-100"
+              >
+                Proceed to Login
+              </router-link>
             </div>
-             <p v-if="newPassword.length > 0 && newPassword.length < 6" class="help is-danger is-size-7">Password must be at least 6 characters.</p>
-          </div>
-
-          <div class="field">
-            <label for="confirmPassword" class="label is-small">Confirm Password</label>
-            <div class="control has-icons-left">
-              <input
-                id="confirmPassword"
-                class="input"
-                type="password"
-                v-model="confirmPassword"
-                placeholder="Confirm new password"
-                required
-                :disabled="isLoading"
-              />
-               <span class="icon is-small is-left"><i class="fas fa-lock"></i></span>
-            </div>
-             <p v-if="confirmPassword.length > 0 && newPassword !== confirmPassword" class="help is-danger is-size-7">Passwords do not match.</p>
-          </div>
-
-          <div class="field mt-5">
-            <button
-              type="submit"
-              class="button is-primary is-fullwidth"
-              :class="{ 'is-loading': isLoading }"
-              :disabled="isLoading || newPassword !== confirmPassword || newPassword.length < 6"
-            >
-              Reset Password
-            </button>
-          </div>
-        </form>
-
-        <!-- Back/Proceed Link -->
-        <div class="mt-5 has-text-centered">
-          <router-link
-            v-if="viewState !== 'success'"
-            to="/login"
-            class="button is-text is-small"
-          >
-             <span class="icon is-small"><i class="fas fa-arrow-left"></i></span>
-             <span>Back to Login</span>
-          </router-link>
-          <router-link
-            v-else
-            to="/login"
-            class="button is-primary is-outlined is-fullwidth"
-          >
-            Proceed to Login
-          </router-link>
         </div>
       </div>
     </div>
@@ -252,51 +258,15 @@ const handleResetPassword = async () => {
 
   isLoading.value = true;
   try {
-    // Confirm the password reset.
     await confirmPasswordReset(auth, oobCode.value, newPassword.value);
-    message.value = 'Password has been reset successfully!';
+    message.value = 'Password reset successfully!';
     isError.value = false;
     viewState.value = 'success';
-    // Clear sensitive fields
-    newPassword.value = '';
-    confirmPassword.value = '';
-    oobCode.value = null; // Clear the code after use
-    router.replace({ query: {} }); // Clear query params from URL
-    // No automatic redirect, let user click the button
   } catch (error) {
     console.error("Confirm Password Reset Error:", error);
+    message.value = 'Failed to reset password. The link may be invalid or expired.';
     isError.value = true;
-    switch (error.code) {
-        case 'auth/expired-action-code':
-            message.value = 'The password reset link has expired. Please request a new one.';
-            viewState.value = 'error';
-            break;
-        case 'auth/invalid-action-code':
-            message.value = 'The password reset link is invalid. Please request a new one.';
-            viewState.value = 'error';
-            break;
-        case 'auth/user-disabled':
-            message.value = 'Your account has been disabled.';
-            viewState.value = 'error';
-            break;
-        case 'auth/user-not-found': 
-            message.value = 'User not found. The account may have been deleted.';
-             viewState.value = 'error';
-            break;
-        case 'auth/weak-password':
-            message.value = 'Password is too weak. Please choose a stronger password.';
-            // Keep viewState as 'reset' to allow retry
-            break;
-        default:
-            message.value = 'Failed to reset password. Please try again.';
-            viewState.value = 'error';
-    }
-     // Clear invalid code if error occurs during reset confirmation
-     if (error.code === 'auth/expired-action-code' || error.code === 'auth/invalid-action-code') {
-         oobCode.value = null;
-         router.replace({ query: {} }); // Clear query params
-         viewState.value = 'request'; // Send back to request form on code error
-     }
+    viewState.value = 'error';
   } finally {
     isLoading.value = false;
   }
@@ -304,7 +274,9 @@ const handleResetPassword = async () => {
 </script>
 
 <style scoped>
-.box {
-    box-shadow: 0 4px 10px rgba(10, 10, 10, 0.1);
+/* Removed Bulma box shadow style */
+.alert-sm {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875em;
 }
 </style>

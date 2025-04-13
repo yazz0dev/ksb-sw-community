@@ -128,3 +128,4 @@ Specify your project's license here (e.g., MIT License). If none, state that.
 ---
 
 This README provides clear instructions, especially regarding the sensitive Firebase configuration, ensuring anyone cloning the repository knows how to set it up locally without exposing credentials. Remember to replace `YOUR_USERNAME` in the clone URL if needed.
+

@@ -1,65 +1,64 @@
 <template>
-  <section class="section" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
-    <div class="container is-max-desktop">
+  <section class="py-5" style="background-color: var(--bs-body-bg); min-height: calc(100vh - 8rem);">
+    <div class="container-lg">
       <!-- Header with filtering -->
-      <div class="mb-6">
-        <div class="level is-mobile is-align-items-center">
+      <div class="mb-5">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
           <!-- Left side -->
-          <div class="level-left">
-            <div class="level-item">
-              <h1 class="title is-3 has-text-primary">{{ viewTitle }}</h1>
-            </div>
+          <div>
+            <h2 class="h2 text-primary mb-0">{{ viewTitle }}</h2>
           </div>
           <!-- Right side -->
-          <div class="level-right">
-            <div class="level-item">
-              <div v-if="isAuthenticated" class="buttons are-small has-addons">
-                <button
-                  v-for="filter in filters"
-                  :key="filter.value"
-                  class="button"
-                  :class="{ 
-                    'is-primary is-selected': activeFilter === filter.value, 
-                    'is-light': activeFilter !== filter.value 
-                  }"
-                  @click="setActiveFilter(filter.value)"
-                >
-                  {{ filter.label }}
-                </button>
-              </div>
+          <div class="ms-md-auto">
+            <div v-if="isAuthenticated" class="btn-group btn-group-sm" role="group" aria-label="Event Filter">
+              <button
+                v-for="filter in filters"
+                :key="filter.value"
+                type="button"
+                class="btn"
+                :class="{ 
+                  'btn-primary active': activeFilter === filter.value, 
+                  'btn-outline-secondary': activeFilter !== filter.value 
+                }"
+                @click="setActiveFilter(filter.value)"
+              >
+                {{ filter.label }}
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Loading State -->
-      <div v-if="loading" class="has-text-centered py-6">
-        <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
+      <div v-if="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
       </div>
 
       <!-- Events Groups -->
       <div v-else>
         <!-- No events message -->
-        <p v-if="groupedEvents.length === 0" class="has-text-centered has-text-grey py-5">
+        <p v-if="groupedEvents.length === 0" class="text-center text-secondary py-5">
           No events found for the selected filter.
         </p>
 
         <!-- Event groups -->
-        <div v-else class="mb-6">
-          <div v-for="(group, index) in groupedEvents" :key="index" class="mb-6">
-            <h2 
-              class="title is-5 has-text-dark mb-5 pb-2"
-              style="border-bottom: 1px solid var(--color-border);"
+        <div v-else class="mb-5">
+          <div v-for="(group, index) in groupedEvents" :key="index" class="mb-5">
+            <h4 
+              class="h4 text-dark mb-4 pb-2 border-bottom"
             >
               {{ group.title }}
-            </h2>
-            <div class="columns is-multiline is-variable is-4">
+            </h4>
+            <div class="row g-4">
               <div
                 v-for="event in group.events"
                 :key="event.id"
-                class="column is-half-tablet is-one-third-desktop animate-fade-in"
+                class="col-md-6 col-lg-4 animate-fade-in"
               >
                 <EventCard
+                  class="h-100" 
                   :event="event"
                   @click="$router.push(`/event/${event.id}`)"
                   style="cursor: pointer;"
@@ -268,24 +267,9 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Reuse loader style from HomeView */
-.loader {
-  border-radius: 50%;
-  border-width: 2px;
-  border-style: solid;
-  width: 3em;
-  height: 3em;
-  animation: spinAround 1s infinite linear;
-}
-@keyframes spinAround {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(359deg); }
-}
+/* Removed loader style */
 
-/* Ensure columns have consistent height potential */
-.column > * {
-  height: 100%;
-}
+/* Removed column height style */
 
 /* Animation */
 .animate-fade-in {

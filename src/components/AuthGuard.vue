@@ -9,30 +9,22 @@
       
       <div 
         v-else 
-        class="message is-warning"
-        style="background-color: var(--color-neutral-light); border: 1px solid var(--color-border);"
+        class="alert alert-warning text-center p-4 border-warning-subtle"
+        role="alert"
+        style="background-color: var(--bs-warning-bg-subtle); border-radius: var(--bs-border-radius);"
       >
-        <div class="message-body has-text-centered">
-          <p class="mb-2">
-             <span class="icon is-large" style="color: var(--color-neutral-dark);">
-               <i class="fas fa-lock fa-2x"></i>
-             </span>
-          </p>
-          <h3 class="title is-5 has-text-weight-medium mb-1" style="color: var(--color-text-primary);">Authentication Required</h3>
-          <p class="is-size-7 mb-3" style="color: var(--color-text-secondary);">{{ message || 'Please log in to access this feature' }}</p>
-          <router-link 
-            to="/login" 
-            class="button is-primary is-small"
-            style="color: var(--color-primary-text); background-color: var(--color-primary); transition: background-color 0.2s;"
-            @mouseover="$event.target.style.backgroundColor = 'var(--color-primary-dark)'"
-            @mouseout="$event.target.style.backgroundColor = 'var(--color-primary)'"
-          >
-            <span class="icon is-small">
-              <i class="fas fa-sign-in-alt"></i>
-            </span>
-            <span>Log In</span>
-          </router-link>
+        <div class="mb-2">
+           <i class="fas fa-lock fa-2x text-warning-emphasis"></i>
         </div>
+        <h5 class="h5 fw-medium mb-1 text-body">Authentication Required</h5>
+        <p class="small mb-3 text-secondary">{{ message || 'Please log in to access this feature' }}</p>
+        <router-link 
+          to="/login" 
+          class="btn btn-primary btn-sm d-inline-flex align-items-center"
+        >
+          <i class="fas fa-sign-in-alt me-1"></i>
+          <span>Log In</span>
+        </router-link>
       </div>
     </div>
   </div>
@@ -56,8 +48,5 @@ const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 </script>
 
 <style scoped>
-/* Optional: Add custom styles if needed */
-.message.is-warning {
-    border-radius: 6px; /* Match Chakra's borderRadius='lg' */
-}
+/* Removed Bulma-specific styles */
 </style>

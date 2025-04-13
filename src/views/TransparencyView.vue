@@ -1,74 +1,74 @@
 <template>
-    <section class="section transparency-section">
-        <div class="container is-max-desktop py-5">
-            <h1 class="title is-1 has-text-primary mb-6 pb-3" style="border-bottom: 2px solid var(--color-primary);">
+    <section class="py-5 transparency-section">
+        <div class="container-lg py-5">
+            <h1 class="h1 text-primary mb-5 pb-3" style="border-bottom: 2px solid var(--bs-primary);">
                 Community Transparency & Guidelines
             </h1>
 
-            <div class="content">
+            <div class="transparency-content">
                 <!-- Community Guidelines Section -->
-                <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light custom-card-header">
-                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
-                            <span class="icon mr-3"><i class="fas fa-user-shield"></i></span>
-                            <span class="is-size-5">Community Guidelines</span>
-                        </p>
-                    </header>
-                    <div class="card-content">
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header bg-primary-subtle">
+                        <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
+                            <i class="fas fa-user-shield me-3"></i>
+                            Community Guidelines
+                        </h5>
+                    </div>
+                    <div class="card-body">
                         <div class="content" v-html="renderSection(introductionContent)"></div>
                     </div>
                 </div>
 
                 <!-- Roles Section -->
-                <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light custom-card-header">
-                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
-                            <span class="icon mr-3"><i class="fas fa-users"></i></span>
-                            <span class="is-size-5">Community Roles</span>
-                        </p>
-                    </header>
-                    <div class="card-content">
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header bg-primary-subtle">
+                         <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
+                            <i class="fas fa-users me-3"></i>
+                            Community Roles
+                        </h5>
+                    </div>
+                    <div class="card-body">
                         <div class="content" v-html="renderSection(rolesContent)"></div>
                     </div>
                 </div>
 
                 <!-- Event System Section -->
-                <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light custom-card-header">
-                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
-                            <span class="icon mr-3"><i class="fas fa-tasks"></i></span>
-                            <span class="is-size-5">Event System</span>
-                        </p>
-                    </header>
-                    <div class="card-content">
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header bg-primary-subtle">
+                        <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
+                           <i class="fas fa-tasks me-3"></i>
+                            Event System
+                        </h5>
+                    </div>
+                    <div class="card-body">
                         <div class="content" v-html="renderSection(eventLifecycleContent)"></div>
                     </div>
                 </div>
 
                 <!-- Rating & XP System Section -->
-                <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light custom-card-header">
-                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
-                            <span class="icon mr-3"><i class="fas fa-star"></i></span>
-                            <span class="is-size-5">Rating & XP System</span>
-                        </p>
-                    </header>
-                    <div class="card-content">
+                <div class="card mb-4 shadow-sm">
+                     <div class="card-header bg-primary-subtle">
+                         <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
+                            <i class="fas fa-star me-3"></i>
+                            Rating & XP System
+                        </h5>
+                    </div>
+                    <div class="card-body">
                         <div class="content" v-html="renderSection(ratingContent)"></div>
-                        <hr class="my-5">
+                        <hr class="my-4">
                         <div class="content" v-html="renderSection(xpContent)"></div>
                     </div>
                 </div>
 
                 <!-- General Guidelines Section -->
-                <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light custom-card-header">
-                        <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
-                            <span class="icon mr-3"><i class="fas fa-book"></i></span>
-                            <span class="is-size-5">General Guidelines</span>
-                        </p>
-                    </header>
-                    <div class="card-content">
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header bg-primary-subtle">
+                        <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
+                            <i class="fas fa-book me-3"></i>
+                            General Guidelines
+                        </h5>
+                    </div>
+                    <div class="card-body">
                         <div class="content" v-html="renderSection(generalContent)"></div>
                     </div>
                 </div>
@@ -236,57 +236,33 @@ const renderSection = (content) => {
 
 <style scoped>
 .transparency-section {
-  background-color: var(--color-background);
-}
-
-/* Add some basic styling to ensure cards have a slight shadow and content is spaced */
-.custom-card {
-  box-shadow: 0 2px 4px rgba(10, 10, 10, 0.05);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-
-.custom-card-header {
-  border-bottom: 1px solid var(--color-primary);
+  background-color: var(--bs-body-bg); /* Updated variable */
 }
 
 /* Style the content rendered from markdown */
-.card-content .content h2 {
-    font-size: 1.5rem; /* is-size-4 */
-    margin-bottom: 1rem; /* mb-4 */
-    margin-top: 1.5rem; /* mt-5 */
+.card-body .content h2 {
+    font-size: 1.75rem; /* Approx h3 */
+    margin-bottom: 1rem; 
+    margin-top: 1.5rem; 
+    font-weight: 500;
 }
 
-.card-content .content h3 {
-    font-size: 1.25rem; /* is-size-5 */
-    margin-bottom: 0.75rem; /* mb-3 */
-    margin-top: 1.25rem; /* mt-4 */
+.card-body .content h3 {
+    font-size: 1.5rem; /* Approx h4 */
+    margin-bottom: 0.75rem;
+    margin-top: 1.25rem; 
+    font-weight: 500;
 }
 
-.card-content .content ul {
+.card-body .content ul {
     list-style: disc;
-    margin-left: 1.5em;
-    margin-top: 0.5em;
+    padding-left: 2rem; /* Adjusted padding */
+    margin-top: 0.5rem;
 }
 
-.card-content .content p,
-.card-content .content li {
+.card-body .content p,
+.card-body .content li {
     line-height: 1.6;
+    margin-bottom: 0.5rem; /* Added spacing */
 }
-
-.has-text-primary-dark {
-    color: hsl(217, 71%, 45%); /* Adjust if needed */
-}
-
-/* Ensure primary-light background is defined if not in global styles */
-.has-background-primary-light {
-    background-color: var(--color-primary-light);
-}
-
-.py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
-.pb-3 { padding-bottom: 0.75rem; }
-.mb-5 { margin-bottom: 1.25rem; }
-.mb-6 { margin-bottom: 1.5rem; }
-.mr-3 { margin-right: 0.75rem; }
-.my-5 { margin-top: 1.25rem; margin-bottom: 1.25rem; }
 </style>

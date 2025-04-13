@@ -1,36 +1,43 @@
 <template>
-  <div class="modal" :class="{ 'is-active': true }"> <!-- Assume visibility controlled by parent via v-if or other means -->
-    <div class="modal-background" @click="$emit('close')"></div>
-    <div class="modal-card" style="max-width: 640px;">
-      <header class="modal-card-head">
-        <p class="modal-card-title">Rate Teams & Select Best Performer</p>
-        <button class="delete" aria-label="close" @click="$emit('close')"></button>
-      </header>
+  <Teleport to="body">
+    <!-- Bootstrap Modal -->
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-labelledby="ratingModalLabel" aria-hidden="false">
+      <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ratingModalLabel">Rate Teams & Select Best Performer</h5>
+            <button type="button" class="btn-close" aria-label="Close" @click="$emit('close')"></button>
+          </div>
 
-      <section class="modal-card-body py-5">
-        <div v-if="loading" class="is-flex is-flex-direction-column is-align-items-center py-6">
-          <div class="loader is-loading mb-3" style="height: 3rem; width: 3rem;"></div>
-          <p class="has-text-grey">Loading event data...</p>
-        </div>
+          <div class="modal-body py-4">
+            <!-- Loading State -->
+            <div v-if="loading" class="d-flex flex-column align-items-center py-5">
+              <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="text-secondary">Loading event data...</p>
+            </div>
 
-        <div v-else-if="error" class="message is-danger">
-          <div class="message-body">{{ error }}</div>
-        </div>
+            <!-- Error State -->
+            <div v-else-if="error" class="alert alert-danger" role="alert">
+              {{ error }}
+            </div>
 
-        <form v-else @submit.prevent="submitTeamRatings">
-          <div class="is-flex is-flex-direction-column" style="gap: 1.5rem;">
-            <!-- Team Selection Section -->
-            <div>
-              <h3 class="title is-5 mb-3">Best Team per Criterion</h3>
-              <p v-if="!eventCriteria?.length" class="is-size-7 is-italic has-text-grey">
-                No rating criteria defined for this event.
-              </p>
-              <div v-else class="is-flex is-flex-direction-column" style="gap: 1rem;">
-                <div v-for="criterion in eventCriteria" :key="criterion.constraintIndex" class="field">
-                  <label class="label is-small">{{ criterion.constraintLabel }} ({{ criterion.points }} XP)</label>
-                  <div class="control">
-                    <div class="select is-fullwidth">
+            <!-- Form Content -->
+            <form v-else @submit.prevent="submitTeamRatings">
+              <div class="d-flex flex-column" style="gap: 1.5rem;">
+                <!-- Team Selection Section -->
+                <div>
+                  <h3 class="h5 mb-3">Best Team per Criterion</h3>
+                  <p v-if="!eventCriteria?.length" class="small fst-italic text-secondary">
+                    No rating criteria defined for this event.
+                  </p>
+                  <div v-else class="d-flex flex-column" style="gap: 1rem;">
+                    <div v-for="criterion in eventCriteria" :key="criterion.constraintIndex" class="mb-3">
+                      <label :for="`team-select-${criterion.constraintIndex}`" class="form-label small fw-bold">{{ criterion.constraintLabel }} ({{ criterion.points }} XP)</label>
                       <select
+                        :id="`team-select-${criterion.constraintIndex}`"
+                        class="form-select"
                         v-model="teamSelections[criterion.constraintIndex]"
                         required
                         :disabled="isSubmitting"
@@ -43,20 +50,18 @@
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- Best Performer Section -->
-            <div class="pt-5" style="border-top: 1px solid var(--color-border);">
-              <h3 class="title is-5 mb-3">Overall Best Performer</h3>
-              <p v-if="!allTeamMembers?.length" class="is-size-7 is-italic has-text-grey">
-                No participants found in teams.
-              </p>
-              <div v-else class="field">
-                <label class="label is-small">Select the standout individual participant</label>
-                <div class="control">
-                  <div class="select is-fullwidth">
+                <!-- Best Performer Section -->
+                <div class="pt-4 border-top">
+                  <h3 class="h5 mb-3">Overall Best Performer</h3>
+                  <p v-if="!allTeamMembers?.length" class="small fst-italic text-secondary">
+                    No participants found in teams.
+                  </p>
+                  <div v-else class="mb-3">
+                    <label for="best-performer-select" class="form-label small fw-bold">Select the standout individual participant</label>
                     <select
+                      id="best-performer-select"
+                      class="form-select"
                       v-model="bestPerformerSelection"
                       required
                       :disabled="isSubmitting"
@@ -68,35 +73,39 @@
                     </select>
                   </div>
                 </div>
+
+                <!-- Submission Error -->
+                <div v-if="submissionError" class="alert alert-danger alert-sm mt-3" role="alert">
+                  {{ submissionError }}
+                </div>
               </div>
-            </div>
-
-            <div v-if="submissionError" class="message is-danger is-small">
-              <div class="message-body">{{ submissionError }}</div>
-            </div>
+              <!-- Form submission is handled by footer button -->
+            </form>
           </div>
-        </form>
-      </section>
 
-      <footer class="modal-card-foot is-justify-content-flex-end">
-        <button class="button" @click="$emit('close')">
-          Cancel
-        </button>
-        <button
-          class="button is-primary"
-          :class="{ 'is-loading': isSubmitting }"
-          :disabled="!isFormValid || isSubmitting"
-          @click="submitTeamRatings"
-        >
-          Submit Ratings
-        </button>
-      </footer>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="$emit('close')">
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="!isFormValid || isSubmitting"
+              @click="submitTeamRatings"
+            >
+              <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              {{ isSubmitting ? 'Submitting...' : 'Submit Ratings' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+    <!-- Backdrop -->
+    <div class="modal-backdrop fade show"></div>
+  </Teleport>
 </template>
 
 <script setup>
-// Removed all Chakra UI imports
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 
@@ -105,7 +114,7 @@ const props = defineProps({
     type: String,
     required: true,
   },
-  // Add a prop to control visibility if needed by the parent
+  // Assuming parent controls visibility and renders this conditionally
   // visible: { 
   //   type: Boolean,
   //   default: false
@@ -195,7 +204,10 @@ const getTeamNameForMember = (memberId) => {
 };
 
 const isFormValid = computed(() => {
-  if (!eventCriteria.value || eventCriteria.value.length === 0) return false;
+  if (!eventCriteria.value || eventCriteria.value.length === 0) {
+      // If no criteria, only need best performer
+      return bestPerformerSelection.value !== '';
+  }
   // Check if all criteria have a team selected
   const allCriteriaSelected = eventCriteria.value.every(
     c => typeof c.constraintIndex === 'number' && teamSelections.value[c.constraintIndex] && teamSelections.value[c.constraintIndex] !== ''
@@ -248,11 +260,13 @@ const submitTeamRatings = async () => {
 </script>
 
 <style scoped>
-.modal-card-foot.is-justify-content-flex-end {
-    justify-content: flex-end;
+/* Force modal display if parent controls via v-if */
+.modal.show {
+  display: block;
 }
-/* Add any specific styles if needed */
-.py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
-.pt-5 { padding-top: 1.25rem; }
-.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+/* Reduce padding on small alerts */
+.alert-sm {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875em;
+}
 </style>
