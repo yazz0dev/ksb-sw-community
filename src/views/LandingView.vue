@@ -1,5 +1,11 @@
 <template>
-  <CBox maxW="4xl" mx="auto" textAlign="center" py="12" px={{ base: '4', sm: '6', lg: '8' }}>
+  <CBox 
+    maxW="4xl" 
+    mx="auto" 
+    textAlign="center" 
+    py="12" 
+    :px="{ base: '4', sm: '6', lg: '8' }"
+  >
     <CHeading as="h1" size="2xl" color="text-primary" mb="4">
       Welcome to the KSB Tech Community!
     </CHeading>
@@ -25,7 +31,7 @@
         <CCardHeader bg="surface-variant" borderBottomWidth="1px" borderColor="border">
           <CHeading size="md" color="text-primary">Platform Features</CHeading>
         </CCardHeader>
-        <CList divider={<CDivider />}>
+        <CList :divider="h(CDivider)">
           <!-- Feature items -->
           <CListItem 
             v-for="(feature, index) in features" 
@@ -34,7 +40,7 @@
             d="flex"
             alignItems="center"
           >
-            <CIcon :name="feature.icon" color={feature.color} mr="3" />
+            <CIcon :name="feature.icon" :color="feature.color" mr="3" />
             <CText fontSize="sm" color="text-secondary">{{ feature.text }}</CText>
           </CListItem>
         </CList>
@@ -48,6 +54,7 @@
 </template>
 
 <script setup>
+import { defineComponent, ref, h } from 'vue'
 import {
   Box as CBox,
   Heading as CHeading,

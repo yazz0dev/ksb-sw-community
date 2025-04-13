@@ -1,5 +1,12 @@
 <template>
-  <CBox id="app" d="flex" flexDir="column" minH="100vh" bg="var(--color-neutral-light)" color="var(--color-text-secondary)">
+  <CBox 
+    id="app" 
+    :d="'flex'" 
+    :flexDir="'column'" 
+    :minH="'100vh'" 
+    bg="var(--color-neutral-light)" 
+    color="var(--color-text-secondary)"
+  >
     <!-- Offline State Handler -->
     <OfflineStateHandler />
     <!-- Notification System -->
@@ -8,9 +15,9 @@
     <!-- Top Navigation Bar -->
     <CFlex
       as="nav"
-      position="sticky"
-      top="0"
-      zIndex="sticky"
+      :position="'sticky'"
+      :top="0"
+      :zIndex="'sticky'"
       bg="var(--color-surface)"
       boxShadow="sm"
       align="center"
@@ -18,7 +25,14 @@
       borderBottomWidth="1px"
       borderColor="var(--color-border)"
     >
-      <CContainer maxW="container.xl" d="flex" alignItems="center" justifyContent="space-between" h="full" :px="{ base: 4, sm: 6, lg: 8 }">
+      <CContainer 
+        :maxW="'container.xl'" 
+        :d="'flex'" 
+        alignItems="center" 
+        justifyContent="space-between" 
+        h="full" 
+        :px="{ base: 4, sm: 6, lg: 8 }"
+      >
         <CLink
           as="router-link"
           to="/"

@@ -72,7 +72,7 @@
                 <CStack spacing="4">
                     <CHeading as="h3" size="md">Event Schedule</CHeading>
 
-                    <CGrid templateColumns={{ base: '1fr', sm: 'repeat(2, 1fr)' }} gap="6">
+                    <CGrid :templateColumns="{ base: '1fr', sm: 'repeat(2, 1fr)' }" :gap="6">
                         <CFormControl isRequired>
                             <CFormLabel>{{ isAdmin ? 'Start Date' : 'Desired Start Date' }}</CFormLabel>
                             <DatePicker
@@ -153,7 +153,7 @@
             size="lg"
             :isLoading="isSubmitting"
             :isDisabled="!isFormValid || totalXP > 50"
-            leftIcon={isSubmitting ? 'spinner' : 'paper-plane'}
+            :leftIcon="isSubmitting ? 'fa-spinner' : 'fa-paper-plane'"
         >
             {{ submitButtonText }}
         </CButton>
@@ -161,39 +161,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue';
-import { useStore } from 'vuex';
-import { Timestamp } from 'firebase/firestore';
-import { XPAllocation, EventCreateDTO, EventRequest, EventTeam, EventFormData } from '../types/event';
-import ManageTeamsComponent from './ManageTeamsComponent.vue';
-import DatePicker from '@vuepic/vue-datepicker';
-import '@vuepic/vue-datepicker/dist/main.css';
-
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { useStore } from 'vuex'
+import { Timestamp } from 'firebase/firestore'
+import type { XPAllocation, EventCreateDTO, EventRequest, EventTeam, EventFormData } from '../types'
 import {
-    CForm,
-    CCard,
-    CCardBody,
-    CStack,
-    CHeading,
-    CFormControl,
-    CFormLabel,
-    CInput,
-    CSelect,
-    CTextarea,
-    CRadioGroup,
-    CRadio,
-    CDivider,
-    CGrid,
-    CAlert,
-    CAlertIcon,
-    CAlertTitle,
-    CAlertDescription,
-    CBox,
-    CButton,
-    CText,
-    CIcon
-} from '@chakra-ui/vue-next';
+  Box as CBox,
+  Card as CCard,
+  CardBody as CCardBody,
+  Stack as CStack,
+  Heading as CHeading,
+  FormControl as CFormControl,
+  FormLabel as CFormLabel,
+  Input as CInput, 
+  Select as CSelect,
+  Textarea as CTextarea,
+  RadioGroup as CRadioGroup,
+  Radio as CRadio,
+  Divider as CDivider,
+  Grid as CGrid,
+  Alert as CAlert,
+  AlertIcon as CAlertIcon,
+  AlertTitle as CAlertTitle,
+  AlertDescription as CAlertDescription,
+  Button as CButton,
+  Text as CText,
+  Icon as CIcon
+} from '@chakra-ui/vue-next'
 
+// Fix maxGenerateValue type
+const maxGenerateValue = computed(() => {
+  return generationType.value === 'fixed-size' ? 10 : Math.min(maxTeams, Math.floor(props.students.length / 2))
+})
+
+// Add component aliases
 const getStartOfDayUTC = (dateStr: string): Date => {
     const [year, month, day] = dateStr.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));

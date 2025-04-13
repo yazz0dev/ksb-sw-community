@@ -1,19 +1,18 @@
 <template>
   <CBox
     v-if="event && event.id"
-    bg="var(--color-surface)"
-    borderRadius="lg"
-    overflow="hidden"
-    boxShadow="md"
-    borderWidth="1px"
-    borderColor="var(--color-border)"
-    d="flex"
-    flexDir="column"
-    h="full"
-    transition="box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out"
+    :bg="cardBackground"
+    :borderRadius="'lg'"
+    :overflow="'hidden'"
+    :boxShadow="'md'"
+    :borderWidth="'1px'"
+    :borderColor="'var(--color-border)'"
+    :d="'flex'"
+    :flexDir="'column'"
+    :h="'full'"
+    :transition="'box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out'"
     :_hover="{ boxShadow: 'lg', transform: 'translateY(-4px)' }"
     :opacity="isCancelledOrRejected ? 0.75 : 1"
-    :bg="isCancelledOrRejected ? 'var(--color-neutral)' : 'var(--color-surface)'"
   >
     <CBox p="5" d="flex" flexDir="column" flexGrow="1">
       <CFlex justify="space-between" align="start" mb="2">
@@ -87,6 +86,11 @@ const props = defineProps({
 
 const isCancelledOrRejected = computed(() => 
   props.event.status === 'Cancelled' || props.event.status === 'Rejected'
+);
+
+// Add new computed property for background color
+const cardBackground = computed(() => 
+  isCancelledOrRejected.value ? 'var(--color-neutral)' : 'var(--color-surface)'
 );
 
 // Helper to format date range

@@ -13,7 +13,7 @@
             />
           </CFlex>
           <CIconButton
-            icon={<CIcon name="fa-times" />}
+            :icon="'fa-times'"
             variant="ghost"
             colorScheme="red"
             size="sm"
@@ -50,7 +50,7 @@
                   <CIconButton
                     ml="1.5"
                     size="xs"
-                    icon={<CIcon name="fa-times" />}
+                    :icon="'fa-times'"
                     variant="ghost"
                     :isDisabled="isSubmitting"
                     @click="removeMember(index, memberId)"
@@ -72,7 +72,7 @@
 
     <CFlex justify="space-between" align="center">
       <CButton
-        leftIcon={<CIcon name="fa-plus" />}
+        :leftIcon="'fa-plus'"
         colorScheme="primary"
         size="sm"
         :isDisabled="isSubmitting"
@@ -85,7 +85,7 @@
         <CFlex align="center" gap="2">
           <CSelect
             v-model="generationType"
-            size="sm"
+            :size="'sm'"
             :isDisabled="isSubmitting"
           >
             <option value="fixed-size">Fixed Size Teams</option>
@@ -94,15 +94,15 @@
           
           <CNumberInput
             v-model="generateValue"
-            size="sm"
-            w="16"
+            :size="'sm'"
+            :w="'16'"
             :min="2"
             :max="maxGenerateValue"
             :isDisabled="isSubmitting"
           />
           
           <CButton
-            leftIcon={<CIcon name="fa-random" />}
+            :leftIcon="'fa-random'"
             colorScheme="secondary"
             size="sm"
             :isDisabled="isSubmitting || !canGenerate || !hasValidEventId"
@@ -118,6 +118,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue'
 import {
   Box as CBox,
   Button as CButton,
@@ -130,12 +131,14 @@ import {
   Text as CText,
   Wrap as CWrap,
   Badge as CBadge,
-  Icon as CIcon
+  Icon as CIcon,
 } from '@chakra-ui/vue-next'
 
-import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import TeamMemberSelect from '././TeamMemberSelect.vue'; 
+
+// Add missing isSubmitting ref
+const isSubmitting = ref(false);
 
 interface Team {
   teamName: string;
@@ -158,7 +161,14 @@ interface Props {
   eventId?: string;
 }
 
-const props = defineProps<Props>();
+const props = defineProps<{
+  initialTeams: Team[];
+  students: Student[];
+  nameCache: Record<string, string>;
+  isSubmitting: boolean;
+  canAutoGenerate: boolean;  
+  eventId?: string;
+}>();
 const emit = defineEmits<{
   (e: 'update:teams', teams: Team[]): void;
   (e: 'error', message: string): void;

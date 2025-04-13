@@ -1,5 +1,12 @@
 <template>
-  <CBox maxW="7xl" mx="auto" p={{ base: '4', sm: '6', lg: '8' }} bg="background" minH="calc(100vh - 8rem)">
+  <CBox
+    :maxW="'7xl'"
+    :mx="'auto'"
+    :px="{ base: '4', sm: '6', lg: '8' }"
+    :py="'8'"
+    :bg="'background'"
+    :minH="'calc(100vh - 8rem)'"
+  >
     <!-- Header with filtering -->
     <CBox mb="8">
       <CFlex justify="space-between" align="center" mb="4">
@@ -63,6 +70,9 @@
 </template>
 
 <script setup>
+import { ref, computed, onMounted, watch } from 'vue';
+import { useStore } from 'vuex';
+import { useRoute, useRouter } from 'vue-router';
 import {
   Box as CBox,
   Flex as CFlex,
@@ -74,9 +84,6 @@ import {
   SimpleGrid as CSimpleGrid,
   Spinner as CSpinner
 } from '@chakra-ui/vue-next';
-import { ref, computed, onMounted, watch } from 'vue';
-import { useStore } from 'vuex';
-import { useRoute, useRouter } from 'vue-router';
 import EventCard from '@/components/EventCard.vue';
 
 const store = useStore();

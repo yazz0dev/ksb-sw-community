@@ -13,28 +13,28 @@
         <CButtonGroup mt="4" spacing="2" wrap="wrap">
           <CButton
             v-if="canStartEvent"
-            leftIcon={<CIcon name="fa-play" />}
+            :leftIcon="h(CIcon, { name: 'fa-play' })"
             colorScheme="primary"
             :isDisabled="!isWithinEventDates"
-            onClick={() => updateStatus('InProgress')}
+            @click="updateStatus('InProgress')"
           >
             Start Event
           </CButton>
 
           <CButton
             v-if="canComplete"
-            leftIcon={<CIcon name="fa-check" />}
+            :leftIcon="h(CIcon, { name: 'fa-check' })"
             colorScheme="green"
-            onClick={() => updateStatus('Completed')}
+            @click="updateStatus('Completed')"
           >
             Mark Complete
           </CButton>
 
           <CButton
             v-if="canCancel"
-            leftIcon={<CIcon name="fa-times" />}
+            :leftIcon="h(CIcon, { name: 'fa-times' })"
             colorScheme="red"
-            onClick={confirmCancel}
+            @click="confirmCancel"
           >
             Cancel Event
           </CButton>
@@ -53,29 +53,29 @@
         <CButtonGroup spacing="2">
           <CButton
             v-if="event.ratingsOpen && canToggleRatings"
-            leftIcon={<CIcon name="fa-lock" />}
+            :leftIcon="h(CIcon, { name: 'fa-lock' })"
             colorScheme="yellow"
             :isLoading="isLoadingRatings"
-            onClick={toggleRatings}
+            @click="toggleRatings"
           >
             Close Ratings
           </CButton>
 
           <CButton
             v-else-if="!event.ratingsOpen && canToggleRatings"
-            leftIcon={<CIcon name="fa-lock-open" />}
+            :leftIcon="h(CIcon, { name: 'fa-lock-open' })"
             colorScheme="green"
             :isLoading="isLoadingRatings"
-            onClick={toggleRatings}
+            @click="toggleRatings"
           >
             Open Ratings
           </CButton>
 
           <CButton
             v-if="canCloseEvent"
-            leftIcon={<CIcon name="fa-archive" />}
+            :leftIcon="h(CIcon, { name: 'fa-archive' })"
             colorScheme="red"
-            onClick={closeEvent}
+            @click="closeEvent"
           >
             Close Event
           </CButton>
@@ -86,7 +86,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, h } from 'vue';
 import { useStore } from 'vuex';
 import {
   Box as CBox,

@@ -149,8 +149,13 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
-import { CFlex, CLink, CIcon, CText } from '@chakra-ui/vue-next';
-import { CAvatar } from '@chakra-ui/vue-next/dist/components/avatar'; // Corrected import path
+import { 
+  CFlex, 
+  CLink, 
+  CIcon, 
+  CText,
+  Avatar as CAvatar 
+} from '@chakra-ui/vue-next';
 
 const store = useStore();
 const profileImageRef = ref(null); // Ref for the image element
