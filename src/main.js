@@ -1,5 +1,7 @@
 // src/main.js
-import { createApp } from 'vue'; // Removed ref, watch
+import { createApp } from 'vue';
+import { createChakra } from '@chakra-ui/vue-next';
+import theme from './theme';
 import App from './App.vue';
 import router from './router';
 import store from './store';
@@ -55,15 +57,20 @@ const unsubscribe = onAuthStateChanged(auth, async (user) => {
 });
 
 function mountApp() {
-    // Mount only once after auth is initialized
     if (!appInstance && authInitialized) {
+        const chakra = createChakra({
+            theme,
+            cssReset: true
+        });
+        
         appInstance = createApp(App);
         appInstance.use(router);
         appInstance.use(store);
-        
+        appInstance.use(chakra);
+
         // Register AuthGuard globally
         appInstance.component('AuthGuard', AuthGuard);
-        
+
         appInstance.mount('#app');
         console.log("Vue app mounted.");
     } else if (appInstance) {

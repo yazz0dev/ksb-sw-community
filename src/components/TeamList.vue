@@ -1,54 +1,98 @@
 <template>
-    <div class="p-4 sm:p-6 space-y-4">
-        <transition-group name="fade-fast" tag="div" class="space-y-4">
-            <div v-for="team in teamsWithDetails" 
-                 :key="team.teamName" 
-                 class="bg-surface border border-border rounded-lg shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md">
-                <div class="p-4 sm:p-5">
-                    <div class="flex justify-between items-start mb-3">
-                        <h4 class="text-lg font-semibold text-primary">{{ team.teamName }}</h4>
-                    </div>
-                    <button @click="toggleTeamDetails(team.teamName)"
-                        class="inline-flex items-center px-3 py-1.5 border border-border shadow-sm text-xs font-medium rounded-md text-text-secondary bg-surface hover:bg-neutral-light focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-light transition-colors">
-                        <i :class="['fas w-3 transition-transform duration-200', team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down', 'mr-1.5']"></i>
-                        {{ team.showDetails ? 'Hide Members' : `Show Members (${team.members?.length || 0})` }}
-                    </button>
-                    <transition name="fade-fast">
-                        <div v-show="team.showDetails" class="mt-4 pt-4 border-t border-border">
-                            <div v-if="organizerNamesLoading" class="py-3 text-sm text-text-secondary italic">
-                                <i class="fas fa-spinner fa-spin mr-1"></i> Loading members...
-                            </div>
-                            <div v-else-if="team.members && team.members.length > 0">
-                                <h5 class="text-xs font-semibold text-text-secondary uppercase mb-2">Team Members</h5>
-                                <ul role="list" class="space-y-2">
-                                    <li v-for="memberId in team.members" :key="memberId"
-                                        class="flex items-center p-2 rounded-md transition-colors duration-150"
-                                        :class="{ 'bg-secondary-light font-medium': memberId === currentUserUid }">
-                                        <i class="fas fa-user mr-2 text-text-secondary flex-shrink-0 w-4 text-center"></i>
-                                        <router-link
-                                            :to="{ name: 'PublicProfile', params: { userId: memberId } }"
-                                            class="text-sm text-text-primary hover:text-primary truncate"
-                                            :class="{'text-primary font-semibold': memberId === currentUserUid}">
-                                            {{ getUserName(memberId) || memberId }} {{ memberId === currentUserUid ? '(You)' : '' }}
-                                        </router-link>
-                                    </li>
-                                </ul>
-                            </div>
-                            <div v-else class="py-3 text-sm text-text-secondary italic">
-                                No members assigned to this team yet.
-                            </div>
-                        </div>
-                    </transition>
-                </div>
-            </div>
-        </transition-group>
-        <div v-if="teamsWithDetails.length === 0" class="bg-info-light text-info-dark px-4 py-3 rounded-md text-sm mt-4 border border-info-light italic">
-             <i class="fas fa-info-circle mr-1"></i> No teams have been created for this event yet.
-        </div>
-    </div>
+  <CBox p={{ base: '4', sm: '6' }}>
+    <TransitionGroup name="fade-fast" tag="div">
+      <CBox 
+        v-for="team in teamsWithDetails"
+        :key="team.teamName"
+        mb="4"
+      >
+        <CCard variant="outline" shadow="sm" _hover={{ shadow: 'md' }} transition="box-shadow 0.2s">
+          <CCardBody p={{ base: '4', sm: '5' }}>
+            <CFlex justify="space-between" align="start" mb="3">
+              <CHeading size="md" color="primary">{{ team.teamName }}</CHeading>
+            </CFlex>
+
+            <CButton
+              leftIcon={<CIcon name={team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down'} />}
+              size="sm"
+              variant="outline"
+              onClick={() => toggleTeamDetails(team.teamName)}
+            >
+              {{ team.showDetails ? 'Hide Members' : `Show Members (${team.members?.length || 0})` }}
+            </CButton>
+
+            <CCollapse in={team.showDetails}>
+              <CBox mt="4" pt="4" borderTopWidth="1px">
+                <CText v-if="organizerNamesLoading" fontSize="sm" color="text-secondary" fontStyle="italic">
+                  <CIcon name="fa-spinner" spin mr="1" /> Loading members...
+                </CText>
+
+                <CBox v-else-if="team.members && team.members.length > 0">
+                  <CText fontSize="xs" fontWeight="semibold" color="text-secondary" textTransform="uppercase" mb="2">
+                    Team Members
+                  </CText>
+                  <CStack spacing="2">
+                    <CFlex
+                      v-for="memberId in team.members"
+                      :key="memberId"
+                      align="center"
+                      p="2"
+                      borderRadius="md"
+                      transition="colors 0.15s"
+                      :bg="memberId === currentUserUid ? 'secondary-light' : 'transparent'"
+                      :fontWeight="memberId === currentUserUid ? 'medium' : 'normal'"
+                    >
+                      <CIcon name="fa-user" color="text-secondary" mr="2" w="4" textAlign="center" />
+                      <CLink
+                        as="router-link"
+                        :to="{ name: 'PublicProfile', params: { userId: memberId } }"
+                        fontSize="sm"
+                        color="text-primary"
+                        _hover={{ color: 'primary' }}
+                        isTruncated
+                        :fontWeight="memberId === currentUserUid ? 'semibold' : 'normal'"
+                      >
+                        {{ getUserName(memberId) || memberId }} {{ memberId === currentUserUid ? '(You)' : '' }}
+                      </CLink>
+                    </CFlex>
+                  </CStack>
+                </CBox>
+
+                <CText v-else fontSize="sm" color="text-secondary" fontStyle="italic">
+                  No members assigned to this team yet.
+                </CText>
+              </CBox>
+            </CCollapse>
+          </CCardBody>
+        </CCard>
+      </CBox>
+    </TransitionGroup>
+
+    <CAlert v-if="teamsWithDetails.length === 0" status="info" variant="subtle" mt="4">
+      <CAlertIcon name="fa-info-circle" />
+      <CAlertDescription>No teams have been created for this event yet.</CAlertDescription>
+    </CAlert>
+  </CBox>
 </template>
 
 <script setup>
+import {
+  Box as CBox,
+  Card as CCard,
+  CardBody as CCardBody,
+  Button as CButton,
+  Stack as CStack,
+  Text as CText,
+  Link as CLink,
+  Flex as CFlex,
+  Icon as CIcon,
+  Heading as CHeading,
+  Collapse as CCollapse,
+  Alert as CAlert,
+  AlertIcon as CAlertIcon,
+  AlertDescription as CAlertDescription
+} from '@chakra-ui/vue-next'
+
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -79,7 +123,6 @@ const props = defineProps({
         type: String, 
         default: null 
     }
-    // currentUserHasRatedTeam prop removed as it's no longer needed here
 });
 
 const store = useStore();
@@ -128,8 +171,6 @@ const toggleTeamDetails = (teamName) => {
         console.warn(`Could not find team ${teamName} to toggle details.`);
     }
 };
-
-// goToRatingForm method removed
 
 defineEmits(['update:teams', 'canAddTeam']);
 

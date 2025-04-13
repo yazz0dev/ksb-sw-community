@@ -1,20 +1,43 @@
 <template>
-  <div v-if="!isOnline" class="fixed inset-x-0 top-0 z-50">
-    <div class="bg-error-light text-error-dark p-4 shadow-md border-b border-error flex items-center justify-between">
-      <div class="flex items-center">
-        <i class="fas fa-wifi-slash mr-2"></i>
-        <span>You are currently offline. Some features may be limited.</span>
-      </div>
-      <button @click="checkConnection" class="text-sm underline hover:text-error-dark focus:outline-none">
+  <CBox v-if="!isOnline" position="fixed" insetX="0" top="0" zIndex="banner">
+    <CFlex
+      bg="error.50"
+      color="error.700"
+      p="4"
+      boxShadow="md"
+      borderBottomWidth="1px"
+      borderColor="error.200"
+      justify="space-between"
+      align="center"
+    >
+      <CFlex align="center">
+        <CIcon name="fa-wifi-slash" mr="2" />
+        <CText>You are currently offline. Some features may be limited.</CText>
+      </CFlex>
+      <CButton
+        variant="link"
+        size="sm"
+        color="error.700"
+        textDecoration="underline"
+        _hover={{ color: 'error.800' }}
+        onClick={checkConnection}
+      >
         Retry
-      </button>
-    </div>
-  </div>
+      </CButton>
+    </CFlex>
+  </CBox>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
+import {
+  Box as CBox,
+  Flex as CFlex,
+  Text as CText,
+  Button as CButton,
+  Icon as CIcon
+} from '@chakra-ui/vue-next';
 
 const store = useStore();
 const isOnline = ref(navigator.onLine);

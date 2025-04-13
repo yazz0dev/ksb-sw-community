@@ -238,9 +238,7 @@ import { Timestamp } from 'firebase/firestore'; // Import Timestamp
 import EventDisplayCard from '../components/EventDisplayCard.vue'; // Import the display card
 import EventManageControls from '../components/EventManageControls.vue'; // Import EventManageControls
 import AuthGuard from '../components/AuthGuard.vue'; // Import AuthGuard
-// Removed import for TeamRatingForm
 
-// Removed import for EventActionsNav
 
 
 // Props, Store, Router

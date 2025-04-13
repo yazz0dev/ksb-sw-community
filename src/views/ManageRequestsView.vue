@@ -1,29 +1,34 @@
 <template>
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-background min-h-[calc(100vh-8rem)]">
+  <CBox maxW="7xl" mx="auto" :p="{ base: '4', sm: '6', lg: '8' }" bg="background" minH="calc(100vh - 8rem)">
     <!-- Header -->
-    <div class="mb-8 pb-4 border-b border-border">
-      <h2 class="text-3xl font-bold text-text-primary">Manage Event Requests</h2>
-    </div>
+    <CBox mb="8" pb="4" borderBottomWidth="1px" borderColor="border">
+      <CHeading size="xl" color="text-primary">Manage Event Requests</CHeading>
+    </CBox>
 
     <!-- Loading state -->
-    <div v-if="loading" class="flex justify-center py-16">
-      <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-    </div>
+    <CFlex v-if="loading" justify="center" py="16">
+      <CSpinner size="xl" color="primary" thickness="4px" />
+    </CFlex>
 
     <!-- Error state -->
-    <div v-else-if="error" class="text-error text-center py-16">
-      <p class="font-semibold">{{ error }}</p>
-    </div>
+    <CAlert v-else-if="error" status="error" variant="subtle" textAlign="center" py="16">
+      <CAlertIcon />
+      <CAlertDescription fontWeight="semibold">{{ error }}</CAlertDescription>
+    </CAlert>
 
     <!-- Event requests list -->
-    <div v-else class="space-y-6">
-      <div v-if="pendingRequests.length === 0" class="bg-info-light border border-info-light text-info-dark p-4 rounded-md text-center italic">
-        No pending event requests.
-      </div>
-      <template v-else>
-        <div v-for="(group, index) in groupedRequests" :key="index" class="space-y-4">
-          <h3 class="text-lg font-medium text-text-primary border-b border-border pb-2">{{ group.title }}</h3>
-          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <CBox v-else>
+      <CAlert v-if="pendingRequests.length === 0" status="info" variant="subtle" textAlign="center" fontStyle="italic">
+        <CAlertIcon />
+        <CAlertDescription>No pending event requests.</CAlertDescription>
+      </CAlert>
+
+      <CStack v-else spacing="6">
+        <CBox v-for="(group, index) in groupedRequests" :key="index" spacing="4">
+          <CHeading size="md" color="text-primary" pb="2" borderBottomWidth="1px" borderColor="border">
+            {{ group.title }}
+          </CHeading>
+          <CSimpleGrid :columns="{ base: 1, sm: 2, lg: 3 }" spacing="6" mt="4">
             <RequestCard
               v-for="request in group.requests"
               :key="request.id"
@@ -32,10 +37,10 @@
               @reject="confirmRejectRequest(request.id)"
               class="animate-fade-in"
             />
-          </div>
-        </div>
-      </template>
-    </div>
+          </CSimpleGrid>
+        </CBox>
+      </CStack>
+    </CBox>
 
     <!-- Confirmation Modal for Reject Request -->
     <ConfirmationModal
@@ -49,14 +54,25 @@
       @cancel="cancelRejectRequest"
       @close="cancelRejectRequest"
     />
-  </div>
+  </CBox>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
+import {
+  Box as CBox,
+  Flex as CFlex,
+  Heading as CHeading,
+  Stack as CStack,
+  SimpleGrid as CSimpleGrid,
+  Spinner as CSpinner,
+  Alert as CAlert,
+  AlertIcon as CAlertIcon,
+  AlertDescription as CAlertDescription
+} from '@chakra-ui/vue-next';
 import RequestCard from '../components/RequestCard.vue';
-import ConfirmationModal from '../components/ConfirmationModal.vue'; // Import modal component
+import ConfirmationModal from '../components/ConfirmationModal.vue';
 
 const store = useStore();
 const loading = ref(false);

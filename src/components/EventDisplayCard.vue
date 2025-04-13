@@ -1,52 +1,84 @@
 <template>
-    <!-- Increased spacing, using theme colors -->
-    <div class="min-w-0 flex-1 space-y-2">
-       <h3 class="text-xl font-semibold text-text-primary mb-1">{{ event.eventName }} <span class="font-normal text-text-secondary">({{ event.eventType }})</span></h3>
+    <CBox minW="0" flex="1" :sx="{ '& > *:not(style) ~ *:not(style)': { marginTop: '0.5rem' } }">
+       <CHeading as="h3" size="lg" fontWeight="semibold" color="var(--color-text-primary)" mb="1">
+           {{ event.eventName }} 
+           <CText as="span" fontWeight="normal" color="var(--color-text-secondary)">({{ event.eventType }})</CText>
+       </CHeading>
 
        <!-- Details Section with improved layout -->
-       <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-secondary">
-           <p><strong class="font-medium text-text-primary mr-1">Requested by:</strong> {{ nameCache[event.requester] || '(Name unavailable)' }}</p>
-           <p><strong class="font-medium text-text-primary mr-1">Dates:</strong> {{ formatDate(event.startDate || event.desiredStartDate) }} - {{ formatDate(event.endDate || event.desiredEndDate) }}</p>
-           <p><strong class="font-medium text-text-primary mr-1">Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}</p>
-           <p v-if="showStatus && event.status">
-               <strong class="font-medium text-text-primary mr-1">Status:</strong>
-               <span :class="statusClass">{{ event.status }}</span>
-           </p>
-       </div>
+       <CGrid :templateColumns="{ base: '1fr', sm: 'repeat(2, 1fr)' }" :gap="{ x: 4, y: 1 }" fontSize="sm" color="var(--color-text-secondary)">
+           <CText><CText as="strong" fontWeight="medium" color="var(--color-text-primary)" mr="1">Requested by:</CText> {{ nameCache[event.requester] || '(Name unavailable)' }}</CText>
+           <CText><CText as="strong" fontWeight="medium" color="var(--color-text-primary)" mr="1">Dates:</CText> {{ formatDate(event.startDate || event.desiredStartDate) }} - {{ formatDate(event.endDate || event.desiredEndDate) }}</CText>
+           <CText><CText as="strong" fontWeight="medium" color="var(--color-text-primary)" mr="1">Team Event:</CText> {{ event.isTeamEvent ? 'Yes' : 'No' }}</CText>
+           <CText v-if="showStatus && event.status">
+               <CText as="strong" fontWeight="medium" color="var(--color-text-primary)" mr="1">Status:</CText>
+               <CBadge :colorScheme="statusColorScheme.color" :variant="statusColorScheme.variant" fontSize="xs" px="2" py="0.5" borderRadius="full">
+                   {{ event.status }}
+               </CBadge>
+           </CText>
+       </CGrid>
 
-       <p v-if="event.organizers && event.organizers.length > 0" class="text-sm text-text-secondary">
-           <strong class="font-medium text-text-primary">Co-Organizers:</strong>
-           <span v-for="(orgId, idx) in event.organizers" :key="orgId">
+       <CText v-if="event.organizers && event.organizers.length > 0" fontSize="sm" color="var(--color-text-secondary)">
+           <CText as="strong" fontWeight="medium" color="var(--color-text-primary)">Co-Organizers:</CText>
+           <CText as="span" v-for="(orgId, idx) in event.organizers" :key="orgId">
                {{ nameCache[orgId] || '(Name unavailable)' }}{{ idx < event.organizers.length - 1 ? ', ' : '' }}
-           </span>
-       </p>
+           </CText>
+       </CText>
 
-       <p v-if="showStatus && event.status === 'Rejected' && event.rejectionReason" class="text-sm text-error-text mt-1 bg-error-extraLight p-2 rounded-md border border-error-light">
-           <strong class="font-medium">Rejection Reason:</strong> {{ event.rejectionReason }}
-       </p>
+       <CAlert 
+         v-if="showStatus && event.status === 'Rejected' && event.rejectionReason" 
+         status="error" 
+         variant="subtle" 
+         fontSize="sm" 
+         mt="1" 
+         p="2" 
+         borderRadius="md"
+         bg="var(--color-error-extraLight)"
+         borderColor="var(--color-error-light)"
+         borderWidth="1px"
+         color="var(--color-error-text)"
+       >
+         <CAlertIcon name="warning" color="var(--color-error)" />
+         <CAlertDescription>
+           <CText as="strong" fontWeight="medium">Rejection Reason:</CText> {{ event.rejectionReason }}
+         </CAlertDescription>
+       </CAlert>
 
        <!-- Description -->
-       <div class="pt-2">
-           <strong class="block text-sm font-medium text-text-primary mb-1">Description:</strong>
-           <p class="text-sm text-text-secondary prose prose-sm max-w-none">{{ event.description }}</p> <!-- Using prose for potential markdown -->
-       </div>
+       <CBox pt="2">
+           <CText as="strong" display="block" fontSize="sm" fontWeight="medium" color="var(--color-text-primary)" mb="1">Description:</CText>
+           <CText fontSize="sm" color="var(--color-text-secondary)">{{ event.description }}</CText> 
+       </CBox>
 
        <!-- Display XP/Constraint Info with better styling -->
-       <div v-if="event.xpAllocation && event.xpAllocation.length > 0" class="mt-3 pt-3 border-t border-border">
-           <strong class="block text-sm font-medium text-text-primary mb-1">Rating Criteria & XP:</strong>
-           <ul class="space-y-1 text-sm text-text-secondary">
-               <li v-for="(alloc, index) in event.xpAllocation" :key="index" class="flex items-center">
-                   <i class="fas fa-star text-yellow-400 mr-2 text-xs"></i> <!-- Keep specific yellow for star icon -->
-                   <span>{{ alloc.constraintLabel || 'Unnamed Criteria' }}: <span class="font-medium">{{ alloc.points }} XP</span> <span class="text-xs text-text-secondary">({{ formatRoleName(alloc.role) }})</span></span>
-               </li>
-           </ul>
-       </div>
-    </div>
+       <CBox v-if="event.xpAllocation && event.xpAllocation.length > 0" mt="3" pt="3" borderTopWidth="1px" borderColor="var(--color-border)">
+           <CText as="strong" display="block" fontSize="sm" fontWeight="medium" color="var(--color-text-primary)" mb="1">Rating Criteria & XP:</CText>
+           <CList spacing="1" fontSize="sm" color="var(--color-text-secondary)">
+               <CListItem v-for="(alloc, index) in event.xpAllocation" :key="index" d="flex" alignItems="center">
+                   <CIcon name="star" color="yellow.400" mr="2" fontSize="xs" /> 
+                   <CText as="span">{{ alloc.constraintLabel || 'Unnamed Criteria' }}: <CText as="span" fontWeight="medium">{{ alloc.points }} XP</CText> <CText as="span" fontSize="xs" color="var(--color-text-secondary)">({{ formatRoleName(alloc.role) }})</CText></CText>
+               </CListItem>
+           </CList>
+       </CBox>
+    </CBox>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { formatRoleName } from '../utils/formatters';
+import {
+  Box as CBox,
+  Text as CText,
+  Heading as CHeading,
+  SimpleGrid as CGrid,
+  Badge as CBadge,
+  Alert as CAlert,
+  AlertIcon as CAlertIcon,
+  AlertDescription as CAlertDescription,
+  List as CList,
+  ListItem as CListItem,
+  Icon as CIcon
+} from '@chakra-ui/vue-next';
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -68,15 +100,25 @@ const formatDate = (dateInput) => {
     } catch (error) { return 'Formatting Error'; }
 };
 
-// Status class computation - using theme state colors
-const statusClass = computed(() => {
-    const baseClasses = 'font-medium px-2 py-0.5 rounded-full text-xs';
-    switch (props.event?.status) {
-        case 'Approved': return `${baseClasses} text-success-text bg-success-light`;
-        case 'Pending': return `${baseClasses} text-warning-text bg-warning-light`;
-        case 'Rejected': return `${baseClasses} text-error-text bg-error-light`;
-        default: return `${baseClasses} text-info-text bg-info-light`;
-    }
+// Status color scheme computation
+const statusColorScheme = computed(() => {
+  switch (props.event?.status) {
+    case 'Approved':
+    case 'Upcoming':
+      return { color: 'green', variant: 'subtle' };
+    case 'Pending':
+      return { color: 'yellow', variant: 'subtle' };
+    case 'Rejected':
+      return { color: 'red', variant: 'subtle' };
+    case 'In Progress':
+    case 'Ongoing':
+      return { color: 'blue', variant: 'subtle' };
+    case 'Completed':
+    case 'Cancelled': // Group cancelled with completed for display
+      return { color: 'gray', variant: 'subtle' };
+    default:
+      return { color: 'gray', variant: 'subtle' }; // Default fallback
+  }
 });
 
 </script>

@@ -1,93 +1,118 @@
 <template>
-  <div class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-60 flex items-center justify-center p-4 transition-opacity duration-300">
-    <div class="bg-surface rounded-lg shadow-xl max-w-2xl w-full p-6 relative animate-fade-in">
-      <button @click="$emit('close')" class="absolute top-3 right-3 text-text-secondary hover:text-text-primary transition-colors">
-        <i class="fas fa-times text-xl"></i>
-        <span class="sr-only">Close modal</span>
-      </button>
+  <CModal isOpen @close="$emit('close')" size="2xl">
+    <CModalOverlay />
+    <CModalContent>
+      <CModalCloseButton />
+      <CModalHeader borderBottomWidth="1px">
+        Rate Teams & Select Best Performer
+      </CModalHeader>
 
-      <h3 class="text-xl font-semibold text-text-primary mb-6 border-b border-border pb-3">Rate Teams & Select Best Performer</h3>
+      <CModalBody py="6">
+        <CFlex v-if="loading" direction="column" align="center" py="8">
+          <CSpinner size="xl" color="primary" thickness="4px" />
+          <CText mt="2" color="text-secondary">Loading event data...</CText>
+        </CFlex>
 
-      <div v-if="loading" class="text-center py-8">
-        <i class="fas fa-spinner fa-spin text-2xl text-primary"></i>
-        <p class="mt-2 text-text-secondary">Loading event data...</p>
-      </div>
+        <CAlert v-else-if="error" status="error" variant="left-accent">
+          <CAlertIcon />
+          <CAlertDescription>{{ error }}</CAlertDescription>
+        </CAlert>
 
-      <div v-else-if="error" class="bg-error-light text-error-dark p-3 rounded-md border border-error-light text-sm">
-        <i class="fas fa-exclamation-circle mr-1"></i> {{ error }}
-      </div>
+        <CForm v-else @submit.prevent="submitTeamRatings">
+          <CStack spacing="6">
+            <!-- Team Selection Section -->
+            <CBox>
+              <CHeading size="md" mb="3">Best Team per Criterion</CHeading>
+              <CText v-if="!eventCriteria?.length" fontSize="sm" fontStyle="italic" color="text-secondary">
+                No rating criteria defined for this event.
+              </CText>
+              <CStack v-else spacing="4">
+                <CFormControl v-for="criterion in eventCriteria" :key="criterion.constraintIndex" isRequired>
+                  <CFormLabel>{{ criterion.constraintLabel }} ({{ criterion.points }} XP)</CFormLabel>
+                  <CSelect
+                    v-model="teamSelections[criterion.constraintIndex]"
+                    placeholder="Select Team..."
+                    :isDisabled="isSubmitting"
+                  >
+                    <option v-for="team in eventTeams" :key="team.teamName" :value="team.teamName">
+                      {{ team.teamName }}
+                    </option>
+                  </CSelect>
+                </CFormControl>
+              </CStack>
+            </CBox>
 
-      <form v-else @submit.prevent="submitTeamRatings" class="space-y-6">
-        <!-- Team Selection per Criterion -->
-        <div>
-          <h4 class="text-lg font-medium text-text-primary mb-3">Best Team per Criterion</h4>
-          <div v-if="!eventCriteria || eventCriteria.length === 0" class="text-sm text-text-secondary italic">
-            No rating criteria defined for this event.
-          </div>
-          <div v-else class="space-y-4">
-            <div v-for="criterion in eventCriteria" :key="criterion.constraintIndex">
-              <label :for="`criterion-${criterion.constraintIndex}`" class="block text-sm font-medium text-text-secondary mb-1">
-                {{ criterion.constraintLabel }} ({{ criterion.points }} XP)
-              </label>
-              <select
-                :id="`criterion-${criterion.constraintIndex}`"
-                v-model="teamSelections[criterion.constraintIndex]"
-                required
-                class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 sm:text-sm"
-                :disabled="isSubmitting"
-              >
-                <option disabled value="">Select Team...</option>
-                <option v-for="team in eventTeams" :key="team.teamName" :value="team.teamName">
-                  {{ team.teamName }}
-                </option>
-              </select>
-            </div>
-          </div>
-        </div>
+            <!-- Best Performer Section -->
+            <CBox borderTopWidth="1px" pt="6">
+              <CHeading size="md" mb="3">Overall Best Performer</CHeading>
+              <CText v-if="!allTeamMembers?.length" fontSize="sm" fontStyle="italic" color="text-secondary">
+                No participants found in teams.
+              </CText>
+              <CFormControl v-else isRequired>
+                <CFormLabel>Select the standout individual participant</CFormLabel>
+                <CSelect
+                  v-model="bestPerformerSelection"
+                  placeholder="Select Participant..."
+                  :isDisabled="isSubmitting"
+                >
+                  <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
+                    {{ member.name }} ({{ getTeamNameForMember(member.uid) }})
+                  </option>
+                </CSelect>
+              </CFormControl>
+            </CBox>
 
-        <!-- Best Performer Selection -->
-        <div class="border-t border-border pt-6">
-          <h4 class="text-lg font-medium text-text-primary mb-3">Overall Best Performer</h4>
-           <div v-if="!allTeamMembers || allTeamMembers.length === 0" class="text-sm text-text-secondary italic">
-             No participants found in teams.
-           </div>
-          <div v-else>
-            <label for="bestPerformer" class="block text-sm font-medium text-text-secondary mb-1">Select the standout individual participant</label>
-            <select
-              id="bestPerformer"
-              v-model="bestPerformerSelection"
-              required
-              class="mt-1 block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 sm:text-sm"
-              :disabled="isSubmitting"
-            >
-              <option disabled value="">Select Participant...</option>
-              <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
-                {{ member.name }} ({{ getTeamNameForMember(member.uid) }})
-              </option>
-            </select>
-          </div>
-        </div>
+            <CAlert v-if="submissionError" status="error">
+              <CAlertIcon />
+              <CAlertDescription>{{ submissionError }}</CAlertDescription>
+            </CAlert>
+          </CStack>
+        </CForm>
+      </CModalBody>
 
-        <!-- Submission Error -->
-        <p v-if="submissionError" class="text-sm text-error"><i class="fas fa-exclamation-circle mr-1"></i> {{ submissionError }}</p>
-
-        <!-- Actions -->
-        <div class="pt-6 flex justify-end space-x-3">
-          <button type="button" @click="$emit('close')" class="inline-flex justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary shadow-sm hover:bg-neutral-light focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-offset-2 transition-colors">
-            Cancel
-          </button>
-          <button type="submit" :disabled="isSubmitting || !isFormValid"
-                  class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-text shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            <i v-if="isSubmitting" class="fas fa-spinner fa-spin mr-2"></i>
-            {{ isSubmitting ? 'Submitting...' : 'Submit Ratings' }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+      <CModalFooter borderTopWidth="1px">
+        <CButton variant="ghost" mr="3" onClick="$emit('close')">
+          Cancel
+        </CButton>
+        <CButton
+          colorScheme="primary"
+          :isLoading="isSubmitting"
+          :isDisabled="!isFormValid"
+          loadingText="Submitting..."
+          onClick="submitTeamRatings"
+        >
+          Submit Ratings
+        </CButton>
+      </CModalFooter>
+    </CModalContent>
+  </CModal>
 </template>
 
 <script setup>
+import {
+  Modal as CModal,
+  ModalOverlay as CModalOverlay,
+  ModalContent as CModalContent,
+  ModalHeader as CModalHeader,
+  ModalFooter as CModalFooter,
+  ModalBody as CModalBody,
+  ModalCloseButton as CModalCloseButton,
+  Button as CButton,
+  FormControl as CFormControl,
+  FormLabel as CFormLabel,
+  Select as CSelect,
+  Stack as CStack,
+  Box as CBox,
+  Text as CText,
+  Heading as CHeading,
+  Alert as CAlert,
+  AlertIcon as CAlertIcon,
+  AlertDescription as CAlertDescription,
+  Spinner as CSpinner,
+  Flex as CFlex,
+  Form as CForm
+} from '@chakra-ui/vue-next'
+
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 

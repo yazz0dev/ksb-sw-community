@@ -1,68 +1,72 @@
 <template>
-    <!-- Use theme background, adjust padding -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-background min-h-[calc(100vh-8rem)]">
+  <CBox maxW="7xl" mx="auto" p={{ base: '4', sm: '6', lg: '8' }} bg="background" minH="calc(100vh - 8rem)">
+    <!-- Back Button -->
+    <CBox v-if="!isCurrentUser" mb="6">
+      <CButton
+        leftIcon={<CIcon name="fa-arrow-left" />}
+        variant="outline"
+        size="sm"
+        onClick={() => $router.back()}
+      >
+        Back
+      </CButton>
+    </CBox>
 
-        <!-- Back Button (Only for Public Profiles) -->
-        <div v-if="!isCurrentUser" class="mb-6">
-            <button
-                class="inline-flex items-center px-3 py-1.5 border border-border shadow-sm text-sm font-medium rounded-md text-text-secondary bg-surface hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
-                @click="$router.back()">
-                <i class="fas fa-arrow-left mr-1.5 h-4 w-4"></i> Back
-            </button>
-        </div>
+    <!-- Admin View -->
+    <CAlert v-if="isAdminProfile" status="info" variant="left-accent">
+      <CFlex align="center">
+        <CIcon name="fa-user-shield" mr="2" />
+        <CBox>
+          <CHeading size="md" mb="1">Admin Account</CHeading>
+          <CText>Admin accounts do not have personal profiles. Access admin tools via the main navigation.</CText>
+        </CBox>
+      </CFlex>
+    </CAlert>
 
-        <!-- Admin View (If target user is Admin or current user is Admin viewing own non-existent profile) -->
-         <div v-if="isAdminProfile" class="bg-info-light border-l-4 border-info text-info-dark p-4 rounded-md shadow-sm">
-             <h3 class="text-lg font-semibold flex items-center mb-1"><i class="fas fa-user-shield mr-2"></i>Admin Account</h3>
-             <p class="text-sm mb-0">Admin accounts do not have personal profiles. Access admin tools via the main navigation.</p>
-         </div>
+    <!-- Standard User View -->
+    <template v-else>
+      <!-- Header -->
+      <CFlex v-if="isCurrentUser" wrap="wrap" justify="space-between" align="center" gap="4" mb="8" pb="4" borderBottomWidth="1px" borderColor="border">
+        <CHeading as="h2" size="xl" color="text-primary">My Profile</CHeading>
+        <!-- Portfolio Button Area -->
+        <CFlex align="center">
+          <PortfolioGeneratorButton
+            v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
+            :user="userForPortfolio"
+            :projects="userProjectsForPortfolio"
+          />
+          <CText v-else-if="loadingProjectsForPortfolio" fontSize="xs" color="text-secondary" fontStyle="italic" ml="2">
+            Loading portfolio data...
+          </CText>
+          <CText v-else fontSize="xs" color="text-secondary" fontStyle="italic" ml="2">
+            (Portfolio PDF generation available after completing events with project submissions)
+          </CText>
+        </CFlex>
+      </CFlex>
 
-        <!-- Standard User View -->
-        <template v-else>
-            <!-- Header (Only for Current User Profile) -->
-            <div v-if="isCurrentUser" class="flex flex-wrap justify-between items-center gap-4 mb-8 pb-4 border-b border-border">
-                <h2 class="text-3xl font-bold text-text-primary">My Profile</h2>
-                <!-- Portfolio Button Area -->
-                <div class="flex items-center">
-                    <PortfolioGeneratorButton
-                        v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
-                        :user="userForPortfolio"
-                        :projects="userProjectsForPortfolio" />
-                     <span v-else-if="loadingProjectsForPortfolio" class="text-xs text-text-secondary italic ml-2">
-                        Loading portfolio data...
-                    </span>
-                    <span v-else class="text-xs text-text-secondary italic ml-2">
-                        (Portfolio PDF generation available after completing events with project submissions)
-                    </span>
-                 </div>
-            </div>
-
-            <!-- Use the ProfileViewContent component -->
-            <ProfileViewContent v-if="targetUserId" :user-id="targetUserId" :is-current-user="isCurrentUser">
-                <!-- Slot for content specific to the current user's profile -->
-                <template #additional-content v-if="isCurrentUser">
-                    <AuthGuard>
-                        <!-- Event Requests Card -->
-                         <div class="bg-surface shadow-lg rounded-lg overflow-hidden border border-border">
-                             <div class="px-4 py-3 sm:px-6 bg-secondary border-b border-secondary-dark">
-                                <h3 class="text-base font-semibold text-text-primary flex items-center">
-                                   <i class="fas fa-paper-plane mr-2 text-primary"></i>My Event Requests
-                                </h3>
-                            </div>
-                            <div class="p-0">
-                                <UserRequests />
-                            </div>
-                        </div>
-                    </AuthGuard>
-                </template>
-            </ProfileViewContent>
-
-            <!-- Fallback if targetUserId couldn't be determined -->
-             <div v-else class="text-center text-text-secondary py-10">
-                Could not determine user profile to display.
-            </div>
+      <!-- Profile Content -->
+      <ProfileViewContent v-if="targetUserId" :user-id="targetUserId" :is-current-user="isCurrentUser">
+        <template #additional-content v-if="isCurrentUser">
+          <AuthGuard>
+            <CCard variant="outline" shadow="lg">
+              <CCardHeader bg="secondary" borderBottomWidth="1px" borderColor="secondary-dark">
+                <CFlex align="center">
+                  <CIcon name="fa-paper-plane" color="primary" mr="2" />
+                  <CHeading size="md" color="text-primary">My Event Requests</CHeading>
+                </CFlex>
+              </CCardHeader>
+              <UserRequests />
+            </CCard>
+          </AuthGuard>
         </template>
-    </div>
+      </ProfileViewContent>
+
+      <!-- Fallback -->
+      <CText v-else textAlign="center" color="text-secondary" py="10">
+        Could not determine user profile to display.
+      </CText>
+    </template>
+  </CBox>
 </template>
 
 <script setup>
@@ -71,6 +75,18 @@ import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+
+import {
+  Box as CBox,
+  Flex as CFlex,
+  Heading as CHeading,
+  Text as CText,
+  Button as CButton,
+  Card as CCard,
+  CardHeader as CCardHeader,
+  Alert as CAlert,
+  Icon as CIcon
+} from '@chakra-ui/vue-next';
 
 // Import Components
 import ProfileViewContent from '../components/ProfileViewContent.vue';

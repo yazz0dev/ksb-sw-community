@@ -1,16 +1,23 @@
 <template>
-  <button
+  <CButton
     @click="generatePDF"
-    :disabled="isGenerating"
-    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light transition-colors disabled:opacity-50"
+    :isDisabled="isGenerating"
+    :isLoading="isGenerating"
+    leftIcon={<CIcon :name="isGenerating ? 'fa-spinner fa-spin' : 'fa-file-pdf'" />}
+    colorScheme="primary"
+    size="sm"
+    shadow="sm"
+    _hover={{ bg: 'primary-dark' }}
+    _focus={{ boxShadow: 'outline' }}
+    _disabled={{ opacity: 0.5 }}
   >
-    <i :class="['fas', isGenerating ? 'fa-spinner fa-spin' : 'fa-file-pdf', 'mr-2']"></i>
     {{ isGenerating ? 'Generating...' : 'Generate Portfolio PDF' }}
-  </button>
+  </CButton>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { Button as CButton, Icon as CIcon } from '@chakra-ui/vue-next';
 import { generatePortfolioPDF } from '../utils/pdfGenerator';
 
 // Define an interface for the project object

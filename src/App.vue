@@ -1,121 +1,292 @@
-// /src/App.vue
 <template>
-  <div id="app" class="flex flex-col min-h-screen bg-neutral-light text-text-secondary">
+  <CBox id="app" d="flex" flexDir="column" minH="100vh" bg="var(--color-neutral-light)" color="var(--color-text-secondary)">
     <!-- Offline State Handler -->
     <OfflineStateHandler />
     <!-- Notification System -->
     <NotificationSystem />
+
     <!-- Top Navigation Bar -->
-    <nav class="sticky top-0 z-30 bg-surface shadow-sm flex items-center h-12 lg:h-16 border-b border-border">
-      <div class="container mx-auto flex items-center justify-between h-full px-4 sm:px-6 lg:px-8">
-        <router-link to="/" class="text-lg lg:text-xl font-bold text-primary mr-4 lg:mr-8 flex items-center h-full whitespace-nowrap" @click="closeNavbar">KSB Tech Community</router-link>
+    <CFlex
+      as="nav"
+      position="sticky"
+      top="0"
+      zIndex="sticky"
+      bg="var(--color-surface)"
+      boxShadow="sm"
+      align="center"
+      :h="{ base: '12', lg: '16' }"
+      borderBottomWidth="1px"
+      borderColor="var(--color-border)"
+    >
+      <CContainer maxW="container.xl" d="flex" alignItems="center" justifyContent="space-between" h="full" :px="{ base: 4, sm: 6, lg: 8 }">
+        <CLink
+          as="router-link"
+          to="/"
+          :fontSize="{ base: 'lg', lg: 'xl' }"
+          fontWeight="bold"
+          color="var(--color-primary)"
+          :mr="{ base: 4, lg: 8 }"
+          d="flex"
+          alignItems="center"
+          h="full"
+          whiteSpace="nowrap"
+          @click="closeNavbar"
+          :_hover="{ textDecoration: 'none' }"
+        >
+          KSB Tech Community
+        </CLink>
 
-        <button class="lg:hidden border-none bg-transparent p-2 rounded text-text-secondary hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-opacity-75" type="button" @click.stop="toggleNavbar" aria-controls="navbarNav" :aria-expanded="isNavbarOpen.toString()" aria-label="Toggle navigation">
-          <i class="fas fa-bars text-xl"></i>
-        </button>
+        <CIconButton
+          :display="{ base: 'flex', lg: 'none' }"
+          variant="ghost"
+          aria-label="Toggle navigation"
+          :icon="h(CIcon, { name: 'fa-bars', size: 'xl' })"
+          @click.stop="toggleNavbar"
+          color="var(--color-text-secondary)"
+          :_hover="{ color: 'var(--color-primary)', bg: 'transparent' }"
+          :_focus="{ boxShadow: 'outline' }"
+        />
 
-        <!-- Mobile Menu Container: Kept solid background -->
-        <div 
+        <!-- Mobile Menu Overlay -->
+        <CBox
           v-if="isNavbarOpen"
-          class="fixed inset-0 bg-black/30 lg:hidden z-20"
+          position="fixed"
+          inset="0"
+          bg="blackAlpha.300"
+          :display="{ base: 'block', lg: 'none' }"
+          zIndex="overlay"
           @click.stop="closeNavbar"
           aria-hidden="true"
-        ></div>
-        
-        <div
-          :class="[
-            'fixed lg:static lg:flex top-12 lg:top-auto left-0 right-0 w-full bg-surface shadow-lg lg:shadow-none lg:w-auto lg:items-center lg:bg-transparent transition-all duration-300 ease-in-out overflow-hidden border-b border-border lg:border-none z-20',
-            isNavbarOpen ? 'translate-y-0 opacity-100 h-auto' : '-translate-y-full lg:translate-y-0 opacity-0 lg:opacity-100 h-0 lg:h-auto'
-          ]"
-          id="navbarNav"
-          ref="navbarCollapseRef"
-        >
-          <!-- Menu navigation -->
-          <ul class="flex flex-col lg:flex-row list-none lg:mr-auto px-4 lg:px-0 py-3 lg:py-0 divide-y divide-border lg:divide-y-0">
-            <li v-if="isAuthenticated" class="hidden lg:block lg:mr-1">
-              <router-link to="/home"
-                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
-                :class="{ 'font-semibold text-primary bg-secondary-light': $route.path === '/home' }"
-                @click="closeNavbar">Home</router-link>
-            </li>
-            <li class="lg:mr-1">
-              <router-link to="/leaderboard"
-                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
-                active-class="font-semibold text-primary bg-secondary-light"
-                @click="closeNavbar">Leaderboard</router-link>
-            </li>
-            <li class="lg:mr-1" v-if="isAuthenticated">
-              <router-link to="/home"
-                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
-                active-class="font-semibold text-primary bg-secondary-light"
-                @click="closeNavbar">Events</router-link>
-            </li>
-            <li class="lg:mr-1" v-else>
-              <router-link to="/completed-events"
-                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
-                active-class="font-semibold text-primary bg-secondary-light"
-                @click="closeNavbar">Completed Events</router-link>
-            </li>
-            <li class="lg:mr-1">
-              <router-link
-                to="/resources"
-                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
-                active-class="font-semibold text-primary bg-secondary-light"
-                @click="closeNavbar"
-              >Resources</router-link>
-            </li>
-            <li>
-              <router-link
-                to="/transparency"
-                class="block lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
-                active-class="font-semibold text-primary bg-secondary-light"
-                @click="closeNavbar"
-              >Transparency</router-link>
-            </li>
-          </ul>
+        />
 
-           <!-- Auth Links: Use theme colors -->
-           <ul class="flex flex-col lg:flex-row list-none lg:ml-auto px-4 lg:px-0 py-3 lg:py-0 border-t lg:border-none border-border">
-              <li v-if="!isAuthenticated">
-                <router-link
-                  to="/login"
-                  class="inline-flex lg:inline-block px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-primary hover:bg-secondary-light transition-colors duration-150"
-                  active-class="font-semibold text-primary bg-secondary-light"
-                  @click="closeNavbar"
-                >Login</router-link>
-              </li>
-               <li v-if="isAuthenticated">
-                  <a
-                    href="#"
-                    @click.prevent="logout"
-                    class="inline-flex items-center px-3 py-3 lg:py-2 rounded-md text-text-secondary hover:text-error hover:bg-error-light transition-colors duration-150"
-                  >
-                      <i class="fas fa-sign-out-alt mr-2"></i>Logout
-                  </a>
-                </li>
-            </ul>
-        </div>
-      </div>
-    </nav>
+        <!-- Navbar Content -->
+        <CBox
+          :display="{ base: isNavbarOpen ? 'block' : 'none', lg: 'flex' }"
+          :position="{ base: 'fixed', lg: 'static' }"
+          top="12"
+          left="0"
+          right="0"
+          :w="{ base: 'full', lg: 'auto' }"
+          :bg="{ base: 'var(--color-surface)', lg: 'transparent' }"
+          :boxShadow="{ base: 'lg', lg: 'none' }"
+          :alignItems="{ lg: 'center' }"
+          transition="all 0.3s ease-in-out"
+          overflow="hidden"
+          :borderBottomWidth="{ base: '1px', lg: '0' }"
+          borderColor="var(--color-border)"
+          zIndex="popover"
+          ref="navbarCollapseRef"
+          :opacity="{ base: isNavbarOpen ? 1 : 0, lg: 1 }"
+          :transform="{ base: isNavbarOpen ? 'translateY(0)' : 'translateY(-100%)', lg: 'translateY(0)' }"
+          :h="{ base: isNavbarOpen ? 'auto' : '0', lg: 'auto' }"
+        >
+          <!-- Menu Navigation -->
+          <CList
+            d="flex"
+            :flexDir="{ base: 'column', lg: 'row' }"
+            listStyleType="none"
+            :mr="{ lg: 'auto' }"
+            :px="{ base: 4, lg: 0 }"
+            :py="{ base: 3, lg: 0 }"
+            :sx="{
+              '@media screen and (max-width: 991px)': {
+                '& > *:not(style) ~ *:not(style)': {
+                  borderTopWidth: '1px',
+                  borderColor: 'var(--color-border)',
+                },
+              },
+            }"
+          >
+            <CListItem v-if="isAuthenticated" :display="{ base: 'none', lg: 'block' }" :mr="{ lg: 1 }">
+              <CLink
+                as="router-link"
+                to="/home"
+                :display="{ base: 'block', lg: 'inline-block' }"
+                px="3"
+                :py="{ base: 3, lg: 2 }"
+                borderRadius="md"
+                color="var(--color-text-secondary)"
+                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
+                :fontWeight="$route.path === '/home' ? 'semibold' : 'normal'"
+                :color="$route.path === '/home' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
+                :bg="$route.path === '/home' ? 'var(--color-secondary-light)' : 'transparent'"
+                @click="closeNavbar"
+              >
+                Home
+              </CLink>
+            </CListItem>
+            <CListItem :mr="{ lg: 1 }">
+              <CLink
+                as="router-link"
+                to="/leaderboard"
+                :display="{ base: 'block', lg: 'inline-block' }"
+                px="3"
+                :py="{ base: 3, lg: 2 }"
+                borderRadius="md"
+                color="var(--color-text-secondary)"
+                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
+                :fontWeight="$route.path === '/leaderboard' ? 'semibold' : 'normal'"
+                :color="$route.path === '/leaderboard' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
+                :bg="$route.path === '/leaderboard' ? 'var(--color-secondary-light)' : 'transparent'"
+                @click="closeNavbar"
+              >
+                Leaderboard
+              </CLink>
+            </CListItem>
+             <CListItem :mr="{ lg: 1 }" v-if="isAuthenticated">
+               <CLink
+                 as="router-link"
+                 to="/home"
+                 :display="{ base: 'block', lg: 'inline-block' }"
+                 px="3"
+                 :py="{ base: 3, lg: 2 }"
+                 borderRadius="md"
+                 color="var(--color-text-secondary)"
+                 :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
+                 :fontWeight="$route.path === '/home' ? 'semibold' : 'normal'"
+                 :color="$route.path === '/home' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
+                 :bg="$route.path === '/home' ? 'var(--color-secondary-light)' : 'transparent'"
+                 @click="closeNavbar"
+               >
+                 Events
+               </CLink>
+             </CListItem>
+             <CListItem :mr="{ lg: 1 }" v-else>
+               <CLink
+                 as="router-link"
+                 to="/completed-events"
+                 :display="{ base: 'block', lg: 'inline-block' }"
+                 px="3"
+                 :py="{ base: 3, lg: 2 }"
+                 borderRadius="md"
+                 color="var(--color-text-secondary)"
+                 :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
+                 :fontWeight="$route.path === '/completed-events' ? 'semibold' : 'normal'"
+                 :color="$route.path === '/completed-events' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
+                 :bg="$route.path === '/completed-events' ? 'var(--color-secondary-light)' : 'transparent'"
+                 @click="closeNavbar"
+               >
+                 Completed Events
+               </CLink>
+             </CListItem>
+            <CListItem :mr="{ lg: 1 }">
+              <CLink
+                as="router-link"
+                to="/resources"
+                :display="{ base: 'block', lg: 'inline-block' }"
+                px="3"
+                :py="{ base: 3, lg: 2 }"
+                borderRadius="md"
+                color="var(--color-text-secondary)"
+                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
+                :fontWeight="$route.path === '/resources' ? 'semibold' : 'normal'"
+                :color="$route.path === '/resources' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
+                :bg="$route.path === '/resources' ? 'var(--color-secondary-light)' : 'transparent'"
+                @click="closeNavbar"
+              >
+                Resources
+              </CLink>
+            </CListItem>
+            <CListItem>
+              <CLink
+                as="router-link"
+                to="/transparency"
+                :display="{ base: 'block', lg: 'inline-block' }"
+                px="3"
+                :py="{ base: 3, lg: 2 }"
+                borderRadius="md"
+                color="var(--color-text-secondary)"
+                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
+                :fontWeight="$route.path === '/transparency' ? 'semibold' : 'normal'"
+                :color="$route.path === '/transparency' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
+                :bg="$route.path === '/transparency' ? 'var(--color-secondary-light)' : 'transparent'"
+                @click="closeNavbar"
+              >
+                Transparency
+              </CLink>
+            </CListItem>
+          </CList>
+
+          <!-- Auth Links -->
+          <CList
+            d="flex"
+            :flexDir="{ base: 'column', lg: 'row' }"
+            listStyleType="none"
+            :ml="{ lg: 'auto' }"
+            :px="{ base: 4, lg: 0 }"
+            :py="{ base: 3, lg: 0 }"
+            :borderTopWidth="{ base: '1px', lg: '0' }"
+            borderColor="var(--color-border)"
+          >
+            <CListItem v-if="!isAuthenticated">
+              <CLink
+                as="router-link"
+                to="/login"
+                :display="{ base: 'inline-flex', lg: 'inline-block' }"
+                px="3"
+                :py="{ base: 3, lg: 2 }"
+                borderRadius="md"
+                color="var(--color-text-secondary)"
+                :_hover="{ color: 'var(--color-primary)', bg: 'var(--color-secondary-light)', textDecoration: 'none' }"
+                :fontWeight="$route.path === '/login' ? 'semibold' : 'normal'"
+                :color="$route.path === '/login' ? 'var(--color-primary)' : 'var(--color-text-secondary)'"
+                :bg="$route.path === '/login' ? 'var(--color-secondary-light)' : 'transparent'"
+                @click="closeNavbar"
+              >
+                Login
+              </CLink>
+            </CListItem>
+            <CListItem v-if="isAuthenticated">
+              <CLink
+                href="#"
+                @click.prevent="logout"
+                d="inline-flex"
+                alignItems="center"
+                px="3"
+                :py="{ base: 3, lg: 2 }"
+                borderRadius="md"
+                color="var(--color-text-secondary)"
+                :_hover="{ color: 'var(--color-error)', bg: 'var(--color-error-light)', textDecoration: 'none' }"
+              >
+                <CIcon name="fa-sign-out-alt" mr="2" />
+                Logout
+              </CLink>
+            </CListItem>
+          </CList>
+        </CBox>
+      </CContainer>
+    </CFlex>
 
     <!-- Main Content Area -->
-    <main class="container mx-auto flex-grow px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 lg:pb-8">
-         <router-view v-slot="{ Component }">
-             <!-- Add animate-fade-in class here -->
-             <component :is="Component" class="animate-fade-in" />
-         </router-view>
-    </main>
+    <CBox as="main" flexGrow="1" :px="{ base: 4, sm: 6, lg: 8 }" :py="{ base: 6, sm: 8 }" :pb="{ base: 16, lg: 8 }">
+      <CContainer maxW="container.xl" h="full">
+        <router-view v-slot="{ Component }">
+          <!-- Keep the fade-in animation class if defined globally -->
+          <component :is="Component" class="animate-fade-in" />
+        </router-view>
+      </CContainer>
+    </CBox>
 
     <!-- Bottom Navigation -->
-    <BottomNav v-if="isAuthenticated" class="lg:hidden" />
-  </div>
+    <BottomNav v-if="isAuthenticated" :display="{ base: 'flex', lg: 'none' }" />
+  </CBox>
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted, h } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
+import {
+  Box as CBox,
+  Flex as CFlex,
+  Container as CContainer,
+  Link as CLink,
+  IconButton as CIconButton,
+  Icon as CIcon,
+  List as CList,
+  ListItem as CListItem,
+} from '@chakra-ui/vue-next';
 import BottomNav from './components/BottomNav.vue';
 import OfflineStateHandler from './components/OfflineStateHandler.vue';
 import NotificationSystem from './components/NotificationSystem.vue';

@@ -1,74 +1,102 @@
 <template>
-  <div class="fixed top-4 right-4 z-50 space-y-2 w-80">
-    <transition-group name="notification">
-      <div 
-        v-for="notification in notifications" 
-        :key="notification.id" 
-        :class="[
-          'p-4 rounded-lg shadow-lg border-l-4 flex items-start',
-          'transform transition-all duration-300',
-          getTypeClasses(notification.type)
-        ]"
-      >
-        <div class="flex-shrink-0 mr-3">
-          <i :class="getTypeIcon(notification.type)"></i>
-        </div>
-        <div class="flex-1 mr-2">
-          <p class="font-medium text-sm" v-if="notification.title">{{ notification.title }}</p>
-          <p class="text-sm" :class="{'mt-1': notification.title}">{{ notification.message }}</p>
-        </div>
-        <button 
-          @click="dismissNotification(notification.id)" 
-          class="flex-shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none"
+  <CBox position="fixed" top="4" right="4" zIndex="overlay">
+    <CStack spacing="2" w="80">
+      <transition-group name="notification">
+        <CFlex
+          v-for="notification in notifications"
+          :key="notification.id"
+          direction="row"
+          align="start"
+          p="4"
+          borderRadius="lg"
+          boxShadow="lg"
+          borderLeftWidth="4px"
+          :borderColor="getTypeBorderColor(notification.type)"
+          :bg="getTypeBgColor(notification.type)"
+          transform="auto"
+          transition="all 0.3s"
         >
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    </transition-group>
-  </div>
+          <CIcon
+            :name="getTypeIcon(notification.type)"
+            :color="getTypeIconColor(notification.type)"
+            mr="3"
+            flexShrink="0"
+          />
+          <CBox flex="1" mr="2">
+            <CText v-if="notification.title" fontWeight="medium" fontSize="sm">
+              {{ notification.title }}
+            </CText>
+            <CText fontSize="sm" :mt="notification.title ? '1' : '0'">
+              {{ notification.message }}
+            </CText>
+          </CBox>
+          <CIconButton
+            size="sm"
+            variant="ghost"
+            icon={<CIcon name="fa-times" />}
+            onClick={() => dismissNotification(notification.id)}
+            aria-label="Dismiss notification"
+            color="gray.400"
+            _hover={{ color: 'gray.600' }}
+          />
+        </CFlex>
+      </transition-group>
+    </CStack>
+  </CBox>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { useStore } from 'vuex';
+import {
+  Box as CBox,
+  Stack as CStack,
+  Flex as CFlex,
+  Text as CText,
+  Icon as CIcon,
+  IconButton as CIconButton
+} from '@chakra-ui/vue-next'
 
 const store = useStore();
-
-// Get notifications from store
 const notifications = computed(() => store.state.app.notifications || []);
 
-// Dismiss a notification
 const dismissNotification = (id) => {
   store.dispatch('app/dismissNotification', id);
 };
 
-// Get classes based on notification type
-const getTypeClasses = (type) => {
+const getTypeBorderColor = (type) => {
   switch (type) {
-    case 'success':
-      return 'bg-success-light border-success text-success-dark';
-    case 'error':
-      return 'bg-error-light border-error text-error-dark';
-    case 'warning':
-      return 'bg-warning-light border-warning text-warning-dark';
-    case 'info':
-    default:
-      return 'bg-info-light border-info text-info-dark';
+    case 'success': return 'var(--color-success)';
+    case 'error': return 'var(--color-error)';
+    case 'warning': return 'var(--color-warning)';
+    case 'info': default: return 'var(--color-info)';
   }
 };
 
-// Get icon based on notification type
+const getTypeBgColor = (type) => {
+  switch (type) {
+    case 'success': return 'var(--color-success-light)';
+    case 'error': return 'var(--color-error-light)';
+    case 'warning': return 'var(--color-warning-light)';
+    case 'info': default: return 'var(--color-info-light)';
+  }
+};
+
+const getTypeIconColor = (type) => {
+  switch (type) {
+    case 'success': return 'var(--color-success)';
+    case 'error': return 'var(--color-error)';
+    case 'warning': return 'var(--color-warning)';
+    case 'info': default: return 'var(--color-info)';
+  }
+};
+
 const getTypeIcon = (type) => {
   switch (type) {
-    case 'success':
-      return 'fas fa-check-circle text-success';
-    case 'error':
-      return 'fas fa-exclamation-circle text-error';
-    case 'warning':
-      return 'fas fa-exclamation-triangle text-warning';
-    case 'info':
-    default:
-      return 'fas fa-info-circle text-info';
+    case 'success': return 'fa-check-circle';
+    case 'error': return 'fa-exclamation-circle';
+    case 'warning': return 'fa-exclamation-triangle';
+    case 'info': default: return 'fa-info-circle';
   }
 };
 </script>

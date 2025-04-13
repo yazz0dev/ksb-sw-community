@@ -1,141 +1,136 @@
 <template>
-  <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-    <div class="sm:mx-auto sm:w-full sm:max-w-md">
-      <!-- Dynamically change title based on view state -->
-      <h2 class="mt-6 text-center text-2xl font-bold text-text-primary">
+  <CFlex minH="full" flexDir="column" justify="center" py="12" px={{ sm: '6', lg: '8' }}>
+    <CBox mx="auto" w="full" maxW="md">
+      <CHeading mt="6" textAlign="center" size="xl" fontWeight="extrabold" color="text-primary">
         {{ viewState === 'reset' ? 'Reset Your Password' : 'Forgot Your Password?' }}
-      </h2>
-    </div>
+      </CHeading>
+    </CBox>
 
-    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div class="bg-surface py-8 px-4 shadow sm:rounded-lg sm:px-10">
-        <!-- Show different text based on view state -->
-        <p v-if="viewState === 'request'" class="text-sm text-center text-text-secondary mb-6">
+    <CBox mt="8" mx="auto" w="full" maxW="md">
+      <CCard variant="outline" bg="surface" py="8" px={{ base: '4', sm: '10' }} shadow="sm">
+        <CText v-if="viewState === 'request'" fontSize="sm" textAlign="center" color="text-secondary" mb="6">
           Enter your email address and we will send you a link to reset your password.
-        </p>
-        <p v-if="viewState === 'reset'" class="text-sm text-center text-text-secondary mb-6">
+        </CText>
+        <CText v-if="viewState === 'reset'" fontSize="sm" textAlign="center" color="text-secondary" mb="6">
           Enter your new password below.
-        </p>
-         <p v-if="viewState === 'success'" class="text-sm text-center text-text-secondary mb-6">
-           Your password has been successfully reset.
-         </p>
+        </CText>
+        <CText v-if="viewState === 'success'" fontSize="sm" textAlign="center" color="text-secondary" mb="6">
+          Your password has been successfully reset.
+        </CText>
 
-        <!-- Success/Error Message -->
-        <div v-if="message"
-             :class="[
-               'mb-4 rounded-md p-4 border',
-               isError ? 'bg-error-extraLight border-error-light text-error-dark' : 'bg-success-extraLight border-success-light text-success-dark'
-             ]"
-             role="alert">
-            <div class="flex">
-              <div class="flex-shrink-0">
-                 <!-- Icon (conditional based on error state, example using Heroicons) -->
-                 <svg v-if="isError" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                 </svg>
-                 <svg v-else class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                 </svg>
-              </div>
-              <div class="ml-3">
-                <p class="text-sm font-medium">{{ message }}</p>
-              </div>
-            </div>
-        </div>
+        <CAlert v-if="message" status={isError ? 'error' : 'success'} variant="left-accent" mb="4">
+          <CAlertIcon />
+          <CAlertDescription>{{ message }}</CAlertDescription>
+        </CAlert>
 
-        <!-- Request Reset Email Form -->
-        <form @submit.prevent="handleSendResetEmail" v-if="viewState === 'request'" class="space-y-6">
-          <div>
-            <label for="email" class="block text-sm font-medium text-text-secondary">Email Address</label>
-            <div class="mt-1">
-              <input
-                type="email"
+        <form @submit.prevent="handleSendResetEmail" v-if="viewState === 'request'">
+          <CStack spacing="6">
+            <CFormControl isRequired>
+              <CFormLabel htmlFor="email" fontSize="sm">Email Address</CFormLabel>
+              <CInput
                 id="email"
+                type="email"
                 v-model="email"
-                required
-                autocomplete="email"
-                class="appearance-none block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-text-disabled focus:outline-none focus:ring-primary-light focus:border-primary sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="you@example.com"
-                :disabled="isLoading" />
-            </div>
-          </div>
+                :isDisabled="isLoading"
+              />
+            </CFormControl>
 
-          <div>
-            <button type="submit"
-                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    :disabled="isLoading">
-              <svg v-if="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-text" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              {{ isLoading ? 'Sending...' : 'Send Reset Link' }}
-            </button>
-          </div>
+            <CButton
+              type="submit"
+              colorScheme="primary"
+              w="full"
+              :isLoading="isLoading"
+              loadingText="Sending..."
+            >
+              Send Reset Link
+            </CButton>
+          </CStack>
         </form>
 
-        <!-- Reset Password Form -->
-        <form @submit.prevent="handleResetPassword" v-if="viewState === 'reset'" class="space-y-6">
-           <div>
-             <label for="newPassword" class="block text-sm font-medium text-text-secondary">New Password</label>
-             <div class="mt-1">
-               <input
-                 type="password"
-                 id="newPassword"
-                 v-model="newPassword"
-                 required
-                 minlength="6"
-                 class="appearance-none block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-text-disabled focus:outline-none focus:ring-primary-light focus:border-primary sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                 placeholder="Enter new password"
-                 :disabled="isLoading" />
-             </div>
-           </div>
-           <div>
-             <label for="confirmPassword" class="block text-sm font-medium text-text-secondary">Confirm New Password</label>
-             <div class="mt-1">
-               <input
-                 type="password"
-                 id="confirmPassword"
-                 v-model="confirmPassword"
-                 required
-                 class="appearance-none block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder-text-disabled focus:outline-none focus:ring-primary-light focus:border-primary sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                 placeholder="Confirm new password"
-                 :disabled="isLoading" />
-             </div>
-           </div>
-           <div>
-             <button type="submit"
-                     class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                     :disabled="isLoading || newPassword !== confirmPassword || newPassword.length < 6">
-               <svg v-if="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-text" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-               </svg>
-               {{ isLoading ? 'Resetting...' : 'Reset Password' }}
-             </button>
-           </div>
-         </form>
+        <form @submit.prevent="handleResetPassword" v-if="viewState === 'reset'">
+          <CStack spacing="6">
+            <CFormControl isRequired>
+              <CFormLabel htmlFor="newPassword" fontSize="sm">New Password</CFormLabel>
+              <CInput
+                id="newPassword"
+                type="password"
+                v-model="newPassword"
+                placeholder="Enter new password"
+                :isDisabled="isLoading"
+                minLength="6"
+              />
+            </CFormControl>
 
-        <!-- Back to Login Link/Button -->
-        <div class="mt-6 text-center">
-          <router-link
-             v-if="viewState !== 'success'"
-             to="/login"
-             class="text-sm font-medium text-primary hover:text-primary-dark hover:underline">
+            <CFormControl isRequired>
+              <CFormLabel htmlFor="confirmPassword" fontSize="sm">Confirm Password</CFormLabel>
+              <CInput
+                id="confirmPassword"
+                type="password"
+                v-model="confirmPassword"
+                placeholder="Confirm new password"
+                :isDisabled="isLoading"
+              />
+            </CFormControl>
+
+            <CButton
+              type="submit"
+              colorScheme="primary"
+              w="full"
+              :isLoading="isLoading"
+              loadingText="Resetting..."
+              :isDisabled="newPassword !== confirmPassword || newPassword.length < 6"
+            >
+              Reset Password
+            </CButton>
+          </CStack>
+        </form>
+
+        <CBox mt="6" textAlign="center">
+          <CLink
+            v-if="viewState !== 'success'"
+            as="router-link"
+            to="/login"
+            color="primary"
+            fontWeight="medium"
+            fontSize="sm"
+            _hover={{ textDecoration: 'underline' }}
+          >
             Back to Login
-          </router-link>
-          <router-link
-             v-if="viewState === 'success'"
-             to="/login"
-             class="w-full inline-flex justify-center py-2 px-4 border border-border rounded-md shadow-sm bg-surface text-sm font-medium text-text-secondary hover:bg-neutral-extraLight focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light transition-colors">
+          </CLink>
+          <CButton
+            v-else
+            as="router-link"
+            to="/login"
+            variant="outline"
+            w="full"
+          >
             Proceed to Login
-           </router-link>
-        </div>
-      </div>
-    </div>
-  </div>
+          </CButton>
+        </CBox>
+      </CCard>
+    </CBox>
+  </CFlex>
 </template>
 
 <script setup>
+import {
+  Box as CBox,
+  Flex as CFlex,
+  Heading as CHeading,
+  Text as CText,
+  Button as CButton,
+  Stack as CStack,
+  Card as CCard,
+  FormControl as CFormControl,
+  FormLabel as CFormLabel,
+  Input as CInput,
+  Link as CLink,
+  Alert as CAlert,
+  AlertIcon as CAlertIcon,
+  AlertDescription as CAlertDescription
+} from '@chakra-ui/vue-next'
+
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {

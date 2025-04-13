@@ -1,31 +1,46 @@
 <template>
-  <div>
+  <CBox>
     <!-- Show content when authenticated -->
     <slot v-if="isAuthenticated"></slot>
 
     <!-- Auth required message -->
-    <div v-else class="relative">
+    <CBox v-else position="relative">
       <slot name="public" v-if="$slots.public"></slot>
       
-      <div v-else class="bg-neutral-light border border-border rounded-lg p-4 text-center">
-        <i class="fas fa-lock text-neutral-dark mb-2 text-xl"></i>
-        <h3 class="text-sm font-medium text-text-primary mb-1">Authentication Required</h3>
-        <p class="text-sm text-text-secondary mb-3">{{ message || 'Please log in to access this feature' }}</p>
-        <router-link
-          to="/login"
-          class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-primary-text bg-primary hover:bg-primary-dark transition-colors"
+      <CBox 
+        v-else 
+        bg="var(--color-neutral-light)" 
+        borderWidth="1px" 
+        borderColor="var(--color-border)" 
+        borderRadius="lg" 
+        p="4" 
+        textAlign="center"
+      >
+        <CIcon name="fa-lock" color="var(--color-neutral-dark)" mb="2" fontSize="xl" />
+        <CHeading as="h3" size="sm" fontWeight="medium" color="var(--color-text-primary)" mb="1">Authentication Required</CHeading>
+        <CText fontSize="sm" color="var(--color-text-secondary)" mb="3">{{ message || 'Please log in to access this feature' }}</CText>
+        <CButton 
+          as="router-link" 
+          to="/login" 
+          colorScheme="primary" 
+          size="sm" 
+          color="var(--color-primary-text)" 
+          bg="var(--color-primary)"
+          :_hover="{ bg: 'var(--color-primary-dark)' }"
+          transition="background-color 0.2s"
         >
-          <i class="fas fa-sign-in-alt mr-2"></i>
+          <CIcon name="fa-sign-in-alt" mr="2" />
           Log In
-        </router-link>
-      </div>
-    </div>
-  </div>
+        </CButton>
+      </CBox>
+    </CBox>
+  </CBox>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { useStore } from 'vuex';
+import { CBox, CButton, CIcon, CText, CHeading } from '@chakra-ui/vue-next';
 
 const props = defineProps({
   message: {

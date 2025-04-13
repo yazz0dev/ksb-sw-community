@@ -1,19 +1,21 @@
 <template>
-  <div>
-    <div class="relative">
-      <label class="block text-sm font-medium text-text-secondary mb-1">
-        Add Team Members 
-        <span class="text-error">*</span>
-        <span class="text-xs text-text-disabled ml-1">({{ selectedMembers.length }}/{{ maxMembers }} members)</span>
-      </label>
-      <div class="flex">
-        <select
+  <CBox>
+    <CFormControl>
+      <CFormLabel fontSize="sm" fontWeight="medium" color="text-secondary">
+        Add Team Members
+        <CText as="span" color="error">*</CText>
+        <CText as="span" fontSize="xs" color="text-disabled" ml="1">
+          ({{ selectedMembers.length }}/{{ maxMembers }} members)
+        </CText>
+      </CFormLabel>
+      <CFlex>
+        <CSelect
           v-model="selectedMember"
-          class="block w-full rounded-md border-border shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-100"
-          :disabled="isSubmitting || selectedMembers.length >= maxMembers"
+          w="full"
+          :isDisabled="isSubmitting || selectedMembers.length >= maxMembers"
           @change="addMember"
+          placeholder="Select a member..."
         >
-          <option value="">Select a member...</option>
           <option
             v-for="student in availableStudents"
             :key="student.uid"
@@ -22,14 +24,22 @@
           >
             {{ nameCache[student.uid] || student.uid }}
           </option>
-        </select>
-      </div>
-    </div>
-  </div>
+        </CSelect>
+      </CFlex>
+    </CFormControl>
+  </CBox>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import {
+  Box as CBox,
+  Flex as CFlex,
+  FormControl as CFormControl,
+  FormLabel as CFormLabel,
+  Select as CSelect,
+  Text as CText
+} from '@chakra-ui/vue-next';
 
 const props = defineProps({
   selectedMembers: {

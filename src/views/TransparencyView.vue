@@ -1,66 +1,99 @@
 <template>
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div class="max-w-4xl mx-auto">
-        <h1 class="text-4xl font-extrabold text-text-primary mb-8 pb-3 border-b-2 border-primary">Community Transparency & Guidelines</h1>
+    <CContainer maxW="4xl" py="10">
+        <CBox>
+            <CHeading as="h1" size="2xl" fontWeight="extrabold" color="text-primary" mb="8" pb="3" borderBottomWidth="2px" borderColor="primary">
+                Community Transparency & Guidelines
+            </CHeading>
 
-        <div class="space-y-8">
-            <!-- Community Guidelines Section -->
-            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
-                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
-                    <i class="fas fa-user-shield h-6 w-6 mr-3 text-primary-text"></i>
-                    <h2 class="text-xl font-bold text-primary-text">Community Guidelines</h2>
-                </header>
-                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed" v-html="renderSection(introductionContent)"></div>
-            </section>
+            <CStack spacing="8">
+                <!-- Community Guidelines Section -->
+                <CCard variant="outline" shadow="md">
+                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
+                        <CFlex align="center">
+                            <CIcon name="fa-user-shield" mr="3" color="primary-text" />
+                            <CHeading size="lg" color="primary-text">Community Guidelines</CHeading>
+                        </CFlex>
+                    </CCardHeader>
+                    <CCardBody>
+                        <CProse v-html="renderSection(introductionContent)" />
+                    </CCardBody>
+                </CCard>
 
-            <!-- Roles Section -->
-            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
-                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
-                    <i class="fas fa-users h-6 w-6 mr-3 text-primary-text"></i>
-                    <h2 class="text-xl font-bold text-primary-text">Community Roles</h2>
-                </header>
-                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed" v-html="renderSection(rolesContent)"></div>
-            </section>
+                <!-- Roles Section -->
+                <CCard variant="outline" shadow="md">
+                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
+                        <CFlex align="center">
+                            <CIcon name="fa-users" mr="3" color="primary-text" />
+                            <CHeading size="lg" color="primary-text">Community Roles</CHeading>
+                        </CFlex>
+                    </CCardHeader>
+                    <CCardBody>
+                        <CProse v-html="renderSection(rolesContent)" />
+                    </CCardBody>
+                </CCard>
 
-            <!-- Event System Section -->
-            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
-                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
-                    <i class="fas fa-tasks h-6 w-6 mr-3 text-primary-text"></i>
-                    <h2 class="text-xl font-bold text-primary-text">Event System</h2>
-                </header>
-                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed" v-html="renderSection(eventLifecycleContent)"></div>
-            </section>
+                <!-- Event System Section -->
+                <CCard variant="outline" shadow="md">
+                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
+                        <CFlex align="center">
+                            <CIcon name="fa-tasks" mr="3" color="primary-text" />
+                            <CHeading size="lg" color="primary-text">Event System</CHeading>
+                        </CFlex>
+                    </CCardHeader>
+                    <CCardBody>
+                        <CProse v-html="renderSection(eventLifecycleContent)" />
+                    </CCardBody>
+                </CCard>
 
-            <!-- Rating & XP System Section -->
-            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
-                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
-                    <i class="fas fa-star h-6 w-6 mr-3 text-primary-text"></i>
-                    <h2 class="text-xl font-bold text-primary-text">Rating & XP System</h2>
-                </header>
-                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed">
-                    <div v-html="renderSection(ratingContent)"></div>
-                    <hr class="my-6 border-border">
-                    <div v-html="renderSection(xpContent)"></div>
-                </div>
-            </section>
+                <!-- Rating & XP System Section -->
+                <CCard variant="outline" shadow="md">
+                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
+                        <CFlex align="center">
+                            <CIcon name="fa-star" mr="3" color="primary-text" />
+                            <CHeading size="lg" color="primary-text">Rating & XP System</CHeading>
+                        </CFlex>
+                    </CCardHeader>
+                    <CCardBody>
+                        <CProse v-html="renderSection(ratingContent)" />
+                        <CDivider my="6" />
+                        <CProse v-html="renderSection(xpContent)" />
+                    </CCardBody>
+                </CCard>
 
-            <!-- General Guidelines Section -->
-            <section class="bg-surface rounded-xl shadow-md border border-border overflow-hidden transition hover:shadow-lg">
-                <header class="px-6 py-4 bg-primary-light border-b border-primary flex items-center">
-                    <i class="fas fa-book h-6 w-6 mr-3 text-primary-text"></i>
-                    <h2 class="text-xl font-bold text-primary-text">General Guidelines</h2>
-                </header>
-                <div class="p-6 prose prose-base max-w-none text-text-secondary leading-relaxed" v-html="renderSection(generalContent)"></div>
-            </section>
-        </div>
-      </div>
-    </div>
+                <!-- General Guidelines Section -->
+                <CCard variant="outline" shadow="md">
+                    <CCardHeader bg="primary-light" borderBottomWidth="1px" borderColor="primary">
+                        <CFlex align="center">
+                            <CIcon name="fa-book" mr="3" color="primary-text" />
+                            <CHeading size="lg" color="primary-text">General Guidelines</CHeading>
+                        </CFlex>
+                    </CCardHeader>
+                    <CCardBody>
+                        <CProse v-html="renderSection(generalContent)" />
+                    </CCardBody>
+                </CCard>
+            </CStack>
+        </CBox>
+    </CContainer>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import {
+    Container as CContainer,
+    Box as CBox,
+    Heading as CHeading,
+    Stack as CStack,
+    Card as CCard,
+    CardHeader as CCardHeader,
+    CardBody as CCardBody,
+    Flex as CFlex,
+    Icon as CIcon,
+    Divider as CDivider,
+    Box as CProse
+} from '@chakra-ui/vue-next';
 
 // Configure marked options
 marked.setOptions({
@@ -134,27 +167,6 @@ const eventLifecycleContent = `
 - ✨ XP distribution
 - 🏆 Results announcement`;
 
-const teamsContent = `
-## Team Formation & Collaboration
-
-### Team Structure
-- Teams typically consist of 2-5 members
-- Each team has a designated team leader
-- Members can have specific role assignments
-- Balanced skill distribution encouraged
-
-### Formation Process
-- Self-organized teams allowed
-- Random team assignment available
-- Team changes require admin approval
-- Maximum team size varies by event type
-
-### Collaboration Guidelines
-- Regular team meetings recommended
-- Use provided collaboration tools
-- Document contributions clearly
-- Share knowledge within team`;
-
 const ratingContent = `
 ## Rating System
 
@@ -199,48 +211,6 @@ const xpContent = `
 - Role-specific progression
 - Special badges for achievements
 - XP decay prevention system`;
-
-const portfolioContent = `
-## Portfolio Development
-
-### Project Documentation
-- Technical specifications
-- Role and contributions
-- Technologies used
-- Project outcomes
-
-### Portfolio Features
-- Automatic project tracking
-- XP progress visualization
-- Skills assessment
-- Achievement badges
-
-### Visibility Options
-- Public/private settings
-- Customizable layout
-- Project highlights
-- Team acknowledgments`;
-
-const leaderboardContent = `
-## Leaderboard System
-
-### Rankings
-- Overall XP ranking
-- Role-specific rankings
-- Monthly top performers
-- Team achievements
-
-### Scoring Factors
-- Event participation
-- Project ratings
-- Contribution quality
-- Leadership points
-
-### Recognition
-- Top performer badges
-- Role specialist titles
-- Achievement milestones
-- Special mentions`;
 
 const generalContent = `
 ## General Guidelines

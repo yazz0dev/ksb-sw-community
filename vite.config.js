@@ -1,24 +1,15 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
-import tailwind from 'tailwindcss';
-import autoprefixer from 'autoprefixer';
 import { VitePWA } from 'vite-plugin-pwa';
 import { visualizer } from 'rollup-plugin-visualizer';
-import { resolve } from 'path';
+import { resolve } from 'path'; 
+import { fileURLToPath, URL } from 'url'; 
 
 export default defineConfig({
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src')
+      '@': fileURLToPath(new URL('./src', import.meta.url)) 
     }
-  },
-  css: {
-    postcss: {
-      plugins: [
-        tailwind(),
-        autoprefixer(),
-      ],
-    },
   },
   plugins: [
     vue(),
@@ -26,32 +17,31 @@ export default defineConfig({
       filename: 'stats.html',
       gzipSize: true,
       brotliSize: true,
-      open: false // Set to false to avoid opening automatically
+      open: false
     }),
     VitePWA({
       registerType: 'autoUpdate',
-      // Update paths if necessary, make sure logo exists
       includeAssets: ['favicon.ico', 'robots.txt', 'src/assets/logo.png'], 
       manifest: {
         name: 'KSB Tech Community',
         short_name: 'KSB Tech',
         description: 'KSB Software Community Platform for Events & Learning',
-        theme_color: '#0ea5e9', // Match --color-primary
-        background_color: '#ffffff', // Match --color-surface
+        theme_color: '#0ea5e9', 
+        background_color: '#ffffff', 
         display: 'standalone',
         icons: [
            {
-             src: 'src/assets/logo.png', // Adjust path if needed
+             src: 'src/assets/logo.png', 
              sizes: '192x192',
              type: 'image/png',
            },
            {
-             src: 'src/assets/logo.png', // Adjust path if needed
+             src: 'src/assets/logo.png', 
              sizes: '512x512',
              type: 'image/png',
            },
             {
-             src: 'src/assets/logo.png', // Adjust path if needed - Maskable icon
+             src: 'src/assets/logo.png', 
              sizes: '512x512',
              type: 'image/png',
              purpose: 'maskable'
@@ -108,21 +98,23 @@ export default defineConfig({
       },
     }),
   ],
+  optimizeDeps: {
+    include: ['@chakra-ui/vue-next']
+  },
   build: {
-    target: 'es2015', // Keep ES2015 for broader compatibility if needed
+    target: 'es2015', 
     rollupOptions: {
       output: {
         manualChunks: {
-          // Adjust chunking strategy as needed
           'firebase-essentials': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          'ui-components': ['@vuepic/vue-datepicker', 'luxon'], // Group UI/Date libs
+          'chakra': ['@chakra-ui/vue-next'],
+          'ui-components': ['@vuepic/vue-datepicker', 'luxon'], 
           'pdf-lib': ['jspdf', 'jspdf-autotable'],
-          // Vendor chunk for other node_modules
           'vendor': ['vue', 'vue-router', 'vuex', 'dompurify', 'marked'], 
         }
       }
     },
-    chunkSizeWarningLimit: 1000, // Keep warning limit reasonable
-    sourcemap: false, // Disable sourcemaps for production for smaller builds
+    chunkSizeWarningLimit: 1000, 
+    sourcemap: false, 
   },
 });

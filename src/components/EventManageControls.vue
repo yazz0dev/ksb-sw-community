@@ -1,81 +1,104 @@
-<template>  
-    <div class="bg-surface shadow-md rounded-lg border border-border p-4 space-y-4">
-        <!-- Status Management Section -->
-        <div>
-            <h3 class="text-lg font-medium text-text-primary mb-3">Event Management</h3>
-            <div class="flex items-center gap-3">
-                <span class="text-sm font-medium text-text-secondary">Current Status:</span>
-                <span :class="statusClass" class="px-2 py-0.5 rounded-full text-sm font-medium">
-                    {{ event.status }}
-                </span>
-            </div>
+<template>
+  <CBox bg="surface" shadow="md" borderWidth="1px" borderRadius="lg" p="4">
+    <!-- Status Management Section -->
+    <CStack spacing="4">
+      <CBox>
+        <CHeading size="lg" color="text-primary" mb="3">Event Management</CHeading>
+        <CFlex align="center" gap="3">
+          <CText fontSize="sm" fontWeight="medium" color="text-secondary">Current Status:</CText>
+          <CBadge :variant="statusVariant">{{ event.status }}</CBadge>
+        </CFlex>
 
-            <!-- Status Update Controls -->
-            <div class="mt-4 flex flex-wrap gap-2">
-                <button v-if="canStartEvent" 
-                        @click="updateStatus('InProgress')"
-                        :disabled="!isWithinEventDates"
-                        class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-text shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i class="fas fa-play mr-1.5"></i> Start Event
-                </button>
-                
-                <button v-if="canComplete" 
-                        @click="updateStatus('Completed')"
-                        class="inline-flex items-center justify-center rounded-md border border-transparent bg-success px-4 py-2 text-sm font-medium text-success-text shadow-sm hover:bg-success-dark focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2 transition-colors">
-                    <i class="fas fa-check mr-1.5"></i> Mark Complete
-                </button>
+        <!-- Status Update Controls -->
+        <CButtonGroup mt="4" spacing="2" wrap="wrap">
+          <CButton
+            v-if="canStartEvent"
+            leftIcon={<CIcon name="fa-play" />}
+            colorScheme="primary"
+            :isDisabled="!isWithinEventDates"
+            onClick={() => updateStatus('InProgress')}
+          >
+            Start Event
+          </CButton>
 
-                <button v-if="canCancel" 
-                        @click="confirmCancel"
-                        class="inline-flex items-center justify-center rounded-md border border-transparent bg-error px-4 py-2 text-sm font-medium text-error-text shadow-sm hover:bg-error-dark focus:outline-none focus:ring-2 focus:ring-error focus:ring-offset-2 transition-colors">
-                    <i class="fas fa-times mr-1.5"></i> Cancel Event
-                </button>
-            </div>
-        </div>
+          <CButton
+            v-if="canComplete"
+            leftIcon={<CIcon name="fa-check" />}
+            colorScheme="green"
+            onClick={() => updateStatus('Completed')}
+          >
+            Mark Complete
+          </CButton>
 
-        <!-- Rating Controls -->
-        <div v-if="event.status === 'Completed' && !event.closed" class="border-t border-border pt-4">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-medium text-text-primary">Ratings</h3>
-                <span class="text-sm" :class="event.ratingsOpen ? 'text-success' : 'text-warning'">
-                    {{ event.ratingsOpen ? 'Open' : 'Closed' }}
-                </span>
-            </div>
+          <CButton
+            v-if="canCancel"
+            leftIcon={<CIcon name="fa-times" />}
+            colorScheme="red"
+            onClick={confirmCancel}
+          >
+            Cancel Event
+          </CButton>
+        </CButtonGroup>
+      </CBox>
 
-            <div class="flex gap-2">
-                <button 
-                    v-if="event.ratingsOpen && canToggleRatings"
-                    @click="toggleRatings"
-                    :disabled="isLoadingRatings"
-                    class="inline-flex items-center justify-center rounded-md border border-transparent bg-warning text-warning-text px-4 py-2 text-sm font-medium shadow-sm hover:bg-warning-dark focus:outline-none focus:ring-2 focus:ring-warning focus:ring-offset-2 transition-colors">
-                    <i class="fas fa-lock mr-1.5"></i>
-                    Close Ratings
-                </button>
+      <!-- Rating Controls -->
+      <CBox v-if="event.status === 'Completed' && !event.closed" borderTopWidth="1px" pt="4">
+        <CFlex align="center" justify="space-between" mb="4">
+          <CHeading size="lg" color="text-primary">Ratings</CHeading>
+          <CBadge :colorScheme="event.ratingsOpen ? 'green' : 'yellow'">
+            {{ event.ratingsOpen ? 'Open' : 'Closed' }}
+          </CBadge>
+        </CFlex>
 
-                <button 
-                    v-else-if="!event.ratingsOpen && canToggleRatings"
-                    @click="toggleRatings"
-                    :disabled="isLoadingRatings"
-                    class="inline-flex items-center justify-center rounded-md border border-transparent bg-success text-success-text px-4 py-2 text-sm font-medium shadow-sm hover:bg-success-dark focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2 transition-colors">
-                    <i class="fas fa-lock-open mr-1.5"></i>
-                    Open Ratings
-                </button>
+        <CButtonGroup spacing="2">
+          <CButton
+            v-if="event.ratingsOpen && canToggleRatings"
+            leftIcon={<CIcon name="fa-lock" />}
+            colorScheme="yellow"
+            :isLoading="isLoadingRatings"
+            onClick={toggleRatings}
+          >
+            Close Ratings
+          </CButton>
 
-                <button 
-                    v-if="canCloseEvent"
-                    @click="closeEvent"
-                    class="inline-flex items-center justify-center rounded-md border border-transparent bg-error px-4 py-2 text-sm font-medium text-error-text shadow-sm hover:bg-error-dark focus:outline-none focus:ring-2 focus:ring-error focus:ring-offset-2 transition-colors">
-                    <i class="fas fa-archive mr-1.5"></i>
-                    Close Event
-                </button>
-            </div>
-        </div>
-    </div>
+          <CButton
+            v-else-if="!event.ratingsOpen && canToggleRatings"
+            leftIcon={<CIcon name="fa-lock-open" />}
+            colorScheme="green"
+            :isLoading="isLoadingRatings"
+            onClick={toggleRatings}
+          >
+            Open Ratings
+          </CButton>
+
+          <CButton
+            v-if="canCloseEvent"
+            leftIcon={<CIcon name="fa-archive" />}
+            colorScheme="red"
+            onClick={closeEvent}
+          >
+            Close Event
+          </CButton>
+        </CButtonGroup>
+      </CBox>
+    </CStack>
+  </CBox>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
+import {
+  Box as CBox,
+  Button as CButton,
+  ButtonGroup as CButtonGroup,
+  Stack as CStack,
+  Heading as CHeading,
+  Text as CText,
+  Flex as CFlex,
+  Badge as CBadge,
+  Icon as CIcon
+} from '@chakra-ui/vue-next';
 
 const props = defineProps({
     event: {
@@ -87,15 +110,14 @@ const props = defineProps({
 const store = useStore();
 const isLoadingRatings = ref(false);
 
-const statusClass = computed(() => {
-    const baseClasses = 'inline-flex items-center';
-    switch (props.event.status) {
-        case 'Approved': return `${baseClasses} bg-info-light text-info-dark`;
-        case 'InProgress': return `${baseClasses} bg-primary-light text-primary-dark`;
-        case 'Completed': return `${baseClasses} bg-success-light text-success-dark`;
-        case 'Cancelled': return `${baseClasses} bg-error-light text-error-dark`;
-        default: return `${baseClasses} bg-neutral-light text-neutral-dark`;
-    }
+const statusVariant = computed(() => {
+  switch (props.event.status) {
+    case 'Approved': return { colorScheme: 'blue', variant: 'subtle' };
+    case 'InProgress': return { colorScheme: 'primary', variant: 'subtle' };
+    case 'Completed': return { colorScheme: 'green', variant: 'subtle' };
+    case 'Cancelled': return { colorScheme: 'red', variant: 'subtle' };
+    default: return { colorScheme: 'gray', variant: 'subtle' };
+  }
 });
 
 const isWithinEventDates = computed(() => {

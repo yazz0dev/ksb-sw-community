@@ -1,52 +1,82 @@
 <template>
-  <div
+  <CBox
     v-if="event && event.id"
-    class="bg-surface rounded-lg overflow-hidden shadow-md border border-border flex flex-col h-full transition duration-200 ease-in-out hover:shadow-lg hover:-translate-y-1"
-    :class="{ 'opacity-75 bg-neutral': event.status === 'Cancelled' || event.status === 'Rejected' }"
+    bg="var(--color-surface)"
+    borderRadius="lg"
+    overflow="hidden"
+    boxShadow="md"
+    borderWidth="1px"
+    borderColor="var(--color-border)"
+    d="flex"
+    flexDir="column"
+    h="full"
+    transition="box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out"
+    :_hover="{ boxShadow: 'lg', transform: 'translateY(-4px)' }"
+    :opacity="isCancelledOrRejected ? 0.75 : 1"
+    :bg="isCancelledOrRejected ? 'var(--color-neutral)' : 'var(--color-surface)'"
   >
-    <!-- Replace HTML comments with curly brace comments -->
-    <div class="p-5 flex flex-col flex-grow">
-      <div class="flex justify-between items-start mb-2">
-        <h5
-          class="text-lg font-semibold text-text-primary mb-0 mr-2 flex-1"
-          :class="{ 'line-through text-text-disabled': event.status === 'Cancelled' || event.status === 'Rejected' }"
+    <CBox p="5" d="flex" flexDir="column" flexGrow="1">
+      <CFlex justify="space-between" align="start" mb="2">
+        <CHeading
+          as="h5"
+          size="md" 
+          fontWeight="semibold"
+          color="var(--color-text-primary)"
+          mb="0"
+          mr="2"
+          flex="1"
+          :textDecoration="isCancelledOrRejected ? 'line-through' : 'none'"
+          :color="isCancelledOrRejected ? 'var(--color-text-disabled)' : 'var(--color-text-primary)'"
         >
           {{ event.eventName }}
-        </h5>
-        <span
-          class="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full whitespace-nowrap"
-          :class="statusBadgeClass"
+        </CHeading>
+        <CBadge 
+          px="2.5" 
+          py="0.5" 
+          fontSize="xs" 
+          fontWeight="semibold" 
+          borderRadius="full" 
+          whiteSpace="nowrap"
+          :colorScheme="statusBadgeColorScheme.color"
+          :variant="statusBadgeColorScheme.variant"
         >
           {{ event.status }}
-        </span>
-      </div>
-      <div class="text-xs text-text-secondary mb-3 flex items-center flex-wrap gap-x-3">
-        <span class="inline-flex items-center">
-            <i class="fas fa-tag mr-1 text-text-disabled"></i>{{ event.eventType }}
-        </span>
-        <span class="inline-flex items-center">
-            <i class="fas fa-calendar-alt mr-1 text-text-disabled"></i>{{ formatDateRange(event.startDate, event.endDate) }}
-        </span>
-      </div>
-      <p class="text-sm text-text-secondary mb-4 flex-grow">{{ truncatedDescription }}</p>
-      <div class="flex justify-between items-center mt-auto pt-3 border-t border-border">
-        <router-link
+        </CBadge>
+      </CFlex>
+      <CFlex fontSize="xs" color="var(--color-text-secondary)" mb="3" align="center" wrap="wrap" gap="3">
+        <CFlex align="center">
+            <CIcon name="fa-tag" mr="1" color="var(--color-text-disabled)" />{{ event.eventType }}
+        </CFlex>
+        <CFlex align="center">
+            <CIcon name="fa-calendar-alt" mr="1" color="var(--color-text-disabled)" />{{ formatDateRange(event.startDate, event.endDate) }}
+        </CFlex>
+      </CFlex>
+      <CText fontSize="sm" color="var(--color-text-secondary)" mb="4" flexGrow="1">{{ truncatedDescription }}</CText>
+      <CFlex justify="space-between" align="center" mt="auto" pt="3" borderTopWidth="1px" borderColor="var(--color-border)">
+        <CButton
+          as="router-link"
           :to="{ name: 'EventDetails', params: { id: event.id } }"
-          class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary transition-colors shadow-md"
+          size="xs"
+          colorScheme="primary"
+          color="var(--color-primary-text)"
+          bg="var(--color-primary)"
+          :_hover="{ bg: 'var(--color-primary-dark)' }"
+          boxShadow="md"
         >
           View Details
-        </router-link>
-        <span class="text-sm text-text-secondary inline-flex items-center">
-          <i class="fas fa-users mr-1.5 text-text-disabled"></i> {{ participantCount }}
-        </span>
-      </div>
-    </div>
-  </div>
+        </CButton>
+        <CFlex align="center" fontSize="sm" color="var(--color-text-secondary)">
+          <CIcon name="fa-users" mr="1.5" color="var(--color-text-disabled)" /> {{ participantCount }}
+        </CFlex>
+      </CFlex>
+    </CBox>
+  </CBox>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { DateTime } from 'luxon';
+import { CBox, CFlex, CHeading, CBadge, CIcon, CText, CButton } from '@chakra-ui/vue-next';
 
 const props = defineProps({
   event: {
@@ -54,6 +84,10 @@ const props = defineProps({
     required: true
   }
 });
+
+const isCancelledOrRejected = computed(() => 
+  props.event.status === 'Cancelled' || props.event.status === 'Rejected'
+);
 
 // Helper to format date range
 const formatDateRange = (start, end) => {
@@ -105,25 +139,25 @@ const participantCount = computed(() => {
     return 0;
 });
 
-// Updated status badge classes for better contrast and theme alignment
-const statusBadgeClass = computed(() => {
+// Map status to Chakra color schemes and variants
+const statusBadgeColorScheme = computed(() => {
   switch (props.event?.status) {
     case 'Approved':
     case 'Upcoming':
-      return 'bg-success-light text-success-dark border-success-light';
+      return { color: 'green', variant: 'subtle' }; // Use subtle for light background
     case 'Pending':
-      return 'bg-warning-light text-warning-dark border-warning-light';
+      return { color: 'yellow', variant: 'subtle' };
     case 'In Progress':
     case 'Ongoing':
-      return 'bg-info-light text-info-dark border-info-light';
+      return { color: 'blue', variant: 'subtle' };
     case 'Rejected':
-      return 'bg-error-light text-error-dark border-error-light';
+      return { color: 'red', variant: 'subtle' };
     case 'Completed':
-      return 'bg-neutral-light text-neutral-dark border-neutral-light';
+      return { color: 'gray', variant: 'subtle' };
     case 'Cancelled':
-      return 'bg-neutral-light text-neutral-dark border-neutral-light line-through';
+      return { color: 'gray', variant: 'outline' }; // Outline for cancelled
     default:
-      return 'bg-neutral-light text-neutral-dark border-neutral-light';
+      return { color: 'gray', variant: 'subtle' }; // Default fallback
   }
 });
 

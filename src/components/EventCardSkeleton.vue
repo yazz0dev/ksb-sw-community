@@ -1,22 +1,30 @@
 <!-- src/components/EventCardSkeleton.vue -->
 <template>
-  <div class="bg-surface rounded-lg shadow-sm border border-border overflow-hidden animate-pulse">
-    <div class="p-4 space-y-3">
+  <CBox 
+    bg="var(--color-surface)" 
+    borderRadius="lg" 
+    boxShadow="sm" 
+    borderWidth="1px" 
+    borderColor="var(--color-border)" 
+    overflow="hidden"
+  >
+    <CStack p="4" spacing="3">
       <!-- Placeholder for title -->
-      <div class="h-5 bg-neutral-light rounded w-3/4"></div>
+      <CSkeleton height="20px" width="75%" borderRadius="md" />
       <!-- Placeholder for date -->
-      <div class="h-4 bg-neutral-light rounded w-1/2"></div>
+      <CSkeleton height="16px" width="50%" borderRadius="md" />
       <!-- Placeholder for type/status -->
-      <div class="h-4 bg-neutral-light rounded w-1/3"></div>
+      <CSkeleton height="16px" width="33%" borderRadius="md" />
       <!-- Placeholder for participants/teams & icon -->
-      <div class="flex justify-between items-center pt-2">
-        <div class="h-4 bg-neutral-light rounded w-1/4"></div>
-        <div class="h-6 w-6 bg-neutral-light rounded-full"></div>
-      </div>
-    </div>
-  </div>
+      <CFlex justify="space-between" align="center" pt="2">
+        <CSkeleton height="16px" width="25%" borderRadius="md" />
+        <CSkeletonCircle size="6" />
+      </CFlex>
+    </CStack>
+  </CBox>
 </template>
 
 <script setup>
-// No script needed for a simple skeleton
+import { CBox, CStack, CSkeleton, CFlex, CSkeletonCircle } from '@chakra-ui/vue-next';
+// No script logic needed for a simple skeleton
 </script>

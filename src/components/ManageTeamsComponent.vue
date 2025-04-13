@@ -1,28 +1,29 @@
 <template>
-  <div class="space-y-4">
+  <CStack spacing="4">
     <template v-if="teams.length > 0">
-      <div v-for="(team, index) in teams" :key="index" class="p-4 bg-surface rounded-lg border border-border">
-        <div class="flex justify-between items-center mb-3">
-          <div class="flex items-center space-x-2">
-            <input
-              type="text"
+      <CBox v-for="(team, index) in teams" :key="index" p="4" bg="surface" borderRadius="lg" borderWidth="1px" borderColor="border">
+        <CFlex justify="space-between" align="center" mb="3">
+          <CFlex align="center" gap="2">
+            <CInput
               v-model="team.teamName"
-              class="px-2 py-1 text-sm font-medium rounded border-border focus:border-primary focus:ring-1 focus:ring-primary"
+              size="sm"
+              fontWeight="medium"
               placeholder="Team Name"
-              :disabled="isSubmitting"
-            >
-          </div>
-          <button
+              :isDisabled="isSubmitting"
+            />
+          </CFlex>
+          <CIconButton
+            icon={<CIcon name="fa-times" />}
+            variant="ghost"
+            colorScheme="red"
+            size="sm"
+            :isDisabled="isSubmitting"
             @click="removeTeam(index)"
-            class="text-error hover:text-error-dark"
-            :disabled="isSubmitting"
-            type="button"
-          >
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
+            aria-label="Remove team"
+          />
+        </CFlex>
         
-        <div class="space-y-2">
+        <CStack spacing="2">
           <TeamMemberSelect
             :selected-members="team.members"
             :available-students="availableStudentsForTeam(index)"
@@ -33,89 +34,114 @@
             @update:members="updateTeamMembers(index, $event)"
           />
           
-          <!-- Show selected members horizontally -->
-          <div v-if="team.members.length > 0" class="mt-2">
-            <div class="flex flex-wrap gap-2">
-              <span v-for="memberId in team.members" :key="memberId"
-                    class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-primary-extraLight text-primary-dark">
-                {{ nameCache[memberId] || memberId }}
-                <button
-                  @click="removeMember(index, memberId)"
-                  class="ml-1.5 -mr-1 h-4 w-4 rounded-full inline-flex items-center justify-center text-primary-dark hover:bg-primary-light hover:text-white focus:outline-none"
-                  :disabled="isSubmitting"
-                >
-                  <span class="sr-only">Remove {{ nameCache[memberId] || memberId }}</span>
-                  <i class="fas fa-times text-xs"></i>
-                </button>
-              </span>
-            </div>
-            <p class="text-xs text-text-secondary mt-1">
+          <CBox v-if="team.members.length > 0" mt="2">
+            <CWrap spacing="2">
+              <CBadge
+                v-for="memberId in team.members"
+                :key="memberId"
+                px="2.5"
+                py="1"
+                borderRadius="full"
+                variant="subtle"
+                colorScheme="primary"
+              >
+                <CFlex align="center">
+                  {{ nameCache[memberId] || memberId }}
+                  <CIconButton
+                    ml="1.5"
+                    size="xs"
+                    icon={<CIcon name="fa-times" />}
+                    variant="ghost"
+                    :isDisabled="isSubmitting"
+                    @click="removeMember(index, memberId)"
+                    aria-label="Remove member"
+                  />
+                </CFlex>
+              </CBadge>
+            </CWrap>
+            <CText fontSize="xs" color="text-secondary" mt="1">
               {{ team.members.length }}/10 members
-              <span v-if="team.members.length < 2" class="text-error">
+              <CText as="span" color="error" v-if="team.members.length < 2">
                 (Minimum 2 members required)
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
+              </CText>
+            </CText>
+          </CBox>
+        </CStack>
+      </CBox>
     </template>
 
-    <div class="flex justify-between items-center">
-      <button
-        type="button"
+    <CFlex justify="space-between" align="center">
+      <CButton
+        leftIcon={<CIcon name="fa-plus" />}
+        colorScheme="primary"
+        size="sm"
+        :isDisabled="isSubmitting"
         @click="addTeam"
-        class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-primary-text bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors disabled:opacity-50"
-        :disabled="isSubmitting"
       >
-        <i class="fas fa-plus mr-1.5"></i> Add Team
-      </button>
+        Add Team
+      </CButton>
 
       <template v-if="canAutoGenerate">
-        <div class="flex items-center space-x-2">
-          <select
+        <CFlex align="center" gap="2">
+          <CSelect
             v-model="generationType"
-            class="rounded-md border-border text-sm"
-            :disabled="isSubmitting"
+            size="sm"
+            :isDisabled="isSubmitting"
           >
             <option value="fixed-size">Fixed Size Teams</option>
             <option value="fixed-count">Fixed Number of Teams</option>
-          </select>
+          </CSelect>
           
-          <input
-            type="number"
-            v-model.number="generateValue"
-            class="w-16 rounded-md border-border text-sm"
+          <CNumberInput
+            v-model="generateValue"
+            size="sm"
+            w="16"
             :min="2"
             :max="maxGenerateValue"
-            :disabled="isSubmitting"
-          >
+            :isDisabled="isSubmitting"
+          />
           
-          <button
-            type="button"
-            @click="handleAutoGenerate"
-            class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-primary-text bg-secondary hover:bg-secondary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary transition-colors disabled:opacity-50"
-            :disabled="isSubmitting || !canGenerate || !hasValidEventId"
+          <CButton
+            leftIcon={<CIcon name="fa-random" />}
+            colorScheme="secondary"
+            size="sm"
+            :isDisabled="isSubmitting || !canGenerate || !hasValidEventId"
             :title="autoGenerateButtonTitle"
+            @click="handleAutoGenerate"
           >
-            <i class="fas fa-random mr-1.5"></i> Auto-Generate
-          </button>
-        </div>
+            Auto-Generate
+          </CButton>
+        </CFlex>
       </template>
-    </div>
-  </div>
+    </CFlex>
+  </CStack>
 </template>
 
 <script setup lang="ts">
+import {
+  Box as CBox,
+  Button as CButton,
+  IconButton as CIconButton,
+  Stack as CStack,
+  Flex as CFlex,
+  Input as CInput,
+  Select as CSelect,
+  NumberInput as CNumberInput,
+  Text as CText,
+  Wrap as CWrap,
+  Badge as CBadge,
+  Icon as CIcon
+} from '@chakra-ui/vue-next'
+
 import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
-// Ensure this path is correct relative to ManageTeamsComponent.vue
 import TeamMemberSelect from '././TeamMemberSelect.vue'; 
 
 interface Team {
   teamName: string;
   members: string[];
-  submissions: any[]; // Consider defining a Submission type if needed
-  ratings: any[]; // Consider defining a Rating type if needed
+  submissions: any[];
+  ratings: any[];
 }
 
 interface Student {
@@ -129,7 +155,7 @@ interface Props {
   nameCache: Record<string, string>;
   isSubmitting: boolean;
   canAutoGenerate: boolean;
-  eventId?: string; // Make eventId optional with '?'
+  eventId?: string;
 }
 
 const props = defineProps<Props>();
@@ -139,18 +165,16 @@ const emit = defineEmits<{
 }>();
 
 const store = useStore();
-// Initialize teams ref correctly, handling potential undefined initialTeams
 const teams = ref<Team[]>(JSON.parse(JSON.stringify(props.initialTeams || []))); 
 const generationType = ref<'fixed-size' | 'fixed-count'>('fixed-size');
 const generateValue = ref(3);
 
-const maxTeams = 8; // Add this constant at the script setup level
+const maxTeams = 8;
 
 const maxGenerateValue = computed(() => {
   if (generationType.value === 'fixed-size') {
-    return 10; // Maximum 10 members per team
+    return 10;
   }
-  // For fixed-count, limit by both maxTeams and available students
   return Math.min(maxTeams, Math.floor(props.students.length / 2));
 });
 
@@ -158,7 +182,7 @@ const canGenerate = computed(() => {
   const studentCount = Array.isArray(props.students) ? props.students.length : 0;
   const assignedMembersCount = teams.value.flatMap(t => t.members || []).length;
   const availableStudents = studentCount - assignedMembersCount;
-  return availableStudents >= 2; // Minimum team size
+  return availableStudents >= 2;
 });
 
 const hasValidEventId = computed(() => Boolean(props.eventId?.trim()));
@@ -182,7 +206,6 @@ const handleAutoGenerate = async () => {
       throw new Error('Please save the event first before generating teams.');
     }
 
-    // Add validation for maximum teams
     if (generationType.value === 'fixed-count' && generateValue.value > maxTeams) {
       throw new Error(`Cannot generate more than ${maxTeams} teams.`);
     }
@@ -212,7 +235,7 @@ const availableStudentsForTeam = (teamIndex: number): Student[] => {
   const assignedToOtherTeams = new Set(
     teams.value
       .filter((_, i) => i !== teamIndex)
-      .flatMap(t => t.members || []) // Ensure members is an array
+      .flatMap(t => t.members || [])
   );
   
   return props.students.filter(s => s && s.uid && !assignedToOtherTeams.has(s.uid));
@@ -237,7 +260,6 @@ const addTeam = () => {
 };
 
 const removeTeam = (index: number) => {
-    // Prevent removing first two teams
     if (index < 2) {
         emit('error', 'Cannot remove default teams - minimum 2 teams required');
         return;
@@ -246,7 +268,6 @@ const removeTeam = (index: number) => {
     emit('update:teams', teams.value);
 };
 
-// Add initialization for default teams
 const initializeDefaultTeams = () => {
     if (!teams.value || teams.value.length === 0) {
         teams.value = [
@@ -280,7 +301,6 @@ const removeMember = (teamIndex: number, memberId: string) => {
 
 const updateTeamMembers = (teamIndex: number, newMembers: string[]) => {
   if (teams.value[teamIndex]) {
-    // Enforce member limits
     if (newMembers.length > 10) {
       emit('error', 'Maximum 10 members per team allowed');
       return;
@@ -290,9 +310,7 @@ const updateTeamMembers = (teamIndex: number, newMembers: string[]) => {
   }
 };
 
-// Watch initialTeams prop for changes
 watch(() => props.initialTeams, (newTeams) => {
-  // Deep copy and handle potential undefined/null values
   teams.value = JSON.parse(JSON.stringify(newTeams || [])); 
 }, { immediate: true, deep: true });
 
