@@ -62,13 +62,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.is-fixed-top {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-}
-
 /* Add the slash through the wifi icon */
 .fa-wifi::after {
   content: "/";
@@ -81,7 +74,4 @@ onUnmounted(() => {
   color: currentColor; /* Inherit icon color */
 }
 
-.is-underlined {
-  text-decoration: underline;
-}
 </style>

@@ -72,13 +72,4 @@ onMounted(async () => {
   margin-bottom: 0 !important; /* Override potential default margins */
 }
 
-.p-3 {
-  padding: 0.75rem;
-}
-.mr-1 {
-  margin-right: 0.25rem;
-}
-.mr-2 {
-  margin-right: 0.5rem;
-}
 </style>

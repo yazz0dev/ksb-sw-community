@@ -116,38 +116,6 @@ const statusColorScheme = computed(() => {
   padding-bottom: 0.25rem; 
 }
 
-.py-1 {
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
-}
-.pt-2 {
-  padding-top: 0.5rem;
-}
-.mb-1 {
-  margin-bottom: 0.25rem;
-}
-.mt-1 {
-  margin-top: 0.25rem;
-}
-.mt-2 {
-  margin-top: 0.5rem;
-}
-.mt-3 {
-  margin-top: 0.75rem;
-}
-.pt-3 {
-  padding-top: 0.75rem;
-}
-.p-2 {
-  padding: 0.5rem;
-}
-.mr-1 {
-  margin-right: 0.25rem;
-}
-.mr-2 {
-  margin-right: 0.5rem;
-}
-
 /* Ensure list has no default styling */
 ul {
   list-style: none;

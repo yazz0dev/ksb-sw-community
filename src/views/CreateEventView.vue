@@ -1,5 +1,5 @@
 <template>
-  <section class="section">
+  <section class="section create-event-section">
     <div class="container is-max-desktop">
       <!-- Admin Warning -->
       <div v-if="isAdmin" class="notification is-danger is-light mb-6">
@@ -234,6 +234,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.create-event-section {
+  background-color: var(--color-background);
+}
+
 /* Reuse loader style */
 .loader {
   border-radius: 50%;
@@ -247,34 +251,4 @@ onMounted(async () => {
   from { transform: rotate(0deg); }
   to { transform: rotate(359deg); }
 }
-.mx-auto {
-    margin-left: auto;
-    margin-right: auto;
-}
-.mb-2 {
-    margin-bottom: 0.5rem;
-}
-.mr-1 {
-    margin-right: 0.25rem;
-}
-.mr-2 {
-    margin-right: 0.5rem;
-}
-.ml-3 {
-    margin-left: 0.75rem;
-}
-.mt-1 {
-    margin-top: 0.25rem;
-}
-.py-6 {
-    padding-top: 1.5rem;
-    padding-bottom: 1.5rem;
-}
-.pb-4 {
-    padding-bottom: 1rem;
-}
-.mb-6 {
-    margin-bottom: 1.5rem;
-}
-
 </style>

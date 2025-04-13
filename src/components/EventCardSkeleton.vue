@@ -53,10 +53,6 @@
   margin-bottom: 0; /* Reset margin for the circle in the flex container */
 }
 
-.pt-2 {
-  padding-top: 0.5rem;
-}
-
 /* Remove default card content spacing if needed */
 .card-content {
   padding: 1rem; /* Adjust as needed */

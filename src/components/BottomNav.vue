@@ -3,7 +3,7 @@
         class="navbar is-fixed-bottom is-flex is-justify-content-space-around is-align-items-center has-shadow is-hidden-desktop" 
         role="navigation" 
         aria-label="bottom navigation"
-        style="height: 3.5rem; background-color: var(--color-surface); border-top: 1px solid var(--color-border); z-index: 30;"
+        style="height: 4rem; background-color: var(--color-surface); border-top: 1px solid var(--color-border); z-index: 30;"
     >
         <!-- Home -->
         <router-link
@@ -11,9 +11,9 @@
             class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
             :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/home' }"
             style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="has-text-primary has-text-weight-medium"
+            active-class="is-active-nav-item"
         >
-            <span class="icon is-medium"><i class="fas fa-home fa-lg"></i></span>
+            <span class="icon is-medium"><i class="fas fa-home fa-xl"></i></span>
             <span class="is-size-7">Home</span>
         </router-link>
 
@@ -24,9 +24,9 @@
             class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
             :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/create-event' }"
             style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="has-text-primary has-text-weight-medium"
+            active-class="is-active-nav-item"
         >
-            <span class="icon is-medium"><i class="fas fa-calendar-plus fa-lg"></i></span>
+            <span class="icon is-medium"><i class="fas fa-calendar-plus fa-xl"></i></span>
             <span class="is-size-7">Request</span>
         </router-link>
 
@@ -36,9 +36,9 @@
             class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
             :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/leaderboard' }"
             style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="has-text-primary has-text-weight-medium"
+            active-class="is-active-nav-item"
         >
-            <span class="icon is-medium"><i class="fas fa-trophy fa-lg"></i></span>
+            <span class="icon is-medium"><i class="fas fa-trophy fa-xl"></i></span>
             <span class="is-size-7">Leaderboard</span>
         </router-link>
 
@@ -49,9 +49,9 @@
             class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
             :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/manage-requests' }"
             style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="has-text-primary has-text-weight-medium"
+            active-class="is-active-nav-item"
         >
-            <span class="icon is-medium"><i class="fas fa-tasks fa-lg"></i></span>
+            <span class="icon is-medium"><i class="fas fa-tasks fa-xl"></i></span>
             <span class="is-size-7">Manage</span>
         </router-link>
 
@@ -62,10 +62,10 @@
             class="navbar-item is-flex is-flex-direction-column is-align-items-center is-justify-content-center has-text-centered px-1 py-1"
             :class="{ 'has-text-primary has-text-weight-medium': $route.path === '/profile' }"
             style="flex: 1; height: 100%; color: var(--color-text-secondary); transition: color 0.2s ease-in-out;"
-            active-class="has-text-primary has-text-weight-medium"
+            active-class="is-active-nav-item"
         >
             <!-- Profile Pic or Icon -->
-            <figure v-if="userProfilePicUrl && !imgError" class="image is-24x24 mb-1" ref="profileImageRef">
+            <figure v-if="userProfilePicUrl && !imgError" class="image is-28x28 mb-1" ref="profileImageRef">
                 <img 
                     class="is-rounded" 
                     :src="userProfilePicUrl" 
@@ -74,7 +74,7 @@
                     @error="handleImageError" 
                 />
             </figure>
-            <span v-else class="icon is-medium"><i class="fas fa-user-circle fa-lg"></i></span>
+            <span v-else class="icon is-medium"><i class="fas fa-user-circle fa-xl"></i></span>
             <span class="is-size-7">Profile</span>
         </router-link>
     </nav>
@@ -110,25 +110,36 @@ const handleImageError = () => {
 </script>
 
 <style scoped>
-/* Custom styles for bottom nav if needed */
-.navbar-item:hover {
-    color: var(--color-primary) !important; /* Ensure hover color overrides default */
-    background-color: transparent; /* Prevent default hover background */
+.navbar-item {
+  border-top: 3px solid transparent; /* Reserve space for active border */
+  padding-top: calc(0.5rem - 3px); /* Adjust padding */
+  padding-bottom: 0.5rem;
 }
 
-.navbar-item.has-text-primary .icon i,
-.navbar-item.has-text-primary span {
+.navbar-item:hover,
+.navbar-item:focus,
+.navbar-item:active {
+    color: var(--color-primary) !important; /* Ensure hover/focus/active color overrides default */
+    background-color: transparent !important; /* Prevent default background */
+    border-top-color: transparent; /* Keep hover/focus/active border transparent */
+    outline: none; /* Remove default focus outline if desired */
+}
+
+.navbar-item.is-active-nav-item {
+  border-top-color: var(--color-primary);
+  color: var(--color-primary) !important;
+  font-weight: 600; /* Semibold */
+  background-color: transparent !important; /* Explicitly ensure no background for active */
+}
+
+.navbar-item.is-active-nav-item .icon i,
+.navbar-item.is-active-nav-item span {
     color: var(--color-primary);
 }
 
-/* Adjust icon sizes if needed */
-.icon.is-medium {
-  font-size: 1.5rem; /* Adjust as necessary */
+/* Specific style for profile image */
+.image.is-28x28 {
+  height: 28px;
+  width: 28px;
 }
-
-.image.is-24x24 {
-  height: 24px;
-  width: 24px;
-}
-
 </style>

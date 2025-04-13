@@ -1,7 +1,7 @@
 <template>
-  <div class="section has-text-centered py-6 px-4">
+  <div class="section has-text-centered py-6 px-4 landing-section">
     <div class="container is-max-widescreen">
-      <h1 class="title is-1 has-text-primary mb-4">
+      <h1 class="title is-1 is-3-mobile has-text-primary mb-4">
         Welcome to the KSB Tech Community!
       </h1>
       <p class="subtitle is-5 has-text-grey mb-6 mx-auto" style="max-width: 48rem;">
@@ -20,7 +20,7 @@
 
       <div class="container is-max-desktop mb-8">
         <div class="card">
-          <header class="card-header" style="background-color: var(--color-surface-variant); border-bottom: 1px solid var(--color-border);">
+          <header class="card-header features-card-header">
             <p class="card-header-title has-text-primary is-centered">
               Platform Features
             </p>
@@ -75,12 +75,21 @@ const getIconColorClass = (color) => {
 </script>
 
 <style scoped>
+.landing-section {
+  background-color: var(--color-background);
+}
+
 .is-underlined-hover:hover {
   text-decoration: underline;
 }
 
+.features-card-header {
+  background-color: var(--color-surface-variant);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .feature-item + .feature-item {
-  border-top: 1px solid #dbdbdb; /* Standard Bulma border color */
+  border-top: 1px solid var(--color-border);
   /* Or use a variable if you have defined one: border-top: 1px solid var(--bulma-border); */
 }
 

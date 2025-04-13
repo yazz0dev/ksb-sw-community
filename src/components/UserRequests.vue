@@ -121,13 +121,4 @@ onMounted(fetchRequests);
   from { transform: rotate(0deg); }
   to { transform: rotate(359deg); }
 }
-.mx-auto { margin-left: auto; margin-right: auto; }
-.mb-1 { margin-bottom: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.ml-2 { margin-left: 0.5rem; }
-.mr-2 { margin-right: 0.5rem; }
-.mt-4 { margin-top: 1rem; }
-.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
-.p-5 { padding: 1.25rem; }
 </style>

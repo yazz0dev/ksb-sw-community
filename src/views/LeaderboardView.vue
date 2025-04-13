@@ -1,5 +1,5 @@
 <template>
-  <section class="section">
+  <section class="section leaderboard-section">
     <div class="container is-max-desktop">
       <h1 class="title is-2 has-text-primary mb-5">Leaderboard</h1>
       
@@ -25,6 +25,7 @@
       <!-- Loading State -->
       <div v-if="loading" class="has-text-centered py-6">
          <div class="loader is-loading is-large mx-auto mb-2" style="border-color: var(--color-primary); border-left-color: transparent;"></div>
+         <p class="has-text-grey">Loading...</p>
       </div>
 
       <!-- Leaderboard Content -->
@@ -32,26 +33,28 @@
          <div v-if="filteredUsers.length === 0" class="notification is-info is-light has-text-centered">
             No users found for this role.
         </div>
-        <table v-else class="table is-fullwidth is-hoverable is-striped">
-          <thead>
-            <tr>
-              <th class="has-text-centered" style="width: 5%;">Rank</th>
-              <th>Name</th>
-              <th class="has-text-right">XP</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(user, index) in filteredUsers" :key="user.uid">
-              <td class="has-text-centered has-text-weight-medium">{{ index + 1 }}</td>
-              <td>
-                <router-link :to="`/profile/${user.uid}`" class="has-text-link has-text-weight-medium">
-                   {{ user.name }}
-                </router-link>
-              </td>
-              <td class="has-text-right has-text-weight-semibold">{{ user.displayXp }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-else class="table-container">
+          <table class="table is-fullwidth is-hoverable is-striped">
+            <thead>
+              <tr>
+                <th class="has-text-centered" style="width: 5%;">Rank</th>
+                <th>Name</th>
+                <th class="has-text-right">XP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(user, index) in filteredUsers" :key="user.uid">
+                <td class="has-text-centered has-text-weight-medium">{{ index + 1 }}</td>
+                <td>
+                  <router-link :to="`/profile/${user.uid}`" class="has-text-link has-text-weight-medium">
+                     {{ user.name }}
+                  </router-link>
+                </td>
+                <td class="has-text-right has-text-weight-semibold">{{ user.displayXp }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>
@@ -141,6 +144,10 @@ const selectRoleFilter = (role) => {
 </script>
 
 <style scoped>
+.leaderboard-section {
+  background-color: var(--color-background);
+}
+
 /* Loader Styles */
 .loader {
   border-radius: 50%;
@@ -154,15 +161,30 @@ const selectRoleFilter = (role) => {
   from { transform: rotate(0deg); }
   to { transform: rotate(359deg); }
 }
-.mx-auto { margin-left: auto; margin-right: auto; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-5 { margin-bottom: 1.25rem; }
-.mb-6 { margin-bottom: 1.5rem; }
-.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
 
 /* Custom Table Styles (Optional) */
 table {
     margin-top: 1.5rem;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+thead th {
+  background-color: var(--color-surface-variant);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+tbody td {
+  border-color: var(--color-border-light);
+}
+
+.table.is-striped tbody tr:nth-child(even) {
+  background-color: var(--color-surface-variant);
+}
+
+.table.is-hoverable tbody tr:hover {
+  background-color: var(--color-neutral-light); /* Assuming this exists, otherwise use surface-variant */
 }
 </style>
 

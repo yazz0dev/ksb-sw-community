@@ -213,32 +213,6 @@ onMounted(() => {
   from { transform: rotate(0deg); }
   to { transform: rotate(359deg); }
 }
-.mx-auto {
-    margin-left: auto;
-    margin-right: auto;
-}
-.mb-2 {
-    margin-bottom: 0.5rem;
-}
-.mr-2 {
-    margin-right: 0.5rem;
-}
-.pb-4 {
-    padding-bottom: 1rem;
-}
-.py-6 {
-    padding-top: 1.5rem;
-    padding-bottom: 1.5rem;
-}
-.mb-5 {
-    margin-bottom: 1.25rem;
-}
-.mb-6 {
-    margin-bottom: 1.5rem;
-}
-.pb-2 {
-    padding-bottom: 0.5rem;
-}
 
 /* Animation */
 .animate-fade-in {

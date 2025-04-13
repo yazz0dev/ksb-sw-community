@@ -1,5 +1,5 @@
 <template>
-    <section class="section">
+    <section class="section resources-section">
         <div class="container is-max-widescreen">
             <h2 class="title is-2 has-text-primary mb-6">Resources</h2>
 
@@ -13,7 +13,7 @@
             <div v-else class="columns is-multiline is-variable is-4">
                 <div v-for="(category, index) in categories" :key="index" class="column is-one-third-desktop is-half-tablet">
                     <div class="card resource-card is-fullheight">
-                        <header class="card-header" style="background-color: #fafafa;">
+                        <header class="card-header resource-card-header">
                             <p class="card-header-title has-text-primary is-size-6">{{ category.title }}</p>
                         </header>
                         <div class="card-content p-0">
@@ -97,47 +97,51 @@ const getIconClass = (type) => {
 </script>
 
 <style scoped>
-.is-fullheight {
-    height: 100%;
+.resources-section {
+    background-color: var(--color-background);
 }
+
 .resource-card {
     transition: all 0.2s;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 2px 3px rgba(10, 10, 10, 0.05);
 }
+
 .resource-card:hover {
     box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1);
     transform: translateY(-2px);
 }
+
+.resource-card-header {
+    background-color: var(--color-surface-variant);
+    border-bottom: 1px solid var(--color-border);
+}
+
 .list-item + .list-item {
-    border-top: 1px solid #ededed; /* Bulma list item separator */
+    border-top: 1px solid var(--color-border-light);
 }
+
 .list-item:hover {
-    background-color: #fafafa;
+    background-color: var(--color-surface-variant);
 }
+
 .resource-link {
-    color: #7a7a7a; /* has-text-grey */
+    color: var(--color-text-secondary);
     text-decoration: none;
 }
+
 .resource-link:hover {
-    color: var(--color-primary); /* Use your primary color */
+    color: var(--color-primary);
 }
+
 .external-link-icon {
     opacity: 0;
     transition: opacity 0.15s;
 }
+
 .resource-link:hover .external-link-icon {
     opacity: 0.6;
 }
 
-/* Truncation helper */
-.is-truncated {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.p-0 { padding: 0; }
-.p-3 { padding: 0.75rem; }
-.p-4 { padding: 1rem; }
-.mb-6 { margin-bottom: 1.5rem; }
-.mr-2 { margin-right: 0.5rem; }
 </style>

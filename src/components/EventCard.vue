@@ -156,31 +156,6 @@ const statusBadgeClass = computed(() => {
   transform: translateY(-4px);
 }
 
-.p-5 {
-  padding: 1.25rem;
-}
-.mb-2 {
-  margin-bottom: 0.5rem;
-}
-.mb-3 {
-  margin-bottom: 0.75rem;
-}
-.mb-4 {
-  margin-bottom: 1rem;
-}
-.mr-1 {
-  margin-right: 0.25rem;
-}
-.mr-2 {
-  margin-right: 0.5rem;
-}
-.pt-3 {
-  padding-top: 0.75rem;
-}
-.mt-auto {
-  margin-top: auto;
-}
-
 .button.has-shadow {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }

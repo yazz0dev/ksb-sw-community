@@ -614,12 +614,26 @@ onMounted(() => {
     }
 
      // Load students needed for ManageTeamsComponent
-    store.dispatch('user/fetchStudents').then(students => {
-        availableStudents.value = students;
-        // Update name cache
-         students.forEach(student => {
-            nameCache.value[student.uid] = student.name;
-        });
+    store.dispatch('user/fetchAllUsers').then(students => {
+        // --- Add safety checks --- 
+        if (Array.isArray(students)) {
+            // Filter for non-admin users if necessary
+            availableStudents.value = students.filter(s => s && s.role !== 'Admin'); // Check if 's' exists
+            // Update name cache
+            students.forEach(student => {
+                if (student && student.uid && student.name) { // Check properties exist
+                   nameCache.value[student.uid] = student.name;
+                }
+            });
+        } else {
+             console.warn("'user/fetchAllUsers' did not return an array.");
+             availableStudents.value = []; // Set to empty array if data is invalid
+        }
+        // --- End safety checks ---
+    }).catch(error => {
+        console.error("Error fetching users for team management:", error);
+        // Handle error, maybe show a message to the user
+        emit('error', 'Failed to load student list for team assignment.');
     });
 });
 
@@ -636,7 +650,7 @@ onMounted(() => {
    height: 2.5em; /* Match Bulma input height */
    box-shadow: inset 0 0.0625em 0.125em rgba(10, 10, 10, 0.05);
    width: 100%;
-   background-color: white;
+   background-color: var(--color-surface-variant) !important; /* Changed BG */
     color: #363636;
 }
 .dp__input:focus {
@@ -673,10 +687,64 @@ onMounted(() => {
       height: 2.5em; 
       box-shadow: inset 0 0.0625em 0.125em rgba(10, 10, 10, 0.05);
     width: 100%;
-       background-color: white;
+       background-color: var(--color-surface-variant) !important; /* Changed BG */
        color: #363636;
 }
 .chakra-input.error {
     border-color: #f14668; /* Bulma danger */
+}
+</style>
+
+<style scoped>
+/* Force box background to use the theme surface color */
+.box {
+  background-color: var(--color-surface) !important; 
+}
+
+/* Set label color */
+.label {
+  color: var(--color-text-primary) !important; 
+}
+
+/* Set input/textarea background */
+.input,
+.textarea {
+  background-color: var(--color-surface-variant) !important;
+}
+
+/* Ensure selects also get the light background */
+.select select {
+    background-color: var(--color-surface-variant) !important;
+}
+
+/* Style placeholder text */
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--color-text-secondary) !important;
+  opacity: 0.7 !important; /* Adjust opacity if needed */
+}
+
+.input::-webkit-input-placeholder,
+.textarea::-webkit-input-placeholder {
+  color: var(--color-text-secondary) !important;
+  opacity: 0.7 !important;
+}
+
+.input::-moz-placeholder,
+.textarea::-moz-placeholder {
+  color: var(--color-text-secondary) !important;
+  opacity: 0.7 !important;
+}
+
+.input:-ms-input-placeholder,
+.textarea:-ms-input-placeholder {
+  color: var(--color-text-secondary) !important;
+  opacity: 0.7 !important;
+}
+
+.input::-ms-input-placeholder,
+.textarea::-ms-input-placeholder {
+  color: var(--color-text-secondary) !important;
+  opacity: 0.7 !important;
 }
 </style>

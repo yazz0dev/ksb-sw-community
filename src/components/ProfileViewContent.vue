@@ -74,7 +74,7 @@
              </header>
              <div class="card-content">
                <div class="columns is-multiline is-variable is-4">
-                  <div v-for="(xp, role) in user.xpByRole" :key="role" v-if="xp > 0" class="column is-half">
+                  <div v-for="(xp, role) in filteredXpByRole" :key="role" class="column is-half">
                     <div class="is-flex is-justify-content-space-between is-align-items-center mb-2">
                       <span class="is-size-7 has-text-weight-medium">{{ formatRoleName(role) }}</span>
                       <span class="tag is-primary is-light is-rounded">{{ xp }} XP</span>
@@ -137,6 +137,16 @@ const totalXp = computed(() => {
 });
 
 const hasXpData = computed(() => totalXp.value > 0 && user.value?.xpByRole && Object.values(user.value.xpByRole).some(xp => xp > 0));
+
+const filteredXpByRole = computed(() => {
+  if (!user.value?.xpByRole) return {};
+  return Object.entries(user.value.xpByRole)
+    .filter(([role, xp]) => xp > 0)
+    .reduce((acc, [role, xp]) => {
+      acc[role] = xp;
+      return acc;
+    }, {});
+});
 
 const handleImageError = (e) => {
   e.target.src = defaultAvatarUrl;

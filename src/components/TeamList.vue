@@ -191,26 +191,6 @@ const toggleTeamDetails = (teamName) => {
   box-shadow: 0 5px 10px rgba(10, 10, 10, 0.1);
 }
 
-.p-4 { padding: 1rem; }
-.p-5 { padding: 1.25rem; }
-.mb-4 { margin-bottom: 1rem; }
-.mb-3 { margin-bottom: 0.75rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mt-4 { margin-top: 1rem; }
-.pt-4 { padding-top: 1rem; }
-.mr-1 { margin-right: 0.25rem; }
-.mr-2 { margin-right: 0.5rem; }
-
-.rounded-md {
-  border-radius: 0.375rem; /* 6px */
-}
-
-.is-truncated {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Transition for collapsible section */
 .slide-fade-enter-active {
   transition: all 0.3s ease-out;

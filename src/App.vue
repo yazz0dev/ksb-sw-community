@@ -1,8 +1,7 @@
 <template>
   <div 
     id="app" 
-    class="is-flex is-flex-direction-column" 
-    style="min-height: 100vh; background-color: var(--color-neutral-light); color: var(--color-text-secondary);"
+    class="is-flex is-flex-direction-column app-container" 
   >
     <!-- Offline State Handler -->
     <OfflineStateHandler />
@@ -11,18 +10,16 @@
 
     <!-- Top Navigation Bar -->
     <nav
-      class="navbar is-fixed-top has-shadow"
+      class="navbar is-fixed-top has-shadow app-navbar"
       role="navigation" 
       aria-label="main navigation"
-      style="background-color: var(--color-surface); border-bottom: 1px solid var(--color-border); z-index: 30;" /* Bulma uses z-index 30 for navbar */
     >
       <div class="container">
         <div class="navbar-brand">
           <router-link
             to="/"
-            class="navbar-item has-text-primary has-text-weight-bold is-size-5 is-size-4-desktop" 
+            class="navbar-item app-navbar-brand has-text-weight-bold is-size-5 is-size-4-desktop" 
             @click="closeNavbar"
-            style="white-space: nowrap;"
           >
             KSB Tech Community
           </router-link>
@@ -34,7 +31,6 @@
             aria-label="menu"
             :aria-expanded="isNavbarOpen"
             @click.stop="toggleNavbar"
-            style="color: var(--color-text-secondary);"
           >
             <span aria-hidden="true"></span>
             <span aria-hidden="true"></span>
@@ -45,10 +41,9 @@
         <!-- Navbar Content -->
         <div 
           id="navbarBasicExample" 
-          class="navbar-menu" 
+          class="navbar-menu app-navbar-menu" 
           :class="{ 'is-active': isNavbarOpen }"
           ref="navbarCollapseRef"
-          style="background-color: var(--color-surface);" /* Ensure mobile menu has background */
         >
           <!-- Menu Navigation -->
           <div class="navbar-start">
@@ -122,7 +117,7 @@
                   v-if="isAuthenticated"
                   href="#"
                   @click.prevent="logout"
-                  class="button is-danger is-light"
+                  class="button is-danger is-light logout-button"
                 >
                   <span class="icon">
                     <i class="fas fa-sign-out-alt"></i>
@@ -137,7 +132,7 @@
     </nav>
 
     <!-- Main Content Area -->
-    <main class="section" style="flex-grow: 1; padding-top: 5rem; padding-bottom: 5rem;"> /* Added padding-top to account for fixed navbar */
+    <main class="section app-main-content">
       <div class="container">
         <router-view v-slot="{ Component }">
           <!-- Keep the fade-in animation class if defined globally -->
@@ -152,21 +147,10 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'; // Removed h
+import { computed, ref, onMounted, onUnmounted } from 'vue'; 
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
-// REMOVED Chakra UI Imports
-// import {
-//   Box as CBox,
-//   Flex as CFlex,
-//   Container as CContainer,
-//   Link as CLink,
-//   IconButton as CIconButton,
-//   Icon as CIcon,
-//   List as CList,
-//   ListItem as CListItem,
-// } from '@chakra-ui/vue-next'; 
 import BottomNav from './components/BottomNav.vue';
 import OfflineStateHandler from './components/OfflineStateHandler.vue';
 import NotificationSystem from './components/NotificationSystem.vue';
@@ -247,37 +231,79 @@ const handleClickOutside = (event) => {
 </script>
 
 <style scoped>
-/* Add styles for Bulma active navbar items if needed */
-.navbar-item.is-active {
-  background-color: var(--color-secondary-light); /* Example: use your theme color */
-  color: var(--color-primary); /* Example: use your theme color */
+.app-container {
+  min-height: 100vh; 
+  background-color: var(--color-background); /* Use background color variable */
+  color: var(--color-text-secondary);
 }
 
-/* Ensure main content has enough padding top for the fixed navbar */
-/* Using inline style for now, but could be moved here */
-/* main.section {
-  padding-top: 5rem; /* Adjust based on navbar height */
-  /* padding-bottom: 5rem; /* Adjust based on bottom nav height if it were fixed */
-/* } */
-
-/* Ensure mobile menu takes precedence */
-.navbar-menu.is-active {
-  position: absolute; /* Or fixed depending on desired behavior */
-  width: 100%;
-  left: 0;
-  z-index: 20; /* Below navbar itself */
-  box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1);
-  border-top: 1px solid var(--color-border); /* Add separator */
+.app-navbar {
+  background-color: var(--color-surface); 
+  border-bottom: 1px solid var(--color-border); 
+  z-index: 30; /* Keep z-index */
 }
 
-/* Style burger lines */
+.app-navbar-brand {
+  color: var(--color-primary) !important; /* Ensure primary color for brand */
+  white-space: nowrap;
+}
+
+/* Style burger lines using variables */
 .navbar-burger span {
   background-color: var(--color-text-secondary);
 }
-.navbar-burger:hover span {
-   background-color: var(--color-primary);
-}
+.navbar-burger:hover span,
 .navbar-burger.is-active span {
    background-color: var(--color-primary);
 }
+
+.app-navbar-menu {
+  background-color: var(--color-surface);
+}
+
+/* Active navbar item styling */
+.navbar-item.is-active {
+  background-color: var(--color-primary-light); 
+  color: var(--color-primary-dark); /* Use a darker primary for contrast */
+  font-weight: 600; /* Make active item bolder */
+}
+
+/* Adjust hover for non-active items */
+.navbar-item:not(.is-active):hover {
+  background-color: var(--color-surface-variant);
+  color: var(--color-text-primary);
+}
+
+/* Ensure logout button uses correct danger colors */
+.logout-button {
+  background-color: var(--color-error-extraLight) !important; /* Use light error */
+  color: var(--color-error-dark) !important; /* Use dark error text */
+  border-color: transparent; /* Remove default light border */
+}
+.logout-button:hover {
+   background-color: var(--color-error-light) !important; /* Slightly darker on hover */
+   color: var(--color-error-text) !important; 
+   border-color: transparent;
+}
+
+/* Main content padding */
+.app-main-content {
+  flex-grow: 1; 
+  padding-top: 5rem; /* Adjust based on navbar height */
+  padding-bottom: 5rem; /* Adjust based on potential bottom nav height */
+}
+
+/* Mobile menu adjustments */
+@media screen and (max-width: 1023px) {
+  .app-navbar-menu.is-active {
+    position: absolute; 
+    width: 100%;
+    left: 0;
+    top: 100%; /* Position below the navbar */
+    z-index: 20; 
+    box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1);
+    border-top: 1px solid var(--color-border); 
+  }
+}
+
 </style>

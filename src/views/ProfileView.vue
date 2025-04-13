@@ -1,5 +1,5 @@
 <template>
-  <div class="section" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
+  <div class="section profile-section" style="background-color: var(--color-background); min-height: calc(100vh - 8rem);">
     <div class="container is-max-widescreen">
       <!-- Back Button -->
       <div v-if="!isCurrentUser" class="mb-6">
@@ -52,7 +52,7 @@
            <template #additional-content v-if="isCurrentUser">
              <AuthGuard>
                 <div class="card mt-6">
-                  <header class="card-header" style="background-color: var(--color-secondary-light); border-bottom: 1px solid var(--color-secondary-border);">
+                  <header class="card-header requests-card-header">
                     <p class="card-header-title">
                        <span class="icon has-text-primary mr-2"><i class="fas fa-paper-plane"></i></span>
                        My Event Requests
@@ -204,6 +204,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.profile-section {
+  background-color: var(--color-background);
+  min-height: calc(100vh - 8rem); /* Keep min-height */
+}
+
+.requests-card-header {
+  background-color: var(--color-secondary-light);
+  border-bottom: 1px solid var(--color-secondary-dark); /* Use secondary dark or border */
+}
+
 .gap-4 { gap: 1rem; }
-.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
 </style>

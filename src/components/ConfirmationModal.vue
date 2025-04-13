@@ -51,9 +51,9 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
 
-defineProps({
+const props = defineProps({
   visible: Boolean,
   title: String,
   message: String,

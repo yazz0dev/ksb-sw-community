@@ -1,6 +1,6 @@
 <template>
   <div class="box" style="background-color: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); overflow: hidden;">
-    <div class="p-4 sm:p-6 lg:p-8">
+    <div class="p-4 p-6-tablet p-8-desktop">
       <!-- Header Content -->
       <div class="columns is-variable is-4 is-align-items-start">
         <!-- Left Column: Details -->
@@ -127,13 +127,6 @@ const statusTagClass = computed(() => {
 </script>
 
 <style scoped>
-.p-4 { padding: 1rem; }
-.sm\:p-6 { padding: 1.5rem; }
-.lg\:p-8 { padding: 2rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-4 { margin-bottom: 1rem; }
-.mr-2 { margin-right: 0.5rem; }
-
 /* Ensure content class styles apply */
 :deep(.content p) {
   margin-bottom: 0.5em;

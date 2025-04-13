@@ -1,14 +1,14 @@
 <template>
-    <section class="section">
+    <section class="section transparency-section">
         <div class="container is-max-desktop py-5">
-            <h1 class="title is-1 has-text-primary mb-6 pb-3" style="border-bottom: 2px solid var(--bulma-primary);">
+            <h1 class="title is-1 has-text-primary mb-6 pb-3" style="border-bottom: 2px solid var(--color-primary);">
                 Community Transparency & Guidelines
             </h1>
 
             <div class="content">
                 <!-- Community Guidelines Section -->
                 <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                    <header class="card-header has-background-primary-light custom-card-header">
                         <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
                             <span class="icon mr-3"><i class="fas fa-user-shield"></i></span>
                             <span class="is-size-5">Community Guidelines</span>
@@ -21,7 +21,7 @@
 
                 <!-- Roles Section -->
                 <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                    <header class="card-header has-background-primary-light custom-card-header">
                         <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
                             <span class="icon mr-3"><i class="fas fa-users"></i></span>
                             <span class="is-size-5">Community Roles</span>
@@ -34,7 +34,7 @@
 
                 <!-- Event System Section -->
                 <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                    <header class="card-header has-background-primary-light custom-card-header">
                         <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
                             <span class="icon mr-3"><i class="fas fa-tasks"></i></span>
                             <span class="is-size-5">Event System</span>
@@ -47,7 +47,7 @@
 
                 <!-- Rating & XP System Section -->
                 <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                    <header class="card-header has-background-primary-light custom-card-header">
                         <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
                             <span class="icon mr-3"><i class="fas fa-star"></i></span>
                             <span class="is-size-5">Rating & XP System</span>
@@ -62,7 +62,7 @@
 
                 <!-- General Guidelines Section -->
                 <div class="card mb-5 custom-card">
-                    <header class="card-header has-background-primary-light" style="border-bottom: 1px solid var(--bulma-primary);">
+                    <header class="card-header has-background-primary-light custom-card-header">
                         <p class="card-header-title is-flex is-align-items-center has-text-primary-dark">
                             <span class="icon mr-3"><i class="fas fa-book"></i></span>
                             <span class="is-size-5">General Guidelines</span>
@@ -235,9 +235,19 @@ const renderSection = (content) => {
 </script>
 
 <style scoped>
+.transparency-section {
+  background-color: var(--color-background);
+}
+
 /* Add some basic styling to ensure cards have a slight shadow and content is spaced */
 .custom-card {
-  box-shadow: 0 2px 4px rgba(10, 10, 10, 0.1);
+  box-shadow: 0 2px 4px rgba(10, 10, 10, 0.05);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.custom-card-header {
+  border-bottom: 1px solid var(--color-primary);
 }
 
 /* Style the content rendered from markdown */
@@ -270,7 +280,7 @@ const renderSection = (content) => {
 
 /* Ensure primary-light background is defined if not in global styles */
 .has-background-primary-light {
-    background-color: hsl(217, 71%, 96%); /* Bulma's primary-light */
+    background-color: var(--color-primary-light);
 }
 
 .py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }

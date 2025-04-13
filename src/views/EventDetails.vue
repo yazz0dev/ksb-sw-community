@@ -1,6 +1,6 @@
 // src/views/EventDetails.vue
 <template>
-    <div class="section event-details-view">
+    <div class="section event-details-view event-details-section">
       <div class="container is-max-desktop">
         <!-- Back Button -->
         <div class="mb-6">
@@ -195,7 +195,7 @@
         <!-- Submission Modal -->
         <div class="modal" :class="{ 'is-active': showSubmissionModal }">
           <div class="modal-background" @click="closeSubmissionModal"></div>
-          <div class="modal-card" ref="submissionModalRef" style="max-width: 520px;">
+          <div class="modal-card submission-modal-card" ref="submissionModalRef" style="max-width: 520px;">
               <header class="modal-card-head">
                 <p class="modal-card-title is-size-5">Submit Your Project</p>
                 <button class="delete" aria-label="close" @click="closeSubmissionModal"></button>
@@ -490,6 +490,10 @@ watch(() => props.id, fetchEventData);
 </script>
 
 <style scoped>
+.event-details-section {
+  background-color: var(--color-background);
+}
+
 .event-details-view .box {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -553,10 +557,20 @@ watch(() => props.id, fetchEventData);
 /* Loader styling */
 .loader {
     border: 5px solid var(--color-border-light);
-    border-left-color: var(--bulma-primary);
+    border-left-color: var(--color-primary);
     border-radius: 50%;
     width: 3em;
     height: 3em;
+}
+
+.submission-modal-card .modal-card-head,
+.submission-modal-card .modal-card-foot {
+   background-color: var(--color-surface-variant);
+   border-color: var(--color-border);
+}
+
+.submission-modal-card .modal-card-body {
+   background-color: var(--color-surface);
 }
 
 </style>
