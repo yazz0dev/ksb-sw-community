@@ -146,7 +146,7 @@
           </div>
         </div>
 
-        <div v-if="!isDateAvailable && nextAvailableDate && !isRequestForm" class="alert alert-warning mt-4 d-flex align-items-center">
+        <div v-if="!isDateAvailable && nextAvailableDate" class="alert alert-warning mt-4 d-flex align-items-center">
            <div class="flex-shrink-0 me-3">
               <i class="fas fa-exclamation-triangle fa-2x"></i>
            </div>
@@ -284,9 +284,9 @@
 
       <!-- Submit Button -->
       <div class="text-end">
-          <button type="submit" class="btn btn-primary" :disabled="isSubmitting || totalXP > 50 || (!isDateAvailable && !isRequestForm)">
+          <button type="submit" class="btn btn-primary" :disabled="isSubmitting || totalXP > 50">
               <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              {{ isSubmitting ? 'Submitting...' : (eventId ? 'Update Event' : (isRequestForm ? 'Submit Request' : 'Create Event')) }}
+              {{ isSubmitting ? 'Submitting...' : 'Submit Request' }}
           </button>
       </div>
 
@@ -300,7 +300,8 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import DatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
-import ManageTeamsComponent from './ManageTeamsComponent.vue';
+import ManageTeamsComponent from './ManageTeamsComponent.vue';  // Updated path
+import TeamMemberSelect from './TeamMemberSelect.vue';  // Updated path
 import { Timestamp } from 'firebase/firestore';
 import { DateTime } from 'luxon';
 
@@ -382,7 +383,7 @@ const availableEventTypes = computed(() => {
     return formData.value.isTeamEvent ? teamEventTypes : individualEventTypes;
 });
 const isSubmitting = computed(() => props.isSubmitting ?? false);
-const isRequestForm = computed(() => props.isRequestForm ?? false);
+const isRequestForm = computed(() => true); // Always treat as request form
 const eventId = computed(() => props.eventId ?? null);
 
 // Emits definition using defineEmits macro
@@ -415,11 +416,23 @@ const showCoOrganizerDropdown = ref(false);
 const nextAvailableDate = ref<Date | null>(null);
 const isDateAvailable = ref(true); // Assume available initially
 
-const dateFields = computed(() => {
-    return isRequestForm.value
-        ? { startLabel: 'Desired Start Date', endLabel: 'Desired End Date', startField: 'desiredStartDate', endField: 'desiredEndDate' }
-        : { startLabel: 'Start Date', endLabel: 'End Date', startField: 'startDate', endField: 'endDate' };
-});
+const stringToDate = (dateString: string | null): Date | null => {
+  if (!dateString) return null;
+  try {
+    const dt = DateTime.fromISO(dateString);
+    if (!dt.isValid) return null;
+    return dt.toJSDate();
+  } catch (e) {
+    return null;
+  }
+};
+
+const dateFields = computed(() => ({
+    startLabel: 'Desired Start Date', 
+    endLabel: 'Desired End Date', 
+    startField: 'desiredStartDate', 
+    endField: 'desiredEndDate'
+}));
 
  const totalXP = computed(() => {
   return formData.value.xpAllocation.reduce((sum, alloc) => sum + (Number(alloc.points) || 0), 0);
@@ -438,7 +451,7 @@ function initializeFormData(): FormData {
     teams: [],
     xpAllocation: [], // Initialize with empty array
     organizers: [],
-    status: isRequestForm.value ? 'Pending' : 'Approved', // Use computed prop default
+    status: 'Pending', // Always pending for requests
   };
 
   // Add a default XP allocation item if creating a new form
@@ -633,67 +646,26 @@ const removeOrganizer = (userId: string) => {
 
 const handleSubmit = () => {
   if (totalXP.value > 50) {
-      emit('error', 'Total XP allocated cannot exceed 50.');
-      return;
-  }
-  if (!isDateAvailable.value && !isRequestForm.value) { // Use computed prop default
-       emit('error', 'Selected dates conflict with another event. Please choose different dates or use the suggestion.');
-       return;
-  }
-
-  // --- Added Validation Start ---
-  const startField = dateFields.value.startField as keyof FormData;
-  const endField = dateFields.value.endField as keyof FormData;
-  const startDateValue = formData.value[startField];
-  const endDateValue = formData.value[endField];
-
-  if (!startDateValue) {
-      emit('error', `Please select a ${dateFields.value.startLabel}.`);
-      return;
-  }
-   if (!endDateValue) {
-      emit('error', `Please select an ${dateFields.value.endLabel}.`);
-      return;
-  }
-
-  // Convert YYYY-MM-DD strings back to Date objects before emitting
-  const dataToSubmit = JSON.parse(JSON.stringify(formData.value));
-  const stringToDate = (dateString: string | null): Date | null => {
-    if (!dateString) return null;
-    try {
-      const dt = DateTime.fromISO(dateString);
-      if (!dt.isValid) return null;
-      return dt.toJSDate();
-    } catch (e) {
-      return null;
-    }
-  };
-
-  // Clear dates that shouldn't be used based on form type
-  if (isRequestForm.value) {
-    // For requests, only set desired dates
-    dataToSubmit.desiredStartDate = stringToDate(formData.value[dateFields.value.startField]);
-    dataToSubmit.desiredEndDate = stringToDate(formData.value[dateFields.value.endField]);
-    dataToSubmit.startDate = null;
-    dataToSubmit.endDate = null;
-  } else {
-    // For admin events, only set actual dates
-    dataToSubmit.startDate = stringToDate(formData.value[dateFields.value.startField]);
-    dataToSubmit.endDate = stringToDate(formData.value[dateFields.value.endField]);
-    dataToSubmit.desiredStartDate = null;
-    dataToSubmit.desiredEndDate = null;
-  }
-
-  // Validate converted dates
-  if (isRequestForm.value && (!dataToSubmit.desiredStartDate || !dataToSubmit.desiredEndDate)) {
-    emit('error', 'Invalid date format for event request');
+    emit('error', 'Total XP allocated cannot exceed 50.');
     return;
   }
-  
-  if (!isRequestForm.value && (!dataToSubmit.startDate || !dataToSubmit.endDate)) {
-    emit('error', 'Invalid date format for event creation');
+
+  const startField = dateFields.value.startField;
+  const endField = dateFields.value.endField;
+  const dataToSubmit = { ...formData.value };
+
+  // Validate dates are present
+  if (!formData.value[startField] || !formData.value[endField]) {
+    emit('error', `Both ${dateFields.value.startLabel} and ${dateFields.value.endLabel} are required.`);
     return;
   }
+
+  // Set desired dates and ensure actual dates are null for requests
+  dataToSubmit.desiredStartDate = formData.value[startField];
+  dataToSubmit.desiredEndDate = formData.value[endField];
+  dataToSubmit.startDate = null;
+  dataToSubmit.endDate = null;
+  dataToSubmit.status = 'Pending';
 
   // Remove UI-specific fields before submission
   dataToSubmit.xpAllocation = dataToSubmit.xpAllocation.map(({ constraintIndex, ...rest }) => rest);
@@ -707,8 +679,8 @@ const handleSubmit = () => {
     const startDateString = formData.value[startField];
     const endDateString = formData.value[endField];
 
-    if (!startDateString || !endDateString || isRequestForm.value) { // Use computed prop default
-        isDateAvailable.value = true; // Assume available if dates incomplete or it's a request
+    if (!startDateString || !endDateString) {
+        isDateAvailable.value = true; // Assume available if dates incomplete
         nextAvailableDate.value = null;
         return;
     }
@@ -783,15 +755,11 @@ const useNextAvailableDate = () => {
              const nextStartDateISO: string | null = nextStart.isValid ? nextStart.toISODate() : null;
              const nextEndDateISO: string | null = nextEnd.isValid ? nextEnd.toISODate() : null;
 
-            if (startField === 'startDate') {
-                formData.value.startDate = nextStartDateISO;
-            } else if (startField === 'desiredStartDate') {
+            if (startField === 'desiredStartDate') {
                 formData.value.desiredStartDate = nextStartDateISO;
             }
 
-            if (endField === 'endDate') {
-                formData.value.endDate = nextEndDateISO;
-            } else if (endField === 'desiredEndDate') {
+            if (endField === 'desiredEndDate') {
                 formData.value.desiredEndDate = nextEndDateISO;
             }
 

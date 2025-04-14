@@ -106,4 +106,46 @@ export const userMutations = {
             state.studentList = []; // Ensure it's always an array
         }
     },
+
+    setStudentList(state, students) {
+        state.studentList = students;
+        state.studentListLastFetch = Date.now();
+        state.studentListError = null;
+    },
+
+    setStudentListLoading(state, loading) {
+        state.studentListLoading = loading;
+    },
+
+    setStudentListError(state, error) {
+        state.studentListError = error;
+        state.studentListLoading = false;
+    },
+
+    addToNameCache(state, { uid, name }) {
+        if (!state.nameCache.has(uid)) {
+            state.nameCache.set(uid, {
+                name,
+                timestamp: Date.now()
+            });
+        }
+    },
+
+    clearStaleCache(state) {
+        const now = Date.now();
+        
+        // Clear stale name cache entries
+        for (const [uid, data] of state.nameCache.entries()) {
+            if (now - data.timestamp > state.nameCacheTTL) {
+                state.nameCache.delete(uid);
+            }
+        }
+
+        // Clear student list if TTL expired
+        if (state.studentListLastFetch && 
+            now - state.studentListLastFetch > state.studentListTTL) {
+            state.studentList = [];
+            state.studentListLastFetch = null;
+        }
+    },
 };

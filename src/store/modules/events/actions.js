@@ -351,78 +351,33 @@ export const eventActions = {
     },
 
     // --- UPDATED requestEvent ACTION (Non-Admin only) ---
-    async requestEvent({ dispatch, rootGetters, commit }, eventData) {
+    async requestEvent({ commit, rootGetters }, eventData) {
+        // Validate required fields for event requests
+        if (!eventData.desiredStartDate || !eventData.desiredEndDate) {
+            throw new Error('Desired start and end dates are required for event requests');
+        }
+
         try {
-            // <<<--- ADD LOGGING HERE --->>>
-            console.log("Received eventData in requestEvent action:", JSON.stringify(eventData, null, 2));
-            console.log("Type of desiredStartDate:", typeof eventData.desiredStartDate, "Value:", eventData.desiredStartDate);
-            console.log("Type of desiredEndDate:", typeof eventData.desiredEndDate, "Value:", eventData.desiredEndDate);
-
+            // Changed from userId to getUser for consistency
             const currentUser = rootGetters['user/getUser'];
-            const userId = currentUser?.uid;
-            if (!userId) { throw new Error("User not authenticated."); }
-            if (currentUser.role === 'Admin') { throw new Error("Admins should use the Create Event form."); }
+            if (!currentUser?.uid) throw new Error('User must be logged in to request events');
 
-            const hasActive = await dispatch('checkExistingRequests');
-            if (hasActive) { throw new Error('You already have an active or pending event request.'); }
-
-            // Basic date validation (existence and order) - Rely on mapper for type conversion
-            if (!eventData.desiredStartDate || !eventData.desiredEndDate) {
-                 throw new Error("Desired start and end dates are required.");
-            }
-            // Convert to comparable values (Date objects or timestamps) before comparing
-            // Assuming mapEventDataToFirestore handles conversion, we might only need basic check here
-            // Or perform a safe comparison if possible
-            try {
-                const start = new Date(eventData.desiredStartDate);
-                const end = new Date(eventData.desiredEndDate);
-                if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                     throw new Error("Invalid date format provided for desired dates.");
-                }
-                if (start > end) {
-                    throw new Error("Desired end date cannot be earlier than desired start date.");
-                }
-            } catch (e) {
-                 throw new Error("Could not parse desired dates for comparison.");
-            }
-            // <--- Removed misplaced brace
-
-            // Mapper handles date conversion from Date objects or strings
-            const requestData = mapEventDataToFirestore({
-                eventName: eventData.eventName || 'Unnamed Request',
-                eventType: eventData.eventType || 'Other',
-                description: eventData.description || '',
-                isTeamEvent: !!eventData.isTeamEvent,
-                requester: userId,
-                organizers: Array.isArray(eventData.organizers) ? [...new Set([userId, ...eventData.organizers])] : [userId], // Ensure requester is always an organizer
-                xpAllocation: Array.isArray(eventData.xpAllocation) ? eventData.xpAllocation : [],
+            // Add additional request-specific fields
+            const requestData = {
+                ...eventData,
                 status: 'Pending',
-                // Pass desired dates as received (should be Date objects)
-                // Firestore mapper will handle conversion to Timestamp
-                desiredStartDate: eventData.desiredStartDate, 
-                desiredEndDate: eventData.desiredEndDate,
-                createdAt: Timestamp.now(), // Keep this specific timestamp here
-            });
+                requester: currentUser.uid,
+                createdAt: Timestamp.now()
+            };
 
-            // Add/Override fields specifically for a new request
-            requestData.status = 'Pending';
-            requestData.organizationRatings = [];
-
-            if (requestData.isTeamEvent) {
-                requestData.teams = (Array.isArray(eventData.teams) ? eventData.teams : []).map(team => ({
-                    teamName: team.teamName || 'Unnamed Team',
-                    members: Array.isArray(team.members) ? team.members : [],
-                    submissions: [],
-                    ratings: []
-                }));
-            }
-
+            // Create the event request document
             const docRef = await addDoc(collection(db, 'events'), requestData);
+            
+            // Update local state
             commit('addOrUpdateEvent', { id: docRef.id, ...requestData });
-
+            
             return docRef.id;
-        } // <--- Correct placement for outer try block's closing brace
-        catch (error) { 
+        } catch (error) {
             console.error('Error requesting event:', error);
             throw error;
         }

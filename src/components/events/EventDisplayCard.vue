@@ -66,7 +66,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { formatRoleName } from '../utils/formatters';
+import { formatRoleName } from '../../utils/formatters';
 
 const props = defineProps({
     event: { type: Object, required: true },

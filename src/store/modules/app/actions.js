@@ -39,29 +39,36 @@ export default {
     }
   },
 
-  async syncOfflineChanges({ commit, state, dispatch }) {
-    if (!state.isOnline || !state.pendingOfflineChanges.length) return;
+  async syncOfflineChanges({ state, commit, dispatch }) {
+    if (state.offlineQueue.syncInProgress || !navigator.onLine) return;
+
+    commit('setSyncStatus', { inProgress: true });
     
-    try {
-      // Process each pending change
-      for (const change of state.pendingOfflineChanges) {
-        switch (change.type) {
-          case 'rating':
-            await dispatch('events/submitRating', change.data, { root: true });
-            break;
-          case 'submission':
-            await dispatch('events/submitProject', change.data, { root: true });
-            break;
-          // Add other types as needed
-        }
+    for (const action of state.offlineQueue.actions) {
+      try {
+        await dispatch(action.type, action.payload, { root: true });
+        commit('removeQueuedAction', action.id);
+      } catch (error) {
+        commit('addFailedAction', { ...action, error: error.message });
+        console.error('Sync failed for action:', action, error);
       }
-      
-      // Clear pending changes after successful sync
-      commit('CLEAR_OFFLINE_CHANGES');
-      console.log('Offline changes synced successfully');
-    } catch (error) {
-      console.error('Error syncing offline changes:', error);
     }
+
+    commit('setSyncStatus', { 
+      inProgress: false, 
+      lastAttempt: Date.now() 
+    });
+  },
+
+  monitorNetworkStatus({ commit, dispatch }) {
+    window.addEventListener('online', () => {
+      commit('setNetworkStatus', { online: true });
+      dispatch('syncOfflineChanges');
+    });
+
+    window.addEventListener('offline', () => {
+      commit('setNetworkStatus', { online: false });
+    });
   },
 
   recordOfflineChange({ commit }, { type, data }) {
@@ -108,5 +115,39 @@ export default {
   
   clearAllNotifications({ commit }) {
     commit('CLEAR_ALL_NOTIFICATIONS');
+  },
+
+  async handleOfflineAction({ state, commit }, { type, payload }) {
+    if (state.offlineQueue.supportedTypes.includes(type)) {
+      commit('queueOfflineAction', { type, payload });
+      return { queued: true };
+    }
+    throw new Error('This action cannot be performed offline');
+  },
+
+  async syncOfflineQueue({ state, commit, dispatch }) {
+    if (state.offlineQueue.syncInProgress || !state.networkStatus.online) return;
+    
+    commit('setSyncProgress', true);
+    
+    for (const action of state.offlineQueue.actions) {
+      try {
+        await dispatch(action.type, action.payload, { root: true });
+        commit('removeQueuedAction', action.id);
+      } catch (error) {
+        commit('addFailedAction', { ...action, error: error.message });
+      }
+    }
+    
+    commit('setSyncProgress', false);
+  },
+
+  async checkNetworkAndSync({ state, dispatch, commit }) {
+    const online = navigator.onLine;
+    commit('setNetworkStatus', online);
+    
+    if (online && state.offlineQueue.actions.length > 0) {
+      await dispatch('syncOfflineQueue');
+    }
   }
 };

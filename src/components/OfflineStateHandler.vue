@@ -1,18 +1,19 @@
 <template>
-  <div v-if="!isOnline" class="alert alert-danger rounded-0 fixed-top p-0" style="z-index: 1040;" role="alert"> 
-    <div class="d-flex justify-content-between align-items-center mx-4 my-2">
-      <!-- Left side -->
-      <div class="d-flex align-items-center">
-        <span class="me-2">
-          <i class="fas fa-wifi"></i> <!-- Slash added via CSS -->
+  <div v-if="!isOnline || hasQueuedActions" 
+       class="offline-status-bar" 
+       :class="{ 'has-queued': hasQueuedActions }">
+    <div class="container-fluid">
+      <div class="d-flex justify-content-between align-items-center">
+        <span>
+          <i class="fas" :class="isOnline ? 'fa-clock' : 'fa-wifi-slash'"></i>
+          {{ statusMessage }}
         </span>
-        <span>You are currently offline. Some features may be limited.</span>
-      </div>
-
-      <!-- Right side -->
-      <div>
-        <button class="btn btn-link text-danger text-decoration-underline btn-sm p-0" @click="checkConnection">
-          Retry
+        <button v-if="canSync" 
+                @click="syncNow" 
+                class="btn btn-sm btn-light"
+                :disabled="isSyncing">
+          <span v-if="isSyncing" class="spinner-border spinner-border-sm me-1"></span>
+          {{ isSyncing ? 'Syncing...' : 'Sync Now' }}
         </button>
       </div>
     </div>
@@ -20,65 +21,45 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { computed } from 'vue';
 import { useStore } from 'vuex';
 
 const store = useStore();
-const isOnline = ref(navigator.onLine);
 
-const checkConnection = () => {
-  isOnline.value = navigator.onLine;
-  store.commit('app/SET_ONLINE_STATUS', isOnline.value);
-};
+const isOnline = computed(() => store.state.app.networkStatus.online);
+const hasQueuedActions = computed(() => store.state.app.offlineQueue.actions.length > 0);
+const isSyncing = computed(() => store.state.app.offlineQueue.syncInProgress);
 
-const handleOnline = () => {
-  isOnline.value = true;
-  store.commit('app/SET_ONLINE_STATUS', true);
-  // Optionally sync changes when back online
-  // store.dispatch('app/syncOfflineChanges');
-};
-
-const handleOffline = () => {
-  isOnline.value = false;
-  store.commit('app/SET_ONLINE_STATUS', false);
-};
-
-onMounted(() => {
-  window.addEventListener('online', handleOnline);
-  window.addEventListener('offline', handleOffline);
-  // Initial check
-  checkConnection();
+const statusMessage = computed(() => {
+  if (!isOnline.value) return 'You are currently offline';
+  if (hasQueuedActions.value) {
+    return `${store.state.app.offlineQueue.actions.length} action(s) pending sync`;
+  }
+  return '';
 });
 
-onUnmounted(() => {
-  window.removeEventListener('online', handleOnline);
-  window.removeEventListener('offline', handleOffline);
-});
+const canSync = computed(() => isOnline.value && hasQueuedActions.value && !isSyncing.value);
+
+const syncNow = () => {
+  store.dispatch('app/syncOfflineChanges');
+};
 </script>
 
 <style scoped>
-/* Add the slash through the wifi icon */
-.fa-wifi {
-  position: relative; /* Needed for absolute positioning of pseudo-element */
-  display: inline-block; /* Ensure it takes space */
-}
-.fa-wifi::after {
-  content: "/";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%) rotate(20deg);
-  font-weight: bold;
-  font-size: 1.2em; /* Adjust size as needed */
-  color: currentColor; /* Inherit icon color */
+.offline-status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--bs-danger);
+  color: white;
+  padding: 0.5rem;
+  z-index: 1050;
+  transition: transform 0.3s ease-in-out;
 }
 
-/* Ensure link button retains danger color */
-.btn-link.text-danger {
-  color: var(--bs-danger) !important;
-}
-.btn-link.text-danger:hover,
-.btn-link.text-danger:focus {
-  color: var(--bs-danger) !important; /* Keep color on hover/focus */
+.offline-status-bar.has-queued {
+  background-color: var(--bs-warning);
+  color: var(--bs-dark);
 }
 </style>

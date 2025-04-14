@@ -214,19 +214,27 @@ const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
 const userName = computed(() => store.state.user.name || 'User');
 const userId = computed(() => store.state.user.uid);
 
-const logout = () => {
+// Move logout and handleLogout functions here, before they're used in template
+const logout = async (): Promise<void> => {
   const auth = getAuth();
-  signOut(auth).then(() => {
-  }).catch((error) => {
-      console.error("Logout failed:", error);
-  }).finally(() => {
-      store.dispatch('user/clearUserData');
-      router.replace({ name: 'Login' }).catch(err => {
-          if (err.name !== 'NavigationDuplicated' && err.name !== 'NavigationCancelled') { 
-               console.error('Router navigation error after logout:', err);
-          }
-      });
-  });
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Logout failed:", error);
+  } finally {
+    await store.dispatch('user/clearUserData');
+    router.replace({ name: 'Login' }).catch(err => {
+      if (err.name !== 'NavigationDuplicated' && err.name !== 'NavigationCancelled') { 
+        console.error('Router navigation error after logout:', err);
+      }
+    });
+  }
+};
+
+// Add explicit type for handleLogout
+const handleLogout = async (): Promise<void> => {
+  closeNavbar();
+  await logout();
 };
 
 // Scroll handling
@@ -252,71 +260,74 @@ const isBootstrapAvailable = () => {
   return typeof window !== 'undefined' && window.bootstrap !== undefined;
 };
 
-// Update closeNavbar function with error handling
+// Update closeNavbar function
 const closeNavbar = () => {
   try {
-    const bsCollapse = document.getElementById('navbarNav');
-    if (!bsCollapse) return;
-    
-    if (isBootstrapAvailable()) {
-      const collapse = window.bootstrap?.Collapse.getInstance(bsCollapse);
-      if (collapse) {
-        collapse.hide();
-      } else {
-        bsCollapse.classList.remove('show');
+    const navbarContent = document.getElementById('navbarNav');
+    if (!navbarContent) return;
+
+    // Always use Bootstrap's Collapse if available
+    if (window.bootstrap?.Collapse) {
+      const bsCollapse = window.bootstrap.Collapse.getInstance(navbarContent);
+      if (bsCollapse) {
+        bsCollapse.hide();
       }
     } else {
-      // Fallback: just remove the show class
-      bsCollapse.classList.remove('show');
+      // Fallback
+      navbarContent.classList.remove('show');
     }
   } catch (error) {
     console.warn('Failed to close navbar:', error);
   }
 };
 
-// Update logout handler to properly close navbar
-const handleLogout = async () => {
-  closeNavbar();
-  await logout();
-};
-
 onMounted(() => {
   store.dispatch('app/initOfflineCapabilities');
   window.addEventListener('scroll', handleScroll, { passive: true });
-  
-  // Wait for Bootstrap to be available
-  const initializeNavbar = () => {
-    const target = document.getElementById('navbarNav');
-    const navbarToggler = document.querySelector('.navbar-toggler');
+
+  // Bootstrap navbar initialization
+  setTimeout(() => {
+    const navbarContent = document.getElementById('navbarNav');
+    const toggler = document.querySelector('.navbar-toggler');
     
-    if (!target || !navbarToggler) return;
+    if (!navbarContent || !toggler || !window.bootstrap?.Collapse) return;
 
-    if (isBootstrapAvailable()) {
-      try {
-        navbarCollapse.value = new window.bootstrap.Collapse(target, {
-          toggle: false
-        }) as Collapse;
+    // Create a single Collapse instance
+    const bsCollapse = new window.bootstrap.Collapse(navbarContent, {
+      toggle: false
+    });
 
-        navbarToggler.addEventListener('click', (e) => {
-          e.preventDefault();
-          const collapse = window.bootstrap?.Collapse.getInstance(target) || 
-                          new window.bootstrap.Collapse(target);
-          collapse.toggle();
-        });
-      } catch (error) {
-        console.warn('Bootstrap initialization failed:', error);
-      }
-    } else {
-      // Fallback behavior for when Bootstrap is not available
-      navbarToggler.addEventListener('click', (e) => {
-        e.preventDefault();
-        target.classList.toggle('show');
+    // Remove any existing click listeners
+    toggler.replaceWith(toggler.cloneNode(true));
+    const newToggler = document.querySelector('.navbar-toggler');
+    if (!newToggler) return;
+
+    // Add single click handler for toggler
+    newToggler.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      bsCollapse.toggle();
+    });
+
+    // Add click handlers to nav links
+    document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth < 992) {
+          bsCollapse.hide();
+        }
       });
-    }
-  };
+    });
 
-  // Initialize after a short delay to ensure Bootstrap is loaded
-  setTimeout(initializeNavbar, 100);
+    // Also close on dropdown items
+    document.querySelectorAll('.dropdown-item').forEach(item => {
+      item.addEventListener('click', () => {
+        if (window.innerWidth < 992) {
+          bsCollapse.hide();
+        }
+      });
+    });
+
+  }, 100);
 });
 
 onUnmounted(() => {

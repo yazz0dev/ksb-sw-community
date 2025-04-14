@@ -1,4 +1,6 @@
-// Modern Color Palette
+@use 'sass:color' as color;
+
+// Configuration
 $primary: #4f46e5; // Indigo
 $secondary: #64748b; // Slate
 $success: #10b981; // Emerald
@@ -14,7 +16,7 @@ $body-color: #334155; // Slate 700
 
 // Link Colors
 $link-color: $primary;
-$link-hover-color: darken($primary, 15%);
+$link-hover-color: color.adjust($primary, $lightness: -15%);
 $link-decoration: none;
 
 // Card & Component Colors
@@ -29,7 +31,7 @@ $border-color: #e2e8f0; // Slate 200
 // Input & Form Colors
 $input-bg: #ffffff;
 $input-border-color: #cbd5e1; // Slate 300
-$input-focus-border-color: lighten($primary, 25%);
+$input-focus-border-color: color.adjust($primary, $lightness: 25%);
 $input-focus-box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
 
 // Button Colors

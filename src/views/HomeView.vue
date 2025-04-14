@@ -125,7 +125,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import EventCard from '../components/EventCard.vue';
+import EventCard from '../components/events/EventCard.vue';
 import EventCardSkeleton from '../components/EventCardSkeleton.vue'; // Keep skeleton
 
 const store = useStore();

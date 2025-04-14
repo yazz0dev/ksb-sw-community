@@ -8,7 +8,7 @@ const routes = [
   { path: '/', name: 'Landing', component: () => import('../views/LandingView.vue'), meta: { requiresAuth: false, guestOnly: true } },
   { path: '/home', name: 'Home', component: () => import('../views/HomeView.vue'), meta: { requiresAuth: true } },
   { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { requiresAuth: false, guestOnly: true } },
-  { path: '/event/:id', name: 'EventDetails', component: () => import('../views/EventDetails.vue'), meta: { requiresAuth: true }, props: true },
+  { path: '/event/:id', name: 'EventDetails', component: () => import('../views/events/EventDetails.vue'), meta: { requiresAuth: true }, props: true },
   { path: '/leaderboard', name: 'Leaderboard', component: () => import('../views/LeaderboardView.vue'), meta: { requiresAuth: false } },
   { path: '/rating/:eventId/:teamId?', name: 'RatingForm', component: () => import('../views/RatingForm.vue'), meta: { requiresAuth: true }, props: true },
   { path: '/resources', name: 'Resources', component: () => import('../views/ResourcesView.vue'), meta: { requiresAuth: false } },
@@ -25,13 +25,13 @@ const routes = [
     path: '/request-event',
     name: 'RequestEvent',
     meta: { requiresAuth: true, roles: ['Student'] }, // Ensure only students can access
-    component: () => import('../views/RequestEventView.vue'), // Rename import
+    component: () => import('../views/events/RequestEventView.vue'), // Rename import
   },
   { 
     path: '/edit-event/:eventId', 
     name: 'EditEvent', 
     meta: { requiresAuth: true, roles: ['Admin'] }, // Ensure only admins can access
-    component: () => import('../views/RequestEventView.vue'), // Rename import (Using same component for edit, but route guard restricts access)
+    component: () => import('../views/events/RequestEventView.vue'), // Rename import (Using same component for edit, but route guard restricts access)
     props: true
   },
   { 
@@ -57,7 +57,7 @@ const routes = [
   {
     path: '/events', // General events list route
     name: 'EventsList',
-    component: () => import('../views/EventsListView.vue'),
+    component: () => import('../views/events/EventsListView.vue'),
     meta: { requiresAuth: false } // Allow access for logged-out users (they see completed)
   },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('../views/NotFoundView.vue'), meta: { requiresAuth: false } },

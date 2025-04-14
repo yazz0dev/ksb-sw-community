@@ -16,10 +16,10 @@ const getters = {
     allEvents: (state) => state.events,
 
     // --- REVIEWED GETTER ---
-    // This correctly includes 'Approved' events, so newly created Admin events will show here.
+    // Remove admin event creation checks from upcomingEvents
     upcomingEvents: (state) =>
-        state.events.filter(e => e.status === 'Upcoming' || e.status === 'Approved') // Filter includes 'Approved'
-            .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0)), // Sort by start date
+        state.events.filter(e => e.status === 'Approved')
+            .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0)),
 
     activeEvents: (state) =>
         state.events.filter(e => e.status === 'InProgress') // Changed from 'In Progress' to match DB status value

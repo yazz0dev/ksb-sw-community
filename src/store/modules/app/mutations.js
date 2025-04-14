@@ -43,5 +43,47 @@ export default {
   
   CLEAR_ALL_NOTIFICATIONS(state) {
     state.notifications = [];
+  },
+
+  queueOfflineAction(state, action) {
+    state.offlineQueue.actions.push({
+      ...action,
+      timestamp: Date.now(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    });
+  },
+  
+  removeQueuedAction(state, actionId) {
+    state.offlineQueue.actions = state.offlineQueue.actions.filter(
+      action => action.id !== actionId
+    );
+  },
+  
+  setSyncStatus(state, { inProgress, lastAttempt = null }) {
+    state.offlineQueue.syncInProgress = inProgress;
+    if (lastAttempt) {
+      state.offlineQueue.lastSyncAttempt = lastAttempt;
+    }
+  },
+  
+  addFailedAction(state, action) {
+    state.offlineQueue.failedActions.push(action);
+  },
+
+  setNetworkStatus(state, { online }) {
+    state.networkStatus.online = online;
+    state.networkStatus.lastChecked = Date.now();
+  },
+
+  clearQueuedAction(state, actionId) {
+    state.offlineQueue.actions = state.offlineQueue.actions
+      .filter(action => action.id !== actionId);
+  },
+
+  setOfflineSync(state, { inProgress, error = null }) {
+    state.offlineQueue.syncInProgress = inProgress;
+    if (error) {
+      state.offlineQueue.lastError = error;
+    }
   }
 };

@@ -1,104 +1,50 @@
-// Import custom variables
-@import 'custom_bootstrap_variables';
+@use 'sass:color' as color;
+@use 'animations';
+@use 'custom_bootstrap_variables' as v;
+@use 'bootstrap';
 
-// Import Bootstrap core
-@import "bootstrap/scss/functions";
-@import "bootstrap/scss/variables";
-@import "bootstrap/scss/variables-dark";
-@import "bootstrap/scss/maps";
-@import "bootstrap/scss/mixins";
-@import "bootstrap/scss/utilities";
-@import "bootstrap/scss/root";
-@import "bootstrap/scss/reboot";
-
-// Import Bootstrap components we use
-@import "bootstrap/scss/type";
-@import "bootstrap/scss/containers";
-@import "bootstrap/scss/grid";
-@import "bootstrap/scss/forms";
-@import "bootstrap/scss/buttons";
-@import "bootstrap/scss/transitions";
-@import "bootstrap/scss/dropdown";
-@import "bootstrap/scss/nav";
-@import "bootstrap/scss/navbar";
-@import "bootstrap/scss/card";
-@import "bootstrap/scss/badge";
-@import "bootstrap/scss/alert";
-@import "bootstrap/scss/progress";
-@import "bootstrap/scss/spinners";
-@import "bootstrap/scss/close";
-@import "bootstrap/scss/modal";
-@import "bootstrap/scss/tooltip";
-
-// Import utilities API
-@import "bootstrap/scss/utilities/api";
-
-// Import animations
-@import 'animations';
-
-// Global custom styles
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
 }
 
-// Modern Card Hover Effect
 .card {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--bs-box-shadow-lg) !important;
+    box-shadow: v.$box-shadow-lg !important;
   }
 }
 
-// Better Button Hover States
 .btn {
   transition: all 0.2s ease-in-out;
-  
-  &:hover {
-    transform: translateY(-1px);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
+  &:hover { transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
 }
 
-// Subtle Badge Styles
 .badge {
-  font-weight: $font-weight-medium;
+  font-weight: v.$font-weight-medium;
 }
 
-// Define utility classes that aren't in Bootstrap
-.fs-7 {
-  font-size: 0.875rem !important;
-}
-
+.fs-7 { font-size: 0.875rem !important; }
 .text-decoration-underline-hover:hover {
   text-decoration: underline !important;
 }
 
-// Add spacing utilities for flex gaps
 .gap-1 { gap: 0.25rem !important; }
 .gap-2 { gap: 0.5rem !important; }
 .gap-3 { gap: 1rem !important; }
 .gap-4 { gap: 1.5rem !important; }
 .gap-5 { gap: 3rem !important; }
 
-// Custom Utilities
 .shadow-hover {
   transition: box-shadow 0.2s ease-in-out;
-  
-  &:hover {
-    box-shadow: var(--bs-box-shadow-lg) !important;
-  }
+  &:hover { box-shadow: v.$box-shadow-lg !important; }
 }
 
-// Text Gradients
 .text-gradient {
-  background: linear-gradient(to right, $primary, lighten($primary, 15%));
+  background: linear-gradient(to right, v.$primary, color.adjust(v.$primary, $lightness: 15%));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

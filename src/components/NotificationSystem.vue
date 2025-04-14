@@ -32,15 +32,39 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useStore } from 'vuex';
 
 const store = useStore();
-const notifications = computed(() => store.state.app.notifications || []);
+const notifications = computed(() => store.state.notification.notifications);
+const isOnline = computed(() => store.state.app.networkStatus.online);
+const queuedActions = computed(() => store.state.app.offlineQueue.actions);
 
 const dismissNotification = (id) => {
   store.dispatch('app/dismissNotification', id);
 };
+
+// Watch for network status changes
+watch(isOnline, (online) => {
+  if (online && queuedActions.value.length > 0) {
+    store.dispatch('notification/showNotification', {
+      message: `Back online. Syncing ${queuedActions.value.length} pending changes...`,
+      type: 'info',
+      duration: 3000
+    });
+  }
+});
+
+// Watch queued actions for offline notifications
+watch(() => queuedActions.value.length, (newCount, oldCount) => {
+  if (!isOnline.value && newCount > oldCount) {
+    store.dispatch('notification/showNotification', {
+      message: 'Action queued. Will sync when back online.',
+      type: 'warning',
+      duration: 3000
+    });
+  }
+});
 
 // Bootstrap classes for the toast background/border
 const getToastClass = (type) => {
