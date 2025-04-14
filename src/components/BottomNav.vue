@@ -77,33 +77,31 @@
     </nav>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
 
 const store = useStore();
-const imgError = ref(false); // Track image loading error
+const imgError = ref<boolean>(false);
 
-// Computed properties for user state
-const isAdmin = computed(() => store.getters['user/isAdmin']);
-const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-const userProfilePicUrl = computed(() => store.getters['user/profilePictureUrl']);
-const userName = computed(() => store.getters['user/getUser']?.name); // Get user name for Avatar fallback
+// Computed properties with type annotations
+const isAdmin = computed<boolean>(() => store.getters['user/isAdmin']);
+const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
+const userProfilePicUrl = computed<string | null>(() => store.getters['user/profilePictureUrl']);
+const userName = computed<string | null>(() => store.getters['user/getUser']?.name);
 
-const handleImageError = () => {
-    imgError.value = true; // Set error flag to true, v-else will show the icon
+const handleImageError = (): void => {
+    imgError.value = true;
     console.warn('Failed to load profile image:', userProfilePicUrl.value);
 };
 
-// Add click handler to close any open navbar when bottom nav is used
-const handleNavClick = () => {
-  const navbar = document.getElementById('navbarNav');
-  if (navbar?.classList.contains('show')) {
-    const collapse = window.bootstrap.Collapse.getInstance(navbar);
-    if (collapse) collapse.hide();
-  }
+const handleNavClick = (): void => {
+    const navbar = document.getElementById('navbarNav');
+    if (navbar?.classList.contains('show')) {
+        const collapse = window.bootstrap?.Collapse.getInstance(navbar);
+        if (collapse) collapse.hide();
+    }
 };
-
 </script>
 
 <style scoped>

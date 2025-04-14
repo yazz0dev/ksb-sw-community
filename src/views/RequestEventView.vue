@@ -75,8 +75,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
-import EventForm from '../components/EventForm.vue';
-import type { FormData as EventFormData } from '../components/EventForm.vue';
+import EventForm from '../components/events/EventForm.vue';
+import type { FormData as EventFormData } from '../components/events/EventForm.vue';
 
 const store = useStore();
 const router = useRouter();
@@ -165,7 +165,7 @@ const mapEventToFormData = (eventData: any): EventFormData => {
     eventName: '',
     eventType: '',
     description: '',
-    isTeamEvent: false,
+    eventFormat: 'Individual',
     startDate: null,
     endDate: null,
     desiredStartDate: null,

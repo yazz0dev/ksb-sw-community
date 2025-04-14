@@ -63,44 +63,46 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue';
 
-const props = defineProps({
-  visible: Boolean,
-  title: String,
-  message: String,
-  confirmText: {
-    type: String,
-    default: 'Confirm'
-  },
-  cancelText: {
-    type: String,
-    default: 'Cancel'
-  }
+interface Props {
+  visible: boolean;
+  title?: string;
+  message?: string;
+  confirmText?: string;
+  cancelText?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  confirmText: 'Confirm',
+  cancelText: 'Cancel'
 });
 
-const emit = defineEmits(['confirm', 'cancel', 'close']);
+const emit = defineEmits<{
+  (e: 'confirm'): void;
+  (e: 'cancel'): void;
+  (e: 'close'): void;
+}>();
 
-const cancelButtonRef = ref(null);
+const cancelButtonRef = ref<HTMLButtonElement | null>(null);
 const modalId = computed(() => `confirmationModal-${Math.random().toString(36).substring(2, 9)}`);
 
-const confirmAction = () => {
+const confirmAction = (): void => {
   emit('confirm');
-  closeModal(); // Close modal after confirming
+  closeModal();
 };
 
-const cancelAction = () => {
+const cancelAction = (): void => {
   emit('cancel');
-  closeModal(); // Close modal after cancelling
+  closeModal();
 };
 
-const closeModal = () => {
+const closeModal = (): void => {
   emit('close');
 };
 
-// Add keyboard listener for Escape key
-const handleKeydown = (event) => {
+const handleKeydown = (event: KeyboardEvent): void => {
   if (props.visible && event.key === 'Escape') {
     closeModal();
   }
@@ -114,21 +116,12 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
 });
 
-// Watch for visibility change to focus the cancel button
-watch(() => props.visible, (newValue) => {
+watch(() => props.visible, (newValue: boolean) => {
   if (newValue) {
-    // Use nextTick to ensure the element is in the DOM and modal is shown
     nextTick(() => {
       cancelButtonRef.value?.focus();
     });
-  } else {
-      // Optional: Add logic to handle body overflow when modal closes if needed
-      // document.body.style.overflow = ''; 
   }
-  // Optional: Add logic to handle body overflow when modal opens if needed
-  // if (newValue) {
-  //     document.body.style.overflow = 'hidden';
-  // }
 });
 </script>
 

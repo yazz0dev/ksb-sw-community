@@ -20,17 +20,35 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { useStore } from 'vuex';
 
-const store = useStore();
+interface QueuedAction {
+  type: string;
+  payload: any;
+  timestamp: number;
+}
 
-const isOnline = computed(() => store.state.app.networkStatus.online);
-const hasQueuedActions = computed(() => store.state.app.offlineQueue.actions.length > 0);
-const isSyncing = computed(() => store.state.app.offlineQueue.syncInProgress);
+interface AppState {
+  app: {
+    networkStatus: {
+      online: boolean;
+    };
+    offlineQueue: {
+      actions: QueuedAction[];
+      syncInProgress: boolean;
+    };
+  };
+}
 
-const statusMessage = computed(() => {
+const store = useStore<AppState>();
+
+const isOnline = computed<boolean>(() => store.state.app.networkStatus.online);
+const hasQueuedActions = computed<boolean>(() => store.state.app.offlineQueue.actions.length > 0);
+const isSyncing = computed<boolean>(() => store.state.app.offlineQueue.syncInProgress);
+
+const statusMessage = computed<string>(() => {
   if (!isOnline.value) return 'You are currently offline';
   if (hasQueuedActions.value) {
     return `${store.state.app.offlineQueue.actions.length} action(s) pending sync`;
@@ -38,9 +56,9 @@ const statusMessage = computed(() => {
   return '';
 });
 
-const canSync = computed(() => isOnline.value && hasQueuedActions.value && !isSyncing.value);
+const canSync = computed<boolean>(() => isOnline.value && hasQueuedActions.value && !isSyncing.value);
 
-const syncNow = () => {
+const syncNow = (): void => {
   store.dispatch('app/syncOfflineChanges');
 };
 </script>

@@ -252,14 +252,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
-import TeamList from '../components/TeamList.vue';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { Timestamp } from 'firebase/firestore';
-import EventDisplayCard from '../components/EventDisplayCard.vue';
-import EventManageControls from '../components/EventManageControls.vue';
+import TeamList from '@/components/TeamList.vue';
+import EventDisplayCard from '@/components/events/EventDisplayCard.vue';
+import EventManageControls from '@/components/events/EventManageControls.vue';
 import EventDetailsSkeleton from '@/components/skeletons/EventDetailsSkeleton.vue';
-import SkeletonProvider from '@/components/SkeletonProvider.vue';
+import SkeletonProvider from '@/components/skeletons/SkeletonProvider.vue';
 
 // Props, Store, Router
 const props = defineProps({ id: { type: String, required: true } });

@@ -105,38 +105,64 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 
-const props = defineProps({
-  eventId: {
-    type: String,
-    required: true,
-  },
-  // Assuming parent controls visibility and renders this conditionally
-  // visible: { 
-  //   type: Boolean,
-  //   default: false
-  // }
-});
+interface EventCriterion {
+  constraintIndex: number;
+  constraintLabel: string;
+  points: number;
+}
 
-const emit = defineEmits(['close', 'submitted']);
+interface Team {
+  teamName: string;
+  members: string[];
+}
+
+interface TeamMember {
+  uid: string;
+  name: string;
+}
+
+interface TeamSelections {
+  [key: number]: string;
+}
+
+interface RatingPayload {
+  eventId: string;
+  ratingType: string;
+  ratedBy: string;
+  ratedAt: Date;
+  selections: {
+    criteria: TeamSelections;
+    bestPerformer: string;
+  };
+}
+
+const props = defineProps<{
+  eventId: string;
+}>();
+
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'submitted', data: { message: string; type: string }): void;
+}>();
 
 const store = useStore();
 const loading = ref(true);
-const error = ref('');
-const submissionError = ref('');
+const error = ref<string>('');
+const submissionError = ref<string>('');
 const isSubmitting = ref(false);
 
-const eventDetails = ref(null);
-const eventCriteria = ref([]);
-const eventTeams = ref([]);
-const allTeamMembers = ref([]); // Array of { uid: string, name: string }
-const teamMemberMap = ref({}); // Map<userId, teamName>
+const eventDetails = ref<any>(null);
+const eventCriteria = ref<EventCriterion[]>([]);
+const eventTeams = ref<Team[]>([]);
+const allTeamMembers = ref<TeamMember[]>([]);
+const teamMemberMap = ref<Record<string, string>>({});
 
-const teamSelections = ref({}); // { constraintIndex: teamName }
-const bestPerformerSelection = ref('');
+const teamSelections = ref<TeamSelections>({});
+const bestPerformerSelection = ref<string>('');
 
 const currentUserId = computed(() => store.getters['user/userId']);
 
@@ -172,8 +198,8 @@ onMounted(async () => {
     });
 
     // Prepare list of all members for best performer dropdown
-    const memberIds = new Set();
-    const tempMemberMap = {}; // Map<userId, teamName>
+    const memberIds = new Set<string>();
+    const tempMemberMap: Record<string, string> = {};
     eventTeams.value.forEach(team => {
       (team.members || []).forEach(memberId => {
         if (memberId) { // Ensure memberId is not null/undefined
@@ -193,13 +219,13 @@ onMounted(async () => {
 
   } catch (err) {
     console.error('Error loading data for team rating form:', err);
-    error.value = err.message || 'Failed to load necessary data.';
+    error.value = (err as Error).message || 'Failed to load necessary data.';
   } finally {
     loading.value = false;
   }
 });
 
-const getTeamNameForMember = (memberId) => {
+const getTeamNameForMember = (memberId: string): string => {
     return teamMemberMap.value[memberId] || 'Unknown Team';
 };
 
@@ -218,28 +244,28 @@ const isFormValid = computed(() => {
   return allCriteriaSelected && bestPerformerSelected;
 });
 
-const submitTeamRatings = async () => {
+const submitTeamRatings = async (): Promise<void> => {
   if (!isFormValid.value || isSubmitting.value) return;
 
   isSubmitting.value = true;
   submissionError.value = '';
 
   try {
-    const criteriaSelections = {};
+    const criteriaSelections: TeamSelections = {};
     eventCriteria.value.forEach(c => {
         if (typeof c.constraintIndex === 'number') { 
             criteriaSelections[c.constraintIndex] = teamSelections.value[c.constraintIndex];
         }
     });
 
-    const ratingPayload = {
+    const ratingPayload: RatingPayload = {
       eventId: props.eventId,
-      ratingType: 'team_criteria', // New type to distinguish
+      ratingType: 'team_criteria',
       ratedBy: currentUserId.value,
-      ratedAt: new Date(), // Use JS Date, Firestore action will convert
+      ratedAt: new Date(),
       selections: {
-        criteria: criteriaSelections, // Use the constructed map
-        bestPerformer: bestPerformerSelection.value, // UID of the best performer
+        criteria: criteriaSelections,
+        bestPerformer: bestPerformerSelection.value,
       },
     };
 
@@ -251,12 +277,11 @@ const submitTeamRatings = async () => {
 
   } catch (err) {
     console.error('Error submitting team ratings:', err);
-    submissionError.value = err.message || 'Failed to submit ratings.';
+    submissionError.value = (err as Error).message || 'Failed to submit ratings.';
   } finally {
     isSubmitting.value = false;
   }
 };
-
 </script>
 
 <style scoped>

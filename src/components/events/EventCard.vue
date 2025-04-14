@@ -47,32 +47,28 @@
   </div>
 </template>
 
-<script setup>
-import { computed } from 'vue';
-import { DateTime } from 'luxon';
+<script setup lang="ts">
+import { computed, PropType } from 'vue';
+import { formatISTDate } from '@/utils/dateTime';
+import { EventStatus, EventFormat, type Event } from '@/types/event';
 
-const props = defineProps({
+defineProps({
   event: {
-    type: Object,
+    type: Object as PropType<Event>,
     required: true
   }
 });
 
 const isCancelledOrRejected = computed(() => 
-  props.event.status === 'Cancelled' || props.event.status === 'Rejected'
+  props.event.status === EventStatus.Cancelled || 
+  props.event.status === EventStatus.Rejected
 );
 
 // Helper to format date range
 const formatDateRange = (start, end) => {
   try {
-    const startDateObj = start?.toDate ? DateTime.fromJSDate(start.toDate()) : DateTime.fromISO(start);
-    const endDateObj = end?.toDate ? DateTime.fromJSDate(end.toDate()) : (end ? DateTime.fromISO(end) : null);
-
-    if (!startDateObj.isValid) return 'Invalid date';
-
-    const startDate = startDateObj.toLocaleString(DateTime.DATE_MED);
-    const endDate = endDateObj?.isValid ? endDateObj.toLocaleString(DateTime.DATE_MED) : null;
-
+    const startDate = formatISTDate(start);
+    const endDate = formatISTDate(end);
     return endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate;
   } catch (e) {
     console.error("Error formatting date:", e);
@@ -112,20 +108,18 @@ const participantCount = computed(() => {
 // Map status to Bootstrap badge classes
 const statusBadgeClass = computed(() => {
   switch (props.event?.status) {
-    case 'Approved':
-    case 'Upcoming':
+    case EventStatus.Approved:
       return 'bg-success-subtle text-success-emphasis';
-    case 'Pending':
+    case EventStatus.Pending:
       return 'bg-warning-subtle text-warning-emphasis';
-    case 'In Progress':
-    case 'Ongoing':
+    case EventStatus.InProgress:
       return 'bg-info-subtle text-info-emphasis';
-    case 'Rejected':
+    case EventStatus.Rejected:
       return 'bg-danger-subtle text-danger-emphasis';
-    case 'Completed':
-      return 'bg-dark text-white'; // Using dark bg for completed
-    case 'Cancelled':
-      return 'bg-secondary-subtle text-secondary-emphasis'; // Using secondary/grey for cancelled
+    case EventStatus.Completed:
+      return 'bg-dark text-white';
+    case EventStatus.Cancelled:
+      return 'bg-secondary-subtle text-secondary-emphasis';
     default:
       return 'bg-secondary-subtle text-secondary-emphasis';
   }

@@ -41,58 +41,64 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useStore } from 'vuex';
 
-const store = useStore();
-const requests = ref([]);
-const loadingRequests = ref(true);
-const errorMessage = ref('');
+interface Request {
+    id: string;
+    eventName: string;
+    status: 'Pending' | 'Approved' | 'Rejected';
+    [key: string]: any;
+}
 
-const getStatusClass = (status) => {
-  switch (status) {
-    case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
-    case 'Approved': return 'bg-success-subtle text-success-emphasis';
-    case 'Rejected': return 'bg-danger-subtle text-danger-emphasis';
-    default: return 'bg-secondary-subtle text-secondary-emphasis'; // Default greyish badge
-  }
+const store = useStore();
+const requests = ref<Request[]>([]);
+const loadingRequests = ref<boolean>(true);
+const errorMessage = ref<string>('');
+
+const getStatusClass = (status: Request['status']): string => {
+    switch (status) {
+        case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
+        case 'Approved': return 'bg-success-subtle text-success-emphasis';
+        case 'Rejected': return 'bg-danger-subtle text-danger-emphasis';
+        default: return 'bg-secondary-subtle text-secondary-emphasis';
+    }
 };
 
-const fetchRequests = async () => {
-  const user = store.getters['user/getUser'];
-  if (!user?.uid) {
-      errorMessage.value = 'User not logged in.';
-      loadingRequests.value = false;
-      return;
-  }
+const fetchRequests = async (): Promise<void> => {
+    const user = store.getters['user/getUser'];
+    if (!user?.uid) {
+        errorMessage.value = 'User not logged in.';
+        loadingRequests.value = false;
+        return;
+    }
 
-  try {
-    loadingRequests.value = true;
-    errorMessage.value = '';
-    const q = query(
-      collection(db, 'eventRequests'),
-      where('requester', '==', user.uid),
-      where('status', '==', 'Pending') // Only fetch pending requests
-    );
-    const querySnapshot = await getDocs(q);
-    requests.value = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-  } catch (error) {
-    console.error('Error fetching requests:', error);
-    errorMessage.value = 'Unable to load requests at this time';
-    requests.value = [];
-  } finally {
-    loadingRequests.value = false;
-  }
+    try {
+        loadingRequests.value = true;
+        errorMessage.value = '';
+        const q = query(
+            collection(db, 'eventRequests'),
+            where('requester', '==', user.uid),
+            where('status', '==', 'Pending')
+        );
+        const querySnapshot = await getDocs(q);
+        requests.value = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Request));
+    } catch (error) {
+        console.error('Error fetching requests:', error);
+        errorMessage.value = 'Unable to load requests at this time';
+        requests.value = [];
+    } finally {
+        loadingRequests.value = false;
+    }
 };
 
 onMounted(fetchRequests);
-
 </script>
 
 <style scoped>

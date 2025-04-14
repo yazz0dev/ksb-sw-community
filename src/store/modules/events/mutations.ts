@@ -1,5 +1,8 @@
+import { EventState, Event } from '@/types/event';
+import { RootState } from '@/store/types';
+
 export const eventMutations = {
-    setEvents(state, events) {
+    setEvents(state: EventState, events: Event[]) {
         // Ensure events is always an array
         state.events = Array.isArray(events) ? events : [];
         // Perform initial sort after setting
@@ -14,7 +17,7 @@ export const eventMutations = {
         });
     },
 
-    addOrUpdateEvent(state, event) {
+    addOrUpdateEvent(state: EventState, event: Event) {
         if (!event || !event.id) return; // Ignore invalid event data
         const index = state.events.findIndex(e => e.id === event.id);
         if (index !== -1) {
@@ -44,16 +47,16 @@ export const eventMutations = {
          });
     },
 
-    removeEvent(state, eventId) {
+    removeEvent(state: EventState, eventId: string) {
         state.events = state.events.filter(event => event.id !== eventId);
     },
 
-    setCurrentEventDetails(state, eventData) {
+    setCurrentEventDetails(state: EventState, eventData: Event | null) {
         // Ensure storing a deep copy if needed, or null
         state.currentEventDetails = eventData ? { ...eventData } : null;
     },
 
-    updateCurrentEventDetails(state, { id, changes }) {
+    updateCurrentEventDetails(state: EventState, { id, changes }: { id: string; changes: Partial<Event> }) {
         if (state.currentEventDetails?.id === id) {
             // Track individual rating counts per user
             if (changes.ratings || changes.teams) {
@@ -71,19 +74,19 @@ export const eventMutations = {
         }
     },
 
-    clearCurrentEventDetailsIfMatching(state, eventId) {
+    clearCurrentEventDetailsIfMatching(state: EventState, eventId: string) {
         // Clear details cache if the deleted/modified event was being viewed
         if (state.currentEventDetails?.id === eventId) {
             state.currentEventDetails = null;
         }
     },
 
-    clearCurrentEventDetails(state) {
+    clearCurrentEventDetails(state: EventState) {
         state.currentEventDetails = null;
     },
 
     // Update organization ratings locally (can be used by the action)
-    addOrganizationRating(state, { eventId, score }) {
+    addOrganizationRating(state: EventState, { eventId, score }: { eventId: string; score: number }) {
         const event = state.events.find(e => e.id === eventId);
         if (event) {
             if (!Array.isArray(event.organizationRatings)) {

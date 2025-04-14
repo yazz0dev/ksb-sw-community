@@ -14,33 +14,25 @@
   ></div>
 </template>
 
-<script setup>
-defineProps({
-  type: {
-    type: String,
-    default: 'block',
-    validator: (value) => ['text', 'block', 'circle', 'image'].includes(value)
-  },
-  width: {
-    type: String,
-    default: '100%'
-  },
-  height: {
-    type: String,
-    default: '1rem'
-  },
-  animated: {
-    type: Boolean,
-    default: true
-  },
-  borderRadius: {
-    type: String,
-    default: '0.25rem'
-  },
-  className: {
-    type: String,
-    default: ''
-  }
+<script setup lang="ts">
+type SkeletonType = 'text' | 'block' | 'circle' | 'image';
+
+interface Props {
+  type: SkeletonType;
+  width?: string;
+  height?: string;
+  animated?: boolean;
+  borderRadius?: string;
+  className?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  type: 'block',
+  width: '100%',
+  height: '1rem',
+  animated: true,
+  borderRadius: '0.25rem',
+  className: ''
 });
 </script>
 

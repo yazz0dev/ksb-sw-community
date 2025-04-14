@@ -70,94 +70,80 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 
-const props = defineProps({
-    teams: { 
-        type: Array, 
-        required: true, 
-        default: () => [] 
-    },
-    eventId: { 
-        type: String, 
-        required: true 
-    },
-    ratingsOpen: { 
-        type: Boolean, 
-        default: false 
-    },
-    getUserName: { 
-        type: Function, 
-        required: true 
-    },
-    organizerNamesLoading: { 
-        type: Boolean, 
-        default: false 
-    },
-    currentUserUid: { 
-        type: String, 
-        default: null 
-    }
-});
+interface Team {
+  teamName: string;
+  members: string[];
+  showDetails?: boolean;
+  ratings?: any[];
+  submissions?: any[];
+}
+
+interface Props {
+  teams: Team[];
+  eventId: string;
+  ratingsOpen: boolean;
+  getUserName: (id: string) => string;
+  organizerNamesLoading: boolean;
+  currentUserUid: string | null;
+}
+
+const props = defineProps<Props>();
 
 const store = useStore();
 const router = useRouter();
 
-const teamsWithDetails = ref([]);
-const loading = ref(true); // Add loading state
+const teamsWithDetails = ref<Team[]>([]);
+const loading = ref<boolean>(true);
 
-let unwatchTeams = null;
+let unwatchTeams: (() => void) | null = null;
 
 onMounted(() => {
-    updateLocalTeams(props.teams);
-    loading.value = false; // Set loading false after initial update
-    unwatchTeams = watch(() => props.teams, (newTeams) => {
-        updateLocalTeams(newTeams);
-    }, { deep: true });
+  updateLocalTeams(props.teams);
+  loading.value = false;
+  unwatchTeams = watch(() => props.teams, (newTeams) => {
+    updateLocalTeams(newTeams);
+  }, { deep: true });
 });
 
 onBeforeUnmount(() => {
-    if (unwatchTeams) {
-        unwatchTeams();
-    }
+  if (unwatchTeams) {
+    unwatchTeams();
+  }
 });
 
-function updateLocalTeams(teamsFromProps) {
-    if (!Array.isArray(teamsFromProps)) {
-         teamsWithDetails.value = []; // Clear if input is invalid
-         return;
-    }
-    
-    // Preserve existing showDetails state if team still exists
-    const existingStates = teamsWithDetails.value.reduce((acc, team) => {
-        acc[team.teamName] = team.showDetails;
-        return acc;
-    }, {});
+function updateLocalTeams(teamsFromProps: Team[]): void {
+  if (!Array.isArray(teamsFromProps)) {
+    teamsWithDetails.value = [];
+    return;
+  }
+  
+  const existingStates = teamsWithDetails.value.reduce((acc, team) => {
+    acc[team.teamName] = team.showDetails;
+    return acc;
+  }, {} as { [key: string]: boolean });
 
-    teamsWithDetails.value = teamsFromProps.map(team => ({
-        ...team,
-        showDetails: existingStates[team.teamName] || false, // Restore or default to false
-        // Ensure members, ratings, submissions are always arrays
-        members: Array.isArray(team.members) ? [...team.members] : [],
-        ratings: Array.isArray(team.ratings) ? [...team.ratings] : [],
-        submissions: Array.isArray(team.submissions) ? [...team.submissions] : []
-    }));
+  teamsWithDetails.value = teamsFromProps.map(team => ({
+    ...team,
+    showDetails: existingStates[team.teamName] || false,
+    members: Array.isArray(team.members) ? [...team.members] : [],
+    ratings: Array.isArray(team.ratings) ? [...team.ratings] : [],
+    submissions: Array.isArray(team.submissions) ? [...team.submissions] : []
+  }));
 }
 
-const toggleTeamDetails = (teamName) => {
-    const teamIndex = teamsWithDetails.value.findIndex(t => t.teamName === teamName);
-    if (teamIndex !== -1) {
-        teamsWithDetails.value[teamIndex].showDetails = !teamsWithDetails.value[teamIndex].showDetails;
-    } else {
-        console.warn(`Could not find team ${teamName} to toggle details.`);
-    }
+const toggleTeamDetails = (teamName: string): void => {
+  const teamIndex = teamsWithDetails.value.findIndex(t => t.teamName === teamName);
+  if (teamIndex !== -1) {
+    teamsWithDetails.value[teamIndex].showDetails = !teamsWithDetails.value[teamIndex].showDetails;
+  } else {
+    console.warn(`Could not find team ${teamName} to toggle details.`);
+  }
 };
-
-// Removed unused emits
-
 </script>
 
 <style scoped>

@@ -1,28 +1,19 @@
 export interface User {
-    uid: string;
-    name?: string;
-    email?: string;
-    role?: 'Admin' | 'User' | string;
-    profilePicture?: string;
-    xp?: number;
-    level?: number;
-    badges?: string[];
+  uid: string;
+  name: string;
+  email: string;
+  role?: string;
+  xpByRole?: Record<string, number>;
 }
 
-export interface UserProfile extends User {
-    joinDate?: Date;
-    eventsParticipated?: number;
-    eventsOrganized?: number;
-    bio?: string;
-    skills?: string[];
-    achievements?: Achievement[];
-    lastActive?: Date;
-}
-
-interface Achievement {
-    id: string;
-    name: string;
-    description: string;
-    dateEarned: Date;
-    type: string;
+export interface UserState {
+  uid: string | null;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+  xpByRole: Record<string, number>;
+  studentList: User[];
+  allUsers: User[];
+  loading: boolean;
+  error: string | null;
 }

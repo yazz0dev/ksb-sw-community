@@ -48,11 +48,22 @@
     </section>
 </template>
 
-<script setup>
-import { ref } from 'vue';
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+
+interface ResourceItem {
+    title: string;
+    type: 'Download' | 'Guide' | 'Link';
+    content: string;
+}
+
+interface ResourceCategory {
+    title: string;
+    items: ResourceItem[];
+}
 
 // Static predefined resources
-const predefinedResources = ref([
+const predefinedResources = ref<ResourceCategory[]>([
     {
         title: "Getting Started",
         items: [
@@ -86,8 +97,8 @@ const predefinedResources = ref([
 
 const categories = predefinedResources;
 
-// Helper function for icons
-const getIconClass = (type) => {
+// Type the helper function
+const getIconClass = (type: ResourceItem['type']): string => {
     switch (type) {
         case 'Download': return 'fa-download';
         case 'Guide': return 'fa-book';

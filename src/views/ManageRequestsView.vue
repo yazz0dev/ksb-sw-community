@@ -21,28 +21,58 @@
 
       <!-- Event requests list -->
       <div v-else>
-        <div v-if="pendingRequests.length === 0" class="alert alert-info text-center" role="alert">
+        <div v-if="sanitizedPendingRequests.length === 0" class="alert alert-info text-center" role="alert">
           <i class="fas fa-info-circle me-2"></i>
           No pending event requests.
         </div>
 
-        <div v-else>
-          <div v-for="(group, index) in groupedRequests" :key="index" class="mb-5">
-            <h2 class="h2 text-dark mb-4 pb-2" style="border-bottom: 1px solid var(--bs-border-color);">
-              {{ group.title }}
-            </h2>
-            <div class="row g-4">
-              <div 
-                v-for="request in group.requests" 
-                :key="request.id" 
-                class="col-md-6 col-lg-4 animate-fade-in"
-              >
-                <RequestCard
-                  :request="request" 
-                  :processing="isProcessing(request.id)"
-                  @approve="approveRequest(request.id)"
-                  @reject="confirmRejectRequest(request.id)" 
-                />
+        <div v-else class="row g-4">
+          <div 
+            v-for="request in sanitizedPendingRequests" 
+            :key="request.id" 
+            class="col-12 animate-fade-in"
+          >
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                  <h3 class="h5 mb-0 text-primary">{{ request.eventName }}</h3>
+                  <span :class="['badge rounded-pill', getStatusClass(request.status)]">
+                    {{ request.status }}
+                  </span>
+                </div>
+                
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <p class="mb-2"><strong>Event Format:</strong> {{ request.eventFormat }}</p>
+                    <p class="mb-2"><strong>Event Type:</strong> {{ request.eventType }}</p>
+                    <p class="mb-2"><strong>Start Date:</strong> {{ formatDate(request.startDate) }}</p>
+                    <p class="mb-2"><strong>End Date:</strong> {{ formatDate(request.endDate) }}</p>
+                  </div>
+                  <div class="col-md-6">
+                    <p class="mb-2"><strong>Requestor:</strong> {{ request.requesterName }}</p>
+                    <p class="mb-2"><strong>Organizer:</strong> {{ request.organizerName }}</p>
+                    <p class="mb-2"><strong>Description:</strong></p>
+                    <p class="text-secondary">{{ request.description }}</p>
+                  </div>
+                </div>
+
+                <div class="mt-3 d-flex gap-2 justify-content-end">
+                  <button 
+                    class="btn btn-success" 
+                    :disabled="isProcessing(request.id)"
+                    @click="approveRequest(request.id)"
+                  >
+                    <span v-if="isProcessing(request.id)" class="spinner-border spinner-border-sm me-1"></span>
+                    Approve
+                  </button>
+                  <button 
+                    class="btn btn-danger" 
+                    :disabled="isProcessing(request.id)"
+                    @click="confirmRejectRequest(request.id)"
+                  >
+                    Reject
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -64,62 +94,76 @@
   </section>
 </template>
 
-<script setup>
-import { ref, onMounted, computed } from 'vue';
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import RequestCard from '../components/RequestCard.vue';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
+import { EventStatus } from '@/types';
+
+interface RequestFeedback {
+    message: string;
+    type: 'success' | 'error';
+}
 
 const store = useStore();
-const loading = ref(false); 
-const error = ref(null);
-const processingRequestId = ref(null); // Track which request is currently being processed
+const loading = ref<boolean>(false);
+const error = ref<string | null>(null);
+const processingRequestId = ref<string | null>(null);
+const showRejectConfirmModal = ref<boolean>(false);
+const eventIdToReject = ref<string | null>(null);
 
 const pendingRequests = computed(() => store.getters['events/pendingEvents']);
 
-const showRejectConfirmModal = ref(false);
-const eventIdToReject = ref(null);
-
-const groupedRequests = computed(() => {
-  const groups = {};
-  const sortedRequests = [...pendingRequests.value].sort((a, b) => {
-      const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
-      const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
-      return dateB - dateA; // Sort newest first
-  });
-
-  sortedRequests.forEach(request => {
-    const date = request.createdAt?.toDate() || new Date();
-    const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    if (!groups[yearMonth]) {
-      groups[yearMonth] = [];
-    }
-    groups[yearMonth].push(request);
-  });
-
-  return Object.entries(groups)
-    .sort((a, b) => b[0].localeCompare(a[0])) // Sort groups newest first
-    .map(([yearMonth, requests]) => {
-      const [year, month] = yearMonth.split('-');
-      const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
-      return {
-        title: `${monthName} ${year}`,
-        requests
-      };
-    });
+// Sanitized requests with type safety
+const sanitizedPendingRequests = computed(() => {
+    return pendingRequests.value.map(request => ({
+        ...request,
+        eventFormat: request.eventFormat || 'Not specified',
+        eventType: request.eventType || 'Not specified',
+        requesterName: request.requesterName || 'Unknown',
+        organizerName: request.organizerName || 'Unknown',
+        description: request.description || 'No description provided',
+        startDate: request.startDate || null,
+        endDate: request.endDate || null,
+    }));
 });
 
-// Function to check if a specific card is processing
-const isProcessing = (requestId) => {
+const getStatusClass = (status: EventStatus): string => {
+    switch (status) {
+        case EventStatus.Pending: return 'bg-warning-subtle text-warning-emphasis';
+        case EventStatus.Approved: return 'bg-success-subtle text-success-emphasis';
+        case EventStatus.Rejected: return 'bg-danger-subtle text-danger-emphasis';
+        default: return 'bg-secondary-subtle text-secondary-emphasis';
+    }
+};
+
+const isProcessing = (requestId: string): boolean => {
     return processingRequestId.value === requestId;
 };
 
-async function fetchRequests() {
+const formatDate = (date: any): string => {
+  if (!date || !date.toDate) return 'Not specified';
+  try {
+    const d = date.toDate();
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (error) {
+    console.error('Date formatting error:', error);
+    return 'Invalid date';
+  }
+};
+
+async function fetchRequests(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
     await store.dispatch('events/fetchEvents');
-  } catch (err) {
+  } catch (err: any) {
     error.value = 'Failed to load event requests.';
     console.error("Error fetching event requests:", err);
      store.dispatch('notification/showNotification', {
@@ -131,7 +175,7 @@ async function fetchRequests() {
   }
 }
 
-const approveRequest = async (eventId) => {
+const approveRequest = async (eventId: string): Promise<void> => {
   if (processingRequestId.value) return; // Prevent concurrent actions
   processingRequestId.value = eventId; 
   error.value = null;
@@ -142,7 +186,7 @@ const approveRequest = async (eventId) => {
         type: 'success'
     });
     // No need to fetch again if the store getter updates reactively
-  } catch (err) {
+  } catch (err: any) {
     error.value = `Failed to approve request: ${err.message}`;
     console.error("Error approving event request:", err);
      store.dispatch('notification/showNotification', {
@@ -154,19 +198,18 @@ const approveRequest = async (eventId) => {
   }
 };
 
-// --- Reject Request Flow with Confirmation Modal ---
-const confirmRejectRequest = (eventId) => {
+const confirmRejectRequest = (eventId: string): void => {
   if (processingRequestId.value) return;
   eventIdToReject.value = eventId;
   showRejectConfirmModal.value = true;
 };
 
-const cancelRejectRequest = () => {
+const cancelRejectRequest = (): void => {
   showRejectConfirmModal.value = false;
   eventIdToReject.value = null;
 };
 
-const rejectRequestConfirmed = async () => {
+const rejectRequestConfirmed = async (): Promise<void> => {
   const eventId = eventIdToReject.value;
   if (!eventId || processingRequestId.value) return;
 
@@ -180,7 +223,7 @@ const rejectRequestConfirmed = async () => {
         type: 'success'
     });
      // No need to fetch again if the store getter updates reactively
-  } catch (err) {
+  } catch (err: any) {
     error.value = `Failed to reject request: ${err.message}`;
     console.error("Error rejecting event request:", err);
     store.dispatch('notification/showNotification', {
@@ -192,8 +235,6 @@ const rejectRequestConfirmed = async () => {
     eventIdToReject.value = null;
   }
 };
-// --- End Reject Request Flow ---
-
 
 onMounted(() => {
   fetchRequests();

@@ -108,15 +108,17 @@
   </div>
 </template>
 
-<script setup>
-import { computed, ref } from 'vue';
+<script setup lang="ts">
+import { computed, ref, PropType } from 'vue';
 import { useStore } from 'vuex';
+import { canStartEvent as canEventBeStarted } from '@/utils/dateTime';
+import { EventStatus, EventFormat, type Event } from '@/types/event';
 
 const props = defineProps({
-    event: {
-        type: Object,
-        required: true
-    }
+  event: {
+    type: Object as PropType<Event>,
+    required: true
+  }
 });
 
 const store = useStore();
@@ -126,22 +128,20 @@ const isClosingEvent = ref(false);
 
 const statusBadgeClass = computed(() => {
   switch (props.event.status) {
-    case 'Approved': return 'bg-info-subtle text-info-emphasis';
-    case 'InProgress': return 'bg-primary-subtle text-primary-emphasis';
-    case 'Completed': return 'bg-success-subtle text-success-emphasis';
-    case 'Cancelled': return 'bg-secondary-subtle text-secondary-emphasis'; // Using subtle grey
-    case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
-    case 'Rejected': return 'bg-danger-subtle text-danger-emphasis';
-    default: return 'bg-light text-dark'; // Default light
+    case EventStatus.Approved: return 'bg-info-subtle text-info-emphasis';
+    case EventStatus.InProgress: return 'bg-primary-subtle text-primary-emphasis';
+    case EventStatus.Completed: return 'bg-success-subtle text-success-emphasis';
+    case EventStatus.Cancelled: return 'bg-secondary-subtle text-secondary-emphasis';
+    case EventStatus.Pending: return 'bg-warning-subtle text-warning-emphasis';
+    case EventStatus.Rejected: return 'bg-danger-subtle text-danger-emphasis';
+    default: return 'bg-light text-dark';
   }
 });
 
+// Use renamed utility function
 const isWithinEventDates = computed(() => {
-    if (!props.event.startDate || !props.event.endDate) return false;
-    const now = new Date();
-    const start = props.event.startDate?.toDate ? props.event.startDate.toDate() : new Date(props.event.startDate);
-    const end = props.event.endDate?.toDate ? props.event.endDate.toDate() : new Date(props.event.endDate);
-    return now >= start && now <= end;
+  if (!props.event.startDate || !props.event.endDate) return false;
+  return canEventBeStarted(props.event);
 });
 
 const canManageRatings = computed(() => {
@@ -164,7 +164,7 @@ const canCloseEvent = computed(() =>
 );
 
 const canStartEvent = computed(() => 
-    props.event.status === 'Approved' && 
+    props.event.status === EventStatus.Approved && 
     !!props.event.startDate && 
     !!props.event.endDate
 );

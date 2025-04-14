@@ -161,7 +161,7 @@ import { ref, onMounted, computed, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../../firebase';
 
 const props = defineProps({ eventId: { type: String, required: true }, teamId: { type: String, required: false } });
 const store = useStore();

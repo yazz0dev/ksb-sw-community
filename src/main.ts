@@ -1,10 +1,10 @@
-// src/main.js
-import { createApp } from 'vue';
+// src/main.ts
+import { createApp, App as VueApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 import store from './store';
-import { auth, db } from './firebase'; // Import auth and db from firebase.js
-import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
 import AuthGuard from './components/AuthGuard.vue';
 
@@ -17,11 +17,11 @@ import './assets/styles/main.scss';
 // ADD Bootstrap JS (optional, but often needed for components like dropdowns, modals, etc.)
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
-let appInstance = null;
-let authInitialized = false; // Flag to prevent multiple initializations
+let appInstance: VueApp | null = null;
+let authInitialized: boolean = false; // Flag to prevent multiple initializations
 
 // Add network state handling
-let isOnline = navigator.onLine;
+let isOnline: boolean = navigator.onLine;
 window.addEventListener('online', () => {
     isOnline = true;
     enableNetwork(db).catch(console.error);
@@ -32,7 +32,7 @@ window.addEventListener('offline', () => {
 });
 
 // Listen for the initial auth state change ONCE
-const unsubscribe = onAuthStateChanged(auth, async (user) => {
+const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
     console.log("Initial Auth State Determined. User:", user ? user.uid : 'null');
     unsubscribe(); // Unsubscribe after the first callback
 
@@ -57,7 +57,7 @@ const unsubscribe = onAuthStateChanged(auth, async (user) => {
     }
 });
 
-function mountApp() {
+function mountApp(): void {
     if (!appInstance && authInitialized) {
         appInstance = createApp(App);
         appInstance.use(router);

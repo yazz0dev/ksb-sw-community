@@ -69,20 +69,20 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
 import { useStore } from 'vuex';
 
-const email = ref('');
-const password = ref('');
-const errorMessage = ref('');
-const isLoading = ref(false);
+const email = ref<string>('');
+const password = ref<string>('');
+const errorMessage = ref<string>('');
+const isLoading = ref<boolean>(false);
 const router = useRouter();
 const store = useStore();
 
-const processLoginSuccess = async (user) => {
+const processLoginSuccess = async (user: UserCredential['user']): Promise<void> => {
     console.log("Login successful for:", user.uid);
     try {
         await store.dispatch('user/fetchUserData', user.uid);
@@ -100,35 +100,32 @@ const processLoginSuccess = async (user) => {
     }
 };
 
-const signIn = async () => {
-  errorMessage.value = '';
-  isLoading.value = true;
-  try {
-    const auth = getAuth();
-    const userCredential = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
-    await processLoginSuccess(userCredential.user);
-  } catch (error) {
-    console.error("Email/Password Sign-In Error:", error);
-    switch (error.code) {
-      case 'auth/invalid-email':
-      case 'auth/missing-email':
-        errorMessage.value = 'Please enter a valid email address.';
-        break;
-      case 'auth/user-disabled':
-        errorMessage.value = 'This user account has been disabled.';
-        break;
-      case 'auth/user-not-found':
-      case 'auth/invalid-credential':
-        errorMessage.value = 'Incorrect email or password.';
-        break;
-      case 'auth/too-many-requests':
-         errorMessage.value = 'Too many login attempts. Please try again later or reset your password.';
-          break;
-      default:
-        errorMessage.value = 'Login failed. Please check your credentials and try again.';
+const signIn = async (): Promise<void> => {
+    errorMessage.value = '';
+    isLoading.value = true;
+    try {
+        const auth = getAuth();
+        const userCredential = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
+        await processLoginSuccess(userCredential.user);
+    } catch (error: any) {
+        console.error("Email/Password Sign-In Error:", error);
+        switch (error.code) {
+            case 'auth/invalid-email':
+            case 'auth/missing-email':
+                errorMessage.value = 'Please enter a valid email address.';
+                break;
+            case 'auth/user-disabled':
+                errorMessage.value = 'This user account has been disabled.';
+                break;
+            case 'auth/user-not-found':
+            case 'auth/wrong-password':
+                errorMessage.value = 'Invalid email or password.';
+                break;
+            default:
+                errorMessage.value = 'An error occurred during sign in. Please try again.';
+        }
+    } finally {
+        isLoading.value = false;
     }
-  } finally {
-      isLoading.value = false;
-  }
 };
 </script>

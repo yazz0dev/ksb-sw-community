@@ -1,12 +1,12 @@
-// src/store/modules/app/state.js
+import { AppState } from '@/types/store';
 
-export default {
+const state: AppState = {
   isOnline: navigator.onLine,
   pendingOfflineChanges: [],
   lastSyncTimestamp: null,
-  cacheExpiration: 30 * 60 * 1000, // 30 minutes in milliseconds
-  eventClosed: {}, // Map of eventId -> boolean to track closed state
-  notifications: [], // Array to store notification objects
+  cacheExpiration: 30 * 60 * 1000,
+  eventClosed: {},
+  notifications: [],
   offlineQueue: {
     actions: [],
     lastSyncAttempt: null,
@@ -34,3 +34,5 @@ export default {
     'submissions/addSubmission'
   ]
 };
+
+export default state;

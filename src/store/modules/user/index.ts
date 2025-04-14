@@ -1,8 +1,19 @@
+import { Module } from 'vuex';
 import { userActions } from './actions';
 import { userMutations } from './mutations';
+import { RootState, UserState } from '@/types/store';
 
-// --- STATE ---
-const state = {
+interface XpByRole {
+    fullstack: number;
+    presenter: number;
+    designer: number;
+    organizer: number;
+    problemSolver: number;
+    participation: number;
+    general: number;
+}
+
+const state: UserState = {
     uid: null,
     name: null,
     role: null, // Student, Admin
@@ -12,8 +23,8 @@ const state = {
         designer: 0,
         organizer: 0,
         problemSolver: 0,
-        participation: 0, // Added participation
-        general: 0 // Added general
+        participation: 0,
+        general: 0
     },
     skills: [],
     preferredRoles: [],
@@ -26,9 +37,9 @@ const state = {
 };
 
 const getters = {
-    isAuthenticated: state => state.isAuthenticated,
-    getUserRole: state => state.role,
-    getUser: state => ({
+    isAuthenticated: (state: UserState) => state.isAuthenticated,
+    getUserRole: (state: UserState) => state.role,
+    getUser: (state: UserState) => ({
         uid: state.uid,
         name: state.name,
         role: state.role,
@@ -36,14 +47,14 @@ const getters = {
         skills: state.skills ? [...state.skills] : [],
         preferredRoles: state.preferredRoles ? [...state.preferredRoles] : [],
     }),
-    isAdmin: state => state.role === 'Admin',
-    hasFetchedUserData: state => state.hasFetched,
-    getAllUsers: state => state.allUsers,
-    getUserNameById: (state) => (userId) => {
-      return state.userNameCache[userId] || userId; // Return cached name or ID if not found
+    isAdmin: (state: UserState) => state.role === 'Admin',
+    hasFetchedUserData: (state: UserState) => state.hasFetched,
+    getAllUsers: (state: UserState) => state.allUsers,
+    getUserNameById: (state: UserState) => (userId: string) => {
+        return state.userNameCache[userId] || userId; // Return cached name or ID if not found
     },
     // Getter specifically for total XP, sums up the xpByRole map
-    currentUserTotalXp: (state) => {
+    currentUserTotalXp: (state: UserState) => {
         // Add null/undefined check for xpByRole itself
         if (typeof state.xpByRole !== 'object' || state.xpByRole === null) return 0;
         return Object.values(state.xpByRole).reduce((sum, val) => sum + (Number(val) || 0), 0); // Ensure values are numbers
@@ -51,17 +62,19 @@ const getters = {
 };
 
 // Add this constant before the mutations
-const defaultXpStructure = {
+const defaultXpStructure: XpByRole = {
     fullstack: 0,
     presenter: 0,
     designer: 0,
     organizer: 0,
-    problemSolver: 0
+    problemSolver: 0,
+    participation: 0,
+    general: 0
 };
 
 const mutations = {
     ...userMutations,
-    setUserData(state, userData) {
+    setUserData(state: UserState, userData: any) {
         state.uid = userData.uid || null;
         state.name = userData.name || null;
         state.role = userData.role || null;
@@ -78,7 +91,7 @@ const mutations = {
             state.xpByRole = Object.keys(defaultXpStructure).reduce((acc, key) => {
                 acc[key] = Number(dbXp[key]) || 0;
                 return acc;
-            }, {});
+            }, {} as XpByRole);
             state.skills = Array.isArray(userData.skills) ? userData.skills : [];
             state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
         }
@@ -91,4 +104,4 @@ export default {
     getters,
     actions: userActions,
     mutations
-};
+} as Module<UserState, RootState>;

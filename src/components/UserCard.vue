@@ -17,38 +17,27 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
-import vue3StarRatings from 'vue3-star-ratings'; // Assuming global registration or import here
+import vue3StarRatings from 'vue3-star-ratings';
 
-const props = defineProps({
-  userId: { 
-    type: String,
-    required: true,
-  },
-  eventId: {
-    type: String,
-    required: true
-  },
-  teamId: {
-    type: String,
-    required: false 
-  }
-});
+interface Props {
+  userId: string;
+  eventId: string;
+  teamId?: string;
+}
+
+const props = defineProps<Props>();
 
 const store = useStore();
-const averageRating = ref(null);
-const name = ref(null);
+const averageRating = ref<number | null>(null);
+const name = ref<string | null>(null);
 
-// Fetch user name from cache or store
-const fetchUserName = () => {
+const fetchUserName = (): void => {
   const cachedName = store.getters['user/getCachedUserName'](props.userId);
   if (cachedName) {
     name.value = cachedName;
-  } else {
-    // Optionally fetch if not in cache, depending on your store setup
-    // store.dispatch('user/fetchUserNameIfNotCached', props.userId).then(fetchedName => name.value = fetchedName);
   }
 };
 
@@ -59,10 +48,10 @@ onMounted(async () => {
       eventId: props.eventId,
       userId: props.userId
     });
-    averageRating.value = ratingResult; 
+    averageRating.value = ratingResult;
   } catch (error) {
     console.error(`Error fetching rating for user ${props.userId} in event ${props.eventId}:`, error);
-    averageRating.value = null; 
+    averageRating.value = null;
   }
 });
 </script>

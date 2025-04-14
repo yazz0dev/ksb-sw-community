@@ -93,42 +93,43 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch, onMounted, toRefs } from 'vue';
+<script setup lang="ts">
+import { ref, computed, watch, toRefs } from 'vue';
 import { useStore } from 'vuex';
 import { db } from '../firebase';
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, DocumentData } from 'firebase/firestore';
 import { DateTime } from 'luxon';
 import { formatRoleName as formatRoleNameUtil } from '../utils/formatters';
 
-const props = defineProps({
-  userId: {
-    type: String,
-    required: true
-  },
-  isCurrentUser: {
-    type: Boolean,
-    default: false
-  }
-});
+interface Props {
+    userId: string;
+    isCurrentUser: boolean;
+}
 
+interface Stats {
+    participatedCount: number;
+    organizedCount: number;
+    wonCount: number;
+}
+
+const props = defineProps<Props>();
 const { userId, isCurrentUser } = toRefs(props);
 
-const defaultAvatarUrl = new URL('../assets/default-avatar.png', import.meta.url).href;
+const defaultAvatarUrl: string = new URL('../assets/default-avatar.png', import.meta.url).href;
 
 const store = useStore();
 
-const user = ref(null);
-const loading = ref(true);
-const errorMessage = ref('');
-const userProjects = ref([]);
-const participatedEvents = ref([]);
-const loadingEventsOrProjects = ref(true);
+const user = ref<DocumentData | null>(null);
+const loading = ref<boolean>(true);
+const errorMessage = ref<string>('');
+const userProjects = ref<DocumentData[]>([]);
+const participatedEvents = ref<DocumentData[]>([]);
+const loadingEventsOrProjects = ref<boolean>(true);
 
-const stats = ref({
-  participatedCount: 0,
-  organizedCount: 0,
-  wonCount: 0
+const stats = ref<Stats>({
+    participatedCount: 0,
+    organizedCount: 0,
+    wonCount: 0
 });
 
 const totalXp = computed(() => {
@@ -148,15 +149,15 @@ const filteredXpByRole = computed(() => {
     }, {});
 });
 
-const handleImageError = (e) => {
-  e.target.src = defaultAvatarUrl;
+const handleImageError = (e: Event) => {
+  (e.target as HTMLImageElement).src = defaultAvatarUrl;
 };
 
-const formatRoleName = (roleKey) => {
+const formatRoleName = (roleKey: string) => {
   return formatRoleNameUtil(roleKey);
 };
 
-const xpPercentage = (xp) => {
+const xpPercentage = (xp: number) => {
   const total = totalXp.value;
   return total > 0 ? Math.min(100, Math.round((xp / total) * 100)) : 0;
 };
@@ -191,7 +192,7 @@ const fetchProfileData = async () => {
   }
 };
 
-const fetchUserProjects = async (targetUserId) => {
+const fetchUserProjects = async (targetUserId: string) => {
   loadingEventsOrProjects.value = true;
   try {
     const submissionsQuery = query(
@@ -218,7 +219,7 @@ const fetchUserProjects = async (targetUserId) => {
   }
 };
 
-const fetchEventHistory = async (targetUserId) => {
+const fetchEventHistory = async (targetUserId: string) => {
   try {
     const eventsRef = collection(db, 'events');
     const q = query(eventsRef, orderBy('endDate', 'desc'));
@@ -227,7 +228,7 @@ const fetchEventHistory = async (targetUserId) => {
     let participated = 0;
     let organized = 0;
     let won = 0;
-    const eventsHistory = [];
+    const eventsHistory: DocumentData[] = [];
 
     querySnapshot.forEach(docSnap => {
       const event = { id: docSnap.id, ...docSnap.data() };
@@ -281,6 +282,4 @@ watch(userId, (newUserId) => {
 
 </script>
 
-<style scoped>
-/* Add any component-specific styles here */
-</style>
+

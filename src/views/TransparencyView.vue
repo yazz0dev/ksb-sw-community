@@ -77,7 +77,7 @@
     </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -227,7 +227,7 @@ const generalContent = `
 - Issue resolution process`;
 
 // Utility function to render markdown content safely
-const renderSection = (content) => {
+const renderSection = (content: string): string => {
     const rawHtml = marked(content);
     // Sanitize the HTML to prevent XSS attacks
     return DOMPurify.sanitize(rawHtml);

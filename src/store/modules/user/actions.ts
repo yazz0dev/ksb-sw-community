@@ -1,8 +1,21 @@
+import { ActionTree } from 'vuex';
+import { UserState, UserData } from '@/types/user';
+import { RootState } from '@/store/types';
 import { db } from '../../../firebase';
-import { doc, getDoc, updateDoc, arrayUnion, collection, getDocs, query, where, Timestamp, documentId, increment } from 'firebase/firestore';
+import { 
+    doc, 
+    getDoc, 
+    updateDoc, 
+    collection, 
+    getDocs, 
+    query, 
+    where, 
+    documentId, 
+    increment 
+} from 'firebase/firestore';
 
-export const userActions = {
-    async fetchUserData({ commit, dispatch }, uid) {
+export const userActions: ActionTree<UserState, RootState> = {
+    async fetchUserData({ commit, dispatch }, uid: string): Promise<void> {
         console.log(`fetchUserData called for UID: ${uid}`);
         commit('setHasFetched', false);
         try {
@@ -30,12 +43,7 @@ export const userActions = {
         }
     },
 
-    clearUserData({ commit }) {
-        console.log("Clearing user data.");
-        commit('clearUserData');
-    },
-
-    async fetchAllStudentUIDs() {
+    async fetchAllStudentUIDs(): Promise<string[]> {
         console.log("Fetching all student UIDs...");
         try {
             const usersRef = collection(db, 'users');
@@ -55,7 +63,7 @@ export const userActions = {
         }
     },
 
-    async fetchUserNamesBatch(_, userIds) {
+    async fetchUserNamesBatch(_, userIds: string[]): Promise<Record<string, string>> {
         const uniqueIds = [...new Set(userIds)].filter(Boolean); // Remove duplicates and falsy values
         if (uniqueIds.length === 0) {
             return {};
@@ -95,7 +103,7 @@ export const userActions = {
         }
     },
 
-    async refreshUserData({ commit, state, dispatch }) {
+    async refreshUserData({ commit, state, dispatch }): Promise<void> {
         if (state.uid) {
             console.log("Refreshing user data manually...");
             await dispatch('fetchUserData', state.uid);
@@ -104,7 +112,15 @@ export const userActions = {
         }
     },
 
-    async addXpForAction({ commit, state }, { userId, amount, role }) {
+    async addXpForAction({ commit, state }, { 
+        userId, 
+        amount, 
+        role 
+    }: { 
+        userId: string; 
+        amount: number; 
+        role: string;
+    }): Promise<void> {
         console.log(`addXpForAction called for User: ${userId}, Role: ${role}, Amount: ${amount}`);
         if (!userId || !role || typeof amount !== 'number' || amount <= 0) {
             console.warn('addXpForAction: Invalid parameters provided.');
@@ -132,7 +148,7 @@ export const userActions = {
         }
     },
 
-    async fetchAllStudents({ commit }) {
+    async fetchAllStudents({ commit }): Promise<UserData[]> {
         try {
             const usersRef = collection(db, 'users');
             // Fetch ALL users first
@@ -163,7 +179,7 @@ export const userActions = {
         }
     },
 
-    async fetchAllUsers({ commit }) {
+    async fetchAllUsers({ commit }): Promise<UserData[]> {
         try {
             const usersRef = collection(db, 'users');
             const querySnapshot = await getDocs(usersRef);

@@ -35,6 +35,6 @@
   </div>
 </template>
 
-<script setup>
-import BaseSkeleton from '../BaseSkeleton.vue';
+<script setup lang="ts">
+import BaseSkeleton from './BaseSkeleton.vue';
 </script>

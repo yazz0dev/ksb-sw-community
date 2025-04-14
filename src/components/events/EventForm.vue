@@ -9,11 +9,11 @@
           <label class="form-label">Event Format <span class="text-danger">*</span></label>
           <div>
             <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" :value="false" v-model="formData.isTeamEvent" @change="handleFormatChange" :disabled="isSubmitting">
+              <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" value="Individual" v-model="formData.eventFormat" @change="handleFormatChange" :disabled="isSubmitting">
               <label class="form-check-label" for="formatIndividual">Individual</label>
             </div>
             <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" :value="true" v-model="formData.isTeamEvent" @change="handleFormatChange" :disabled="isSubmitting">
+              <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" value="Team" v-model="formData.eventFormat" @change="handleFormatChange" :disabled="isSubmitting">
               <label class="form-check-label" for="formatTeam">Team</label>
             </div>
           </div>
@@ -69,7 +69,7 @@
         </div>
 
         <!-- Team Configuration Section (Conditional) -->
-        <template v-if="formData.isTeamEvent">
+        <template v-if="formData.eventFormat === 'Team'">
           <hr class="my-4">
           <h4 class="h5 mb-4">Team Configuration</h4>
           <!-- Only render component when students are loaded -->
@@ -335,7 +335,7 @@ export interface FormData {
   eventName: string;
   eventType: string;
   description: string;
-  isTeamEvent: boolean;
+  eventFormat: 'Individual' | 'Team'; // Replace isTeamEvent
   startDate: string | null; // Store as YYYY-MM-DD
   endDate: string | null;   // Store as YYYY-MM-DD
   desiredStartDate?: string | null; // For requests
@@ -354,9 +354,8 @@ const props = defineProps<{
   eventId?: string | null;
 }>();
 
-// Define event types based on format - UPDATED LISTS
+// Define event types based on format 
 const individualEventTypes = [
-    'Debate',
     'Topic Presentation',
     'Discussion session',
     'Hands-on Presentation',
@@ -367,6 +366,7 @@ const individualEventTypes = [
     'Algorithm writing',
 ];
 const teamEventTypes = [
+    'Debate',
     'Hackathon',
     'Ideathon',
     'Debug competition',
@@ -380,7 +380,7 @@ const teamEventTypes = [
 // Default values for props if not provided (handled slightly differently in <script setup>)
 const availableEventTypes = computed(() => {
     // Return different lists based on the current form state
-    return formData.value.isTeamEvent ? teamEventTypes : individualEventTypes;
+    return formData.value.eventFormat === 'Team' ? teamEventTypes : individualEventTypes;
 });
 const isSubmitting = computed(() => props.isSubmitting ?? false);
 const isRequestForm = computed(() => true); // Always treat as request form
@@ -443,7 +443,7 @@ function initializeFormData(): FormData {
     eventName: '',
     eventType: '', // Reset event type initially
     description: '',
-    isTeamEvent: false,
+    eventFormat: 'Individual', // Default to Individual instead of isTeamEvent: false
     startDate: null,
     endDate: null,
     desiredStartDate: null,
@@ -591,8 +591,8 @@ watch(() => props.initialData, () => {
 }, { deep: true });
 
 const handleFormatChange = () => {
-  if (!formData.value.isTeamEvent) {
-    formData.value.teams = []; // Clear teams if switching to individual
+  if (formData.value.eventFormat === 'Individual') {
+    formData.value.teams = []; // Clear teams for individual format
   } else {
      // Fetch students if switching to team event and they aren't loaded
      if (availableStudents.value.length === 0) {
@@ -603,7 +603,6 @@ const handleFormatChange = () => {
   if (!availableEventTypes.value.includes(formData.value.eventType)) {
       formData.value.eventType = ''; // Reset selection
   }
-  // Optionally reset XP allocation roles if needed
 };
 
 const handleEventTypeChange = () => {

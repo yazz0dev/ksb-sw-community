@@ -64,32 +64,69 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { formatRoleName } from '../../utils/formatters';
 
-const props = defineProps({
-    event: { type: Object, required: true },
-    nameCache: { type: Object, required: true },
-    showStatus: { type: Boolean, default: false } // Prop to control status visibility
-});
+interface Event {
+  eventName: string;
+  eventType: string;
+  requester: string;
+  startDate?: { toDate(): Date } | Date | string;
+  endDate?: { toDate(): Date } | Date | string;
+  desiredStartDate?: { toDate(): Date } | Date | string;
+  desiredEndDate?: { toDate(): Date } | Date | string;
+  isTeamEvent: boolean;
+  status?: string;
+  organizers?: string[];
+  rejectionReason?: string;
+  description: string;
+  xpAllocation?: Array<{
+    constraintLabel: string;
+    points: number;
+    role: string;
+  }>;
+}
 
-// Robust Date Formatting
-const formatDate = (dateInput) => {
-    if (!dateInput) return 'N/A';
-    let date;
-    if (typeof dateInput.toDate === 'function') date = dateInput.toDate();
-    else if (dateInput instanceof Date) date = dateInput;
-    else date = new Date(dateInput);
+interface NameCache {
+  [key: string]: string;
+}
 
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    try {
-        return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
-    } catch (error) { return 'Formatting Error'; }
+const props = defineProps<{
+  event: Event;
+  nameCache: NameCache;
+  showStatus: boolean;
+}>();
+
+const formatDate = (dateInput: { toDate(): Date } | Date | string | null | undefined): string => {
+  if (!dateInput) return 'N/A';
+  let date: Date;
+  
+  if (typeof dateInput === 'object' && 'toDate' in dateInput) {
+    date = dateInput.toDate();
+  } else if (dateInput instanceof Date) {
+    date = dateInput;
+  } else {
+    date = new Date(dateInput);
+  }
+
+  if (isNaN(date.getTime())) return 'Invalid Date';
+  try {
+    return new Intl.DateTimeFormat('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    }).format(date);
+  } catch (error) { 
+    return 'Formatting Error'; 
+  }
 };
 
-// Status color scheme computation using Bootstrap classes
-const statusColorScheme = computed(() => {
+interface ColorScheme {
+  class: string;
+}
+
+const statusColorScheme = computed((): ColorScheme => {
   switch (props.event?.status) {
     case 'Approved':
     case 'Upcoming':
@@ -103,12 +140,11 @@ const statusColorScheme = computed(() => {
       return { class: 'bg-info-subtle text-info-emphasis' };
     case 'Completed':
     case 'Cancelled': 
-      return { class: 'bg-light text-dark' }; // Bootstrap default light badge
+      return { class: 'bg-light text-dark' };
     default:
-      return { class: 'bg-secondary-subtle text-secondary-emphasis' }; // Default fallback
+      return { class: 'bg-secondary-subtle text-secondary-emphasis' };
   }
 });
-
 </script>
 
 <style scoped>

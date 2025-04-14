@@ -121,62 +121,63 @@
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
-import EventCardSkeleton from '../components/EventCardSkeleton.vue'; // Keep skeleton
+import EventCardSkeleton from '../components/skeletons/EventCardSkeleton.vue'; 
 
 const store = useStore();
 const router = useRouter();
-const allEvents = computed(() => store.getters['events/allEvents']);
-const loading = ref(true);
-const userRole = computed(() => store.getters['user/getUserRole']);
-const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-const isAdmin = computed(() => userRole.value === 'Admin');
-const canRequestEvent = computed(() => isAuthenticated.value);
+const allEvents = computed<Event[]>(() => store.getters['events/allEvents']);
+const loading = ref<boolean>(true);
+const userRole = computed<string>(() => store.getters['user/getUserRole']);
+const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
+const isAdmin = computed<boolean>(() => userRole.value === 'Admin');
+const canRequestEvent = computed<boolean>(() => isAuthenticated.value);
 
 // Limit display on dashboard, use reasonable defaults
 const maxEventsPerSection = 6; 
 
 // Calculate total counts before slicing
-const totalUpcomingCount = computed(() => 
-    allEvents.value.filter(e => e.status === 'Upcoming' || e.status === 'Approved').length
+const totalUpcomingCount = computed<number>(() => 
+    allEvents.value.filter(e => e.status === EventStatus.Approved).length
 );
-const totalActiveCount = computed(() => 
-    allEvents.value.filter(e => e.status === 'In Progress' || e.status === 'InProgress').length
+const totalActiveCount = computed<number>(() => 
+    allEvents.value.filter(e => e.status === EventStatus.InProgress).length
 );
-const totalCompletedCount = computed(() => 
-    allEvents.value.filter(e => e.status === 'Completed').length
+const totalCompletedCount = computed<number>(() => 
+    allEvents.value.filter(e => e.status === EventStatus.Completed).length
 ); 
 
-const upcomingEvents = computed(() =>
+const upcomingEvents = computed<Event[]>(() =>
   allEvents.value
-    .filter(e => e.status === 'Upcoming' || e.status === 'Approved')
+    .filter(e => e.status === EventStatus.Approved)
     .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0))
     .slice(0, maxEventsPerSection)
 );
 
-const activeEvents = computed(() =>
+const activeEvents = computed<Event[]>(() =>
   allEvents.value
-    .filter(e => e.status === 'In Progress' || e.status === 'InProgress')
+    .filter(e => e.status === EventStatus.InProgress)
     .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0))
     .slice(0, maxEventsPerSection)
 );
 
-const completedEvents = computed(() =>
+const completedEvents = computed<Event[]>(() =>
   allEvents.value
-    .filter(e => e.status === 'Completed')
+    .filter(e => e.status === EventStatus.Completed)
     .sort((a, b) => (b.completedAt?.seconds ?? b.endDate?.seconds ?? 0) - (a.completedAt?.seconds ?? a.endDate?.seconds ?? 0))
     .slice(0, maxEventsPerSection)
 );
 
-const showCancelled = ref(false);
+const showCancelled = ref<boolean>(false);
 
-const cancelledEvents = computed(() =>
+const cancelledEvents = computed<Event[]>(() =>
   allEvents.value
-    .filter(e => e.status === 'Cancelled')
+    .filter(e => e.status === EventStatus.Cancelled)
     .sort((a, b) => (b.startDate?.seconds ?? 0) - (a.startDate?.seconds ?? 0))
 );
 

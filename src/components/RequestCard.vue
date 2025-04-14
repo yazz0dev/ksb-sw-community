@@ -47,21 +47,25 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { DateTime } from 'luxon';
 
-const props = defineProps({
-  request: {
-    type: Object,
-    required: true
-  },
-  processing: {
-    type: Boolean,
-    default: false
-  }
-});
+interface Request {
+  id: string;
+  title: string;
+  requestDate: { toDate: () => Date } | string | Date;
+  requesterName: string;
+}
 
-const emit = defineEmits(['approve', 'reject']);
+const props = defineProps<{
+  request: Request;
+  processing: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: 'approve', id: string): void;
+  (e: 'reject', id: string): void;
+}>();
 
 const approve = () => {
   emit('approve', props.request.id);
@@ -71,10 +75,13 @@ const reject = () => {
   emit('reject', props.request.id);
 };
 
-const formatDate = (date) => {
+const formatDate = (date: { toDate?: () => Date } | string | Date | null): string => {
   if (!date) return 'N/A';
-  // Assuming date is a Firebase Timestamp or similar object
-  const dt = date.toDate ? DateTime.fromJSDate(date.toDate()) : DateTime.fromISO(date);
+  const dt = date instanceof Object && 'toDate' in date 
+    ? DateTime.fromJSDate(date.toDate())
+    : typeof date === 'string' 
+    ? DateTime.fromISO(date)
+    : DateTime.fromJSDate(date as Date);
   return dt.toLocaleString(DateTime.DATE_MED);
 };
 </script>

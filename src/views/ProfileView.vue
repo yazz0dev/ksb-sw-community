@@ -71,13 +71,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
-
+import { collection, query, where, getDocs, orderBy, doc, getDoc, DocumentData } from 'firebase/firestore';
 
 // Import Components
 import ProfileViewContent from '../components/ProfileViewContent.vue';
@@ -85,25 +84,40 @@ import PortfolioGeneratorButton from '../components/PortfolioGeneratorButton.vue
 import UserRequests from '../components/UserRequests.vue';
 import AuthGuard from '../components/AuthGuard.vue';
 
+interface UserData {
+  name: string;
+  uid: string;
+  skills: string[];
+  preferredRoles: string[];
+  xpByRole: Record<string, number>;
+  totalXp: number;
+}
+
+interface UserProject extends DocumentData {
+  id: string;
+  eventName: string;
+  eventType: string;
+}
+
 const store = useStore();
 const route = useRoute();
 const router = useRouter();
 
 // --- State ---
-const targetUserId = ref(null);
-const isCurrentUser = ref(false);
-const isAdminProfile = ref(false);
-const userProjectsForPortfolioButton = ref([]);
-const loadingProjectsForPortfolio = ref(false);
+const targetUserId = ref<string | null>(null);
+const isCurrentUser = ref<boolean>(false);
+const isAdminProfile = ref<boolean>(false);
+const userProjectsForPortfolioButton = ref<UserProject[]>([]);
+const loadingProjectsForPortfolio = ref<boolean>(false);
 
 // --- Computed Properties ---
-const loggedInUserId = computed(() => store.state.user.uid);
-const loggedInUserIsAdmin = computed(() => store.getters['user/isAdmin']);
+const loggedInUserId = computed<string | null>(() => store.state.user.uid);
+const loggedInUserIsAdmin = computed<boolean>(() => store.getters['user/isAdmin']);
 
-const userForPortfolio = computed(() => {
-    if (!isCurrentUser.value) return {};
+const userForPortfolio = computed<UserData>(() => {
+    if (!isCurrentUser.value) return {} as UserData;
     const currentUserData = store.getters['user/getUser'];
-    if (!currentUserData || !currentUserData.uid) return {};
+    if (!currentUserData || !currentUserData.uid) return {} as UserData;
     const totalXp = store.getters['user/currentUserTotalXp'];
     return {
         name: currentUserData.name,
@@ -111,7 +125,7 @@ const userForPortfolio = computed(() => {
         skills: currentUserData.skills || [],
         preferredRoles: currentUserData.preferredRoles || [],
         xpByRole: currentUserData.xpByRole || {},
-        totalXp: totalXp
+        totalXp
     };
 });
 

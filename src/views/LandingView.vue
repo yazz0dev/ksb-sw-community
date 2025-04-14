@@ -45,10 +45,16 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 
-const features = ref([
+interface Feature {
+    icon: string;
+    color: 'primary' | 'info' | 'secondary' | 'warning' | 'success' | 'danger';
+    text: string;
+}
+
+const features = ref<Feature[]>([
   { icon: 'fa-calendar-alt', color: 'primary', text: 'View upcoming and past events.' },
   { icon: 'fa-plus-circle', color: 'info', text: 'Request new events.' },
   { icon: 'fa-users', color: 'secondary', text: 'Participate in team-based events.' },
@@ -58,16 +64,16 @@ const features = ref([
   { icon: 'fa-file-pdf', color: 'danger', text: 'Generate a portfolio of your achievements.' }
 ]);
 
-const getIconColorClass = (color) => {
-  switch (color) {
-    case 'primary': return 'text-primary';
-    case 'info': return 'text-info';
-    case 'secondary': return 'text-secondary';
-    case 'warning': return 'text-warning';
-    case 'success': return 'text-success';
-    case 'danger': return 'text-danger';
-    default: return 'text-dark';
-  }
+const getIconColorClass = (color: Feature['color']): string => {
+    switch (color) {
+        case 'primary': return 'text-primary';
+        case 'info': return 'text-info';
+        case 'secondary': return 'text-secondary';
+        case 'warning': return 'text-warning';
+        case 'success': return 'text-success';
+        case 'danger': return 'text-danger';
+        default: return 'text-dark';
+    }
 };
 </script>
 

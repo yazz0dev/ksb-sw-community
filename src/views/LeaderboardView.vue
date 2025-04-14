@@ -69,18 +69,25 @@
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, getDocs, query, QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { formatRoleName } from '../utils/formatters';
 
+interface User {
+    uid: string;
+    name: string;
+    role: string;
+    xpByRole?: Record<string, number>;
+}
+
 // Function to convert display role name to xpByRole key
-const getRoleKey = (roleName) => {
+const getRoleKey = (roleName: string): string => {
   if (!roleName) return '';
   const lower = roleName.toLowerCase();
   if (lower === 'overall') return 'overall';
-  const roleMap = {
+  const roleMap: Record<string, string> = {
     'fullstack': 'fullstack',
     'presenter': 'presenter',
     'designer': 'designer',
@@ -91,7 +98,7 @@ const getRoleKey = (roleName) => {
 };
 
 // Define available roles
-const availableRoles = ref([
+const availableRoles = ref<string[]>([
   'Overall',
   'fullstack',
   'presenter',
@@ -100,55 +107,55 @@ const availableRoles = ref([
   'problemSolver'
 ]);
 
-const selectedRole = ref('Overall');
-const users = ref([]);
-const loading = ref(true);
+const selectedRole = ref<string>('Overall');
+const users = ref<User[]>([]);
+const loading = ref<boolean>(true);
 
 onMounted(async () => {
-  loading.value = true;
-  try {
-    const q = query(collection(db, 'users'));
-    const querySnapshot = await getDocs(q);
-    users.value = querySnapshot.docs
-      .map(doc => ({
-        uid: doc.id,
-        name: doc.data().name || 'Anonymous User',
-        role: doc.data().role || 'Student',
-        xpByRole: doc.data().xpByRole || {}
-      }))
-      .filter(user => user.role !== 'Admin');
-  } catch (error) {
-    console.error("Error fetching leaderboard users:", error);
-    users.value = [];
-  } finally {
-    loading.value = false;
-  }
+    loading.value = true;
+    try {
+        const q = query(collection(db, 'users'));
+        const querySnapshot = await getDocs(q);
+        users.value = querySnapshot.docs
+            .map((doc: QueryDocumentSnapshot) => ({
+                uid: doc.id,
+                name: doc.data().name || 'Anonymous User',
+                role: doc.data().role || 'Student',
+                xpByRole: doc.data().xpByRole || {}
+            }))
+            .filter(user => user.role !== 'Admin');
+    } catch (error) {
+        console.error("Error fetching leaderboard users:", error);
+        users.value = [];
+    } finally {
+        loading.value = false;
+    }
 });
 
 const filteredUsers = computed(() => {
-  const roleKey = getRoleKey(selectedRole.value);
-  
-  return users.value
-    .map(user => {
-      let displayXp = 0;
-      const userXpMap = user.xpByRole || {};
+    const roleKey = getRoleKey(selectedRole.value);
+    
+    return users.value
+        .map(user => {
+            let displayXp = 0;
+            const userXpMap = user.xpByRole || {};
 
-      if (roleKey === 'overall') {
-        displayXp = Object.values(userXpMap).reduce((sum, val) => sum + (Number(val) || 0), 0);
-      } else {
-        displayXp = Number(userXpMap[roleKey]) || 0;
-      }
-      return { ...user, displayXp };
-    })
-    .sort((a, b) => {
-      if (b.displayXp !== a.displayXp) {
-        return b.displayXp - a.displayXp;
-      }
-      return (a.name || a.uid || '').localeCompare(b.name || b.uid || '');
-    });
+            if (roleKey === 'overall') {
+                displayXp = Object.values(userXpMap).reduce((sum, val) => sum + (Number(val) || 0), 0);
+            } else {
+                displayXp = Number(userXpMap[roleKey]) || 0;
+            }
+            return { ...user, displayXp };
+        })
+        .sort((a, b) => {
+            if (b.displayXp !== a.displayXp) {
+                return b.displayXp - a.displayXp;
+            }
+            return (a.name || a.uid || '').localeCompare(b.name || b.uid || '');
+        });
 });
 
-const selectRoleFilter = (role) => {
+const selectRoleFilter = (role: string): void => {
   selectedRole.value = role;
 };
 </script>

@@ -1,15 +1,29 @@
 // src/store/modules/notification.js
 
-const state = {
+import { Module } from 'vuex';
+import { RootState } from '@/store/types';
+
+interface Notification {
+  id: string;
+  message: string;
+  timeout?: number;
+  type?: string;
+}
+
+interface NotificationState {
+  notifications: Notification[];
+}
+
+const state: NotificationState = {
   notifications: []
 };
 
 const getters = {
-  allNotifications: state => state.notifications
+  allNotifications: (state: NotificationState): Notification[] => state.notifications
 };
 
 const actions = {
-  showNotification({ commit, dispatch }, notification) {
+  showNotification({ commit, dispatch }, notification: Omit<Notification, 'id'>) {
     // Validate required fields
     if (!notification.message) {
       console.error('Notification message is required');
@@ -34,7 +48,7 @@ const actions = {
     return id; // Return ID for potential manual dismissal
   },
   
-  dismissNotification({ commit }, notificationId) {
+  dismissNotification({ commit }, notificationId: string) {
     commit('REMOVE_NOTIFICATION', notificationId);
   },
   
@@ -44,13 +58,13 @@ const actions = {
 };
 
 const mutations = {
-  ADD_NOTIFICATION(state, notification) {
+  ADD_NOTIFICATION(state: NotificationState, notification: Notification) {
     state.notifications.push(notification);
   },
-  REMOVE_NOTIFICATION(state, notificationId) {
+  REMOVE_NOTIFICATION(state: NotificationState, notificationId: string) {
     state.notifications = state.notifications.filter(n => n.id !== notificationId);
   },
-  CLEAR_ALL_NOTIFICATIONS(state) {
+  CLEAR_ALL_NOTIFICATIONS(state: NotificationState) {
     state.notifications = [];
   }
 };
@@ -61,4 +75,4 @@ export default {
   getters,
   actions,
   mutations
-};
+} as Module<NotificationState, RootState>;

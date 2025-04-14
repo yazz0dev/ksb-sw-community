@@ -19,26 +19,21 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { useStore } from 'vuex';
 
-const store = useStore();
+interface Props {
+  loading: boolean;
+  skeletonComponent: object | Function;
+  skeletonProps?: Record<string, any>;
+}
 
-const props = defineProps({
-  loading: {
-    type: Boolean,
-    required: true
-  },
-  skeletonComponent: {
-    type: [Object, Function],
-    required: true
-  },
-  skeletonProps: {
-    type: Object,
-    default: () => ({})
-  }
+const props = withDefaults(defineProps<Props>(), {
+  skeletonProps: () => ({})
 });
+
+const store = useStore();
 
 const isOnline = computed(() => store.state.app.networkStatus.online);
 const hasQueuedActions = computed(() => store.state.app.offlineQueue.actions.length > 0);
@@ -54,7 +49,7 @@ const statusIcon = computed(() => ({
   'fa-clock': isOnline.value && hasQueuedActions.value
 }));
 
-const statusMessage = computed(() => {
+const statusMessage = computed((): string => {
   if (!isOnline.value) return 'Working Offline';
   if (hasQueuedActions.value) return 'Syncing Changes';
   return '';

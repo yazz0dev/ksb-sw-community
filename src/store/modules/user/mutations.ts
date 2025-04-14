@@ -1,5 +1,18 @@
+import { UserState } from '@/types/store';
+
+interface UserData {
+  uid: string;
+  name: string;
+  role: string;
+  isAuthenticated?: boolean;
+  xpByRole?: Record<string, number>;
+  skills?: string[];
+  preferredRoles?: string[];
+  lastXpCalculationTimestamp?: number | null;
+}
+
 export const userMutations = {
-    setUserData(state, userData) {
+    setUserData(state: UserState, userData: UserData) {
         state.uid = userData.uid;
         state.name = userData.name;
         state.role = userData.role || 'Student'; // Default role if missing
@@ -27,7 +40,7 @@ export const userMutations = {
         // hasFetched is set separately in the action's finally block
     },
 
-    clearUserData(state) {
+    clearUserData(state: UserState) {
         state.uid = null;
         state.name = null;
         state.role = null;
@@ -39,7 +52,7 @@ export const userMutations = {
         // state.hasFetched = false; // Don't reset hasFetched on clear, only on new fetch attempt start
     },
 
-    setUserXpByRole(state, xpByRoleMap) {
+    setUserXpByRole(state: UserState, xpByRoleMap: Record<string, number>) {
         // Ensure the map structure is correct and includes all roles
         const defaultXpStructure = { fullstack: 0, presenter: 0, designer: 0, organizer: 0, problemSolver: 0, participation: 0, general: 0 };
         const newMap = xpByRoleMap || {};
@@ -49,11 +62,11 @@ export const userMutations = {
         }, {});
     },
 
-    setHasFetched(state, fetched) {
+    setHasFetched(state: UserState, fetched: boolean) {
         state.hasFetched = !!fetched; // Ensure boolean
     },
 
-    incrementUserXpRole(state, { role, amount }) {
+    incrementUserXpRole(state: UserState, { role, amount }: { role: string; amount: number }) {
         if (state.xpByRole && typeof state.xpByRole[role] === 'number') {
             state.xpByRole[role] += amount;
         } else if (state.xpByRole) {
@@ -67,12 +80,11 @@ export const userMutations = {
         }
     },
 
-    // Add mutations for handling all users
-    setAllUsers(state, users) {
+    setAllUsers(state: UserState, users: UserData[]) {
         state.allUsers = users;
     },
 
-    updateUser(state, userData) {
+    updateUser(state: UserState, userData: UserData) {
         const index = state.allUsers.findIndex(u => u.uid === userData.uid);
         if (index !== -1) {
             state.allUsers.splice(index, 1, userData);
@@ -81,22 +93,22 @@ export const userMutations = {
         }
     },
 
-    removeUser(state, uid) {
+    removeUser(state: UserState, uid: string) {
         const index = state.allUsers.findIndex(u => u.uid === uid);
         if (index !== -1) {
             state.allUsers.splice(index, 1);
         }
     },
-    cacheUserNames(state, namesMap) {
+
+    cacheUserNames(state: UserState, namesMap: Record<string, string>) {
         state.userNameCache = { ...state.userNameCache, ...namesMap };
     },
 
-    setLastXpCalculationTimestamp(state, timestamp) {
+    setLastXpCalculationTimestamp(state: UserState, timestamp: number) {
         state.lastXpCalculationTimestamp = timestamp;
     },
 
-    // Mutation to store the fetched student list
-    setStudents(state, students) {
+    setStudents(state: UserState, students: UserData[]) {
         // console.log('setStudents mutation called with payload:', students); // Removed log
         if (Array.isArray(students)) {
             state.studentList = students;
@@ -107,22 +119,22 @@ export const userMutations = {
         }
     },
 
-    setStudentList(state, students) {
+    setStudentList(state: UserState, students: UserData[]) {
         state.studentList = students;
         state.studentListLastFetch = Date.now();
         state.studentListError = null;
     },
 
-    setStudentListLoading(state, loading) {
+    setStudentListLoading(state: UserState, loading: boolean) {
         state.studentListLoading = loading;
     },
 
-    setStudentListError(state, error) {
+    setStudentListError(state: UserState, error: Error | null) {
         state.studentListError = error;
         state.studentListLoading = false;
     },
 
-    addToNameCache(state, { uid, name }) {
+    addToNameCache(state: UserState, { uid, name }: { uid: string; name: string }) {
         if (!state.nameCache.has(uid)) {
             state.nameCache.set(uid, {
                 name,
@@ -131,7 +143,7 @@ export const userMutations = {
         }
     },
 
-    clearStaleCache(state) {
+    clearStaleCache(state: UserState) {
         const now = Date.now();
         
         // Clear stale name cache entries

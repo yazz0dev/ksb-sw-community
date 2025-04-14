@@ -74,53 +74,68 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { marked } from 'marked'; 
 import DOMPurify from 'dompurify';
 import { DateTime } from 'luxon';
 
-const props = defineProps({
-  event: { type: Object, required: true },
-  canJoin: { type: Boolean, default: false },
-  canLeave: { type: Boolean, default: false },
-  canEdit: { type: Boolean, default: false },
-  isJoining: { type: Boolean, default: false },
-  isLeaving: { type: Boolean, default: false },
-});
+interface Event {
+  id: string;
+  status: string;
+  title: string;
+  startDate: { toDate(): Date } | string | Date;
+  endDate: { toDate(): Date } | string | Date;
+  teamSize: number;
+  description: string;
+  closed?: boolean;
+}
 
-defineEmits(['join', 'leave']);
+const props = defineProps<{
+  event: Event;
+  canJoin: boolean;
+  canLeave: boolean;
+  canEdit: boolean;
+  isJoining: boolean;
+  isLeaving: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: 'join'): void;
+  (e: 'leave'): void;
+}>();
 
 const router = useRouter();
 
-const formatDate = (dateInput) => {
+const formatDate = (dateInput: { toDate(): Date } | string | Date | null): string => {
   if (!dateInput) return 'TBA';
-  const dt = dateInput.toDate ? DateTime.fromJSDate(dateInput.toDate()) : DateTime.fromISO(dateInput);
+  const dt = typeof dateInput === 'object' && 'toDate' in dateInput 
+    ? DateTime.fromJSDate(dateInput.toDate()) 
+    : typeof dateInput === 'string'
+    ? DateTime.fromISO(dateInput)
+    : DateTime.fromJSDate(dateInput as Date);
   return dt.toLocaleString(DateTime.DATE_MED);
 };
 
-// Render description safely
 const renderedDescription = computed(() => {
   if (!props.event.description) return '';
-  // Configure marked to add breaks
   marked.setOptions({
-    breaks: true, // Convert single line breaks to <br>
-    gfm: true, // Use GitHub Flavored Markdown
+    breaks: true,
+    gfm: true,
   });
   const rawHtml = marked.parse(props.event.description);
   return DOMPurify.sanitize(rawHtml);
 });
 
-// Map status to Bootstrap badge classes
-const statusTagClass = computed(() => {
+const statusTagClass = computed((): string => {
   switch (props.event.status) {
     case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
     case 'Approved': return 'bg-info-subtle text-info-emphasis'; 
     case 'InProgress': return 'bg-primary-subtle text-primary-emphasis'; 
     case 'Completed': return 'bg-success-subtle text-success-emphasis';
     case 'Cancelled': return 'bg-danger-subtle text-danger-emphasis';
-    default: return 'bg-secondary-subtle text-secondary-emphasis'; // Default greyish badge
+    default: return 'bg-secondary-subtle text-secondary-emphasis';
   }
 });
 </script>

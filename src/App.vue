@@ -132,6 +132,7 @@
                        <span>{{ userName }}</span>
                      </a>
                      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
+                      <template v-if="!isAdmin">
                        <li>
                           <router-link 
                               v-if="userId"
@@ -142,6 +143,7 @@
                               <i class="fas fa-user me-2"></i>Profile
                           </router-link>
                        </li>
+                      </template>
                        <li><hr class="dropdown-divider"></li>
                        <li>
                           <button 

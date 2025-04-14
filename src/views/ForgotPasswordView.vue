@@ -132,28 +132,29 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   getAuth,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   verifyPasswordResetCode,
-  confirmPasswordReset
+  confirmPasswordReset,
+  AuthError
 } from 'firebase/auth';
 
 const route = useRoute();
 const router = useRouter();
 const auth = getAuth();
 
-const email = ref('');
-const newPassword = ref('');
-const confirmPassword = ref('');
-const message = ref('');
-const isError = ref(false);
-const isLoading = ref(false);
-const viewState = ref('request'); // 'request', 'reset', 'success', 'error'
-const oobCode = ref(null); // Store the out-of-band code
+const email = ref<string>('');
+const newPassword = ref<string>('');
+const confirmPassword = ref<string>('');
+const message = ref<string>('');
+const isError = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
+const viewState = ref<'request' | 'reset' | 'success' | 'error'>('request');
+const oobCode = ref<string | null>(null);
 
 // --- Check URL parameters on mount ---
 onMounted(async () => {
@@ -213,7 +214,7 @@ const handleSendResetEmail = async () => {
   } catch (error) {
     console.error("Send Password Reset Email Error:", error);
     isError.value = true;
-    switch (error.code) {
+    switch ((error as AuthError).code) {
       case 'auth/invalid-email':
       case 'auth/missing-email':
         message.value = 'Please enter a valid email address.';

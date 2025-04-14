@@ -30,19 +30,20 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { useStore } from 'vuex';
 
-const props = defineProps({
-  message: {
-    type: String,
-    default: ''
-  }
+interface Props {
+  message?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  message: ''
 });
 
 const store = useStore();
-const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
+const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
 </script>
 
 
