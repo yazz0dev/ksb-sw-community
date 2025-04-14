@@ -274,7 +274,6 @@ const handleResetPassword = async () => {
 </script>
 
 <style scoped>
-/* Removed Bulma box shadow style */
 .alert-sm {
     padding: 0.5rem 0.75rem;
     font-size: 0.875em;

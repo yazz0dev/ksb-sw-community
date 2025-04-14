@@ -18,7 +18,8 @@ import {
     enableNetwork,
     disableNetwork,
     increment,
-    deleteField
+    deleteField,
+    writeBatch
 } from 'firebase/firestore';
 import { mapEventDataToFirestore } from '@/utils/eventDataMapper'; // Corrected import path
 
@@ -46,6 +47,140 @@ async function validateOrganizersNotAdmin(organizerIds = []) {
     await Promise.all(fetchPromises);
 }
 
+// --- Private helper: Calculate XP earned for event participation ---
+async function calculateEventXP(eventData) {
+    const xpAwardMap = {};
+    
+    // Initialize XP map for all participants/teams
+    const allParticipants = new Set();
+    if (eventData.isTeamEvent && Array.isArray(eventData.teams)) {
+        eventData.teams.forEach(team => {
+            team.members?.forEach(uid => allParticipants.add(uid));
+        });
+    } else if (Array.isArray(eventData.participants)) {
+        eventData.participants.forEach(uid => allParticipants.add(uid));
+    }
+    
+    // Initialize organizers (they get base XP even if not participating)
+    (eventData.organizers || []).forEach(uid => {
+        xpAwardMap[uid] = { 'Organizer': 50 }; // Base organizer XP
+    });
+    
+    // Process winner selections (from winnersPerRole)
+    const winners = eventData.winnersPerRole || {};
+    for (const [role, winnerIds] of Object.entries(winners)) {
+        if (Array.isArray(winnerIds)) {
+            winnerIds.forEach(winnerId => {
+                if (!xpAwardMap[winnerId]) xpAwardMap[winnerId] = {};
+                xpAwardMap[winnerId][role] = (xpAwardMap[winnerId][role] || 0) + 100; // Winner XP
+            });
+        }
+    }
+    
+    // Process team-based XP (if team event)
+    if (eventData.isTeamEvent && Array.isArray(eventData.teams)) {
+        eventData.teams.forEach(team => {
+            const hasSubmission = team.submissions?.length > 0;
+            const avgTeamRating = team.ratings?.length ? 
+                team.ratings.reduce((sum, r) => sum + Object.values(r.scores || {}).reduce((a,b) => a + b, 0), 0) / 
+                team.ratings.length : 0;
+            
+            team.members?.forEach(memberId => {
+                if (!xpAwardMap[memberId]) xpAwardMap[memberId] = {};
+                xpAwardMap[memberId]['Participation'] = (hasSubmission ? 30 : 10);
+                if (avgTeamRating > 0) {
+                    xpAwardMap[memberId]['TeamPerformance'] = Math.round(avgTeamRating * 5);
+                }
+            });
+        });
+    } else {
+        // Process individual XP
+        allParticipants.forEach(uid => {
+            if (!xpAwardMap[uid]) xpAwardMap[uid] = {};
+            xpAwardMap[uid]['Participation'] = 20;
+        });
+    }
+    
+    return xpAwardMap;
+}
+
+// --- MODIFIED closeEventPermanently ACTION ---
+async function closeEventPermanently({ commit, rootGetters }, { eventId }) {
+    const currentUser = rootGetters['user/getUser'];
+    if (currentUser?.role !== 'Admin') {
+        throw new Error("Unauthorized: Only Admins can permanently close events.");
+    }
+
+    const eventRef = doc(db, 'events', eventId);
+    const batch = writeBatch(db);
+
+    try {
+        // Fetch & validate event
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error("Event not found.");
+        
+        const eventData = eventSnap.data();
+        if (eventData.status !== 'Completed') {
+            throw new Error("Only completed events can be closed permanently.");
+        }
+        if (eventData.ratingsOpen) {
+            throw new Error("Ratings must be closed before the event can be closed permanently.");
+        }
+        if (eventData.closed) {
+            console.warn(`Event ${eventId} is already closed.`);
+            return { message: "Event is already closed." };
+        }
+
+        // Calculate XP awards
+        const xpAwardMap = await calculateEventXP(eventData);
+        
+        // Prepare batch updates for users
+        for (const [userId, roleXpMap] of Object.entries(xpAwardMap)) {
+            const userRef = doc(db, 'users', userId);
+            for (const [role, amount] of Object.entries(roleXpMap)) {
+                if (amount > 0) { // Only update if there's XP to award
+                    batch.update(userRef, {
+                        [`xpByRole.${role}`]: increment(amount)
+                    });
+                }
+            }
+        }
+
+        // Execute batch update
+        await batch.commit();
+
+        // Mark event as closed (only after XP batch succeeds)
+        await updateDoc(eventRef, {
+            closed: true,
+            closedAt: Timestamp.now(),
+            ratingsOpen: false,
+            xpAwarded: xpAwardMap // Store the XP distribution for reference
+        });
+
+        // Update local state
+        const changes = {
+            closed: true,
+            closedAt: Timestamp.now(),
+            ratingsOpen: false,
+            xpAwarded: xpAwardMap
+        };
+        commit('addOrUpdateEvent', { id: eventId, ...changes });
+        commit('updateCurrentEventDetails', { id: eventId, changes });
+
+        return { 
+            success: true,
+            message: "Event closed successfully",
+            xpAwarded: xpAwardMap
+        };
+
+    } catch (error) {
+        console.error('Error closing event permanently:', error);
+        throw new Error(
+            error.message || 
+            "Failed to close event and award XP. Please try again."
+        );
+    }
+}
 
 export const eventActions = {
     async checkExistingRequests({ rootGetters }) {
@@ -215,9 +350,14 @@ export const eventActions = {
         }
     },
 
-    // --- REVERTED requestEvent ACTION (Non-Admin only) ---
+    // --- UPDATED requestEvent ACTION (Non-Admin only) ---
     async requestEvent({ dispatch, rootGetters, commit }, eventData) {
         try {
+            // <<<--- ADD LOGGING HERE --->>>
+            console.log("Received eventData in requestEvent action:", JSON.stringify(eventData, null, 2));
+            console.log("Type of desiredStartDate:", typeof eventData.desiredStartDate, "Value:", eventData.desiredStartDate);
+            console.log("Type of desiredEndDate:", typeof eventData.desiredEndDate, "Value:", eventData.desiredEndDate);
+
             const currentUser = rootGetters['user/getUser'];
             const userId = currentUser?.uid;
             if (!userId) { throw new Error("User not authenticated."); }
@@ -226,35 +366,26 @@ export const eventActions = {
             const hasActive = await dispatch('checkExistingRequests');
             if (hasActive) { throw new Error('You already have an active or pending event request.'); }
 
-            // Validate desired dates
-            let desiredStartDateObj, desiredEndDateObj;
+            // Basic date validation (existence and order) - Rely on mapper for type conversion
+            if (!eventData.desiredStartDate || !eventData.desiredEndDate) {
+                 throw new Error("Desired start and end dates are required.");
+            }
+            // Convert to comparable values (Date objects or timestamps) before comparing
+            // Assuming mapEventDataToFirestore handles conversion, we might only need basic check here
+            // Or perform a safe comparison if possible
             try {
-                // Ensure we handle both Date objects and string representations (YYYY-MM-DD)
-                // The form now sends Date objects, handle them directly.
-                if (eventData.desiredStartDate instanceof Date && !isNaN(eventData.desiredStartDate.getTime())) {
-                    desiredStartDateObj = eventData.desiredStartDate;
-                } else {
-                    throw new Error("Invalid desired start date format received.");
+                const start = new Date(eventData.desiredStartDate);
+                const end = new Date(eventData.desiredEndDate);
+                if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                     throw new Error("Invalid date format provided for desired dates.");
                 }
-
-                if (eventData.desiredEndDate instanceof Date && !isNaN(eventData.desiredEndDate.getTime())) {
-                    desiredEndDateObj = eventData.desiredEndDate;
-                } else {
-                    throw new Error("Invalid desired end date format received.");
+                if (start > end) {
+                    throw new Error("Desired end date cannot be earlier than desired start date.");
                 }
-                // desiredStartDateObj = eventData.desiredStartDate instanceof Date ? eventData.desiredStartDate : new Date(eventData.desiredStartDate + 'T00:00:00Z');
-                // desiredEndDateObj = eventData.desiredEndDate instanceof Date ? eventData.desiredEndDate : new Date(eventData.desiredEndDate + 'T23:59:59Z');
-                // if (isNaN(desiredStartDateObj.getTime()) || isNaN(desiredEndDateObj.getTime())) throw new Error("Invalid desired date format.");
-                
-                if (desiredStartDateObj > desiredEndDateObj) throw new Error("Desired end date cannot be earlier than desired start date.");
-            } catch (e) { throw new Error(e.message || "Invalid date format."); }
-
-             // Validate organizers
-            const organizers = Array.isArray(eventData.organizers) ? [...new Set([userId, ...eventData.organizers])] : [userId]; // Ensure requester is always an organizer
-             if (organizers.length > 5) { // Limit total organizers
-                 throw new Error("Cannot have more than 5 organizers (including yourself).");
-             }
-            await validateOrganizersNotAdmin(organizers); // Validate all organizers
+            } catch (e) {
+                 throw new Error("Could not parse desired dates for comparison.");
+            }
+            // <--- Removed misplaced brace
 
             // Mapper handles date conversion from Date objects or strings
             const requestData = mapEventDataToFirestore({
@@ -263,13 +394,13 @@ export const eventActions = {
                 description: eventData.description || '',
                 isTeamEvent: !!eventData.isTeamEvent,
                 requester: userId,
-                organizers: organizers, // Use the combined array
+                organizers: Array.isArray(eventData.organizers) ? [...new Set([userId, ...eventData.organizers])] : [userId], // Ensure requester is always an organizer
                 xpAllocation: Array.isArray(eventData.xpAllocation) ? eventData.xpAllocation : [],
                 status: 'Pending',
                 // Pass desired dates as received (should be Date objects)
                 // Firestore mapper will handle conversion to Timestamp
-                desiredStartDate: desiredStartDateObj, 
-                desiredEndDate: desiredEndDateObj,
+                desiredStartDate: eventData.desiredStartDate, 
+                desiredEndDate: eventData.desiredEndDate,
                 createdAt: Timestamp.now(), // Keep this specific timestamp here
             });
 
@@ -290,7 +421,8 @@ export const eventActions = {
             commit('addOrUpdateEvent', { id: docRef.id, ...requestData });
 
             return docRef.id;
-        } catch (error) {
+        } // <--- Correct placement for outer try block's closing brace
+        catch (error) { 
             console.error('Error requesting event:', error);
             throw error;
         }
@@ -390,29 +522,29 @@ export const eventActions = {
         }
     },
 
-     // --- REVERTED cancelEvent ---
-     async cancelEvent({ dispatch, rootGetters }, eventId) {
-         const eventRef = doc(db, 'events', eventId);
-         try {
-             const eventSnap = await getDoc(eventRef);
-             if (!eventSnap.exists()) throw new Error("Event not found.");
-             const currentEvent = eventSnap.data();
+    // --- REVERTED cancelEvent ---
+    async cancelEvent({ dispatch, rootGetters }, eventId) {
+        const eventRef = doc(db, 'events', eventId);
+        try {
+            const eventSnap = await getDoc(eventRef);
+            if (!eventSnap.exists()) throw new Error("Event not found.");
+            const currentEvent = eventSnap.data();
 
-             // Permission Check: Admin OR any Organizer
-             const currentUser = rootGetters['user/getUser'];
-             const isAdmin = currentUser?.role === 'Admin';
-             const isOrganizer = (currentEvent.organizers || []).includes(currentUser?.uid);
-             if (!isAdmin && !isOrganizer) throw new Error("Permission denied to cancel this event.");
+            // Permission Check: Admin OR any Organizer
+            const currentUser = rootGetters['user/getUser'];
+            const isAdmin = currentUser?.role === 'Admin';
+            const isOrganizer = (currentEvent.organizers || []).includes(currentUser?.uid);
+            if (!isAdmin && !isOrganizer) throw new Error("Permission denied to cancel this event.");
 
-             if (!['Approved', 'InProgress'].includes(currentEvent.status)) {
-                 throw new Error(`Cannot cancel an event with status '${currentEvent.status}'. Consider deleting if Pending/Rejected.`);
-             }
+            if (!['Approved', 'InProgress'].includes(currentEvent.status)) {
+                throw new Error(`Cannot cancel an event with status '${currentEvent.status}'. Consider deleting if Pending/Rejected.`);
+            }
 
-             const updates = { status: 'Cancelled', ratingsOpen: false };
-             await updateDoc(eventRef, updates);
-             dispatch('updateLocalEvent', { id: eventId, changes: updates });
-         } catch (error) { console.error(`Error cancelling event ${eventId}:`, error); throw error; }
-     },
+            const updates = { status: 'Cancelled', ratingsOpen: false };
+            await updateDoc(eventRef, updates);
+            dispatch('updateLocalEvent', { id: eventId, changes: updates });
+        } catch (error) { console.error(`Error cancelling event ${eventId}:`, error); throw error; }
+    },
 
     // --- REVERTED updateEventStatus ---
     async updateEventStatus({ dispatch, rootGetters }, { eventId, newStatus }) {
@@ -584,10 +716,11 @@ export const eventActions = {
             let newTeams = [];
             if (generationType === 'fixed-size') {
                 // Generate teams of fixed size
-                const teamSize = Math.max(2, Math.min(10, Number(value) || 3)); // Min 2, max 10 members
+                const teamSize = Math.max(3, Math.min(8, Number(value) || 3)); // Min 3, max 8 members (Updated constraints)
                 for (let i = 0; i < shuffledStudents.length && newTeams.length < maxTeams; i += teamSize) {
                     const teamMembers = shuffledStudents.slice(i, i + teamSize);
-                    if (teamMembers.length >= 2) { // Only create teams with at least 2 members
+                    // Ensure team meets minimum size requirement (which is 3 for fixed-size)
+                    if (teamMembers.length >= 3) { 
                         newTeams.push({
                             teamName: `Team ${newTeams.length + 1}`,
                             members: teamMembers,
@@ -887,11 +1020,9 @@ export const eventActions = {
                     if (key === 'xpAllocation' && !Array.isArray(updates[key])) continue;
                     allowedUpdates[key] = updates[key];
                  } else if (eventData.status === 'Pending' && pendingOnlyEditableFields.includes(key)) {
-                      // ... (pending field handling remains the same) ...
-                      allowedUpdates[key] = updates[key]; // Simplified example
+                      allowedUpdates[key] = updates[key];
                  } else if (isAdmin && adminOnlyEditableFields.includes(key) && ['Pending', 'Approved'].includes(eventData.status)) {
                      if (key === 'startDate' || key === 'endDate') {
-                         // ... (date handling remains the same) ...
                          allowedUpdates[key] = Timestamp.fromDate(dateVal);
                      } else if (key === 'organizers') {
                          const newOrganizers = Array.isArray(updates[key]) ? updates[key] : [];
@@ -906,11 +1037,21 @@ export const eventActions = {
                      }
                  }
                  else if (key === 'teams' && eventData.isTeamEvent && Array.isArray(updates.teams)) {
-                      // ... (team update handling remains the same) ...
+                        const newTeams = updates.teams.map(team => {
+                            if (typeof team.teamName !== 'string' || team.teamName.trim() === '') {
+                                throw new Error("Team name cannot be empty.");
+                            }
+                            return {
+                                ...team,
+                                members: Array.isArray(team.members) ? team.members : [],
+                                submissions: [],
+                                ratings: []
+                            };
+                        });
+                        allowedUpdates[key] = newTeams;
                  }
              }
 
-             // ... (date validation remains the same) ...
 
              // Perform update
              if (Object.keys(allowedUpdates).length > 0) {

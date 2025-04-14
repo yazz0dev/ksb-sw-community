@@ -33,8 +33,6 @@
 <script setup>
 import { computed } from 'vue';
 import { useStore } from 'vuex';
-// Removed Chakra UI imports
-// import { CBox, CButton, CIcon, CText, CHeading } from '@chakra-ui/vue-next';
 
 const props = defineProps({
   message: {
@@ -47,6 +45,4 @@ const store = useStore();
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 </script>
 
-<style scoped>
-/* Removed Bulma-specific styles */
-</style>
+

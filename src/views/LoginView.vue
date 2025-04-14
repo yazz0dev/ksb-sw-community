@@ -132,7 +132,3 @@ const signIn = async () => {
   }
 };
 </script>
-
-<style scoped>
-/* Removed Bulma box shadow style */
-</style>

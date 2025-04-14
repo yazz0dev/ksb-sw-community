@@ -1,17 +1,13 @@
 <template>
-  <div 
-    id="app" 
-    class="d-flex flex-column app-container" 
-  >
-    <!-- Offline State Handler -->
+  <div id="app" class="d-flex flex-column app-container">
     <OfflineStateHandler />
-    <!-- Notification System -->
     <NotificationSystem />
 
-    <!-- Top Navigation Bar -->
+    <!-- Top Navigation Bar - Added scroll classes -->
     <nav
-      class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm fixed-top" 
-      role="navigation" 
+      class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm fixed-top"
+      :class="{ 'navbar-hidden': !showNavbar }"
+      role="navigation"
       aria-label="main navigation"
     >
       <div class="container-lg">
@@ -49,7 +45,7 @@
                   active-class="active fw-semibold"
                   to="/home"
                   v-if="isAuthenticated" 
-                  data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                  @click="closeNavbar"
                >
                   <i class="fas fa-home me-1 d-lg-none"></i> Home
                </router-link>
@@ -60,7 +56,7 @@
                   class="nav-link"
                   active-class="active fw-semibold"
                   to="/events"
-                  data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                  @click="closeNavbar"
                >
                   <i class="fas fa-calendar-alt me-1 d-lg-none"></i> Events
                </router-link>
@@ -71,7 +67,7 @@
                   class="nav-link"
                   active-class="active fw-semibold"
                   to="/leaderboard"
-                   data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                  @click="closeNavbar"
                >
                   <i class="fas fa-trophy me-1 d-lg-none"></i> Leaderboard
                </router-link>
@@ -82,7 +78,7 @@
                     class="nav-link"
                     active-class="active fw-semibold"
                     to="/resources"
-                    data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    @click="closeNavbar"
                 >
                     <i class="fas fa-book me-1 d-lg-none"></i> Resources
                 </router-link>
@@ -93,7 +89,7 @@
                     class="nav-link"
                     active-class="active fw-semibold"
                     to="/transparency"
-                    data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    @click="closeNavbar"
                 >
                     <i class="fas fa-eye me-1 d-lg-none"></i> Transparency
                 </router-link>
@@ -104,7 +100,7 @@
                     class="nav-link"
                     active-class="active fw-semibold"
                     to="/admin/dashboard"
-                    data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    @click="closeNavbar"
                  >
                     <i class="fas fa-tachometer-alt me-1 d-lg-none"></i> Admin
                  </router-link>
@@ -120,7 +116,7 @@
                     class="nav-link"
                     active-class="active fw-semibold"
                     to="/login"
-                    data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    @click="closeNavbar"
                    >
                      <i class="fas fa-sign-in-alt me-1 d-lg-none"></i> Login
                   </router-link>
@@ -141,7 +137,7 @@
                               v-if="userId"
                               class="dropdown-item"
                               :to="{ name: 'Profile' }"
-                              data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                              @click="closeNavbar"
                           >
                               <i class="fas fa-user me-2"></i>Profile
                           </router-link>
@@ -151,7 +147,6 @@
                           <button 
                              class="dropdown-item" 
                              @click="handleLogout"
-                             data-bs-toggle="collapse" data-bs-target="#navbarNav" 
                           >
                              <i class="fas fa-sign-out-alt me-2"></i>Logout
                           </button>
@@ -164,8 +159,8 @@
       </div>
     </nav>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow-1 py-5 app-main-content"> 
+    <!-- Main Content Area - Adjusted padding -->
+    <main class="flex-grow-1 app-main-content"> 
       <div class="container">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
@@ -175,19 +170,41 @@
       </div>
     </main>
 
-    <!-- Bottom Navigation -->
-    <BottomNav v-if="isAuthenticated" class="d-flex d-lg-none" />
+    <!-- Bottom Navigation - Added scroll classes -->
+    <BottomNav 
+      v-if="isAuthenticated" 
+      class="d-flex d-lg-none"
+      :class="{ 'nav-hidden': !showNavbar }" 
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
 import BottomNav from './components/BottomNav.vue';
 import OfflineStateHandler from './components/OfflineStateHandler.vue';
 import NotificationSystem from './components/NotificationSystem.vue';
+
+// Add type definition for Bootstrap Collapse
+interface Collapse {
+  toggle(): void;
+  hide(): void;
+  show(): void;
+}
+
+declare global {
+  interface Window {
+    bootstrap?: {
+      Collapse: {
+        getInstance(element: Element): Collapse | null;
+        new (element: Element, options?: object): Collapse;
+      };
+    };
+  }
+}
 
 const store = useStore();
 const router = useRouter();
@@ -212,19 +229,99 @@ const logout = () => {
   });
 };
 
-const handleLogout = async () => {
-  const navbar = document.getElementById('navbarNav');
-  if (navbar?.classList.contains('show')) {
-    const toggler = document.querySelector('.navbar-toggler');
-    if (toggler) (toggler as HTMLElement).click(); 
+// Scroll handling
+const showNavbar = ref(true);
+const lastScrollPosition = ref(0);
+const scrollThreshold = 50;
+
+const handleScroll = () => {
+  const currentScrollPosition = window.scrollY;
+  if (Math.abs(currentScrollPosition - lastScrollPosition.value) < scrollThreshold) {
+    return;
   }
-  logout();
+  
+  showNavbar.value = currentScrollPosition < lastScrollPosition.value || currentScrollPosition < 50;
+  lastScrollPosition.value = currentScrollPosition;
+};
+
+// Update the ref type
+const navbarCollapse = ref<Collapse | null>(null);
+
+// Add Bootstrap availability check
+const isBootstrapAvailable = () => {
+  return typeof window !== 'undefined' && window.bootstrap !== undefined;
+};
+
+// Update closeNavbar function with error handling
+const closeNavbar = () => {
+  try {
+    const bsCollapse = document.getElementById('navbarNav');
+    if (!bsCollapse) return;
+    
+    if (isBootstrapAvailable()) {
+      const collapse = window.bootstrap?.Collapse.getInstance(bsCollapse);
+      if (collapse) {
+        collapse.hide();
+      } else {
+        bsCollapse.classList.remove('show');
+      }
+    } else {
+      // Fallback: just remove the show class
+      bsCollapse.classList.remove('show');
+    }
+  } catch (error) {
+    console.warn('Failed to close navbar:', error);
+  }
+};
+
+// Update logout handler to properly close navbar
+const handleLogout = async () => {
+  closeNavbar();
+  await logout();
 };
 
 onMounted(() => {
   store.dispatch('app/initOfflineCapabilities');
+  window.addEventListener('scroll', handleScroll, { passive: true });
+  
+  // Wait for Bootstrap to be available
+  const initializeNavbar = () => {
+    const target = document.getElementById('navbarNav');
+    const navbarToggler = document.querySelector('.navbar-toggler');
+    
+    if (!target || !navbarToggler) return;
+
+    if (isBootstrapAvailable()) {
+      try {
+        navbarCollapse.value = new window.bootstrap.Collapse(target, {
+          toggle: false
+        }) as Collapse;
+
+        navbarToggler.addEventListener('click', (e) => {
+          e.preventDefault();
+          const collapse = window.bootstrap?.Collapse.getInstance(target) || 
+                          new window.bootstrap.Collapse(target);
+          collapse.toggle();
+        });
+      } catch (error) {
+        console.warn('Bootstrap initialization failed:', error);
+      }
+    } else {
+      // Fallback behavior for when Bootstrap is not available
+      navbarToggler.addEventListener('click', (e) => {
+        e.preventDefault();
+        target.classList.toggle('show');
+      });
+    }
+  };
+
+  // Initialize after a short delay to ensure Bootstrap is loaded
+  setTimeout(initializeNavbar, 100);
 });
 
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+});
 </script>
 
 <style scoped>
@@ -274,11 +371,14 @@ onMounted(() => {
 }
 
 
-/* Main content padding */
+/* Main content spacing */
 .app-main-content {
-  /* flex-grow: 1; handled by flex-grow-1 class */
-  padding-top: 70px; /* Adjust based on actual navbar height */
-  padding-bottom: 70px; /* Adjust based on potential bottom nav height */
+  padding-top: 56px;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 .fade-enter-active,
@@ -291,5 +391,52 @@ onMounted(() => {
   opacity: 0;
 }
 
-/* Remove Bulma specific styles if any remained */
+/* Navigation positioning */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030; /* Lower than bottom nav */
+}
+
+/* Mobile menu positioning */
+@media (max-width: 991.98px) {
+  .navbar-collapse {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    background-color: var(--bs-primary);
+    padding: 1rem;
+    z-index: 1029; /* Lower than both navbars */
+    max-height: calc(100vh - 120px); /* Account for both navbars */
+    overflow-y: auto;
+  }
+}
+
+/* Navigation transition styles */
+.navbar, .bottom-nav {
+  transition: transform 0.3s ease-in-out;
+  will-change: transform;
+}
+
+.navbar-hidden {
+  transform: translateY(-100%);
+}
+
+.nav-hidden {
+  transform: translateY(100%);
+}
+
+/* Fix dropdown menu positioning */
+.dropdown-menu {
+  margin-top: 0.5rem;
+}
+
+/* Ensure links are clickable in mobile menu */
+.nav-link {
+  cursor: pointer;
+  user-select: none;
+}
 </style>

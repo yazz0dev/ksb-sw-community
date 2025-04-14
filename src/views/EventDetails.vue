@@ -590,10 +590,6 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* Removed Loader styling */
-
-/* Removed custom modal styling */
-
 /* Fallback simple modal show/hide if Bootstrap JS is not integrated */
 .modal:not(.show) {
     display: none;

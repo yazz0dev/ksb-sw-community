@@ -127,7 +127,6 @@ import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import EventCard from '../components/EventCard.vue';
 import EventCardSkeleton from '../components/EventCardSkeleton.vue'; // Keep skeleton
-// Removed Chakra UI imports
 
 const store = useStore();
 const router = useRouter();

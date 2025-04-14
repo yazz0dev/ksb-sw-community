@@ -80,10 +80,10 @@ export interface EventFormData {
     eventName: string;
     description: string;
     // Dates are handled as YYYY-MM-DD strings in the form
-    startDate: string; // Used by Admin for actual start date
-    endDate: string; // Used by Admin for actual end date
-    desiredStartDate: string; // Used by User for requested start date
-    desiredEndDate: string; // Used by User for requested end date
+    startDate: string | null; // YYYY-MM-DD format
+    endDate: string | null; // YYYY-MM-DD format
+    desiredStartDate: string | null; // YYYY-MM-DD format
+    desiredEndDate: string | null; // YYYY-MM-DD format
     location: string; // Optional location
     organizers: string[]; // Array of co-organizer UIDs (creator/requester added in action)
     xpAllocation: XPAllocation[];

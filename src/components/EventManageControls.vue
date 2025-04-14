@@ -89,12 +89,12 @@
           v-if="canCloseEvent"
           type="button"
           class="btn btn-sm btn-outline-danger d-inline-flex align-items-center"
-          :disabled="isLoadingRatings"
+          :disabled="isClosingEvent || isLoadingRatings"
           @click="confirmCloseEvent"
         >
-          <span v-if="isLoadingRatings" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-           <i v-else class="fas fa-archive me-1"></i>
-          <span>Close Event Permanently</span>
+          <span v-if="isClosingEvent" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-archive me-1"></i>
+          <span>{{ isClosingEvent ? 'Closing & Awarding XP...' : 'Close Event Permanently' }}</span>
         </button>
       </div>
       <p v-if="!canManageRatings && event.status === 'Completed' && !event.closed" class="small text-secondary mt-2">
@@ -122,6 +122,7 @@ const props = defineProps({
 const store = useStore();
 const isLoadingRatings = ref(false);
 const loadingAction = ref(null);
+const isClosingEvent = ref(false);
 
 const statusBadgeClass = computed(() => {
   switch (props.event.status) {
@@ -235,21 +236,37 @@ const confirmCloseEvent = async () => {
 };
 
 const closeEventAction = async () => {
-    if (isLoadingRatings.value) return;
-    isLoadingRatings.value = true;
+    if (isLoadingRatings.value || isClosingEvent.value) return;
+    isClosingEvent.value = true;
     try {
-         await store.dispatch('events/closeEventPermanently', { eventId: props.event.id });
+        const result = await store.dispatch('events/closeEventPermanently', { 
+            eventId: props.event.id 
+        });
+        
+        // Show success notification with XP summary
+        let message = 'Event closed permanently. ';
+        if (result?.xpAwarded) {
+            const totalUsers = Object.keys(result.xpAwarded).length;
+            const totalXP = Object.values(result.xpAwarded)
+                .reduce((sum, roles) => 
+                    sum + Object.values(roles).reduce((a, b) => a + b, 0), 0);
+            message += `XP awarded to ${totalUsers} users (Total: ${totalXP} XP).`;
+        }
+        
+        store.dispatch('notification/showNotification', {
+            message,
+            type: 'success',
+            duration: 5000
+        });
     } catch (error) {
         store.dispatch('notification/showNotification', {
-            message: error.message || 'Failed to close the event.',
-            type: 'error'
+            message: error.message || 'Failed to close the event',
+            type: 'error',
+            duration: 5000
         });
     } finally {
-         isLoadingRatings.value = false;
+        isClosingEvent.value = false;
     }
 };
 </script>
 
-<style scoped>
-/* Remove Bulma specific button margin */
-</style>

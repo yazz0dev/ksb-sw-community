@@ -50,7 +50,6 @@
 
 <script setup>
 import { ref } from 'vue';
-// Removed Chakra UI imports
 
 // Static predefined resources
 const predefinedResources = ref([

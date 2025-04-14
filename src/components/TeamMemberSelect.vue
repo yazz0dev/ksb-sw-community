@@ -84,6 +84,3 @@ onMounted(() => {
 });
 </script>
 
-<style scoped>
-/* Removed Bulma-specific styles */
-</style>

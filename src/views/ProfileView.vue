@@ -78,7 +78,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
 
-// Removed Chakra UI imports
 
 // Import Components
 import ProfileViewContent from '../components/ProfileViewContent.vue';

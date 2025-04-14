@@ -391,9 +391,23 @@ const emit = defineEmits<{
   (e: 'error', message: string): void
 }>();
 
+// *** NEW: Computed property for available students based on Vuex state ***
+const availableStudents = computed<Student[]>(() => {
+    // Safety check: Ensure studentList is an array before mapping
+    if (!Array.isArray(store.state.user.studentList)) {
+        console.warn('store.state.user.studentList is not an array in computed property.');
+        return [];
+    }
+    // Map the store data to the expected Student interface
+    return store.state.user.studentList.map((s: any) => ({ 
+        uid: s.uid, 
+        name: s.name 
+    }));
+});
+
 const store = useStore();
 const formData = ref<FormData>(initializeFormData());
-const availableStudents = ref<Student[]>([]);
+// REMOVED: availableStudents ref
 const nameCache = ref<NameCache>({});
 const allUsers = ref<{ uid: string; name: string; email: string }[]>([]);
 const coOrganizerSearch = ref('');
@@ -500,20 +514,14 @@ const filteredUsers = computed(() => {
 
 const fetchInitialData = async () => {
   // Ensure refs are arrays initially and reset them
-  availableStudents.value = [];
+  // REMOVED: availableStudents.value = []; 
   allUsers.value = [];
 
   try {
     // Fetch students unconditionally, as the user might switch to team format.
-    // Consider optimizing later if student list is very large and rarely needed.
+    // The computed property 'availableStudents' will react to the store update.
     await store.dispatch('user/fetchAllStudents');
-    // Safety Check: Ensure studentList is an array before mapping
-    if (Array.isArray(store.state.user.studentList)) {
-      availableStudents.value = store.state.user.studentList.map((s: any) => ({ uid: s.uid, name: s.name })); // Adapt based on actual structure
-    } else {
-      console.warn('store.state.user.studentList is not an array after fetchAllStudents');
-      availableStudents.value = []; // Ensure it remains an empty array on failure
-    }
+    // REMOVED: Direct assignment to availableStudents.value
 
     // Fetch all users for co-organizer dropdown
     await store.dispatch('user/fetchAllUsers');
@@ -550,7 +558,7 @@ const fetchInitialData = async () => {
   } catch (error) {
     console.error("Error fetching initial form data:", error);
     // Ensure refs are reset on error too
-    availableStudents.value = [];
+    // REMOVED: availableStudents.value = [];
     allUsers.value = [];
     emit('error', 'Failed to load necessary data for the form.');
   }
@@ -565,7 +573,7 @@ onMounted(() => {
 // Re-initialize form when initialData changes (e.g., switching between create/edit)
 watch(() => props.initialData, () => {
     formData.value = initializeFormData();
-    fetchInitialData(); // Fetch data again after re-initializing
+    // REMOVED: fetchInitialData(); // Student list is global, fetch on mount is enough
     checkNextAvailableDate(); // Re-check dates
 }, { deep: true });
 
@@ -604,8 +612,6 @@ const addXPAllocation = () => {
 
 const removeXPAllocation = (index: number) => {
   formData.value.xpAllocation.splice(index, 1);
-  // Re-index if needed, although using a unique key/id is better
-  // formData.value.xpAllocation.forEach((alloc, idx) => alloc.constraintIndex = idx);
 };
 
  const addOrganizer = (userId: string) => {
@@ -650,60 +656,47 @@ const handleSubmit = () => {
       return;
   }
 
-  // Convert YYYY-MM-DD strings back to Date objects or Timestamps before emitting
+  // Convert YYYY-MM-DD strings back to Date objects before emitting
   const dataToSubmit = JSON.parse(JSON.stringify(formData.value));
-  const stringToDate = (dateString: string | null | undefined): Date | null => { // Allow undefined
-        if (!dateString) return null;
-        try {
-            // Use Luxon for robust parsing from ISO date string (YYYY-MM-DD)
-            const dt = DateTime.fromISO(dateString);
-            if (!dt.isValid) {
-                console.error("Invalid date string for Luxon:", dateString, dt.invalidReason, dt.invalidExplanation);
-                return null;
-            }
-            return dt.toJSDate(); // Convert valid Luxon DateTime to JS Date
-        } catch (e) {
-            console.error("Error converting date string:", dateString, e);
-            return null;
-        }
-    };
+  const stringToDate = (dateString: string | null): Date | null => {
+    if (!dateString) return null;
+    try {
+      const dt = DateTime.fromISO(dateString);
+      if (!dt.isValid) return null;
+      return dt.toJSDate();
+    } catch (e) {
+      return null;
+    }
+  };
 
-  // Convert dates - these should now have valid string values due to checks above
-  dataToSubmit.startDate = stringToDate(formData.value.startDate ?? null);
-  dataToSubmit.endDate = stringToDate(formData.value.endDate ?? null);
-  dataToSubmit.desiredStartDate = stringToDate(formData.value.desiredStartDate ?? null);
-  dataToSubmit.desiredEndDate = stringToDate(formData.value.desiredEndDate ?? null);
-
-  // Final check if conversion resulted in null (shouldn't happen with prior checks but good safeguard)
-  if (!dataToSubmit[startField]) {
-       emit('error', `Invalid ${dateFields.value.startLabel} format.`);
-       return;
+  // Clear dates that shouldn't be used based on form type
+  if (isRequestForm.value) {
+    // For requests, only set desired dates
+    dataToSubmit.desiredStartDate = stringToDate(formData.value[dateFields.value.startField]);
+    dataToSubmit.desiredEndDate = stringToDate(formData.value[dateFields.value.endField]);
+    dataToSubmit.startDate = null;
+    dataToSubmit.endDate = null;
+  } else {
+    // For admin events, only set actual dates
+    dataToSubmit.startDate = stringToDate(formData.value[dateFields.value.startField]);
+    dataToSubmit.endDate = stringToDate(formData.value[dateFields.value.endField]);
+    dataToSubmit.desiredStartDate = null;
+    dataToSubmit.desiredEndDate = null;
   }
-   if (!dataToSubmit[endField]) {
-      emit('error', `Invalid ${dateFields.value.endLabel} format.`);
-      return;
+
+  // Validate converted dates
+  if (isRequestForm.value && (!dataToSubmit.desiredStartDate || !dataToSubmit.desiredEndDate)) {
+    emit('error', 'Invalid date format for event request');
+    return;
   }
-   // --- Added Validation End ---
+  
+  if (!isRequestForm.value && (!dataToSubmit.startDate || !dataToSubmit.endDate)) {
+    emit('error', 'Invalid date format for event creation');
+    return;
+  }
 
-  // Console log dates for debugging
-  console.log("Submit dates:", {
-      startDate: dataToSubmit.startDate,
-      endDate: dataToSubmit.endDate,
-      desiredStartDate: dataToSubmit.desiredStartDate,
-      desiredEndDate: dataToSubmit.desiredEndDate,
-  });
-
-  // Remove constraintIndex before submitting if it was only for UI keying
-   dataToSubmit.xpAllocation = dataToSubmit.xpAllocation.map((alloc: any) => {
-       // Ensure targetRole is valid before submitting
-       if (!alloc.targetRole || !assignableXpRoles.includes(alloc.targetRole)) {
-           // Set default role if missing instead of throwing error
-           console.warn("XP Allocation item has invalid targetRole:", alloc, "Setting to 'fullstack'");
-           alloc.targetRole = 'fullstack';
-       }
-       const { constraintIndex, ...rest } = alloc;
-       return rest;
-   });
+  // Remove UI-specific fields before submission
+  dataToSubmit.xpAllocation = dataToSubmit.xpAllocation.map(({ constraintIndex, ...rest }) => rest);
 
   emit('submit', dataToSubmit);
 };

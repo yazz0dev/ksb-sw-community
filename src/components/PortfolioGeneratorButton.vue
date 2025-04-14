@@ -14,8 +14,6 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-// Removed Chakra UI imports
-// import { Button as CButton, Icon as CIcon } from '@chakra-ui/vue-next';
 import { generatePortfolioPDF } from '../utils/pdfGenerator';
 
 // Define an interface for the project object
@@ -59,7 +57,6 @@ const generatePDF = async () => {
 </script>
 
 <style scoped>
-/* Removed Bulma-specific styles */
 .btn {
     min-width: 150px; /* Optional: give button a min-width */
 }

@@ -110,5 +110,4 @@ onMounted(fetchRequests);
     border-top: 1px solid var(--bs-border-color); /* Use Bootstrap border color */
 }
 
-/* Removed Bulma loader styles */
 </style>

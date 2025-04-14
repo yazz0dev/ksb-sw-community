@@ -80,7 +80,6 @@ const formatDate = (date) => {
 </script>
 
 <style scoped>
-/* Removed Bulma-specific responsive styles */
 .btn {
     min-width: 90px; /* Ensure buttons have a minimum width */
 }

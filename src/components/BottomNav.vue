@@ -1,9 +1,8 @@
 <template>
     <nav
-        class="navbar fixed-bottom d-flex justify-content-around align-items-center shadow-sm d-lg-none bg-light"
+        class="bottom-navbar fixed-bottom d-flex justify-content-around align-items-center shadow-sm d-lg-none bg-light"
         role="navigation" 
         aria-label="bottom navigation"
-        style="height: 4rem; border-top: 1px solid var(--bs-border-color); z-index: 1030;"
     >
         <!-- Using a simple div container for flex items -->
         <div class="d-flex justify-content-around align-items-stretch w-100 h-100">
@@ -96,13 +95,59 @@ const handleImageError = () => {
     console.warn('Failed to load profile image:', userProfilePicUrl.value);
 };
 
+// Add click handler to close any open navbar when bottom nav is used
+const handleNavClick = () => {
+  const navbar = document.getElementById('navbarNav');
+  if (navbar?.classList.contains('show')) {
+    const collapse = window.bootstrap.Collapse.getInstance(navbar);
+    if (collapse) collapse.hide();
+  }
+};
+
 </script>
 
 <style scoped>
+.bottom-navbar {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 64px;
+  z-index: 1040;
+  background-color: var(--bs-body-bg);
+  border-top: 1px solid var(--bs-border-color);
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  padding: 0;
+  margin: 0;
+  transform: translateY(0);
+  transition: transform 0.3s ease-in-out;
+  will-change: transform;
+}
+
+.navbar {
+  position: fixed !important; /* Override any other position values */
+  bottom: 0 !important;
+  left: 0;
+  right: 0;
+  height: 64px;
+  z-index: 1040; /* Higher than other elements */
+  background-color: var(--bs-body-bg);
+  border-top: 1px solid var(--bs-border-color);
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  margin: 0; /* Reset any margins */
+  padding: 0; /* Reset padding and handle it in the nav items */
+}
+
+/* Ensure content doesn't get hidden behind the nav */
 .nav-link {
   border-top: 3px solid transparent; /* Reserve space for active indicator */
   /* padding adjusted via flex properties */
   height: 100%; /* Ensure links fill height */
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
 }
 
 .nav-link:hover,
@@ -136,7 +181,6 @@ const handleImageError = () => {
     color: var(--bs-primary);
 }
 
-
 /* Specific style for profile image container */
 .profile-pic-figure {
   width: 28px;
@@ -148,5 +192,23 @@ const handleImageError = () => {
 
 .fs-7 {
     font-size: 0.75rem !important; /* Define fs-7 if not globally available */
+}
+
+/* Add transition for scroll hiding */
+.bottom-nav {
+  transition: transform 0.3s ease-in-out;
+  will-change: transform;
+}
+
+.nav-hidden {
+  transform: translateY(100%) !important;
+}
+
+/* Add iOS safe area support */
+@supports (padding: max(0px)) {
+  .bottom-navbar {
+    height: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 </style>

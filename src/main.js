@@ -8,17 +8,12 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
 import AuthGuard from './components/AuthGuard.vue';
 
-// Import Custom Global Styles
-import './assets/styles/main.css';
-
 // Import Font Awesome CSS
 import '@fortawesome/fontawesome-free/css/all.css';
 
-// REMOVE Bulma CSS Import
-// import 'bulma/css/bulma.css';
+// Import our custom Sass file
+import './assets/styles/main.scss';
 
-// ADD Bootstrap CSS
-import 'bootstrap/dist/css/bootstrap.min.css';
 // ADD Bootstrap JS (optional, but often needed for components like dropdowns, modals, etc.)
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 

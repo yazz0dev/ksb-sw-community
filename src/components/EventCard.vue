@@ -139,7 +139,6 @@ const statusBadgeClass = computed(() => {
   transform: translateY(-4px);
 }
 
-/* Removed Bulma button shadow/hover styles */
 .fs-7 {
     font-size: 0.75rem !important; /* Define fs-7 if not global */
 }

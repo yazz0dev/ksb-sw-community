@@ -67,7 +67,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
-// Removed Chakra UI imports
 import RequestCard from '../components/RequestCard.vue';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
 

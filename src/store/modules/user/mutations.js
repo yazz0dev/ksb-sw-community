@@ -97,8 +97,10 @@ export const userMutations = {
 
     // Mutation to store the fetched student list
     setStudents(state, students) {
+        // console.log('setStudents mutation called with payload:', students); // Removed log
         if (Array.isArray(students)) {
             state.studentList = students;
+            // console.log('state.studentList updated:', state.studentList); // Removed log
         } else {
             console.error('setStudents mutation received non-array payload:', students);
             state.studentList = []; // Ensure it's always an array

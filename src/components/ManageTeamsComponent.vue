@@ -1,6 +1,5 @@
 <template>
   <div class="mb-4">
-    <!-- Existing Teams -->
     <div v-if="teams.length > 0" class="mb-4">
       <div v-for="(team, index) in teams" :key="index" class="p-4 mb-4 border rounded bg-light-subtle team-box">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -93,7 +92,7 @@
                   type="number" 
                   v-model.number="generateValue" 
                   style="width: 5em;"
-                  :min="2" 
+                  :min="generationType === 'fixed-size' ? 3 : 2" 
                   :max="maxGenerateValue" 
                   :disabled="isSubmitting"
               />
@@ -154,9 +153,9 @@ const maxTeams = 8;
 
 const maxGenerateValue = computed(() => {
   if (generationType.value === 'fixed-size') {
-    return 10; // Max team size
+    return 8; // Max team size (Updated from 10)
   }
-  // Max number of teams: min of cap (8) or students/2
+  // Max number of teams: min of cap (8) or students/2 (min team size is 2 for fixed count)
   const studentCount = Array.isArray(props.students) ? props.students.length : 0;
   return Math.min(maxTeams, Math.floor(studentCount / 2));
 });
