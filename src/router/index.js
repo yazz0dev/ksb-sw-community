@@ -22,16 +22,16 @@ const routes = [
     } 
   },
   { 
-    path: '/create-event', 
-    name: 'CreateEvent', 
-    component: () => import('../views/CreateEventView.vue'), 
-    meta: { requiresAuth: true }
+    path: '/request-event',
+    name: 'RequestEvent',
+    meta: { requiresAuth: true, roles: ['Student'] }, // Ensure only students can access
+    component: () => import('../views/RequestEventView.vue'), // Rename import
   },
   { 
     path: '/edit-event/:eventId', 
     name: 'EditEvent', 
-    component: () => import('../views/CreateEventView.vue'), // Keep same component for edit
-    meta: { requiresAuth: true, requiresAdmin: true },
+    meta: { requiresAuth: true, roles: ['Admin'] }, // Ensure only admins can access
+    component: () => import('../views/RequestEventView.vue'), // Rename import (Using same component for edit, but route guard restricts access)
     props: true
   },
   { 
@@ -58,16 +58,7 @@ const routes = [
     path: '/events', // General events list route
     name: 'EventsList',
     component: () => import('../views/EventsListView.vue'),
-    meta: { requiresAuth: true } // Requires auth to see filters other than completed
-  },
-  {
-    path: '/completed-events',
-    name: 'CompletedEvents',
-    // Point to the existing EventsListView, assuming it handles completed events
-    component: () => import('../views/EventsListView.vue'), 
-    meta: { requiresAuth: false },
-    // Optionally pass a prop or query param to filter for completed events if needed
-    // props: { defaultFilter: 'completed' }
+    meta: { requiresAuth: false } // Allow access for logged-out users (they see completed)
   },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('../views/NotFoundView.vue'), meta: { requiresAuth: false } },
 ];

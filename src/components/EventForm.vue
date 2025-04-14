@@ -72,7 +72,9 @@
         <template v-if="formData.isTeamEvent">
           <hr class="my-4">
           <h4 class="h5 mb-4">Team Configuration</h4>
+          <!-- Only render component when students are loaded -->
           <ManageTeamsComponent
+              v-if="availableStudents.length > 0"
               :initial-teams="formData.teams"
               :students="availableStudents"
               :name-cache="nameCache"
@@ -82,6 +84,10 @@
               @update:teams="updateTeams"
               @error="(msg) => emit('error', msg)"
           />
+          <div v-else class="text-center text-muted small py-3">
+             <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+             Loading student list...
+          </div>
         </template>
       </div>
     </div>
@@ -173,15 +179,27 @@
                     <label :for="`criteria-label-${index}`" class="form-label form-label-sm">Criteria Label</label>
                     <input :id="`criteria-label-${index}`" class="form-control form-control-sm" type="text" v-model="alloc.constraintLabel" :disabled="isSubmitting" placeholder="e.g., Code Quality">
                 </div>
-                <div class="col-md-2">
-                    <label :for="`criteria-points-${index}`" class="form-label form-label-sm">XP Points</label>
-                    <input :id="`criteria-points-${index}`" class="form-control form-control-sm" type="number" v-model.number="alloc.points" :disabled="isSubmitting" min="1" max="50">
+                <div class="col-md-4">
+                    <label :for="`criteria-points-${index}`" class="form-label form-label-sm">XP Points ({{ alloc.points }})</label>
+                    <input
+                       :id="`criteria-points-${index}`"
+                       class="form-range"
+                       type="range"
+                       v-model.number="alloc.points"
+                       :disabled="isSubmitting"
+                       min="1"
+                       max="50"
+                    >
                 </div>
                  <div class="col-md-3">
                      <label :for="`criteria-role-${index}`" class="form-label form-label-sm">Applies To</label>
-                     <select :id="`criteria-role-${index}`" class="form-select form-select-sm" v-model="alloc.role" :disabled="isSubmitting">
-                         <option value="Team">Team</option>
-                         <option value="Individual">Individual</option>
+                     <select :id="`criteria-role-${index}`" class="form-select form-select-sm" v-model="alloc.targetRole" :disabled="isSubmitting">
+                         <option value="" disabled>Select Role</option>
+                         <option
+                             v-for="role in assignableXpRoles"
+                             :key="role"
+                             :value="role"
+                         >{{ role }}</option>
                      </select>
                  </div>
                 <div class="col-md-auto">
@@ -234,7 +252,7 @@
                           class="dropdown-item small"
                           @mousedown.prevent="addOrganizer(user.uid)"
                        >
-                          {{ user.name }} ({{ user.email }})
+                          {{ user.name }} <span class="text-muted">{{ user.email }}</span>
                       </a>
                   </li>
                    <li v-if="coOrganizerSearch && filteredUsers.length === 0"><span class="dropdown-item-text small text-muted fst-italic">No users found</span></li>
@@ -301,6 +319,17 @@ export interface NameCache {
   [key: string]: string;
 }
 
+// Define roles for XP allocation (excluding Admin/Organizer potentially)
+const assignableXpRoles = ['fullstack', 'presenter', 'designer', 'problemSolver'] as const; // Use const assertion
+type AssignableXpRole = typeof assignableXpRoles[number];
+
+export interface XpAllocation {
+    constraintLabel: string;
+    points: number;
+    targetRole: AssignableXpRole | ''; // Use specific roles, allow empty initial
+    constraintIndex?: number; // For Vue key prop
+}
+
 export interface FormData {
   eventName: string;
   eventType: string;
@@ -311,7 +340,7 @@ export interface FormData {
   desiredStartDate?: string | null; // For requests
   desiredEndDate?: string | null; // For requests
   teams: Team[];
-  xpAllocation: { constraintLabel: string; points: number; role: 'Team' | 'Individual'; constraintIndex?: number }[];
+  xpAllocation: XpAllocation[]; // Use updated interface
   organizers: string[];
   status?: string; // Added for edit mode
 }
@@ -320,13 +349,38 @@ export interface FormData {
 const props = defineProps<{
   initialData?: FormData | null;
   isSubmitting?: boolean;
-  availableEventTypes?: string[];
   isRequestForm?: boolean;
   eventId?: string | null;
 }>();
 
+// Define event types based on format - UPDATED LISTS
+const individualEventTypes = [
+    'Debate',
+    'Topic Presentation',
+    'Discussion session',
+    'Hands-on Presentation',
+    'Quiz',
+    'Program logic solver',
+    'Google Search',
+    'Typing competition',
+    'Algorithm writing',
+];
+const teamEventTypes = [
+    'Hackathon',
+    'Ideathon',
+    'Debug competition',
+    'Design Competition',
+    'Testing',
+    'Treasure hunt',
+    'Open Source',
+    'Tech Business plan',
+];
+
 // Default values for props if not provided (handled slightly differently in <script setup>)
-const availableEventTypes = computed(() => props.availableEventTypes ?? ['Workshop', 'Competition', 'Seminar', 'Hackathon', 'Other']);
+const availableEventTypes = computed(() => {
+    // Return different lists based on the current form state
+    return formData.value.isTeamEvent ? teamEventTypes : individualEventTypes;
+});
 const isSubmitting = computed(() => props.isSubmitting ?? false);
 const isRequestForm = computed(() => props.isRequestForm ?? false);
 const eventId = computed(() => props.eventId ?? null);
@@ -360,7 +414,7 @@ const dateFields = computed(() => {
 function initializeFormData(): FormData {
   const defaults: FormData = {
     eventName: '',
-    eventType: '',
+    eventType: '', // Reset event type initially
     description: '',
     isTeamEvent: false,
     startDate: null,
@@ -368,10 +422,20 @@ function initializeFormData(): FormData {
     desiredStartDate: null,
     desiredEndDate: null,
     teams: [],
-    xpAllocation: [],
+    xpAllocation: [], // Initialize with empty array
     organizers: [],
     status: isRequestForm.value ? 'Pending' : 'Approved', // Use computed prop default
   };
+
+  // Add a default XP allocation item if creating a new form
+   if (!props.initialData && defaults.xpAllocation.length === 0) {
+       defaults.xpAllocation.push({
+           constraintLabel: 'Default Criteria',
+           points: 10,
+           targetRole: 'fullstack', // Set default role instead of empty string
+           constraintIndex: 0
+       });
+   }
 
   if (props.initialData) {
     const initial = { ...props.initialData };
@@ -394,45 +458,100 @@ function initializeFormData(): FormData {
     initial.desiredStartDate = formatTimestamp(initial.desiredStartDate);
     initial.desiredEndDate = formatTimestamp(initial.desiredEndDate);
 
-    // Ensure xpAllocation has constraintIndex for keys if needed
-    initial.xpAllocation = (initial.xpAllocation || []).map((alloc, index) => ({
-        ...alloc,
+    // Ensure xpAllocation has constraintIndex and potentially adapt old data structure if necessary
+    initial.xpAllocation = (initial.xpAllocation || []).map((alloc: any, index) => ({
+        constraintLabel: alloc.constraintLabel || `Criteria ${index + 1}`,
+        points: Number(alloc.points) || 0,
+        // Adapt from old 'role' field if present, otherwise default or leave empty
+        targetRole: assignableXpRoles.includes(alloc.targetRole)
+            ? alloc.targetRole
+            : (assignableXpRoles.includes(alloc.role) ? alloc.role : ''), // Basic migration attempt from old 'role'
         constraintIndex: alloc.constraintIndex ?? index // Assign index if missing
     }));
-
 
     return { ...defaults, ...initial };
   }
   return defaults;
 }
 
-
 const filteredUsers = computed(() => {
   if (!coOrganizerSearch.value) return [];
   const searchLower = coOrganizerSearch.value.toLowerCase();
-  return allUsers.value.filter(user =>
-    user.uid !== store.getters['user/userId'] && // Exclude self
-    !formData.value.organizers.includes(user.uid) && // Exclude already added
-    (user.name?.toLowerCase().includes(searchLower) || user.email?.toLowerCase().includes(searchLower))
-  );
+  // Fetch all users from state each time computed property runs
+  const all = store.state.user.allUsers || []; 
+  // Ensure 'all' is an array before filtering
+  if (!Array.isArray(all)) return []; 
+
+  return all.filter((user: any) => { // Add type annotation for clarity and use block scope
+    // Basic checks
+    if (!user || !user.uid) return false;
+    // Exclude self
+    if (user.uid === store.getters['user/userId']) return false;
+    // Exclude Admins
+    if (user.role === 'Admin') return false;
+    // Exclude already added organizers
+    if (formData.value.organizers.includes(user.uid)) return false;
+    // Match search query
+    const nameMatch = user.name?.toLowerCase().includes(searchLower);
+    const emailMatch = user.email?.toLowerCase().includes(searchLower);
+    return nameMatch || emailMatch;
+  });
 });
 
 const fetchInitialData = async () => {
-  try {
-    // Fetch students only if it's a team event or potentially could become one
-    // Optimisation: Maybe fetch only when isTeamEvent becomes true?
-    if (store.getters['user/isAdmin']) {
-        await store.dispatch('user/fetchAllStudents');
-        availableStudents.value = store.state.user.studentList.map((s: any) => ({ uid: s.uid, name: s.name })); // Adapt based on actual structure
-        nameCache.value = store.getters['user/userNameCache']; // Ensure cache is populated
+  // Ensure refs are arrays initially and reset them
+  availableStudents.value = [];
+  allUsers.value = [];
 
-        // Fetch all users for co-organizer dropdown
-         await store.dispatch('user/fetchAllUsers'); // Assuming an action exists
-         allUsers.value = store.state.user.allUsersList || []; // Adapt based on actual state name
+  try {
+    // Fetch students unconditionally, as the user might switch to team format.
+    // Consider optimizing later if student list is very large and rarely needed.
+    await store.dispatch('user/fetchAllStudents');
+    // Safety Check: Ensure studentList is an array before mapping
+    if (Array.isArray(store.state.user.studentList)) {
+      availableStudents.value = store.state.user.studentList.map((s: any) => ({ uid: s.uid, name: s.name })); // Adapt based on actual structure
+    } else {
+      console.warn('store.state.user.studentList is not an array after fetchAllStudents');
+      availableStudents.value = []; // Ensure it remains an empty array on failure
+    }
+
+    // Fetch all users for co-organizer dropdown
+    await store.dispatch('user/fetchAllUsers');
+    // Safety Check: Use correct state property 'allUsers'
+    if (Array.isArray(store.state.user.allUsers)) {
+        // Ensure we have the correct structure before assigning
+        allUsers.value = store.state.user.allUsers.map((u: any) => ({
+            uid: u.uid,
+            name: u.name,
+            email: u.email
+        }));
+    } else {
+        console.warn('store.state.user.allUsers is not an array after fetchAllUsers');
+        allUsers.value = []; // Ensure it remains an empty array on failure
+    }
+
+    // Update name cache (check if allUsers.value is an array first)
+    if (Array.isArray(allUsers.value)) {
+        allUsers.value.forEach(user => {
+            if (user.uid && user.name) {
+                nameCache.value[user.uid] = user.name;
+            }
+        });
+    }
+     // Also populate cache from students (check if availableStudents.value is an array)
+     if (Array.isArray(availableStudents.value)) {
+         availableStudents.value.forEach(student => {
+             if (student.uid && student.name) {
+                 nameCache.value[student.uid] = student.name;
+             }
+         });
     }
 
   } catch (error) {
     console.error("Error fetching initial form data:", error);
+    // Ensure refs are reset on error too
+    availableStudents.value = [];
+    allUsers.value = [];
     emit('error', 'Failed to load necessary data for the form.');
   }
 };
@@ -446,12 +565,22 @@ onMounted(() => {
 // Re-initialize form when initialData changes (e.g., switching between create/edit)
 watch(() => props.initialData, () => {
     formData.value = initializeFormData();
+    fetchInitialData(); // Fetch data again after re-initializing
     checkNextAvailableDate(); // Re-check dates
 }, { deep: true });
 
 const handleFormatChange = () => {
   if (!formData.value.isTeamEvent) {
     formData.value.teams = []; // Clear teams if switching to individual
+  } else {
+     // Fetch students if switching to team event and they aren't loaded
+     if (availableStudents.value.length === 0) {
+         fetchInitialData(); // Consider a more targeted fetch if needed
+     }
+  }
+  // Reset event type if the current one is not valid for the new format
+  if (!availableEventTypes.value.includes(formData.value.eventType)) {
+      formData.value.eventType = ''; // Reset selection
   }
   // Optionally reset XP allocation roles if needed
 };
@@ -468,8 +597,8 @@ const addXPAllocation = () => {
   formData.value.xpAllocation.push({
     constraintLabel: '',
     points: 5, // Default points
-    role: 'Team', // Default role
-    constraintIndex: formData.value.xpAllocation.length // Assign next index
+    targetRole: 'fullstack', // Default to a valid role
+    constraintIndex: Date.now() + Math.random() // Use a more unique key
   });
 };
 
@@ -506,20 +635,72 @@ const handleSubmit = () => {
        return;
   }
 
+  // --- Added Validation Start ---
+  const startField = dateFields.value.startField as keyof FormData;
+  const endField = dateFields.value.endField as keyof FormData;
+  const startDateValue = formData.value[startField];
+  const endDateValue = formData.value[endField];
+
+  if (!startDateValue) {
+      emit('error', `Please select a ${dateFields.value.startLabel}.`);
+      return;
+  }
+   if (!endDateValue) {
+      emit('error', `Please select an ${dateFields.value.endLabel}.`);
+      return;
+  }
+
   // Convert YYYY-MM-DD strings back to Date objects or Timestamps before emitting
   const dataToSubmit = JSON.parse(JSON.stringify(formData.value));
-   const stringToDate = (dateString: string | null | undefined): Date | null => { // Allow undefined
-        return dateString ? DateTime.fromISO(dateString).toJSDate() : null;
+  const stringToDate = (dateString: string | null | undefined): Date | null => { // Allow undefined
+        if (!dateString) return null;
+        try {
+            // Use Luxon for robust parsing from ISO date string (YYYY-MM-DD)
+            const dt = DateTime.fromISO(dateString);
+            if (!dt.isValid) {
+                console.error("Invalid date string for Luxon:", dateString, dt.invalidReason, dt.invalidExplanation);
+                return null;
+            }
+            return dt.toJSDate(); // Convert valid Luxon DateTime to JS Date
+        } catch (e) {
+            console.error("Error converting date string:", dateString, e);
+            return null;
+        }
     };
 
-  // Explicitly pass string | null to stringToDate
+  // Convert dates - these should now have valid string values due to checks above
   dataToSubmit.startDate = stringToDate(formData.value.startDate ?? null);
   dataToSubmit.endDate = stringToDate(formData.value.endDate ?? null);
   dataToSubmit.desiredStartDate = stringToDate(formData.value.desiredStartDate ?? null);
   dataToSubmit.desiredEndDate = stringToDate(formData.value.desiredEndDate ?? null);
 
+  // Final check if conversion resulted in null (shouldn't happen with prior checks but good safeguard)
+  if (!dataToSubmit[startField]) {
+       emit('error', `Invalid ${dateFields.value.startLabel} format.`);
+       return;
+  }
+   if (!dataToSubmit[endField]) {
+      emit('error', `Invalid ${dateFields.value.endLabel} format.`);
+      return;
+  }
+   // --- Added Validation End ---
+
+  // Console log dates for debugging
+  console.log("Submit dates:", {
+      startDate: dataToSubmit.startDate,
+      endDate: dataToSubmit.endDate,
+      desiredStartDate: dataToSubmit.desiredStartDate,
+      desiredEndDate: dataToSubmit.desiredEndDate,
+  });
+
   // Remove constraintIndex before submitting if it was only for UI keying
    dataToSubmit.xpAllocation = dataToSubmit.xpAllocation.map((alloc: any) => {
+       // Ensure targetRole is valid before submitting
+       if (!alloc.targetRole || !assignableXpRoles.includes(alloc.targetRole)) {
+           // Set default role if missing instead of throwing error
+           console.warn("XP Allocation item has invalid targetRole:", alloc, "Setting to 'fullstack'");
+           alloc.targetRole = 'fullstack';
+       }
        const { constraintIndex, ...rest } = alloc;
        return rest;
    });
@@ -557,15 +738,21 @@ const handleSubmit = () => {
              throw new Error("Invalid date format for availability check.");
          }
 
-         const result = await store.dispatch('events/checkDateAvailability', {
+         // Dispatch the correct action name: 'events/checkDateConflict'
+         const result = await store.dispatch('events/checkDateConflict', {
             startDate: startDate,
             endDate: endDate,
             excludeEventId: eventId.value // Use computed prop default
          });
-        isDateAvailable.value = result.isAvailable;
+
+         // Use result.hasConflict and invert its value for isDateAvailable
+        isDateAvailable.value = !result.hasConflict;
+
+        // Handle the next available date (ensure it's Date or null)
         nextAvailableDate.value = result.nextAvailableDate instanceof Timestamp
             ? result.nextAvailableDate.toDate()
-            : (result.nextAvailableDate instanceof Date ? result.nextAvailableDate : null); // Ensure it's Date or null
+            : (result.nextAvailableDate instanceof Date ? result.nextAvailableDate : null);
+
     } catch (error) {
         console.error('Error checking date availability:', error);
         isDateAvailable.value = true; // Assume available on error

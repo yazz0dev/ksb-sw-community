@@ -49,7 +49,7 @@
               <tr v-for="(user, index) in filteredUsers" :key="user.uid">
                 <td class="text-center fw-medium">{{ index + 1 }}</td>
                 <td>
-                  <router-link :to="`/profile/${user.uid}`" class="text-primary fw-medium text-decoration-none">
+                  <router-link :to="`/user/${user.uid}`" class="text-primary fw-medium text-decoration-none">
                      {{ user.name }}
                   </router-link>
                 </td>

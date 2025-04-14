@@ -10,25 +10,26 @@
 
     <!-- Top Navigation Bar -->
     <nav
-      class="navbar navbar-expand-lg navbar-light bg-light fixed-top shadow-sm app-navbar" 
+      class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm fixed-top" 
       role="navigation" 
       aria-label="main navigation"
     >
-      <div class="container">
+      <div class="container-lg">
         <router-link
+          class="navbar-brand d-flex align-items-center" 
           to="/"
-          class="navbar-brand app-navbar-brand fw-bold fs-5 fs-lg-4" 
         >
-          KSB Tech Community
+          <i class="fas fa-users fa-lg me-2"></i>
+          <span class="fw-bold">KSB Community</span>
         </router-link>
 
         <button
           class="navbar-toggler"
           type="button"
           data-bs-toggle="collapse"
-          data-bs-target="#navbarContent"
-          aria-controls="navbarContent"
-          aria-expanded="false" 
+          data-bs-target="#navbarNav"
+          aria-controls="navbarNav"
+          aria-expanded="false"
           aria-label="Toggle navigation"
         >
           <span class="navbar-toggler-icon"></span>
@@ -36,92 +37,129 @@
 
         <!-- Navbar Content -->
         <div 
-          class="collapse navbar-collapse app-navbar-menu" 
-          id="navbarContent"
+          class="collapse navbar-collapse" 
+          id="navbarNav"
         >
-          <!-- Menu Navigation -->
+          <!-- Left-aligned Links (Common & Role-Based) -->
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item">
-              <router-link
-                v-if="isAuthenticated"
-                to="/home"
-                class="nav-link"
-                active-class="active"
-              >
-                Home
-              </router-link>
-            </li>
-            <li class="nav-item">
-              <router-link
-                to="/leaderboard"
-                class="nav-link"
-                active-class="active"
-              >
-                Leaderboard
-              </router-link>
-            </li>
-            <li class="nav-item">
-              <router-link
-                v-if="isAuthenticated"
-                to="/home" 
-                class="nav-link"
-                active-class="active"
-              >
-                Events 
-              </router-link>
+             <!-- Home: Only in top bar if logged in (but will be hidden by CSS on mobile) -->
+             <li class="nav-item d-none d-lg-block"> 
                <router-link
-                 v-if="!isAuthenticated"
-                 to="/completed-events"
-                 class="nav-link"
-                 active-class="active"
+                  class="nav-link"
+                  active-class="active fw-semibold"
+                  to="/home"
+                  v-if="isAuthenticated" 
+                  data-bs-toggle="collapse" data-bs-target="#navbarNav"
                >
-                 Completed Events
+                  <i class="fas fa-home me-1 d-lg-none"></i> Home
                </router-link>
-            </li>
-            <li class="nav-item">
-              <router-link
-                to="/resources"
-                class="nav-link"
-                active-class="active"
-              >
-                Resources
-              </router-link>
-            </li>
-            <li class="nav-item">
-              <router-link
-                to="/transparency"
-                class="nav-link"
-                active-class="active"
-              >
-                Transparency
-              </router-link>
-            </li>
+             </li>
+             <!-- Events: Only in top bar if logged out -->
+             <li class="nav-item" v-if="!isAuthenticated">
+               <router-link
+                  class="nav-link"
+                  active-class="active fw-semibold"
+                  to="/events"
+                  data-bs-toggle="collapse" data-bs-target="#navbarNav"
+               >
+                  <i class="fas fa-calendar-alt me-1 d-lg-none"></i> Events
+               </router-link>
+             </li>
+             <!-- Leaderboard: Only in top bar if logged out -->
+             <li class="nav-item d-none d-lg-block" v-if="!isAuthenticated"> 
+               <router-link
+                  class="nav-link"
+                  active-class="active fw-semibold"
+                  to="/leaderboard"
+                   data-bs-toggle="collapse" data-bs-target="#navbarNav"
+               >
+                  <i class="fas fa-trophy me-1 d-lg-none"></i> Leaderboard
+               </router-link>
+             </li>
+             <!-- Resources: Should be visible always -->
+             <li class="nav-item"> 
+                <router-link
+                    class="nav-link"
+                    active-class="active fw-semibold"
+                    to="/resources"
+                    data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                >
+                    <i class="fas fa-book me-1 d-lg-none"></i> Resources
+                </router-link>
+              </li>
+              <!-- Transparency: Should be visible always -->
+              <li class="nav-item"> 
+                <router-link
+                    class="nav-link"
+                    active-class="active fw-semibold"
+                    to="/transparency"
+                    data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                >
+                    <i class="fas fa-eye me-1 d-lg-none"></i> Transparency
+                </router-link>
+              </li>
+             <!-- Admin: Only in top bar if Admin AND logged out (unlikely) OR on desktop -->
+             <li class="nav-item d-none d-lg-block" v-if="isAdmin"> 
+                 <router-link
+                    class="nav-link"
+                    active-class="active fw-semibold"
+                    to="/admin/dashboard"
+                    data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                 >
+                    <i class="fas fa-tachometer-alt me-1 d-lg-none"></i> Admin
+                 </router-link>
+              </li>
           </ul>
 
-          <!-- Auth Links -->
-          <div class="navbar-nav ms-auto">
-            <div class="d-flex align-items-center gap-2"> 
-              <router-link
-                v-if="!isAuthenticated"
-                to="/login"
-                class="btn btn-light" 
-                :class="{ 'btn-primary active': $route.path === '/login' }"
-              >
-                Login
-              </router-link>
-              <a
-                v-if="isAuthenticated"
-                href="#"
-                @click.prevent="logout"
-                class="btn btn-outline-danger logout-button d-flex align-items-center gap-1"
-              >
-                <span class="icon">
-                  <i class="fas fa-sign-out-alt"></i>
-                </span>
-                <span>Logout</span>
-              </a>
-            </div>
-          </div>
+          <!-- Right-aligned Links (Auth/User) -->
+          <ul class="navbar-nav ms-auto align-items-lg-center">
+            <!-- Logged Out -->
+            <template v-if="!isAuthenticated">
+                <li class="nav-item">
+                  <router-link
+                    class="nav-link"
+                    active-class="active fw-semibold"
+                    to="/login"
+                    data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                   >
+                     <i class="fas fa-sign-in-alt me-1 d-lg-none"></i> Login
+                  </router-link>
+                </li>
+            </template>
+
+            <!-- Logged In -->
+            <template v-if="isAuthenticated">
+                 <!-- User Dropdown -->
+                  <li class="nav-item dropdown">
+                     <a class="nav-link dropdown-toggle" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                       <i class="fas fa-user-circle me-1"></i>
+                       <span>{{ userName }}</span>
+                     </a>
+                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
+                       <li>
+                          <router-link 
+                              v-if="userId"
+                              class="dropdown-item"
+                              :to="{ name: 'Profile' }"
+                              data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                          >
+                              <i class="fas fa-user me-2"></i>Profile
+                          </router-link>
+                       </li>
+                       <li><hr class="dropdown-divider"></li>
+                       <li>
+                          <button 
+                             class="dropdown-item" 
+                             @click="handleLogout"
+                             data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                          >
+                             <i class="fas fa-sign-out-alt me-2"></i>Logout
+                          </button>
+                      </li>
+                     </ul>
+                  </li>
+            </template>
+          </ul>
         </div>
       </div>
     </nav>
@@ -130,8 +168,9 @@
     <main class="flex-grow-1 py-5 app-main-content"> 
       <div class="container">
         <router-view v-slot="{ Component }">
-          <!-- Apply Bootstrap transition or keep custom -->
-          <component :is="Component" class="animate-fade-in" /> 
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
         </router-view>
       </div>
     </main>
@@ -141,8 +180,8 @@
   </div>
 </template>
 
-<script setup>
-import { computed, onMounted } from 'vue'; // Removed ref, onUnmounted
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
@@ -152,26 +191,20 @@ import NotificationSystem from './components/NotificationSystem.vue';
 
 const store = useStore();
 const router = useRouter();
-// Removed navbarCollapseRef and isNavbarOpen related logic
 
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-// Removed isAdmin computed as it wasn't used in the template provided
+const isAdmin = computed(() => store.getters['user/getUserRole'] === 'Admin');
+const userName = computed(() => store.state.user.name || 'User');
+const userId = computed(() => store.state.user.uid);
 
-// Removed toggleNavbar and closeNavbar methods
-
-const logout = () => { // Removed event param as it's not needed without manual closeNavbar
-  // Close navbar is handled automatically by Bootstrap collapse on navigation or can be done manually if needed
+const logout = () => {
   const auth = getAuth();
   signOut(auth).then(() => {
-    // Success is handled in finally
   }).catch((error) => {
       console.error("Logout failed:", error);
-      // Optionally show user feedback about logout failure
   }).finally(() => {
-      store.dispatch('user/clearUserData'); // Clear user data in store
-      // Use replace to prevent going back to authenticated pages
+      store.dispatch('user/clearUserData');
       router.replace({ name: 'Login' }).catch(err => {
-          // Handle potential navigation errors if needed
           if (err.name !== 'NavigationDuplicated' && err.name !== 'NavigationCancelled') { 
                console.error('Router navigation error after logout:', err);
           }
@@ -179,16 +212,18 @@ const logout = () => { // Removed event param as it's not needed without manual 
   });
 };
 
-// Removed router.afterEach closeNavbar hook
-// Removed manual click outside listener logic (onMounted, onUnmounted, handleClickOutside)
+const handleLogout = async () => {
+  const navbar = document.getElementById('navbarNav');
+  if (navbar?.classList.contains('show')) {
+    const toggler = document.querySelector('.navbar-toggler');
+    if (toggler) (toggler as HTMLElement).click(); 
+  }
+  logout();
+};
 
 onMounted(() => {
-  // Initialize offline capabilities
   store.dispatch('app/initOfflineCapabilities');
-  // Bootstrap JS handles navbar collapse, no extra listeners needed generally
 });
-
-// Removed handleClickOutside method
 
 </script>
 
@@ -229,7 +264,7 @@ onMounted(() => {
 /* Active nav-link styling (Bootstrap handles .active class) */
 .nav-link.active {
   /* background-color: rgba(var(--bs-primary-rgb), 0.1); Optional: Subtle bg */
-  color: var(--bs-primary) !important; /* Use a darker primary for contrast */
+  color: white !important; /* Use white for contrast on primary background */
   font-weight: 600; /* Make active item bolder */
 }
 
@@ -246,6 +281,15 @@ onMounted(() => {
   padding-bottom: 70px; /* Adjust based on potential bottom nav height */
 }
 
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 
 /* Remove Bulma specific styles if any remained */
 </style>

@@ -21,7 +21,7 @@
             <div class="d-flex flex-wrap justify-content-end gap-2">
               <router-link
                 v-if="canRequestEvent && !isAdmin"
-                to="/create-event"
+                to="/request-event"
                 class="btn btn-primary d-inline-flex align-items-center"
               >
                 <i class="fas fa-calendar-plus me-2"></i>
@@ -41,7 +41,17 @@
 
         <!-- Event Sections -->
         <div class="mb-5">
-          <h4 class="h4 text-dark mb-4">Active Events</h4>
+          <!-- Updated Header for Active Events -->
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="h4 text-dark mb-0">Active Events</h4>
+            <router-link 
+              v-if="totalActiveCount > maxEventsPerSection" 
+              to="/events?filter=active" 
+              class="btn btn-link btn-sm text-decoration-none"
+            >
+              View All
+            </router-link>
+          </div>
           <div v-if="activeEvents.length > 0" class="row g-3">
             <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
               <EventCard :event="event" />
@@ -51,7 +61,17 @@
         </div>
 
         <div class="mb-5">
-          <h4 class="h4 text-dark mb-4">Upcoming Events</h4>
+          <!-- Updated Header for Upcoming Events -->
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="h4 text-dark mb-0">Upcoming Events</h4>
+             <router-link 
+              v-if="totalUpcomingCount > maxEventsPerSection" 
+              to="/events?filter=upcoming" 
+              class="btn btn-link btn-sm text-decoration-none"
+            >
+              View All
+            </router-link>
+          </div>
           <div v-if="upcomingEvents.length > 0" class="row g-3">
             <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
               <EventCard :event="event" />
@@ -63,7 +83,11 @@
         <div class="mb-5">
           <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="h4 text-dark mb-0">Completed Events</h4>
-            <router-link to="/completed-events" class="btn btn-link btn-sm text-decoration-none">
+            <router-link 
+              v-if="totalCompletedCount > maxEventsPerSection"
+              to="/events?filter=completed" 
+              class="btn btn-link btn-sm text-decoration-none"
+            >
               View All
             </router-link>
           </div>
@@ -116,6 +140,17 @@ const canRequestEvent = computed(() => isAuthenticated.value);
 
 // Limit display on dashboard, use reasonable defaults
 const maxEventsPerSection = 6; 
+
+// Calculate total counts before slicing
+const totalUpcomingCount = computed(() => 
+    allEvents.value.filter(e => e.status === 'Upcoming' || e.status === 'Approved').length
+);
+const totalActiveCount = computed(() => 
+    allEvents.value.filter(e => e.status === 'In Progress' || e.status === 'InProgress').length
+);
+const totalCompletedCount = computed(() => 
+    allEvents.value.filter(e => e.status === 'Completed').length
+); 
 
 const upcomingEvents = computed(() =>
   allEvents.value

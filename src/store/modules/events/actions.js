@@ -230,9 +230,22 @@ export const eventActions = {
             let desiredStartDateObj, desiredEndDateObj;
             try {
                 // Ensure we handle both Date objects and string representations (YYYY-MM-DD)
-                desiredStartDateObj = eventData.desiredStartDate instanceof Date ? eventData.desiredStartDate : new Date(eventData.desiredStartDate + 'T00:00:00Z');
-                desiredEndDateObj = eventData.desiredEndDate instanceof Date ? eventData.desiredEndDate : new Date(eventData.desiredEndDate + 'T23:59:59Z');
-                if (isNaN(desiredStartDateObj.getTime()) || isNaN(desiredEndDateObj.getTime())) throw new Error("Invalid desired date format.");
+                // The form now sends Date objects, handle them directly.
+                if (eventData.desiredStartDate instanceof Date && !isNaN(eventData.desiredStartDate.getTime())) {
+                    desiredStartDateObj = eventData.desiredStartDate;
+                } else {
+                    throw new Error("Invalid desired start date format received.");
+                }
+
+                if (eventData.desiredEndDate instanceof Date && !isNaN(eventData.desiredEndDate.getTime())) {
+                    desiredEndDateObj = eventData.desiredEndDate;
+                } else {
+                    throw new Error("Invalid desired end date format received.");
+                }
+                // desiredStartDateObj = eventData.desiredStartDate instanceof Date ? eventData.desiredStartDate : new Date(eventData.desiredStartDate + 'T00:00:00Z');
+                // desiredEndDateObj = eventData.desiredEndDate instanceof Date ? eventData.desiredEndDate : new Date(eventData.desiredEndDate + 'T23:59:59Z');
+                // if (isNaN(desiredStartDateObj.getTime()) || isNaN(desiredEndDateObj.getTime())) throw new Error("Invalid desired date format.");
+                
                 if (desiredStartDateObj > desiredEndDateObj) throw new Error("Desired end date cannot be earlier than desired start date.");
             } catch (e) { throw new Error(e.message || "Invalid date format."); }
 
@@ -254,8 +267,9 @@ export const eventActions = {
                 xpAllocation: Array.isArray(eventData.xpAllocation) ? eventData.xpAllocation : [],
                 status: 'Pending',
                 // Pass desired dates as received (should be Date objects)
-                desiredStartDate: eventData.desiredStartDate,
-                desiredEndDate: eventData.desiredEndDate,
+                // Firestore mapper will handle conversion to Timestamp
+                desiredStartDate: desiredStartDateObj, 
+                desiredEndDate: desiredEndDateObj,
                 createdAt: Timestamp.now(), // Keep this specific timestamp here
             });
 

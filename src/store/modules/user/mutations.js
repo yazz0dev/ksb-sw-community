@@ -94,4 +94,14 @@ export const userMutations = {
     setLastXpCalculationTimestamp(state, timestamp) {
         state.lastXpCalculationTimestamp = timestamp;
     },
+
+    // Mutation to store the fetched student list
+    setStudents(state, students) {
+        if (Array.isArray(students)) {
+            state.studentList = students;
+        } else {
+            console.error('setStudents mutation received non-array payload:', students);
+            state.studentList = []; // Ensure it's always an array
+        }
+    },
 };

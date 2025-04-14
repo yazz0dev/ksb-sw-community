@@ -426,9 +426,13 @@ export const userActions = {
                 }))
                 .sort((a, b) => (a.name || a.uid).localeCompare(b.name || b.uid));
 
+            // Commit the mutation to update the state
+            commit('setStudents', students);
+
             return students;
         } catch (error) {
             console.error("Error fetching all students:", error);
+            commit('setStudents', []); // Commit empty array on error
             return [];
         }
     },

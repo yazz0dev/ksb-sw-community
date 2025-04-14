@@ -11,14 +11,18 @@ const state = {
         presenter: 0,
         designer: 0,
         organizer: 0,
-        problemSolver: 0
+        problemSolver: 0,
+        participation: 0, // Added participation
+        general: 0 // Added general
     },
     skills: [],
     preferredRoles: [],
     isAuthenticated: false,
     hasFetched: false, // Flag to track if initial fetch attempt completed
     allUsers: [], // Add state for all users
-    userNameCache: {} // Add user name cache (using object for simplicity, could use Map)
+    studentList: [], // <<< ADDED studentList state property
+    userNameCache: {}, // Add user name cache (using object for simplicity, could use Map)
+    lastXpCalculationTimestamp: null // Added for XP calculation logic
 };
 
 const getters = {

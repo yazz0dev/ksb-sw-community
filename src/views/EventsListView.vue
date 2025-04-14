@@ -37,52 +37,84 @@
       </div>
 
       <!-- Events Groups -->
-      <div v-else>
-        <!-- No events message -->
-        <p v-if="groupedEvents.length === 0" class="text-center text-secondary py-5">
-          No events found for the selected filter.
-        </p>
+      <div v-else-if="error" class="alert alert-danger">{{ error }}</div>
 
-        <!-- Event groups -->
-        <div v-else class="mb-5">
-          <div v-for="(group, index) in groupedEvents" :key="index" class="mb-5">
-            <h4 
-              class="h4 text-dark mb-4 pb-2 border-bottom"
-            >
-              {{ group.title }}
-            </h4>
-            <div class="row g-4">
-              <div
-                v-for="event in group.events"
-                :key="event.id"
-                class="col-md-6 col-lg-4 animate-fade-in"
-              >
-                <EventCard
-                  class="h-100" 
-                  :event="event"
-                  @click="$router.push(`/event/${event.id}`)"
-                  style="cursor: pointer;"
-                />
+      <div v-else>
+        <!-- Logged-in User View -->
+        <div v-if="isAuthenticated">
+          <!-- Upcoming Events Section -->
+          <div v-if="activeFilter === 'upcoming'">
+            <h2 class="h4 mb-4">Upcoming Events</h2>
+            <div v-if="upcomingEvents.length > 0" class="row g-4">
+              <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
+                <EventCard :event="event" />
               </div>
             </div>
+            <p v-else class="text-muted">No upcoming events.</p>
           </div>
+
+          <!-- Active Events Section -->
+          <div v-if="activeFilter === 'active'">
+             <hr v-if="activeFilter === 'active'" class="my-5"> <!-- Separator if not first -->
+            <h2 class="h4 mb-4">Active Events</h2>
+            <div v-if="activeEvents.length > 0" class="row g-4">
+              <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
+                  <EventCard :event="event" />
+              </div>
+            </div>
+            <p v-else class="text-muted">No active events.</p
+            >
+          </div>
+
+          <!-- Completed Events Section -->
+          <div v-if="activeFilter === 'completed'">
+            <hr v-if="activeFilter === 'completed'" class="my-5"> <!-- Separator if not first -->
+            <h2 class="h4 mb-4">Completed Events</h2>
+            <div v-if="completedEvents.length > 0" class="row g-4">
+              <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
+                  <EventCard :event="event" />
+              </div>
+            </div>
+             <p v-else class="text-muted">No completed events.</p>
+          </div>
+        </div>
+
+        <!-- Logged-out User View (Only shows Completed) -->
+        <div v-else>
+          <h2 class="h4 mb-4">Completed Events</h2>
+          <div v-if="completedEvents.length > 0" class="row g-4">
+            <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
+                <EventCard :event="event" />
+            </div>
+          </div>
+           <p v-else class="text-muted">No completed events found.</p>
         </div>
       </div>
     </div>
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
-// Removed Chakra UI imports
 import EventCard from '@/components/EventCard.vue';
+import { DateTime } from 'luxon';
+
+// Assuming Event structure - define or import if available
+interface Event { 
+  id: string;
+  status: string;
+  startDate?: string | null; 
+  endDate?: string | null;
+  // Add other relevant fields if needed
+}
 
 const store = useStore();
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
+const error = ref<string | null>(null);
 
 const filters = [
   { label: 'Upcoming', value: 'upcoming' },
@@ -97,7 +129,7 @@ const getDefaultFilter = () => {
 };
 const activeFilter = ref(getDefaultFilter());
 
-const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
+const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
 
 const viewTitle = computed(() => {
   if (!isAuthenticated.value && route.name === 'CompletedEvents') return 'Completed Events';
@@ -124,141 +156,65 @@ watch(() => route.query.filter, (newFilter) => {
   }
 });
 
-// Filter events based on authentication state and active filter
-const filteredEvents = computed(() => {
-  const allEvents = store.getters['events/allEvents']; 
-  
-  // If not authenticated and on the completed events page, show only completed
-  if (!isAuthenticated.value && route.name === 'CompletedEvents') {
-    return allEvents.filter(e => e.status === 'Completed');
-  }
-  
-  // If not authenticated but somehow not on completed page, show nothing relevant to filters
-  if (!isAuthenticated.value) {
-      return [];
-  }
+const now = DateTime.now();
 
-  const currentFilter = activeFilter.value;
-  let result;
-  if (currentFilter === 'upcoming') {
-    result = allEvents.filter(e => ['Upcoming', 'Approved'].includes(e.status));
-  } else if (currentFilter === 'active') {
-    result = allEvents.filter(e => e.status === 'InProgress' || e.status === 'In Progress');
-  } else if (currentFilter === 'completed') {
-    result = allEvents.filter(e => e.status === 'Completed');
-  } else {
-    // Default case if filter is somehow invalid, show upcoming
-    result = allEvents.filter(e => ['Upcoming', 'Approved'].includes(e.status));
-  }
-  return result;
+const upcomingEvents = computed<Event[]>(() => {
+    if (!isAuthenticated.value) return [];
+    // Filter from all events directly
+    return store.getters['events/allEvents'].filter((event: Event) => 
+        event.status === 'Approved' && 
+        event.startDate && 
+        DateTime.fromISO(event.startDate).isValid && // Check validity
+        DateTime.fromISO(event.startDate) > now
+    ).sort((a: Event, b: Event) => {
+        const dateA = a.startDate ? DateTime.fromISO(a.startDate) : null;
+        const dateB = b.startDate ? DateTime.fromISO(b.startDate) : null;
+        if (!dateA?.isValid || !dateB?.isValid) return 0;
+        return dateA.toMillis() - dateB.toMillis();
+    });
 });
 
-// Helper function to safely get a Date object
-const getDateFromTimestamp = (timestamp) => {
-  if (!timestamp) return null;
-  if (typeof timestamp.toDate === 'function') {
-    try { return timestamp.toDate(); } catch (e) { console.error("toDate error", e); return null; }
-  }
-  if (timestamp instanceof Date) { return !isNaN(timestamp.getTime()) ? timestamp : null; }
-  if (typeof timestamp === 'string') {
-    try { const date = new Date(timestamp); return !isNaN(date.getTime()) ? date : null; } catch (e) { console.error("string parse error", e); return null; }
-  }
-  if (typeof timestamp === 'object' && typeof timestamp.seconds === 'number') {
-     try { return new Date(timestamp.seconds * 1000); } catch (e) { console.error("seconds obj error", e); return null; }
-  }
-  return null;
-};
-
-// Group filtered events by month and year
-const groupedEvents = computed(() => {
-  const sortedEvents = [...filteredEvents.value].sort((a, b) => {
-      let dateA, dateB;
-      const filterValue = activeFilter.value;
-      // Sort completed descending, others ascending
-      if (filterValue === 'completed') {
-        dateA = getDateFromTimestamp(a.completedAt) || getDateFromTimestamp(a.endDate) || getDateFromTimestamp(a.startDate);
-        dateB = getDateFromTimestamp(b.completedAt) || getDateFromTimestamp(b.endDate) || getDateFromTimestamp(b.startDate);
-        // Handle null dates - put them at the end when descending
-        if (!dateA && !dateB) return 0;
-        if (!dateA) return 1; 
-        if (!dateB) return -1;
-        return dateB.getTime() - dateA.getTime();
-      } else {
-        dateA = getDateFromTimestamp(a.startDate);
-        dateB = getDateFromTimestamp(b.startDate);
-        // Handle null dates - put them at the end when ascending
-        if (!dateA && !dateB) return 0;
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        return dateA.getTime() - dateB.getTime();
-      }
-  });
-
-  const groups = {};
-  const unscheduledEvents = [];
-
-  sortedEvents.forEach(event => {
-    let groupDate;
-    if (activeFilter.value === 'completed') {
-        groupDate = getDateFromTimestamp(event.completedAt) || getDateFromTimestamp(event.endDate) || getDateFromTimestamp(event.startDate);
-    } else {
-        groupDate = getDateFromTimestamp(event.startDate);
-    }
-
-    if (!groupDate) {
-        // Only group unscheduled for upcoming/active
-        if (activeFilter.value !== 'completed') {
-            unscheduledEvents.push(event);
-        }
-        return; // Don't group completed events without a date
-    }
-
-    const year = groupDate.getFullYear();
-    const month = groupDate.getMonth(); // 0-indexed
-    const yearMonthKey = `${year}-${month}`;
-
-    if (!groups[yearMonthKey]) {
-      groups[yearMonthKey] = {
-          year: year,
-          month: month,
-          events: []
-      };
-    }
-    groups[yearMonthKey].events.push(event);
-  });
-
-  // Sort groups by year and month
-  const groupSortOrder = activeFilter.value === 'completed' ? -1 : 1; 
-  const finalGroupedList = Object.values(groups)
-    .sort((a, b) => {
-        if (a.year !== b.year) return groupSortOrder * (a.year - b.year);
-        return groupSortOrder * (a.month - b.month);
-    })
-    .map(group => {
-      const monthName = new Date(group.year, group.month).toLocaleString('default', { month: 'long' });
-      return {
-        title: `${monthName} ${group.year}`,
-        events: group.events
-      };
+const activeEvents = computed<Event[]>(() => {
+     if (!isAuthenticated.value) return [];
+    // Filter from all events directly
+    return store.getters['events/allEvents'].filter((event: Event) => {
+        const start = event.startDate ? DateTime.fromISO(event.startDate) : null;
+        const end = event.endDate ? DateTime.fromISO(event.endDate) : null;
+        return event.status === 'InProgress' || 
+               (event.status === 'Approved' && 
+                start?.isValid && start <= now && 
+                end?.isValid && end >= now);
+    }).sort((a: Event, b: Event) => { 
+        const dateA = a.startDate ? DateTime.fromISO(a.startDate) : null;
+        const dateB = b.startDate ? DateTime.fromISO(b.startDate) : null;
+        if (!dateA?.isValid || !dateB?.isValid) return 0;
+        return dateA.toMillis() - dateB.toMillis();
     });
+});
 
-  // Add unscheduled group at the end if ascending sort
-  if (unscheduledEvents.length > 0 && groupSortOrder === 1) {
-    finalGroupedList.push({
-      title: 'Date TBD',
-      events: unscheduledEvents
+const completedEvents = computed<Event[]>(() => {
+    // Filter from all events directly
+    return store.getters['events/allEvents'].filter((event: Event) => {
+        const end = event.endDate ? DateTime.fromISO(event.endDate) : null;
+        return event.status === 'Completed' || 
+               (event.status === 'Approved' && end?.isValid && end < now);
+    }).sort((a: Event, b: Event) => { 
+        const dateA = a.endDate || a.startDate;
+        const dateB = b.endDate || b.startDate;
+        const dtA = dateA ? DateTime.fromISO(dateA) : null;
+        const dtB = dateB ? DateTime.fromISO(dateB) : null;
+        if (!dtA?.isValid || !dtB?.isValid) return 0; 
+        return dtB.toMillis() - dtA.toMillis(); // Sort descending 
     });
-  }
-
-  return finalGroupedList;
 });
 
 onMounted(async () => {
   loading.value = true;
+  error.value = null;
   try {
     await store.dispatch('events/fetchEvents');
-  } catch (error) {
-    console.error("Failed to load events:", error);
+  } catch (err: any) {
+    error.value = err.message || 'Failed to load events.';
   } finally {
     loading.value = false;
   }

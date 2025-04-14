@@ -21,7 +21,7 @@
             <!-- Event Request Link (Non-Admin Only) -->
             <router-link
                 v-if="isAuthenticated && !isAdmin"
-                to="/create-event"
+                to="/request-event"
                 class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
                 active-class="active"
                 style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
@@ -41,16 +41,16 @@
                 <span class="fs-7">Leaderboard</span>
             </router-link>
 
-            <!-- Manage Requests (Admin Only) -->
+            <!-- Manage Requests/Admin Dashboard (Admin Only) -->
             <router-link
                 v-if="isAdmin != null && isAdmin"
-                to="/manage-requests"
+                to="/admin/dashboard" 
                 class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
                 active-class="active"
                 style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
             >
-                <span class="fs-4 mb-1"><i class="fas fa-tasks"></i></span>
-                <span class="fs-7">Manage</span>
+                <span class="fs-4 mb-1"><i class="fas fa-tachometer-alt"></i></span>
+                <span class="fs-7">Admin</span>
             </router-link>
 
             <!-- Profile (User Only) -->
