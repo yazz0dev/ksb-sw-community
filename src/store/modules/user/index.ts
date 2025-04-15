@@ -1,18 +1,10 @@
 import { Module } from 'vuex';
 import { userActions } from './actions';
 import { userMutations } from './mutations';
-import { RootState, UserState } from '@/types/store';
+import { RootState } from '@/types/store'; // Removed UserState import from here
+import { UserState } from '@/types/user'; // Import UserState from the correct file
 
-interface XpByRole {
-    fullstack: number;
-    presenter: number;
-    designer: number;
-    organizer: number;
-    problemSolver: number;
-    participation: number;
-    general: number;
-}
-
+// Removed local XpByRole interface - using Record<string, number> from UserState
 const state: UserState = {
     uid: null,
     name: null,
@@ -33,7 +25,9 @@ const state: UserState = {
     allUsers: [], // Add state for all users
     studentList: [], // <<< ADDED studentList state property
     userNameCache: {}, // Add user name cache (using object for simplicity, could use Map)
-    lastXpCalculationTimestamp: null // Added for XP calculation logic
+    lastXpCalculationTimestamp: null, // Added for XP calculation logic
+    loading: false, // Added loading state
+    error: null // Added error state
 };
 
 const getters = {
@@ -61,17 +55,7 @@ const getters = {
     }
 };
 
-// Add this constant before the mutations
-const defaultXpStructure: XpByRole = {
-    fullstack: 0,
-    presenter: 0,
-    designer: 0,
-    organizer: 0,
-    problemSolver: 0,
-    participation: 0,
-    general: 0
-};
-
+// Removed local defaultXpStructure constant
 const mutations = {
     ...userMutations,
     setUserData(state: UserState, userData: any) {
@@ -88,10 +72,12 @@ const mutations = {
         } else {
             // Set student-specific fields only for non-Admins
             const dbXp = userData.xpByRole || {};
-            state.xpByRole = Object.keys(defaultXpStructure).reduce((acc, key) => {
+            // Use a predefined list of expected roles or derive from a central source if possible
+            const expectedRoles = ['fullstack', 'presenter', 'designer', 'organizer', 'problemSolver', 'participation', 'general'];
+            state.xpByRole = expectedRoles.reduce((acc, key) => {
                 acc[key] = Number(dbXp[key]) || 0;
                 return acc;
-            }, {} as XpByRole);
+            }, {} as Record<string, number>); // Use Record<string, number> for accumulator type
             state.skills = Array.isArray(userData.skills) ? userData.skills : [];
             state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
         }

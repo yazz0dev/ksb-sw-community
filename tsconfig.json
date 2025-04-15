@@ -14,9 +14,7 @@
     "baseUrl": ".",
     "types": [
       "vite/client",
-      "vuex", 
-      "vue-router",
-      "vite-plugin-pwa/client"
+      "vite-plugin-pwa/client" // Keep if PWA APIs are used directly
     ],
     "paths": {
       "@/*": ["./src/*"]
