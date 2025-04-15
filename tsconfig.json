@@ -14,9 +14,8 @@
     "baseUrl": ".",
     "types": [
       "vite/client",
-      "vuex",
+      "vuex", 
       "vue-router",
-      "firebase",
       "vite-plugin-pwa/client"
     ],
     "paths": {
@@ -33,8 +32,7 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "vite.config.ts",
-    "src/**/*.js"
+    "vite.config.ts"
   ],
   "exclude": [
     "node_modules"
