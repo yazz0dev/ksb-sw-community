@@ -37,10 +37,14 @@
     "@types/node": "^20.0.0",
     "@types/uuid": "^9.0.7",
     "@vitejs/plugin-vue": "^4.5.2",
+<<<<<<< HEAD
     "@vue/tsconfig": "^0.5.0",
     "glob": "^11.0.1",
+=======
+>>>>>>> cb7abed82bb9bdc7bc2cfb05e25f4cef9d718cc3
     "path": "^0.12.7",
     "rimraf": "^6.0.1",
+    "glob": "^11.0.1",
     "sass": "1.78.0",
     "typescript": "~5.3.3",
     "vite": "^5.0.10",

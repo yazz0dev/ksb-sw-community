@@ -14,12 +14,16 @@
     "baseUrl": ".",
     "types": [
       "vite/client",
+<<<<<<< HEAD
       "vuex",
       "vue-router",
       "@firebase/app-types",
       "@firebase/firestore-types",
       "@firebase/auth-types",
       "vite-plugin-pwa/client"
+=======
+      "vite-plugin-pwa/client" // Keep if PWA APIs are used directly
+>>>>>>> cb7abed82bb9bdc7bc2cfb05e25f4cef9d718cc3
     ],
     "paths": {
       "@/*": ["./src/*"]
@@ -35,8 +39,7 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "vite.config.ts",
-    "src/**/*.js"
+    "vite.config.ts"
   ],
   "exclude": [
     "node_modules"

@@ -28,6 +28,7 @@
          {{ errorMessage }}
       </div>
 
+      <!-- Note: Added null check for event -->
       <div v-else-if="!event" class="alert alert-warning" role="alert">
          Event not found or ratings are not open.
       </div>
@@ -49,7 +50,7 @@
                           <div
                             v-for="allocation in sortedXpAllocation"
                             :key="`team-crit-${allocation.constraintIndex}`"
-                            class="mb-2" 
+                            class="mb-2"
                           >
                              <label :for="`team-select-${allocation.constraintIndex}`" class="form-label small">{{ allocation.constraintLabel }} ({{ allocation.points }} XP)</label>
                              <select
@@ -60,6 +61,7 @@
                                :disabled="isSubmitting"
                              >
                                <option disabled value="">Select Team...</option>
+                               <!-- Added null check for eventTeams -->
                                <option v-for="team in eventTeams" :key="team.teamName" :value="team.teamName">
                                  {{ team.teamName }}
                                </option>
@@ -84,6 +86,7 @@
                                :disabled="isSubmitting"
                              >
                                <option disabled value="">Select Participant...</option>
+                               <!-- Note: Assuming member object has uid -->
                                <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
                                  {{ nameCache[member.uid] || member.uid }} ({{ getTeamNameForMember(member.uid) }})
                                </option>
@@ -156,82 +159,144 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
-import { useRoute, useRouter } from 'vue-router';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { useRouter } from 'vue-router'; // useRoute was not used
+import { doc, getDoc, DocumentData } from 'firebase/firestore'; // Added DocumentData type
+import { db } from '../../firebase'; // Assuming path is correct
 
-const props = defineProps({ eventId: { type: String, required: true }, teamId: { type: String, required: false } });
+// --- Interfaces (Optional but recommended for strong typing) ---
+interface XpAllocation {
+  constraintIndex: number;
+  constraintLabel: string;
+  points: number;
+  role: string;
+}
+
+interface Team {
+  teamName: string;
+  members?: string[]; // Array of user UIDs
+  // Add other team properties if needed
+}
+
+interface EventDetails extends DocumentData {
+  eventName: string;
+  isTeamEvent?: boolean;
+  ratingsOpen?: boolean;
+  status?: string; // e.g., 'Upcoming', 'Active', 'Completed'
+  participants?: string[]; // Array of user UIDs
+  teams?: Team[];
+  xpAllocation?: XpAllocation[];
+  teamCriteriaRatings?: Array<{ ratedBy: string; selections: { criteria: Record<string, string>; bestPerformer: string } }>;
+  winnersPerRole?: Record<string, string[]>; // role -> [winnerId]
+}
+
+interface User {
+    uid: string;
+    name?: string;
+    role?: string; // 'Admin', 'Participant', etc.
+    // Add other user properties if needed
+}
+
+interface TeamMember {
+    uid: string;
+    name?: string; // Name might be fetched later
+}
+
+// --- Props ---
+const props = defineProps({
+  eventId: {
+    type: String,
+    required: true
+  },
+  // teamId prop was defined but not used in the provided script logic
+  // teamId: {
+  //   type: String,
+  //   required: false
+  // }
+});
+
+// --- Composables ---
 const store = useStore();
-const route = useRoute();
 const router = useRouter();
-const loading = ref(true);
-const errorMessage = ref('');
-const isSubmitting = ref(false);
-const eventName = ref('');
-const event = ref(null);
-const isTeamEvent = ref(null);
-const teamIdToRate = ref(null);
-const teamMembersToDisplay = ref([]);
-const eventTeams = ref([]);
-const allTeamMembers = ref([]);
-const teamMemberMap = ref({});
-const didLoadExistingRating = ref(false);
-const nameCache = reactive({});
 
-const ratings = reactive({});
+// --- Refs and Reactive State ---
+const loading = ref<boolean>(true);
+const errorMessage = ref<string>('');
+const isSubmitting = ref<boolean>(false);
+const eventName = ref<string>('');
+const event = ref<EventDetails | null>(null);
+const isTeamEvent = ref<boolean | null>(null); // Use boolean | null to indicate loading state
+const eventTeams = ref<Team[]>([]);
+const allTeamMembers = ref<TeamMember[]>([]); // Store as { uid, name } objects
+const teamMemberMap = ref<Record<string, string>>({}); // Map member UID to team name
+const didLoadExistingRating = ref<boolean>(false);
 
-const currentUser = computed(() => store.getters['user/getUser']);
+// Using reactive for nested objects that will be modified
+const nameCache = reactive<Record<string, string>>({}); // Cache for user names { uid: name }
+const ratings = reactive<Record<string, any>>({}); // Structure: { constraintX: { teamName/winnerId }, bestPerformer: uid }
 
-const sortedXpAllocation = computed(() => {
+// --- Computed Properties ---
+const currentUser = computed<User | null>(() => store.getters['user/getUser']);
+
+const sortedXpAllocation = computed<XpAllocation[]>(() => {
   if (!event.value?.xpAllocation || !Array.isArray(event.value.xpAllocation)) return [];
+
   const validAllocations = event.value.xpAllocation.filter(
-    alloc => typeof alloc.constraintIndex === 'number' && 
-             alloc.constraintLabel?.trim() &&
-             typeof alloc.points === 'number' && alloc.points >= 0 &&
-             typeof alloc.role === 'string'
+    (alloc): alloc is XpAllocation => // Type guard for better type safety
+      typeof alloc?.constraintIndex === 'number' &&
+      typeof alloc?.constraintLabel === 'string' && alloc.constraintLabel.trim() !== '' &&
+      typeof alloc?.points === 'number' && alloc.points >= 0 &&
+      typeof alloc?.role === 'string' // Role is required
   );
+  // Create a new sorted array to avoid mutating the original
   return [...validAllocations].sort((a, b) => a.constraintIndex - b.constraintIndex);
 });
 
-const isValid = computed(() => {
-  if (!sortedXpAllocation.value || sortedXpAllocation.value.length === 0) return false;
+const hasValidRatingCriteria = computed<boolean>(() => {
+  return sortedXpAllocation.value.length > 0;
+});
+
+const isValid = computed<boolean>(() => {
+  if (!hasValidRatingCriteria.value) return false; // Rely on the other computed
 
   const allCriteriaSelected = sortedXpAllocation.value.every(allocation => {
     const ratingKey = `constraint${allocation.constraintIndex}`;
     const ratingEntry = ratings[ratingKey];
     if (!ratingEntry) return false;
+
+    // Check based on event type
     return isTeamEvent.value
-      ? (ratingEntry.teamName && ratingEntry.teamName !== '') 
-      : (ratingEntry.winnerId && ratingEntry.winnerId !== ''); 
+      ? !!ratingEntry.teamName // Check if teamName is truthy (not null/undefined/empty string)
+      : !!ratingEntry.winnerId; // Check if winnerId is truthy
   });
 
   const bestPerformerSelected = isTeamEvent.value
-    ? (ratings.bestPerformer && ratings.bestPerformer !== '')
-    : true;
+    ? !!ratings.bestPerformer // Check if bestPerformer is truthy
+    : true; // Not applicable for individual events
 
   return allCriteriaSelected && bestPerformerSelected;
 });
 
-const availableParticipants = computed(() => {
-  if (isTeamEvent.value || !event.value?.participants || !Array.isArray(event.value.participants)) return [];
-  // Filter out the current user from the list of participants
-  return event.value.participants.filter(pId => pId !== currentUser.value?.uid);
+const availableParticipants = computed<string[]>(() => {
+  // Ensure it's not a team event and participants array exists
+  if (isTeamEvent.value || !event.value?.participants || !Array.isArray(event.value.participants)) {
+      return [];
+  }
+  // Filter out the current user if they exist
+  const currentUserId = currentUser.value?.uid;
+  return event.value.participants.filter(pId => pId !== currentUserId);
 });
 
-const hasValidRatingCriteria = computed(() => {
-  return sortedXpAllocation.value.length > 0;
-});
-
-const submitButtonText = computed(() => {
+const submitButtonText = computed<string>(() => {
   const action = didLoadExistingRating.value ? 'Update' : 'Submit';
   const target = isTeamEvent.value ? 'Team Selections' : 'Winners';
   return isSubmitting.value ? 'Submitting...' : `${action} ${target}`;
 });
 
-const formatRoleName = (roleKey) => {
+// --- Helper Functions ---
+const formatRoleName = (roleKey: string | undefined | null): string => {
   if (!roleKey) return '';
   // Improved formatting for camelCase and snake_case
   return roleKey
@@ -241,8 +306,32 @@ const formatRoleName = (roleKey) => {
     .trim();
 };
 
+const fetchAndCacheUserName = async (userId: string): Promise<void> => {
+  if (!userId || nameCache[userId]) return; // Skip if no ID or already cached/loading
+
+  nameCache[userId] = 'Loading...'; // Placeholder
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const docSnap = await getDoc(userDocRef);
+    if (docSnap.exists()) {
+      nameCache[userId] = docSnap.data()?.name || userId; // Use name or fallback to UID
+    } else {
+      console.warn(`User document not found for ID: ${userId}`);
+      nameCache[userId] = `User (${userId.substring(0, 5)}...)`; // Indicate not found
+    }
+  } catch (error) {
+    console.error(`Error fetching name for ${userId}:`, error);
+    nameCache[userId] = `Error (${userId.substring(0, 5)}...)`; // Indicate error
+  }
+};
+
+const getTeamNameForMember = (memberId: string): string => {
+  return teamMemberMap.value[memberId] || 'Unknown Team';
+};
+
+// --- Watchers ---
 watch([sortedXpAllocation, isTeamEvent], ([allocations, teamEventStatus]) => {
-  // Clear previous rating data when allocations or event type changes
+  // Clear previous rating data when allocations or event type changes significantly
   Object.keys(ratings).forEach(key => {
       delete ratings[key];
   });
@@ -250,255 +339,330 @@ watch([sortedXpAllocation, isTeamEvent], ([allocations, teamEventStatus]) => {
   if (Array.isArray(allocations)) {
     allocations.forEach(allocation => {
       const allocationKey = `constraint${allocation.constraintIndex}`;
-      // Initialize structure based on event type
-      ratings[allocationKey] = teamEventStatus ? { teamName: '' } : { winnerId: '' };
+      // Initialize structure based on event type (can be null initially)
+      if (teamEventStatus === true) {
+          ratings[allocationKey] = { teamName: '' };
+      } else if (teamEventStatus === false) {
+          ratings[allocationKey] = { winnerId: '' };
+      }
     });
-    // Initialize bestPerformer only for team events
-    if (teamEventStatus) {
+    // Initialize bestPerformer only for team events and if type is confirmed
+    if (teamEventStatus === true) {
       ratings.bestPerformer = '';
     }
   }
-}, { immediate: true, deep: true });
+}, { immediate: true, deep: true }); // Deep watch might be intensive if allocations are huge
 
-async function fetchAndCacheUserName(userId) {
-  if (!userId || nameCache[userId]) return;
-  nameCache[userId] = 'Loading...'; // Placeholder while loading
-  try {
-    const userDocRef = doc(db, 'users', userId);
-    const docSnap = await getDoc(userDocRef);
-    nameCache[userId] = docSnap.exists() ? (docSnap.data().name || userId) : `User (${userId.substring(0,5)}...)`; // Use ID if no name
-  } catch (error) {
-    console.error(`Error fetching name for ${userId}:`, error);
-    nameCache[userId] = `Error (${userId.substring(0,5)}...)`; // Indicate error
+// Watch available participants to fetch their names for individual events
+watch(availableParticipants, (newParticipants) => {
+  if (!isTeamEvent.value && Array.isArray(newParticipants)) {
+    newParticipants.forEach(pId => {
+      if (pId) fetchAndCacheUserName(pId); // Ensure pId is valid before fetching
+    });
   }
-}
+}, { immediate: true });
 
-const getTeamNameForMember = (memberId) => {
-  return teamMemberMap.value[memberId] || 'Unknown Team';
+// Watch all team members to fetch their names for team events
+watch(allTeamMembers, (newMembers) => {
+  if (isTeamEvent.value && Array.isArray(newMembers)) {
+    newMembers.forEach(member => {
+      if (member?.uid) fetchAndCacheUserName(member.uid); // Ensure member and uid exist
+    });
+  }
+}, { immediate: true }); // Fetch names as soon as members are populated
+
+
+// --- Core Logic Functions ---
+const initializeTeamEventForm = async (eventDetails: EventDetails, loadExisting: boolean = false): Promise<void> => {
+  eventTeams.value = eventDetails.teams || [];
+  const memberIds = new Set<string>();
+  const tempMemberMap: Record<string, string> = {};
+
+  // Build member set and UID -> team name map
+  eventTeams.value.forEach(team => {
+    (team.members || []).forEach(memberId => {
+      if (memberId) {
+         memberIds.add(memberId);
+         tempMemberMap[memberId] = team.teamName;
+      }
+    });
+  });
+
+  teamMemberMap.value = tempMemberMap; // Assign the map
+
+  // Fetch names and populate allTeamMembers
+  if (memberIds.size > 0) {
+    const userIdsArray = Array.from(memberIds);
+    // Fetch names in batch (assuming fetchUserNamesBatch exists and returns Record<string, string>)
+    const userNames = await store.dispatch('user/fetchUserNamesBatch', userIdsArray);
+    // Populate name cache directly from batch result
+    userIdsArray.forEach(uid => {
+        nameCache[uid] = userNames[uid] || uid; // Cache name or UID
+    });
+    // Populate allTeamMembers with { uid, name }
+    allTeamMembers.value = userIdsArray
+      .map(uid => ({ uid, name: userNames[uid] || uid }))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Sort by name
+  } else {
+    allTeamMembers.value = []; // Clear if no members
+  }
+
+  // Initialize ratings structure (handled by watcher)
+
+  // Load existing data if applicable
+  if (loadExisting) {
+      const currentUserId = currentUser.value?.uid;
+      const existingRating = eventDetails.teamCriteriaRatings?.find(
+        r => r.ratedBy === currentUserId
+      );
+      if (existingRating?.selections) {
+        // Load criteria selections
+        Object.entries(existingRating.selections.criteria || {}).forEach(([index, teamName]) => {
+           const key = `constraint${index}`;
+           if (ratings[key]) { // Check if the key exists (initialized by watcher)
+             ratings[key].teamName = teamName || ''; // Ensure empty string if null/undefined
+           } else {
+             // Handle case where allocation might have changed since rating
+             console.warn(`Rating found for non-existent constraint index: ${index}`);
+           }
+        });
+        // Load best performer
+        ratings.bestPerformer = existingRating.selections.bestPerformer || '';
+        didLoadExistingRating.value = true; // Mark that existing data was loaded
+      } else {
+         didLoadExistingRating.value = false; // No existing rating found for user
+      }
+  } else {
+       didLoadExistingRating.value = false; // Explicitly set when not loading existing
+  }
 };
 
-watch(availableParticipants, (participants) => {
-  if (!isTeamEvent.value && Array.isArray(participants)) {
-    participants.forEach(fetchAndCacheUserName);
+const initializeIndividualEventForm = async (eventDetails: EventDetails, loadExisting: boolean = false): Promise<void> => {
+  const participantIds = eventDetails.participants || [];
+
+  // Fetch participant names (if not already fetched by watcher)
+  if (participantIds.length > 0) {
+      const idsToFetch = participantIds.filter(id => id && !nameCache[id]);
+      if (idsToFetch.length > 0) {
+        await Promise.all(idsToFetch.map(fetchAndCacheUserName));
+      }
   }
-}, { immediate: true });
 
-watch(allTeamMembers, (members) => {
-  if (isTeamEvent.value && Array.isArray(members)) {
-    members.forEach(member => fetchAndCacheUserName(member.uid));
+  // Initialize ratings structure (handled by watcher)
+
+  // Load existing data if applicable
+  if (loadExisting) {
+     const winnersData = eventDetails.winnersPerRole || {};
+     let loadedSomething = false;
+     sortedXpAllocation.value.forEach(alloc => {
+       const role = alloc.role || 'general'; // Default to general if role missing? Check requirements.
+       // Assuming single winner per role/criteria for now based on original logic
+       const winnerId = winnersData[role]?.[0];
+       const key = `constraint${alloc.constraintIndex}`;
+
+       if (winnerId && ratings[key]) { // Check if winner exists and key is initialized
+         ratings[key].winnerId = winnerId;
+         loadedSomething = true;
+       } else if (winnerId && !ratings[key]) {
+          // Handle case where allocation might have changed
+          console.warn(`Winner data found for non-existent constraint index: ${alloc.constraintIndex}`);
+       }
+     });
+     didLoadExistingRating.value = loadedSomething; // Mark if any existing data was loaded
+  } else {
+      didLoadExistingRating.value = false; // Explicitly set when not loading existing
   }
-}, { immediate: true });
+};
 
-onMounted(async () => {
-  await initializeForm();
-});
 
-const submitRating = async () => {
+const initializeForm = async (): Promise<void> => {
+  const currentUserId = currentUser.value?.uid;
+  const currentUserRole = currentUser.value?.role; // Assuming role is available in user object
+
+  // --- Initial Checks ---
+  if (!currentUserId) {
+      errorMessage.value = 'User not logged in.';
+      loading.value = false;
+      return; // Stop execution if no user
+  }
+
+  if (currentUserRole === 'Admin') {
+    errorMessage.value = 'Administrators cannot submit ratings or select winners.';
+    loading.value = false;
+     // Optional: Redirect admin away
+     // setTimeout(() => router.push({ name: 'Home' }), 100);
+    return;
+  }
+
+  loading.value = true;
+  errorMessage.value = '';
+  didLoadExistingRating.value = false; // Reset flag
+
+  try {
+    // --- Fetch Event Details ---
+    // Type casting the result for better intellisense
+    const eventDetails = await store.dispatch('events/fetchEventDetails', props.eventId) as EventDetails | null;
+
+    if (!eventDetails) {
+      throw new Error('Event not found or not accessible.');
+    }
+    event.value = eventDetails; // Store fetched details
+    eventName.value = eventDetails.eventName || 'Unnamed Event';
+    isTeamEvent.value = !!eventDetails.isTeamEvent; // Coerce to boolean
+
+    // --- Validation Checks ---
+    if (eventDetails.status !== 'Completed') {
+      throw new Error('Ratings/Winner selection is only available for completed events.');
+    }
+    // Use ratingsOpen flag specifically if it exists and is relevant
+    if (eventDetails.ratingsOpen === false) { // Check explicitly for false
+       throw new Error('Ratings/Winner selection is currently closed for this event.');
+    }
+    if (!hasValidRatingCriteria.value) { // Check after event loaded and sortedXpAllocation computed
+        throw new Error('This event has no valid rating criteria defined.');
+    }
+
+    // --- Participant Check ---
+    let isParticipant = false;
+    if (isTeamEvent.value && eventDetails.teams) {
+        isParticipant = eventDetails.teams.some(team => team.members?.includes(currentUserId));
+    } else if (!isTeamEvent.value && eventDetails.participants) {
+        isParticipant = eventDetails.participants.includes(currentUserId);
+    }
+
+    // Re-evaluate if participants *can* rate/select. The original code prevents it.
+    // Keeping the original logic here:
+    if (isParticipant) {
+         throw new Error('Participants cannot rate or select winners for events they were part of.');
+    }
+
+
+    // --- Determine if Loading Existing Data ---
+    let shouldLoadExisting = false;
+    if (isTeamEvent.value) {
+        // Check if *this user* has already submitted criteria ratings
+        shouldLoadExisting = eventDetails.teamCriteriaRatings?.some(r => r.ratedBy === currentUserId) ?? false;
+         // If you want to block updates uncomment the below:
+         // if (shouldLoadExisting) throw new Error('You have already submitted team selections.');
+
+    } else {
+        // Check if *any* winners have been selected (implies submission by someone)
+        shouldLoadExisting = Object.keys(eventDetails.winnersPerRole || {}).length > 0;
+        // If you want to block updates uncomment the below:
+        // if (shouldLoadExisting) throw new Error('Winners have already been selected for this event.');
+    }
+
+    // --- Initialize Specific Form Type ---
+    if (isTeamEvent.value) {
+        await initializeTeamEventForm(eventDetails, shouldLoadExisting);
+    } else {
+        await initializeIndividualEventForm(eventDetails, shouldLoadExisting);
+    }
+
+  } catch (error: any) {
+    console.error('Error initializing form:', error);
+    errorMessage.value = error.message || 'Failed to load rating details.';
+    event.value = null; // Clear event data on error
+    isTeamEvent.value = null; // Reset event type state
+  } finally {
+    loading.value = false;
+  }
+};
+
+
+const submitRating = async (): Promise<void> => {
   if (!isValid.value) {
     errorMessage.value = 'Please complete all selections before submitting.';
     return;
   }
+  if (!currentUser.value?.uid) {
+    errorMessage.value = 'Cannot submit: User not identified.';
+    return;
+  }
+
   isSubmitting.value = true;
   errorMessage.value = '';
 
   try {
-    let payload;
+    let payload: any; // Define a more specific type if possible
+    let actionName: string;
+
     if (isTeamEvent.value) {
       // Prepare payload for team event rating
-      const criteriaSelections = {};
+      const criteriaSelections: Record<string, string> = {}; // { [constraintIndex]: teamName }
       sortedXpAllocation.value.forEach(allocation => {
-        criteriaSelections[allocation.constraintIndex] = ratings[`constraint${allocation.constraintIndex}`].teamName;
+        const key = `constraint${allocation.constraintIndex}`;
+        criteriaSelections[allocation.constraintIndex.toString()] = ratings[key]?.teamName || '';
       });
+
       payload = {
         eventId: props.eventId,
         ratingType: 'team_criteria',
         ratedBy: currentUser.value.uid,
         selections: {
           criteria: criteriaSelections,
-          bestPerformer: ratings.bestPerformer
+          bestPerformer: ratings.bestPerformer || ''
         }
       };
+      actionName = 'events/submitTeamCriteriaRating';
       console.log("Submitting Team Criteria Payload:", payload);
-      await store.dispatch('events/submitTeamCriteriaRating', payload);
+
     } else {
       // Prepare payload for individual event winner selection
-      const winnerSelections = {};
+      const winnerSelections: Record<string, string[]> = {}; // { [role]: [winnerId] }
        sortedXpAllocation.value.forEach(allocation => {
-          const role = allocation.role || 'general'; // Default to general if role missing
-          winnerSelections[role] = winnerSelections[role] || []; // Ensure array exists
-          winnerSelections[role].push(ratings[`constraint${allocation.constraintIndex}`].winnerId);
+          const role = allocation.role || 'general'; // Ensure role exists, default if necessary
+          const winnerId = ratings[`constraint${allocation.constraintIndex}`]?.winnerId;
+          if (winnerId) { // Only add if a winner was selected
+             winnerSelections[role] = winnerSelections[role] || []; // Ensure array exists for the role
+             winnerSelections[role].push(winnerId);
+          }
        });
+
       payload = {
         eventId: props.eventId,
-        ratingType: 'individual_winners', // More specific type
+        ratingType: 'individual_winners',
         ratedBy: currentUser.value.uid,
-        selections: winnerSelections // Map of role -> [winnerId]
+        selections: winnerSelections
       };
+      actionName = 'events/submitIndividualWinners'; // Use a potentially different action
       console.log("Submitting Individual Winner Payload:", payload);
-      await store.dispatch('events/submitIndividualWinners', payload); // Use a potentially different action
     }
 
-    // Common success handling
-    router.push({ name: 'EventDetails', params: { id: props.eventId } });
-    store.dispatch('notification/showNotification', { message: 'Selections submitted successfully!', type: 'success' });
+    // Dispatch to Vuex store
+    await store.dispatch(actionName, payload);
 
-  } catch (error) {
+    // Common success handling
+    store.dispatch('notification/showNotification', {
+        message: `${didLoadExistingRating.value ? 'Update' : 'Submission'} successful!`,
+        type: 'success'
+    });
+    router.push({ name: 'EventDetails', params: { id: props.eventId } });
+
+  } catch (error: any) {
     console.error("Rating/Selection submission error:", error);
-    errorMessage.value = `Submission failed: ${error.message || 'Unknown error'}`;
+    errorMessage.value = `Submission failed: ${error.message || 'An unknown error occurred'}`;
+    // Optionally use store notification for errors too
+    // store.dispatch('notification/showNotification', { message: errorMessage.value, type: 'error' });
   } finally {
     isSubmitting.value = false;
   }
 };
 
-const goBack = () => {
+const goBack = (): void => {
   router.back();
 };
 
-const initializeForm = async () => {
-  const currentUserId = store.getters['user/userId']; // Get current user ID
-  const currentUserRole = store.getters['user/userRole']; // Get current user role
+// --- Lifecycle Hooks ---
+onMounted(async () => {
+  await initializeForm();
+});
 
-  if (currentUserRole === 'Admin') {
-    errorMessage.value = 'Administrators cannot submit ratings or select winners.';
-    // Redirect admin away from this form
-     setTimeout(() => router.push({ name: 'Home' }), 100); // Delay slightly to allow message display
-    return;
-  }
-
-  loading.value = true;
-  errorMessage.value = '';
-  
-  try {
-    const eventDetails = await store.dispatch('events/fetchEventDetails', props.eventId);
-    if (!eventDetails) {
-      throw new Error('Event not found or not accessible.');
-    }
-
-    event.value = eventDetails;
-    eventName.value = eventDetails.eventName;
-    isTeamEvent.value = !!eventDetails.isTeamEvent;
-
-    // Check if ratings are open OR if it's winner selection phase (different condition?)
-    // For now, assume ratingsOpen governs both for simplicity
-    if (!eventDetails.ratingsOpen) {
-      throw new Error('Ratings/Winner selection is currently closed for this event.');
-    }
-
-    if (eventDetails.status !== 'Completed') {
-      throw new Error('Ratings/Winner selection can only be done for completed events.');
-    }
-
-    // Prevent user from rating/selecting winners for events they participated in?
-    // This check might be complex depending on team/individual events
-    // Example check (adapt as needed):
-    let isParticipant = false;
-    if (isTeamEvent.value && eventDetails.teams) {
-        isParticipant = eventDetails.teams.some(team => team.members?.includes(currentUserId));
-    } else if (eventDetails.participants) {
-        isParticipant = eventDetails.participants.includes(currentUserId);
-    }
-    if (isParticipant && !currentUserRole === 'Admin') { // Allow admins maybe?
-         throw new Error('Participants cannot rate or select winners for events they were part of.');
-    }
-
-    // Check if user has already submitted
-    if (isTeamEvent.value) {
-        const alreadyRated = eventDetails.teamCriteriaRatings?.some(r => r.ratedBy === currentUserId);
-        if (alreadyRated) {
-             // Decide: Allow update or block? For now, block.
-             // throw new Error('You have already submitted ratings for this team event.');
-             // Or load existing ratings for update:
-             await initializeTeamEventForm(eventDetails, true);
-             didLoadExistingRating.value = true; 
-        } else {
-            await initializeTeamEventForm(eventDetails, false);
-        }
-    } else {
-         // Check if individual winners have been selected (might be a different flag/structure)
-         const winnersExist = Object.keys(eventDetails.winnersPerRole || {}).length > 0;
-         if (winnersExist) {
-            // throw new Error('Winners have already been selected for this event.');
-            // Or load existing winners for update:
-             await initializeIndividualEventForm(eventDetails, true);
-             didLoadExistingRating.value = true;
-         } else {
-            await initializeIndividualEventForm(eventDetails, false);
-         }
-    }
-
-  } catch (error) {
-    console.error('Error initializing form:', error);
-    errorMessage.value = error.message || 'Failed to load rating details.';
-    event.value = null;
-  } finally {
-    loading.value = false;
-  }
-};
-
-const initializeTeamEventForm = async (eventDetails, loadExisting = false) => {
-  eventTeams.value = eventDetails.teams || [];
-  const memberIds = new Set();
-  const tempMemberMap = {};
-
-  eventTeams.value.forEach(team => {
-    (team.members || []).forEach(memberId => {
-      if (memberId) memberIds.add(memberId);
-      if (memberId) tempMemberMap[memberId] = team.teamName;
-    });
-  });
-
-  teamMemberMap.value = tempMemberMap;
-
-  if (memberIds.size > 0) {
-    const userNames = await store.dispatch('user/fetchUserNamesBatch', Array.from(memberIds));
-    allTeamMembers.value = Array.from(memberIds)
-      .map(uid => ({ uid, name: userNames[uid] || uid }))
-      .sort((a, b) => (userNames[a.uid] || a.uid).localeCompare(userNames[b.uid] || b.uid));
-  }
-
-  // Initialize ratings structure first (based on watcher)
-  // Then load existing data if applicable
-  if (loadExisting) {
-      const existingRating = eventDetails.teamCriteriaRatings?.find(
-        r => r.ratedBy === store.getters['user/userId']
-      );
-      if (existingRating) {
-        Object.entries(existingRating.selections?.criteria || {}).forEach(([index, teamName]) => {
-           const key = `constraint${index}`;
-           if (ratings[key]) {
-             ratings[key].teamName = teamName || ''; // Ensure empty string if null/undefined
-           }
-        });
-        ratings.bestPerformer = existingRating.selections?.bestPerformer || '';
-      }
-  }
-};
-
-const initializeIndividualEventForm = async (eventDetails, loadExisting = false) => {
-  const participantIds = eventDetails.participants || [];
-  if (participantIds.length > 0) {
-    const participantNames = await store.dispatch('user/fetchUserNamesBatch', participantIds);
-    Object.entries(participantNames).forEach(([uid, name]) => {
-      nameCache[uid] = name || uid;
-    });
-  }
-
-  // Initialize ratings structure first (based on watcher)
-  // Then load existing data if applicable
-  if (loadExisting) {
-     const winnersData = eventDetails.winnersPerRole || {};
-     sortedXpAllocation.value.forEach(alloc => {
-       const role = alloc.role || 'general';
-       const winnerId = winnersData[role]?.[0]; // Assuming single winner per role for now
-       const key = `constraint${alloc.constraintIndex}`;
-       if (winnerId && ratings[key]) {
-         ratings[key].winnerId = winnerId;
-       }
-     });
-  }
-};
 </script>
 
 <style scoped>
-/* Removed .box shadow style */
+/* Styles remain scoped to the template */
+.bg-light { /* Ensure bg-light uses theme variables if needed */
+    background-color: var(--bs-light) !important;
+}
 </style>

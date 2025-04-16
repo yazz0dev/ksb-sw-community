@@ -82,7 +82,7 @@
               :can-auto-generate="true"
               :event-id="eventId || ''"
               @update:teams="updateTeams"
-              @error="(msg) => emit('error', msg)"
+              @error="(msg: string) => emit('error', msg)"
           />
           <div v-else class="text-center text-muted small py-3">
              <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
@@ -102,7 +102,7 @@
               <label :for="dateFields.startField" class="form-label">{{ dateFields.startLabel }} <span class="text-danger">*</span></label>
               <DatePicker
                   :uid="dateFields.startField"
-                  v-model="formData[dateFields.startField]"
+                  v-model="formData.desiredStartDate"
                   :enable-time-picker="false"
                   :disabled="isSubmitting"
                   @update:model-value="checkNextAvailableDate"
@@ -115,10 +115,10 @@
                   placeholder="Select start date"
                   required
                 />
-               <div v-if="formData[dateFields.startField] && !isDateAvailable" class="invalid-feedback d-block">
+               <div v-if="formData.desiredStartDate && !isDateAvailable" class="invalid-feedback d-block">
                  <i class="fas fa-exclamation-circle me-1"></i> Date conflict detected
                </div>
-               <div v-else-if="formData[dateFields.startField] && isDateAvailable" class="valid-feedback d-block">
+               <div v-else-if="formData.desiredStartDate && isDateAvailable" class="valid-feedback d-block">
                  <i class="fas fa-check-circle me-1"></i> Date available
                </div>
             </div>
@@ -128,20 +128,20 @@
               <label :for="dateFields.endField" class="form-label">{{ dateFields.endLabel }} <span class="text-danger">*</span></label>
                <DatePicker
                   :uid="dateFields.endField"
-                  v-model="formData[dateFields.endField]"
+                  v-model="formData.desiredEndDate"
                   :enable-time-picker="false"
-                  :disabled="isSubmitting || !formData[dateFields.startField]"
+                  :disabled="isSubmitting || !formData.desiredStartDate"
                   @update:model-value="checkNextAvailableDate"
                   model-type="yyyy-MM-dd"
-                  :min-date="formData[dateFields.startField] ? new Date(formData[dateFields.startField]) : new Date()"
-                  :input-class-name="!formData[dateFields.startField] ? 'form-control is-invalid' : 'form-control'"
+                  :min-date="formData.desiredStartDate ? new Date(formData.desiredStartDate) : new Date()"
+                  :input-class-name="!formData.desiredStartDate ? 'form-control is-invalid' : 'form-control'"
                   :auto-apply="true"
                   :teleport="true"
                   :clearable="false"
                   placeholder="Select end date"
                   required
                 />
-              <small v-if="!formData[dateFields.startField]" class="form-text text-muted">Select start date first</small>
+              <small v-if="!formData.desiredStartDate" class="form-text text-muted">Select start date first</small>
             </div>
           </div>
         </div>
@@ -294,8 +294,7 @@
 </template>
 
 <script setup lang="ts">
-// @ts-ignore-next-line
-// @ts-nocheck
+// Type checking enabled - will fix errors below
 import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import DatePicker from '@vuepic/vue-datepicker';
@@ -649,19 +648,18 @@ const handleSubmit = () => {
     return;
   }
 
-  const startField = dateFields.value.startField;
-  const endField = dateFields.value.endField;
+  // Directly use the keys to avoid type widening issues
   const dataToSubmit = { ...formData.value };
 
   // Validate dates are present
-  if (!formData.value[startField] || !formData.value[endField]) {
+  if (!formData.value.desiredStartDate || !formData.value.desiredEndDate) {
     emit('error', `Both ${dateFields.value.startLabel} and ${dateFields.value.endLabel} are required.`);
     return;
   }
 
   // Set desired dates and ensure actual dates are null for requests
-  dataToSubmit.desiredStartDate = formData.value[startField];
-  dataToSubmit.desiredEndDate = formData.value[endField];
+  dataToSubmit.desiredStartDate = formData.value.desiredStartDate;
+  dataToSubmit.desiredEndDate = formData.value.desiredEndDate;
   dataToSubmit.startDate = null;
   dataToSubmit.endDate = null;
   dataToSubmit.status = 'Pending';
@@ -673,10 +671,9 @@ const handleSubmit = () => {
 };
 
  const checkNextAvailableDate = async () => {
-    const startField = dateFields.value.startField as keyof FormData;
-    const endField = dateFields.value.endField as keyof FormData;
-    const startDateString = formData.value[startField];
-    const endDateString = formData.value[endField];
+    // Directly use the keys
+    const startDateString = formData.value.desiredStartDate;
+    const endDateString = formData.value.desiredEndDate;
 
     if (!startDateString || !endDateString) {
         isDateAvailable.value = true; // Assume available if dates incomplete
@@ -727,10 +724,9 @@ const handleSubmit = () => {
 
 const useNextAvailableDate = () => {
     if (nextAvailableDate.value) {
-         const startField = dateFields.value.startField as keyof FormData;
-         const endField = dateFields.value.endField as keyof FormData;
-         const currentEndDateString = formData.value[endField];
-         const currentStartDateString = formData.value[startField];
+         // Directly use the keys
+         const currentEndDateString = formData.value.desiredEndDate;
+         const currentStartDateString = formData.value.desiredStartDate;
 
          if (!currentStartDateString || !currentEndDateString) return; // Should not happen if button is visible
 
@@ -754,13 +750,9 @@ const useNextAvailableDate = () => {
              const nextStartDateISO: string | null = nextStart.isValid ? nextStart.toISODate() : null;
              const nextEndDateISO: string | null = nextEnd.isValid ? nextEnd.toISODate() : null;
 
-            if (startField === 'desiredStartDate') {
-                formData.value.desiredStartDate = nextStartDateISO;
-            }
-
-            if (endField === 'desiredEndDate') {
-                formData.value.desiredEndDate = nextEndDateISO;
-            }
+            // Directly assign to the correct properties
+            formData.value.desiredStartDate = nextStartDateISO;
+            formData.value.desiredEndDate = nextEndDateISO;
 
             // Re-check availability after setting new dates
            checkNextAvailableDate();
