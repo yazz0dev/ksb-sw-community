@@ -84,6 +84,7 @@ export interface Event {
   ratingsOpen: boolean;
   ratingsOpenCount: number; // How many times ratings have been opened
   ratingsLastOpenedAt: Timestamp | null; // When ratings were last opened
+  ratingsClosed?: boolean; // Optional: If ratings manually closed by admin
   completedAt: Timestamp | null; // When status changed to Completed
   closed: boolean; // If permanently closed by Admin
   closedAt: Timestamp | null; // Optional: When closed
@@ -93,6 +94,7 @@ export interface Event {
   submissions: Submission[]; // For individual events
   ratings: Rating[]; // For individual events (maybe winner selections recorded here?)
   organizationRatings: OrganizationRating[]; // Ratings for the event organization itself
+  teamCriteriaRatings?: Array<{ ratedBy: string; selections: { criteria: Record<string, string>; bestPerformer: string } }>;
 
   // Configuration
   xpAllocation: XPAllocation[]; // How XP is awarded

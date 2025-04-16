@@ -14,10 +14,10 @@
           v-if="canStartEvent"
           type="button"
           class="btn btn-sm btn-primary d-inline-flex align-items-center"
-          :disabled="!isWithinEventDates || isActionLoading('InProgress')"
-          @click="updateStatus('InProgress')"
+          :disabled="!isWithinEventDates || isActionLoading(EventStatus.InProgress)"
+          @click="updateStatus(EventStatus.InProgress)"
         >
-          <span v-if="isActionLoading('InProgress')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <span v-if="isActionLoading(EventStatus.InProgress)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
           <i v-else class="fas fa-play me-1"></i>
           <span>Start Event</span>
         </button>
@@ -26,10 +26,10 @@
           v-if="canComplete"
           type="button"
           class="btn btn-sm btn-success d-inline-flex align-items-center"
-          :disabled="isActionLoading('Completed')"
-          @click="updateStatus('Completed')"
+          :disabled="isActionLoading(EventStatus.Completed)"
+          @click="updateStatus(EventStatus.Completed)"
         >
-          <span v-if="isActionLoading('Completed')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <span v-if="isActionLoading(EventStatus.Completed)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
           <i v-else class="fas fa-check me-1"></i>
           <span>Mark Complete</span>
         </button>
@@ -38,10 +38,10 @@
           v-if="canCancel"
           type="button"
           class="btn btn-sm btn-danger d-inline-flex align-items-center"
-          :disabled="isActionLoading('Cancelled')"
+          :disabled="isActionLoading(EventStatus.Cancelled)"
           @click="confirmCancel"
         >
-          <span v-if="isActionLoading('Cancelled')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <span v-if="isActionLoading(EventStatus.Cancelled)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
           <i v-else class="fas fa-times me-1"></i>
           <span>Cancel Event</span>
         </button>
@@ -109,10 +109,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, PropType } from 'vue';
+import { computed, ref, PropType, Ref } from 'vue';
 import { useStore } from 'vuex';
 import { canStartEvent as canEventBeStarted } from '@/utils/dateTime';
-import { EventStatus, EventFormat, type Event } from '@/types/event';
+import { EventStatus, EventFormat, type Event, XPAllocation } from '@/types/event'; // Import XPAllocation
 
 const props = defineProps({
   event: {
@@ -123,7 +123,7 @@ const props = defineProps({
 
 const store = useStore();
 const isLoadingRatings = ref(false);
-const loadingAction = ref(null);
+const loadingAction = ref<EventStatus | 'openRatings' | 'closeRatings' | null>(null);
 const isClosingEvent = ref(false);
 
 const statusBadgeClass = computed(() => {
@@ -145,6 +145,7 @@ const isWithinEventDates = computed(() => {
 });
 
 const canManageRatings = computed(() => {
+    // Check if ratingsClosed exists and is true
     const isManuallyClosed = props.event.ratingsClosed === true;
     const openLimitReached = props.event.ratingsOpenCount >= 2;
 
@@ -179,11 +180,11 @@ const canCancel = computed(() =>
 
 const isAdmin = computed(() => store.getters['user/isAdmin']);
 
-const isActionLoading = (action) => {
+const isActionLoading = (action: EventStatus | 'openRatings' | 'closeRatings') => {
     return loadingAction.value === action;
 };
 
-const updateStatus = async (newStatus) => {
+const updateStatus = async (newStatus: EventStatus) => {
     if (loadingAction.value) return;
     loadingAction.value = newStatus;
     try {
@@ -191,9 +192,9 @@ const updateStatus = async (newStatus) => {
             eventId: props.event.id,
             newStatus
         });
-    } catch (error) {
+    } catch (error: any) {
         store.dispatch('notification/showNotification', {
-            message: error.message || `Failed to update status to ${newStatus}.`,
+            message: error?.message || `Failed to update status to ${newStatus}.`,
             type: 'error'
         });
     } finally {
@@ -202,30 +203,27 @@ const updateStatus = async (newStatus) => {
 };
 
 const toggleRatings = async () => {
-    if (isLoadingRatings.value || !canManageRatings.value) return;
-    
-    const adminClosing = isAdmin.value && props.event.ratingsOpen;
-    
-    isLoadingRatings.value = true;
+    if (loadingAction.value) return;
+    const targetState = !props.event.ratingsOpen;
+    loadingAction.value = targetState ? 'openRatings' : 'closeRatings';
     try {
         await store.dispatch('events/toggleRatingsOpen', {
             eventId: props.event.id,
-            isOpen: !props.event.ratingsOpen,
-            permanentClose: adminClosing
+            isOpen: targetState
         });
-    } catch (error) {
+    } catch (error: any) {
         store.dispatch('notification/showNotification', {
-            message: error.message || 'Failed to toggle ratings status.',
+            message: error?.message || 'Failed to toggle ratings status.',
             type: 'error'
         });
     } finally {
-        isLoadingRatings.value = false;
+        loadingAction.value = null;
     }
 };
 
 const confirmCancel = async () => {
     if (window.confirm('Are you sure you want to cancel this event? This cannot be undone.')) {
-        await updateStatus('Cancelled');
+        await updateStatus(EventStatus.Cancelled);
     }
 };
 
@@ -233,6 +231,15 @@ const confirmCloseEvent = async () => {
     if (window.confirm('Are you sure you want to permanently close this event? Ratings cannot be reopened, and no further changes can be made.')) {
         await closeEventAction();
     }
+};
+
+// Helper function to calculate total XP from an XP map
+const calculateTotalXP = (xpMap: Record<string, Record<string, number>> | null | undefined): number => {
+    if (!xpMap) return 0;
+    // Sum all values within the nested xpMap object
+    return Object.values(xpMap).reduce((userSum, roles) =>
+        userSum + Object.values(roles).reduce((roleSum, xp) => roleSum + (Number(xp) || 0), 0)
+    , 0);
 };
 
 const closeEventAction = async () => {
@@ -247,9 +254,7 @@ const closeEventAction = async () => {
         let message = 'Event closed permanently. ';
         if (result?.xpAwarded) {
             const totalUsers = Object.keys(result.xpAwarded).length;
-            const totalXP = Object.values(result.xpAwarded)
-                .reduce((sum, roles) => 
-                    sum + Object.values(roles).reduce((a, b) => a + b, 0), 0);
+            const totalXP = calculateTotalXP(result.xpAwarded);
             message += `XP awarded to ${totalUsers} users (Total: ${totalXP} XP).`;
         }
         
@@ -258,9 +263,9 @@ const closeEventAction = async () => {
             type: 'success',
             duration: 5000
         });
-    } catch (error) {
+    } catch (error: any) {
         store.dispatch('notification/showNotification', {
-            message: error.message || 'Failed to close the event',
+            message: error?.message || 'Failed to close the event',
             type: 'error',
             duration: 5000
         });

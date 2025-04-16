@@ -1,14 +1,8 @@
 // src/store/modules/notification.js
 
-import { Module } from 'vuex';
+import { Module, ActionContext } from 'vuex';
 import { RootState } from '@/store/types';
-
-interface Notification {
-  id: string;
-  message: string;
-  timeout?: number;
-  type?: string;
-}
+import { Notification } from '@/types/store';
 
 interface NotificationState {
   notifications: Notification[];
@@ -23,7 +17,7 @@ const getters = {
 };
 
 const actions = {
-  showNotification({ commit, dispatch }, notification: Omit<Notification, 'id'>) {
+  showNotification({ commit, dispatch }: ActionContext<NotificationState, RootState>, notification: Omit<Notification, 'id'>) {
     // Validate required fields
     if (!notification.message) {
       console.error('Notification message is required');
@@ -31,8 +25,8 @@ const actions = {
     }
 
     // Generate a unique ID for this notification
-    const id = Date.now().toString();
-    const notificationWithId = { ...notification, id };
+    const id = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const notificationWithId: Notification = { ...notification, id };
     
     // Add notification to state
     commit('ADD_NOTIFICATION', notificationWithId);
@@ -48,11 +42,11 @@ const actions = {
     return id; // Return ID for potential manual dismissal
   },
   
-  dismissNotification({ commit }, notificationId: string) {
+  dismissNotification({ commit }: ActionContext<NotificationState, RootState>, notificationId: string) {
     commit('REMOVE_NOTIFICATION', notificationId);
   },
   
-  clearAllNotifications({ commit }) {
+  clearAllNotifications({ commit }: ActionContext<NotificationState, RootState>) {
     commit('CLEAR_ALL_NOTIFICATIONS');
   }
 };

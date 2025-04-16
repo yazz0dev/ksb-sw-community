@@ -100,6 +100,7 @@ import { db } from '../firebase';
 import { doc, getDoc, collection, query, where, getDocs, orderBy, DocumentData } from 'firebase/firestore';
 import { DateTime } from 'luxon';
 import { formatRoleName as formatRoleNameUtil } from '../utils/formatters';
+import { Event } from '@/types/event'; // Import Event type
 
 interface Props {
     userId: string;
@@ -132,19 +133,23 @@ const stats = ref<Stats>({
     wonCount: 0
 });
 
-const totalXp = computed(() => {
+const totalXp = computed((): number => { // Add return type
   if (!user.value?.xpByRole) return 0;
-  return Object.values(user.value.xpByRole).reduce((sum, val) => sum + (Number(val) || 0), 0);
+  // Ensure values are numbers before reducing
+  return Object.values(user.value.xpByRole).reduce((sum: number, val: unknown) => sum + (Number(val) || 0), 0);
 });
 
-const hasXpData = computed(() => totalXp.value > 0 && user.value?.xpByRole && Object.values(user.value.xpByRole).some(xp => xp > 0));
+const hasXpData = computed((): boolean => { // Add return type
+    const xp = totalXp.value; // Use the computed value which is already a number
+    return xp > 0 && user.value?.xpByRole && Object.values(user.value.xpByRole).some((xpVal: unknown) => Number(xpVal) > 0);
+});
 
 const filteredXpByRole = computed(() => {
   if (!user.value?.xpByRole) return {};
   return Object.entries(user.value.xpByRole)
-    .filter(([role, xp]) => xp > 0)
-    .reduce((acc, [role, xp]) => {
-      acc[role] = xp;
+    .filter(([role, xp]: [string, unknown]) => Number(xp) > 0) // Type entry and check Number(xp)
+    .reduce((acc: Record<string, number>, [role, xp]: [string, unknown]) => { // Type accumulator and entry
+      acc[role] = Number(xp); // Assign Number(xp)
       return acc;
     }, {});
 });
@@ -157,8 +162,8 @@ const formatRoleName = (roleKey: string) => {
   return formatRoleNameUtil(roleKey);
 };
 
-const xpPercentage = (xp: number) => {
-  const total = totalXp.value;
+const xpPercentage = (xp: number): number => { // Add return type
+  const total = totalXp.value; // total is already a number
   return total > 0 ? Math.min(100, Math.round((xp / total) * 100)) : 0;
 };
 
@@ -178,14 +183,17 @@ const fetchProfileData = async () => {
     if (!userDocSnap.exists()) {
       throw new Error('User profile not found.');
     }
-    user.value = { uid: userDocSnap.id, ...userDocSnap.data() };
+    user.value = { id: userDocSnap.id, ...userDocSnap.data() };
 
-    await fetchEventHistory(userId.value);
+    // Fetch participated events and projects in parallel
+    await Promise.all([
+        fetchParticipatedEvents(),
+        fetchUserProjects(userId.value)
+    ]);
 
-  } catch (error) {
-    console.error("Error fetching profile data:", error);
-    errorMessage.value = error.message || 'Failed to load profile.';
-    user.value = null;
+  } catch (error: any) { // Type error
+    console.error('Error fetching profile data:', error);
+    errorMessage.value = error?.message || 'Failed to load profile.';
   } finally {
     loading.value = false;
     loadingEventsOrProjects.value = false;
@@ -219,40 +227,48 @@ const fetchUserProjects = async (targetUserId: string) => {
   }
 };
 
-const fetchEventHistory = async (targetUserId: string) => {
+const fetchParticipatedEvents = async () => {
+  if (!userId.value) return;
+  const targetUserId = userId.value;
   try {
-    const eventsRef = collection(db, 'events');
-    const q = query(eventsRef, orderBy('endDate', 'desc'));
-    const querySnapshot = await getDocs(q);
+    // Fetch all events (consider filtering by status or date range if needed)
+    const allEvents: Event[] = await store.dispatch('events/fetchEvents'); // Assuming fetchEvents returns Event[]
 
+    const eventsHistory: Event[] = [];
     let participated = 0;
     let organized = 0;
     let won = 0;
-    const eventsHistory: DocumentData[] = [];
 
-    querySnapshot.forEach(docSnap => {
-      const event = { id: docSnap.id, ...docSnap.data() };
+    allEvents.forEach((event: Event) => { // Ensure event is typed as Event
       let isParticipant = false;
       let isOrganizerFlag = false;
-      let isWinnerFlag = false;
       let isPartOfEvent = false;
+      let isWinnerFlag = false;
 
-      if (event.requester === targetUserId || (Array.isArray(event.organizers) && event.organizers.includes(targetUserId))) {
+      // Check if organizer
+      if (Array.isArray(event.organizers) && event.organizers.includes(targetUserId)) {
         isOrganizerFlag = true;
         isPartOfEvent = true;
       }
 
+      // Check participation and winning status based on event type
       if (event.isTeamEvent && Array.isArray(event.teams)) {
         const userTeam = event.teams.find(team => Array.isArray(team.members) && team.members.includes(targetUserId));
         if (userTeam) {
           isParticipant = true;
           isPartOfEvent = true;
-          if (Array.isArray(event.winners) && event.winners.includes(userTeam.teamName)) isWinnerFlag = true;
+          // Check winnersPerRole for team events (assuming teamName is the key or value)
+          if (event.winnersPerRole && Object.values(event.winnersPerRole).flat().includes(userTeam.teamName)) {
+              isWinnerFlag = true;
+          }
         }
       } else if (Array.isArray(event.participants) && event.participants.includes(targetUserId)) {
           isParticipant = true;
           isPartOfEvent = true;
-          if (Array.isArray(event.winners) && event.winners.includes(targetUserId)) isWinnerFlag = true;
+          // Check winnersPerRole for individual events
+          if (event.winnersPerRole && Object.values(event.winnersPerRole).flat().includes(targetUserId)) {
+              isWinnerFlag = true;
+          }
       }
 
       if (isPartOfEvent) {

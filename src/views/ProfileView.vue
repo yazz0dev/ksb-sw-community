@@ -83,6 +83,8 @@ import ProfileViewContent from '../components/ProfileViewContent.vue';
 import PortfolioGeneratorButton from '../components/PortfolioGeneratorButton.vue';
 import UserRequests from '../components/UserRequests.vue';
 import AuthGuard from '../components/AuthGuard.vue';
+import PortfolioGenerator from '@/components/PortfolioGenerator.vue';
+import { Project } from '@/types/project'; // Import the Project type
 
 interface UserData {
   name: string;
@@ -107,7 +109,7 @@ const router = useRouter();
 const targetUserId = ref<string | null>(null);
 const isCurrentUser = ref<boolean>(false);
 const isAdminProfile = ref<boolean>(false);
-const userProjectsForPortfolioButton = ref<UserProject[]>([]);
+const userProjectsForPortfolioButton = ref<Project[]>([]); // Use Project[] type
 const loadingProjectsForPortfolio = ref<boolean>(false);
 
 // --- Computed Properties ---
@@ -158,39 +160,70 @@ const fetchUserProjectsForPortfolio = async () => {
 
 const determineProfileContext = async () => {
     const routeUserId = route.params.userId;
-    const currentLoggedInUserId = loggedInUserId.value;
-    isAdminProfile.value = false;
+    const loggedInUid = loggedInUserId.value;
 
-    if (routeUserId) {
-        targetUserId.value = routeUserId;
-        isCurrentUser.value = routeUserId === currentLoggedInUserId;
-        try {
-            const userDocRef = doc(db, 'users', routeUserId);
-            const userDocSnap = await getDoc(userDocRef);
-            if (userDocSnap.exists() && userDocSnap.data().role === 'Admin') {
-                isAdminProfile.value = true;
-            }
-        } catch (error) {
-            console.error("Error checking if target user is admin:", error);
-        }
-    } else if (currentLoggedInUserId) {
-        targetUserId.value = currentLoggedInUserId;
+    // Handle potential array from route params
+    const targetUid = Array.isArray(routeUserId) ? routeUserId[0] : routeUserId;
+
+    if (targetUid) {
+        // Viewing someone else's profile (or own via /user/:userId)
+        isCurrentUser.value = targetUid === loggedInUid;
+        targetUserId.value = targetUid; // Assign the string value
+        isAdminProfile.value = false; // Public profiles are never "Admin" profiles in this context
+        await fetchUserProfile(targetUid); // Fetch specific user profile
+    } else if (loggedInUid && route.name === 'Profile') {
+        // Viewing own profile via /profile
         isCurrentUser.value = true;
-        isAdminProfile.value = loggedInUserIsAdmin.value;
+        targetUserId.value = loggedInUid;
+        isAdminProfile.value = loggedInUserIsAdmin.value; // Check if logged-in user is admin
         if (!isAdminProfile.value) {
-             fetchUserProjectsForPortfolio();
+            await fetchUserProfile(loggedInUid); // Fetch own profile if not admin
         } else {
-             loadingProjectsForPortfolio.value = false;
-             userProjectsForPortfolioButton.value = [];
+            // Handle admin viewing their own "profile" page (might be different)
+            console.log("Admin viewing their profile page.");
+            // Reset or load admin-specific data if necessary
+            profileUser.value = null;
+            loading.value = false;
         }
     } else {
-        targetUserId.value = null;
-        isCurrentUser.value = false;
-        console.warn("Cannot determine profile: No route parameter and user not logged in.");
-        // Consider redirecting if profile cannot be determined
-        // if (!route.meta.public) { // Example check if route requires auth
+        // No target user and not logged in or invalid route
+        console.error("Cannot determine profile context.");
+        // Optionally redirect to login or show an error
+        // if (!loggedInUid) {
         //    router.push({ name: 'Login' });
         // }
+    }
+};
+
+const fetchUserProfile = async (userIdToFetch: string) => {
+    if (!userIdToFetch) return;
+    loading.value = true;
+    error.value = '';
+    try {
+        // Ensure userIdToFetch is a string before calling doc
+        if (typeof userIdToFetch !== 'string') {
+            throw new Error("Invalid User ID provided.");
+        }
+        const userDocRef = doc(db, 'users', userIdToFetch);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+            profileUser.value = { uid: userDocSnap.id, ...userDocSnap.data() } as UserData;
+            // Fetch projects only if viewing a student profile
+            if (profileUser.value.role === 'Student') {
+                 await fetchUserProjectsForPortfolio();
+            } else {
+                 userProjectsForPortfolioButton.value = []; // Clear projects for non-students
+            }
+        } else {
+            error.value = 'User profile not found.';
+            profileUser.value = null;
+        }
+    } catch (err: any) {
+        console.error('Error fetching user profile:', err);
+        error.value = err.message || 'Failed to load profile.';
+        profileUser.value = null;
+    } finally {
+        loading.value = false;
     }
 };
 

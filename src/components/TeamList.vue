@@ -129,7 +129,7 @@ function updateLocalTeams(teamsFromProps: Team[]): void {
 
   teamsWithDetails.value = teamsFromProps.map(team => ({
     ...team,
-    showDetails: existingStates[team.teamName] || false,
+    showDetails: existingStates[team.teamName] ?? false, // Provide default false
     members: Array.isArray(team.members) ? [...team.members] : [],
     ratings: Array.isArray(team.ratings) ? [...team.ratings] : [],
     submissions: Array.isArray(team.submissions) ? [...team.submissions] : []

@@ -14,7 +14,9 @@ import {
     orderBy,
     DocumentReference,
     DocumentData,
-    deleteField, // Keep if clearing fields is needed
+    deleteField,
+    serverTimestamp,
+    FieldValue
 } from 'firebase/firestore';
 import {
     EventFormat,
@@ -25,9 +27,9 @@ import {
 } from '@/types/event';
 import { RootState } from '@/store/types';
 import { User } from '@/types/user';
-import { DateTime, Interval } from 'luxon'; // For date comparisons
+import { DateTime, Interval } from 'luxon';
 
-// --- Helper: Validate Organizers Not Admin ---
+// --- Helper: Validate Organizers ---
 async function validateOrganizersNotAdmin(organizerIds: string[] = []): Promise<void> {
     const userIdsToCheck = new Set(organizerIds.filter(Boolean));
     if (userIdsToCheck.size === 0) return;
@@ -47,44 +49,6 @@ async function validateOrganizersNotAdmin(organizerIds: string[] = []): Promise<
         }
     });
     await Promise.all(fetchPromises);
-}
-
-// --- Helper: Check for Event Overlap ---
-async function checkEventOverlap(newEvent: Partial<Event>, existingEventId?: string): Promise<boolean> {
-    const q = query(collection(db, 'events'), where('status', 'in', [EventStatus.Approved, EventStatus.InProgress]));
-    const querySnapshot = await getDocs(q);
-
-    try {
-        for (const doc of querySnapshot.docs) {
-            if (existingEventId && doc.id === existingEventId) continue;
-
-            const existingEvent = doc.data() as Event;
-            if (!existingEvent.startDate || !existingEvent.endDate) continue;
-
-            const newEventInterval = Interval.fromDateTimes(
-                DateTime.fromJSDate(newEvent.startDate?.toDate() || new Date()),
-                DateTime.fromJSDate(newEvent.endDate?.toDate() || new Date())
-            );
-
-            const existingEventInterval = Interval.fromDateTimes(
-                DateTime.fromJSDate(existingEvent.startDate.toDate()),
-                DateTime.fromJSDate(existingEvent.endDate.toDate())
-            );
-
-            // Check for overlap
-            if (newEventInterval && existingEventInterval) {
-                if (newEventInterval.overlaps(existingEventInterval)) {
-                    console.warn(`Event overlap detected with event ${doc.id}`);
-                    return true; // Overlap found
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Error checking event overlap:', error);
-        throw error;
-    }
-
-    return false; // No overlap found
 }
 
 // --- ACTION: Check if current user has existing pending/active requests ---
@@ -116,7 +80,7 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
             else dt = DateTime.fromISO(d);
 
             if (!dt.isValid) throw new Error(`Invalid date value: ${d}`);
-            return dt.startOf('day'); // Normalize to start of day UTC
+            return dt.startOf('day');
         };
         checkStartLuxon = convertToLuxon(startDate);
         checkEndLuxon = convertToLuxon(endDate);
@@ -130,6 +94,12 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
     const querySnapshot = await getDocs(q);
     let conflictingEvent: Event | null = null;
 
+    const timeSlot = Interval.fromDateTimes(checkStartLuxon, checkEndLuxon);
+
+    const isInterval = (date: Interval | DateTime): date is Interval => {
+        return 'overlaps' in date;
+    };
+
     for (const docSnap of querySnapshot.docs) {
         const event = { id: docSnap.id, ...docSnap.data() } as Event;
         if (excludeEventId && docSnap.id === excludeEventId) continue;
@@ -140,14 +110,10 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
             const eventEndLuxon = DateTime.fromJSDate(event.endDate.toDate()).startOf('day');
             if (!eventStartLuxon.isValid || !eventEndLuxon.isValid) continue;
 
-            const checkInterval = checkStartLuxon.until(checkEndLuxon.endOf('day'));
             const eventInterval = eventStartLuxon.until(eventEndLuxon.endOf('day'));
-            // Only call overlaps if both are Interval
-            if (checkInterval.isValid && eventInterval.isValid) {
-                if (checkInterval.overlaps(eventInterval)) {
-                    conflictingEvent = event;
-                    break;
-                }
+            if (isInterval(eventInterval) && isInterval(timeSlot) && eventInterval.overlaps(timeSlot)) {
+                conflictingEvent = event;
+                break;
             }
         } catch (dateError: any) {
             console.warn(`Skipping event ${docSnap.id} in conflict check (date issue):`, dateError.message);
@@ -235,5 +201,64 @@ export async function createEvent({ rootGetters, commit, dispatch }: ActionConte
     } catch (error: any) {
         console.error('Error creating event:', error);
         throw new Error(`Failed to create event: ${error.message || 'Unknown error'}`);
+    }
+}
+
+// --- ACTION: Approve Event Request (Admin Only) ---
+export async function approveEventRequest({ dispatch, commit, rootGetters }: ActionContext<EventState, RootState>, eventId: string): Promise<void> {
+    const currentUser: User | null = rootGetters['user/getUser'];
+    if (currentUser?.role !== 'Admin') throw new Error('Unauthorized.');
+    if (!eventId) throw new Error('Event ID required.');
+
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Request not found.');
+        const eventData = eventSnap.data() as Event;
+
+        if (eventData.status !== EventStatus.Pending) throw new Error('Only pending events approved.');
+        if (!eventData.desiredStartDate || !eventData.desiredEndDate) throw new Error("Missing desired dates.");
+
+        const conflictResult = await dispatch('checkDateConflict', { startDate: eventData.desiredStartDate, endDate: eventData.desiredEndDate, excludeEventId: eventId });
+        if (conflictResult.hasConflict) throw new Error(`Approval failed: Date conflict with "${conflictResult.conflictingEvent?.eventName || 'another event'}".`);
+
+        const updates: Partial<Event> = {
+            status: EventStatus.Approved,
+            startDate: eventData.desiredStartDate,
+            endDate: eventData.desiredEndDate,
+            desiredStartDate: deleteField(),
+            desiredEndDate: deleteField(),
+            lastUpdatedAt: serverTimestamp() as unknown as Timestamp,
+            participants: [],
+            teams: [],
+            ratingsOpen: false,
+            closed: false,
+            completedAt: null,
+            closedAt: null,
+            rejectionReason: deleteField(),
+            organizers: [],
+        };
+
+        if (!eventData.isTeamEvent) {
+            const allStudentUIDs: string[] = await dispatch('user/fetchAllStudentUIDs', null, { root: true }) || [];
+            const requesterUid = eventData.requester;
+            updates.participants = allStudentUIDs.filter(uid => uid !== requesterUid && uid !== currentUser?.uid);
+            updates.teams = [];
+        } else {
+            updates.teams = (Array.isArray(eventData.teams) ? eventData.teams : []).map(team => ({
+                teamName: team.teamName?.trim() || 'Unnamed Team', members: Array.isArray(team.members) ? team.members.filter(Boolean) : [], submissions: [], ratings: []
+            }));
+            if (updates.teams.length === 0) console.warn(`Approving team event ${eventId} with no teams defined.`);
+            updates.participants = [];
+        }
+
+        await updateDoc(eventRef, updates);
+        const freshSnap = await getDoc(eventRef);
+        if (freshSnap.exists()) {
+            dispatch('updateLocalEvent', { id: eventId, changes: freshSnap.data() });
+        }
+    } catch (error: any) {
+        console.error(`Error approving request ${eventId}:`, error);
+        throw error;
     }
 }

@@ -51,8 +51,8 @@ const actions: ActionTree<AppState, RootState> = {
       try {
         await dispatch(action.type, action.payload, { root: true });
         commit('removeQueuedAction', action.id);
-      } catch (error) {
-        commit('addFailedAction', { ...action, error: error.message });
+      } catch (error: any) { // Type error
+        commit('addFailedAction', { ...action, error: error?.message || 'Unknown processing error' });
         console.error('Sync failed for action:', action, error);
       }
     }
@@ -134,10 +134,15 @@ const actions: ActionTree<AppState, RootState> = {
 
     for (const action of state.offlineQueue.actions) {
       try {
-        await dispatch(action.type, action.payload, { root: true });
+        // Re-dispatch the original action
+        await dispatch(action.type, action.payload, { root: true }); // Assuming actions are root actions
+        console.log(`Successfully replayed action: ${action.type}`);
+        // Optionally remove from failed queue or mark as resolved if needed
         commit('removeQueuedAction', action.id);
-      } catch (error) {
-        commit('addFailedAction', { ...action, error: error.message });
+      } catch (error: any) { // Type error
+        console.error(`Failed to replay action ${action.type}:`, error);
+        // Update the error message on the failed action
+        commit('addFailedAction', { ...action, error: error?.message || 'Unknown replay error' });
       }
     }
 

@@ -230,7 +230,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useStore, Store } from 'vuex'; // Import Store type
 import { useRouter, useRoute } from 'vue-router';
 import TeamList from '@/components/TeamList.vue';
@@ -238,85 +238,39 @@ import EventDisplayCard from '@/components/events/EventDisplayCard.vue';
 import EventManageControls from '@/components/events/EventManageControls.vue';
 import EventDetailsSkeleton from '@/components/skeletons/EventDetailsSkeleton.vue';
 import SkeletonProvider from '@/components/skeletons/SkeletonProvider.vue';
+import { EventStatus, EventFormat, type Event, Team as EventTeamType, Submission } from '@/types/event'; // Use Event type
+import { User } from '@/types/user';
 
 // --- Interfaces ---
 
-interface Submission {
-    projectName: string;
-    link: string;
-    description?: string;
-    submittedBy: string; // User ID
-    // submittedAt?: Timestamp; // Optional: If you store Firestore Timestamp
+// Define a more specific Event type based on usage, ensure it aligns with Event type
+interface EventDetails extends Event { // Extend the base Event type
+    // Add any additional properties specific to this view if necessary
+    // Ensure properties used in the template exist in the base Event type or are added here
 }
 
-interface Team {
-    id?: string; // Optional Firestore document ID
-    teamName: string;
-    members?: string[]; // Array of user UIDs
-    submissions?: Submission[];
-    // Add other team properties if needed (e.g., ratings)
+// Use EventTeamType for consistency
+interface Team extends EventTeamType {
+    // Add local view-specific properties if needed
 }
-
-// Define a more specific Event type based on usage
-interface EventDetails {
-    id: string; // Firestore document ID
-    eventName: string;
-    isTeamEvent: boolean;
-    status: 'Upcoming' | 'Active' | 'Completed' | 'Cancelled'; // Example statuses
-    ratingsOpen?: boolean;
-    ratingsOpenCount?: number;
-    organizers?: string[]; // Array of user UIDs
-    requester?: string; // User UID
-    participants?: string[] | Record<string, any>; // Array of user IDs (preferred) or legacy object
-    teams?: Team[];
-    submissions?: Submission[]; // For individual events
-    closed?: boolean; // Optional flag if event is fully closed off
-    // Add other event properties used (e.g., from EventDisplayCard props if not listed)
-    startDate?: any; // Use appropriate type (Date, Timestamp, string)
-    endDate?: any;
-    description?: string;
-    xpAllocation?: any[]; // Use a specific type if structure is known
-}
-
-interface User {
-    uid: string;
-    role?: 'Admin' | 'User' | string; // Be more specific if roles are fixed
-    // Add other user properties if needed
-}
-
-interface SubmissionFormData {
-    projectName: string;
-    link: string;
-    description: string;
-}
-
-interface FeedbackState {
-    message: string;
-    type: 'success' | 'error';
-}
-
-// Minimal Bootstrap Modal type for type safety
-// Make sure bootstrap types are installed (`npm i -D @types/bootstrap`) or define manually
-// import { Modal as BootstrapModalType } from 'bootstrap'; // Ideal if types installed
 
 // Manual definition if types aren't installed:
 interface BootstrapModal {
   show(): void;
   hide(): void;
   dispose(): void;
-  // We need the static methods too
-  static getInstance(element: Element): BootstrapModal | null;
-  static getOrCreateInstance(element: Element): BootstrapModal;
 }
 
 declare global {
   interface Window {
+    // Use a more generic type or install @types/bootstrap
     bootstrap?: {
-      Modal: typeof BootstrapModal; // Use typeof for static methods
+      Modal: any; // Use any for simplicity
+      // Add other Bootstrap components if needed (e.g., Collapse)
+      Collapse?: any;
     };
   }
 }
-
 
 // --- Props, Store, Router ---
 interface Props {
@@ -334,8 +288,8 @@ const route = useRoute();
 
 // --- State Refs ---
 const loading = ref<boolean>(true);
-const event = ref<EventDetails | null>(null);
-const teams = ref<Team[]>([]); // Always initialize as an array
+const event = ref<EventDetails | null>(null); // Use EventDetails type
+const teams = ref<Team[]>([]); // Use Team type
 const initialFetchError = ref<string>('');
 const nameCache = ref<Map<string, string>>(new Map()); // Map UID to Name
 const organizerNamesLoading = ref<boolean>(false);
@@ -368,36 +322,29 @@ const canManageEvent = computed<boolean>(() => {
 });
 
 const currentUserCanRate = computed<boolean>(() => {
-  if (!event.value || !currentUserId.value || isAdmin.value || isCurrentUserOrganizer.value) {
-    return false; // Admins/Organizers don't rate/select winners
+  if (!event.value || !currentUserId.value || event.value.status !== EventStatus.Completed || !event.value.ratingsOpen) {
+    return false;
+  }
+  // Prevent organizers/participants from rating
+  const isOrganizer = event.value.organizers?.includes(currentUserId.value);
+  let isParticipant = false;
+  if (event.value.isTeamEvent && Array.isArray(event.value.teams)) {
+      isParticipant = event.value.teams.some(team => team.members?.includes(currentUserId.value));
+  } else if (Array.isArray(event.value.participants)) {
+      isParticipant = event.value.participants.includes(currentUserId.value);
   }
 
-  // Check basic conditions: Completed status and ratings/selection period open
-  if (event.value.status !== 'Completed' || !event.value.ratingsOpen) {
-      return false;
-  }
+  if (isOrganizer || isParticipant) return false;
 
-  // Prevent participants from rating/selecting in their own event
-  const isParticipant = allParticipants.value.includes(currentUserId.value);
-  if (isParticipant) {
-      return false;
+  // Check if already rated (assuming teamCriteriaRatings exists on Event type)
+  if (event.value.isTeamEvent && Array.isArray(event.value.teamCriteriaRatings)) {
+      const alreadyRated = event.value.teamCriteriaRatings.some((r: any) => r.ratedBy === currentUserId.value); // Add type 'any' or specific type
+      return !alreadyRated;
   }
+  // Add check for individual event rating if applicable
+  // if (!event.value.isTeamEvent && ...) { ... }
 
-  // Advanced check: Has the user already submitted?
-  // This depends heavily on how submissions are stored.
-  // Example for team events (checking teamCriteriaRatings):
-  if (event.value.isTeamEvent) {
-      const alreadyRated = event.value.teamCriteriaRatings?.some(r => r.ratedBy === currentUserId.value);
-      if (alreadyRated) return false; // Already submitted team ratings
-  }
-  // Example for individual events (checking if winnersPerRole exists *and* was submitted by this user - might need dedicated field):
-  // else {
-  //    const winnersSelectedByCurrentUser = event.value.winnersSelectedBy === currentUserId.value; // Requires 'winnersSelectedBy' field
-  //    if (winnersSelectedByCurrentUser) return false;
-  // }
-  // Simplified: If checks above pass, allow rating button. The form itself might re-check.
-
-  return true; // If all checks pass
+  return true; // Allow rating if none of the above conditions met
 });
 
 const allParticipants = computed<string[]>(() => {
@@ -611,6 +558,7 @@ const openRatingForm = (): void => {
 
 
 // --- Lifecycle Hooks ---
+let fetchTimeoutId: number | undefined; // Store timeout ID
 
 const modalHiddenHandler = () => {
     // Reset form fields after modal is fully hidden
@@ -627,18 +575,15 @@ onMounted(() => {
     }
 });
 
-onUnmounted(() => {
-     // Clean up listener and modal instance
-    if (submissionModalRef.value) {
-        submissionModalRef.value.removeEventListener('hidden.bs.modal', modalHiddenHandler);
-        const modalInstance = getModalInstance();
-        modalInstance?.dispose(); // Clean up BS modal instance
+onBeforeUnmount(() => {
+    // Clear specific timeout if it exists
+    if (fetchTimeoutId) {
+        clearTimeout(fetchTimeoutId);
     }
-    // Clear any pending timeouts for feedback
-    // (Not strictly necessary as component is destroyed, but good practice)
-    clearTimeout(); // This might need specific timeout IDs if you have multiple
+    // Dispose modal instance
+    const modalInstance = getModalInstance();
+    modalInstance?.dispose();
 });
-
 
 // Watch for changes in event ID prop to refetch data
 watch(() => props.id, (newId, oldId) => {

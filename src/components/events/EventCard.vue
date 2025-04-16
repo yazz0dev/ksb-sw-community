@@ -52,20 +52,21 @@ import { computed, PropType } from 'vue';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, EventFormat, type Event } from '@/types/event';
 
-defineProps({
+// Define props using defineProps
+const props = defineProps({
   event: {
     type: Object as PropType<Event>,
     required: true
   }
 });
 
-const isCancelledOrRejected = computed(() => 
-  props.event.status === EventStatus.Cancelled || 
+const isCancelledOrRejected = computed(() =>
+  props.event.status === EventStatus.Cancelled ||
   props.event.status === EventStatus.Rejected
 );
 
 // Helper to format date range
-const formatDateRange = (start, end) => {
+const formatDateRange = (start: any, end: any): string => {
   try {
     const startDate = formatISTDate(start);
     const endDate = formatISTDate(end);
@@ -90,7 +91,7 @@ const truncatedDescription = computed(() => {
 const participantCount = computed(() => {
     if (props.event.isTeamEvent && Array.isArray(props.event.teams)) {
         let count = 0;
-        props.event.teams.forEach(team => {
+        props.event.teams.forEach((team: any) => { // Add type 'any' or specific Team type
             count += team.members?.length || 0;
         });
         return count;

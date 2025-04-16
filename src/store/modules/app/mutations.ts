@@ -1,91 +1,66 @@
 import { AppState, Notification, QueuedAction } from '@/types/store';
-import { MutationTree } from 'vuex';
 
-const mutations: MutationTree<AppState> = {
-  SET_ONLINE_STATUS(state, status: boolean): void {
-    state.isOnline = status;
+export const appMutations = {
+  // --- Offline Queue Mutations ---
+  addOfflineChange(state: AppState, change: QueuedAction) {
+    state.offlineQueue.actions.push(change); // Use offlineQueue.actions
   },
-  
-  ADD_OFFLINE_CHANGE(state, change: { type: string; data: any; timestamp: number }): void {
-    state.pendingOfflineChanges.push(change);
+
+  clearOfflineChanges(state: AppState) {
+    state.offlineQueue.actions = []; // Use offlineQueue.actions
   },
-  
-  CLEAR_OFFLINE_CHANGES(state): void {
-    state.pendingOfflineChanges = [];
+
+  setOfflineQueueSyncing(state: AppState, syncing: boolean) {
+    state.offlineQueue.syncInProgress = syncing;
   },
-  
-  SET_LAST_SYNC_TIMESTAMP(state, timestamp: number): void {
+
+  setOfflineQueueLastSync(state: AppState, timestamp: number | null) {
+    state.offlineQueue.lastSyncAttempt = timestamp; // Use correct property
+  },
+
+  addFailedAction(state: AppState, action: QueuedAction) {
+    if (!state.offlineQueue.failedActions) {
+        state.offlineQueue.failedActions = []; // Initialize if undefined
+    }
+    state.offlineQueue.failedActions.push(action); // Use correct property
+  },
+
+  setOfflineQueueLastError(state: AppState, error: string | null) {
+      state.offlineQueue.lastError = error; // Use correct property
+  },
+
+  // --- Notification Mutations ---
+  addNotification(state: AppState, notification: Omit<Notification, 'id'>) {
+    const newNotification: Notification = {
+      ...notification,
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      title: notification.title || '', // Ensure title exists
+    };
+    state.notifications.push(newNotification); // Use notifications property
+  },
+
+  dismissNotification(state: AppState, notificationId: string) {
+    state.notifications = state.notifications.filter((n: Notification) => n.id !== notificationId); // Use notifications property, type n
+  },
+
+  clearAllNotifications(state: AppState) {
+    state.notifications = []; // Use notifications property
+  },
+
+  // --- Network Status Mutations ---
+  setOnlineStatus(state: AppState, isOnline: boolean) {
+    state.networkStatus.online = isOnline;
+    state.networkStatus.lastChecked = Date.now(); // Use correct property
+  },
+
+  // --- Cache Status Mutations ---
+  setLastSyncTimestamp(state: AppState, timestamp: number | null) {
     state.lastSyncTimestamp = timestamp;
   },
-  
-  SET_EVENT_CLOSED_STATE(state, { eventId, isClosed }: { eventId: string; isClosed: boolean }): void {
-    state.eventClosed = {
-      ...state.eventClosed,
-      [eventId]: isClosed
-    };
-  },
-  
-  ADD_NOTIFICATION(state, notification: Notification): void {
-    const id = notification.id || Date.now().toString();
-    state.notifications.push({
-      id,
-      type: notification.type || 'info',
-      title: notification.title || '',
-      message: notification.message,
-      timeout: notification.timeout || 5000,
-      timestamp: Date.now()
-    });
-  },
-  
-  REMOVE_NOTIFICATION(state, notificationId: string): void {
-    state.notifications = state.notifications.filter(n => n.id !== notificationId);
-  },
-  
-  CLEAR_ALL_NOTIFICATIONS(state): void {
-    state.notifications = [];
+
+  // --- Event Closed State ---
+  setEventClosed(state: AppState, { eventId, isClosed }: { eventId: string; isClosed: boolean }) {
+    state.eventClosed = { ...state.eventClosed, [eventId]: isClosed };
   },
 
-  queueOfflineAction(state, action: QueuedAction): void {
-    state.offlineQueue.actions.push({
-      ...action,
-      timestamp: Date.now(),
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    });
-  },
-  
-  removeQueuedAction(state, actionId: string): void {
-    state.offlineQueue.actions = state.offlineQueue.actions.filter(
-      action => action.id !== actionId
-    );
-  },
-  
-  setSyncStatus(state, { inProgress, lastAttempt = null }: { inProgress: boolean; lastAttempt?: number | null }): void {
-    state.offlineQueue.syncInProgress = inProgress;
-    if (lastAttempt) {
-      state.offlineQueue.lastSyncAttempt = lastAttempt;
-    }
-  },
-  
-  addFailedAction(state, action: QueuedAction): void {
-    state.offlineQueue.failedActions.push(action);
-  },
-
-  setNetworkStatus(state, { online }: { online: boolean }): void {
-    state.networkStatus.online = online;
-    state.networkStatus.lastChecked = Date.now();
-  },
-
-  clearQueuedAction(state, actionId: string): void {
-    state.offlineQueue.actions = state.offlineQueue.actions
-      .filter(action => action.id !== actionId);
-  },
-
-  setOfflineSync(state, { inProgress, error = null }: { inProgress: boolean; error?: string | null }): void {
-    state.offlineQueue.syncInProgress = inProgress;
-    if (error) {
-      state.offlineQueue.lastError = error;
-    }
-  }
 };
-
-export default mutations;

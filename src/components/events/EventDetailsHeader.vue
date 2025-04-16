@@ -124,7 +124,7 @@ const renderedDescription = computed(() => {
     breaks: true,
     gfm: true,
   });
-  const rawHtml = marked.parse(props.event.description);
+  const rawHtml: string = marked.parse(props.event.description); // Explicitly type as string
   return DOMPurify.sanitize(rawHtml);
 });
 

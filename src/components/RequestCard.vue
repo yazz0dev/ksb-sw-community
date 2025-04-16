@@ -77,12 +77,17 @@ const reject = () => {
 
 const formatDate = (date: { toDate?: () => Date } | string | Date | null): string => {
   if (!date) return 'N/A';
-  const dt = date instanceof Object && 'toDate' in date 
-    ? DateTime.fromJSDate(date.toDate())
-    : typeof date === 'string' 
-    ? DateTime.fromISO(date)
-    : DateTime.fromJSDate(date as Date);
-  return dt.toLocaleString(DateTime.DATE_MED);
+  let dt: DateTime;
+  if (date instanceof Date) {
+      dt = DateTime.fromJSDate(date);
+  } else if (typeof date === 'object' && date !== null && typeof (date as any).toDate === 'function') {
+      dt = DateTime.fromJSDate((date as any).toDate()); // Use toDate if available
+  } else if (typeof date === 'string') {
+      dt = DateTime.fromISO(date);
+  } else {
+      return 'Invalid Date'; // Handle unexpected types
+  }
+  return dt.isValid ? dt.toLocaleString(DateTime.DATE_MED) : 'Invalid Date';
 };
 </script>
 

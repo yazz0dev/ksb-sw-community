@@ -157,40 +157,49 @@ const viewState = ref<'request' | 'reset' | 'success' | 'error'>('request');
 const oobCode = ref<string | null>(null);
 
 // --- Check URL parameters on mount ---
-onMounted(async () => {
-  const mode = route.query.mode;
-  oobCode.value = route.query.oobCode;
+onMounted(() => {
+  // Extract mode and oobCode from query parameters
+  const queryMode = route.query.mode;
+  const queryOobCode = route.query.oobCode;
 
-  if (mode === 'resetPassword' && oobCode.value) {
-    isLoading.value = true;
-    message.value = 'Verifying reset link...';
-    isError.value = false;
-    try {
-      // Verify the password reset code.
-      await verifyPasswordResetCode(auth, oobCode.value);
-      // Code is valid, show the reset password form.
-      viewState.value = 'reset';
-      message.value = ''; // Clear verification message
-    } catch (error) {
-      console.error("Verify Password Reset Code Error:", error);
-      message.value = 'Invalid or expired password reset link. Please request a new one.';
-      isError.value = true;
-      viewState.value = 'error'; // Show error state
-      // Optionally redirect or clear the invalid query params after a delay
-      setTimeout(() => {
-          if (viewState.value === 'error') { // Only redirect if still in error state
-             router.replace({ query: {} });
-             viewState.value = 'request'; // Go back to request form
-             message.value = ''; // Clear error message
-          }
-      }, 4000);
-    } finally {
-      isLoading.value = false;
+  const mode = ref<string | null>(null);
+  mode.value = typeof queryMode === 'string' ? queryMode : null;
+  oobCode.value = typeof queryOobCode === 'string' ? queryOobCode : null; // Take only string value
+
+  const verifyResetCode = async () => {
+    if (mode.value === 'resetPassword' && oobCode.value) {
+      isLoading.value = true;
+      message.value = 'Verifying reset link...';
+      isError.value = false;
+      try {
+        // Verify the password reset code.
+        await verifyPasswordResetCode(auth, oobCode.value);
+        // Code is valid, show the reset password form.
+        viewState.value = 'reset';
+        message.value = ''; // Clear verification message
+      } catch (error) {
+        console.error("Verify Password Reset Code Error:", error);
+        message.value = 'Invalid or expired password reset link. Please request a new one.';
+        isError.value = true;
+        viewState.value = 'error'; // Show error state
+        // Optionally redirect or clear the invalid query params after a delay
+        setTimeout(() => {
+            if (viewState.value === 'error') { // Only redirect if still in error state
+               router.replace({ query: {} });
+               viewState.value = 'request'; // Go back to request form
+               message.value = ''; // Clear error message
+            }
+        }, 4000);
+      } finally {
+        isLoading.value = false;
+      }
+    } else {
+      // Default state: show the request form
+      viewState.value = 'request';
     }
-  } else {
-    // Default state: show the request form
-    viewState.value = 'request';
-  }
+  };
+
+  verifyResetCode();
 });
 
 // --- Handler for Sending Reset Email ---

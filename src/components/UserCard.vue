@@ -18,9 +18,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import vue3StarRatings from 'vue3-star-ratings';
 
 interface Props {
   userId: string;

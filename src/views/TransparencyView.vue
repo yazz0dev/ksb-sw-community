@@ -164,7 +164,7 @@ const generalContent = `
 
 // Utility function to render markdown content safely
 const renderSection = (content: string): string => {
-    const rawHtml = marked(content);
+    const rawHtml: string = marked(content); // Explicitly type as string
     return DOMPurify.sanitize(rawHtml);
 };
 </script>
