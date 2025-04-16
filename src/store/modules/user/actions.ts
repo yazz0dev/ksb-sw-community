@@ -1,5 +1,5 @@
 import { ActionTree } from 'vuex';
-import { UserState, UserData } from '@/types/user';
+import { UserState, UserData, User, NameCacheMap } from '@/types/user';
 import { RootState } from '@/store/types';
 import { db } from '../../../firebase';
 import { 
@@ -64,13 +64,13 @@ export const userActions: ActionTree<UserState, RootState> = {
     },
 
     async fetchUserNamesBatch(_, userIds: string[]): Promise<Record<string, string>> {
-        const uniqueIds = [...new Set(userIds)].filter(Boolean); // Remove duplicates and falsy values
+        const uniqueIds = [...new Set(userIds)].filter(Boolean);
         if (uniqueIds.length === 0) {
             return {};
         }
 
-        const namesMap = {};
-        const chunkSize = 30; // Firestore 'in' query limit
+        const namesMap: Record<string, string> = {};
+        const chunkSize = 30;
 
         try {
             for (let i = 0; i < uniqueIds.length; i += chunkSize) {
@@ -151,30 +151,26 @@ export const userActions: ActionTree<UserState, RootState> = {
     async fetchAllStudents({ commit }): Promise<UserData[]> {
         try {
             const usersRef = collection(db, 'users');
-            // Fetch ALL users first
             const q = query(usersRef); 
-            console.log('Fetching ALL users...'); // Updated log
+            console.log('Fetching ALL users...');
             const querySnapshot = await getDocs(q);
-            console.log(`Found ${querySnapshot.size} total user documents.`); // Log total doc count
+            console.log(`Found ${querySnapshot.size} total user documents.`);
 
-            // Filter out Admins client-side
             const students = querySnapshot.docs
-                .filter(doc => doc.data().role !== 'Admin') // Filter here
+                .filter(doc => doc.data().role !== 'Admin')
                 .map(doc => ({
                     uid: doc.id, 
                     name: doc.data().name || 'Unnamed',
-                    role: doc.data().role || 'Student'
+                    role: doc.data().role || 'Student',
+                    isAuthenticated: true // Add required field
                 }))
                 .sort((a, b) => (a.name || a.uid).localeCompare(b.name || b.uid));
 
-            // Commit the filtered list to the state
-            console.log(`Committing ${students.length} students (non-Admins) to state.`); // Updated log
-            commit('setStudents', students);
-
-            return students; // Return the filtered list
+            commit('setStudentList', students);
+            return students;
         } catch (error) {
             console.error("Error fetching all students:", error);
-            commit('setStudents', []); // Commit empty array on error
+            commit('setStudentList', []);
             return [];
         }
     },
@@ -187,6 +183,8 @@ export const userActions: ActionTree<UserState, RootState> = {
             const users = querySnapshot.docs.map(doc => ({
                 uid: doc.id,
                 ...doc.data(),
+                name: doc.data().name || 'Unnamed', // Ensure name is present
+                isAuthenticated: true // Add required field
             }));
 
             commit('setAllUsers', users);
@@ -194,6 +192,21 @@ export const userActions: ActionTree<UserState, RootState> = {
         } catch (error) {
             console.error("Error fetching all users:", error);
             return [];
+        }
+    },
+
+    async clearUserData({ commit }): Promise<void> {
+        try {
+            commit('clearUserData');
+            commit('setHasFetched', false);
+            // Clear other related states
+            commit('setStudentList', []);
+            commit('setAllUsers', []);
+            // Clear the name cache
+            const emptyMap = new Map();
+            commit('setNameCache', emptyMap);
+        } catch (error) {
+            console.error('Error clearing user data:', error);
         }
     },
 };

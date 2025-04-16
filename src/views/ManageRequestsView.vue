@@ -81,6 +81,7 @@
 
       <!-- Confirmation Modal for Reject Request -->
       <ConfirmationModal
+        :modalId="'manageRequestsConfirmModal'"  
         :visible="showRejectConfirmModal"
         title="Reject Event Request?"
         message="Are you sure you want to reject this event request? This action cannot be undone."
@@ -98,7 +99,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
-import { EventStatus } from '@/types';
+import { EventStatus } from '@/types/event';
 
 interface RequestFeedback {
     message: string;
@@ -116,7 +117,7 @@ const pendingRequests = computed(() => store.getters['events/pendingEvents']);
 
 // Sanitized requests with type safety
 const sanitizedPendingRequests = computed(() => {
-    return pendingRequests.value.map(request => ({
+    return pendingRequests.value.map((request: { eventFormat: any; eventType: any; requesterName: any; organizerName: any; description: any; startDate: any; endDate: any; }) => ({
         ...request,
         eventFormat: request.eventFormat || 'Not specified',
         eventType: request.eventType || 'Not specified',

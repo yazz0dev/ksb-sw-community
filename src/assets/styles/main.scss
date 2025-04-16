@@ -1,6 +1,6 @@
 @use 'sass:color' as color;
 @use 'animations';
-@use 'custom_bootstrap_variables' as v;
+@use '_variables' as v;
 @use 'bootstrap';
 
 body {

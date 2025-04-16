@@ -1,43 +1,59 @@
-import { UserState } from '@/types/store';
+import { UserState, User } from '@/types/user';
 
-interface UserData {
-  uid: string;
-  name: string;
-  role: string;
-  isAuthenticated?: boolean;
-  xpByRole?: Record<string, number>;
-  skills?: string[];
-  preferredRoles?: string[];
-  lastXpCalculationTimestamp?: number | null;
+// Interface for data payloads, often coming from API/forms
+interface UserDataPayload {
+    uid: string;
+    name: string;
+    role: string;
+    isAuthenticated?: boolean; // Optional, as it may not always be provided
+    xpByRole?: Record<string, number>;
+    skills?: string[];
+    preferredRoles?: string[];
+    lastXpCalculationTimestamp?: number | null;
 }
 
+// Helper for default XP structure
+const defaultXpStructure: Record<string, number> = {
+    fullstack: 0,
+    presenter: 0,
+    designer: 0,
+    organizer: 0,
+    problemSolver: 0,
+    participation: 0
+};
+
 export const userMutations = {
-    setUserData(state: UserState, userData: UserData) {
+    setUserData(state: UserState, userData: UserDataPayload) {
         state.uid = userData.uid;
         state.name = userData.name;
         state.role = userData.role || 'Student'; // Default role if missing
 
         if (state.role === 'Admin') {
             // Admins have no XP structure, skills, or preferred roles
-            state.xpByRole = null;
+            state.xpByRole = {}; // Use empty object for type consistency
             state.skills = [];
             state.preferredRoles = [];
         } else {
             // Set student-specific fields only for non-Admins
-            const defaultXpStructure = { fullstack: 0, presenter: 0, designer: 0, organizer: 0, problemSolver: 0, participation: 0, general: 0 };
             const dbXp = userData.xpByRole || {};
+            // Ensure all default keys exist, taking values from payload or defaulting to 0
             state.xpByRole = Object.keys(defaultXpStructure).reduce((acc, key) => {
-                acc[key] = Number(dbXp[key]) || 0; // Ensure number, default to 0 for all keys
+                acc[key] = Number(dbXp[key]) || 0;
                 return acc;
-            }, {});
+            }, {} as Record<string, number>); // Ensure correct accumulator type
 
             state.skills = Array.isArray(userData.skills) ? userData.skills : [];
             state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
         }
 
-        state.isAuthenticated = !!userData.isAuthenticated;
-        state.lastXpCalculationTimestamp = userData.lastXpCalculationTimestamp || null; // Add last sync timestamp
-        // hasFetched is set separately in the action's finally block
+        // Set isAuthenticated based on payload if available, otherwise derive from uid?
+        // Decide on the source of truth for isAuthenticated. Payload source is flexible.
+        state.isAuthenticated = typeof userData.isAuthenticated === 'boolean'
+            ? userData.isAuthenticated
+            : !!userData.uid; // Fallback to uid presence if payload doesn't specify
+
+        state.lastXpCalculationTimestamp = userData.lastXpCalculationTimestamp || null;
+        // hasFetched is set separately, typically in the action's finally block
     },
 
     clearUserData(state: UserState) {
@@ -45,21 +61,20 @@ export const userMutations = {
         state.name = null;
         state.role = null;
         // Reset xpByRole map using the full structure
-        state.xpByRole = { fullstack: 0, presenter: 0, designer: 0, organizer: 0, problemSolver: 0, participation: 0, general: 0 };
+        state.xpByRole = { ...defaultXpStructure }; // Reset with default 0s
         state.skills = [];
         state.preferredRoles = [];
         state.isAuthenticated = false;
-        // state.hasFetched = false; // Don't reset hasFetched on clear, only on new fetch attempt start
+        // state.hasFetched = false; // Keep existing logic: Don't reset hasFetched on clear
     },
 
-    setUserXpByRole(state: UserState, xpByRoleMap: Record<string, number>) {
+    setUserXpByRole(state: UserState, xpByRoleMap: Record<string, number> | null | undefined) {
         // Ensure the map structure is correct and includes all roles
-        const defaultXpStructure = { fullstack: 0, presenter: 0, designer: 0, organizer: 0, problemSolver: 0, participation: 0, general: 0 };
         const newMap = xpByRoleMap || {};
         state.xpByRole = Object.keys(defaultXpStructure).reduce((acc, key) => {
             acc[key] = Number(newMap[key]) || 0; // Ensure number, default to 0
             return acc;
-        }, {});
+        }, {} as Record<string, number>);
     },
 
     setHasFetched(state: UserState, fetched: boolean) {
@@ -67,85 +82,88 @@ export const userMutations = {
     },
 
     incrementUserXpRole(state: UserState, { role, amount }: { role: string; amount: number }) {
-        if (state.xpByRole && typeof state.xpByRole[role] === 'number') {
-            state.xpByRole[role] += amount;
-        } else if (state.xpByRole) {
-            // If the role doesn't exist but xpByRole does, initialize it
-            state.xpByRole[role] = amount;
-            console.warn(`Initialized XP for role '${role}' which was previously missing.`);
-        } else {
-            // Should ideally not happen if initialized correctly, but handle it
-            state.xpByRole = { [role]: amount };
-            console.warn(`Initialized xpByRole object which was previously missing.`);
+        // Ensure xpByRole exists and is an object before modifying
+        if (typeof state.xpByRole !== 'object' || state.xpByRole === null) {
+             // Should ideally not happen if initialized correctly, especially for non-admins
+             console.warn(`Attempted to increment XP for role '${role}', but xpByRole object was missing or null. Initializing.`);
+             state.xpByRole = { ...defaultXpStructure }; // Initialize with defaults
+        }
+
+        // Now safely increment or initialize the specific role
+        state.xpByRole[role] = (Number(state.xpByRole[role]) || 0) + amount;
+
+        // Optional: Warn if incrementing a role not in the default structure
+        if (!defaultXpStructure.hasOwnProperty(role)) {
+             console.warn(`Incremented XP for non-standard role: '${role}'`);
         }
     },
 
-    setAllUsers(state: UserState, users: UserData[]) {
+    setAllUsers(state: UserState, users: User[]) { // Use User[] type from state definition
+        // Add mapping here if UserDataPayload needs conversion to User
         state.allUsers = users;
     },
 
-    updateUser(state: UserState, userData: UserData) {
+    updateUser(state: UserState, userData: User) { // Use User type from state definition
         const index = state.allUsers.findIndex(u => u.uid === userData.uid);
+        // Add mapping here if UserDataPayload needs conversion to User before updating
         if (index !== -1) {
-            state.allUsers.splice(index, 1, userData);
+            // Use splice for reactivity if needed, or direct assignment if acceptable
+             state.allUsers.splice(index, 1, userData);
+            // Or: state.allUsers[index] = userData; // Might have reactivity caveats in Vue 2
         } else {
             state.allUsers.push(userData);
         }
     },
 
     removeUser(state: UserState, uid: string) {
-        const index = state.allUsers.findIndex(u => u.uid === uid);
-        if (index !== -1) {
-            state.allUsers.splice(index, 1);
-        }
+        state.allUsers = state.allUsers.filter(u => u.uid !== uid); // Filter is often cleaner
     },
 
-    cacheUserNames(state: UserState, namesMap: Record<string, string>) {
-        state.userNameCache = { ...state.userNameCache, ...namesMap };
-    },
+    // Removed cacheUserNames mutation as it's incompatible with Map-based nameCache
 
-    setLastXpCalculationTimestamp(state: UserState, timestamp: number) {
+    setLastXpCalculationTimestamp(state: UserState, timestamp: number | null) { // Allow null
         state.lastXpCalculationTimestamp = timestamp;
     },
 
-    setStudents(state: UserState, students: UserData[]) {
-        // console.log('setStudents mutation called with payload:', students); // Removed log
+    // Removed setStudents mutation, using setStudentList instead
+
+    setStudentList(state: UserState, students: User[]) { // Use User[] type from state definition
+        // Add mapping here if UserDataPayload needs conversion to User
         if (Array.isArray(students)) {
             state.studentList = students;
-            // console.log('state.studentList updated:', state.studentList); // Removed log
+            state.studentListLastFetch = Date.now();
+            state.studentListError = null; // Clear error on successful set
+            state.studentListLoading = false; // Assume loading stops on successful set
         } else {
-            console.error('setStudents mutation received non-array payload:', students);
-            state.studentList = []; // Ensure it's always an array
+             console.error('setStudentList mutation received non-array payload:', students);
+             state.studentList = []; // Ensure it's always an array
+             // Optionally set error state here
+             // state.studentListError = new Error('Invalid student list data received');
         }
     },
 
-    setStudentList(state: UserState, students: UserData[]) {
-        state.studentList = students;
-        state.studentListLastFetch = Date.now();
-        state.studentListError = null;
-    },
-
     setStudentListLoading(state: UserState, loading: boolean) {
-        state.studentListLoading = loading;
+        state.studentListLoading = !!loading; // Ensure boolean
     },
 
     setStudentListError(state: UserState, error: Error | null) {
         state.studentListError = error;
-        state.studentListLoading = false;
+        state.studentListLoading = false; // Stop loading on error
     },
 
+    // Mutation for the Map-based nameCache
     addToNameCache(state: UserState, { uid, name }: { uid: string; name: string }) {
-        if (!state.nameCache.has(uid)) {
-            state.nameCache.set(uid, {
-                name,
-                timestamp: Date.now()
-            });
-        }
+        // Update existing or add new, always refresh timestamp
+         state.nameCache.set(uid, {
+             name,
+             timestamp: Date.now()
+         });
     },
 
+    // Mutation to clear stale cache entries
     clearStaleCache(state: UserState) {
         const now = Date.now();
-        
+
         // Clear stale name cache entries
         for (const [uid, data] of state.nameCache.entries()) {
             if (now - data.timestamp > state.nameCacheTTL) {
@@ -153,11 +171,15 @@ export const userMutations = {
             }
         }
 
-        // Clear student list if TTL expired
-        if (state.studentListLastFetch && 
-            now - state.studentListLastFetch > state.studentListTTL) {
+        // Clear student list if TTL expired AND it's not currently loading
+        if (state.studentListLastFetch &&
+            !state.studentListLoading && // Avoid clearing during a fetch
+            (now - state.studentListLastFetch > state.studentListTTL))
+        {
+            console.log('Student list cache expired. Clearing data.'); // Optional log
             state.studentList = [];
             state.studentListLastFetch = null;
+            // state.studentListError = null; // Optionally clear error too
         }
     },
 };

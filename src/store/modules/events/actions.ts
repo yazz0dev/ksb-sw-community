@@ -29,7 +29,6 @@ import { mapEventDataToFirestore } from '@/utils/eventDataMapper';
 import {
     EventFormat,
     EventStatus,
-    EventType, // EventType was imported but not used directly in actions, maybe in EventData mapping?
     EventState,
     Event,
     EventData,
@@ -982,21 +981,18 @@ export const eventActions: ActionTree<EventState, RootState> = {
         }
     },
 
-    // --- ACTION: Auto-Generate Teams (Admin or Organizer) ---
-    async autoGenerateTeams({ dispatch, rootGetters }, { eventId, generationType, value, maxTeams = 8 }: {
+    // --- ACTION: Auto-Generate Teams (Admin or Organizer) - SIMPLIFIED ---
+    async autoGenerateTeams({ dispatch, rootGetters }, { eventId, numberOfTeams, maxTeams = 8 }: {
         eventId: string;
-        generationType: 'fixed-size' | 'fixed-count';
-        value: number; // Size for fixed-size, count for fixed-count
+        numberOfTeams: number; // Number of teams to attempt to generate
         maxTeams?: number;
-    }): Promise<Team[]> { // Return the generated teams array
+    }): Promise<Team[]> { // Return the FINAL teams array for the event
         if (!eventId) throw new Error('Event ID is required.');
-        if (generationType !== 'fixed-size' && generationType !== 'fixed-count') {
-             throw new Error("Invalid generation type. Must be 'fixed-size' or 'fixed-count'.");
-        }
-        if (typeof value !== 'number' || value <= 0) {
-             throw new Error("Invalid value provided. Must be a positive number for team size or count.");
+        if (typeof numberOfTeams !== 'number' || numberOfTeams <= 0) {
+            throw new Error("Invalid number of teams requested. Must be a positive number.");
         }
         const effectiveMaxTeams = Math.max(1, maxTeams); // Ensure maxTeams is at least 1
+        const minTeamSize = 2; // Minimum members per team
 
         const eventRef: DocumentReference<DocumentData> = doc(db, 'events', eventId);
         try {
@@ -1022,104 +1018,76 @@ export const eventActions: ActionTree<EventState, RootState> = {
                 throw new Error("Cannot generate teams: This is not designated as a team event.");
             }
 
-            // Fetch all available student UIDs (assuming fetchAllStudents returns User objects with uid)
-            // Adjust if fetchAllStudents returns only UIDs or different structure
+            // Fetch all available student UIDs
+            // Assuming fetchAllStudents returns User objects with uid. Adjust if structure is different.
             const allStudents: User[] = await dispatch('user/fetchAllStudents', null, { root: true }) || [];
             if (allStudents.length === 0) {
+                // No students in the system at all.
                 throw new Error("No students found in the system to generate teams from.");
             }
-             const allStudentUids = allStudents.map(s => s.uid).filter(Boolean);
+            const allStudentUids = allStudents.map(s => s.uid).filter(Boolean);
 
             // Identify students already assigned to existing teams in this event
             const existingTeams = Array.isArray(eventData.teams) ? eventData.teams : [];
+            if (existingTeams.length >= effectiveMaxTeams) {
+                 throw new Error(`Cannot generate new teams: Maximum number of teams (${effectiveMaxTeams}) already reached.`);
+            }
             const assignedStudents = new Set<string>(existingTeams.flatMap(t => t.members || []).filter(Boolean));
 
             // Get UIDs of students available for new teams
             const availableStudentUids = allStudentUids.filter(uid => !assignedStudents.has(uid));
 
-            // Need at least 2 students to form any team
-            if (availableStudentUids.length < 2) {
-                throw new Error("Not enough available students (who are not already in teams) to generate new teams (minimum 2 required).");
+            // Need at least `minTeamSize` students to form *any* new team
+            if (availableStudentUids.length < minTeamSize) {
+                throw new Error(`Not enough available students (${availableStudentUids.length}) who aren't already in teams to generate new teams (minimum ${minTeamSize} required).`);
             }
+
+             // Determine the actual number of teams we can create based on available students and limits
+             const maxPossibleNewTeams = Math.floor(availableStudentUids.length / minTeamSize);
+             const remainingTeamSlots = effectiveMaxTeams - existingTeams.length;
+             const teamsToCreateCount = Math.min(numberOfTeams, maxPossibleNewTeams, remainingTeamSlots);
+
+             if (teamsToCreateCount <= 0) {
+                 throw new Error(`Cannot create the requested ${numberOfTeams} teams. Available slots: ${remainingTeamSlots}, Max possible from students: ${maxPossibleNewTeams}.`);
+             }
+
+             console.log(`Attempting to generate ${teamsToCreateCount} new teams from ${availableStudentUids.length} available students.`);
 
             // Shuffle the available students randomly
             const shuffledStudents = [...availableStudentUids].sort(() => Math.random() - 0.5);
 
-            let generatedTeams: Team[] = [];
-            const minTeamSize = 2; // Minimum members per team
-            const maxTeamSize = 8; // Maximum members per team
+            // Distribute shuffled students into the calculated number of teams
+            const generatedTeams: Team[] = [];
+            const baseSize = Math.floor(shuffledStudents.length / teamsToCreateCount);
+            const teamsWithExtraMember = shuffledStudents.length % teamsToCreateCount;
+            let currentIndex = 0;
 
-            if (generationType === 'fixed-size') {
-                // Generate teams of a fixed size (within constraints)
-                const desiredTeamSize = Math.max(minTeamSize, Math.min(maxTeamSize, Math.round(value))); // Clamp size
-                console.log(`Generating teams of fixed size: ${desiredTeamSize}`);
-
-                for (let i = 0; i < shuffledStudents.length && generatedTeams.length < effectiveMaxTeams; i += desiredTeamSize) {
-                    const teamMembers = shuffledStudents.slice(i, i + desiredTeamSize);
-                    // Ensure the generated team meets the minimum size requirement
-                    if (teamMembers.length >= minTeamSize) {
-                        generatedTeams.push({
-                             // Generate unique team names relative to existing and newly generated ones
-                            teamName: `Generated Team ${existingTeams.length + generatedTeams.length + 1}`,
-                            members: teamMembers,
-                            submissions: [], // Initialize
-                            ratings: []      // Initialize
-                        });
-                    } else {
-                         // Handle remaining students if they don't form a full team?
-                         // Option 1: Discard them (simplest)
-                         // Option 2: Add them to the last formed team if possible (respecting maxTeamSize)
-                         // Option 3: Form a smaller team if > minTeamSize (already handled by check)
-                         console.log(`Could not form a full team with remaining ${teamMembers.length} students.`);
-                         break; // Stop forming teams if remainder is too small
-                    }
+            for (let i = 0; i < teamsToCreateCount; i++) {
+                const currentTeamSize = baseSize + (i < teamsWithExtraMember ? 1 : 0);
+                // This check should be redundant because of how teamsToCreateCount is calculated, but safety first.
+                if (currentIndex + currentTeamSize > shuffledStudents.length || currentTeamSize < minTeamSize) {
+                    console.warn(`Stopping team generation early due to unexpected size calculation. Index: ${currentIndex}, Size: ${currentTeamSize}, Available: ${shuffledStudents.length}`);
+                    break;
                 }
-            } else if (generationType === 'fixed-count') {
-                // Generate a fixed number of teams
-                const desiredTeamCount = Math.min(effectiveMaxTeams, Math.max(1, Math.round(value)));
-                // Ensure we don't request more teams than possible with min size
-                const actualTeamCount = Math.min(desiredTeamCount, Math.floor(shuffledStudents.length / minTeamSize));
 
-                if (actualTeamCount <= 0) {
-                     throw new Error(`Cannot generate ${desiredTeamCount} teams, not enough available students (${shuffledStudents.length}) for minimum team size of ${minTeamSize}.`);
-                }
-                 console.log(`Generating ${actualTeamCount} teams from ${shuffledStudents.length} available students.`);
-
-                const baseSize = Math.floor(shuffledStudents.length / actualTeamCount);
-                const teamsWithExtraMember = shuffledStudents.length % actualTeamCount;
-
-                let currentIndex = 0;
-                for (let i = 0; i < actualTeamCount; i++) {
-                    const currentTeamSize = baseSize + (i < teamsWithExtraMember ? 1 : 0);
-                    // This check should be redundant given calculation of actualTeamCount, but keep for safety
-                    if (currentTeamSize < minTeamSize) {
-                         console.warn(`Calculated team size ${currentTeamSize} is below minimum ${minTeamSize}. Stopping generation.`);
-                         break;
-                    }
-                    const teamMembers = shuffledStudents.slice(currentIndex, currentIndex + currentTeamSize);
-                    generatedTeams.push({
-                        teamName: `Generated Team ${existingTeams.length + generatedTeams.length + 1}`,
-                        members: teamMembers,
-                        submissions: [],
-                        ratings: []
-                    });
-                    currentIndex += currentTeamSize;
-                }
+                const teamMembers = shuffledStudents.slice(currentIndex, currentIndex + currentTeamSize);
+                generatedTeams.push({
+                    // Generate unique team names relative to existing and newly generated ones
+                    teamName: `Generated Team ${existingTeams.length + generatedTeams.length + 1}`,
+                    members: teamMembers,
+                    submissions: [], // Initialize
+                    ratings: []      // Initialize
+                });
+                currentIndex += currentTeamSize;
             }
 
             if (generatedTeams.length === 0) {
-                throw new Error("Could not generate any valid teams with the specified parameters and available students.");
+                // This case should ideally be caught by earlier checks
+                throw new Error("Failed to generate any valid teams with the specified parameters and available students.");
             }
 
-             // Combine existing teams with newly generated teams
-             const finalTeams = [...existingTeams, ...generatedTeams];
-
-             // Check if the total number of teams exceeds the limit (unlikely with checks above, but good safeguard)
-             if (finalTeams.length > effectiveMaxTeams) {
-                 console.warn(`Generated ${generatedTeams.length} teams, resulting in ${finalTeams.length} total teams, exceeding max limit of ${effectiveMaxTeams}. Truncating.`);
-                 // Truncate generated teams if necessary (or throw error)
-                 generatedTeams = generatedTeams.slice(0, effectiveMaxTeams - existingTeams.length);
-             }
+            // Combine existing teams with newly generated teams
+            const finalTeams = [...existingTeams, ...generatedTeams];
 
             // Update Firestore with the new combined list of teams
             await updateDoc(eventRef, { teams: finalTeams });
@@ -1127,8 +1095,8 @@ export const eventActions: ActionTree<EventState, RootState> = {
             // Update local state
             dispatch('updateLocalEvent', { id: eventId, changes: { teams: finalTeams } });
 
-            console.log(`Teams auto-generated successfully for event ${eventId}. ${generatedTeams.length} new teams created.`);
-            return generatedTeams; // Return only the newly generated teams
+            console.log(`Teams auto-generated successfully for event ${eventId}. ${generatedTeams.length} new teams created. Total teams: ${finalTeams.length}.`);
+            return finalTeams; // Return the full updated list of teams
 
         } catch (error: any) {
             console.error(`Error auto-generating teams for event ${eventId}:`, error);
@@ -1774,7 +1742,7 @@ export const eventActions: ActionTree<EventState, RootState> = {
                 const teams = Array.isArray(eventData.teams) ? [...eventData.teams] : [];
                 // Find team by ID (assuming team objects have a unique 'id' or use teamName if that's the identifier)
                 // Let's assume teamName is the identifier for now, as used in the JS version. Adjust if IDs are used.
-                const teamIndex = teams.findIndex(t => t.teamName === teamId);
+                const teamIndex = teams.findIndex(t => t.teamName === teamId); // FINDING BY NAME HERE, ensure consistency
                 if (teamIndex === -1) throw new Error(`Team with Name '${teamId}' not found in this event.`);
 
                 // Ensure the user isn't rating their own team? (Add check if needed)
@@ -1937,9 +1905,6 @@ export const eventActions: ActionTree<EventState, RootState> = {
 
             // Status Check: Allow rating only after completion?
             if (eventData.status !== EventStatus.Completed) {
-                 // Allow rating even if closed? Or only when Completed but not closed?
-                 // Let's allow rating Completed or Closed events.
-                 // if (![EventStatus.Completed, EventStatus.Closed].includes(eventData.status)) { // If allowing Closed too
                 throw new Error('Organization can only be rated for completed events.');
             }
 
@@ -2011,8 +1976,7 @@ export const eventActions: ActionTree<EventState, RootState> = {
              // Return a structured error result or rethrow
              // Rethrowing allows components using the action to handle it via try/catch
              throw error;
-             // Or return:
-             // return { success: false, message: error.message || 'An unknown error occurred while closing the event.' };
+            
         }
     },
 };

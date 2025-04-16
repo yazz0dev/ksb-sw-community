@@ -1,134 +1,114 @@
 <!-- src/components/ConfirmationModal.vue -->
 <template>
-  <Teleport to="body">
     <div 
-      class="modal fade" 
-      :class="{ 'show d-block': visible }" 
-      tabindex="-1" 
-      :aria-labelledby="modalId + 'Label'" 
-      :aria-hidden="!visible"
-      role="dialog"
-      @click.self="closeModal" 
+        class="modal fade" 
+        :id="modalId" 
+        tabindex="-1" 
+        :aria-labelledby="`${modalId}Label`"
+        role="dialog"
     >
-      <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
-        <div class="modal-content" style="background-color: var(--bs-body-bg); border-radius: var(--bs-border-radius);">
-          <div class="modal-header" style="border-bottom: 1px solid var(--bs-border-color);">
-            <h6 class="modal-title fs-6 fw-medium" :id="modalId + 'Label'" style="color: var(--bs-body-color);">
-              {{ title }}
-            </h6>
-            <button type="button" class="btn-close" aria-label="Close" @click="closeModal"></button>
-          </div>
-          <div class="modal-body py-4">
-            <div class="d-flex align-items-start">
-              <div class="flex-shrink-0 me-3">
-                <span 
-                  class="icon-wrapper d-inline-flex align-items-center justify-content-center bg-danger-subtle text-danger-emphasis rounded-circle"
-                  style="height: 2.5rem; width: 2.5rem;"
-                >
-                  <i class="fas fa-exclamation-triangle fa-lg"></i>
-                </span>
-              </div>
-              <div class="flex-grow-1">
-                <p class="small" style="color: var(--bs-secondary-color);">
-                  {{ message }}
-                </p>
-              </div>
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" :id="`${modalId}Label`">{{ title }}</h5>
+                    <button 
+                        type="button" 
+                        class="btn-close" 
+                        data-bs-dismiss="modal" 
+                        aria-label="Close"
+                    ></button>
+                </div>
+                <div class="modal-body">
+                    <slot>{{ message }}</slot>
+                </div>
+                <div class="modal-footer">
+                    <button 
+                        type="button" 
+                        class="btn btn-secondary" 
+                        data-bs-dismiss="modal"
+                    >
+                        {{ cancelText }}
+                    </button>
+                    <button 
+                        type="button" 
+                        class="btn"
+                        :class="confirmButtonClass"
+                        @click="handleConfirm"
+                    >
+                        {{ confirmText }}
+                    </button>
+                </div>
             </div>
-          </div>
-          <div 
-            class="modal-footer justify-content-end"
-            style="background-color: var(--bs-tertiary-bg); border-top: 1px solid var(--bs-border-color); border-bottom-left-radius: var(--bs-border-radius); border-bottom-right-radius: var(--bs-border-radius);"
-          >
-            <button 
-              type="button"
-              class="btn btn-sm btn-outline-secondary me-2"
-              @click="cancelAction"
-              ref="cancelButtonRef"
-            >
-              {{ cancelText }}
-            </button>
-            <button 
-              type="button"
-              class="btn btn-sm btn-danger"
-              @click="confirmAction"
-            >
-              {{ confirmText }}
-            </button>
-          </div>
         </div>
-      </div>
     </div>
-    <!-- Backdrop -->
-    <div v-if="visible" class="modal-backdrop fade show"></div>
-  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue';
+import { onMounted, onUnmounted, computed } from 'vue';
 
-interface Props {
-  visible: boolean;
-  title?: string;
-  message?: string;
-  confirmText?: string;
-  cancelText?: string;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  confirmText: 'Confirm',
-  cancelText: 'Cancel'
-});
-
-const emit = defineEmits<{
-  (e: 'confirm'): void;
-  (e: 'cancel'): void;
-  (e: 'close'): void;
+const props = defineProps<{
+    modalId: string;
+    title: string;
+    message?: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'primary';
 }>();
 
-const cancelButtonRef = ref<HTMLButtonElement | null>(null);
-const modalId = computed(() => `confirmationModal-${Math.random().toString(36).substring(2, 9)}`);
+const emit = defineEmits<{
+    (e: 'confirm'): void;
+}>();
 
-const confirmAction = (): void => {
-  emit('confirm');
-  closeModal();
-};
+// Compute button class based on variant
+const confirmButtonClass = computed(() => {
+    const variant = props.variant || 'primary';
+    return `btn-${variant}`;
+});
 
-const cancelAction = (): void => {
-  emit('cancel');
-  closeModal();
-};
+// Default values
+const confirmText = props.confirmText || 'Confirm';
+const cancelText = props.cancelText || 'Cancel';
 
-const closeModal = (): void => {
-  emit('close');
-};
+let modalInstance: any = null;
 
-const handleKeydown = (event: KeyboardEvent): void => {
-  if (props.visible && event.key === 'Escape') {
-    closeModal();
-  }
+const handleConfirm = () => {
+    if (modalInstance) {
+        modalInstance.hide();
+    }
+    emit('confirm');
 };
 
 onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
+    // Initialize Bootstrap modal if Bootstrap is available
+    if (window.bootstrap?.Modal) {
+        const modalEl = document.getElementById(props.modalId);
+        if (modalEl) {
+            modalInstance = new window.bootstrap.Modal(modalEl, {
+                backdrop: 'static',
+                keyboard: false
+            });
+
+            // Handle modal cleanup when hidden
+            modalEl.addEventListener('hidden.bs.modal', () => {
+                document.body.classList.remove('modal-open');
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+            });
+        }
+    }
 });
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
+    if (modalInstance) {
+        modalInstance.dispose();
+    }
 });
 
-watch(() => props.visible, (newValue: boolean) => {
-  if (newValue) {
-    nextTick(() => {
-      cancelButtonRef.value?.focus();
-    });
-  }
+// Expose show/hide methods to parent
+defineExpose({
+    show: () => modalInstance?.show(),
+    hide: () => modalInstance?.hide()
 });
 </script>
-
-<style scoped>
-/* Ensure modal shows correctly */
-.modal.show {
-  display: block;
-}
-
-</style>
