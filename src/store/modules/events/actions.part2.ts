@@ -26,6 +26,7 @@ import { User } from '@/types/user';
 declare function validateOrganizersNotAdmin(organizerIds: string[]): Promise<void>;
 
 // --- Helper: Update Local State ---
+// Defined here for use within this part and potentially called by other parts
 export function updateLocalEvent({ commit }: ActionContext<EventState, RootState>, { id, changes }: { id: string; changes: Partial<Event> }) {
     commit('addOrUpdateEvent', { id, ...changes });
     commit('updateCurrentEventDetails', { id, changes });
@@ -74,6 +75,7 @@ export async function updateEventDetails({ dispatch, rootGetters }: ActionContex
                     const newOrganizers = Array.isArray(value) ? (value as string[]).filter(Boolean) : [];
                     if (newOrganizers.length === 0) throw new Error("Organizers list cannot be empty.");
                     if (newOrganizers.length > 5) throw new Error("Max 5 organizers.");
+                    // await validateOrganizersNotAdmin(newOrganizers); // Assuming defined in part1
                     allowedUpdates[fieldKey] = newOrganizers;
                 } else {
                     allowedUpdates[fieldKey] = value;
