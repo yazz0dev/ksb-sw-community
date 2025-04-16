@@ -98,17 +98,10 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
-import EventCard from '@/components/EventCard.vue';
+import { LocationQueryValue } from 'vue-router';
+import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
-
-// Assuming Event structure - define or import if available
-interface Event { 
-  id: string;
-  status: string;
-  startDate?: string | null; 
-  endDate?: string | null;
-  // Add other relevant fields if needed
-}
+import { Event, EventStatus } from '@/types/event';
 
 const store = useStore();
 const route = useRoute();
@@ -120,14 +113,19 @@ const filters = [
   { label: 'Upcoming', value: 'upcoming' },
   { label: 'Active', value: 'active' },
   { label: 'Completed', value: 'completed' }
-];
+] as const;
+
+type FilterValue = typeof filters[number]['value'];
 
 const getDefaultFilter = () => {
-  if (route.name === 'CompletedEvents') return 'completed';
+  if (route.name === 'CompletedEvents') return 'completed' as FilterValue;
   const validFilters = filters.map(f => f.value);
-  return validFilters.includes(route.query.filter) ? route.query.filter : 'upcoming';
+  const queryFilter = route.query.filter;
+  const filterValue = Array.isArray(queryFilter) ? queryFilter[0] : queryFilter;
+  return validFilters.includes(filterValue as FilterValue) ? filterValue as FilterValue : 'upcoming';
 };
-const activeFilter = ref(getDefaultFilter());
+
+const activeFilter = ref<FilterValue>(getDefaultFilter());
 
 const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
 
@@ -137,21 +135,21 @@ const viewTitle = computed(() => {
   return filter ? `${filter.label} Events` : 'Events';
 });
 
-const setActiveFilter = (filterValue) => {
+const setActiveFilter = (filterValue: FilterValue) => {
   activeFilter.value = filterValue;
   // Update URL query param without reloading page
-  if (route.name !== 'CompletedEvents') { // Don't add query param to dedicated completed route
-      router.push({ query: { filter: filterValue } }).catch(() => {}); // Catch navigation duplicates
+  if (route.name !== 'CompletedEvents') {
+    router.push({ query: { filter: filterValue } }).catch(() => {});
   }
 };
 
 // Watch route changes to update filter if necessary (e.g., browser back/forward)
 watch(() => route.query.filter, (newFilter) => {
   const validFilters = filters.map(f => f.value);
-  if (newFilter && validFilters.includes(newFilter) && newFilter !== activeFilter.value) {
-    activeFilter.value = newFilter;
-  } else if (!newFilter && route.name !== 'CompletedEvents' && activeFilter.value !== 'upcoming') {
-    // Reset to default if query is removed and not on completed page
+  const filterValue = Array.isArray(newFilter) ? newFilter[0] : newFilter;
+  if (filterValue && validFilters.includes(filterValue as FilterValue) && filterValue !== activeFilter.value) {
+    activeFilter.value = filterValue as FilterValue;
+  } else if (!filterValue && route.name !== 'CompletedEvents' && activeFilter.value !== 'upcoming') {
     activeFilter.value = 'upcoming';
   }
 });
@@ -160,49 +158,46 @@ const now = DateTime.now();
 
 const upcomingEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
-    // Filter from all events directly
     return store.getters['events/allEvents'].filter((event: Event) => 
         event.status === 'Approved' && 
         event.startDate && 
-        DateTime.fromISO(event.startDate).isValid && // Check validity
-        DateTime.fromISO(event.startDate) > now
+        DateTime.fromJSDate(event.startDate.toDate()).isValid && // Convert Timestamp to Date
+        DateTime.fromJSDate(event.startDate.toDate()) > now
     ).sort((a: Event, b: Event) => {
-        const dateA = a.startDate ? DateTime.fromISO(a.startDate) : null;
-        const dateB = b.startDate ? DateTime.fromISO(b.startDate) : null;
+        const dateA = a.startDate ? DateTime.fromJSDate(a.startDate.toDate()) : null;
+        const dateB = b.startDate ? DateTime.fromJSDate(b.startDate.toDate()) : null;
         if (!dateA?.isValid || !dateB?.isValid) return 0;
         return dateA.toMillis() - dateB.toMillis();
     });
 });
 
 const activeEvents = computed<Event[]>(() => {
-     if (!isAuthenticated.value) return [];
-    // Filter from all events directly
+    if (!isAuthenticated.value) return [];
     return store.getters['events/allEvents'].filter((event: Event) => {
-        const start = event.startDate ? DateTime.fromISO(event.startDate) : null;
-        const end = event.endDate ? DateTime.fromISO(event.endDate) : null;
+        const start = event.startDate ? DateTime.fromJSDate(event.startDate.toDate()) : null;
+        const end = event.endDate ? DateTime.fromJSDate(event.endDate.toDate()) : null;
         return event.status === 'InProgress' || 
                (event.status === 'Approved' && 
                 start?.isValid && start <= now && 
                 end?.isValid && end >= now);
     }).sort((a: Event, b: Event) => { 
-        const dateA = a.startDate ? DateTime.fromISO(a.startDate) : null;
-        const dateB = b.startDate ? DateTime.fromISO(b.startDate) : null;
+        const dateA = a.startDate ? DateTime.fromJSDate(a.startDate.toDate()) : null;
+        const dateB = b.startDate ? DateTime.fromJSDate(b.startDate.toDate()) : null;
         if (!dateA?.isValid || !dateB?.isValid) return 0;
         return dateA.toMillis() - dateB.toMillis();
     });
 });
 
 const completedEvents = computed<Event[]>(() => {
-    // Filter from all events directly
     return store.getters['events/allEvents'].filter((event: Event) => {
-        const end = event.endDate ? DateTime.fromISO(event.endDate) : null;
+        const end = event.endDate ? DateTime.fromJSDate(event.endDate.toDate()) : null;
         return event.status === 'Completed' || 
                (event.status === 'Approved' && end?.isValid && end < now);
     }).sort((a: Event, b: Event) => { 
         const dateA = a.endDate || a.startDate;
         const dateB = b.endDate || b.startDate;
-        const dtA = dateA ? DateTime.fromISO(dateA) : null;
-        const dtB = dateB ? DateTime.fromISO(dateB) : null;
+        const dtA = dateA ? DateTime.fromJSDate(dateA.toDate()) : null;
+        const dtB = dateB ? DateTime.fromJSDate(dateB.toDate()) : null;
         if (!dtA?.isValid || !dtB?.isValid) return 0; 
         return dtB.toMillis() - dtA.toMillis(); // Sort descending 
     });

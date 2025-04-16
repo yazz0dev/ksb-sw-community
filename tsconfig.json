@@ -16,7 +16,9 @@
       "vite/client",
       "vuex",
       "vue-router",
-      "firebase",
+      "@firebase/app-types",
+      "@firebase/firestore-types",
+      "@firebase/auth-types",
       "vite-plugin-pwa/client"
     ],
     "paths": {

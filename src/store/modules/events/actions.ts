@@ -1,7 +1,7 @@
 // src/store/modules/events/actions.ts
 
 import { ActionContext, ActionTree } from 'vuex';
-import { db } from '../../../firebase';
+import { db } from '@/firebase';
 import {
     collection,
     addDoc,
@@ -829,9 +829,6 @@ export const eventActions: ActionTree<EventState, RootState> = {
             // Optional: Trigger dependent actions, like XP calculation on completion
             if (newStatus === EventStatus.Completed && currentEvent.status !== EventStatus.Completed) {
                 console.log(`Event ${eventId} marked completed. XP will be awarded upon permanent closure.`);
-                 // XP is now calculated and awarded only during the 'closeEventPermanently' action.
-                 // dispatch('user/calculateUserXP', null, { root: true }) // Example if XP calculated on completion
-                 //     .catch(xpError => console.error(`XP Calculation trigger failed for event ${eventId}:`, xpError));
             }
 
         } catch (error: any) {
