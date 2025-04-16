@@ -75,7 +75,7 @@
           <!-- Only render component when students are loaded -->
           <ManageTeamsComponent
               v-if="availableStudents.length > 0"
-              :initial-teams="formData.teams"
+              :initial-teams="formData.teams.map(t => ({ teamName: t.teamName, members: t.members }))"
               :students="availableStudents"
               :name-cache="nameCache"
               :is-submitting="isSubmitting"
@@ -306,7 +306,7 @@ import { DateTime } from 'luxon';
 
 // Interfaces (consider moving to a types file)
 export interface Team {
-  name: string;
+  teamName: string;
   members: string[];
 }
 
@@ -339,7 +339,7 @@ export interface FormData {
   endDate: string | null;   // Store as YYYY-MM-DD
   desiredStartDate?: string | null; // For requests
   desiredEndDate?: string | null; // For requests
-  teams: Team[];
+  teams: Team[]; // Use correct Team interface
   xpAllocation: XpAllocation[]; // Use updated interface
   organizers: string[];
   status?: string; // Added for edit mode
@@ -608,9 +608,13 @@ const handleEventTypeChange = () => {
     // If specific logic is needed when event type changes
 };
 
- const updateTeams = (newTeams: Team[]) => {
-    formData.value.teams = newTeams;
- };
+const updateTeams = (newTeams: { name: string; members: string[] }[]) => {
+  // Accepts array of { name, members } and maps to { teamName, members }
+  formData.value.teams = newTeams.map(t => ({
+    teamName: t.name,
+    members: Array.isArray(t.members) ? [...t.members] : []
+  }));
+};
 
 const addXPAllocation = () => {
   formData.value.xpAllocation.push({

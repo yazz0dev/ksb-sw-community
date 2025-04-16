@@ -1,23 +1,23 @@
 @use "sass:color";
 
 // Theme Colors
-$primary: #4f46e5;
-$secondary: #64748b;
-$success: #10b981;
-$info: #06b6d4;
-$warning: #f59e0b;
-$danger: #ef4444;
-$light: #f8fafc;
-$dark: #0f172a;
+$primary: #6366f1;      // Indigo-500
+$secondary: #64748b;    // Slate-500
+$success: #22c55e;      // Green-500
+$info: #0ea5e9;         // Sky-500
+$warning: #fbbf24;      // Amber-400
+$danger: #ef4444;       // Red-500
+$light: #f1f5f9;        // Slate-100
+$dark: #1e293b;         // Slate-800
 
 // System Colors
-$body-bg: #ffffff;
-$body-color: #334155;
-$border-color: #e2e8f0;
+$body-bg: #f8fafc;      // Slate-50
+$body-color: #334155;   // Slate-700
+$border-color: #e2e8f0; // Slate-200
 $card-bg: #ffffff;
-$card-cap-bg: #f1f5f9;
+$card-cap-bg: #f1f5f9;  // Slate-100
 $input-bg: #ffffff;
-$input-border-color: #cbd5e1;
+$input-border-color: #cbd5e1; // Slate-300
 
 // Typography
 $font-family-sans-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

@@ -182,6 +182,16 @@
 </template>
 
 <script setup lang="ts">
+// Add this at the top of the script block (before other code)
+declare global {
+  interface Window {
+    bootstrap?: {
+      Modal?: any;
+      Collapse?: any;
+    };
+  }
+}
+
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -195,17 +205,6 @@ interface Collapse {
   toggle(): void;
   hide(): void;
   show(): void;
-}
-
-declare global {
-  interface Window {
-    bootstrap?: {
-      Collapse: {
-        getInstance(element: Element): Collapse | null;
-        new (element: Element, options?: object): Collapse;
-      };
-    };
-  }
 }
 
 const store = useStore();

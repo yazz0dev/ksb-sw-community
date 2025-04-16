@@ -1,10 +1,11 @@
-// src/store/modules/events/index.js
-
+// src/store/modules/events/index.ts
 import { Module } from 'vuex';
-import { EventState, Event } from '@/types/event';
+import { EventState, Event, EventStatus, XPAllocation } from '@/types/event'; // Import needed types
 import { RootState } from '@/store/types';
 import { eventActions } from './actions';
+import * as eventActionsPart2 from './actions.part2';
 import { eventMutations } from './mutations';
+import { DateTime } from 'luxon'; // For date comparisons
 
 const state: EventState = {
     events: [],
@@ -13,78 +14,84 @@ const state: EventState = {
 
 const getters = {
     allEvents: (state: EventState): Event[] => state.events,
-    
-    upcomingEvents: (state: EventState): Event[] =>
-        state.events.filter(e => e.status === 'Approved')
-            .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0)),
 
-    activeEvents: (state: EventState): Event[] =>
-        state.events.filter(e => e.status === 'InProgress')
-            .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0)),
+    // Filter events by status and sort appropriately
+    getEventsByStatus: (state: EventState) => (status: EventStatus | EventStatus[]): Event[] => {
+        const statuses = Array.isArray(status) ? status : [status];
+        return state.events
+            .filter(e => statuses.includes(e.status))
+            .sort((a, b) => {
+                // Sort logic based on status (similar to mutation sort)
+                let dateA = 0, dateB = 0;
+                if ([EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status)) {
+                    dateA = a.startDate?.toMillis() ?? a.desiredStartDate?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
+                    dateB = b.startDate?.toMillis() ?? b.desiredStartDate?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
+                    return dateA - dateB; // Ascending for upcoming/active
+                } else { // Completed, Cancelled, Rejected
+                    dateA = a.completedAt?.toMillis() ?? a.endDate?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
+                    dateB = b.completedAt?.toMillis() ?? b.endDate?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
+                    return dateB - dateA; // Descending for past events
+                }
+            });
+    },
 
-    completedEvents: (state: EventState): Event[] =>
-        state.events.filter(e => e.status === 'Completed')
-            .sort((a, b) => (b.completedAt?.seconds ?? b.endDate?.seconds ?? 0) - (a.completedAt?.seconds ?? a.endDate?.seconds ?? 0)),
+    // Specific status getters using the generalized one
+    upcomingEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Approved),
+    activeEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.InProgress),
+    completedEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Completed),
+    pendingEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Pending),
+    cancelledEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Cancelled),
+    rejectedEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Rejected),
 
-    pendingEvents: (state: EventState): Event[] =>
-        state.events.filter(e => e.status === 'Pending')
-            .sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0)),
-
-    userRequests: (state: EventState, _getters, _rootState, rootGetters): Event[] => {
-        const userId = rootGetters['user/getUser']?.uid;
+    // User's pending/rejected requests
+    userRequests: (state: EventState, _getters: any, _rootState: RootState, rootGetters: any): Event[] => {
+        const userId = rootGetters['user/userId']; // Use namespaced getter
         if (!userId) return [];
-        return state.events.filter(e =>
-            e.requester === userId && ['Pending', 'Rejected'].includes(e.status)
-        ).sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+        return state.events
+            .filter(e => e.requester === userId && [EventStatus.Pending, EventStatus.Rejected].includes(e.status))
+            .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0)); // Newest first
     },
 
     currentEventDetails: (state: EventState): Event | null => state.currentEventDetails,
 
-    getEventXPAllocation: (state: EventState) => (eventId: string): any[] => {
-        const event = state.events.find(e => e.id === eventId) || state.currentEventDetails?.id === eventId ? state.currentEventDetails : null;
+    // Get event by ID from the list or current details
+    getEventById: (state: EventState) => (eventId: string): Event | undefined => {
+        if (state.currentEventDetails?.id === eventId) {
+            return state.currentEventDetails;
+        }
+        return state.events.find(event => event.id === eventId);
+    },
+
+    // Get sorted XP Allocation for an event
+    getEventXPAllocation: (state: EventState, getters: any) => (eventId: string): XPAllocation[] => {
+        const event = getters.getEventById(eventId);
         if (!event?.xpAllocation || !Array.isArray(event.xpAllocation)) {
             return [];
         }
-        return event.xpAllocation
-            .map(allocation => ({
-                constraintIndex: allocation.constraintIndex ?? 0,
-                constraintLabel: allocation.constraintLabel || `Criteria ${ (allocation.constraintIndex ?? 0) + 1 }`,
-                points: allocation.points || 0,
-                role: allocation.role || 'general'
-            }))
+        // Ensure constraintIndex is a number before sorting
+        return [...event.xpAllocation] // Create shallow copy before sorting
+            .filter(alloc => typeof alloc.constraintIndex === 'number')
             .sort((a, b) => a.constraintIndex - b.constraintIndex);
     },
 
-    getEventRatingConstraints: (state: EventState) => (eventId: string): string[] => {
-        const event = state.events.find(e => e.id === eventId) || 
-                     (state.currentEventDetails?.id === eventId ? state.currentEventDetails : null);
-        if (!event?.xpAllocation || !Array.isArray(event.xpAllocation) || event.xpAllocation.length === 0) {
-            return [];
-        }
-        return event.xpAllocation
-            .sort((a, b) => (a.constraintIndex ?? 0) - (b.constraintIndex ?? 0))
-            .map(allocation => allocation.constraintLabel || `Criteria ${ (allocation.constraintIndex ?? 0) + 1 }`);
+    // Get just the constraint labels in order
+    getEventRatingConstraints: (state: EventState, getters: any) => (eventId: string): string[] => {
+        const allocations = getters.getEventXPAllocation(eventId) as XPAllocation[];
+        return allocations.map(allocation => allocation.constraintLabel || `Criteria ${allocation.constraintIndex + 1}`);
     },
 
-    eventWinners: (state: EventState) => (eventId: string): string[] => {
-        const event = state.events.find(e => e.id === eventId) || 
-                     (state.currentEventDetails?.id === eventId ? state.currentEventDetails : null);
-        if (!event) return [];
+    // Get all unique winner IDs for an event
+    eventWinnerIds: (state: EventState, getters: any) => (eventId: string): string[] => {
+        const event = getters.getEventById(eventId);
+        if (!event?.winnersPerRole) return [];
 
-        if (event.winnersPerRole && typeof event.winnersPerRole === 'object' && Object.keys(event.winnersPerRole).length > 0) {
-            const allWinners = new Set();
-            Object.values(event.winnersPerRole).forEach(roleWinners => {
-                if (Array.isArray(roleWinners)) {
-                    roleWinners.forEach(winnerId => allWinners.add(winnerId));
-                }
-            });
-            return Array.from(allWinners);
-        }
-        return Array.isArray(event.winners) ? event.winners : [];
-    },
-
-    getEventById: (state: EventState) => (eventId: string): Event | undefined => {
-        return state.events.find(event => event.id === eventId);
+        const allWinners = new Set<string>();
+        Object.values(event.winnersPerRole).forEach(roleWinners => {
+            if (Array.isArray(roleWinners)) {
+                roleWinners.forEach(winnerId => { if(winnerId) allWinners.add(winnerId) });
+            }
+        });
+        return Array.from(allWinners);
     },
 };
 
@@ -92,6 +99,9 @@ export default {
     namespaced: true,
     state,
     getters,
-    actions: eventActions,
+    actions: {
+        ...eventActions,
+        ...eventActionsPart2, // <-- Add this line to merge in the new actions (including requestEvent)
+    },
     mutations: eventMutations
 } as Module<EventState, RootState>;

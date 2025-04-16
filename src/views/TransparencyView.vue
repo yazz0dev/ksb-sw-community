@@ -1,54 +1,26 @@
 <template>
     <section class="py-5 transparency-section">
         <div class="container-lg py-5">
-            <h1 class="h1 text-primary mb-5 pb-3" style="border-bottom: 2px solid var(--bs-primary);">
-                Community Transparency & Guidelines
+            <h1 class="h1 text-primary mb-5 pb-3 border-bottom border-2">
+                Community Processes & Guidelines
             </h1>
-
             <div class="transparency-content">
-                <!-- Community Guidelines Section -->
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-header bg-primary-subtle">
-                        <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
-                            <i class="fas fa-user-shield me-3"></i>
-                            Community Guidelines
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="content" v-html="renderSection(introductionContent)"></div>
-                    </div>
-                </div>
-
-                <!-- Roles Section -->
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-header bg-primary-subtle">
-                         <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
-                            <i class="fas fa-users me-3"></i>
-                            Community Roles
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="content" v-html="renderSection(rolesContent)"></div>
-                    </div>
-                </div>
-
                 <!-- Event System Section -->
                 <div class="card mb-4 shadow-sm">
                     <div class="card-header bg-primary-subtle">
                         <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
-                           <i class="fas fa-tasks me-3"></i>
-                            Event System
+                            <i class="fas fa-tasks me-3"></i>
+                            How the KSB Tech Community Works
                         </h5>
                     </div>
                     <div class="card-body">
                         <div class="content" v-html="renderSection(eventLifecycleContent)"></div>
                     </div>
                 </div>
-
                 <!-- Rating & XP System Section -->
                 <div class="card mb-4 shadow-sm">
-                     <div class="card-header bg-primary-subtle">
-                         <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
+                    <div class="card-header bg-primary-subtle">
+                        <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
                             <i class="fas fa-star me-3"></i>
                             Rating & XP System
                         </h5>
@@ -59,7 +31,6 @@
                         <div class="content" v-html="renderSection(xpContent)"></div>
                     </div>
                 </div>
-
                 <!-- General Guidelines Section -->
                 <div class="card mb-4 shadow-sm">
                     <div class="card-header bg-primary-subtle">
@@ -78,7 +49,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
@@ -88,98 +58,67 @@ marked.setOptions({
   gfm: true,
 });
 
-const introductionContent = `
-## Welcome to KSB Tech Community
-
-Our community is dedicated to fostering collaboration, learning, and growth among MCA students through hands-on software development projects and events. This transparency page outlines our community structure, guidelines, and processes.
-
-### Our Mission
-- 💡 Create opportunities for practical software development experience
-- 🤝 Encourage peer learning and mentorship
-- 📁 Build a portfolio of real-world projects
-- 🚀 Develop professional and technical skills`;
-
-const rolesContent = `
-## Community Roles
-
-### 🎓 Students
-- Participate in events and projects
-- Request and organize events
-- Submit project work
-- Provide peer feedback and ratings
-- Earn XP and build portfolios
-
-### 🧑‍🏫 Team Leaders
-- Guide team members during events
-- Facilitate team communication
-- Ensure project deliverables
-- Help resolve team challenges
-
-### 🗓️ Organizers
-- Plan and manage events
-- Set up project requirements
-- Monitor team progress
-- Provide technical support
-- Evaluate submissions
-
-### 🛡️ Administrators
-- Oversee community operations
-- Review and approve event requests
-- Manage user roles and permissions
-- Ensure platform functionality
-- Maintain community guidelines`;
-
+// --- Community Process Content ---
 const eventLifecycleContent = `
-## Event Lifecycle
+## Community Process Overview
 
-### 1️⃣ Event Creation
-- 🙋 Students can request events
-- ✅ Admins review and approve requests
-- 📝 Event details are finalized
+The KSB Tech Community is a student-driven platform for collaborative learning, project development, and professional growth. Here’s how our process works:
 
-### 2️⃣ Registration
-- 👤 Solo or 👥 team participation options
-- 🤝 Team formation process
-- 🏷️ Role assignments
+### 1️⃣ Event Request & Approval
+- 🙋 **Students** can request new events or project ideas.
+- 🛡️ **Admins** review and approve event requests to ensure quality and relevance.
+- 📝 Once approved, event details are published and registration opens.
 
-### 3️⃣ Active Phase
-- 💻 Project development period
-- 📊 Regular progress updates
-- 💬 Collaboration opportunities
-- 🆘 Technical support available
+### 2️⃣ Registration & Team Formation
+- 👤 Students can join as individuals or form teams (depending on event format).
+- 🤝 Team formation is encouraged for collaborative events.
+- 🏷️ Roles and responsibilities are clarified within teams.
 
-### 4️⃣ Completion
-- 🎉 Project submissions
-- ⭐ Peer evaluations
-- ✨ XP distribution
-- 🏆 Results announcement`;
+### 3️⃣ Project Development
+- 💻 Teams/individuals work on their projects during the event period.
+- 📊 Regular updates and checkpoints may be required.
+- 💬 Collaboration, mentorship, and support are available throughout.
+
+### 4️⃣ Submission & Review
+- 🎉 Participants submit their completed projects before the deadline.
+- 📝 Submissions are reviewed for completeness and adherence to guidelines.
+
+### 5️⃣ Peer Rating & XP Distribution
+- ⭐ Participants (not involved in the event) rate projects based on defined criteria.
+- ✨ XP is awarded for participation, project quality, teamwork, and ratings.
+- 🏆 Winners and top performers are recognized on the leaderboard.
+
+### 6️⃣ Portfolio & Recognition
+- 📁 All completed projects and XP contribute to each student’s portfolio.
+- 🏅 Achievements and badges are displayed on user profiles.
+`;
 
 const ratingContent = `
 ## Rating System
 
-### ⭐ Rating Criteria
+### ⭐ What Gets Rated?
 - 💻 Technical implementation
 - 🎤 Project presentation
 - ✨ Code quality
 - 📄 Documentation
 - 🤝 Team collaboration
 
-### 📝 Rating Process
-- Peer evaluations after completion
-- Rating scale of 1-5 stars
-- Multiple rating categories
-- Anonymous feedback system
+### 📝 How Ratings Work
+- Peer evaluations are conducted after event completion.
+- Ratings use one student/team across multiple categories.
+- Feedback is anonymous and constructive.
 
 ### 👍 Rating Guidelines
-- Be objective and fair
-- Provide constructive feedback
-- Rate based on defined criteria
-- Consider team/individual effort`;
+- Be objective and fair.
+- Provide actionable feedback.
+- Rate based on the published criteria.
+- Consider both effort and outcome.
+`;
 
 const xpContent = `
 ## Experience Points (XP) System
 
-### ✨ Earning XP
+### ✨ How to Earn XP
 - Event participation: 1-2 XP
 - Project completion: 5-20 XP
 - High ratings: Bonus XP
@@ -194,75 +133,91 @@ const xpContent = `
 - Team Collaboration
 
 ### 🚀 Level System
-- Levels based on total XP
-- Role-specific progression
-- Special badges for achievements
-- XP decay prevention system`;
+- Levels are based on total XP.
+- Progression is tracked for each skill category.
+- Special badges are awarded for milestones.
+- XP never decays—your achievements are permanent!
+`;
 
 const generalContent = `
 ## General Guidelines
 
 ### 📜 Code of Conduct
-- Professional behavior expected
-- Respect for all members
-- Academic integrity
-- Collaborative spirit
+- Maintain professionalism and respect.
+- Uphold academic integrity.
+- Foster a collaborative and inclusive environment.
 
 ### 💬 Communication
-- Clear and timely communication
-- Appropriate channel usage
-- Professional language
-- Constructive feedback
+- Communicate clearly and promptly.
+- Use appropriate channels for discussions.
+- Provide constructive feedback.
 
 ### 🙋 Participation
-- Regular engagement encouraged
-- Meeting attendance
-- Deadline adherence
-- Active contribution
+- Engage regularly in events and meetings.
+- Meet deadlines and contribute actively.
 
 ### 🆘 Support
-- Technical assistance available
-- Mentorship opportunities
-- Resource access
-- Issue resolution process`;
+- Reach out for technical help or mentorship.
+- Utilize available resources.
+- Report issues or concerns to organizers/admins.
+`;
 
 // Utility function to render markdown content safely
 const renderSection = (content: string): string => {
     const rawHtml = marked(content);
-    // Sanitize the HTML to prevent XSS attacks
     return DOMPurify.sanitize(rawHtml);
 };
 </script>
 
 <style scoped>
 .transparency-section {
-  background-color: var(--bs-body-bg); /* Updated variable */
+  background-color: var(--bs-body-bg);
 }
 
-/* Style the content rendered from markdown */
+.card {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.card-header {
+  border-top-left-radius: 1rem !important;
+  border-top-right-radius: 1rem !important;
+  background: var(--bs-primary-bg-subtle);
+}
+
 .card-body .content h2 {
-    font-size: 1.75rem; /* Approx h3 */
-    margin-bottom: 1rem; 
-    margin-top: 1.5rem; 
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+    margin-top: 1.5rem;
     font-weight: 500;
 }
 
 .card-body .content h3 {
-    font-size: 1.5rem; /* Approx h4 */
+    font-size: 1.5rem;
     margin-bottom: 0.75rem;
-    margin-top: 1.25rem; 
+    margin-top: 1.25rem;
     font-weight: 500;
 }
 
 .card-body .content ul {
     list-style: disc;
-    padding-left: 2rem; /* Adjusted padding */
+    padding-left: 2rem;
     margin-top: 0.5rem;
 }
 
 .card-body .content p,
 .card-body .content li {
-    line-height: 1.6;
-    margin-bottom: 0.5rem; /* Added spacing */
+    line-height: 1.7;
+    margin-bottom: 0.5rem;
+}
+
+.card-body .content strong {
+    color: var(--bs-primary);
+}
+
+@media (max-width: 768px) {
+  .card-header, .card {
+    border-radius: 0.5rem !important;
+  }
 }
 </style>

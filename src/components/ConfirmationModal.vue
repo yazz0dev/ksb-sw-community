@@ -80,10 +80,11 @@ const handleConfirm = () => {
 
 onMounted(() => {
     // Initialize Bootstrap modal if Bootstrap is available
-    if (window.bootstrap?.Modal) {
+    const Modal: any = window.bootstrap && window.bootstrap.Modal;
+    if (Modal) {
         const modalEl = document.getElementById(props.modalId);
         if (modalEl) {
-            modalInstance = new window.bootstrap.Modal(modalEl, {
+            modalInstance = new Modal(modalEl, {
                 backdrop: 'static',
                 keyboard: false
             });
@@ -101,7 +102,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-    if (modalInstance) {
+    if (modalInstance && typeof modalInstance.dispose === 'function') {
         modalInstance.dispose();
     }
 });

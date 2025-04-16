@@ -68,6 +68,13 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/views/events/EventsListView.vue'),
     meta: { requiresAuth: false } // Allow access for logged-out users (they see completed)
   },
+  { path: '/about', name: 'About', component: () => import('@/views/AboutView.vue'), meta: { requiresAuth: false } },
+  {
+    path: '/admin/dashboard',
+    name: 'AdminDashboard',
+    component: () => import('@/views/AdminDashboardView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFoundView.vue'), meta: { requiresAuth: false } },
 ] as RouteRecordRaw[];
 
@@ -87,7 +94,7 @@ router.beforeEach(async (
   next: NavigationGuardNext
 ) => {
   if (!store.getters['user/hasFetchedUserData']) {
-    await new Promise(resolve => {
+    await new Promise<void>(resolve => {
       const unwatch = store.watch(
         (state, getters) => getters['user/hasFetchedUserData'],
         (newVal) => {
