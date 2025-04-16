@@ -18,7 +18,7 @@ firebase.json
 firebase-debug.log
 firestore.rules
 firestore.indexes.json
-
+stats.html
 
 # Editor directories and files
 .vscode/*
