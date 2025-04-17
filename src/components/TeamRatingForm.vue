@@ -182,7 +182,7 @@ onMounted(async () => {
     if (!eventDetails.value) {
       throw new Error('Event details could not be loaded.');
     }
-    if (!eventDetails.value.isTeamEvent) {
+    if (!eventDetails.value.details?.format || eventDetails.value.details.format !== 'Team') {
         throw new Error('This rating form is only for team events.');
     }
 

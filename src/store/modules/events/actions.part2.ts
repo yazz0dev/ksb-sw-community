@@ -22,11 +22,9 @@ import { RootState } from '@/store/types';
 import { User } from '@/types/user';
 
 // --- Helper: Validate Organizers ---
-// Defined in part1, assuming availability via module context or direct import if needed
 declare function validateOrganizersNotAdmin(organizerIds: string[]): Promise<void>;
 
 // --- Helper: Update Local State ---
-// Defined here for use within this part and potentially called by other parts
 export function updateLocalEvent({ commit }: ActionContext<EventState, RootState>, { id, changes }: { id: string; changes: Partial<Event> }) {
     commit('addOrUpdateEvent', { id, ...changes });
     commit('updateCurrentEventDetails', { id, changes });
@@ -45,9 +43,9 @@ export async function updateEventDetails({ dispatch, rootGetters }: ActionContex
 
         const currentUser: User | null = rootGetters['user/getUser'];
         const isAdmin = currentUser?.role === 'Admin';
-        const isOrganizer = Array.isArray(eventData.organizers) && eventData.organizers.includes(currentUser?.uid ?? '');
-        const isRequester = eventData.requester === currentUser?.uid;
-        const currentStatus = eventData.status;
+        const isOrganizer = Array.isArray(eventData.details?.organizers) && eventData.details.organizers.includes(currentUser?.uid ?? '');
+        const isRequester = eventData.requestedBy === currentUser?.uid;
+        const currentStatus = eventData.status as EventStatus;
         const editableStatuses: EventStatus[] = [EventStatus.Pending, EventStatus.Approved];
 
         let canEdit = false;
@@ -57,71 +55,53 @@ export async function updateEventDetails({ dispatch, rootGetters }: ActionContex
         if (!canEdit) throw new Error(`Permission denied: Cannot edit status '${currentStatus}'.`);
 
         const allowedUpdates: Partial<Event> = {};
-        const generallyEditableFields: Array<keyof Event> = ['description', 'xpAllocation', 'eventFormat', 'isTeamEvent'];
-        const pendingOnlyEditableFields: Array<keyof Event> = ['eventName', 'eventType', 'desiredStartDate', 'desiredEndDate'];
-        const adminOnlyEditableFields: Array<keyof Event> = ['startDate', 'endDate', 'organizers'];
-        const teamEditField: keyof Event = 'teams';
 
-        for (const key in updates) {
-            const fieldKey = key as keyof Event;
-            const value = updates[fieldKey];
-
-            if (generallyEditableFields.includes(fieldKey)) {
-                allowedUpdates[fieldKey] = value;
-            } else if (currentStatus === EventStatus.Pending && pendingOnlyEditableFields.includes(fieldKey)) {
-                allowedUpdates[fieldKey] = value;
-            } else if (isAdmin && adminOnlyEditableFields.includes(fieldKey)) {
-                if (fieldKey === 'organizers') {
-                    const newOrganizers = Array.isArray(value) ? (value as string[]).filter(Boolean) : [];
-                    if (newOrganizers.length === 0) throw new Error("Organizers list cannot be empty.");
-                    if (newOrganizers.length > 5) throw new Error("Max 5 organizers.");
-                    // await validateOrganizersNotAdmin(newOrganizers); // Assuming defined in part1
-                    allowedUpdates[fieldKey] = newOrganizers;
-                } else {
-                    allowedUpdates[fieldKey] = value;
-                }
-            } else if (fieldKey === teamEditField && eventData.isTeamEvent && Array.isArray(value) && (isAdmin || isOrganizer)) {
-                const newTeams = (value as Partial<Team>[]).map((team, index) => {
-                    const teamName = team.teamName?.trim();
-                    if (!teamName) throw new Error(`Team name empty (index ${index}).`);
-                    const members = Array.isArray(team.members) ? team.members.filter(Boolean) : [];
-                    const existingTeam = eventData.teams?.find(et => et.teamName === teamName);
-                    return { teamName, members, submissions: existingTeam?.submissions || [], ratings: existingTeam?.ratings || [] };
-                });
-                allowedUpdates[fieldKey] = newTeams;
-            } else {
-                console.warn(`Skipping update for field '${fieldKey}'.`);
-            }
+        if ('description' in updates && typeof updates.description === 'string') {
+            allowedUpdates.details = { ...eventData.details, description: updates.description };
         }
 
-        let finalStartDate = eventData.startDate, finalEndDate = eventData.endDate;
-        let finalDesiredStart = eventData.desiredStartDate, finalDesiredEnd = eventData.desiredEndDate;
-        const convertDate = (d: any): Timestamp | null => {
-            if (!d) return null; if (d instanceof Timestamp) return d; if (d instanceof Date) return Timestamp.fromDate(d);
-            try { return Timestamp.fromDate(new Date(d)); } catch { return null; }
-        };
-        if ('startDate' in allowedUpdates) finalStartDate = convertDate(allowedUpdates.startDate);
-        if ('endDate' in allowedUpdates) finalEndDate = convertDate(allowedUpdates.endDate);
-        if ('desiredStartDate' in allowedUpdates) finalDesiredStart = convertDate(allowedUpdates.desiredStartDate);
-        if ('desiredEndDate' in allowedUpdates) finalDesiredEnd = convertDate(allowedUpdates.desiredEndDate);
+        if ('teams' in updates && Array.isArray(updates.teams)) {
+            allowedUpdates.teams = updates.teams as Team[];
+        }
 
-        if ('startDate' in allowedUpdates) allowedUpdates.startDate = finalStartDate;
-        if ('endDate' in allowedUpdates) allowedUpdates.endDate = finalEndDate;
-        if ('desiredStartDate' in allowedUpdates) allowedUpdates.desiredStartDate = finalDesiredStart;
-        if ('desiredEndDate' in allowedUpdates) allowedUpdates.desiredEndDate = finalDesiredEnd;
+        if ('organizers' in updates && Array.isArray(updates.organizers)) {
+            allowedUpdates.details = { ...eventData.details, organizers: updates.organizers as string[] };
+        }
 
-        if (finalStartDate && finalEndDate && finalStartDate.toMillis() >= finalEndDate.toMillis()) throw new Error("Start date >= end date.");
-        if (finalDesiredStart && finalDesiredEnd && finalDesiredStart.toMillis() >= finalDesiredEnd.toMillis()) throw new Error("Desired start >= desired end.");
+        if ('startDate' in updates || 'endDate' in updates) {
+            const start = (updates as any).startDate ?? eventData.details.date.final.start;
+            const end = (updates as any).endDate ?? eventData.details.date.final.end;
+            allowedUpdates.details = {
+                ...eventData.details,
+                date: {
+                    ...eventData.details.date,
+                    final: {
+                        start,
+                        end,
+                    }
+                }
+            };
+        }
 
-        if ((allowedUpdates.startDate || allowedUpdates.endDate) && currentStatus === EventStatus.Approved && finalStartDate && finalEndDate) {
-            const conflictResult = await dispatch('checkDateConflict', { startDate: finalStartDate, endDate: finalEndDate, excludeEventId: eventId });
-            if (conflictResult.hasConflict) throw new Error(`Update failed: Date conflict with ${conflictResult.conflictingEvent?.eventName || 'another event'}.`);
+        if ('desiredStartDate' in updates || 'desiredEndDate' in updates) {
+            const start = (updates as any).desiredStartDate ?? eventData.details.date.desired.start;
+            const end = (updates as any).desiredEndDate ?? eventData.details.date.desired.end;
+            allowedUpdates.details = {
+                ...eventData.details,
+                date: {
+                    ...eventData.details.date,
+                    desired: {
+                        start,
+                        end,
+                    }
+                }
+            };
         }
 
         if (Object.keys(allowedUpdates).length > 0) {
             allowedUpdates.lastUpdatedAt = Timestamp.now();
             await updateDoc(eventRef, allowedUpdates);
-            dispatch('updateLocalEvent', { id: eventId, changes: allowedUpdates }); // Use helper
+            dispatch('updateLocalEvent', { id: eventId, changes: allowedUpdates });
             console.log(`Event ${eventId} details updated.`);
         } else {
             console.log(`No valid updates for event ${eventId}.`);
@@ -150,11 +130,10 @@ export async function autoGenerateTeams({ dispatch, rootGetters }: ActionContext
 
         const currentUser: User | null = rootGetters['user/getUser'];
         const isAdmin = currentUser?.role === 'Admin';
-        const isOrganizer = Array.isArray(eventData.organizers) && eventData.organizers.includes(currentUser?.uid ?? '');
+        const isOrganizer = Array.isArray(eventData.details?.organizers) && eventData.details.organizers.includes(currentUser?.uid ?? '');
         if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
 
-        if (![EventStatus.Pending, EventStatus.Approved].includes(eventData.status)) throw new Error(`Cannot generate teams for status '${eventData.status}'.`);
-        if (!eventData.isTeamEvent) throw new Error("Not a team event.");
+        if (![EventStatus.Pending, EventStatus.Approved].includes(eventData.status as EventStatus)) throw new Error(`Cannot generate teams for status '${eventData.status}'.`);
 
         const allStudents: User[] = await dispatch('user/fetchAllStudents', null, { root: true }) || [];
         if (allStudents.length === 0) throw new Error("No students found.");
@@ -189,7 +168,7 @@ export async function autoGenerateTeams({ dispatch, rootGetters }: ActionContext
 
         const finalTeams = [...existingTeams, ...generatedTeams];
         await updateDoc(eventRef, { teams: finalTeams, lastUpdatedAt: Timestamp.now() });
-        dispatch('updateLocalEvent', { id: eventId, changes: { teams: finalTeams } }); // Use helper
+        dispatch('updateLocalEvent', { id: eventId, changes: { teams: finalTeams } });
         console.log(`Teams auto-generated for ${eventId}.`);
         return finalTeams;
     } catch (error: any) {
@@ -215,8 +194,8 @@ export async function leaveEvent({ rootGetters, dispatch }: ActionContext<EventS
         let updatedEventDataForState: Partial<Event> = { lastUpdatedAt: Timestamp.now() };
         let userFound = false;
 
-        if (eventData.isTeamEvent) {
-            const currentTeams = Array.isArray(eventData.teams) ? eventData.teams : [];
+        if (Array.isArray(eventData.teams)) {
+            const currentTeams = eventData.teams;
             let userTeamIndex = currentTeams.findIndex(team => team.members?.includes(userId));
             if (userTeamIndex === -1) { console.log(`LeaveEvent: User ${userId} not in any team.`); return; }
             userFound = true;
@@ -238,7 +217,7 @@ export async function leaveEvent({ rootGetters, dispatch }: ActionContext<EventS
         }
 
         if (userFound) {
-            dispatch('updateLocalEvent', { id: eventId, changes: updatedEventDataForState }); // Use helper
+            dispatch('updateLocalEvent', { id: eventId, changes: updatedEventDataForState });
             console.log(`User ${userId} left event ${eventId}.`);
         }
     } catch (error: any) {
@@ -264,11 +243,10 @@ export async function addTeamToEvent({ dispatch, rootGetters }: ActionContext<Ev
 
         const currentUser: User | null = rootGetters['user/getUser'];
         const isAdmin = currentUser?.role === 'Admin';
-        const isOrganizer = Array.isArray(eventData.organizers) && eventData.organizers.includes(currentUser?.uid ?? '');
+        const isOrganizer = Array.isArray(eventData.details?.organizers) && eventData.details.organizers.includes(currentUser?.uid ?? '');
         if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
 
-        if (![EventStatus.Pending, EventStatus.Approved].includes(eventData.status)) throw new Error(`Cannot add teams to status '${eventData.status}'.`);
-        if (!eventData.isTeamEvent) throw new Error("Not a team event.");
+        if (![EventStatus.Pending, EventStatus.Approved].includes(eventData.status as EventStatus)) throw new Error(`Cannot add teams to status '${eventData.status}'.`);
 
         const currentTeams = Array.isArray(eventData.teams) ? eventData.teams : [];
         if (currentTeams.some(t => t.teamName.toLowerCase() === trimmedTeamName.toLowerCase())) throw new Error(`Team "${trimmedTeamName}" exists.`);
@@ -281,7 +259,7 @@ export async function addTeamToEvent({ dispatch, rootGetters }: ActionContext<Ev
         await updateDoc(eventRef, { teams: arrayUnion(newTeam), lastUpdatedAt: Timestamp.now() });
 
         const freshSnap = await getDoc(eventRef);
-        dispatch('updateLocalEvent', { id: eventId, changes: { teams: freshSnap.exists() ? (freshSnap.data() as Event).teams : [] } }); // Use helper
+        dispatch('updateLocalEvent', { id: eventId, changes: { teams: freshSnap.exists() ? (freshSnap.data() as Event).teams : [] } });
         console.log(`Team "${trimmedTeamName}" added to ${eventId}.`);
         return newTeam;
     } catch (error: any) {
@@ -318,8 +296,8 @@ export async function submitProjectToEvent({ rootGetters, dispatch }: ActionCont
 
         let updatedEventDataForState: Partial<Event> = { lastUpdatedAt: Timestamp.now() };
 
-        if (eventData.isTeamEvent) {
-            const currentTeams = Array.isArray(eventData.teams) ? eventData.teams : [];
+        if (Array.isArray(eventData.teams)) {
+            const currentTeams = eventData.teams;
             const userTeamIndex = currentTeams.findIndex(team => team.members?.includes(userId));
             if (userTeamIndex === -1) throw new Error("You are not assigned to a team.");
             const teamToUpdate = { ...currentTeams[userTeamIndex] };
@@ -340,7 +318,7 @@ export async function submitProjectToEvent({ rootGetters, dispatch }: ActionCont
             updatedEventDataForState.submissions = freshSnap.exists() ? (freshSnap.data() as Event).submissions : [];
         }
 
-        dispatch('updateLocalEvent', { id: eventId, changes: updatedEventDataForState }); // Use helper
+        dispatch('updateLocalEvent', { id: eventId, changes: updatedEventDataForState });
         console.log(`Project submitted for ${eventId} by ${userId}`);
     } catch (error: any) {
         console.error(`Error submitting project for ${eventId}:`, error);

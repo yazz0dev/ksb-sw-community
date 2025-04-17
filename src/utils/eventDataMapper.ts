@@ -1,20 +1,24 @@
 // src/utils/eventDataMapper.ts
 import { Timestamp } from 'firebase/firestore';
 import { DateTime } from 'luxon';
-import { EventFormat, Team, Event } from '@/types/event'; // Remove EventData, keep Event
+import { Team, Event } from '@/types/event';
 
 // Helper function to convert JS Date or ISO string to Firestore Timestamp in IST
 const getISTTimestamp = (dateInput: Date | string | Timestamp | null | undefined): Timestamp | null => {
-/*...*/
+    if (!dateInput) return null;
+    if (dateInput instanceof Timestamp) return dateInput;
+    if (dateInput instanceof Date) return Timestamp.fromDate(dateInput);
+    if (typeof dateInput === 'string') {
+        const dt = DateTime.fromISO(dateInput);
+        if (dt.isValid) return Timestamp.fromDate(dt.toJSDate());
+        return null;
+    }
+    return null;
 };
 
 // Interface for the structure expected by Firestore (can be Partial<Event> potentially)
 export type MappedEventData = Partial<Event> & {
     // Add any specific transformations if needed, e.g., dates become Timestamps
-    startDate?: Timestamp | null;
-    endDate?: Timestamp | null;
-    desiredStartDate?: Timestamp | null;
-    desiredEndDate?: Timestamp | null;
     createdAt?: Timestamp;
     lastUpdatedAt?: Timestamp;
 };
@@ -23,15 +27,25 @@ export type MappedEventData = Partial<Event> & {
 export function mapEventDataToFirestore(eventData: Partial<Event>): MappedEventData {
     const mappedData: any = { ...eventData }; // Use any for flexibility or MappedEventData
 
-    // Convert date strings/objects to Timestamps
-    const dateFields: (keyof Event)[] = ['startDate', 'endDate', 'desiredStartDate', 'desiredEndDate', 'createdAt', 'lastUpdatedAt'];
-    dateFields.forEach(field => {
-        if (mappedData[field]) {
-            mappedData[field] = getISTTimestamp(mappedData[field]);
-        } else if (mappedData.hasOwnProperty(field)) { // Handle null/undefined cases explicitly if needed
-            mappedData[field] = null;
+    // Update nested fields
+    if (mappedData.details && mappedData.details.date) {
+        if (mappedData.details.date.final) {
+            if (mappedData.details.date.final.start)
+                mappedData.details.date.final.start = getISTTimestamp(mappedData.details.date.final.start);
+            if (mappedData.details.date.final.end)
+                mappedData.details.date.final.end = getISTTimestamp(mappedData.details.date.final.end);
         }
-    });
+        if (mappedData.details.date.desired) {
+            if (mappedData.details.date.desired.start)
+                mappedData.details.date.desired.start = getISTTimestamp(mappedData.details.date.desired.start);
+            if (mappedData.details.date.desired.end)
+                mappedData.details.date.desired.end = getISTTimestamp(mappedData.details.date.desired.end);
+        }
+    }
+    if (mappedData.createdAt)
+        mappedData.createdAt = getISTTimestamp(mappedData.createdAt);
+    if (mappedData.lastUpdatedAt)
+        mappedData.lastUpdatedAt = getISTTimestamp(mappedData.lastUpdatedAt);
 
     // Ensure teams structure is correct (example: filter empty members)
     if (mappedData.teams && Array.isArray(mappedData.teams)) {

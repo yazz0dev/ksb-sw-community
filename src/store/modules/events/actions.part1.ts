@@ -17,7 +17,6 @@ import {
     deleteField, // Keep if clearing fields is needed
 } from 'firebase/firestore';
 import {
-    EventFormat,
     EventStatus,
     EventState,
     Event,
@@ -27,8 +26,13 @@ import { RootState } from '@/store/types';
 import { User } from '@/types/user';
 import { DateTime } from 'luxon'; // For date comparisons
 
+// Define EventFormat here if not exported from types
+enum EventFormat {
+    Individual = 'Individual',
+    Team = 'Team'
+}
+
 // --- Helper: Validate Organizers ---
-// Keep this helper here as it's used by createEvent and approveEventRequest
 async function validateOrganizersNotAdmin(organizerIds: string[] = []): Promise<void> {
     const userIdsToCheck = new Set(organizerIds.filter(Boolean));
     if (userIdsToCheck.size === 0) return;
@@ -62,7 +66,7 @@ export async function checkExistingRequests({ rootGetters }: ActionContext<Event
 
     const q = query(
         collection(db, 'events'),
-        where('requester', '==', currentUser.uid),
+        where('requestedBy', '==', currentUser.uid),
         where('status', 'in', [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress])
     );
     const querySnapshot = await getDocs(q);
@@ -101,15 +105,17 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
     for (const docSnap of querySnapshot.docs) {
         const event = { id: docSnap.id, ...docSnap.data() } as Event;
         if (excludeEventId && docSnap.id === excludeEventId) continue;
-        if (!event.startDate || !event.endDate) continue;
+        if (!event.details?.date?.final?.start || !event.details?.date?.final?.end) continue;
 
         try {
-            const eventStartLuxon = DateTime.fromJSDate(event.startDate.toDate()).startOf('day');
-            const eventEndLuxon = DateTime.fromJSDate(event.endDate.toDate()).startOf('day');
+            const eventStartLuxon = DateTime.fromJSDate(event.details.date.final.start.toDate()).startOf('day');
+            const eventEndLuxon = DateTime.fromJSDate(event.details.date.final.end.toDate()).startOf('day');
             if (!eventStartLuxon.isValid || !eventEndLuxon.isValid) continue;
 
-            const checkInterval = checkStartLuxon.until(checkEndLuxon.endOf('day'));
-            const eventInterval = eventStartLuxon.until(eventEndLuxon.endOf('day'));
+            // Use Interval for overlap check
+            const { Interval } = require('luxon');
+            const checkInterval = Interval.fromDateTimes(checkStartLuxon, checkEndLuxon.endOf('day'));
+            const eventInterval = Interval.fromDateTimes(eventStartLuxon, eventEndLuxon.endOf('day'));
             if (checkInterval.overlaps(eventInterval)) {
                 conflictingEvent = event;
                 break;
@@ -119,8 +125,8 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
         }
     }
 
-    const nextAvailableDate = conflictingEvent?.endDate
-        ? DateTime.fromJSDate(conflictingEvent.endDate.toDate()).plus({ days: 1 }).toJSDate()
+    const nextAvailableDate = conflictingEvent?.details?.date?.final?.end
+        ? DateTime.fromJSDate(conflictingEvent.details.date.final.end.toDate()).plus({ days: 1 }).toJSDate()
         : null;
 
     return { hasConflict: !!conflictingEvent, nextAvailableDate, conflictingEvent };
@@ -132,74 +138,33 @@ export async function createEvent({ rootGetters, commit, dispatch }: ActionConte
     if (currentUser?.role !== 'Admin') throw new Error('Unauthorized: Only Admins can create events directly.');
     if (!currentUser?.uid) throw new Error('Admin user UID is missing.');
 
-    if (!eventData.eventName?.trim()) throw new Error('Event Name is required.');
-    if (!eventData.startDate || !eventData.endDate) throw new Error("Admin event creation requires valid start and end dates.");
+    if (!eventData.details?.date?.final?.start || !eventData.details?.date?.final?.end) throw new Error("Admin event creation requires valid start and end dates.");
 
-    const organizers: string[] = Array.isArray(eventData.organizers) ? eventData.organizers.filter(Boolean) : [];
+    const organizers: string[] = Array.isArray(eventData.details?.organizers) ? eventData.details.organizers.filter(Boolean) : [];
     if (organizers.length === 0) throw new Error("At least one organizer is required.");
     if (organizers.length > 5) throw new Error("Max 5 organizers.");
     await validateOrganizersNotAdmin(organizers);
 
-    const startDate = eventData.startDate instanceof Date ? Timestamp.fromDate(eventData.startDate) : eventData.startDate;
-    const endDate = eventData.endDate instanceof Date ? Timestamp.fromDate(eventData.endDate) : eventData.endDate;
+    const startDate = eventData.details.date.final.start;
+    const endDate = eventData.details.date.final.end;
     if (!(startDate instanceof Timestamp) || !(endDate instanceof Timestamp)) throw new Error("Invalid date format.");
     if (startDate.toMillis() >= endDate.toMillis()) throw new Error("End date must be after start date.");
     if (startDate.toMillis() <= Timestamp.now().toMillis()) console.warn("Admin creating event starting in past/present.");
 
     const conflictResult = await dispatch('checkDateConflict', { startDate, endDate, excludeEventId: null });
-    if (conflictResult.hasConflict) throw new Error(`Creation failed: Date conflict with ${conflictResult.conflictingEvent?.eventName || 'another event'}.`);
+    if (conflictResult.hasConflict) throw new Error(`Creation failed: Date conflict with ${conflictResult.conflictingEvent?.details?.type || 'another event'}.`);
 
-    const eventFormat = eventData.eventFormat ?? (eventData.isTeamEvent ? EventFormat.Team : EventFormat.Individual);
-    const isTeamEvent = eventFormat === EventFormat.Team;
+    const eventFormat = eventData.details.format;
 
-    // **Placeholder Replacement Start: finalData**
     const finalData: Partial<Event> = {
-        ...eventData, // Spread incoming data first
-        eventName: eventData.eventName.trim(), // Use validated/trimmed name
-        organizers, // Use validated organizers
-        startDate, // Use converted Timestamp
-        endDate,   // Use converted Timestamp
-        requester: currentUser.uid, // Admin is the requester
-        status: EventStatus.Approved, // Directly approved
-        eventFormat, // Set based on logic
-        isTeamEvent, // Set based on logic
+        ...eventData,
+        requestedBy: currentUser.uid,
+        status: EventStatus.Approved,
         createdAt: Timestamp.now(),
-        lastUpdatedAt: Timestamp.now(), // Set initial update timestamp
-        // Initialize fields for a new approved event
-        ratingsOpen: false,
-        closed: false,
-        ratingsOpenCount: 0,
-        ratingsLastOpenedAt: null,
-        completedAt: null,
-        closedAt: null,
-        winnersPerRole: {}, // Initialize as empty object
-        xpAllocation: Array.isArray(eventData.xpAllocation) ? eventData.xpAllocation : [], // Ensure array
-        organizationRatings: [], // Initialize as empty array
-        submissions: [], // Initialize as empty array (for individual events)
-        participants: [], // Initialize as empty array
-        teams: [], // Initialize as empty array
-        // Clear desired dates if they were somehow passed
-        desiredStartDate: undefined, // Use undefined which gets removed by Firestore
-        desiredEndDate: undefined,
-        rejectionReason: undefined,
+        lastUpdatedAt: Timestamp.now(),
     };
-    // **Placeholder Replacement End: finalData**
-
-    if (isTeamEvent) {
-        finalData.teams = Array.isArray(eventData.teams) ? eventData.teams.map(t => ({
-            teamName: t.teamName?.trim() || 'Unnamed Team', members: Array.isArray(t.members) ? t.members.filter(Boolean) : [], submissions: [], ratings: []
-        })) : [];
-        finalData.participants = []; // Ensure participants is empty for team events
-    } else {
-        const allStudentUIDs: string[] = await dispatch('user/fetchAllStudentUIDs', null, { root: true }) || [];
-        const organizerSet = new Set(organizers);
-        // Assign all students except admin and organizers as participants
-        finalData.participants = allStudentUIDs.filter(uid => uid !== currentUser.uid && !organizerSet.has(uid));
-        finalData.teams = []; // Ensure teams is empty for individual events
-    }
 
     try {
-        // Firestore doesn't store undefined fields, cleaning is usually automatic
         const docRef = await addDoc(collection(db, 'events'), finalData);
         commit('addOrUpdateEvent', { id: docRef.id, ...finalData }); // Add complete data to local state
         return docRef.id;
@@ -211,60 +176,41 @@ export async function createEvent({ rootGetters, commit, dispatch }: ActionConte
 
 // --- ACTION: Request Event (Non-Admin User) ---
 export async function requestEvent({ commit, rootGetters }: ActionContext<EventState, RootState>, eventData: Partial<Event>): Promise<string> {
-    if (!eventData.eventName?.trim()) throw new Error('Event Name required.');
-    if (!eventData.desiredStartDate || !eventData.desiredEndDate) throw new Error('Desired dates required.');
+    if (!eventData.details?.date?.desired?.start || !eventData.details?.date?.desired?.end) throw new Error('Desired dates required.');
 
     const currentUser: User | null = rootGetters['user/getUser'];
     if (!currentUser?.uid) throw new Error('User must be logged in.');
 
     try {
-        const desiredStartDate = eventData.desiredStartDate instanceof Date ? Timestamp.fromDate(eventData.desiredStartDate) : eventData.desiredStartDate;
-        const desiredEndDate = eventData.desiredEndDate instanceof Date ? Timestamp.fromDate(eventData.desiredEndDate) : eventData.desiredEndDate;
+        const desiredStartDate = eventData.details.date.desired.start;
+        const desiredEndDate = eventData.details.date.desired.end;
         if (!(desiredStartDate instanceof Timestamp) || !(desiredEndDate instanceof Timestamp)) throw new Error("Invalid desired dates.");
         if (desiredStartDate.toMillis() >= desiredEndDate.toMillis()) throw new Error("Desired end date must be after start.");
 
-        const eventFormat = eventData.eventFormat ?? (eventData.isTeamEvent ? EventFormat.Team : EventFormat.Individual);
-        const isTeamEvent = eventFormat === EventFormat.Team;
+        const eventFormat = eventData.details.format;
 
-        // **Placeholder Replacement Start: requestPayload**
         const requestPayload: Partial<Event> = {
-            // Core request data
-            eventName: eventData.eventName.trim(),
-            description: eventData.description || '', // Ensure description is present
-            eventType: eventData.eventType || '', // Ensure eventType is present
-            desiredStartDate,
-            desiredEndDate,
-            eventFormat,
-            isTeamEvent, // Include isTeamEvent for clarity if needed downstream
-            xpAllocation: Array.isArray(eventData.xpAllocation) ? eventData.xpAllocation : [], // Keep if provided
-            teamSize: eventData.teamSize, // Keep if provided
-
-            // System set fields for a request
-            requester: currentUser.uid,
+            details: {
+                organizers: [],
+                description: eventData.details.description || '',
+                type: eventData.details.type || '',
+                format: eventFormat,
+                date: {
+                    desired: {
+                        start: desiredStartDate,
+                        end: desiredEndDate
+                    },
+                    final: {
+                        start: null,
+                        end: null
+                    }
+                }
+            },
+            requestedBy: currentUser.uid,
             status: EventStatus.Pending,
             createdAt: Timestamp.now(),
-            lastUpdatedAt: Timestamp.now(), // Set initial update timestamp
-
-            // Fields to explicitly initialize as empty/null for a request
-            startDate: null,
-            endDate: null,
-            organizers: [],
-            participants: [],
-            teams: [], // Initialize teams array even for requests (can be modified if approved)
-            submissions: [],
-            ratings: [],
-            organizationRatings: [],
-            winnersPerRole: {},
-            ratingsOpen: false,
-            ratingsOpenCount: 0,
-            ratingsLastOpenedAt: null,
-            completedAt: null,
-            closed: false,
-            closedAt: null,
-            rejectionReason: null,
+            lastUpdatedAt: Timestamp.now(),
         };
-        // **Placeholder Replacement End: requestPayload**
-
 
         const docRef = await addDoc(collection(db, 'events'), requestPayload);
         commit('addOrUpdateEvent', { id: docRef.id, ...requestPayload });
@@ -288,53 +234,19 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
         const eventData = eventSnap.data() as Event;
 
         if (eventData.status !== EventStatus.Pending) throw new Error('Only pending events approved.');
-        if (!eventData.desiredStartDate || !eventData.desiredEndDate) throw new Error("Missing desired dates.");
+        if (!eventData.details?.date?.desired?.start || !eventData.details?.date?.desired?.end) throw new Error("Missing desired dates.");
 
-        const conflictResult = await dispatch('checkDateConflict', { startDate: eventData.desiredStartDate, endDate: eventData.desiredEndDate, excludeEventId: eventId });
-        if (conflictResult.hasConflict) throw new Error(`Approval failed: Date conflict with "${conflictResult.conflictingEvent?.eventName || 'another event'}".`);
+        const conflictResult = await dispatch('checkDateConflict', { startDate: eventData.details.date.desired.start, endDate: eventData.details.date.desired.end, excludeEventId: eventId });
+        if (conflictResult.hasConflict) throw new Error(`Approval failed: Date conflict with "${conflictResult.conflictingEvent?.details?.type || 'another event'}".`);
 
-        // **Placeholder Replacement Start: updates**
         const updates: Partial<Event> = {
             status: EventStatus.Approved,
-            // Promote desired dates to actual dates
-            startDate: eventData.desiredStartDate,
-            endDate: eventData.desiredEndDate,
-            // Clear desired dates using deleteField sentinel
-            desiredStartDate: deleteField(),
-            desiredEndDate: deleteField(),
-            // Set last updated time
-            lastUpdatedAt: Timestamp.now(),participants: [],
-            teams: [],
-            // Ensure other relevant fields are set for an approved event
-            ratingsOpen: false, // Ratings start closed
-            closed: false,      // Event is not closed
-            completedAt: null,  // Not completed yet
-            closedAt: null,     // Not closed yet
-            rejectionReason: deleteField(), // Clear rejection reason if any
-            organizers: [],
+            lastUpdatedAt: Timestamp.now(),
         };
 
-
-        if (!eventData.isTeamEvent) {
-            const allStudentUIDs: string[] = await dispatch('user/fetchAllStudentUIDs', null, { root: true }) || [];
-            const requesterUid = eventData.requester;
-            // Assign all students except requester and approving admin
-            updates.participants = allStudentUIDs.filter(uid => uid !== requesterUid && uid !== currentUser?.uid);
-            updates.teams = []; // Ensure teams is empty
-        } else {
-            // Initialize teams array based on request data, or empty if none provided
-            updates.teams = (Array.isArray(eventData.teams) ? eventData.teams : []).map(team => ({
-                teamName: team.teamName?.trim() || 'Unnamed Team', members: Array.isArray(team.members) ? team.members.filter(Boolean) : [], submissions: [], ratings: []
-            }));
-            if (updates.teams.length === 0) console.warn(`Approving team event ${eventId} with no teams defined.`);
-            updates.participants = []; // Ensure participants is empty
-        }
-
         await updateDoc(eventRef, updates);
-        // Fetch fresh data to ensure local state reflects the cleared desired dates
         const freshSnap = await getDoc(eventRef);
-        if(freshSnap.exists()) {
-            // Use dispatch to the helper function defined in part2
+        if (freshSnap.exists()) {
             dispatch('updateLocalEvent', { id: eventId, changes: freshSnap.data() });
         }
     } catch (error: any) {
@@ -359,7 +271,6 @@ export async function rejectEventRequest({ dispatch, rootGetters }: ActionContex
             status: EventStatus.Rejected, rejectionReason: reason?.trim() || null, lastUpdatedAt: Timestamp.now(),
         };
         await updateDoc(eventRef, updates);
-        // Use dispatch to the helper function defined in part2
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
     } catch (error: any) {
         console.error(`Error rejecting request ${eventId}:`, error);
@@ -378,14 +289,13 @@ export async function cancelEvent({ dispatch, rootGetters }: ActionContext<Event
 
         const currentUser: User | null = rootGetters['user/getUser'];
         const isAdmin = currentUser?.role === 'Admin';
-        const isOrganizer = Array.isArray(currentEvent.organizers) && currentEvent.organizers.includes(currentUser?.uid ?? '');
+        const isOrganizer = Array.isArray(currentEvent.details?.organizers) && currentEvent.details.organizers.includes(currentUser?.uid ?? '');
         if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
 
-        if (![EventStatus.Approved, EventStatus.InProgress].includes(currentEvent.status)) throw new Error(`Cannot cancel event with status '${currentEvent.status}'.`);
+        if (![EventStatus.Approved, EventStatus.InProgress].includes(currentEvent.status as EventStatus)) throw new Error(`Cannot cancel event with status '${currentEvent.status}'.`);
 
-        const updates: Partial<Event> = { status: EventStatus.Cancelled, ratingsOpen: false, lastUpdatedAt: Timestamp.now() };
+        const updates: Partial<Event> = { status: EventStatus.Cancelled, lastUpdatedAt: Timestamp.now() };
         await updateDoc(eventRef, updates);
-        // Use dispatch to the helper function defined in part2
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
     } catch (error: any) {
         console.error(`Error cancelling event ${eventId}:`, error);
@@ -407,7 +317,7 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
 
         const currentUser: User | null = rootGetters['user/getUser'];
         const isAdmin = currentUser?.role === 'Admin';
-        const isOrganizer = Array.isArray(currentEvent.organizers) && currentEvent.organizers.includes(currentUser?.uid ?? '');
+        const isOrganizer = Array.isArray(currentEvent.details?.organizers) && currentEvent.details.organizers.includes(currentUser?.uid ?? '');
         if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
 
         const updates: Partial<Event> = { status: newStatus, lastUpdatedAt: Timestamp.now() };
@@ -415,11 +325,9 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
         switch (newStatus) {
             case EventStatus.InProgress:
                 if (currentEvent.status !== EventStatus.Approved) throw new Error("Must be 'Approved' to start.");
-                updates.ratingsOpen = false;
                 break;
             case EventStatus.Completed:
                 if (currentEvent.status !== EventStatus.InProgress) throw new Error("Must be 'In Progress' to complete.");
-                updates.ratingsOpen = false;
                 updates.completedAt = Timestamp.now();
                 break;
             case EventStatus.Cancelled:
@@ -427,17 +335,15 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
             case EventStatus.Approved: // Re-approving
                 if (!isAdmin) throw new Error("Only Admins can re-approve.");
                 if (currentEvent.status !== EventStatus.Cancelled) throw new Error(`Can only re-approve 'Cancelled' events.`);
-                if (!currentEvent.startDate || !currentEvent.endDate) throw new Error("Missing dates.");
-                const conflictResult = await dispatch('checkDateConflict', { startDate: currentEvent.startDate, endDate: currentEvent.endDate, excludeEventId: eventId });
-                if (conflictResult.hasConflict) throw new Error(`Re-approve failed: Date conflict with "${conflictResult.conflictingEvent?.eventName || 'another event'}".`);
-                updates.completedAt = null; updates.closed = false; updates.closedAt = null; updates.rejectionReason = null;
+                if (!currentEvent.details?.date?.final?.start || !currentEvent.details?.date?.final?.end) throw new Error("Missing dates.");
+                const conflictResult = await dispatch('checkDateConflict', { startDate: currentEvent.details.date.final.start, endDate: currentEvent.details.date.final.end, excludeEventId: eventId });
+                if (conflictResult.hasConflict) throw new Error(`Re-approve failed: Date conflict with "${(conflictResult.conflictingEvent?.details?.type as string) || 'another event'}".`);
                 break;
             case EventStatus.Pending: case EventStatus.Rejected:
                 throw new Error(`Changing status to '${newStatus}' not supported here.`);
         }
 
         await updateDoc(eventRef, updates);
-        // Use dispatch to the helper function defined in part2
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
     } catch (error: any) {
         console.error(`Error updating status to ${newStatus}:`, error);

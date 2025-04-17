@@ -124,15 +124,17 @@ const pendingRequests = computed(() => store.getters['events/pendingEvents']);
 const sanitizedPendingRequests = computed(() => {
     return pendingRequests.value.map((request: any) => ({
         ...request,
-        eventFormat: request.eventFormat || 'Not specified',
-        eventType: request.eventType || 'Not specified',
-        requesterName: request.requesterName || 'Unknown',
-        organizerName: request.organizerName || 'Unknown',
-        description: request.description || 'No description provided',
-        startDate: request.startDate || null,
-        endDate: request.endDate || null,
-        desiredStartDate: request.desiredStartDate ?? request.startDate ?? null,
-        desiredEndDate: request.desiredEndDate ?? request.endDate ?? null,
+        eventFormat: request.details?.format || 'Not specified',
+        eventType: request.details?.type || 'Not specified',
+        requesterName: request.requestedBy || 'Unknown',
+        organizerName: Array.isArray(request.details?.organizers) && request.details.organizers.length > 0
+            ? request.details.organizers.join(', ')
+            : 'Unknown',
+        description: request.details?.description || 'No description provided',
+        startDate: request.details?.date?.desired?.start || null,
+        endDate: request.details?.date?.desired?.end || null,
+        desiredStartDate: request.details?.date?.desired?.start ?? null,
+        desiredEndDate: request.details?.date?.desired?.end ?? null,
     }));
 });
 

@@ -123,13 +123,8 @@
                 <div class="card-body">
                     <!-- Submission list content -->
                     <div v-if="event.details.format !== 'Team'">
-                         <!-- Check submissions exist and is array -->
-                         <p v-if="!event.submissions || !Array.isArray(event.submissions) || event.submissions.length === 0" class="small text-secondary fst-italic">
-                             No project submissions yet for this event.
-                         </p>
-                        <ul v-else class="list-unstyled d-flex flex-column gap-3">
+                        <ul class="list-unstyled d-flex flex-column gap-3">
                             <li v-for="(submission, index) in event.submissions" :key="`ind-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                                <p class="h6 fw-medium text-primary">{{ submission.projectName }}</p>
                                 <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy) }}</p>
                                 <a :href="submission.link" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
                                 <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
@@ -145,10 +140,6 @@
                                 <h6 class="text-secondary mb-2">Team: {{ team.teamName }}</h6>
                                 <ul class="list-unstyled d-flex flex-column gap-2 ms-4 ps-4 border-start border-2">
                                     <li v-for="(submission, index) in team.submissions" :key="`team-${team.id || team.teamName}-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                                        <p class="h6 fw-medium text-primary">{{ submission.projectName }}</p>
-                                        <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy) }}</p>
-                                        <a :href="submission.link" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
-                                        <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
                                     </li>
                                 </ul>
                             </div>

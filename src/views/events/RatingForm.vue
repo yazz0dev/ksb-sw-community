@@ -210,11 +210,6 @@ const props = defineProps({
     type: String,
     required: true
   },
-  // teamId prop was defined but not used in the provided script logic
-  // teamId: {
-  //   type: String,
-  //   required: false
-  // }
 });
 
 // --- Composables ---
@@ -227,7 +222,7 @@ const errorMessage = ref<string>('');
 const isSubmitting = ref<boolean>(false);
 const eventName = ref<string>('');
 const event = ref<EventDetails | null>(null);
-const isTeamEvent = ref<boolean | null>(null); // Use boolean | null to indicate loading state
+const isTeamEvent = computed(() => event.value?.details?.format === 'Team'); // Updated to use derived field
 const eventTeams = ref<Team[]>([]);
 const allTeamMembers = ref<TeamMember[]>([]); // Store as { uid, name } objects
 const teamMemberMap = ref<Record<string, string>>({}); // Map member UID to team name
@@ -508,7 +503,6 @@ const initializeForm = async (): Promise<void> => {
     }
     event.value = eventDetails; // Store fetched details
     eventName.value = eventDetails.eventName || 'Unnamed Event';
-    isTeamEvent.value = !!eventDetails.isTeamEvent; // Coerce to boolean
 
     // --- Validation Checks ---
     if (eventDetails.status !== 'Completed') {
@@ -563,7 +557,6 @@ const initializeForm = async (): Promise<void> => {
     console.error('Error initializing form:', error);
     errorMessage.value = error.message || 'Failed to load rating details.';
     event.value = null; // Clear event data on error
-    isTeamEvent.value = null; // Reset event type state
   } finally {
     loading.value = false;
   }

@@ -126,18 +126,5 @@ export interface Event {
   completedAt?: Timestamp | null;
   closedAt?: Timestamp | null;
 
-  // --- UI/compatibility fields ---
-  // These are not stored in Firestore, but may be used in UI logic
-  isTeamEvent?: boolean; // Derived: details.format === 'Team'
-  startDate?: Timestamp | null; // Derived: details.date.final.start
-  endDate?: Timestamp | null;   // Derived: details.date.final.end
-  desiredStartDate?: Timestamp | null; // Derived: details.date.desired.start
-  desiredEndDate?: Timestamp | null;   // Derived: details.date.desired.end
-
-  // For rating toggling logic (optional, for UI compatibility)
-  ratingsOpen?: boolean;
-  ratingsOpenCount?: number;
-  ratingsClosed?: boolean;
-
   rejectionReason?: string | null;
 }

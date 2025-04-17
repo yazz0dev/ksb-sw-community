@@ -18,7 +18,7 @@
             <div class="d-flex align-items-center">
               <span class="text-secondary me-2"><i class="fas fa-calendar"></i></span>
               <small class="text-secondary">
-                {{ formatDate(event.startDate) }} - {{ formatDate(event.endDate) }}
+                {{ formatDate(event.details.date.final.start) }} - {{ formatDate(event.details.date.final.end) }}
               </small>
             </div>
             <div class="d-flex align-items-center">
@@ -85,8 +85,15 @@ interface Event {
   id: string;
   status: string;
   title: string;
-  startDate: { toDate(): Date } | string | Date;
-  endDate: { toDate(): Date } | string | Date;
+  details: {
+    date: {
+      final: {
+        start: { toDate(): Date } | null;
+        end: { toDate(): Date } | null;
+      };
+    };
+    format: string;
+  };
   teamSize: number;
   description: string;
   closed?: boolean;

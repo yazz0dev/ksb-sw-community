@@ -653,24 +653,51 @@ const handleSubmit = () => {
     return;
   }
 
-  // Directly use the keys to avoid type widening issues
-  const dataToSubmit = { ...formData.value };
-
   // Validate dates are present
   if (!formData.value.desiredStartDate || !formData.value.desiredEndDate) {
     emit('error', `Both ${dateFields.value.startLabel} and ${dateFields.value.endLabel} are required.`);
     return;
   }
 
-  // Set desired dates and ensure actual dates are null for requests
-  dataToSubmit.desiredStartDate = formData.value.desiredStartDate;
-  dataToSubmit.desiredEndDate = formData.value.desiredEndDate;
-  dataToSubmit.startDate = null;
-  dataToSubmit.endDate = null;
-  dataToSubmit.status = 'Pending';
+  // Convert ISO date strings to Firestore Timestamp objects
+  let desiredStartTimestamp = null;
+  let desiredEndTimestamp = null;
+  try {
+    desiredStartTimestamp = Timestamp.fromDate(new Date(formData.value.desiredStartDate));
+    desiredEndTimestamp = Timestamp.fromDate(new Date(formData.value.desiredEndDate));
+    if (isNaN(desiredStartTimestamp.toMillis()) || isNaN(desiredEndTimestamp.toMillis())) throw new Error();
+  } catch {
+    emit('error', 'Invalid date format.');
+    return;
+  }
 
-  // Remove UI-specific fields before submission
-  dataToSubmit.xpAllocation = dataToSubmit.xpAllocation.map(({ constraintIndex, ...rest }) => rest);
+  // Build the payload with correct nested structure for backend
+  const dataToSubmit: any = {
+    ...formData.value,
+    desiredStartDate: undefined,
+    desiredEndDate: undefined,
+    startDate: null,
+    endDate: null,
+    status: 'Pending',
+    details: {
+      description: formData.value.description,
+      type: formData.value.eventType,
+      format: formData.value.eventFormat,
+      date: {
+        desired: {
+          start: desiredStartTimestamp,
+          end: desiredEndTimestamp
+        },
+        final: {
+          start: null,
+          end: null
+        }
+      },
+      organizers: formData.value.organizers
+    },
+    xpAllocation: formData.value.xpAllocation.map(({ constraintIndex, ...rest }) => rest),
+    teams: formData.value.teams
+  };
 
   emit('submit', dataToSubmit);
 };
@@ -803,3 +830,4 @@ const handleCoOrganizerBlur = () => {
     padding: 0.25em 0.4em;
 }
 </style>
+`

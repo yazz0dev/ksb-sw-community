@@ -154,8 +154,11 @@ const filteredXpByRole = computed(() => {
     }, {});
 });
 
-const handleImageError = (e: Event) => {
-  (e.target as HTMLImageElement).src = defaultAvatarUrl;
+const handleImageError = (e: any) => {
+  // Accept any event, fallback to any for Vue template compatibility
+  if (e && e.target && 'src' in e.target) {
+    (e.target as HTMLImageElement).src = defaultAvatarUrl;
+  }
 };
 
 const formatRoleName = (roleKey: string) => {
@@ -246,27 +249,27 @@ const fetchParticipatedEvents = async () => {
       let isWinnerFlag = false;
 
       // Check if organizer
-      if (Array.isArray(event.organizers) && event.organizers.includes(targetUserId)) {
+      if (Array.isArray(event.details?.organizers) && event.details.organizers.includes(targetUserId)) {
         isOrganizerFlag = true;
         isPartOfEvent = true;
       }
 
       // Check participation and winning status based on event type
-      if (event.isTeamEvent && Array.isArray(event.teams)) {
+      if (event.details?.format === 'Team' && Array.isArray(event.teams)) {
         const userTeam = event.teams.find(team => Array.isArray(team.members) && team.members.includes(targetUserId));
         if (userTeam) {
           isParticipant = true;
           isPartOfEvent = true;
-          // Check winnersPerRole for team events (assuming teamName is the key or value)
-          if (event.winnersPerRole && Object.values(event.winnersPerRole).flat().includes(userTeam.teamName)) {
+          // Check winners for team events (assuming teamName is the value)
+          if (event.winners && Object.values(event.winners).flat().includes(userTeam.teamName)) {
               isWinnerFlag = true;
           }
         }
       } else if (Array.isArray(event.participants) && event.participants.includes(targetUserId)) {
           isParticipant = true;
           isPartOfEvent = true;
-          // Check winnersPerRole for individual events
-          if (event.winnersPerRole && Object.values(event.winnersPerRole).flat().includes(targetUserId)) {
+          // Check winners for individual events
+          if (event.winners && Object.values(event.winners).flat().includes(targetUserId)) {
               isWinnerFlag = true;
           }
       }

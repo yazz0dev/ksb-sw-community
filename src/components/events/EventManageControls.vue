@@ -137,7 +137,6 @@ const statusBadgeClass = computed(() => {
   }
 });
 
-// Use renamed utility function
 const isWithinEventDates = computed(() => {
   if (!props.event.details.date.final?.start || !props.event.details.date.final?.end) return false;
   return canEventBeStarted({
