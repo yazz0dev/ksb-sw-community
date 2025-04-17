@@ -14,7 +14,7 @@
             'text-primary': !isCancelledOrRejected
           }"
         >
-          {{ event.eventName }}
+          {{ event.details?.type || 'Untitled Event' }}
         </h5>
         <span 
           class="badge rounded-pill fs-7 flex-shrink-0"
@@ -25,10 +25,10 @@
       </div>
       <div class="d-flex small text-secondary mb-3 flex-wrap" style="gap: 0.75rem;">
         <div class="d-flex align-items-center">
-            <i class="fas fa-tag fa-fw me-1 text-muted"></i>{{ event.eventType }}
+            <i class="fas fa-tag fa-fw me-1 text-muted"></i>{{ event.details?.type || 'Type N/A' }}
         </div>
         <div class="d-flex align-items-center">
-            <i class="fas fa-calendar-alt fa-fw me-1 text-muted"></i>{{ formatDateRange(event.startDate, event.endDate) }}
+            <i class="fas fa-calendar-alt fa-fw me-1 text-muted"></i>{{ formatDateRange(event.details?.date?.desired?.start, event.details?.date?.desired?.end) }}
         </div>
       </div>
       <p class="card-text small text-secondary mb-4 flex-grow-1">{{ truncatedDescription }}</p>
@@ -50,7 +50,7 @@
 <script setup lang="ts">
 import { computed, PropType } from 'vue';
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, EventFormat, type Event } from '@/types/event';
+import { EventStatus, type Event } from '@/types/event';
 
 // Define props using defineProps
 const props = defineProps({
@@ -80,7 +80,8 @@ const formatDateRange = (start: any, end: any): string => {
 // Truncate description
 const truncatedDescription = computed(() => {
   const maxLen = 90;
-  const desc = props.event?.description || '';
+  // Use event.details.description for description
+  const desc = props.event?.details?.description || '';
   if (desc.length > maxLen) {
     return desc.substring(0, maxLen).trim() + '…';
   }
@@ -89,9 +90,10 @@ const truncatedDescription = computed(() => {
 
 // Participant count
 const participantCount = computed(() => {
-    if (props.event.isTeamEvent && Array.isArray(props.event.teams)) {
+    // Use event.details.format to determine if team event
+    if (props.event.details?.format === 'Team' && Array.isArray(props.event.teams)) {
         let count = 0;
-        props.event.teams.forEach((team: any) => { // Add type 'any' or specific Team type
+        props.event.teams.forEach((team: any) => {
             count += team.members?.length || 0;
         });
         return count;

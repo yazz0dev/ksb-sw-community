@@ -28,6 +28,7 @@ import {
 } from '@/types/event';
 import { RootState } from '@/store/types';
 import { User } from '@/types/user';
+import { triggerNotification } from '@/utils/notificationTrigger';
 
 // Assuming updateLocalEvent helper is defined in part2 or elsewhere
 // If defined in part2, it should be imported or accessed via dispatch
@@ -182,6 +183,48 @@ async function closeEventPermanentlyInternal(
         await updateDoc(eventRef, eventUpdates);
         console.log(`Event ${eventId} marked as closed in Firestore.`);
 
+        // --- Push Notification: Winner Announced ---
+        try {
+            const eventName = eventData.eventName || 'an event';
+            const eventUrl = `/events/${eventId}`;
+            // Individual event: winnersPerRole
+            if (eventData.winnersPerRole) {
+                for (const [role, winnerIds] of Object.entries(eventData.winnersPerRole)) {
+                    for (const winnerId of winnerIds) {
+                        await triggerNotification({
+                            notificationType: 'winnerAnnounced',
+                            targetUserIds: [winnerId],
+                            messageTitle: 'Congratulations! You are a winner!',
+                            messageBody: `You have been selected as a winner (${role}) for "${eventName}".`,
+                            eventUrl,
+                            eventName,
+                            winningCriteria: role,
+                        });
+                    }
+                }
+            }
+            // Team event: best performer or team criteria
+            if (eventData.teamCriteriaRatings) {
+                // Find best performers from ratings
+                const bestPerformers = eventData.teamCriteriaRatings
+                    .map(r => r.selections?.bestPerformer)
+                    .filter(Boolean);
+                for (const winnerId of bestPerformers) {
+                    await triggerNotification({
+                        notificationType: 'winnerAnnounced',
+                        targetUserIds: [winnerId],
+                        messageTitle: 'Congratulations! You are a top performer!',
+                        messageBody: `You have been recognized as a top performer in "${eventName}".`,
+                        eventUrl,
+                        eventName,
+                        winningCriteria: 'Best Performer',
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Failed to trigger winner notification:', e);
+        }
+
         // Update local Vuex state using the helper action
         dispatch('updateLocalEvent', { id: eventId, changes: eventUpdates });
 
@@ -219,6 +262,35 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
         const now = Timestamp.now();
 
         await updateDoc(eventRef, updates);
+
+        // --- Push Notification: Ratings Opened ---
+        if (isOpen && currentEvent.status === EventStatus.Completed) {
+            try {
+                // Determine participants (team or individual)
+                let participantIds: string[] = [];
+                if (currentEvent.details.format === 'Team' && Array.isArray(currentEvent.teams)) {
+                    participantIds = currentEvent.teams.flatMap(team => team.members || []);
+                } else if (Array.isArray(currentEvent.participants)) {
+                    participantIds = currentEvent.participants;
+                }
+                // Remove duplicates and exclude the user who triggered the action
+                const currentUserId = currentUser?.uid;
+                participantIds = [...new Set(participantIds)].filter(id => id && id !== currentUserId);
+
+                if (participantIds.length > 0) {
+                    await triggerNotification({
+                        notificationType: 'ratingOpen',
+                        targetUserIds: participantIds,
+                        messageTitle: 'Ratings are now open!',
+                        messageBody: `You can now rate or select winners for "${currentEvent.eventName}".`,
+                        eventUrl: `/events/${eventId}/rate`,
+                        eventName: currentEvent.eventName,
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to trigger ratings open notification:', e);
+            }
+        }
 
         const freshSnap = await getDoc(eventRef);
         const freshData = freshSnap.exists() ? freshSnap.data() as Event : null;

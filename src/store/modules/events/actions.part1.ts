@@ -25,6 +25,7 @@ import {
 import { RootState } from '@/store/types';
 import { User } from '@/types/user';
 import { DateTime } from 'luxon'; // For date comparisons
+import { triggerNotification } from '@/utils/notificationTrigger';
 
 // Define EventFormat here if not exported from types
 enum EventFormat {
@@ -140,7 +141,9 @@ export async function createEvent({ rootGetters, commit, dispatch }: ActionConte
 
     if (!eventData.details?.date?.final?.start || !eventData.details?.date?.final?.end) throw new Error("Admin event creation requires valid start and end dates.");
 
-    const organizers: string[] = Array.isArray(eventData.details?.organizers) ? eventData.details.organizers.filter(Boolean) : [];
+    // --- Always include the requesting user as organizer ---
+    let organizers: string[] = Array.isArray(eventData.details?.organizers) ? eventData.details.organizers.filter(Boolean) : [];
+    if (!organizers.includes(currentUser.uid)) organizers.unshift(currentUser.uid);
     if (organizers.length === 0) throw new Error("At least one organizer is required.");
     if (organizers.length > 5) throw new Error("Max 5 organizers.");
     await validateOrganizersNotAdmin(organizers);
@@ -158,6 +161,10 @@ export async function createEvent({ rootGetters, commit, dispatch }: ActionConte
 
     const finalData: Partial<Event> = {
         ...eventData,
+        details: {
+            ...eventData.details,
+            organizers,
+        },
         requestedBy: currentUser.uid,
         status: EventStatus.Approved,
         createdAt: Timestamp.now(),
@@ -189,9 +196,13 @@ export async function requestEvent({ commit, rootGetters }: ActionContext<EventS
 
         const eventFormat = eventData.details.format;
 
+        // --- Always include the requesting user as organizer ---
+        let organizers: string[] = Array.isArray(eventData.details.organizers) ? eventData.details.organizers.filter(Boolean) : [];
+        if (!organizers.includes(currentUser.uid)) organizers.unshift(currentUser.uid);
+
         const requestPayload: Partial<Event> = {
             details: {
-                organizers: [],
+                organizers,
                 description: eventData.details.description || '',
                 type: eventData.details.type || '',
                 format: eventFormat,
@@ -248,6 +259,21 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
         const freshSnap = await getDoc(eventRef);
         if (freshSnap.exists()) {
             dispatch('updateLocalEvent', { id: eventId, changes: freshSnap.data() });
+        }
+
+        // --- Push Notification: Event Approved ---
+        try {
+            await triggerNotification({
+                notificationType: 'eventApproved',
+                targetUserIds: [eventData.requestedBy],
+                messageTitle: 'Your event request was approved!',
+                messageBody: `Your event "${eventData.eventName}" has been approved and is now scheduled.`,
+                eventUrl: `/events/${eventId}`,
+                eventName: eventData.eventName,
+            });
+        } catch (e) {
+            // Log but do not block
+            console.error('Failed to trigger event approval notification:', e);
         }
     } catch (error: any) {
         console.error(`Error approving request ${eventId}:`, error);

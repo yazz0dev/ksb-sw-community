@@ -189,10 +189,11 @@ declare global {
       Modal?: any;
       Collapse?: any;
     };
+    webpushr?: any;
   }
 }
 
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
@@ -329,6 +330,13 @@ onMounted(() => {
     });
 
   }, 100);
+
+  // Watch for userId changes and link with WebPushr
+  watch(userId, (newUserId) => {
+    if (newUserId && window.webpushr && typeof window.webpushr === 'function') {
+      window.webpushr('attributes', { user_id: newUserId });
+    }
+  }, { immediate: true });
 });
 
 onUnmounted(() => {

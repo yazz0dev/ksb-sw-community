@@ -53,8 +53,16 @@
                     </div>
                   </div>
                   <div class="col-md-6">
-                    <p class="mb-2"><strong>Requestor:</strong> {{ request.requesterName }}</p>
-                    <p class="mb-2"><strong>Organizer:</strong> {{ request.organizerName }}</p>
+                    <p class="mb-2">
+                      <strong>Requestor:</strong>
+                      {{ request.requesterNameDisplay || request.requesterName }}
+                    </p>
+                    <p
+                      v-if="Array.isArray(request.organizerIds) && request.organizerIds.length > 0"
+                      class="mb-2"
+                    >
+                      <strong>Organizer:</strong> {{ request.organizerName }}
+                    </p>
                     <p class="mb-2"><strong>Description:</strong></p>
                     <p class="text-secondary">{{ request.description }}</p>
                   </div>
@@ -62,7 +70,7 @@
 
                 <div class="mt-3 d-flex gap-2 justify-content-end">
                   <button 
-                    class="btn btn-success" 
+                    class="btn btn-success"
                     :disabled="isProcessing(request.id) || isMissingDesiredDates(request)"
                     @click="approveRequest(request.id)"
                     :title="isMissingDesiredDates(request) ? 'Cannot approve: missing start/end dates' : ''"
@@ -71,7 +79,7 @@
                     Approve
                   </button>
                   <button 
-                    class="btn btn-danger" 
+                    class="btn btn-danger"
                     :disabled="isProcessing(request.id)"
                     @click="confirmRejectRequest(request.id)"
                   >
@@ -106,11 +114,6 @@ import { useStore } from 'vuex';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
 import { EventStatus } from '@/types/event';
 
-interface RequestFeedback {
-    message: string;
-    type: 'success' | 'error';
-}
-
 const store = useStore();
 const loading = ref<boolean>(false);
 const error = ref<string | null>(null);
@@ -120,16 +123,49 @@ const eventIdToReject = ref<string | null>(null);
 
 const pendingRequests = computed(() => store.getters['events/pendingEvents']);
 
-// Sanitized requests with type safety
+// --- Helper: Get user name from allUsers in Vuex (like leaderboard logic) ---
+function getUserNameByUid(uid: string): string | null {
+  // Try to get from Vuex user module (allUsers)
+  const allUsers = store.state.user?.allUsers;
+  if (Array.isArray(allUsers)) {
+    const user = allUsers.find((u: any) => u.uid === uid);
+    if (user && user.name) return user.name;
+  }
+  return null;
+}
+
+// --- Ensure allUsers is loaded before rendering requests ---
+onMounted(async () => {
+  loading.value = true;
+  try {
+    // Fetch all users for name lookup (if not already loaded)
+    if (!Array.isArray(store.state.user?.allUsers) || store.state.user.allUsers.length === 0) {
+      await store.dispatch('user/fetchAllUsers');
+    }
+    await store.dispatch('events/fetchEvents');
+  } catch (err: any) {
+    error.value = 'Failed to load event requests.';
+    console.error("Error fetching event requests:", err);
+    store.dispatch('notification/showNotification', {
+        message: `Failed to load requests: ${err.message || 'Unknown error'}`,
+        type: 'error'
+    });
+  } finally {
+    loading.value = false;
+  }
+});
+
 const sanitizedPendingRequests = computed(() => {
     return pendingRequests.value.map((request: any) => ({
         ...request,
         eventFormat: request.details?.format || 'Not specified',
         eventType: request.details?.type || 'Not specified',
         requesterName: request.requestedBy || 'Unknown',
+        requesterNameDisplay: getUserNameByUid(request.requestedBy) || request.requestedBy || 'Unknown',
+        organizerIds: Array.isArray(request.details?.organizers) ? request.details.organizers : [],
         organizerName: Array.isArray(request.details?.organizers) && request.details.organizers.length > 0
-            ? request.details.organizers.join(', ')
-            : 'Unknown',
+            ? request.details.organizers.map((uid: string) => getUserNameByUid(uid) || uid).join(', ')
+            : '',
         description: request.details?.description || 'No description provided',
         startDate: request.details?.date?.desired?.start || null,
         endDate: request.details?.date?.desired?.end || null,
@@ -168,9 +204,7 @@ const formatDate = (date: any): string => {
   }
 };
 
-// Add helper to check for missing desired dates
 function isMissingDesiredDates(request: any): boolean {
-  // Accepts both Timestamp and string/null
   return !request.desiredStartDate || !request.desiredEndDate;
 }
 
@@ -182,7 +216,7 @@ async function fetchRequests(): Promise<void> {
   } catch (err: any) {
     error.value = 'Failed to load event requests.';
     console.error("Error fetching event requests:", err);
-     store.dispatch('notification/showNotification', {
+    store.dispatch('notification/showNotification', {
         message: `Failed to load requests: ${err.message || 'Unknown error'}`,
         type: 'error'
     });
@@ -192,7 +226,7 @@ async function fetchRequests(): Promise<void> {
 }
 
 const approveRequest = async (eventId: string): Promise<void> => {
-  if (processingRequestId.value) return; // Prevent concurrent actions
+  if (processingRequestId.value) return;
   const req = sanitizedPendingRequests.value.find((r: any) => r.id === eventId);
   if (isMissingDesiredDates(req)) {
     error.value = 'Cannot approve: This request is missing required start/end dates.';
@@ -210,7 +244,6 @@ const approveRequest = async (eventId: string): Promise<void> => {
       message: 'Event request approved successfully.',
       type: 'success'
     });
-    // No need to fetch again if the store getter updates reactively
   } catch (err: any) {
     error.value = `Failed to approve request: ${err.message}`;
     console.error("Error approving event request:", err);
@@ -247,7 +280,6 @@ const rejectRequestConfirmed = async (): Promise<void> => {
         message: 'Event request rejected successfully.',
         type: 'success'
     });
-     // No need to fetch again if the store getter updates reactively
   } catch (err: any) {
     error.value = `Failed to reject request: ${err.message}`;
     console.error("Error rejecting event request:", err);
@@ -260,16 +292,9 @@ const rejectRequestConfirmed = async (): Promise<void> => {
     eventIdToReject.value = null;
   }
 };
-
-onMounted(() => {
-  fetchRequests();
-});
 </script>
 
 <style scoped>
-/* Removed custom loader styles */
-
-/* Animation */
 .animate-fade-in {
   animation: fadeIn 0.5s ease-in-out;
 }
