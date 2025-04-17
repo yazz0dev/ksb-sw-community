@@ -63,4 +63,12 @@ export const appMutations = {
     state.eventClosed = { ...state.eventClosed, [eventId]: isClosed };
   },
 
+  // --- Aliases for legacy mutation names (for compatibility) ---
+  SET_ONLINE_STATUS(state: AppState, isOnline: boolean) {
+    state.networkStatus.online = isOnline;
+    state.networkStatus.lastChecked = Date.now();
+  },
+  SET_LAST_SYNC_TIMESTAMP(state: AppState, timestamp: number | null) {
+    state.lastSyncTimestamp = timestamp;
+  },
 };

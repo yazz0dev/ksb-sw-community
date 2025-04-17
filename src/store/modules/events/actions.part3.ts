@@ -21,10 +21,10 @@ import {
     FirestoreError,
 } from 'firebase/firestore';
 import {
-    EventStatus,
-    EventState,
     Event,
-    OrganizationRating,
+    EventState,
+    OrganizerRating,
+    EventStatus
 } from '@/types/event';
 import { RootState } from '@/store/types';
 import { User } from '@/types/user';
@@ -43,18 +43,18 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
     const bestPerformerBonusXP = 10; // General XP bonus for the overall best performer in team events
 
     // --- Organizers ---
-    (eventData.organizers || []).filter(Boolean).forEach(uid => {
+    (eventData.details.organizers || []).filter(Boolean).forEach(uid => {
         if (!xpAwardMap[uid]) xpAwardMap[uid] = {};
         // Use 'Organizer' key for this specific XP source
         xpAwardMap[uid]['Organizer'] = (xpAwardMap[uid]['Organizer'] || 0) + organizerXP;
     });
 
     // --- Role-Specific XP from Criteria (for Winners) ---
-    const winners = eventData.winnersPerRole || {};
-    const allocations = eventData.xpAllocation || [];
+    const winners = eventData.winners || {};
+    const allocations = eventData.criteria || [];
 
     // --- Apply XP based on event type ---
-    if (eventData.isTeamEvent && Array.isArray(eventData.teams)) {
+    if (eventData.details.format === 'Team' && eventData.teams && Array.isArray(eventData.teams)) {
         // --- Team Event XP Logic ---
         // Type assertion needed if teamCriteriaRatings is not standard in Event type
         const teamCriteriaRatings = (eventData as any).teamCriteriaRatings || [];
@@ -78,7 +78,7 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
                         rating.selections?.criteria?.[constraintIdxStr] === team.teamName
                     );
                     if (wonThisCriterion) {
-                        const roleKey = alloc.role || 'general'; // Use specified role or 'general'
+                        const roleKey = alloc.targetRole || 'general'; // Use specified role or 'general'
                         xpAwardMap[memberId][roleKey] = (xpAwardMap[memberId][roleKey] || 0) + (alloc.points || 0);
                     }
                 });
@@ -104,7 +104,7 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
 
             // 2. XP from winning selections + Winner Bonus
             allocations.forEach(alloc => {
-                const roleKey = alloc.role || 'general';
+                const roleKey = alloc.targetRole || 'general';
                 const isWinnerForRole = winners[roleKey]?.includes(uid);
                 if (isWinnerForRole) {
                     // Award criterion points + flat winner bonus for the specific role
@@ -116,7 +116,6 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
 
     return xpAwardMap;
 }
-
 
 interface CloseEventResult {
     success: boolean;
@@ -147,10 +146,10 @@ async function closeEventPermanentlyInternal(
         if (eventData.status !== EventStatus.Completed) {
             return { success: false, message: "Only completed events can be closed permanently." };
         }
-        if (eventData.ratingsOpen) {
+        if (eventData.ratings && eventData.ratings.organizer) {
             return { success: false, message: "Ratings must be closed before the event can be closed permanently." };
         }
-        if (eventData.closed) {
+        if (eventData.closedAt) {
             console.warn(`Event ${eventId} is already closed.`);
             return { success: true, message: "Event is already closed." };
         }
@@ -177,9 +176,7 @@ async function closeEventPermanentlyInternal(
         // Mark event as closed in Firestore (separate update after batch success)
         const closedTimestamp = Timestamp.now();
         const eventUpdates: Partial<Event> = {
-            closed: true,
             closedAt: closedTimestamp,
-            ratingsOpen: false, // Ensure ratings are marked closed
             lastUpdatedAt: closedTimestamp
         };
         await updateDoc(eventRef, eventUpdates);
@@ -201,7 +198,6 @@ async function closeEventPermanentlyInternal(
     }
 }
 
-
 // --- ACTION: Toggle Ratings Open/Closed (Admin or Organizer) ---
 export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, isOpen }: { eventId: string; isOpen: boolean }): Promise<{ status: 'success' | 'error'; message?: string }> {
     if (!eventId) throw new Error('Event ID required.');
@@ -213,37 +209,20 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
 
         const currentUser: User | null = rootGetters['user/getUser'];
         const isAdmin = currentUser?.role === 'Admin';
-        const isOrganizer = Array.isArray(currentEvent.organizers) && currentEvent.organizers.includes(currentUser?.uid ?? '');
+        const isOrganizer = currentEvent.details.organizers?.includes(currentUser?.uid ?? '') || false;
         if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
 
         if (currentEvent.status !== EventStatus.Completed) throw new Error("Ratings only toggle for completed events.");
-        if (currentEvent.closed) throw new Error("Cannot toggle ratings for a closed event.");
+        if (currentEvent.closedAt) throw new Error("Cannot toggle ratings for a closed event.");
 
         const updates: Partial<Event> = { lastUpdatedAt: Timestamp.now() };
         const now = Timestamp.now();
-        const ratingsOpenCount = currentEvent.ratingsOpenCount ?? 0;
-
-        if (isOpen) {
-            if (currentEvent.ratingsOpen) return { status: 'success', message: 'Ratings already open.' };
-            if (ratingsOpenCount >= 2) throw new Error("Rating period opened max 2 times.");
-            if (!currentEvent.completedAt) updates.completedAt = now; // Set completion time if missing
-            updates.ratingsOpen = true;
-            updates.ratingsLastOpenedAt = now;
-            const updatedCount = (increment(1) as any) as number;
-            updates.ratingsOpenCount = updatedCount;
-        } else {
-            if (!currentEvent.ratingsOpen) return { status: 'success', message: 'Ratings already closed.' };
-            updates.ratingsOpen = false;
-        }
 
         await updateDoc(eventRef, updates);
 
         const freshSnap = await getDoc(eventRef);
         const freshData = freshSnap.exists() ? freshSnap.data() as Event : null;
         const finalChanges = {
-            ratingsOpen: freshData?.ratingsOpen ?? updates.ratingsOpen,
-            ratingsLastOpenedAt: freshData?.ratingsLastOpenedAt ?? updates.ratingsLastOpenedAt,
-            ratingsOpenCount: freshData?.ratingsOpenCount ?? ratingsOpenCount + (isOpen ? 1 : 0),
             completedAt: freshData?.completedAt ?? updates.completedAt,
             lastUpdatedAt: freshData?.lastUpdatedAt ?? updates.lastUpdatedAt, // Include lastUpdatedAt
         };
@@ -314,9 +293,9 @@ export async function submitTeamCriteriaRating({ rootGetters, dispatch }: Action
         const eventData = eventSnap.data() as Event;
 
         if (eventData.status !== EventStatus.Completed) throw new Error("Ratings only for completed.");
-        if (!eventData.ratingsOpen) throw new Error("Rating period closed.");
-        if (eventData.closed) throw new Error("Cannot rate closed event.");
-        if (!eventData.isTeamEvent) throw new Error("Team rating only for team events.");
+        if (eventData.ratings && eventData.ratings.organizer) throw new Error("Rating period closed.");
+        if (eventData.closedAt) throw new Error("Cannot rate closed event.");
+        if (eventData.details.format !== 'Team') throw new Error("Team rating only for team events.");
 
         const isParticipant = eventData.teams?.some(team => team.members?.includes(ratedBy));
         if (isParticipant) throw new Error("Participants cannot rate.");
@@ -361,15 +340,15 @@ export async function submitIndividualWinners({ rootGetters, dispatch }: ActionC
         const eventData = eventSnap.data() as Event;
 
         if (eventData.status !== EventStatus.Completed) throw new Error("Selection only for completed.");
-        if (!eventData.ratingsOpen) throw new Error("Selection period closed.");
-        if (eventData.closed) throw new Error("Cannot select winners for closed event.");
-        if (eventData.isTeamEvent) throw new Error("Individual selection only for individual events.");
+        if (eventData.ratings && eventData.ratings.organizer) throw new Error("Rating period closed.");
+        if (eventData.closedAt) throw new Error("Cannot select winners for closed event.");
+        if (eventData.details.format === 'Team') throw new Error("Individual selection only for individual events.");
 
-        const isParticipant = eventData.participants?.includes(ratedBy);
+        const isParticipant = eventData.participants?.includes(ratedBy) || false;
         if (isParticipant) throw new Error("Participants cannot select winners.");
 
         // Overwrite winnersPerRole with the new selections
-        const updates: Partial<Event> = { winnersPerRole: selections, lastUpdatedAt: Timestamp.now() };
+        const updates: Partial<Event> = { winners: selections, lastUpdatedAt: Timestamp.now() };
         await updateDoc(eventRef, updates);
 
         dispatch('updateLocalEvent', { id: eventId, changes: updates }); // Use helper
@@ -379,7 +358,6 @@ export async function submitIndividualWinners({ rootGetters, dispatch }: ActionC
         throw error;
     }
 }
-
 
 // --- ACTION: Submit Rating for Event Organization ---
 export async function submitOrganizationRating({ rootGetters, dispatch }: ActionContext<EventState, RootState>, { eventId, score }: { eventId: string; score: number | string }): Promise<void> {
@@ -401,13 +379,13 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
         if (eventData.status !== EventStatus.Completed) throw new Error('Organization only rated for completed.');
 
         let isParticipant = false;
-        if (eventData.isTeamEvent) isParticipant = eventData.teams?.some(team => team.members?.includes(userId));
-        else isParticipant = eventData.participants?.includes(userId);
+        if (eventData.details.format === 'Team' && eventData.teams) isParticipant = eventData.teams?.some(team => team.members?.includes(userId)) || false;
+        else isParticipant = eventData.participants?.includes(userId) || false;
         if (!isParticipant) throw new Error('Only participants can rate organization.');
 
-        const organizationRatings = Array.isArray(eventData.organizationRatings) ? [...eventData.organizationRatings] : [];
-        const existingRatingIndex = organizationRatings.findIndex((r: OrganizationRating) => r.ratedBy === userId);
-        const newRatingEntry: OrganizationRating = { ratedBy: userId, score: numericScore, ratedAt: Timestamp.now() };
+        const organizationRatings = Array.isArray(eventData.ratings?.organizer) ? [...eventData.ratings.organizer] : [];
+        const existingRatingIndex = organizationRatings.findIndex((r: OrganizerRating) => r.userId === userId);
+        const newRatingEntry: OrganizerRating = { userId: userId, rating: numericScore, feedback: "" };
 
         if (existingRatingIndex > -1) {
             console.log(`User ${userId} updating organization rating for ${eventId}.`);
@@ -416,8 +394,8 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
             organizationRatings.push(newRatingEntry);
         }
 
-        await updateDoc(eventRef, { organizationRatings, lastUpdatedAt: Timestamp.now() });
-        dispatch('updateLocalEvent', { id: eventId, changes: { organizationRatings } }); // Use helper
+        await updateDoc(eventRef, { "ratings.organizer": organizationRatings, lastUpdatedAt: Timestamp.now() });
+        dispatch('updateLocalEvent', { id: eventId, changes: { ratings: { organizer: organizationRatings } } }); // Use helper
         console.log(`Organization rating (${numericScore}) submitted for ${eventId} by ${userId}.`);
     } catch (error: any) {
         console.error(`Error submitting organization rating for ${eventId}:`, error);

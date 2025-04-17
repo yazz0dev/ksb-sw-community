@@ -13,7 +13,25 @@
                 <!-- Assuming EventDisplayCard expects Record<string, string> -->
                 <EventDisplayCard 
                     v-if="event" 
-                    :event="event" 
+                    :event="{
+                        eventName: event.details.type,
+                        eventType: event.details.type,
+                        requester: event.requestedBy,
+                        isTeamEvent: event.details.format === 'Team',
+                        description: event.details.description,
+                        startDate: event.details.date.final?.start ?? undefined,
+                        endDate: event.details.date.final?.end ?? undefined,
+                        desiredStartDate: event.details.date.desired?.start ?? undefined,
+                        desiredEndDate: event.details.date.desired?.end ?? undefined,
+                        status: event.status,
+                        organizers: event.details.organizers,
+                        rejectionReason: event.rejectionReason ?? undefined,
+                        xpAllocation: (event.criteria || []).map(c => ({
+                            constraintLabel: c.constraintLabel,
+                            points: c.points,
+                            role: c.targetRole || c.role || '',
+                        }))
+                    }"
                     :nameCache="Object.fromEntries(nameCache)" 
                     :showStatus="true" />
             </div>
@@ -39,19 +57,21 @@
 
              <!-- Team List Section -->
              <TeamList
-                v-if="event && event.isTeamEvent"
+                v-if="event && event.details.format === 'Team'"
                 :teams="teams"
                 :event-id="props.id"
                 :event-status="event.status"
                 :user-role="currentUserRole ?? 'Unknown'" 
                 :user-id="currentUserId ?? ''" 
-                :ratingsOpen="event.ratingsOpen ?? false" 
+                :ratingsOpen="false"
                 :getUserName="getUserNameFromCache"
                 @teamRated="handleTeamRated"
+                :organizerNamesLoading="organizerNamesLoading"
+                :currentUserUid="currentUserId"
                 class="card team-list-box p-0 shadow-sm" />
 
             <!-- Participants Section (Non-Team Events) -->
-            <div v-if="event && !event.isTeamEvent" class="card participants-box shadow-sm">
+            <div v-if="event && event.details.format !== 'Team'" class="card participants-box shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center bg-light">
                     <h5 class="mb-0">Participants</h5>
                     <button
@@ -102,7 +122,7 @@
                 </div>
                 <div class="card-body">
                     <!-- Submission list content -->
-                    <div v-if="!event.isTeamEvent">
+                    <div v-if="event.details.format !== 'Team'">
                          <!-- Check submissions exist and is array -->
                          <p v-if="!event.submissions || !Array.isArray(event.submissions) || event.submissions.length === 0" class="small text-secondary fst-italic">
                              No project submissions yet for this event.
@@ -140,37 +160,16 @@
             <!-- Rating Section -->
             <div v-if="event" class="card ratings-box shadow-sm">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Ratings / Winner Selection</h5> {/* Adjusted title */}
+                    <h5 class="mb-0">Ratings / Winner Selection</h5>
                     <div class="d-flex align-items-center">
-                         <span
-                            v-if="event.status === 'Completed'"
-                            class="badge rounded-pill d-inline-flex align-items-center"
-                            :class="event.ratingsOpen ? 'text-bg-success' : 'text-bg-warning'">
-                            <i class="fas me-1" :class="event.ratingsOpen ? 'fa-lock-open' : 'fa-lock'"></i>
-                            {{ event.ratingsOpen ? 'Open' : 'Closed' }}
-                        </span>
-                        <span v-else class="badge text-bg-secondary">Not Started</span>
-
-                        <span v-if="canManageEvent && event.status === 'Completed'" class="ms-2 small text-body-secondary">
-                            ({{ event.ratingsOpenCount ?? 0 }}/2 periods used)
-                        </span>
+                         <span v-if="event.status === 'Completed'" class="badge rounded-pill d-inline-flex align-items-center text-bg-secondary">Not Started</span>
                     </div>
                 </div>
                 <div class="card-body">
                     <!-- Rating section content -->
                     <div v-if="event.status === 'Completed'">
-                        <div v-if="event.ratingsOpen" class="alert alert-success alert-sm d-flex align-items-center" role="alert">
-                            <i class="fas fa-star me-1"></i>
-                            <div>
-                                {{ event.isTeamEvent ? 'Team/Performer rating' : 'Winner selection' }} is currently open.
-                            </div>
-                            <button v-if="currentUserCanRate" @click="openRatingForm" class="btn btn-sm btn-outline-success ms-auto">
-                                {{ event.isTeamEvent ? 'Rate Now' : 'Select Winners' }}
-                            </button>
-                        </div>
-                        <p v-else class="small text-secondary fst-italic">
-                           {{ event.isTeamEvent ? 'Rating' : 'Winner selection' }} is currently closed for this event.
-                            <!-- TODO: Display aggregated results/winners here if available and closed -->
+                        <p class="small text-secondary fst-italic">
+                           Rating/Winner selection is currently closed for this event.
                         </p>
                     </div>
                     <p v-else class="small text-secondary fst-italic">
@@ -238,7 +237,7 @@ import EventDisplayCard from '@/components/events/EventDisplayCard.vue';
 import EventManageControls from '@/components/events/EventManageControls.vue';
 import EventDetailsSkeleton from '@/components/skeletons/EventDetailsSkeleton.vue';
 import SkeletonProvider from '@/components/skeletons/SkeletonProvider.vue';
-import { EventStatus, EventFormat, type Event, Team as EventTeamType, Submission } from '@/types/event'; // Use Event type
+import { EventStatus, type Event, Team as EventTeamType, Submission } from '@/types/event'; // Remove EventFormat
 import { User } from '@/types/user';
 
 // --- Interfaces ---
@@ -265,7 +264,7 @@ declare global {
   interface Window {
     // Use a more generic type or install @types/bootstrap
     bootstrap?: {
-      Modal: any; // Use any for simplicity
+      Modal?: any; // Use optional to match App.vue/global definition
       // Add other Bootstrap components if needed (e.g., Collapse)
       Collapse?: any;
     };
@@ -295,10 +294,19 @@ const nameCache = ref<Map<string, string>>(new Map()); // Map UID to Name
 const organizerNamesLoading = ref<boolean>(false);
 const submissionModalRef = ref<HTMLElement | null>(null); // Ref for modal DOM element
 const showParticipants = ref<boolean>(false);
+interface SubmissionFormData {
+	projectName: string;
+	link: string;
+	description: string;
+}
 const submissionForm = ref<SubmissionFormData>({ projectName: '', link: '', description: '' });
 const submissionError = ref<string>('');
 const isSubmittingProject = ref<boolean>(false);
 const actionInProgress = ref<boolean>(false); // General purpose loading flag
+interface FeedbackState {
+	message: string;
+	type: 'success' | 'error';
+}
 const globalFeedback = ref<FeedbackState>({ message: '', type: 'success' });
 
 // --- Getters (Computed) ---
@@ -311,8 +319,8 @@ const currentUser = computed<User | null>(() => store.getters['user/getUser'] ??
 
 const isCurrentUserOrganizer = computed<boolean>(() => {
     if (!event.value || !currentUserId.value) return false;
-    const isOrganizer = (event.value.organizers || []).includes(currentUserId.value);
-    const isRequester = event.value.requester === currentUserId.value;
+    const isOrganizer = (event.value.details.organizers || []).includes(currentUserId.value);
+    const isRequester = event.value.requestedBy === currentUserId.value;
     return isOrganizer || isRequester;
 });
 
@@ -322,27 +330,19 @@ const canManageEvent = computed<boolean>(() => {
 });
 
 const currentUserCanRate = computed<boolean>(() => {
-  if (!event.value || !currentUserId.value || event.value.status !== EventStatus.Completed || !event.value.ratingsOpen) {
+  if (!event.value || !currentUserId.value || event.value.status !== EventStatus.Completed) {
     return false;
   }
   // Prevent organizers/participants from rating
-  const isOrganizer = event.value.organizers?.includes(currentUserId.value);
+  const isOrganizer = event.value.details.organizers?.includes(currentUserId.value);
   let isParticipant = false;
-  if (event.value.isTeamEvent && Array.isArray(event.value.teams)) {
-      isParticipant = event.value.teams.some(team => team.members?.includes(currentUserId.value));
+  if (event.value.details.format === 'Team' && Array.isArray(event.value.teams)) {
+      isParticipant = event.value.teams.some(team => team.members?.includes(currentUserId.value ?? ''));
   } else if (Array.isArray(event.value.participants)) {
-      isParticipant = event.value.participants.includes(currentUserId.value);
+      isParticipant = event.value.participants.includes(currentUserId.value ?? '');
   }
 
   if (isOrganizer || isParticipant) return false;
-
-  // Check if already rated (assuming teamCriteriaRatings exists on Event type)
-  if (event.value.isTeamEvent && Array.isArray(event.value.teamCriteriaRatings)) {
-      const alreadyRated = event.value.teamCriteriaRatings.some((r: any) => r.ratedBy === currentUserId.value); // Add type 'any' or specific type
-      return !alreadyRated;
-  }
-  // Add check for individual event rating if applicable
-  // if (!event.value.isTeamEvent && ...) { ... }
 
   return true; // Allow rating if none of the above conditions met
 });
@@ -353,13 +353,13 @@ const allParticipants = computed<string[]>(() => {
     const userIds = new Set<string>();
 
     // Add core roles
-    if (event.value.requester) userIds.add(event.value.requester);
-    if (Array.isArray(event.value.organizers)) {
-        event.value.organizers.forEach(id => { if (id) userIds.add(id); });
+    if (event.value.requestedBy) userIds.add(event.value.requestedBy);
+    if (Array.isArray(event.value.details.organizers)) {
+        event.value.details.organizers.forEach(id => { if (id) userIds.add(id); });
     }
 
     // Add participants based on event type
-    if (event.value.isTeamEvent && Array.isArray(event.value.teams)) {
+    if (event.value.details.format === 'Team' && Array.isArray(event.value.teams)) {
         event.value.teams.forEach(team => {
             if (Array.isArray(team.members)) {
                 team.members.forEach(id => { if (id) userIds.add(id); });
@@ -393,7 +393,7 @@ function clearGlobalFeedback(): void {
 
 const getUserNameFromCache = (userId: string | null | undefined): string => {
     if (!userId) return 'Unknown User';
-    return nameCache.value.get(userId) || `User (${userId.substring(0, 5)}...)`;
+    return nameCache.value.get(userId) || `User (${(userId ?? '').substring(0, 5)}...)`;
 };
 
 async function fetchUserNames(userIds: string[]): Promise<void> {
@@ -419,8 +419,6 @@ async function fetchUserNames(userIds: string[]): Promise<void> {
                 nameCache.value.set(id, `Error (${id.substring(0, 5)}...)`);
             }
         });
-        // Optionally show feedback to the user
-        // setGlobalFeedback(`Failed to load some user names: ${error.message}`, 'error');
     } finally {
         organizerNamesLoading.value = false;
     }
@@ -431,36 +429,30 @@ async function fetchEventData(): Promise<void> {
   initialFetchError.value = '';
   event.value = null; // Reset event state
   teams.value = [];   // Reset teams state
-  // nameCache.value.clear(); // Optionally clear cache on full refresh
 
   try {
-    // Assume fetchEventDetails returns the event data or null/throws error
-    // Dispatch returns Promise<any>, so cast the result if needed, or type the action
     await store.dispatch('events/fetchEventDetails', props.id);
-    // Access the potentially updated state AFTER the dispatch
-    const storeEvent = store.state.events.currentEventDetails as EventDetails | null; // Type assertion
+    const storeEvent = store.state.events.currentEventDetails as EventDetails | null;
 
-    if (!storeEvent || storeEvent.id !== props.id) { // Check if correct event loaded
+    if (!storeEvent || storeEvent.id !== props.id) {
       throw new Error('Event not found or inaccessible.');
     }
 
-    event.value = storeEvent; // Assign typed event data
-    teams.value = (storeEvent.isTeamEvent && Array.isArray(storeEvent.teams))
-                  ? [...storeEvent.teams] // Deep copy if necessary, shallow here is fine
+    event.value = storeEvent;
+    teams.value = (storeEvent.details.format === 'Team' && Array.isArray(storeEvent.teams))
+                  ? [...storeEvent.teams]
                   : [];
 
-    // Check and dispatch closed state
-    const isClosed = storeEvent.status === 'Completed' && storeEvent.closed === true;
-    store.dispatch('app/setEventClosedState', { eventId: props.id, isClosed }); // Dispatch regardless
+    const isClosed = storeEvent.status === 'Completed' && storeEvent.closedAt !== null;
+    store.dispatch('app/setEventClosedState', { eventId: props.id, isClosed });
 
-    // Fetch names for all relevant users AFTER event data is confirmed
-    await fetchUserNames(allParticipants.value); // Uses computed property
+    await fetchUserNames(allParticipants.value);
 
   } catch (error: any) {
     console.error('Error fetching event data:', error);
     initialFetchError.value = error.message || 'Failed to load event data';
-    event.value = null; // Ensure event is null on error
-    teams.value = [];   // Ensure teams is empty on error
+    event.value = null;
+    teams.value = [];
   } finally {
     loading.value = false;
   }
@@ -487,7 +479,6 @@ const triggerSubmitModalOpen = (): void => {
 const closeSubmissionModal = (): void => {
     const modal = getModalInstance();
     modal?.hide();
-    // Note: Form reset is handled by the 'hidden.bs.modal' listener in onMounted/onUnmounted
 };
 
 const submitProject = async (): Promise<void> => {
@@ -495,7 +486,7 @@ const submitProject = async (): Promise<void> => {
         submissionError.value = 'Project Name and Link are required.';
         return;
     }
-    const currentUid = currentUserId.value; // Get current user ID
+    const currentUid = currentUserId.value;
     if (!currentUid) {
         submissionError.value = 'You must be logged in to submit.';
         return;
@@ -510,31 +501,22 @@ const submitProject = async (): Promise<void> => {
     actionInProgress.value = true;
 
     try {
-        // Construct payload for the action
         const submissionData = {
             eventId: props.id,
             userId: currentUid,
             projectName: submissionForm.value.projectName,
             link: submissionForm.value.link,
             description: submissionForm.value.description,
-            // isTeamEvent: event.value.isTeamEvent, // Action might need context
-            // teamId: event.value.isTeamEvent ? findUserTeamId(currentUid) : undefined, // Action might need team context
         };
 
-        // Dispatch action to handle adding submission
-        // Assuming the action handles adding to event.submissions or team.submissions
         await store.dispatch('submissions/addSubmission', submissionData);
 
         setGlobalFeedback('Project submitted successfully!', 'success');
         closeSubmissionModal();
-        // Rely on Firestore listener for UI updates, or trigger manual refetch if needed
-        // await fetchEventData(); // Uncomment if listener isn't reliable/fast enough
 
     } catch (error: any) {
         console.error("Error submitting project:", error);
         submissionError.value = error.message || 'Failed to submit project.';
-        // Optionally use global feedback for submission errors too
-        // setGlobalFeedback(`Submission failed: ${submissionError.value}`, 'error');
     } finally {
         isSubmittingProject.value = false;
         actionInProgress.value = false;
@@ -546,10 +528,8 @@ const handleTeamRated = (feedback: { message: string; type: 'success' | 'error' 
     setGlobalFeedback(feedback.message, feedback.type);
 };
 
-// Adjusted function name for clarity
 const openRatingForm = (): void => {
     if (currentUserCanRate.value && event.value) {
-        // Navigate to the unified form, its internal logic handles team vs individual
         router.push({ name: 'RatingForm', params: { eventId: props.id } });
     } else {
         setGlobalFeedback('You are not eligible to rate/select winners for this event, or the period is closed.', 'error');
@@ -558,55 +538,34 @@ const openRatingForm = (): void => {
 
 
 // --- Lifecycle Hooks ---
-let fetchTimeoutId: number | undefined; // Store timeout ID
+let fetchTimeoutId: number | undefined;
 
 const modalHiddenHandler = () => {
-    // Reset form fields after modal is fully hidden
     submissionForm.value = { projectName: '', link: '', description: '' };
     submissionError.value = '';
 };
 
 onMounted(() => {
-    fetchEventData(); // Fetch data when component mounts
+    fetchEventData();
 
-    // Add listener for modal close event IF using Bootstrap JS
     if (submissionModalRef.value) {
         submissionModalRef.value.addEventListener('hidden.bs.modal', modalHiddenHandler);
     }
 });
 
 onBeforeUnmount(() => {
-    // Clear specific timeout if it exists
     if (fetchTimeoutId) {
         clearTimeout(fetchTimeoutId);
     }
-    // Dispose modal instance
     const modalInstance = getModalInstance();
     modalInstance?.dispose();
 });
 
-// Watch for changes in event ID prop to refetch data
 watch(() => props.id, (newId, oldId) => {
-    if (newId && newId !== oldId) { // Ensure newId is valid
+    if (newId && newId !== oldId) {
         fetchEventData();
     }
-}, { immediate: false }); // No need for immediate if onMounted handles initial fetch
-
-// Optional: Watch for changes in the store's event details if using listeners
-// watch(() => store.state.events.currentEventDetails, (newEventDetails) => {
-//    if (newEventDetails && newEventDetails.id === props.id) {
-//        console.log("Store event details changed, updating component state...");
-//        event.value = { ...newEventDetails }; // Update local ref
-//        teams.value = (newEventDetails.isTeamEvent && Array.isArray(newEventDetails.teams)) ? [...newEventDetails.teams] : [];
-//        // Re-fetch names only if necessary (e.g., new participants added)
-//        const currentIds = new Set(nameCache.value.keys());
-//        const newParticipantIds = allParticipants.value; // Recompute based on new event.value
-//        const idsToFetch = newParticipantIds.filter(id => !currentIds.has(id));
-//        if (idsToFetch.length > 0) {
-//            fetchUserNames(idsToFetch);
-//        }
-//    }
-// }, { deep: true }); // Deep watch might be expensive
+}, { immediate: false });
 
 </script>
 

@@ -52,17 +52,17 @@
     </div>
 
     <!-- Rating Controls -->
-    <div v-if="event.status === 'Completed' && !event.closed" class="pt-5 border-top">
+    <div v-if="event.status === EventStatus.Completed && !event.closedAt" class="pt-5 border-top">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="h4 text-primary mb-0">Ratings</h3>
-        <span class="badge rounded-pill fs-6" :class="event.ratingsOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-warning-subtle text-warning-emphasis'">
-          {{ event.ratingsOpen ? 'Open' : 'Closed' }}
+        <span class="badge rounded-pill fs-6" :class="event.ratings ? 'bg-success-subtle text-success-emphasis' : 'bg-warning-subtle text-warning-emphasis'">
+          {{ event.ratings ? 'Open' : 'Closed' }}
         </span>
       </div>
 
       <div class="d-flex flex-wrap gap-2">
         <button
-          v-if="event.ratingsOpen && canToggleRatings"
+          v-if="event.ratings && canToggleRatings"
           type="button"
           class="btn btn-sm btn-warning d-inline-flex align-items-center"
           :disabled="isLoadingRatings"
@@ -74,7 +74,7 @@
         </button>
 
         <button
-          v-else-if="!event.ratingsOpen && canToggleRatings"
+          v-else-if="!event.ratings && canToggleRatings"
           type="button"
           class="btn btn-sm btn-success d-inline-flex align-items-center"
           :disabled="isLoadingRatings"
@@ -97,11 +97,10 @@
           <span>{{ isClosingEvent ? 'Closing & Awarding XP...' : 'Close Event Permanently' }}</span>
         </button>
       </div>
-      <p v-if="!canManageRatings && event.status === 'Completed' && !event.closed" class="small text-secondary mt-2">
-        <span v-if="event.ratingsClosed">Ratings have been manually closed by an admin.</span>
-        <span v-else>Ratings have been opened and closed twice and cannot be toggled again.</span>
+      <p v-if="!canManageRatings && event.status === EventStatus.Completed && !event.closedAt" class="small text-secondary mt-2">
+        Ratings management is restricted.
       </p>
-       <p v-if="!canCloseEvent && event.status === 'Completed' && event.ratingsOpen" class="small text-secondary mt-2">
+       <p v-if="!canCloseEvent && event.status === EventStatus.Completed && event.ratings" class="small text-secondary mt-2">
          Event must have ratings closed before it can be permanently closed.
        </p>
     </div>
@@ -112,7 +111,7 @@
 import { computed, ref, PropType, Ref } from 'vue';
 import { useStore } from 'vuex';
 import { canStartEvent as canEventBeStarted } from '@/utils/dateTime';
-import { EventStatus, EventFormat, type Event, XPAllocation } from '@/types/event'; // Import XPAllocation
+import { EventStatus, type Event } from '@/types/event';
 
 const props = defineProps({
   event: {
@@ -140,42 +139,41 @@ const statusBadgeClass = computed(() => {
 
 // Use renamed utility function
 const isWithinEventDates = computed(() => {
-  if (!props.event.startDate || !props.event.endDate) return false;
-  return canEventBeStarted(props.event);
+  if (!props.event.details.date.final?.start || !props.event.details.date.final?.end) return false;
+  return canEventBeStarted({
+	startDate: props.event.details.date.final.start,
+	endDate: props.event.details.date.final.end
+  });
 });
 
 const canManageRatings = computed(() => {
-    // Check if ratingsClosed exists and is true
-    const isManuallyClosed = props.event.ratingsClosed === true;
-    const openLimitReached = props.event.ratingsOpenCount >= 2;
-
-    return !isManuallyClosed && !openLimitReached;
+    return true;
 });
 
 const canToggleRatings = computed(() => 
-    !props.event.closed &&
+    !props.event.closedAt &&
     canManageRatings.value &&
-    props.event.status === 'Completed'
+    props.event.status === EventStatus.Completed
 );
 
 const canCloseEvent = computed(() => 
-    props.event.status === 'Completed' &&
-    !props.event.ratingsOpen &&
-    !props.event.closed
+    props.event.status === EventStatus.Completed &&
+    !props.event.ratings &&
+    !props.event.closedAt
 );
 
 const canStartEvent = computed(() => 
     props.event.status === EventStatus.Approved && 
-    !!props.event.startDate && 
-    !!props.event.endDate
+    !!props.event.details.date.final?.start && 
+    !!props.event.details.date.final?.end
 );
 
 const canComplete = computed(() => 
-    props.event.status === 'InProgress'
+    props.event.status === EventStatus.InProgress
 );
 
 const canCancel = computed(() => 
-    ['Approved', 'InProgress'].includes(props.event.status) && !props.event.closed
+    [EventStatus.Approved, EventStatus.InProgress].includes(props.event.status as EventStatus) && !props.event.closedAt
 );
 
 const isAdmin = computed(() => store.getters['user/isAdmin']);
@@ -190,7 +188,7 @@ const updateStatus = async (newStatus: EventStatus) => {
     try {
         await store.dispatch('events/updateEventStatus', {
             eventId: props.event.id,
-            newStatus
+            newStatus: newStatus as EventStatus
         });
     } catch (error: any) {
         store.dispatch('notification/showNotification', {
@@ -204,7 +202,7 @@ const updateStatus = async (newStatus: EventStatus) => {
 
 const toggleRatings = async () => {
     if (loadingAction.value) return;
-    const targetState = !props.event.ratingsOpen;
+    const targetState = !props.event.ratings;
     loadingAction.value = targetState ? 'openRatings' : 'closeRatings';
     try {
         await store.dispatch('events/toggleRatingsOpen', {
@@ -223,7 +221,7 @@ const toggleRatings = async () => {
 
 const confirmCancel = async () => {
     if (window.confirm('Are you sure you want to cancel this event? This cannot be undone.')) {
-        await updateStatus(EventStatus.Cancelled);
+        await updateStatus(EventStatus.Cancelled as EventStatus);
     }
 };
 

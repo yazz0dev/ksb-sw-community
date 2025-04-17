@@ -47,6 +47,10 @@
                     <p class="mb-2"><strong>Event Type:</strong> {{ request.eventType }}</p>
                     <p class="mb-2"><strong>Start Date:</strong> {{ formatDate(request.startDate) }}</p>
                     <p class="mb-2"><strong>End Date:</strong> {{ formatDate(request.endDate) }}</p>
+                    <div v-if="isMissingDesiredDates(request)" class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                      <i class="fas fa-exclamation-triangle me-1"></i>
+                      This request is missing required start/end dates and cannot be approved.
+                    </div>
                   </div>
                   <div class="col-md-6">
                     <p class="mb-2"><strong>Requestor:</strong> {{ request.requesterName }}</p>
@@ -59,8 +63,9 @@
                 <div class="mt-3 d-flex gap-2 justify-content-end">
                   <button 
                     class="btn btn-success" 
-                    :disabled="isProcessing(request.id)"
+                    :disabled="isProcessing(request.id) || isMissingDesiredDates(request)"
                     @click="approveRequest(request.id)"
+                    :title="isMissingDesiredDates(request) ? 'Cannot approve: missing start/end dates' : ''"
                   >
                     <span v-if="isProcessing(request.id)" class="spinner-border spinner-border-sm me-1"></span>
                     Approve
@@ -117,7 +122,7 @@ const pendingRequests = computed(() => store.getters['events/pendingEvents']);
 
 // Sanitized requests with type safety
 const sanitizedPendingRequests = computed(() => {
-    return pendingRequests.value.map((request: { eventFormat: any; eventType: any; requesterName: any; organizerName: any; description: any; startDate: any; endDate: any; }) => ({
+    return pendingRequests.value.map((request: any) => ({
         ...request,
         eventFormat: request.eventFormat || 'Not specified',
         eventType: request.eventType || 'Not specified',
@@ -126,6 +131,8 @@ const sanitizedPendingRequests = computed(() => {
         description: request.description || 'No description provided',
         startDate: request.startDate || null,
         endDate: request.endDate || null,
+        desiredStartDate: request.desiredStartDate ?? request.startDate ?? null,
+        desiredEndDate: request.desiredEndDate ?? request.endDate ?? null,
     }));
 });
 
@@ -159,6 +166,12 @@ const formatDate = (date: any): string => {
   }
 };
 
+// Add helper to check for missing desired dates
+function isMissingDesiredDates(request: any): boolean {
+  // Accepts both Timestamp and string/null
+  return !request.desiredStartDate || !request.desiredEndDate;
+}
+
 async function fetchRequests(): Promise<void> {
   loading.value = true;
   error.value = null;
@@ -178,21 +191,30 @@ async function fetchRequests(): Promise<void> {
 
 const approveRequest = async (eventId: string): Promise<void> => {
   if (processingRequestId.value) return; // Prevent concurrent actions
+  const req = sanitizedPendingRequests.value.find((r: any) => r.id === eventId);
+  if (isMissingDesiredDates(req)) {
+    error.value = 'Cannot approve: This request is missing required start/end dates.';
+    store.dispatch('notification/showNotification', {
+      message: error.value,
+      type: 'error'
+    });
+    return;
+  }
   processingRequestId.value = eventId; 
   error.value = null;
   try {
     await store.dispatch('events/approveEventRequest', eventId);
-     store.dispatch('notification/showNotification', {
-        message: 'Event request approved successfully.',
-        type: 'success'
+    store.dispatch('notification/showNotification', {
+      message: 'Event request approved successfully.',
+      type: 'success'
     });
     // No need to fetch again if the store getter updates reactively
   } catch (err: any) {
     error.value = `Failed to approve request: ${err.message}`;
     console.error("Error approving event request:", err);
-     store.dispatch('notification/showNotification', {
-        message: `Failed to approve request: ${err.message || 'Unknown error'}`,
-        type: 'error'
+    store.dispatch('notification/showNotification', {
+      message: `Failed to approve request: ${err.message || 'Unknown error'}`,
+      type: 'error'
     });
   } finally {
     processingRequestId.value = null;

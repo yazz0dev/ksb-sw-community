@@ -1,110 +1,143 @@
 // src/types/event.ts
 import { Timestamp } from 'firebase/firestore';
-import { User } from './user'; // Assuming User type is defined here
 
+// --- Event Status Enum ---
 export enum EventStatus {
   Pending = 'Pending',
   Approved = 'Approved',
+  Rejected = 'Rejected',
   InProgress = 'InProgress',
   Completed = 'Completed',
   Cancelled = 'Cancelled',
-  Rejected = 'Rejected'
+  Closed = 'Closed'
 }
 
-// Added based on usage in actions/mutations
-export enum EventFormat {
-    Individual = 'Individual',
-    Team = 'Team'
-}
-
-export interface OrganizationRating {
-  ratedBy: string; // User ID
-  score: number; // Added based on usage
-  ratedAt: Timestamp;
-  comment?: string; // Optional comment
-}
-
-export interface Team {
-  teamName: string;
-  members: string[]; // Array of User UIDs
-  submissions?: Submission[];
-  ratings?: Rating[];
-}
-
-export interface Submission {
-  projectName: string; // Added
-  link: string; // Added
-  submittedBy: string; // Added: User UID
-  submittedAt: Timestamp;
-  description?: string | null; // Added, optional
-  participantId?: string | null; // Added, optional (for individual events)
-}
-
-export interface Rating {
-  scores: Record<string, number>; // Changed to Record<string, number>
-  ratedBy: string; // User UID
-  ratedAt: Timestamp; // Added
-  feedback?: string; // Optional feedback/comment
-}
-
-export interface XPAllocation {
-  constraintLabel: string;
-  points: number;
-  role: string; // Role the XP is awarded for
-  constraintIndex: number; // Made mandatory for sorting/indexing
-}
-
-// Main Event Interface
-export interface Event {
-  id: string; // Firestore document ID
-  eventName: string; // Renamed from title for consistency
-  eventType: string; // Add this field
-  description: string;
-  status: EventStatus;
-  eventFormat: EventFormat; // Added instead of isTeamEvent
-  isTeamEvent: boolean; // Keep for backward compatibility checks if needed, but prefer eventFormat
-
-  // Dates (use Timestamp for consistency with Firestore)
-  startDate: Timestamp | null;
-  endDate: Timestamp | null;
-  desiredStartDate?: Timestamp | null; // Optional: For requests
-  desiredEndDate?: Timestamp | null; // Optional: For requests
-  createdAt: Timestamp; // When the document was created
-  lastUpdatedAt?: Timestamp; // Optional: When last updated
-
-  // People involved
-  requester: string; // User UID who requested/created
-  organizers: string[]; // Array of User UIDs
-
-  // Participants/Teams (use one based on eventFormat)
-  participants: string[]; // Array of User UIDs (for Individual format)
-  teams: Team[]; // Array of Team objects (for Team format)
-
-  // Status/Lifecycle related
-  ratingsOpen: boolean;
-  ratingsOpenCount: number; // How many times ratings have been opened
-  ratingsLastOpenedAt: Timestamp | null; // When ratings were last opened
-  ratingsClosed?: boolean; // Optional: If ratings manually closed by admin
-  completedAt: Timestamp | null; // When status changed to Completed
-  closed: boolean; // If permanently closed by Admin
-  closedAt: Timestamp | null; // Optional: When closed
-  rejectionReason?: string | null; // Optional: Reason if Rejected
-
-  // Submissions & Ratings
-  submissions: Submission[]; // For individual events
-  ratings: Rating[]; // For individual events (maybe winner selections recorded here?)
-  organizationRatings: OrganizationRating[]; // Ratings for the event organization itself
-  teamCriteriaRatings?: Array<{ ratedBy: string; selections: { criteria: Record<string, string>; bestPerformer: string } }>;
-
-  // Configuration
-  xpAllocation: XPAllocation[]; // How XP is awarded
-  winnersPerRole?: Record<string, string[]>; // role -> [winnerId] map for winner selection
-  teamSize?: number; // Optional: Max team size constraint
-
-}
-
-// Vuex State type
+// --- EventState Interface for Vuex ---
 export interface EventState {
   events: Event[];
   currentEventDetails: Event | null;
+}
+
+// --- Supporting Types ---
+export interface OrganizerRating {
+  userId: string;
+  rating: number;
+  feedback?: string;
+}
+
+export interface CriteriaRating {
+  criteriaLabel: string;
+  points: number;
+  ratings: Array<{
+    userId: string;
+    rating: number;
+  }>;
+}
+
+export interface EventCriteria {
+  constraintIndex: number;
+  constraintLabel: string;
+  points: number;
+  targetRole: string; // e.g., 'fullstack', 'designer', etc.
+  // Mandatory: userId -> selected winner (teamName or participantId)
+  criteriaSelections: { [userId: string]: string };
+  // For UI compatibility:
+  role?: string; // Alias for targetRole, for EventDisplayCard
+}
+
+export interface Team {
+  id?: string; // For UI v-for compatibility
+  teamName: string;
+  members: string[];
+  submissions?: Submission[];
+  ratings?: any[]; // For team ratings (optional)
+}
+
+export interface Submission {
+  projectName: string;
+  link: string;
+  submittedBy: string;
+  submittedAt: Timestamp;
+  description?: string | null;
+  participantId?: string | null;
+}
+
+export interface WinnerInfo {
+  [Criteria: string]: string[]; // e.g. { "Best Designer": [userId1], ... }
+}
+
+export interface GalleryItem {
+  url: string;
+  addedBy: string;
+  addedAt: Timestamp;
+  description?: string;
+}
+
+// --- Main Event Interface ---
+export interface Event {
+  id: string; // Firestore document ID
+
+  // Top-level status and requestor
+  status: EventStatus | string;
+  requestedBy: string;
+
+  // --- Details ---
+  details: {
+    format: 'Individual' | 'Team';
+    type: string;
+    organizers: string[];
+    date: {
+      desired: {
+        start: Timestamp | null;
+        end: Timestamp | null;
+      };
+      final: {
+        start: Timestamp | null;
+        end: Timestamp | null;
+      };
+    };
+    description: string;
+  };
+
+  // --- Criteria Definition ---
+  criteria: EventCriteria[];
+
+  // --- Participants/Teams ---
+  participants?: string[];
+  teams?: Team[];
+
+  // --- Submissions ---
+  submissions?: Submission[];
+
+  // --- Ratings ---
+  ratings: {
+    organizer: OrganizerRating[];
+  };
+
+  // --- Winners ---
+  winners: WinnerInfo;
+
+  // --- Gallery ---
+  gallery?: GalleryItem[];
+
+  // --- System fields ---
+  createdAt: Timestamp;
+  lastUpdatedAt?: Timestamp;
+  completedAt?: Timestamp | null;
+  closedAt?: Timestamp | null;
+
+  // --- UI/compatibility fields ---
+  // These are not stored in Firestore, but may be used in UI logic
+  isTeamEvent?: boolean; // Derived: details.format === 'Team'
+  startDate?: Timestamp | null; // Derived: details.date.final.start
+  endDate?: Timestamp | null;   // Derived: details.date.final.end
+  desiredStartDate?: Timestamp | null; // Derived: details.date.desired.start
+  desiredEndDate?: Timestamp | null;   // Derived: details.date.desired.end
+
+  // For rating toggling logic (optional, for UI compatibility)
+  ratingsOpen?: boolean;
+  ratingsOpenCount?: number;
+  ratingsClosed?: boolean;
+
+  rejectionReason?: string | null;
 }

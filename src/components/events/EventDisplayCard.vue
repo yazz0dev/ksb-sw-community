@@ -67,6 +67,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { formatRoleName } from '../../utils/formatters';
+import { EventStatus } from '@/types/event'; // <-- Add this import
 
 interface Event {
   eventName: string;
@@ -128,18 +129,18 @@ interface ColorScheme {
 
 const statusColorScheme = computed((): ColorScheme => {
   switch (props.event?.status) {
-    case 'Approved':
+    case EventStatus.Approved:
     case 'Upcoming':
       return { class: 'bg-success-subtle text-success-emphasis' };
-    case 'Pending':
+    case EventStatus.Pending:
       return { class: 'bg-warning-subtle text-warning-emphasis' };
-    case 'Rejected':
+    case EventStatus.Rejected:
       return { class: 'bg-danger-subtle text-danger-emphasis' };
-    case 'In Progress':
+    case EventStatus.InProgress:
     case 'Ongoing':
       return { class: 'bg-info-subtle text-info-emphasis' };
-    case 'Completed':
-    case 'Cancelled': 
+    case EventStatus.Completed:
+    case EventStatus.Cancelled: 
       return { class: 'bg-light text-dark' };
     default:
       return { class: 'bg-secondary-subtle text-secondary-emphasis' };
@@ -153,15 +154,4 @@ const statusColorScheme = computed((): ColorScheme => {
     font-size: 0.8rem !important; /* Match UserCard or adjust */
 }
 
-/* Ensure list has no default styling (redundant if list-unstyled is used) */
-/* ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-} */
-
-/* Minor adjustments if needed */
-.event-display-card {
-  /* Add any specific styling for the card container if needed */
-}
 </style>

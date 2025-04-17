@@ -303,6 +303,7 @@ import ManageTeamsComponent from './ManageTeamsComponent.vue';  // Updated path
 import TeamMemberSelect from './TeamMemberSelect.vue';  // Updated path
 import { Timestamp } from 'firebase/firestore';
 import { DateTime } from 'luxon';
+import { EventStatus } from '@/types/event'; // <-- Add this import
 
 // Interfaces (consider moving to a types file)
 export interface Team {
@@ -450,7 +451,7 @@ function initializeFormData(): FormData {
     teams: [],
     xpAllocation: [], // Initialize with empty array
     organizers: [],
-    status: 'Pending', // Always pending for requests
+    status: EventStatus.Pending, // Always pending for requests
   };
 
   // Add a default XP allocation item if creating a new form

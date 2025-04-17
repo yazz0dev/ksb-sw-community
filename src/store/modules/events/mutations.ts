@@ -1,6 +1,6 @@
 // src/store/modules/events/mutations.ts
 import { MutationTree } from 'vuex';
-import { EventState, Event, EventStatus, OrganizationRating, Rating, Team, Submission } from '@/types/event'; // Added Rating, Team, Submission
+import { EventState, Event, EventStatus, OrganizerRating, Team, Submission } from '@/types/event'; // <-- Fix import
 
 // Helper function to compare events for sorting
 function compareEvents(a: Event, b: Event): number {
@@ -11,22 +11,25 @@ function compareEvents(a: Event, b: Event): number {
         [EventStatus.Completed]: 3,
         [EventStatus.Cancelled]: 4,
         [EventStatus.Rejected]: 5,
+        [EventStatus.Closed]: 6,
     };
-    const orderA = statusOrder[a.status] ?? 9;
-    const orderB = statusOrder[b.status] ?? 9;
+    const orderA = statusOrder[a.status as EventStatus] ?? 9;
+    const orderB = statusOrder[b.status as EventStatus] ?? 9;
 
     if (orderA !== orderB) return orderA - orderB;
 
     // Secondary sort by relevant date (descending - newest first)
     let dateA = 0, dateB = 0;
-    if ([EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status)) {
+    if (
+      [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status as EventStatus)
+    ) {
         // Use start date, fallback to desired, fallback to creation
-        dateA = a.startDate?.toMillis() ?? a.desiredStartDate?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
-        dateB = b.startDate?.toMillis() ?? b.desiredStartDate?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
-    } else { // Completed, Cancelled, Rejected
+        dateA = a.details.date.final?.start?.toMillis() ?? a.details.date.desired?.start?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
+        dateB = b.details.date.final?.start?.toMillis() ?? b.details.date.desired?.start?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
+    } else { // Completed, Cancelled, Rejected, Closed
         // Use completion date, fallback to end date, fallback to creation
-        dateA = a.completedAt?.toMillis() ?? a.endDate?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
-        dateB = b.completedAt?.toMillis() ?? b.endDate?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
+        dateA = a.completedAt?.toMillis() ?? a.details.date.final?.end?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
+        dateB = b.completedAt?.toMillis() ?? b.details.date.final?.end?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
     }
     return dateB - dateA; // Newest first
 }
@@ -39,20 +42,12 @@ export const eventMutations: MutationTree<EventState> = {
 
     addOrUpdateEvent(state: EventState, event: Event) {
         if (!event?.id) return; // Ignore invalid data
-        const index = state.events.findIndex(e => e.id === event.id);
+        const index = state.events.findIndex((e: Event) => e.id === event.id);
         if (index !== -1) {
             // Merge changes: Ensure existing fields aren't overwritten with undefined
             const existingEvent = state.events[index];
-            const updatedEvent = { ...existingEvent };
-            for (const key in event) {
-                if (Object.prototype.hasOwnProperty.call(event, key)) {
-                     // Only update if the new value is not undefined
-                     if ((event as any)[key] !== undefined) {
-                         (updatedEvent as any)[key] = (event as any)[key];
-                     }
-                }
-            }
-             state.events[index] = updatedEvent;
+            const updatedEvent = { ...existingEvent, ...event };
+            state.events[index] = updatedEvent;
         } else {
             state.events.push(event);
         }
@@ -60,7 +55,7 @@ export const eventMutations: MutationTree<EventState> = {
     },
 
     removeEvent(state: EventState, eventId: string) {
-        state.events = state.events.filter(event => event.id !== eventId);
+        state.events = state.events.filter((event: Event) => event.id !== eventId);
         // Also clear details if the removed event was being viewed
         if (state.currentEventDetails?.id === eventId) {
             state.currentEventDetails = null;
@@ -74,15 +69,8 @@ export const eventMutations: MutationTree<EventState> = {
     updateCurrentEventDetails(state: EventState, { id, changes }: { id: string; changes: Partial<Event> }) {
         if (state.currentEventDetails?.id === id) {
              // Merge changes carefully, avoiding overwriting with undefined
-            const updatedDetails = { ...state.currentEventDetails };
-            for (const key in changes) {
-                if (Object.prototype.hasOwnProperty.call(changes, key)) {
-                    if ((changes as any)[key] !== undefined) {
-                        (updatedDetails as any)[key] = (changes as any)[key];
-                    }
-                }
-            }
-             state.currentEventDetails = updatedDetails;
+            const updatedDetails = { ...state.currentEventDetails, ...changes };
+            state.currentEventDetails = updatedDetails;
         }
     },
 
@@ -91,25 +79,25 @@ export const eventMutations: MutationTree<EventState> = {
     },
 
     // Simplified mutation for organization ratings (action handles logic)
-    updateOrganizationRatings(state: EventState, { eventId, ratings }: { eventId: string; ratings: OrganizationRating[] }) {
-        const event = state.events.find(e => e.id === eventId);
+    updateOrganizationRatings(state: EventState, { eventId, ratings }: { eventId: string; ratings: OrganizerRating[] }) {
+        const event = state.events.find((e: Event) => e.id === eventId);
         if (event) {
-            event.organizationRatings = ratings;
+            event.ratings.organizer = ratings;
         }
         if (state.currentEventDetails?.id === eventId) {
-            state.currentEventDetails.organizationRatings = ratings;
+            state.currentEventDetails.ratings.organizer = ratings;
         }
     },
 
     // Simplified mutation for team ratings (action handles logic)
-    updateTeamRatings(state: EventState, { eventId, teamName, ratings }: { eventId: string; teamName: string; ratings: Rating[] }) {
-        const event = state.events.find(e => e.id === eventId);
-        const team = event?.teams?.find(t => t.teamName === teamName);
+    updateTeamRatings(state: EventState, { eventId, teamName, ratings }: { eventId: string; teamName: string; ratings: any[] }) {
+        const event = state.events.find((e: Event) => e.id === eventId);
+        const team = event?.teams?.find((t: Team) => t.teamName === teamName);
         if (team) {
             team.ratings = ratings;
         }
         if (state.currentEventDetails?.id === eventId) {
-            const currentTeam = state.currentEventDetails.teams?.find(t => t.teamName === teamName);
+            const currentTeam = state.currentEventDetails.teams?.find((t: Team) => t.teamName === teamName);
             if (currentTeam) {
                 currentTeam.ratings = ratings;
             }
@@ -118,18 +106,18 @@ export const eventMutations: MutationTree<EventState> = {
 
     // Simplified mutation for winners (action handles logic)
     updateWinners(state: EventState, { eventId, winners }: { eventId: string; winners: Record<string, string[]> }) {
-         const event = state.events.find(e => e.id === eventId);
+         const event = state.events.find((e: Event) => e.id === eventId);
          if (event) {
-             event.winnersPerRole = winners;
+             event.winners = winners;
          }
          if (state.currentEventDetails?.id === eventId) {
-             state.currentEventDetails.winnersPerRole = winners;
+             state.currentEventDetails.winners = winners;
          }
      },
 
      // Simplified mutation for team updates (action handles logic)
      updateTeams(state: EventState, { eventId, teams }: { eventId: string; teams: Team[] }) {
-          const event = state.events.find(e => e.id === eventId);
+          const event = state.events.find((e: Event) => e.id === eventId);
           if (event) {
               event.teams = teams;
           }
@@ -140,7 +128,7 @@ export const eventMutations: MutationTree<EventState> = {
 
       // Simplified mutation for individual submissions (action handles logic)
       updateIndividualSubmissions(state: EventState, { eventId, submissions }: { eventId: string; submissions: Submission[] }) {
-           const event = state.events.find(e => e.id === eventId);
+           const event = state.events.find((e: Event) => e.id === eventId);
            if (event) {
                event.submissions = submissions;
            }

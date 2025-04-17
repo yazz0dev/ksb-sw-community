@@ -155,21 +155,33 @@ const totalCompletedCount = computed<number>(() =>
 const upcomingEvents = computed<Event[]>(() =>
   allEvents.value
     .filter(e => e.status === EventStatus.Approved)
-    .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0))
+    .sort((a, b) => {
+      const aStart = a.details.date.final?.start?.toMillis() ?? 0;
+      const bStart = b.details.date.final?.start?.toMillis() ?? 0;
+      return aStart - bStart;
+    })
     .slice(0, maxEventsPerSection)
 );
 
 const activeEvents = computed<Event[]>(() =>
   allEvents.value
     .filter(e => e.status === EventStatus.InProgress)
-    .sort((a, b) => (a.startDate?.seconds ?? 0) - (b.startDate?.seconds ?? 0))
+    .sort((a, b) => {
+      const aStart = a.details.date.final?.start?.toMillis() ?? 0;
+      const bStart = b.details.date.final?.start?.toMillis() ?? 0;
+      return aStart - bStart;
+    })
     .slice(0, maxEventsPerSection)
 );
 
 const completedEvents = computed<Event[]>(() =>
   allEvents.value
     .filter(e => e.status === EventStatus.Completed)
-    .sort((a, b) => (b.completedAt?.seconds ?? b.endDate?.seconds ?? 0) - (a.completedAt?.seconds ?? a.endDate?.seconds ?? 0))
+    .sort((a, b) => {
+      const aEnd = a.details.date.final?.end?.toMillis() ?? 0;
+      const bEnd = b.details.date.final?.end?.toMillis() ?? 0;
+      return bEnd - aEnd;
+    })
     .slice(0, maxEventsPerSection)
 );
 
@@ -178,7 +190,11 @@ const showCancelled = ref<boolean>(false);
 const cancelledEvents = computed<Event[]>(() =>
   allEvents.value
     .filter(e => e.status === EventStatus.Cancelled)
-    .sort((a, b) => (b.startDate?.seconds ?? 0) - (a.startDate?.seconds ?? 0))
+    .sort((a, b) => {
+      const aStart = a.details.date.final?.start?.toMillis() ?? 0;
+      const bStart = b.details.date.final?.start?.toMillis() ?? 0;
+      return bStart - aStart;
+    })
 );
 
 onMounted(async () => {
