@@ -14,7 +14,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="content" v-html="renderSection(eventLifecycleContent)"></div>
+                        <div class="content" v-html="eventLifecycleHtml"></div>
                     </div>
                 </div>
                 <!-- Rating & XP System Section -->
@@ -26,9 +26,9 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="content" v-html="renderSection(ratingContent)"></div>
+                        <div class="content" v-html="ratingHtml"></div>
                         <hr class="my-4">
-                        <div class="content" v-html="renderSection(xpContent)"></div>
+                        <div class="content" v-html="xpHtml"></div>
                     </div>
                 </div>
                 <!-- General Guidelines Section -->
@@ -40,7 +40,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="content" v-html="renderSection(generalContent)"></div>
+                        <div class="content" v-html="generalHtml"></div>
                     </div>
                 </div>
             </div>
@@ -49,6 +49,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, watchEffect } from 'vue'; // Import ref, computed, watchEffect
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
@@ -58,7 +59,7 @@ marked.setOptions({
   gfm: true,
 });
 
-// --- Community Process Content ---
+// --- Content Strings ---
 const eventLifecycleContent = `
 ## Community Process Overview
 
@@ -162,11 +163,38 @@ const generalContent = `
 - Report issues or concerns to organizers/admins.
 `;
 
-// Utility function to render markdown content safely
-const renderSection = (content: string): string => {
-    const rawHtml: string = marked(content); // Explicitly type as string
-    return DOMPurify.sanitize(rawHtml);
+// --- Reactive HTML Content ---
+const eventLifecycleHtml = ref('');
+const ratingHtml = ref('');
+const xpHtml = ref('');
+const generalHtml = ref('');
+
+// --- Utility function to render markdown content safely (now async) ---
+const renderSection = async (content: string): Promise<string> => {
+    if (!content) return '';
+    try {
+        const rawHtml: string = await marked(content); // Await the promise
+        return DOMPurify.sanitize(rawHtml);
+    } catch (error) {
+        console.error('Error rendering markdown:', error);
+        return `<p class="text-danger">Error rendering content.</p>`;
+    }
 };
+
+// --- Watchers to render content when strings are defined ---
+watchEffect(async () => {
+    eventLifecycleHtml.value = await renderSection(eventLifecycleContent);
+});
+watchEffect(async () => {
+    ratingHtml.value = await renderSection(ratingContent);
+});
+watchEffect(async () => {
+    xpHtml.value = await renderSection(xpContent);
+});
+watchEffect(async () => {
+    generalHtml.value = await renderSection(generalContent);
+});
+
 </script>
 
 <style scoped>

@@ -12,7 +12,7 @@
         <!-- Stats Grid: 3 cards per row -->
         <div class="row g-4 mb-4">
           <div v-for="stat in stats" :key="stat.label" class="col-12 col-md-4">
-            <div class="card shadow-sm text-center h-100 stat-card">
+            <div class="card shadow-sm text-center h-100 stat-card shadow-hover">
               <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
                 <div :class="['fs-1 mb-2', stat.iconClass]"><i :class="stat.icon"></i></div>
                 <div class="fw-bold fs-3 mb-1">{{ stat.value }}</div>
@@ -24,7 +24,7 @@
         <!-- Extra Stats: all in one horizontal row (3 cards) -->
         <div class="row g-4 mb-5">
           <div v-for="extra in extraStats" :key="extra.label" class="col-12 col-md-4">
-            <div class="card shadow-sm text-center h-100 stat-card">
+            <div class="card shadow-sm text-center h-100 stat-card shadow-hover">
               <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
                 <div :class="['fs-1 mb-2', extra.iconClass]"><i :class="extra.icon"></i></div>
                 <div class="fw-bold fs-3 mb-1">{{ extra.value }}</div>
@@ -257,16 +257,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.admin-dashboard-section {
-  background-color: var(--bs-body-bg);
-}
 .stat-card {
   border-radius: 1rem;
   min-height: 140px;
-  transition: box-shadow 0.2s;
-}
-.stat-card:hover {
-  box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.08);
+  /* transition: box-shadow 0.2s; Removed, handled by global shadow-hover */
 }
 .card-header {
   border-top-left-radius: 1rem !important;
@@ -277,9 +271,6 @@ onMounted(async () => {
 }
 .fs-2, .fs-1 {
   font-size: 2.2rem !important;
-}
-.text-decoration-underline-hover:hover {
-  text-decoration: underline;
 }
 @media (max-width: 767.98px) {
   .stat-card {

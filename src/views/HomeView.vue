@@ -1,5 +1,5 @@
 <template>
-  <section class="py-5" style="background-color: var(--bs-body-bg); min-height: calc(100vh - 8rem);">
+  <section class="py-5 home-section">
     <div class="container-lg">
       <!-- Loading State -->
       <div v-if="loading" class="text-center py-5">
@@ -11,7 +11,7 @@
 
       <!-- Content -->
       <template v-else>
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 pb-4" style="border-bottom: 1px solid var(--bs-border-color);">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 pb-4 header-border">
           <!-- Left side -->
           <div>
             <h2 class="h2 text-primary mb-0">Events Dashboard</h2>
@@ -211,19 +211,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Removed custom loader styles */
-
-/* Transitions */
-.fade-fast-enter-active,
-.fade-fast-leave-active {
-  transition: opacity 0.2s ease-in-out, max-height 0.3s ease-in-out;
-  overflow: hidden;
-  max-height: 1000px; /* Adjust if needed */
-}
-
-.fade-fast-enter-from,
-.fade-fast-leave-to {
-  opacity: 0;
-  max-height: 0;
-}
+/* .home-section styles removed - handled by inline/global styles */
+/* .fade-fast-* transitions removed - defined globally */
+/* .header-border removed - handled by inline style */
 </style>

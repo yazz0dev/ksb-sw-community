@@ -2,15 +2,20 @@
 import { ActionTree } from 'vuex';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { AppState, OfflineAction, Notification } from '@/types/store';
-import { RootState } from '@/store/types';
+import { AppState, QueuedAction, Notification, RootState } from '@/types/store';
+import { User } from '@/types/user';
+import { functions, isAppwriteConfigured } from '@/appwrite';
+
+// Define GeneralNotificationPayload type locally
+type GeneralNotificationPayload = {
+  title: string;
+  body: string;
+  url?: string;
+};
 
 const actions: ActionTree<AppState, RootState> = {
   initOfflineCapabilities({ commit, state, dispatch }) {
-    // Persistence is now handled during Firestore initialization in firebase.js
-    // We just need to set up the online/offline listeners here.
     try {
-      // Set up online/offline listeners
       window.addEventListener('online', () => {
         commit('SET_ONLINE_STATUS', true);
         dispatch('syncOfflineChanges');
@@ -20,14 +25,10 @@ const actions: ActionTree<AppState, RootState> = {
         commit('SET_ONLINE_STATUS', false);
       });
 
-      // Set initial online status
       commit('SET_ONLINE_STATUS', navigator.onLine);
-
-      // Initial sync timestamp
       commit('SET_LAST_SYNC_TIMESTAMP', Date.now());
-      console.log('Offline listeners initialized.'); // Added log for clarity
+      console.log('Offline listeners initialized.');
     } catch (error) {
-      // Handle potential errors setting up listeners, though less likely
       console.error('Error setting up offline listeners:', error);
     }
   },
@@ -51,7 +52,7 @@ const actions: ActionTree<AppState, RootState> = {
       try {
         await dispatch(action.type, action.payload, { root: true });
         commit('removeQueuedAction', action.id);
-      } catch (error: any) { // Type error
+      } catch (error: any) {
         commit('addFailedAction', { ...action, error: error?.message || 'Unknown processing error' });
         console.error('Sync failed for action:', action, error);
       }
@@ -75,7 +76,9 @@ const actions: ActionTree<AppState, RootState> = {
   },
 
   recordOfflineChange({ commit }, { type, data }: { type: string; data: any }) {
-    commit('ADD_OFFLINE_CHANGE', { type, data, timestamp: Date.now() });
+    // Generate a unique id for the queued action
+    const id = `queued_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    commit('ADD_OFFLINE_CHANGE', { id, type, payload: data, timestamp: Date.now() });
   },
 
   updateLastSyncTimestamp({ commit }) {
@@ -87,28 +90,26 @@ const actions: ActionTree<AppState, RootState> = {
   },
 
   showNotification({ commit, dispatch }, notification: Omit<Notification, 'id'>) {
-    // Validate required fields
     if (!notification.message) {
       console.error('Notification message is required');
       return;
     }
 
     // Generate a unique ID for this notification
-    const id = Date.now().toString();
+    const id = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const notificationWithId = { ...notification, id };
 
-    // Add notification to state
     commit('ADD_NOTIFICATION', notificationWithId);
 
-    // Auto-dismiss after timeout if specified
-    if (notification.timeout !== 0) { // 0 means don't auto-dismiss
-      const timeout = notification.timeout || 5000; // Default 5 seconds
+    // Use 'duration' for auto-dismiss, default 5000ms
+    const duration = (notification as any).duration;
+    if (duration !== 0) {
       setTimeout(() => {
         dispatch('dismissNotification', id);
-      }, timeout);
+      }, duration || 5000);
     }
 
-    return id; // Return ID for potential manual dismissal
+    return id;
   },
 
   dismissNotification({ commit }, notificationId: string) {
@@ -119,9 +120,11 @@ const actions: ActionTree<AppState, RootState> = {
     commit('CLEAR_ALL_NOTIFICATIONS');
   },
 
-  async handleOfflineAction({ state, commit }, { type, payload }: OfflineAction) {
+  async handleOfflineAction({ state, commit }, { type, payload }: QueuedAction) {
     if (state.offlineQueue.supportedTypes.includes(type)) {
-      commit('queueOfflineAction', { type, payload });
+      // Generate a unique id for the queued action
+      const id = `queued_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      commit('queueOfflineAction', { id, type, payload, timestamp: Date.now() });
       return { queued: true };
     }
     throw new Error('This action cannot be performed offline');
@@ -134,14 +137,11 @@ const actions: ActionTree<AppState, RootState> = {
 
     for (const action of state.offlineQueue.actions) {
       try {
-        // Re-dispatch the original action
-        await dispatch(action.type, action.payload, { root: true }); // Assuming actions are root actions
+        await dispatch(action.type, action.payload, { root: true });
         console.log(`Successfully replayed action: ${action.type}`);
-        // Optionally remove from failed queue or mark as resolved if needed
         commit('removeQueuedAction', action.id);
-      } catch (error: any) { // Type error
+      } catch (error: any) {
         console.error(`Failed to replay action ${action.type}:`, error);
-        // Update the error message on the failed action
         commit('addFailedAction', { ...action, error: error?.message || 'Unknown replay error' });
       }
     }
@@ -155,6 +155,64 @@ const actions: ActionTree<AppState, RootState> = {
 
     if (online && state.offlineQueue.actions.length > 0) {
       await dispatch('syncOfflineQueue');
+    }
+  },
+
+  // --- NEW ACTION for General Notifications ---
+  async sendGeneralNotification(
+    { rootGetters, dispatch },
+    payload: GeneralNotificationPayload
+  ): Promise<void> {
+    const currentUser: User | null = rootGetters['user/getUser'];
+    if (currentUser?.role !== 'Admin') {
+      throw new Error('Unauthorized: Only Admins can send general notifications.');
+    }
+
+    if (!isAppwriteConfigured()) {
+      console.warn("Appwrite not configured. Cannot send general notification.");
+      dispatch('notification/showNotification', {
+        message: 'Appwrite Messaging is not configured.',
+        type: 'error'
+      }, { root: true });
+      return;
+    }
+
+    if (!payload.title || !payload.body) {
+      throw new Error('Notification title and body are required.');
+    }
+
+    try {
+      const functionPayload = {
+        notificationType: 'general',
+        messageTitle: payload.title,
+        messageBody: payload.body,
+        eventUrl: payload.url || '/',
+      };
+
+      console.log("Triggering Appwrite function 'triggerPushNotification' for general notification:", functionPayload);
+
+      const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
+
+      await functions.createExecution(
+        functionId,
+        JSON.stringify(functionPayload),
+        false
+      );
+
+      dispatch('notification/showNotification', {
+        message: 'General notification sent successfully.',
+        type: 'success'
+      }, { root: true });
+
+      console.log(`Appwrite function execution triggered for general notification.`);
+
+    } catch (error: any) {
+      console.error('Failed to trigger Appwrite function for general notification:', error);
+      dispatch('notification/showNotification', {
+        message: `Failed to send general notification: ${error?.message || 'Unknown error'}`,
+        type: 'error'
+      }, { root: true });
+      throw error;
     }
   }
 };

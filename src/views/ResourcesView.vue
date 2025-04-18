@@ -110,18 +110,18 @@ const getIconClass = (type: ResourceItem['type']): string => {
 
 <style scoped>
 .resources-section {
-    background-color: var(--color-background);
+    background-color: var(--bs-body-bg); /* Use Bootstrap body background variable */
 }
 
 .resource-card {
     transition: all 0.2s;
     background-color: var(--bs-card-bg);
     border: 1px solid var(--bs-border-color);
-    box-shadow: 0 2px 3px rgba(10, 10, 10, 0.05);
+    box-shadow: 0 2px 3px rgba(10, 10, 10, 0.05); /* Keep specific shadow */
 }
 
 .resource-card:hover {
-    box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1);
+    box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1); /* Keep specific shadow */
     transform: translateY(-2px);
 }
 
@@ -131,12 +131,12 @@ const getIconClass = (type: ResourceItem['type']): string => {
 }
 
 .resource-link {
-    color: var(--color-text-secondary);
+    color: var(--bs-secondary); /* Use Bootstrap secondary color variable */
     text-decoration: none;
 }
 
 .resource-link:hover {
-    color: var(--color-primary);
+    color: var(--bs-primary); /* Use Bootstrap primary color variable */
 }
 
 .external-link-icon {

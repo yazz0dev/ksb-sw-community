@@ -44,7 +44,7 @@
     </div>
     <!-- Social Footer -->
     <footer class="landing-footer mt-5 pt-4 border-top">
-      <div class="container">
+      <div class="container border-top"> <!-- Added border-top class -->
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
           <div class="mb-2 mb-md-0">
             <span class="me-2">Connect with us:</span>
@@ -104,29 +104,3 @@ const getIconColorClass = (color: Feature['color']): string => {
 };
 </script>
 
-<style scoped>
-.landing-section {
-  background-color: var(--bs-body-bg);
-}
-
-.text-decoration-underline-hover:hover {
-  text-decoration: underline;
-}
-
-.features-card-header {
-  background-color: var(--bs-secondary-bg-subtle);
-  border-bottom: 1px solid var(--bs-border-color);
-}
-
-/* Footer styles */
-.landing-footer {
-  background: transparent;
-  font-size: 1rem;
-}
-.landing-footer a {
-  transition: color 0.2s;
-}
-.landing-footer a:hover {
-  color: var(--bs-primary);
-}
-</style>

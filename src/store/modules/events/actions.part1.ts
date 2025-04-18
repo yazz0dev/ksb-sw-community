@@ -17,7 +17,7 @@ import {
     EventState,
     Event
 } from '@/types/event';
-import { RootState } from '@/store/types';
+import { RootState } from '@/types/store';
 import { User } from '@/types/user';
 import { DateTime } from 'luxon'; // For date comparisons
 import { Functions } from 'appwrite';
@@ -169,7 +169,7 @@ export async function createEvent({ rootGetters, commit, dispatch }: ActionConte
 
     try {
         const docRef = await addDoc(collection(db, 'events'), finalData);
-        commit('addOrUpdateEvent', { id: docRef.id, ...finalData }); // Add complete data to local state
+        commit('addOrUpdateEvent', { ...finalData, id: docRef.id });
         return docRef.id;
     } catch (error: any) {
         console.error('Error creating event:', error);
@@ -220,7 +220,7 @@ export async function requestEvent({ commit, rootGetters }: ActionContext<EventS
         };
 
         const docRef = await addDoc(collection(db, 'events'), requestPayload);
-        commit('addOrUpdateEvent', { id: docRef.id, ...requestPayload });
+        commit('addOrUpdateEvent', { ...requestPayload, id: docRef.id });
         return docRef.id;
     } catch (error: any) {
         console.error('Error requesting event:', error);
@@ -240,74 +240,84 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Request not found.');
-        const eventData = eventSnap.data() as Event;
+        fetchedEventData = { id: eventId, ...eventSnap.data() } as Event; // Get data before update
 
-        if (eventData.status !== EventStatus.Pending) throw new Error('Only pending events approved.');
-        if (!eventData.details?.date?.desired?.start || !eventData.details?.date?.desired?.end) throw new Error("Missing desired dates.");
+        if (fetchedEventData.status !== EventStatus.Pending) throw new Error('Only pending events approved.');
+        if (!fetchedEventData.details?.date?.desired?.start || !fetchedEventData.details?.date?.desired?.end) throw new Error("Missing desired dates.");
 
-        const conflictResult = await dispatch('checkDateConflict', { startDate: eventData.details.date.desired.start, endDate: eventData.details.date.desired.end, excludeEventId: eventId });
+        const conflictResult = await dispatch('checkDateConflict', { startDate: fetchedEventData.details.date.desired.start, endDate: fetchedEventData.details.date.desired.end, excludeEventId: eventId });
         if (conflictResult.hasConflict) throw new Error(`Approval failed: Date conflict with "${conflictResult.conflictingEvent?.details?.type || 'another event'}".`);
 
+        // --- Perform Firestore Update ---
         const updates: Partial<Event> = {
             status: EventStatus.Approved,
             lastUpdatedAt: Timestamp.now(),
             details: {
-                ...eventData.details,
+                ...fetchedEventData.details,
                 date: {
-                    ...eventData.details.date,
-                    final: { // Set final dates from desired on approval
-                        start: eventData.details.date.desired.start,
-                        end: eventData.details.date.desired.end,
+                    ...fetchedEventData.details.date,
+                    final: {
+                        start: fetchedEventData.details.date.desired.start,
+                        end: fetchedEventData.details.date.desired.end,
                     }
                 }
             }
         };
-
         await updateDoc(eventRef, updates);
+        // --- End Firestore Update ---
 
-        // Fetch fresh data for local state update and notification payload
-        const freshSnap = await getDoc(eventRef);
-        if (freshSnap.exists()) {
-            fetchedEventData = { ...freshSnap.data() } as Event;
-            if (!('id' in fetchedEventData)) {
-                (fetchedEventData as any).id = eventId;
-            }
-            dispatch('updateLocalEvent', { id: eventId, changes: fetchedEventData }); // Update local store with full fresh data
-        }
+        // Update local state
+        dispatch('updateLocalEvent', { ...updates, id: eventId });
 
-        // --- Appwrite/SendPulse Integration START ---
-        if (isAppwriteConfigured() && fetchedEventData && fetchedEventData.requestedBy) {
+        // --- Trigger Appwrite Push Notification START ---
+        if (isAppwriteConfigured() && fetchedEventData?.requestedBy) {
             try {
-                const targetUserIds = [fetchedEventData.requestedBy]; // Notify only the requester
-                const notificationPayload = {
-                    notificationType: 'eventApproved',
-                    targetUserIds: targetUserIds,
-                    messageTitle: `Event Approved: ${fetchedEventData.details?.type || 'Event'}`,
-                    messageBody: `Your event request "${fetchedEventData.details?.type || 'Event'}" has been approved! Check the event details.`,
-                    eventUrl: `/event/${eventId}`, // Relative URL for frontend link
-                    eventName: fetchedEventData.details?.type || 'Unnamed Event',
-                };
+                const targetUserIds = [fetchedEventData.requestedBy];
 
-                console.log("Triggering push notification for event approval:", notificationPayload);
-                await functions.createExecution(
-                    'triggerSendPulsePush', // Ensure this matches your function name/ID
-                    JSON.stringify(notificationPayload),
-                    false // Async execution
-                );
-                console.log(`Push notification trigger attempted for event approval ${eventId}.`);
+                if (targetUserIds.length > 0) {
+                    const functionPayload = {
+                        notificationType: 'eventApproved',
+                        targetUserIds: targetUserIds,
+                        eventId: eventId,
+                        messageTitle: `Event Approved: ${fetchedEventData.details?.type || 'Event'}`,
+                        messageBody: `Your event request "${fetchedEventData.details?.type || 'Event'}" has been approved!`,
+                        eventUrl: `/event/${eventId}`,
+                        eventName: fetchedEventData.details?.type || 'Unnamed Event',
+                    };
+
+                    console.log("Triggering Appwrite function 'triggerPushNotification' for event approval:", functionPayload);
+                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
+
+                    await functions.createExecution(
+                        functionId,
+                        JSON.stringify(functionPayload),
+                        false // Async execution
+                    );
+                    console.log(`Appwrite function execution triggered for event approval ${eventId}.`);
+                } else {
+                    console.log("No target user ID found for approval notification.");
+                }
 
             } catch (pushError) {
-                console.error(`Failed to trigger push notification for event approval ${eventId}:`, pushError);
-                // Log error but don't fail the main action
+                console.error(`Failed to trigger Appwrite function for event approval ${eventId}:`, pushError);
+                dispatch('notification/showNotification', {
+                    message: 'Event approved, but notification failed to send.',
+                    type: 'warning'
+                }, { root: true });
             }
         }
-        // --- Appwrite/SendPulse Integration END ---
+        // --- Trigger Appwrite Push Notification END ---
 
     } catch (error: any) {
         console.error(`Error approving request ${eventId}:`, error);
+         dispatch('notification/showNotification', {
+             message: `Failed to approve request: ${error.message || 'Unknown error'}`,
+             type: 'error'
+         }, { root: true });
         throw error; // Re-throw original error
     }
 }
+
 
 // --- ACTION: Reject Event Request (Admin Only) ---
 export async function rejectEventRequest({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, reason }: { eventId: string; reason?: string }): Promise<void> {
@@ -325,7 +335,7 @@ export async function rejectEventRequest({ dispatch, rootGetters }: ActionContex
             status: EventStatus.Rejected, rejectionReason: reason?.trim() || null, lastUpdatedAt: Timestamp.now(),
         };
         await updateDoc(eventRef, updates);
-        dispatch('updateLocalEvent', { id: eventId, changes: updates });
+        dispatch('updateLocalEvent', { ...updates, id: eventId });
     } catch (error: any) {
         console.error(`Error rejecting request ${eventId}:`, error);
         throw error;
@@ -352,43 +362,56 @@ export async function cancelEvent({ dispatch, rootGetters }: ActionContext<Event
 
         const updates: Partial<Event> = { status: EventStatus.Cancelled, lastUpdatedAt: Timestamp.now() };
         await updateDoc(eventRef, updates);
-        dispatch('updateLocalEvent', { id: eventId, changes: updates });
+        dispatch('updateLocalEvent', { ...updates, id: eventId });
 
-        // --- Appwrite/SendPulse Integration START ---
+        // --- Appwrite Push Notification Trigger START ---
         if (isAppwriteConfigured() && fetchedEventData) {
             try {
-                // Notify organizers and participants/team members
+                // Determine target users
                 const organizers = fetchedEventData.details?.organizers || [];
                 const participants = fetchedEventData.participants || [];
                 const teamMembers = (fetchedEventData.teams || []).flatMap(t => t.members || []);
-                const targetUserIds = [...new Set([...organizers, ...participants, ...teamMembers])].filter(Boolean); // Unique, non-empty IDs
+                const targetUserIds = [...new Set([...organizers, ...participants, ...teamMembers])]
+                    .filter(Boolean)
+                    .filter(id => id !== currentUser?.uid); // Don't notify the user who cancelled
 
                 if (targetUserIds.length > 0) {
-                    const notificationPayload = {
+                    const functionPayload = {
                         notificationType: 'eventCancelled',
                         targetUserIds: targetUserIds,
+                        eventId: eventId,
                         messageTitle: `Event Cancelled: ${fetchedEventData.details?.type || 'Event'}`,
                         messageBody: `The event "${fetchedEventData.details?.type || 'Event'}" has been cancelled.`,
                         eventUrl: `/event/${eventId}`,
                         eventName: fetchedEventData.details?.type || 'Unnamed Event',
                     };
 
-                    console.log("Triggering push notification for event cancellation:", notificationPayload);
+                    console.log("Triggering Appwrite function for event cancellation:", functionPayload);
+                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
+
                     await functions.createExecution(
-                        'triggerSendPulsePush',
-                        JSON.stringify(notificationPayload),
+                        functionId,
+                        JSON.stringify(functionPayload),
                         false
                     );
-                    console.log(`Push notification trigger attempted for event cancellation ${eventId}.`);
+                    console.log(`Appwrite function execution triggered for event cancellation ${eventId}.`);
                 }
             } catch (pushError) {
-                console.error(`Failed to trigger push notification for event cancellation ${eventId}:`, pushError);
+                console.error(`Failed to trigger Appwrite function for event cancellation ${eventId}:`, pushError);
+                 dispatch('notification/showNotification', {
+                     message: 'Event cancelled, but failed to send notification.',
+                     type: 'warning'
+                 }, { root: true });
             }
         }
-        // --- Appwrite/SendPulse Integration END ---
+        // --- Appwrite Push Notification Trigger END ---
 
     } catch (error: any) {
         console.error(`Error cancelling event ${eventId}:`, error);
+         dispatch('notification/showNotification', {
+             message: `Failed to cancel event: ${error.message || 'Unknown error'}`,
+             type: 'error'
+         }, { root: true });
         throw error;
     }
 }
@@ -406,10 +429,7 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error("Event not found.");
         const currentEvent = eventSnap.data() as Event;
-        fetchedEventData = { ...currentEvent };
-        if (!('id' in fetchedEventData)) {
-            (fetchedEventData as any).id = eventId;
-        }
+        fetchedEventData = { id: eventId, ...currentEvent }; // Store data before update
 
         const currentUser: User | null = rootGetters['user/getUser'];
         const isAdmin = currentUser?.role === 'Admin';
@@ -422,82 +442,91 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
         let notificationBody: string = '';
         let targetUserIds: string[] = [];
 
+        // Define participants/organizers early
+        const organizers = currentEvent.details?.organizers || [];
+        const participants = currentEvent.participants || [];
+        const teamMembers = (currentEvent.teams || []).flatMap(t => t.members || []);
+        const allInvolved = [...new Set([...organizers, ...participants, ...teamMembers])]
+                            .filter(Boolean)
+                            .filter(id => id !== currentUser?.uid); // Exclude self
+
+
         switch (newStatus) {
             case EventStatus.InProgress:
                 if (currentEvent.status !== EventStatus.Approved) throw new Error("Must be 'Approved' to start.");
-                // Optional: Notify participants that event started
                 notificationType = 'eventStarted';
                 notificationTitle = `Event Started: ${currentEvent.details?.type || 'Event'}`;
                 notificationBody = `The event "${currentEvent.details?.type || 'Event'}" is now in progress!`;
+                targetUserIds = allInvolved;
                 break;
             case EventStatus.Completed:
                 if (currentEvent.status !== EventStatus.InProgress) throw new Error("Must be 'In Progress' to complete.");
                 updates.completedAt = Timestamp.now();
-                 // Notify participants that event is completed and ratings might be open
                 notificationType = 'eventCompleted';
                 notificationTitle = `Event Completed: ${currentEvent.details?.type || 'Event'}`;
                 notificationBody = `"${currentEvent.details?.type || 'Event'}" has finished. Ratings may be open soon.`;
+                targetUserIds = allInvolved;
                 break;
             case EventStatus.Cancelled:
-                await dispatch('cancelEvent', eventId); return; // Use specific action (handles notification)
+                // Use the dedicated cancelEvent action which handles its own notification
+                await dispatch('cancelEvent', eventId);
+                return; // Exit early as cancelEvent handles everything
             case EventStatus.Approved: // Re-approving
                 if (!isAdmin) throw new Error("Only Admins can re-approve.");
                 if (currentEvent.status !== EventStatus.Cancelled) throw new Error(`Can only re-approve 'Cancelled' events.`);
                 if (!currentEvent.details?.date?.final?.start || !currentEvent.details?.date?.final?.end) throw new Error("Missing dates.");
                 const conflictResult = await dispatch('checkDateConflict', { startDate: currentEvent.details.date.final.start, endDate: currentEvent.details.date.final.end, excludeEventId: eventId });
                 if (conflictResult.hasConflict) throw new Error(`Re-approve failed: Date conflict with "${(conflictResult.conflictingEvent?.details?.type as string) || 'another event'}".`);
-                 // Notify requester about re-approval
-                 notificationType = 'eventReApproved';
-                 notificationTitle = `Event Re-Approved: ${currentEvent.details?.type || 'Event'}`;
-                 notificationBody = `The cancelled event "${currentEvent.details?.type || 'Event'}" has been re-approved.`;
+                notificationType = 'eventReApproved';
+                notificationTitle = `Event Re-Approved: ${currentEvent.details?.type || 'Event'}`;
+                notificationBody = `The cancelled event "${currentEvent.details?.type || 'Event'}" has been re-approved.`;
+                targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : []; // Only notify requester
                 break;
             case EventStatus.Pending: case EventStatus.Rejected:
                 throw new Error(`Changing status to '${newStatus}' not supported here.`);
         }
 
+        // --- Perform Firestore Update ---
         await updateDoc(eventRef, updates);
-        // Update local state with the specific changes applied
-        dispatch('updateLocalEvent', { id: eventId, changes: updates });
+        dispatch('updateLocalEvent', { ...updates, id: eventId });
+        // --- End Firestore Update ---
 
-        // --- Appwrite/SendPulse Integration START ---
-        if (isAppwriteConfigured() && notificationType && fetchedEventData) {
+        // --- Trigger Appwrite Push Notification START ---
+        if (isAppwriteConfigured() && notificationType && targetUserIds.length > 0) {
              try {
-                // Determine targets based on notification type
-                const organizers = fetchedEventData.details?.organizers || [];
-                const participants = fetchedEventData.participants || [];
-                const teamMembers = (fetchedEventData.teams || []).flatMap(t => t.members || []);
-
-                if (notificationType === 'eventReApproved' && fetchedEventData.requestedBy) {
-                    targetUserIds = [fetchedEventData.requestedBy];
-                } else if (notificationType === 'eventStarted' || notificationType === 'eventCompleted') {
-                     targetUserIds = [...new Set([...organizers, ...participants, ...teamMembers])].filter(Boolean);
-                }
-
-                if (targetUserIds.length > 0) {
-                    const notificationPayload = {
-                        notificationType: notificationType,
-                        targetUserIds: targetUserIds,
-                        messageTitle: notificationTitle,
-                        messageBody: notificationBody,
-                        eventUrl: `/event/${eventId}`,
-                        eventName: fetchedEventData.details?.type || 'Unnamed Event',
-                    };
-                    console.log(`Triggering push notification for status update (${newStatus}):`, notificationPayload);
-                    await functions.createExecution(
-                        'triggerSendPulsePush',
-                        JSON.stringify(notificationPayload),
-                        false
-                    );
-                    console.log(`Push notification trigger attempted for status update ${eventId}.`);
-                }
+                const functionPayload = {
+                    notificationType: notificationType,
+                    targetUserIds: targetUserIds,
+                    eventId: eventId,
+                    messageTitle: notificationTitle,
+                    messageBody: notificationBody,
+                    eventUrl: `/event/${eventId}`,
+                    eventName: currentEvent.details?.type || 'Unnamed Event',
+                };
+                console.log(`Triggering Appwrite function for status update (${newStatus}):`, functionPayload);
+                const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
+                await functions.createExecution(
+                    functionId,
+                    JSON.stringify(functionPayload),
+                    false
+                );
+                console.log(`Appwrite function execution triggered for status update ${eventId}.`);
             } catch (pushError) {
-                console.error(`Failed to trigger push notification for status update ${eventId}:`, pushError);
+                console.error(`Failed to trigger Appwrite function for status update ${eventId}:`, pushError);
+                 dispatch('notification/showNotification', {
+                     message: `Event status updated, but failed to send notification.`,
+                     type: 'warning'
+                 }, { root: true });
             }
         }
-        // --- Appwrite/SendPulse Integration END ---
+        // --- Trigger Appwrite Push Notification END ---
 
     } catch (error: any) {
         console.error(`Error updating status to ${newStatus}:`, error);
+        dispatch('notification/showNotification', {
+            message: `Failed to update status: ${error.message || 'Unknown error'}`,
+            type: 'error'
+        }, { root: true });
         throw error;
     }
 }

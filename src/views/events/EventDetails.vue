@@ -5,65 +5,33 @@
       :skeleton-component="EventDetailsSkeleton"
     >
       <!-- Event Header -->
-      <div class="event-header-section card shadow-sm mb-4 p-0">
-        <div class="card-body d-flex flex-column flex-md-row align-items-md-center gap-4">
-          <div class="flex-grow-1">
-            <div class="d-flex flex-wrap align-items-center mb-2 gap-2">
-              <h2 class="h3 mb-0 text-primary me-3">
-                {{ event?.details?.type || 'Untitled Event' }}
-              </h2>
-              <span :class="['badge', statusBadgeClass(event?.status)]">{{ event?.status }}</span>
-            </div>
-            <div class="mb-2 d-flex flex-wrap gap-3">
-              <span>
-                <i class="fas fa-calendar-alt me-1 text-muted"></i>
-                <strong>Dates:</strong>
-                <span class="text-body">
-                  {{
-                    event?.details?.date?.desired?.start
-                      ? formatDateRange(event.details.date.desired.start, event.details.date.desired.end)
-                      : 'N/A'
-                  }}
-                </span>
-              </span>
-              <span>
-                <i class="fas fa-users me-1 text-muted"></i>
-                <strong>Format:</strong>
-                <span class="text-body">
-                  {{
-                    event?.details?.format === 'Team'
-                      ? 'Team Event'
-                      : 'Individual'
-                  }}
-                </span>
-              </span>
-            </div>
-            <div class="mb-2" v-if="event?.details?.organizers?.length">
-              <i class="fas fa-user-friends me-1 text-muted"></i>
-              <strong>Organizers:</strong>
-              <span class="text-body">
-                <span v-for="(orgId, idx) in event.details.organizers" :key="orgId">
-                  {{ getUserNameFromCache(orgId ?? '') }}<span v-if="idx < event.details.organizers.length - 1">, </span>
-                </span>
-              </span>
-            </div>
-            <div class="mb-2">
-              <strong>Description:</strong>
-              <div class="text-secondary mt-1" style="white-space: pre-line;">{{ event?.details?.description || 'No description provided.' }}</div>
-            </div>
-          </div>
-          <!-- Floating Action Button for Submission (visible if eligible) -->
-          <div class="d-none d-md-flex flex-column align-items-end">
-            <button
-              v-if="event && canSubmitProject"
-              class="btn btn-lg btn-primary shadow submit-fab"
-              @click="triggerSubmitModalOpen"
-              title="Submit Project"
-            >
-              <i class="fas fa-upload me-2"></i> Submit Project
-            </button>
-          </div>
-        </div>
+      <EventDetailsHeader
+        v-if="event"
+        :event="{
+          ...event,
+          title: event.title ?? '',
+          teamSize: event.teamSize ?? 0,
+          description: event.description ?? ''
+        }"
+        :canJoin="canJoin"
+        :canLeave="canLeave"
+        :canEdit="canEdit"
+        :isJoining="isJoining"
+        :isLeaving="isLeaving"
+        @join="handleJoin"
+        @leave="handleLeave"
+      />
+
+      <!-- Floating Action Button for Submission (visible if eligible) -->
+      <div class="d-none d-md-flex flex-column align-items-end">
+        <button
+          v-if="event && canSubmitProject"
+          class="btn btn-lg btn-primary shadow submit-fab"
+          @click="triggerSubmitModalOpen"
+          title="Submit Project"
+        >
+          <i class="fas fa-upload me-2"></i> Submit Project
+        </button>
       </div>
 
       <!-- Mobile FAB for Submission -->
@@ -162,7 +130,7 @@
                           class="small text-truncate text-decoration-none"
                           :class="userId === currentUserId ? 'text-primary fw-semibold' : 'text-body-secondary'"
                         >
-                          {{ getUserNameFromCache(userId) }} {{ userId === currentUserId ? '(You)' : '' }}
+                          {{ getUserNameFromCache(userId ?? '') }} {{ userId === currentUserId ? '(You)' : '' }}
                         </router-link>
                       </div>
                     </div>
@@ -190,7 +158,7 @@
               <div v-if="event.details.format !== 'Team'">
                 <ul class="list-unstyled d-flex flex-column gap-3">
                   <li v-for="(submission, index) in event.submissions" :key="`ind-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                    <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy ?? '') }}</p>
+                    <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache((submission.submittedBy ?? '') as string) }}</p>
                     <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
                     <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
                   </li>
@@ -205,7 +173,7 @@
                     <h6 class="text-secondary mb-2">Team: {{ team.teamName }}</h6>
                     <ul class="list-unstyled d-flex flex-column gap-2 ms-4 ps-4 border-start border-2">
                       <li v-for="(submission, index) in team.submissions" :key="`team-${team.id || team.teamName}-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                        <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy ?? '') }}</p>
+                        <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache((submission.submittedBy ?? '') as string) }}</p>
                         <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
                         <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
                       </li>
@@ -288,10 +256,10 @@ import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useStore, Store } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import TeamList from '@/components/TeamList.vue';
-import EventDisplayCard from '@/components/events/EventDisplayCard.vue';
 import EventManageControls from '@/components/events/EventManageControls.vue';
 import EventDetailsSkeleton from '@/components/skeletons/EventDetailsSkeleton.vue';
 import SkeletonProvider from '@/components/skeletons/SkeletonProvider.vue';
+import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
 import { EventStatus, type Event, Team as EventTeamType, Submission } from '@/types/event';
 import { User } from '@/types/user';
 import { formatRoleName } from '@/utils/formatters';
@@ -302,7 +270,15 @@ interface Team extends EventTeamType {}
 
 interface BootstrapModal {
   show(): void;
+  hide():void;
+  dispose(): void;
+}
+
+// Add Collapse interface for type safety
+interface Collapse {
+  toggle(): void;
   hide(): void;
+  show(): void;
   dispose(): void;
 }
 
@@ -310,7 +286,10 @@ declare global {
   interface Window {
     bootstrap?: {
       Modal?: any;
-      Collapse?: any;
+      Collapse?: {
+        new(element: Element | string, options?: any): Collapse;
+        getInstance(element: Element | string): Collapse | null;
+      };
     };
   }
 }
@@ -390,6 +369,37 @@ const canSubmitProject = computed(() => {
     return event.value.participants?.includes(currentUserId.value) ?? false;
   }
 });
+
+const canJoin = computed(() => {
+  if (!event.value || !currentUserId.value) return false;
+  if (![EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus)) return false;
+  if (event.value.details.organizers?.includes(currentUserId.value)) return false;
+  if (event.value.details.format === 'Team') {
+    return event.value.teams?.some(team => !team.members?.includes(currentUserId.value)) ?? true;
+  } else {
+    return !(event.value.participants?.includes(currentUserId.value));
+  }
+});
+
+const canLeave = computed(() => {
+  if (!event.value || !currentUserId.value) return false;
+  if ([EventStatus.Completed, EventStatus.Cancelled].includes(event.value.status as EventStatus)) return false;
+  if (event.value.details.organizers?.includes(currentUserId.value)) return false;
+  if (event.value.details.format === 'Team') {
+    return event.value.teams?.some(team => team.members?.includes(currentUserId.value)) ?? false;
+  } else {
+    return event.value.participants?.includes(currentUserId.value) ?? false;
+  }
+});
+
+const canEdit = computed(() => {
+  if (!event.value || !currentUserId.value) return false;
+  if ([EventStatus.Completed, EventStatus.Cancelled].includes(event.value.status as EventStatus)) return false;
+  return isAdmin.value || isCurrentUserOrganizer.value;
+});
+
+const isJoining = ref(false);
+const isLeaving = ref(false);
 
 const allParticipants = computed<string[]>(() => {
     if (!event.value) return [];
@@ -478,7 +488,7 @@ async function fetchEventData(): Promise<void> {
                   ? [...storeEvent.teams]
                   : [];
 
-    await fetchUserNames(allParticipants.value);
+    await fetchUserNames(allParticipants.value.filter(id => typeof id === 'string' && id !== null));
 
   } catch (error: any) {
     console.error('Error fetching event data:', error);
@@ -554,13 +564,33 @@ const submitProject = async (): Promise<void> => {
     }
 };
 
+const handleJoin = (): void => {
+    // Implement join logic here
+    isJoining.value = true;
+    // Example: Call store action to join event
+    setTimeout(() => {
+        isJoining.value = false;
+        setGlobalFeedback('Successfully joined the event!', 'success');
+    }, 1000);
+};
+
+const handleLeave = (): void => {
+    // Implement leave logic here
+    isLeaving.value = true;
+    // Example: Call store action to leave event
+    setTimeout(() => {
+        isLeaving.value = false;
+        setGlobalFeedback('Successfully left the event!', 'success');
+    }, 1000);
+};
+
 const handleTeamRated = (feedback: { message: string; type: 'success' | 'error' }): void => {
     setGlobalFeedback(feedback.message, feedback.type);
 };
 
 const openRatingForm = (): void => {
     if (currentUserCanRate.value && event.value) {
-        router.push({ name: 'RatingForm', params: { eventId: props.id } });
+        router.push({ name: 'RatingForm', params: { eventId: String(props.id) } });
     } else {
         setGlobalFeedback('You are not eligible to rate/select winners for this event, or the period is closed.', 'error');
     }
@@ -619,6 +649,17 @@ watch(() => props.id, (newId, oldId) => {
         fetchEventData();
     }
 }, { immediate: false });
+
+// Expose these to the template for SkeletonProvider slot context
+defineExpose({
+  canJoin,
+  canLeave,
+  canEdit,
+  isJoining,
+  isLeaving,
+  handleJoin,
+  handleLeave
+});
 
 </script>
 

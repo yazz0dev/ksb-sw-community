@@ -1,8 +1,7 @@
 // src/store/modules/notification.js
 
 import { Module, ActionContext } from 'vuex';
-import { RootState } from '@/store/types';
-import { Notification } from '@/types/store';
+import { RootState, Notification } from  '@/types/store'; 
 
 interface NotificationState {
   notifications: Notification[];
@@ -31,12 +30,13 @@ const actions = {
     // Add notification to state
     commit('ADD_NOTIFICATION', notificationWithId);
     
-    // Auto-dismiss after timeout if specified
-    if ((notification as any).timeout !== 0) { // 0 means don't auto-dismiss
-      const timeout = (notification as any).timeout || 5000; // Default 5 seconds
+    // Auto-dismiss after timeout/duration if specified
+    // Prefer 'duration' if present, fallback to 'timeout', default 5000ms
+    const duration = (notification as any).duration ?? (notification as any).timeout;
+    if (duration !== 0) { // 0 means don't auto-dismiss
       setTimeout(() => {
         dispatch('dismissNotification', id);
-      }, timeout);
+      }, duration || 5000);
     }
     
     return id; // Return ID for potential manual dismissal

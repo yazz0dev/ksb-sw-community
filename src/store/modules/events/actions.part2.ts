@@ -18,7 +18,7 @@ import {
     Team,
     Submission,
 } from '@/types/event';
-import { RootState } from '@/store/types';
+import { RootState } from '@/types/store';
 import { User } from '@/types/user';
 
 // --- Helper: Validate Organizers ---

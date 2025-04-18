@@ -283,9 +283,3 @@ const handleResetPassword = async () => {
 };
 </script>
 
-<style scoped>
-.alert-sm {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875em;
-}
-</style>

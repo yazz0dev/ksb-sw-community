@@ -1,14 +1,14 @@
 @use "sass:color";
 
 // Theme Colors
-$primary: #6366f1;      // Indigo-500
-$secondary: #64748b;    // Slate-500
-$success: #22c55e;      // Green-500
-$info: #0ea5e9;         // Sky-500
-$warning: #fbbf24;      // Amber-400
-$danger: #ef4444;       // Red-500
-$light: #f1f5f9;        // Slate-100
-$dark: #1e293b;         // Slate-800
+$primary: #8b94e4;      // Muted Indigo
+$secondary: #94a3b8;    // Muted Slate
+$success: #6ee7b7;      // Muted Green
+$info: #7dd3fc;         // Muted Sky
+$warning: #fcd34d;      // Muted Amber
+$danger: #f87171;       // Muted Red
+$light: #f8fafc;        // Slate-50 (Keep light as a base)
+$dark: #475569;         // Muted Slate-700
 
 // System Colors
 $body-bg: #f8fafc;      // Slate-50

@@ -161,13 +161,7 @@ const selectRoleFilter = (role: string): void => {
 </script>
 
 <style scoped>
-.leaderboard-section {
-  background-color: #f8f9fa;
-  background-image: radial-gradient(#e9ecef 1px, transparent 1px);
-  background-size: 20px 20px;
-  min-height: 100vh;
-}
-
+/* .leaderboard-section styles removed - handled by global styles/variables */
 .role-filter-group {
   display: flex;
   flex-wrap: wrap;
@@ -194,9 +188,9 @@ const selectRoleFilter = (role: string): void => {
 }
 
 .leaderboard-table {
-  background: white;
+  background: white; /* Keep white background for table */
   border-radius: 1rem;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* Keep specific shadow */
   padding: 1.5rem;
 }
 
@@ -231,18 +225,18 @@ const selectRoleFilter = (role: string): void => {
 }
 
 .rank-badge.rank-1 {
-  background: linear-gradient(135deg, #ffd700, #ffa500);
-  box-shadow: 0 2px 4px rgba(255, 215, 0, 0.3);
+  background: linear-gradient(135deg, #ffd700, #ffa500); /* Keep specific gradient */
+  box-shadow: 0 2px 4px rgba(255, 215, 0, 0.3); /* Keep specific shadow */
 }
 
 .rank-badge.rank-2 {
-  background: linear-gradient(135deg, #c0c0c0, #a9a9a9);
-  box-shadow: 0 2px 4px rgba(192, 192, 192, 0.3);
+  background: linear-gradient(135deg, #c0c0c0, #a9a9a9); /* Keep specific gradient */
+  box-shadow: 0 2px 4px rgba(192, 192, 192, 0.3); /* Keep specific shadow */
 }
 
 .rank-badge.rank-3 {
-  background: linear-gradient(135deg, #cd7f32, #8b4513);
-  box-shadow: 0 2px 4px rgba(205, 127, 50, 0.3);
+  background: linear-gradient(135deg, #cd7f32, #8b4513); /* Keep specific gradient */
+  box-shadow: 0 2px 4px rgba(205, 127, 50, 0.3); /* Keep specific shadow */
 }
 
 .rank-number {
@@ -257,10 +251,7 @@ const selectRoleFilter = (role: string): void => {
   transition: color 0.2s ease;
 }
 
-.user-link:hover {
-  color: var(--bs-primary-dark);
-}
-
+/* .user-link:hover removed - handled by global utility */
 .xp-value {
   font-weight: 600;
   font-size: 1.1rem;
@@ -274,7 +265,7 @@ const selectRoleFilter = (role: string): void => {
 .empty-state {
   text-align: center;
   padding: 3rem;
-  background: white;
+  background: white; /* Keep white background */
   border-radius: 1rem;
   color: var(--bs-secondary);
 }

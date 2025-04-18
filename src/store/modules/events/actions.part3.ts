@@ -26,15 +26,11 @@ import {
     OrganizerRating,
     EventStatus
 } from '@/types/event';
-import { RootState } from '@/store/types';
+import { RootState } from '@/types/store';
 import { User } from '@/types/user';
-// --- Appwrite/SendPulse Integration START ---
 import { functions, isAppwriteConfigured } from '@/appwrite';
-import { Functions } from 'appwrite';
-// --- Appwrite/SendPulse Integration END ---
 
 // Assuming updateLocalEvent helper is defined in part2 or elsewhere
-// If defined in part2, it should be imported or accessed via dispatch
 declare function updateLocalEvent(context: ActionContext<EventState, RootState>, payload: { id: string; changes: Partial<Event> }): void;
 
 // --- Private helper: Calculate XP earned for event participation ---
@@ -43,24 +39,18 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
     const baseParticipationXP = 10;
     const submittedParticipationXP = 30;
     const organizerXP = 50;
-    const winnerBonusXP = 100; // Bonus XP for being selected as a winner for a role/criterion
-    const bestPerformerBonusXP = 10; // General XP bonus for the overall best performer in team events
+    const winnerBonusXP = 100;
+    const bestPerformerBonusXP = 10;
 
-    // --- Organizers ---
     (eventData.details.organizers || []).filter(Boolean).forEach(uid => {
         if (!xpAwardMap[uid]) xpAwardMap[uid] = {};
-        // Use 'Organizer' key for this specific XP source
         xpAwardMap[uid]['Organizer'] = (xpAwardMap[uid]['Organizer'] || 0) + organizerXP;
     });
 
-    // --- Role-Specific XP from Criteria (for Winners) ---
     const winners = eventData.winners || {};
     const allocations = eventData.criteria || [];
 
-    // --- Apply XP based on event type ---
     if (eventData.details.format === 'Team' && eventData.teams && Array.isArray(eventData.teams)) {
-        // --- Team Event XP Logic ---
-        // Type assertion needed if teamCriteriaRatings is not standard in Event type
         const teamCriteriaRatings = (eventData as any).teamCriteriaRatings || [];
 
         eventData.teams.forEach(team => {
@@ -71,23 +61,19 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
             teamMembers.forEach(memberId => {
                 if (!xpAwardMap[memberId]) xpAwardMap[memberId] = {};
 
-                // 1. Base Participation XP
                 xpAwardMap[memberId]['Participation'] = (xpAwardMap[memberId]['Participation'] || 0) + participationXP;
 
-                // 2. XP from winning criteria selections (awarded per team member)
                 allocations.forEach(alloc => {
                     const constraintIdxStr = alloc.constraintIndex.toString();
-                    // Check if *any* rating selected this team for this criterion
                     const wonThisCriterion = teamCriteriaRatings.some((rating: any) =>
                         rating.selections?.criteria?.[constraintIdxStr] === team.teamName
                     );
                     if (wonThisCriterion) {
-                        const roleKey = alloc.targetRole || 'general'; // Use specified role or 'general'
+                        const roleKey = alloc.targetRole || 'general';
                         xpAwardMap[memberId][roleKey] = (xpAwardMap[memberId][roleKey] || 0) + (alloc.points || 0);
                     }
                 });
 
-                // 3. Bonus XP if selected as Overall Best Performer
                 const wasBestPerformer = teamCriteriaRatings.some((rating: any) =>
                     rating.selections?.bestPerformer === memberId
                 );
@@ -97,21 +83,17 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
             });
         });
     } else {
-        // --- Individual Event XP Logic ---
         const participants = (eventData.participants || []).filter(Boolean);
         participants.forEach(uid => {
             if (!xpAwardMap[uid]) xpAwardMap[uid] = {};
 
-            // 1. Base Participation XP
             const hasSubmission = eventData.submissions?.some(sub => sub.submittedBy === uid || sub.participantId === uid);
             xpAwardMap[uid]['Participation'] = (xpAwardMap[uid]['Participation'] || 0) + (hasSubmission ? submittedParticipationXP : baseParticipationXP);
 
-            // 2. XP from winning selections + Winner Bonus
             allocations.forEach(alloc => {
                 const roleKey = alloc.targetRole || 'general';
                 const isWinnerForRole = winners[roleKey]?.includes(uid);
                 if (isWinnerForRole) {
-                    // Award criterion points + flat winner bonus for the specific role
                     xpAwardMap[uid][roleKey] = (xpAwardMap[uid][roleKey] || 0) + (alloc.points || 0) + winnerBonusXP;
                 }
             });
@@ -128,29 +110,24 @@ interface CloseEventResult {
 }
 
 // --- Internal function for closing event logic (with notification) ---
-async function closeEventPermanentlyInternal(
+async function _internalCloseEventPermanently(
     context: ActionContext<EventState, RootState>,
     eventId: string
 ): Promise<CloseEventResult> {
-    const { dispatch } = context;
+    const { dispatch, rootGetters } = context;
     const eventRef: DocumentReference<DocumentData> = doc(db, 'events', eventId);
     const batch: WriteBatch = writeBatch(db);
     let xpAwardMap: Record<string, Record<string, number>> = {};
     let fetchedEventData: Event | null = null;
+    const currentUser: User | null = rootGetters['user/getUser'];
 
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) return { success: false, message: "Event not found." };
         fetchedEventData = { id: eventId, ...eventSnap.data() } as Event;
 
-        // Validation checks
         if (fetchedEventData.status !== EventStatus.Completed) {
             return { success: false, message: "Only completed events can be closed permanently." };
-        }
-        const orgRatings = fetchedEventData.ratings?.organizer;
-        const teamCriteriaRatings = (fetchedEventData as any).teamCriteriaRatings;
-        if (orgRatings || teamCriteriaRatings) {
-            console.warn(`Closing event ${eventId} while rating data might exist. Ensure ratings were intended to be closed.`);
         }
         if (fetchedEventData.closedAt) {
             console.warn(`Event ${eventId} is already closed.`);
@@ -159,7 +136,6 @@ async function closeEventPermanentlyInternal(
 
         xpAwardMap = await calculateEventXP(fetchedEventData);
 
-        // Prepare batch updates for users' XP
         for (const [userId, roleXpMap] of Object.entries(xpAwardMap)) {
             if (!userId) continue;
             const userRef: DocumentReference<DocumentData> = doc(db, 'users', userId);
@@ -169,46 +145,55 @@ async function closeEventPermanentlyInternal(
                 }
             }
         }
-        await batch.commit();
-        console.log(`XP batch committed for event ${eventId}.`);
 
         const closedTimestamp = Timestamp.now();
-        const eventUpdates: Partial<Event> = {
+        batch.update(eventRef, {
             closedAt: closedTimestamp,
             lastUpdatedAt: closedTimestamp
-        };
-        await updateDoc(eventRef, eventUpdates);
-        console.log(`Event ${eventId} marked as closed in Firestore.`);
+        });
 
-        dispatch('updateLocalEvent', { id: eventId, changes: eventUpdates });
+        await batch.commit();
+        console.log(`Firestore batch committed for closing event ${eventId}.`);
 
-        // --- Appwrite/SendPulse Integration START ---
+        dispatch('updateLocalEvent', { id: eventId, changes: { closedAt: closedTimestamp, lastUpdatedAt: closedTimestamp } });
+
         if (isAppwriteConfigured() && fetchedEventData) {
             try {
                 const organizers = fetchedEventData.details?.organizers || [];
                 const participants = fetchedEventData.participants || [];
                 const teamMembers = (fetchedEventData.teams || []).flatMap(t => t.members || []);
-                const targetUserIds = [...new Set([...organizers, ...participants, ...teamMembers])].filter(Boolean);
+                const targetUserIds = [...new Set([...organizers, ...participants, ...teamMembers])]
+                    .filter(Boolean)
+                    .filter(id => id !== currentUser?.uid);
 
                 if (targetUserIds.length > 0) {
                     const totalAwardedXP = Object.values(xpAwardMap).reduce((sum, roles) => sum + Object.values(roles).reduce((s, xp) => s + xp, 0), 0);
-                    const notificationPayload = {
-                        notificationType: 'eventClosedXP',
+                    const functionPayload = {
+                        notificationType: 'eventClosed',
                         targetUserIds: targetUserIds,
+                        eventId: eventId,
                         messageTitle: `Event Closed & XP Awarded: ${fetchedEventData.details?.type || 'Event'}`,
                         messageBody: `"${fetchedEventData.details?.type || 'Event'}" has been closed. XP has been awarded! (Total: ${totalAwardedXP} XP)`,
                         eventUrl: `/event/${eventId}`,
                         eventName: fetchedEventData.details?.type || 'Unnamed Event',
                     };
-                    console.log("Triggering push notification for event closure:", notificationPayload);
-                    await functions.createExecution('triggerSendPulsePush', JSON.stringify(notificationPayload), false);
-                    console.log(`Push notification trigger attempted for event closure ${eventId}.`);
+                    console.log("Triggering Appwrite function for event closure:", functionPayload);
+                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
+                    await functions.createExecution(
+                        functionId,
+                        JSON.stringify(functionPayload),
+                        false
+                    );
+                    console.log(`Appwrite function execution triggered for event closure ${eventId}.`);
                 }
             } catch (pushError) {
-                console.error(`Failed to trigger push notification for event closure ${eventId}:`, pushError);
+                console.error(`Failed to trigger Appwrite function for event closure ${eventId}:`, pushError);
+                dispatch('notification/showNotification', {
+                    message: 'Event closed, but failed to send notification.',
+                    type: 'warning'
+                }, { root: true });
             }
         }
-        // --- Appwrite/SendPulse Integration END ---
 
         return {
             success: true,
@@ -219,6 +204,10 @@ async function closeEventPermanentlyInternal(
     } catch (error: any) {
         console.error('Error closing event permanently:', error);
         const message = error instanceof Error ? error.message : "Failed to close event and award XP.";
+        dispatch('notification/showNotification', {
+            message: `Failed to close event: ${message}`,
+            type: 'error'
+        }, { root: true });
         throw new Error(message);
     }
 }
@@ -241,76 +230,74 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
         if (currentEvent.closedAt) throw new Error("Cannot toggle ratings for a closed event.");
 
         const updates: Partial<Event> = { lastUpdatedAt: Timestamp.now() };
-        const now = Timestamp.now();
-
         await updateDoc(eventRef, updates);
 
-        // --- Push Notification: Ratings Opened ---
-        if (isOpen && currentEvent.status === EventStatus.Completed) {
+        dispatch('updateLocalEvent', { id: eventId, changes: updates });
+
+        if (isOpen && isAppwriteConfigured()) {
             try {
-                // Determine participants (team or individual)
                 let participantIds: string[] = [];
                 if (currentEvent.details.format === 'Team' && Array.isArray(currentEvent.teams)) {
                     participantIds = currentEvent.teams.flatMap(team => team.members || []);
                 } else if (Array.isArray(currentEvent.participants)) {
                     participantIds = currentEvent.participants;
                 }
-                // Remove duplicates and exclude the user who triggered the action
-                const currentUserId = currentUser?.uid;
-                participantIds = [...new Set(participantIds)].filter(id => id && id !== currentUserId);
+                const organizerIds = new Set(currentEvent.details.organizers || []);
+                const targetUserIds = [...new Set(participantIds)]
+                    .filter(id => id && !organizerIds.has(id) && id !== currentUser?.uid);
 
-                if (participantIds.length > 0) {
-                    // --- Appwrite Push Notification ---
-                    const appwrite = new (require('appwrite').Client)()
-                      .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
-                      .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
-                    const functions = new Functions(appwrite);
-                    const payload = {
+                if (targetUserIds.length > 0) {
+                    const functionPayload = {
                         notificationType: 'ratingOpen',
-                        targetUserIds: participantIds,
+                        targetUserIds: targetUserIds,
+                        eventId: eventId,
                         messageTitle: 'Ratings are now open!',
-                        messageBody: `You can now rate or select winners for "${currentEvent.details?.type || 'this event'}".`,
-                        eventUrl: `/events/${eventId}/rate`,
-                        eventName: currentEvent.details?.type || '',
+                        messageBody: `You can now rate participants/teams for "${currentEvent.details?.type || 'this event'}".`,
+                        eventUrl: `/event/${eventId}`,
+                        eventName: currentEvent.details?.type || 'Unnamed Event',
                     };
+
+                    console.log("Triggering Appwrite function for ratings open:", functionPayload);
+                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
                     await functions.createExecution(
-                        import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID,
-                        JSON.stringify(payload)
+                        functionId,
+                        JSON.stringify(functionPayload),
+                        false
                     );
+                    console.log(`Appwrite function execution triggered for ratings open ${eventId}.`);
                 }
-            } catch (e) {
-                console.error('Failed to trigger ratings open push notification:', e);
+            } catch (pushError) {
+                console.error('Failed to trigger ratings open push notification:', pushError);
+                dispatch('notification/showNotification', {
+                    message: 'Ratings toggled, but failed to send notification.',
+                    type: 'warning'
+                }, { root: true });
             }
         }
 
-        const freshSnap = await getDoc(eventRef);
-        const freshData = freshSnap.exists() ? freshSnap.data() as Event : null;
-        const finalChanges = {
-            completedAt: freshData?.completedAt ?? updates.completedAt,
-            lastUpdatedAt: freshData?.lastUpdatedAt ?? updates.lastUpdatedAt, // Include lastUpdatedAt
-        };
-        dispatch('updateLocalEvent', { id: eventId, changes: finalChanges }); // Use helper
         return { status: 'success' };
     } catch (error: any) {
         console.error(`Error toggling ratings for ${eventId}:`, error);
+        dispatch('notification/showNotification', {
+            message: `Failed to toggle ratings: ${error.message || 'Unknown error'}`,
+            type: 'error'
+        }, { root: true });
         return { status: 'error', message: error.message || 'Unknown error.' };
     }
 }
 
 // --- ACTION: Fetch All Events ---
-export async function fetchEvents({ commit, dispatch }: ActionContext<EventState, RootState>) {
+export async function fetchEvents({ commit, dispatch }: ActionContext<EventState, RootState>): Promise<Event[]> {
     try {
         const q = query(collection(db, "events"), orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         const events: Event[] = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
         commit('setEvents', events);
+        return events;
     } catch (error: any) {
         console.error("Error fetching events:", error);
         commit('setEvents', []);
-        if (error instanceof FirestoreError && (error.code === 'unavailable' || error.code === 'failed-precondition')) {
-            console.warn("Firestore connection issue detected.");
-            await dispatch('handleFirestoreError', error); // Calls helper below
-        }
+        await dispatch('handleFirestoreError', error);
         throw new Error(`Failed to fetch events: ${error.message || 'Unknown error'}`);
     }
 }
@@ -363,7 +350,6 @@ export async function submitTeamCriteriaRating({ rootGetters, dispatch }: Action
         const isParticipant = eventData.teams?.some(team => team.members?.includes(ratedBy));
         if (isParticipant) throw new Error("Participants cannot rate.");
 
-        // Type assertion needed here as teamCriteriaRatings is not standard in Event type yet
         const teamCriteriaRatings = Array.isArray((eventData as any).teamCriteriaRatings) ? [...(eventData as any).teamCriteriaRatings] : [];
         const existingIndex = teamCriteriaRatings.findIndex(r => r.ratedBy === ratedBy);
         if (existingIndex !== -1) {
@@ -372,12 +358,12 @@ export async function submitTeamCriteriaRating({ rootGetters, dispatch }: Action
         }
         teamCriteriaRatings.push({ ratedBy, ratedAt: Timestamp.fromDate(ratedAt), selections });
 
-        const updates: Partial<Event> & { teamCriteriaRatings?: any[] } = { // Add field dynamically
+        const updates: Partial<Event> & { teamCriteriaRatings?: any[] } = {
             teamCriteriaRatings, lastUpdatedAt: Timestamp.now()
         };
         await updateDoc(eventRef, updates);
 
-        dispatch('updateLocalEvent', { id: eventId, changes: updates }); // Use helper
+        dispatch('updateLocalEvent', { id: eventId, changes: updates });
         console.log(`Team criteria rating submitted for ${eventId} by ${ratedBy}.`);
     } catch (error: any) {
         console.error(`Error submitting team criteria rating for ${eventId}:`, error);
@@ -403,11 +389,9 @@ export async function submitIndividualWinners({ rootGetters, dispatch }: ActionC
         if (!eventSnap.exists()) throw new Error('Event not found.');
         fetchedEventData = { id: eventId, ...eventSnap.data() } as Event;
 
-        // --- Allow Admin or Organizer to submit winners ---
         const isAdmin = currentUser?.role === 'Admin';
         const isOrganizer = Array.isArray(fetchedEventData.details?.organizers) && fetchedEventData.details.organizers.includes(currentUser?.uid ?? '');
         if (!isAdmin && !isOrganizer) throw new Error("Permission Denied: Only Admins or Organizers can select winners.");
-        // --- End Permission Check ---
 
         if (fetchedEventData.status !== EventStatus.Completed) throw new Error("Selection only for completed.");
         if (fetchedEventData.closedAt) throw new Error("Cannot select winners for closed event.");
@@ -418,32 +402,46 @@ export async function submitIndividualWinners({ rootGetters, dispatch }: ActionC
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
         console.log(`Individual winners selected for ${eventId} by ${ratedBy}.`);
 
-        // --- Appwrite/SendPulse Integration START ---
         if (isAppwriteConfigured() && fetchedEventData) {
             try {
-                const allWinnerIds = [...new Set(Object.values(selections).flat())].filter(Boolean);
+                const allWinnerIds = [...new Set(Object.values(selections).flat())]
+                    .filter(Boolean);
 
                 if (allWinnerIds.length > 0) {
-                    const notificationPayload = {
-                        notificationType: 'eventWinnerSelected',
+                    const functionPayload = {
+                        notificationType: 'winnerSelected',
                         targetUserIds: allWinnerIds,
+                        eventId: eventId,
                         messageTitle: `You're a Winner! 🎉 (${fetchedEventData.details?.type || 'Event'})`,
                         messageBody: `Congratulations! You've been selected as a winner in the event: "${fetchedEventData.details?.type || 'Event'}". Check the event details!`,
                         eventUrl: `/event/${eventId}`,
                         eventName: fetchedEventData.details?.type || 'Unnamed Event',
                     };
-                    console.log("Triggering push notification for winners:", notificationPayload);
-                    await functions.createExecution('triggerSendPulsePush', JSON.stringify(notificationPayload), false);
-                    console.log(`Push notification trigger attempted for winners of ${eventId}.`);
+                    console.log("Triggering Appwrite function for winners:", functionPayload);
+                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
+
+                    await functions.createExecution(
+                        functionId,
+                        JSON.stringify(functionPayload),
+                        false
+                    );
+                    console.log(`Appwrite function execution triggered for winners of ${eventId}.`);
                 }
             } catch (pushError) {
-                console.error(`Failed to trigger push notification for winners of ${eventId}:`, pushError);
+                console.error(`Failed to trigger Appwrite function for winners of ${eventId}:`, pushError);
+                dispatch('notification/showNotification', {
+                    message: 'Winners selected, but failed to send notification.',
+                    type: 'warning'
+                }, { root: true });
             }
         }
-        // --- Appwrite/SendPulse Integration END ---
 
     } catch (error: any) {
         console.error(`Error submitting individual winners for ${eventId}:`, error);
+        dispatch('notification/showNotification', {
+            message: `Failed to select winners: ${error.message || 'Unknown error'}`,
+            type: 'error'
+        }, { root: true });
         throw error;
     }
 }
@@ -484,7 +482,7 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
         }
 
         await updateDoc(eventRef, { "ratings.organizer": organizationRatings, lastUpdatedAt: Timestamp.now() });
-        dispatch('updateLocalEvent', { id: eventId, changes: { ratings: { organizer: organizationRatings } } }); // Use helper
+        dispatch('updateLocalEvent', { id: eventId, changes: { ratings: { organizer: organizationRatings } } });
         console.log(`Organization rating (${numericScore}) submitted for ${eventId} by ${userId}.`);
     } catch (error: any) {
         console.error(`Error submitting organization rating for ${eventId}:`, error);
@@ -492,17 +490,17 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
     }
 }
 
+// --- ACTION: Close Event Permanently (Public Action) ---
 export async function closeEventPermanently(context: ActionContext<EventState, RootState>, { eventId }: { eventId: string }): Promise<CloseEventResult> {
     const { rootGetters } = context;
     const currentUser: User | null = rootGetters['user/getUser'];
     if (currentUser?.role !== 'Admin') throw new Error("Unauthorized: Only Admins can permanently close events.");
 
     try {
-         // Delegate to internal function which now handles notifications
-         return await closeEventPermanentlyInternal(context, eventId);
+        return await _internalCloseEventPermanently(context, eventId);
     } catch (error: any) {
-         console.error(`Caught error in closeEventPermanently action for ${eventId}:`, error);
-         throw new Error(error.message || "Failed to close event.");
+        console.error(`Caught error in closeEventPermanently action wrapper for ${eventId}:`, error);
+        throw error;
     }
 }
 
@@ -531,5 +529,4 @@ export async function handleFirestoreError({ commit, dispatch }: ActionContext<E
 // --- ACTION: Clear Date Check State (Placeholder) ---
 export async function clearDateCheck({ commit }: ActionContext<EventState, RootState>) {
     console.log("Date check state cleared (if applicable).");
-    // Add mutation commit if needed: commit('CLEAR_DATE_CONFLICT_STATE');
 }

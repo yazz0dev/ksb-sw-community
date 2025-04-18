@@ -1,7 +1,7 @@
 // src/store/modules/events/index.ts
 import { Module } from 'vuex';
 import { EventState, Event, EventStatus } from '@/types/event'; // Import needed types
-import { RootState } from '@/store/types';
+import { RootState } from '@/types/store';
 import { eventActions } from './actions';
 import * as eventActionsPart2 from './actions.part2';
 import { eventMutations } from './mutations';

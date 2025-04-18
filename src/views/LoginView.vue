@@ -72,11 +72,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { getAuth, signInWithEmailAndPassword, UserCredential, User } from 'firebase/auth'; // Import User
+import { getAuth, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
 import { useStore } from 'vuex';
-// --- Appwrite/SendPulse Integration START ---
-import { isAppwriteConfigured } from '@/appwrite'; // Import helper
-// --- Appwrite/SendPulse Integration END ---
 
 const email = ref<string>('');
 const password = ref<string>('');
@@ -85,72 +82,25 @@ const isLoading = ref<boolean>(false);
 const router = useRouter();
 const store = useStore();
 
-// --- Appwrite/SendPulse Integration START ---
-// Extracted Appwrite JWT login logic
-async function handleAppwriteJwtLogin(firebaseUser: User) {
-    if (!firebaseUser || !isAppwriteConfigured()) return;
-    console.log("Attempting Appwrite JWT login for:", firebaseUser.uid);
-    try {
-        const idToken = await firebaseUser.getIdToken(true);
-        // IMPORTANT: Replace '/api/generate-appwrite-jwt' with your actual secure backend endpoint URL
-        const response = await fetch('/api/generate-appwrite-jwt', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${idToken}`
-            },
-        });
-
-        if (!response.ok) {
-             const errorText = await response.text();
-             console.error("Appwrite JWT Generation Error:", response.status, errorText);
-             throw new Error(`Backend token generation failed (Status: ${response.status})`);
-        }
-        const { appwriteJwt } = await response.json();
-        if (!appwriteJwt) throw new Error("No Appwrite JWT received");
-
-        const { account } = await import('../appwrite');
-        // Fix: createJWT does not take arguments, just call it without parameters
-        await account.createJWT();
-        console.log('Appwrite JWT session created successfully.');
-
-        // Optionally trigger SendPulse init/check here if needed after Appwrite login
-        const { initSendpulse } = await import('../sendpulse');
-        initSendpulse();
-
-    } catch (error) {
-        console.error("Appwrite JWT login process failed:", error);
-        // Decide how to handle this error (e.g., notify user, proceed without Appwrite session?)
-        // For now, we log the error but let the Firebase login proceed.
-        // You might want to add a notification:
-        // store.dispatch('notification/showNotification', { message: 'Could not sync session with Appwrite.', type: 'warning' });
-    }
-}
-// --- Appwrite/SendPulse Integration END ---
-
 const processLoginSuccess = async (user: UserCredential['user']): Promise<void> => {
     console.log("Firebase Login successful for:", user.uid);
     try {
+        // Fetch Firebase user data first
         await store.dispatch('user/fetchUserData', user.uid);
         console.log("Firebase user data fetch dispatched.");
 
-        // --- Appwrite/SendPulse Integration START ---
-        // Attempt Appwrite JWT Login *after* Firebase user data is fetched
-        await handleAppwriteJwtLogin(user);
-        // --- Appwrite/SendPulse Integration END ---
-
         // Proceed with routing based on Firebase role
-        const role = store.getters['user/getUserRole']; // Corrected getter name
+        const role = store.getters['user/getUserRole'];
         if (role === 'Admin') {
-            router.replace({ name: 'AdminDashboard' }); // Route to Admin Dashboard
+            router.replace({ name: 'AdminDashboard' });
         } else {
             router.replace({ name: 'Home' });
         }
         console.log(`Navigation to ${role === 'Admin' ? 'AdminDashboard' : 'Home'} attempted.`);
 
     } catch (fetchError) {
-        console.error("Error fetching user data or Appwrite login after Firebase login:", fetchError);
-        errorMessage.value = 'Login successful, but failed to load profile/sync session. Please try refreshing.';
+        console.error("Error fetching user data after Firebase login:", fetchError);
+        errorMessage.value = 'Login successful, but failed to load profile. Please try refreshing.';
         // Keep the user logged into Firebase, but show an error.
     }
 };
@@ -161,11 +111,11 @@ const signIn = async (): Promise<void> => {
     try {
         const auth = getAuth();
         const userCredential = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
-        // Call the combined success handler
+        // processLoginSuccess will handle fetching data and routing.
         await processLoginSuccess(userCredential.user);
+
     } catch (error: any) {
         console.error("Email/Password Sign-In Error:", error);
-        // ... (keep existing Firebase error handling) ...
         switch (error.code) {
             case 'auth/invalid-email':
             case 'auth/missing-email':
@@ -176,7 +126,7 @@ const signIn = async (): Promise<void> => {
                 break;
             case 'auth/user-not-found':
             case 'auth/wrong-password':
-            case 'auth/invalid-credential': // Add this common error code
+            case 'auth/invalid-credential':
                 errorMessage.value = 'Invalid email or password.';
                 break;
             default:

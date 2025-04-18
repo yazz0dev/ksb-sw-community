@@ -4,6 +4,17 @@
     <OfflineStateHandler />
     <NotificationSystem />
 
+    <!-- Push Notification Prompt -->
+    <div v-if="showPushPermissionPrompt" class="push-prompt-banner alert alert-info d-flex justify-content-between align-items-center p-2">
+      <span class="small">Enable push notifications for event updates?</span>
+      <div>
+        <button @click="requestPushPermission" class="btn btn-sm btn-light me-2">Enable</button>
+        <button @click="dismissPushPrompt" class="btn btn-sm btn-link text-secondary p-0" aria-label="Dismiss prompt">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
     <!-- Top Navigation Bar -->
     <nav
       class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm fixed-top app-navbar"
@@ -11,7 +22,8 @@
       role="navigation"
       aria-label="main navigation"
     >
-      <div class="container-lg">
+      <!-- Navbar content as previously provided -->
+       <div class="container-lg">
         <!-- Brand -->
         <router-link
           class="navbar-brand d-flex align-items-center app-navbar-brand"
@@ -97,17 +109,6 @@
                 Transparency
               </router-link>
             </li>
-             <!-- Admin Dashboard (Desktop only if Admin) -->
-             <li class="nav-item d-none d-lg-block" v-if="isAdmin">
-                 <router-link
-                    class="nav-link"
-                    active-class="active fw-semibold"
-                    to="/admin/dashboard"
-                    @click="closeNavbar"
-                 >
-                    Admin
-                 </router-link>
-              </li>
           </ul>
 
           <!-- Right-aligned Links (Auth/User) -->
@@ -182,12 +183,6 @@
         </router-view>
     </main>
 
-    <!-- Example Push Notification Prompt Banner -->
-    <div v-if="showPushPrompt" class="push-prompt-banner alert alert-info">
-      <span>Enable notifications for important event updates?</span>
-      <button @click="requestPushPermission" class="btn btn-sm btn-light ms-2">Enable</button>
-    </div>
-
     <!-- Bottom Navigation (Mobile Only) -->
     <BottomNav
       v-if="isAuthenticated"
@@ -199,7 +194,7 @@
 
 <script setup lang="ts">
 // --- Core Vue/External Imports ---
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
@@ -209,26 +204,24 @@ import BottomNav from './components/BottomNav.vue';
 import OfflineStateHandler from './components/OfflineStateHandler.vue';
 import NotificationSystem from './components/NotificationSystem.vue';
 
-// --- Appwrite/SendPulse Integration START ---
-import { isAppwriteConfigured } from './appwrite'; // Appwrite config check
-import { initSendpulse, promptForPushSubscription } from './sendpulse'; // SendPulse logic
-// --- Appwrite/SendPulse Integration END ---
+// --- Appwrite Integration START ---
+import { isAppwriteConfigured, account } from './appwrite';
+// --- Appwrite Integration END ---
 
 // --- Types ---
-// Define Bootstrap Collapse type (if not using @types/bootstrap)
 interface Collapse {
   toggle(): void;
   hide(): void;
   show(): void;
-  dispose(): void; // Add dispose for cleanup
+  dispose(): void;
 }
 declare global {
   interface Window {
     bootstrap?: {
       Modal?: any;
       Collapse?: {
-          new(element: Element | string, options?: any): Collapse;
-          getInstance(element: Element | string): Collapse | null;
+        new(element: Element | string, options?: any): Collapse;
+        getInstance(element: Element | string): Collapse | null;
       };
     };
   }
@@ -241,15 +234,14 @@ const router = useRouter();
 // --- State ---
 const showNavbar = ref(true);
 const lastScrollPosition = ref(0);
-const scrollThreshold = 50; // Pixels to scroll before hiding/showing nav
-const isPushSubscribed = ref<boolean | null>(null); // null initially, true/false after check
-const showPushPrompt = computed(() => isAppwriteConfigured() && isPushSubscribed.value === false);
+const scrollThreshold = 50;
+const showPushPermissionPrompt = ref(false); // State for the prompt visibility
 
 // --- Computed Vuex Getters ---
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-const isAdmin = computed(() => store.getters['user/isAdmin']); // Use direct getter
-const userName = computed(() => store.getters['user/getUser']?.name || 'User'); // Safer access
-const userId = computed(() => store.getters['user/userId']); // Use direct getter
+const isAdmin = computed(() => store.getters['user/isAdmin']);
+const userName = computed(() => store.getters['user/getUser']?.name || 'User');
+const userId = computed(() => store.getters['user/userId']);
 
 // --- Methods ---
 
@@ -257,33 +249,33 @@ const userId = computed(() => store.getters['user/userId']); // Use direct gette
 const logout = async (): Promise<void> => {
   const auth = getAuth();
   try {
+    // Clear Vuex state first
+    await store.commit('user/clearUserData');
+    await store.commit('user/setHasFetched', true);
+    
+    // Delete Appwrite session if configured
+    if(isAppwriteConfigured()) {
+      try {
+        await account.deleteSession('current');
+        console.log("Appwrite session deleted successfully.");
+      } catch (e) {
+        // Ignore errors if session already expired/doesn't exist
+        console.warn("Could not delete Appwrite session:", e);
+      }
+    }
+
+    // Firebase logout last
     await signOut(auth);
     console.log("Firebase logout successful.");
-    // --- Appwrite/SendPulse Integration START ---
-    // Logout from Appwrite session as well
-    if (isAppwriteConfigured()) {
-        try {
-            const { account } = await import('./appwrite');
-            await account.deleteSession('current');
-            console.log("Appwrite session deleted.");
-        } catch (appwriteError) {
-            console.warn("Could not delete Appwrite session:", appwriteError);
-        }
-    }
-    isPushSubscribed.value = false; // Reset push status on logout
-    // --- Appwrite/SendPulse Integration END ---
+
+    // Force navigation to landing page
+    await router.replace({ name: 'Landing' });
   } catch (error) {
-    console.error("Firebase logout failed:", error);
-    // Optionally notify user
-    store.dispatch('notification/showNotification', { message: 'Logout failed. Please try again.', type: 'error' });
-  } finally {
-    // Always clear local user data and redirect
-    await store.dispatch('user/clearUserData');
-    router.replace({ name: 'Login' }).catch(err => {
-      if (err.name !== 'NavigationDuplicated' && err.name !== 'NavigationCancelled') {
-        console.error('Router navigation error after logout:', err);
-      }
-    });
+    console.error("Logout failed:", error);
+    store.dispatch('notification/showNotification', { 
+      message: 'Logout failed. Please try again.', 
+      type: 'error' 
+    }, { root: true });
   }
 };
 
@@ -291,11 +283,9 @@ const logout = async (): Promise<void> => {
 const closeNavbar = () => {
   try {
     const navbarContent = document.getElementById('navbarNav');
-    if (navbarContent && window.bootstrap?.Collapse) {
+    if (navbarContent?.classList.contains('show') && window.bootstrap?.Collapse) { // Check if it's actually shown
       const bsCollapse = window.bootstrap.Collapse.getInstance(navbarContent);
-      if (bsCollapse) {
-        bsCollapse.hide();
-      }
+      bsCollapse?.hide(); // Use optional chaining
     }
   } catch (error) {
     console.warn('Failed to close navbar:', error);
@@ -305,107 +295,121 @@ const closeNavbar = () => {
 // Combine closing navbar and logging out
 const handleLogout = async (): Promise<void> => {
   closeNavbar();
-  await logout();
+  await logout(); // Firebase signout triggers onAuthStateChanged which handles redirect/clear
 };
 
 // Scroll Handler for Navbar Hiding/Showing
 const handleScroll = () => {
   const currentScrollPosition = window.scrollY;
-  // Ignore small scrolls
   if (Math.abs(currentScrollPosition - lastScrollPosition.value) < scrollThreshold && currentScrollPosition > 0) {
     return;
   }
-  // Show if scrolling up or near the top, hide if scrolling down
   showNavbar.value = currentScrollPosition < lastScrollPosition.value || currentScrollPosition < 10;
   lastScrollPosition.value = currentScrollPosition;
 };
 
-// --- Appwrite/SendPulse Integration START ---
-// Request Push Permission
-const requestPushPermission = async () => {
-    try {
-        await promptForPushSubscription(); // Call the imported function
-        // Re-check status after prompting (SendPulse SDK might have callbacks)
-        setTimeout(checkPushStatus, 1000); // Delay check slightly
-    } catch (error) {
-        console.error("Error prompting for push subscription:", error);
-        store.dispatch('notification/showNotification', { message: 'Could not enable notifications.', type: 'error' });
-    }
-};
+// --- Push Notification Methods ---
+function isPushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
 
-// Check SendPulse Subscription Status
-const checkPushStatus = () => {
-    if (typeof window.oSpP === 'undefined' || typeof window.oSpP.push !== 'function') {
-        console.warn("SendPulse SDK not ready for status check.");
-        isPushSubscribed.value = null; // Status unknown
-        return;
+function checkPushPermissionState() {
+  if (!isAppwriteConfigured() || !isPushSupported()) {
+    return; // Not supported or configured
+  }
+  // Show prompt only if authenticated, permission is default, and not dismissed
+  if (isAuthenticated.value && Notification.permission === 'default' && !sessionStorage.getItem('pushPromptDismissed')) {
+    showPushPermissionPrompt.value = true;
+  } else {
+    showPushPermissionPrompt.value = false;
+  }
+}
+
+async function requestPushPermission() {
+  showPushPermissionPrompt.value = false; // Hide prompt immediately
+  sessionStorage.setItem('pushPromptDismissed', 'true'); // Don't ask again this session
+
+  if (!isAppwriteConfigured() || !isPushSupported()) {
+    store.dispatch('notification/showNotification', { message: 'Push not supported.', type: 'warning' }, { root: true });
+    return;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+
+    if (permission !== 'granted') {
+      store.dispatch('notification/showNotification', { message: 'Push permission denied.', type: 'warning' }, { root: true });
+      return;
     }
-    window.oSpP.push('getSubscriptionStatus', (status) => {
-        console.log('SendPulse Subscription Status:', status);
-        isPushSubscribed.value = (status === 'subscribed');
-    });
-};
-// --- Appwrite/SendPulse Integration END ---
+
+    // Permission granted, now register with Appwrite
+    console.log("Push permission granted by user. Attempting subscription...");
+    const registration = await navigator.serviceWorker.ready;
+    // Use 'as any' to bypass type error for createPushSubscription
+    await (account as any).createPushSubscription(registration);
+    store.dispatch('notification/showNotification', { message: 'Push notifications enabled!', type: 'success' }, { root: true });
+    console.log("Successfully subscribed to Appwrite push notifications via UI prompt.");
+
+  } catch (err) {
+    store.dispatch('notification/showNotification', { message: 'Failed to enable push notifications.', type: 'error' }, { root: true });
+    console.error('Appwrite push registration failed from UI prompt:', err);
+  }
+}
+
+function dismissPushPrompt() {
+    showPushPermissionPrompt.value = false;
+    sessionStorage.setItem('pushPromptDismissed', 'true'); // Remember dismissal for this session
+}
+
+// Watch isAuthenticated to check push permissions when user logs in
+watch(isAuthenticated, (loggedIn) => {
+    if (loggedIn) {
+        // Use setTimeout to allow auth state/Appwrite login to potentially complete
+        setTimeout(checkPushPermissionState, 1500);
+    } else {
+        showPushPermissionPrompt.value = false; // Hide prompt if logged out
+    }
+});
 
 // --- Lifecycle Hooks ---
 onMounted(() => {
-  // Initialize offline capabilities
   store.dispatch('app/initOfflineCapabilities');
-  // Add scroll listener
   window.addEventListener('scroll', handleScroll, { passive: true });
 
-  // --- Appwrite/SendPulse Integration START ---
-  // Initialize SendPulse only if Appwrite is configured and user is potentially logged in
-  if (isAppwriteConfigured() && isAuthenticated.value) {
-      // Delay slightly to allow SDK script to potentially load
-      setTimeout(() => {
-          initSendpulse();
-          checkPushStatus(); // Check status on mount
-      }, 500);
-  } else {
-       isPushSubscribed.value = false; // Assume not subscribed if not configured/logged in
+  // Initial check for push permission state if already logged in
+  if (isAuthenticated.value) {
+       setTimeout(checkPushPermissionState, 1500);
   }
-  // --- Appwrite/SendPulse Integration END ---
 
-  // Initialize Bootstrap Collapse listeners (safer approach)
+  // Simplified Bootstrap Collapse initialization (event delegation is more robust but complex)
   setTimeout(() => {
     try {
         const navbarContent = document.getElementById('navbarNav');
-        const toggler = document.querySelector<HTMLElement>('.navbar-toggler'); // Type assertion
-
-        if (navbarContent && toggler && window.bootstrap?.Collapse) {
-            // Ensure only one instance is created
-            let bsCollapse = window.bootstrap.Collapse.getInstance(navbarContent);
-            if (!bsCollapse) {
-                bsCollapse = new window.bootstrap.Collapse(navbarContent, { toggle: false });
-            }
-
-            // Use event delegation or ensure listener is added correctly
-            // This example assumes direct listener is okay, but check for duplicates if issues arise
-            toggler.onclick = (e) => { // Use onclick for simplicity here, or manage listeners carefully
-                e.preventDefault();
-                bsCollapse?.toggle();
-            };
-
-            // Add listeners to close menu on link click (mobile)
-            navbarContent.querySelectorAll('.nav-link, .dropdown-item').forEach(link => {
-                link.addEventListener('click', () => {
-                    if (window.innerWidth < 992 && navbarContent.classList.contains('show')) {
-                        bsCollapse?.hide();
-                    }
-                });
-            });
+        if (navbarContent && window.bootstrap?.Collapse) {
+            // Initialize if not already done (toggle: false prevents initial toggle)
+             if (!window.bootstrap.Collapse.getInstance(navbarContent)) {
+                 new window.bootstrap.Collapse(navbarContent, { toggle: false });
+             }
         }
+         // Add listeners to close menu on link click (mobile) - safe to add multiple times
+         document.querySelectorAll('#navbarNav .nav-link, #navbarNav .dropdown-item').forEach(link => {
+            link.addEventListener('click', () => {
+                const collapseElement = document.getElementById('navbarNav');
+                if (collapseElement && window.innerWidth < 992 && collapseElement.classList.contains('show')) {
+                    const bsCollapseInstance = window.bootstrap?.Collapse?.getInstance(collapseElement);
+                    bsCollapseInstance?.hide();
+                }
+            });
+        });
     } catch(e) {
         console.error("Error initializing Bootstrap Collapse:", e);
     }
-  }, 150); // Delay slightly
+  }, 150);
 });
 
 onUnmounted(() => {
-  // Remove scroll listener
   window.removeEventListener('scroll', handleScroll);
-  // Optional: Dispose Bootstrap components if needed
+   // Dispose Bootstrap collapse instance if it exists
    try {
        const navbarContent = document.getElementById('navbarNav');
        if (navbarContent && window.bootstrap?.Collapse) {
@@ -420,6 +424,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Styles as previously provided */
 .app-container {
   min-height: 100vh;
   background-color: var(--bs-light); /* Use Bootstrap light background */
@@ -429,7 +434,7 @@ onUnmounted(() => {
 /* Navbar Styling */
 .app-navbar {
   /* Background color set by Bootstrap class (bg-primary) */
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1); /* Subtle border */
+  border-bottom: 1px solid var(--bs-border-color-translucent); /* Use CSS variable */
 }
 
 .app-navbar-brand {
@@ -442,17 +447,17 @@ onUnmounted(() => {
 
 /* Navbar link colors */
 .navbar-dark .navbar-nav .nav-link {
-    color: rgba(255, 255, 255, 0.75); /* Lighter text for links */
+    color: var(--bs-navbar-color); /* Use Bootstrap variable */
     transition: color 0.2s ease-in-out;
 }
 .navbar-dark .navbar-nav .nav-link:hover,
 .navbar-dark .navbar-nav .nav-link:focus {
-    color: rgba(255, 255, 255, 1); /* Full white on hover/focus */
+    color: var(--bs-navbar-hover-color); /* Use Bootstrap variable */
 }
 /* Active link styling */
 .navbar-dark .navbar-nav .nav-link.active {
-  color: var(--bs-white) !important; /* Full white for active */
-  font-weight: 600;
+  color: var(--bs-navbar-active-color) !important; /* Use Bootstrap variable */
+  font-weight: var(--bs-font-weight-bold); /* Use Bootstrap variable */
 }
 
 /* Mobile Menu Background */
@@ -461,7 +466,7 @@ onUnmounted(() => {
     background-color: var(--bs-primary); /* Match navbar */
     padding: 0.5rem 1rem;
     margin-top: 0.5rem; /* Add some space */
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--bs-border-color-translucent); /* Use CSS variable */
   }
   .navbar-nav {
       width: 100%; /* Ensure full width for layout */
@@ -474,7 +479,6 @@ onUnmounted(() => {
 /* Main Content Area Padding */
 .app-main-content {
   padding-top: 72px; /* Adjust based on fixed navbar height + extra space */
-  /* Padding bottom adjusted by BottomNav presence */
   padding-bottom: 80px; /* Default padding if bottom nav isn't shown */
   min-height: 100vh;
   position: relative;
@@ -531,23 +535,29 @@ onUnmounted(() => {
   -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
 }
 
-/* Push Notification Prompt Banner */
+/* Push Prompt Banner Styling */
 .push-prompt-banner {
-    position: fixed;
-    bottom: 1rem; /* Default position */
-    left: 1rem;
-    right: 1rem;
-    z-index: 1045; /* Above default bottom nav */
-    max-width: 500px; /* Limit width on larger screens */
-    margin: 0 auto; /* Center */
-    transition: bottom 0.3s ease-in-out; /* Animate with navbars */
+  position: fixed;
+  bottom: calc(64px + 1rem); /* Position above bottom nav */
+  left: 1rem;
+  right: 1rem;
+  z-index: 1045; /* Above bottom nav, below modals */
+  border-radius: var(--bs-border-radius); /* Use CSS variable */
+  box-shadow: var(--bs-box-shadow); /* Use CSS variable */
+  transition: bottom 0.3s ease-in-out;
 }
-/* Adjust prompt position when bottom nav is visible */
-.app-container:has(.bottom-nav:not(.nav-hidden)) .push-prompt-banner {
-    bottom: calc(64px + 1rem + env(safe-area-inset-bottom)); /* Position above bottom nav */
+/* Adjust position if bottom nav is hidden */
+.app-container:has(.bottom-nav.nav-hidden) .push-prompt-banner {
+    bottom: 1rem;
 }
-.push-prompt-banner span {
-    margin-right: 0.5rem;
+@media (min-width: 992px) {
+    /* Position differently on desktop */
+    .push-prompt-banner {
+        bottom: 1rem;
+        left: auto; /* Align right */
+        right: 1rem;
+        width: auto; /* Auto width */
+        max-width: 400px;
+    }
 }
-
 </style>

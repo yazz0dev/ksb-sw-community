@@ -76,6 +76,5 @@
 <style scoped>
 .about-section {
   background-color: var(--bs-body-bg);
-  min-height: calc(100vh - 8rem);
 }
 </style>

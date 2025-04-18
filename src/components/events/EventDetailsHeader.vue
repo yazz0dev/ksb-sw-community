@@ -6,31 +6,31 @@
         <!-- Left Column: Details -->
         <div class="col-md">
           <div class="d-flex gap-2 mb-2 flex-wrap">
-            <span :class="['badge rounded-pill fs-6', statusTagClass]">{{ event.status }}</span>
-            <span v-if="event.closed" class="badge rounded-pill bg-light text-dark fs-6">Archived</span>
+            <span :class="['badge rounded-pill fs-6', statusTagClass]">{{ event?.status }}</span>
+            <span v-if="event?.closed" class="badge rounded-pill bg-light text-dark fs-6">Archived</span>
           </div>
 
           <h1 class="display-5 text-primary mb-2">
-            {{ event.title }}
+            {{ event?.title }}
           </h1>
 
           <div class="d-flex flex-wrap mb-4 gap-4">
             <div class="d-flex align-items-center">
               <span class="text-secondary me-2"><i class="fas fa-calendar"></i></span>
               <small class="text-secondary">
-                {{ formatDate(event.details.date.final.start) }} - {{ formatDate(event.details.date.final.end) }}
+                {{ formatDate(event?.details?.date?.final?.start) }} - {{ formatDate(event?.details?.date?.final?.end) }}
               </small>
             </div>
             <div class="d-flex align-items-center">
               <span class="text-secondary me-2"><i class="fas fa-users"></i></span>
               <small class="text-secondary">
-                {{ event.teamSize }} members per team
+                {{ event?.teamSize }} members per team
               </small>
             </div>
           </div>
 
           <!-- Rendered Description -->
-          <div class="rendered-description small" v-html="renderedDescription"></div>
+          <div class="rendered-description small" v-html="renderedDescriptionHtml"></div>
 
         </div>
 
@@ -60,7 +60,7 @@
             </button>
 
             <button
-              v-if="canEdit"
+              v-if="canEdit && event?.id"
               class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center"
               @click="$router.push(`/event/${event.id}/edit`)"
             >
@@ -75,11 +75,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watchEffect } from 'vue';
 import { useRouter } from 'vue-router';
-import { marked } from 'marked'; 
+import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { DateTime } from 'luxon';
+import { Timestamp } from 'firebase/firestore';
 
 interface Event {
   id: string;
@@ -88,8 +89,8 @@ interface Event {
   details: {
     date: {
       final: {
-        start: { toDate(): Date } | null;
-        end: { toDate(): Date } | null;
+        start: Timestamp | null;
+        end: Timestamp | null;
       };
     };
     format: string;
@@ -100,7 +101,7 @@ interface Event {
 }
 
 const props = defineProps<{
-  event: Event;
+  event: Event | null;
   canJoin: boolean;
   canLeave: boolean;
   canEdit: boolean;
@@ -115,31 +116,49 @@ const emit = defineEmits<{
 
 const router = useRouter();
 
-const formatDate = (dateInput: { toDate(): Date } | string | Date | null): string => {
+const renderedDescriptionHtml = ref('');
+
+const formatDate = (dateInput: Timestamp | string | Date | null | undefined): string => {
   if (!dateInput) return 'TBA';
-  const dt = typeof dateInput === 'object' && 'toDate' in dateInput 
-    ? DateTime.fromJSDate(dateInput.toDate()) 
-    : typeof dateInput === 'string'
-    ? DateTime.fromISO(dateInput)
-    : DateTime.fromJSDate(dateInput as Date);
-  return dt.toLocaleString(DateTime.DATE_MED);
+  let dt: DateTime | null = null;
+  if (dateInput instanceof Timestamp) {
+      dt = DateTime.fromJSDate(dateInput.toDate());
+  } else if (dateInput instanceof Date) {
+      dt = DateTime.fromJSDate(dateInput);
+  } else if (typeof dateInput === 'string') {
+      dt = DateTime.fromISO(dateInput);
+  }
+
+  return dt && dt.isValid ? dt.toLocaleString(DateTime.DATE_MED) : 'Invalid Date';
 };
 
-const renderedDescription = computed(() => {
-  if (!props.event.description) return '';
-  marked.setOptions({
-    breaks: true,
-    gfm: true,
-  });
-  const rawHtml: string = marked.parse(props.event.description); // Explicitly type as string
-  return DOMPurify.sanitize(rawHtml);
+const renderDescription = async (description: string | undefined) => {
+    if (!description) {
+        renderedDescriptionHtml.value = '';
+        return;
+    }
+    marked.setOptions({
+        breaks: true,
+        gfm: true,
+    });
+    try {
+        const rawHtml: string = await marked.parse(description);
+        renderedDescriptionHtml.value = DOMPurify.sanitize(rawHtml);
+    } catch (error) {
+        console.error('Error rendering markdown description:', error);
+        renderedDescriptionHtml.value = '<p class="text-danger">Error rendering description.</p>';
+    }
+};
+
+watchEffect(() => {
+    renderDescription(props.event?.description);
 });
 
 const statusTagClass = computed((): string => {
-  switch (props.event.status) {
+  switch (props.event?.status) {
     case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
-    case 'Approved': return 'bg-info-subtle text-info-emphasis'; 
-    case 'InProgress': return 'bg-primary-subtle text-primary-emphasis'; 
+    case 'Approved': return 'bg-info-subtle text-info-emphasis';
+    case 'InProgress': return 'bg-primary-subtle text-primary-emphasis';
     case 'Completed': return 'bg-success-subtle text-success-emphasis';
     case 'Cancelled': return 'bg-danger-subtle text-danger-emphasis';
     default: return 'bg-secondary-subtle text-secondary-emphasis';
