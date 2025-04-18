@@ -83,7 +83,6 @@ import ProfileViewContent from '../components/ProfileViewContent.vue';
 import PortfolioGeneratorButton from '../components/PortfolioGeneratorButton.vue';
 import UserRequests from '../components/UserRequests.vue';
 import AuthGuard from '../components/AuthGuard.vue';
-import PortfolioGenerator from '@/components/PortfolioGenerator.vue';
 import { Project } from '@/types/project'; // Import the Project type
 
 interface UserData {
@@ -111,6 +110,11 @@ const isCurrentUser = ref<boolean>(false);
 const isAdminProfile = ref<boolean>(false);
 const userProjectsForPortfolioButton = ref<Project[]>([]); // Use Project[] type
 const loadingProjectsForPortfolio = ref<boolean>(false);
+
+// --- Add missing refs for profileUser, loading, error ---
+const profileUser = ref<UserData | null>(null);
+const loading = ref<boolean>(false);
+const error = ref<string>('');
 
 // --- Computed Properties ---
 const loggedInUserId = computed<string | null>(() => store.state.user.uid);
@@ -148,7 +152,17 @@ const fetchUserProjectsForPortfolio = async () => {
         const snapshot = await getDocs(submissionsQuery);
         userProjectsForPortfolioButton.value = snapshot.docs.map(doc => {
              const data = doc.data();
-             return { id: doc.id, ...data, eventName: data.eventName || `Event (${data.eventId.substring(0, 5)}...)`, eventType: data.eventType || 'Unknown' };
+             // Ensure all required fields are present
+             const project: Project = {
+                id: doc.id,
+                projectName: data.projectName || data.eventName || `Project (${doc.id.substring(0, 5)}...)`,
+                eventName: data.eventName || `Event (${data.eventId?.substring(0, 5) || doc.id.substring(0, 5)}...)`,
+                eventType: data.eventType || 'Unknown',
+                description: data.description || '',
+                link: data.link || '#', // Required field with fallback
+                submittedAt: data.submittedAt
+             };
+             return project;
          });
     } catch (error) {
         console.error("Error fetching user projects for portfolio:", error);
@@ -209,7 +223,7 @@ const fetchUserProfile = async (userIdToFetch: string) => {
         if (userDocSnap.exists()) {
             profileUser.value = { uid: userDocSnap.id, ...userDocSnap.data() } as UserData;
             // Fetch projects only if viewing a student profile
-            if (profileUser.value.role === 'Student') {
+            if ((profileUser.value as any).role === 'Student') {
                  await fetchUserProjectsForPortfolio();
             } else {
                  userProjectsForPortfolioButton.value = []; // Clear projects for non-students

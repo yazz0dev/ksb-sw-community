@@ -32,8 +32,8 @@ const actions = {
     commit('ADD_NOTIFICATION', notificationWithId);
     
     // Auto-dismiss after timeout if specified
-    if (notification.timeout !== 0) { // 0 means don't auto-dismiss
-      const timeout = notification.timeout || 5000; // Default 5 seconds
+    if ((notification as any).timeout !== 0) { // 0 means don't auto-dismiss
+      const timeout = (notification as any).timeout || 5000; // Default 5 seconds
       setTimeout(() => {
         dispatch('dismissNotification', id);
       }, timeout);

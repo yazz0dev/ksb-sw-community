@@ -127,4 +127,9 @@ export interface Event {
   closedAt?: Timestamp | null;
 
   rejectionReason?: string | null;
+
+  // --- Compatibility/legacy fields for actions ---
+  eventName?: string; // Used in notifications and some actions
+  winnersPerRole?: Record<string, string[]>; // For legacy winner notification logic
+  teamCriteriaRatings?: any[]; // For team rating logic (optional, not always present)
 }

@@ -182,7 +182,15 @@
 </template>
 
 <script setup lang="ts">
-// Add this at the top of the script block (before other code)
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
+import { getAuth, signOut } from 'firebase/auth';
+import { Client, Functions } from 'appwrite';
+import BottomNav from './components/BottomNav.vue';
+import OfflineStateHandler from './components/OfflineStateHandler.vue';
+import NotificationSystem from './components/NotificationSystem.vue';
+
 declare global {
   interface Window {
     bootstrap?: {
@@ -190,16 +198,20 @@ declare global {
       Collapse?: any;
     };
     webpushr?: any;
+    oSpP?: {
+      detectSite: () => void;
+      getSubscriptionStatus: (cb: (status: string) => void) => void;
+      getSubscriberId: (cb: (id: string) => void) => void;
+      showSubscriptionPrompt: () => void;
+    };
   }
 }
 
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
-import { getAuth, signOut } from 'firebase/auth';
-import BottomNav from './components/BottomNav.vue';
-import OfflineStateHandler from './components/OfflineStateHandler.vue';
-import NotificationSystem from './components/NotificationSystem.vue';
+// --- Appwrite Client Setup (assume env vars or config) ---
+const appwrite = new Client()
+  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
+  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+const functions = new Functions(appwrite);
 
 // Add type definition for Bootstrap Collapse
 interface Collapse {
@@ -283,6 +295,50 @@ const closeNavbar = () => {
   }
 };
 
+const checkSubscriptionStatus = () => {
+  if (!window.oSpP) {
+    setTimeout(checkSubscriptionStatus, 500);
+    return;
+  }
+  window.oSpP.getSubscriptionStatus((status: string) => {
+    if (status === 'subscribed') {
+      fetchSendPulseSubscriberId();
+    }
+  });
+};
+
+const fetchSendPulseSubscriberId = () => {
+  if (!window.oSpP) {
+    setTimeout(fetchSendPulseSubscriberId, 500);
+    return;
+  }
+  window.oSpP.getSubscriberId(async (subscriberId: string) => {
+    if (subscriberId && userId.value) {
+      await updateUserPushPrefs(subscriberId);
+    }
+  });
+};
+
+const promptForPushNotifications = () => {
+  if (!window.oSpP) {
+    setTimeout(promptForPushNotifications, 500);
+    return;
+  }
+  window.oSpP.showSubscriptionPrompt();
+};
+
+const updateUserPushPrefs = async (subscriberId: string) => {
+  try {
+    await functions.createExecution(
+      import.meta.env.VITE_APPWRITE_FUNCTION_UPDATE_PUSH_PREFS_ID,
+      JSON.stringify({ sendpulseSubscriberId: subscriberId })
+    );
+    // Optionally show a notification to the user
+  } catch (err) {
+    console.error('Failed to update user push prefs:', err);
+  }
+};
+
 onMounted(() => {
   store.dispatch('app/initOfflineCapabilities');
   window.addEventListener('scroll', handleScroll, { passive: true });
@@ -337,6 +393,14 @@ onMounted(() => {
       window.webpushr('attributes', { user_id: newUserId });
     }
   }, { immediate: true });
+
+  checkSubscriptionStatus();
+});
+
+watch(isAuthenticated, (val) => {
+  if (val) {
+    checkSubscriptionStatus();
+  }
 });
 
 onUnmounted(() => {

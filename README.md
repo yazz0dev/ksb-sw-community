@@ -1,131 +1,133 @@
-# KSB MCA Software Community Platform  MERN stack implementation
+# KSB Tech Community Platform
 
-Welcome to the KSB MCA Software Community Platform! This web application provides a central hub for managing events, tracking participation, showcasing projects, and fostering collaboration within the KMCT School of Business (KSB) MCA department.
+A collaborative platform for MCA students at KMCT School Of Business to learn, build, and grow together through real-world software projects and events.
 
-## ✨ Features
+## Features
 
-*   **User Authentication:** Secure login using Firebase Authentication.
-*   **Role-Based Access:** Differentiated views and permissions for Students and Admins.
-*   **Event Management:**
-    *   Dashboard displaying Upcoming, Active, and Completed events.
-    *   Students can request new events (limit one active request).
-    *   Admins can create events directly and manage pending requests.
-    *   Detailed event view with participant/team lists.
-*   **Team Formation:** Admins/Organizers can create teams and assign students for team-based events.
-*   **Project Submission:** Participants can submit project links (GitHub, website, documents) related to specific events.
-*   **Rating System:** Users can rate participants/teams on completed events based on customizable criteria.
-*   **XP System:** Experience points automatically calculated based on event participation, ratings, and winning status, distributed across different skill categories (`xpByRole`).
-*   **User Profiles:**
-    *   Displays user information, total XP, XP breakdown, and submitted event projects.
-    *   Publicly viewable profiles for showcasing achievements.
-*   **PDF Portfolio Generation:** Users can generate a PDF portfolio summarizing their profile, XP, skills, and projects.
-*   **Leaderboard:** Ranks students based on Overall XP or specific role-based XP categories.
-*   **Resource Sharing:** Centralized page for important links and documents.
-*   **Transparency Page:** Outlines community guidelines, event lifecycle, and system operations.
-*   **Modern UI:** Built with Vue 3 and custom CSS using modern practices (CSS Variables).
+- 🎯 **Event Management**
+  - Create and join coding events
+  - Team-based and individual participation
+  - Request new events
+  - Track event progress and completion
 
-## 🚀 Technologies Used
+- 🏆 **XP & Recognition**
+  - Earn XP for participation and achievements
+  - Role-based XP tracking (Frontend, Backend, etc.)
+  - Leaderboard rankings
+  - Generate portfolio PDFs of achievements
 
-*   **Frontend:** Vue.js 3 (Composition API)
-*   **Routing:** Vue Router
-*   **State Management:** Vuex
-*   **Backend & Database:** Firebase (Firestore, Authentication)
-*   **Styling:** Custom Modern CSS (using CSS Variables), Bootstrap
-*   **PDF Generation:** jsPDF
-*   **UI Components:** vue3-star-ratings
-*   **Icons:** Font Awesome
+- 👥 **Community Features**
+  - Profile management
+  - Team collaboration
+  - Project submissions
+  - Peer ratings and feedback
 
-## ⚙️ Setup and Installation
+- 📚 **Resources**
+  - Curated learning materials
+  - Development guides
+  - Community best practices
 
-To run this project locally, follow these steps:
+## Tech Stack
 
-1.  **Prerequisites:**
-    *   Node.js (v16 or higher recommended)
-    *   npm or yarn
+- Vue 3 + TypeScript
+- Firebase (Authentication, Firestore, Storage)
+- Appwrite (Push Notifications)
+- Bootstrap 5
+- Vite
 
-2.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/YOUR_USERNAME/ksb-sw-community.git
-    cd ksb-sw-community
-    ```
+## Getting Started
 
-3.  **Install Dependencies:**
-    ```bash
-    npm install
-    # OR
-    yarn install
-    ```
+### Prerequisites
 
-4.  **Firebase Configuration (IMPORTANT):**
-    *   This project uses Firebase for backend services. The configuration file (`src/firebase.js`) containing API keys is **intentionally excluded** from this repository for security reasons (`.gitignore` should prevent accidental commits).
-    *   You need to create your **own** Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/).
-    *   Enable **Firestore Database** and **Authentication** (Email/Password provider) in your Firebase project settings.
-    *   In your Firebase project settings (Project settings > General > Your apps > Web app), find your Firebase configuration object.
-    *   Create a new file named `firebase.js` inside the `src` directory (`src/firebase.js`).
-    *   Paste the following code into `src/firebase.js`, replacing the placeholder values with your **actual** Firebase project configuration:
+- Node.js >= 16
+- npm or yarn
+- Firebase account
+- Appwrite account
 
-    ```javascript
-    // src/firebase.js
-    import { initializeApp } from "firebase/app";
-    import { getFirestore } from "firebase/firestore";
-    import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'; // Ensure all needed auth functions are imported if used directly
+### Installation
 
-    // --- REPLACE WITH YOUR FIREBASE PROJECT CONFIG ---
-    const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_AUTH_DOMAIN",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_STORAGE_BUCKET",
-        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-        appId: "YOUR_APP_ID"
-    };
-    // --- END OF CONFIG ---
+1. Clone the repository:
+```bash
+git clone https://github.com/your-username/ksb-sw-community.git
+cd ksb-sw-community
+```
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+2. Install dependencies:
+```bash
+npm install
+```
 
-    // Export the necessary Firebase services
-    export { db, auth, signInWithEmailAndPassword }; // Add other exports if needed
-    ```
-    *   **DO NOT commit `src/firebase.js` to your public repository if you fork this project.**
+3. Create `.env` file in the root directory with your credentials:
+```env
+VITE_FIREBASE_API_KEY="your-api-key"
+VITE_FIREBASE_AUTH_DOMAIN="your-auth-domain"
+VITE_FIREBASE_PROJECT_ID="your-project-id"
+VITE_FIREBASE_STORAGE_BUCKET="your-storage-bucket"
+VITE_FIREBASE_MESSAGING_SENDER_ID="your-messaging-sender-id"
+VITE_FIREBASE_APP_ID="your-app-id"
 
-5.  **Firestore Rules:**
-    *   Copy the contents of `firebase.rules` from this repository.
-    *   Go to your Firebase project console -> Firestore Database -> Rules.
-    *   Paste the rules into the editor and click **Publish**.
+VITE_APPWRITE_ENDPOINT="your-appwrite-endpoint"
+VITE_APPWRITE_PROJECT_ID="your-appwrite-project-id"
+VITE_APPWRITE_FUNCTION_UPDATE_PUSH_PREFS_ID="your-function-id"
+VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID="your-function-id"
+```
 
-6.  **Firestore Indexes (If Required):**
-    *   Complex queries (like sorting/filtering on multiple fields in `fetchEventRequests`, `fetchUserProjects`, or potentially `Leaderboard`) might require composite indexes in Firestore.
-    *   When running the app locally, Firestore often provides an error message in the browser console with a direct link to create the required index if one is missing. Click this link and follow the instructions in the Firebase console.
+4. Start development server:
+```bash
+npm run dev
+```
 
-## ▶️ Running the Project
+### Build for Production
 
-1.  **Development Server:**
-    ```bash
-    npm run dev
-    # OR
-    yarn dev
-    ```
-    This will start the Vite development server, typically at `http://localhost:5173`.
+```bash
+npm run build
+```
 
-2.  **Production Build:**
-    ```bash
-    npm run build
-    # OR
-    yarn build
-    ```
-    This creates a `dist` folder with optimized static assets ready for deployment.
+### Type Checking
 
-## 🤝 Contributing (Optional)
+```bash
+npm run type-check
+# or watch mode
+npm run type-check:watch
+```
 
-Contributions are welcome! Please follow standard Git workflow (fork, branch, pull request). Ensure code adheres to existing style and practices.
+## Project Structure
 
-## 📄 License (Optional)
+```
+src/
+├── assets/          # Static assets
+├── components/      # Vue components
+├── store/          # Vuex store modules
+├── types/          # TypeScript type definitions
+├── utils/          # Utility functions
+├── views/          # Vue route components
+├── firebase.ts     # Firebase configuration
+└── App.vue         # Root component
+```
 
-Specify your project's license here (e.g., MIT License). If none, state that.
+## Contributing
 
----
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-This README provides clear instructions, especially regarding the sensitive Firebase configuration, ensuring anyone cloning the repository knows how to set it up locally without exposing credentials. Remember to replace `YOUR_USERNAME` in the clone URL if needed.
+## Key Features for Students
 
+- Build a portfolio of real-world projects
+- Collaborate with peers on team projects
+- Earn recognition through XP system
+- Access curated learning resources
+- Get feedback from peers and mentors
+- Track progress and achievements
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- KMCT School of Business
+- All contributing students and mentors
+- Open source community

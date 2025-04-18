@@ -28,7 +28,7 @@ import {
 } from '@/types/event';
 import { RootState } from '@/store/types';
 import { User } from '@/types/user';
-import { triggerNotification } from '@/utils/notificationTrigger';
+import { Functions } from 'appwrite';
 
 // Assuming updateLocalEvent helper is defined in part2 or elsewhere
 // If defined in part2, it should be imported or accessed via dispatch
@@ -185,13 +185,18 @@ async function closeEventPermanentlyInternal(
 
         // --- Push Notification: Winner Announced ---
         try {
-            const eventName = eventData.eventName || 'an event';
+            const eventName = eventData.details?.type || 'an event';
             const eventUrl = `/events/${eventId}`;
-            // Individual event: winnersPerRole
-            if (eventData.winnersPerRole) {
-                for (const [role, winnerIds] of Object.entries(eventData.winnersPerRole)) {
-                    for (const winnerId of winnerIds) {
-                        await triggerNotification({
+            // Individual event: winners
+            if (eventData.winners) {
+                for (const [role, winnerIds] of Object.entries(eventData.winners)) {
+                    for (const winnerId of (winnerIds as string[])) {
+                        // --- Appwrite Push Notification ---
+                        const appwrite = new (require('appwrite').Client)()
+                          .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
+                          .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+                        const functions = new Functions(appwrite);
+                        const payload = {
                             notificationType: 'winnerAnnounced',
                             targetUserIds: [winnerId],
                             messageTitle: 'Congratulations! You are a winner!',
@@ -199,18 +204,28 @@ async function closeEventPermanentlyInternal(
                             eventUrl,
                             eventName,
                             winningCriteria: role,
-                        });
+                        };
+                        await functions.createExecution(
+                            import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID,
+                            JSON.stringify(payload)
+                        );
                     }
                 }
             }
             // Team event: best performer or team criteria
-            if (eventData.teamCriteriaRatings) {
+            const teamCriteriaRatings = (eventData as any).teamCriteriaRatings;
+            if (teamCriteriaRatings) {
                 // Find best performers from ratings
-                const bestPerformers = eventData.teamCriteriaRatings
-                    .map(r => r.selections?.bestPerformer)
+                const bestPerformers = teamCriteriaRatings
+                    .map((r: any) => r.selections?.bestPerformer)
                     .filter(Boolean);
                 for (const winnerId of bestPerformers) {
-                    await triggerNotification({
+                    // --- Appwrite Push Notification ---
+                    const appwrite = new (require('appwrite').Client)()
+                      .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
+                      .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+                    const functions = new Functions(appwrite);
+                    const payload = {
                         notificationType: 'winnerAnnounced',
                         targetUserIds: [winnerId],
                         messageTitle: 'Congratulations! You are a top performer!',
@@ -218,11 +233,15 @@ async function closeEventPermanentlyInternal(
                         eventUrl,
                         eventName,
                         winningCriteria: 'Best Performer',
-                    });
+                    };
+                    await functions.createExecution(
+                        import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID,
+                        JSON.stringify(payload)
+                    );
                 }
             }
         } catch (e) {
-            console.error('Failed to trigger winner notification:', e);
+            console.error('Failed to trigger winner announcement push notification:', e);
         }
 
         // Update local Vuex state using the helper action
@@ -278,17 +297,26 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
                 participantIds = [...new Set(participantIds)].filter(id => id && id !== currentUserId);
 
                 if (participantIds.length > 0) {
-                    await triggerNotification({
+                    // --- Appwrite Push Notification ---
+                    const appwrite = new (require('appwrite').Client)()
+                      .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
+                      .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+                    const functions = new Functions(appwrite);
+                    const payload = {
                         notificationType: 'ratingOpen',
                         targetUserIds: participantIds,
                         messageTitle: 'Ratings are now open!',
-                        messageBody: `You can now rate or select winners for "${currentEvent.eventName}".`,
+                        messageBody: `You can now rate or select winners for "${currentEvent.details?.type || 'this event'}".`,
                         eventUrl: `/events/${eventId}/rate`,
-                        eventName: currentEvent.eventName,
-                    });
+                        eventName: currentEvent.details?.type || '',
+                    };
+                    await functions.createExecution(
+                        import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID,
+                        JSON.stringify(payload)
+                    );
                 }
             } catch (e) {
-                console.error('Failed to trigger ratings open notification:', e);
+                console.error('Failed to trigger ratings open push notification:', e);
             }
         }
 

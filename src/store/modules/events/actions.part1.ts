@@ -25,7 +25,7 @@ import {
 import { RootState } from '@/store/types';
 import { User } from '@/types/user';
 import { DateTime } from 'luxon'; // For date comparisons
-import { triggerNotification } from '@/utils/notificationTrigger';
+import { Functions } from 'appwrite';
 
 // Define EventFormat here if not exported from types
 enum EventFormat {
@@ -263,17 +263,25 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
 
         // --- Push Notification: Event Approved ---
         try {
-            await triggerNotification({
+            // --- Appwrite Push Notification ---
+            const appwrite = new (require('appwrite').Client)()
+              .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
+              .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+            const functions = new Functions(appwrite);
+            const payload = {
                 notificationType: 'eventApproved',
                 targetUserIds: [eventData.requestedBy],
                 messageTitle: 'Your event request was approved!',
                 messageBody: `Your event "${eventData.eventName}" has been approved and is now scheduled.`,
                 eventUrl: `/events/${eventId}`,
                 eventName: eventData.eventName,
-            });
+            };
+            await functions.createExecution(
+                import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID,
+                JSON.stringify(payload)
+            );
         } catch (e) {
-            // Log but do not block
-            console.error('Failed to trigger event approval notification:', e);
+            console.error('Failed to trigger event approval push notification:', e);
         }
     } catch (error: any) {
         console.error(`Error approving request ${eventId}:`, error);

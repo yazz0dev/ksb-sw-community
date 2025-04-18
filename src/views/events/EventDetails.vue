@@ -93,7 +93,7 @@
             <li v-for="(alloc, idx) in event.criteria" :key="alloc.constraintIndex ?? idx" class="mb-2">
               <span class="text-warning me-2"><i class="fas fa-star"></i></span>
               <span class="fw-semibold">{{ alloc.constraintLabel || 'Unnamed Criteria' }}</span>
-              <span class="text-secondary ms-2">({{ alloc.points }} XP, {{ formatRoleName(alloc.targetRole || alloc.role) }})</span>
+              <span class="text-secondary ms-2">({{ alloc.points }} XP, {{ formatRoleName((alloc.targetRole || alloc.role) ?? '') }})</span>
             </li>
           </ul>
         </div>
@@ -158,7 +158,7 @@
                       >
                         <i class="fas fa-user text-secondary me-2"></i>
                         <router-link
-                          :to="{ name: 'PublicProfile', params: { userId } }"
+                          :to="{ name: 'PublicProfile', params: { userId: userId || '' } }"
                           class="small text-truncate text-decoration-none"
                           :class="userId === currentUserId ? 'text-primary fw-semibold' : 'text-body-secondary'"
                         >
@@ -190,8 +190,8 @@
               <div v-if="event.details.format !== 'Team'">
                 <ul class="list-unstyled d-flex flex-column gap-3">
                   <li v-for="(submission, index) in event.submissions" :key="`ind-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                    <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy) }}</p>
-                    <a :href="submission.link" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
+                    <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy ?? '') }}</p>
+                    <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
                     <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
                   </li>
                 </ul>
@@ -205,8 +205,8 @@
                     <h6 class="text-secondary mb-2">Team: {{ team.teamName }}</h6>
                     <ul class="list-unstyled d-flex flex-column gap-2 ms-4 ps-4 border-start border-2">
                       <li v-for="(submission, index) in team.submissions" :key="`team-${team.id || team.teamName}-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                        <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy) }}</p>
-                        <a :href="submission.link" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
+                        <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(submission.submittedBy ?? '') }}</p>
+                        <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
                         <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
                       </li>
                     </ul>
@@ -688,10 +688,7 @@ watch(() => props.id, (newId, oldId) => {
 }
 
 /* --- Cards & Sections --- */
-.event-header-card,
-.event-header-section {
-  /* ...existing code... */
-}
+
 .team-list-box,
 .participants-box,
 .submissions-box,
