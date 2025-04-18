@@ -17,6 +17,7 @@ import {
     Event,
     Team,
     Submission,
+    EventFormat // Import EventFormat from event.ts
 } from '@/types/event';
 import { RootState } from '@/types/store';
 import { User } from '@/types/user';
@@ -70,31 +71,14 @@ export async function updateEventDetails({ dispatch, rootGetters }: ActionContex
         }
 
         if ('startDate' in updates || 'endDate' in updates) {
-            const start = (updates as any).startDate ?? eventData.details.date.final.start;
-            const end = (updates as any).endDate ?? eventData.details.date.final.end;
+            const start = (updates as any).startDate ?? eventData.details.date.start;
+            const end = (updates as any).endDate ?? eventData.details.date.end;
             allowedUpdates.details = {
                 ...eventData.details,
                 date: {
                     ...eventData.details.date,
-                    final: {
-                        start,
-                        end,
-                    }
-                }
-            };
-        }
-
-        if ('desiredStartDate' in updates || 'desiredEndDate' in updates) {
-            const start = (updates as any).desiredStartDate ?? eventData.details.date.desired.start;
-            const end = (updates as any).desiredEndDate ?? eventData.details.date.desired.end;
-            allowedUpdates.details = {
-                ...eventData.details,
-                date: {
-                    ...eventData.details.date,
-                    desired: {
-                        start,
-                        end,
-                    }
+                    start,
+                    end
                 }
             };
         }
@@ -162,7 +146,13 @@ export async function autoGenerateTeams({ dispatch, rootGetters }: ActionContext
             const currentTeamSize = baseSize + (i < teamsWithExtraMember ? 1 : 0);
             if (currentIndex + currentTeamSize > shuffledStudents.length || currentTeamSize < minTeamSize) break;
             const teamMembers = shuffledStudents.slice(currentIndex, currentIndex + currentTeamSize);
-            generatedTeams.push({ teamName: `Generated Team ${existingTeams.length + generatedTeams.length + 1}`, members: teamMembers, submissions: [], ratings: [] });
+            generatedTeams.push({ 
+                teamName: `Generated Team ${existingTeams.length + generatedTeams.length + 1}`, 
+                members: teamMembers,
+                teamLead: teamMembers[0] || '', // Set first member as team lead
+                submissions: [], 
+                ratings: [] 
+            });
             currentIndex += currentTeamSize;
         }
         if (generatedTeams.length === 0) throw new Error("Failed to generate valid teams.");
@@ -256,7 +246,13 @@ export async function addTeamToEvent({ dispatch, rootGetters }: ActionContext<Ev
         const alreadyAssigned = validMembers.filter(m => allAssignedMembers.has(m));
         if (alreadyAssigned.length > 0) throw new Error(`Students already assigned: ${alreadyAssigned.join(', ')}`);
 
-        const newTeam: Team = { teamName: trimmedTeamName, members: validMembers, submissions: [], ratings: [] };
+        const newTeam: Team = { 
+            teamName: trimmedTeamName, 
+            members: validMembers, 
+            teamLead: validMembers[0] || '', // Set first member as team lead
+            submissions: [], 
+            ratings: [] 
+        };
         await updateDoc(eventRef, { teams: arrayUnion(newTeam), lastUpdatedAt: Timestamp.now() });
 
         const freshSnap = await getDoc(eventRef);
@@ -299,13 +295,19 @@ export async function submitProjectToEvent({ rootGetters, dispatch }: ActionCont
 
         if (Array.isArray(eventData.teams)) {
             const currentTeams = eventData.teams;
-            const userTeamIndex = currentTeams.findIndex(team => team.members?.includes(userId));
-            if (userTeamIndex === -1) throw new Error("You are not assigned to a team.");
-            const teamToUpdate = { ...currentTeams[userTeamIndex] };
+            const userTeam = currentTeams.find(team => team.members?.includes(userId));
+            if (!userTeam) throw new Error("You are not assigned to a team.");
+            if (userTeam.teamLead !== userId) throw new Error("Only team lead can submit projects.");
+
+            const teamToUpdate = { ...userTeam };
             teamToUpdate.submissions = Array.isArray(teamToUpdate.submissions) ? teamToUpdate.submissions : [];
             if (teamToUpdate.submissions.length > 0) throw new Error("Team already submitted.");
+
+            submissionEntry.teamId = userTeam.id || userTeam.teamName; // Track team ID in submission
             teamToUpdate.submissions.push(submissionEntry);
-            const updatedTeams = [...currentTeams]; updatedTeams[userTeamIndex] = teamToUpdate;
+            const updatedTeams = [...currentTeams];
+            const userTeamIndex = currentTeams.indexOf(userTeam);
+            updatedTeams[userTeamIndex] = teamToUpdate;
             await updateDoc(eventRef, { teams: updatedTeams, lastUpdatedAt: Timestamp.now() });
             updatedEventDataForState.teams = updatedTeams;
         } else {

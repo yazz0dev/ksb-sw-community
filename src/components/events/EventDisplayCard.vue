@@ -11,7 +11,7 @@
                <strong class="fw-medium text-dark me-1">Requested by:</strong> {{ nameCache[event.requester] || '(Name unavailable)' }}
            </div>
            <div class="col-md-6 col-12 py-1">
-               <strong class="fw-medium text-dark me-1">Dates:</strong> {{ formatDate(event.startDate || event.desiredStartDate) }} - {{ formatDate(event.endDate || event.desiredEndDate) }}
+               <strong class="fw-medium text-dark me-1">Dates:</strong> {{ formatDate(event.startDate || eventStartDate) }} - {{ formatDate(event.endDate || eventEndDate) }}
            </div>
            <div class="col-md-6 col-12 py-1">
                <strong class="fw-medium text-dark me-1">Team Event:</strong> {{ event.isTeamEvent ? 'Yes' : 'No' }}
@@ -75,8 +75,8 @@ interface Event {
   requester: string;
   startDate?: { toDate(): Date } | Date | string;
   endDate?: { toDate(): Date } | Date | string;
-  desiredStartDate?: { toDate(): Date } | Date | string;
-  desiredEndDate?: { toDate(): Date } | Date | string;
+  StartDate?: { toDate(): Date } | Date | string;
+  EndDate?: { toDate(): Date } | Date | string;
   isTeamEvent: boolean;
   status?: string;
   organizers?: string[];

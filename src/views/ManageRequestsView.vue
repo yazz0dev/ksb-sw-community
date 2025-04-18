@@ -47,7 +47,7 @@
                     <p class="mb-2"><strong>Event Type:</strong> {{ request.eventType }}</p>
                     <p class="mb-2"><strong>Start Date:</strong> {{ formatDate(request.startDate) }}</p>
                     <p class="mb-2"><strong>End Date:</strong> {{ formatDate(request.endDate) }}</p>
-                    <div v-if="isMissingDesiredDates(request)" class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                    <div v-if="isMissingDates(request)" class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
                       <i class="fas fa-exclamation-triangle me-1"></i>
                       This request is missing required start/end dates and cannot be approved.
                     </div>
@@ -71,9 +71,9 @@
                 <div class="mt-3 d-flex gap-2 justify-content-end">
                   <button 
                     class="btn btn-success"
-                    :disabled="isProcessing(request.id) || isMissingDesiredDates(request)"
+                    :disabled="isProcessing(request.id) || isMissingDates(request)"
                     @click="approveRequest(request.id)"
-                    :title="isMissingDesiredDates(request) ? 'Cannot approve: missing start/end dates' : ''"
+                    :title="isMissingDates(request) ? 'Cannot approve: missing start/end dates' : ''"
                   >
                     <span v-if="isProcessing(request.id)" class="spinner-border spinner-border-sm me-1"></span>
                     Approve
@@ -167,10 +167,8 @@ const sanitizedPendingRequests = computed(() => {
             ? request.details.organizers.map((uid: string) => getUserNameByUid(uid) || uid).join(', ')
             : '',
         description: request.details?.description || 'No description provided',
-        startDate: request.details?.date?.desired?.start || null,
-        endDate: request.details?.date?.desired?.end || null,
-        desiredStartDate: request.details?.date?.desired?.start ?? null,
-        desiredEndDate: request.details?.date?.desired?.end ?? null,
+        startDate: request.details?.date?.start || null,
+        endDate: request.details?.date?.end || null,
     }));
 });
 
@@ -204,8 +202,9 @@ const formatDate = (date: any): string => {
   }
 };
 
-function isMissingDesiredDates(request: any): boolean {
-  return !request.desiredStartDate || !request.desiredEndDate;
+function isMissingDates(request: any): boolean {
+  if (!request) return true;
+  return !request.startDate || !request.endDate;
 }
 
 async function fetchRequests(): Promise<void> {
@@ -228,7 +227,7 @@ async function fetchRequests(): Promise<void> {
 const approveRequest = async (eventId: string): Promise<void> => {
   if (processingRequestId.value) return;
   const req = sanitizedPendingRequests.value.find((r: any) => r.id === eventId);
-  if (isMissingDesiredDates(req)) {
+  if (isMissingDates(req)) {
     error.value = 'Cannot approve: This request is missing required start/end dates.';
     store.dispatch('notification/showNotification', {
       message: error.value,

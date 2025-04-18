@@ -138,10 +138,10 @@ const statusBadgeClass = computed(() => {
 });
 
 const isWithinEventDates = computed(() => {
-  if (!props.event.details.date.final?.start || !props.event.details.date.final?.end) return false;
+  if (!props.event.details.date.start || !props.event.details.date.end) return false;
   return canEventBeStarted({
-	startDate: props.event.details.date.final.start,
-	endDate: props.event.details.date.final.end
+	startDate: props.event.details.date.start,
+	endDate: props.event.details.date.end
   });
 });
 
@@ -163,8 +163,8 @@ const canCloseEvent = computed(() =>
 
 const canStartEvent = computed(() => 
     props.event.status === EventStatus.Approved && 
-    !!props.event.details.date.final?.start && 
-    !!props.event.details.date.final?.end
+    !!props.event.details.date.start && 
+    !!props.event.details.date.end
 );
 
 const canComplete = computed(() => 

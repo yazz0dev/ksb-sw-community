@@ -100,19 +100,18 @@
         </div>
 
         <!-- Cancelled Events Section (Toggleable) -->
-        <div class="mb-5">
+        <div v-if="cancelledEvents.length > 0" class="mb-5">
           <button class="btn btn-link btn-sm text-decoration-none text-secondary mb-4" @click="showCancelled = !showCancelled">
             {{ showCancelled ? 'Hide' : 'Show' }} Cancelled Events
             <i :class="['fas', showCancelled ? 'fa-chevron-up' : 'fa-chevron-down', 'ms-1']"></i>
           </button>
           <transition name="fade-fast">
             <div v-if="showCancelled">
-              <div v-if="cancelledEvents.length > 0" class="row g-3">
+              <div class="row g-3">
                 <div v-for="event in cancelledEvents" :key="event.id" class="col-md-6 col-lg-4">
                   <EventCard :event="event" />
                 </div>
               </div>
-              <p v-else class="text-secondary">No cancelled events.</p>
             </div>
           </transition>
         </div>
@@ -156,8 +155,8 @@ const upcomingEvents = computed<Event[]>(() =>
   allEvents.value
     .filter(e => e.status === EventStatus.Approved)
     .sort((a, b) => {
-      const aStart = a.details.date.final?.start?.toMillis() ?? 0;
-      const bStart = b.details.date.final?.start?.toMillis() ?? 0;
+      const aStart = a.details.date.start?.toMillis() ?? 0;
+      const bStart = b.details.date.start?.toMillis() ?? 0;
       return aStart - bStart;
     })
     .slice(0, maxEventsPerSection)
@@ -167,8 +166,8 @@ const activeEvents = computed<Event[]>(() =>
   allEvents.value
     .filter(e => e.status === EventStatus.InProgress)
     .sort((a, b) => {
-      const aStart = a.details.date.final?.start?.toMillis() ?? 0;
-      const bStart = b.details.date.final?.start?.toMillis() ?? 0;
+      const aStart = a.details.date.start?.toMillis() ?? 0;
+      const bStart = b.details.date.start?.toMillis() ?? 0;
       return aStart - bStart;
     })
     .slice(0, maxEventsPerSection)
@@ -178,8 +177,8 @@ const completedEvents = computed<Event[]>(() =>
   allEvents.value
     .filter(e => e.status === EventStatus.Completed)
     .sort((a, b) => {
-      const aEnd = a.details.date.final?.end?.toMillis() ?? 0;
-      const bEnd = b.details.date.final?.end?.toMillis() ?? 0;
+      const aEnd = a.details.date.end?.toMillis() ?? 0;
+      const bEnd = b.details.date.end?.toMillis() ?? 0;
       return bEnd - aEnd;
     })
     .slice(0, maxEventsPerSection)
@@ -191,8 +190,8 @@ const cancelledEvents = computed<Event[]>(() =>
   allEvents.value
     .filter(e => e.status === EventStatus.Cancelled)
     .sort((a, b) => {
-      const aStart = a.details.date.final?.start?.toMillis() ?? 0;
-      const bStart = b.details.date.final?.start?.toMillis() ?? 0;
+      const aStart = a.details.date.start?.toMillis() ?? 0;
+      const bStart = b.details.date.start?.toMillis() ?? 0;
       return bStart - aStart;
     })
 );

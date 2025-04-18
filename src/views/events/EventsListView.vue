@@ -159,10 +159,10 @@ const now = DateTime.now();
 const upcomingEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
     return store.getters['events/allEvents'].filter((event: Event) => 
-        event.details.date.final?.start && DateTime.fromJSDate(event.details.date.final.start.toDate()) > now
+        event.details.date.start && DateTime.fromJSDate(event.details.date.start.toDate()) > now
     ).sort((a: Event, b: Event) => {
-        const dateA = a.details.date.final?.start ? DateTime.fromJSDate(a.details.date.final.start.toDate()) : null;
-        const dateB = b.details.date.final?.start ? DateTime.fromJSDate(b.details.date.final.start.toDate()) : null;
+        const dateA = a.details.date.start ? DateTime.fromJSDate(a.details.date.start.toDate()) : null;
+        const dateB = b.details.date.start ? DateTime.fromJSDate(b.details.date.start.toDate()) : null;
         if (!dateA?.isValid || !dateB?.isValid) return 0;
         return dateA.toMillis() - dateB.toMillis();
     });
@@ -171,15 +171,15 @@ const upcomingEvents = computed<Event[]>(() => {
 const activeEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
     return store.getters['events/allEvents'].filter((event: Event) => {
-        const start = event.details.date.final?.start ? DateTime.fromJSDate(event.details.date.final.start.toDate()) : null;
-        const end = event.details.date.final?.end ? DateTime.fromJSDate(event.details.date.final.end.toDate()) : null;
+        const start = event.details.date.start ? DateTime.fromJSDate(event.details.date.start.toDate()) : null;
+        const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
         return event.status === EventStatus.InProgress || 
                (event.status === EventStatus.Approved && 
                 start?.isValid && start <= now && 
                 end?.isValid && end >= now);
     }).sort((a: Event, b: Event) => { 
-        const dateA = a.details.date.final?.start ? DateTime.fromJSDate(a.details.date.final.start.toDate()) : null;
-        const dateB = b.details.date.final?.start ? DateTime.fromJSDate(b.details.date.final.start.toDate()) : null;
+        const dateA = a.details.date.start ? DateTime.fromJSDate(a.details.date.start.toDate()) : null;
+        const dateB = b.details.date.start ? DateTime.fromJSDate(b.details.date.start.toDate()) : null;
         if (!dateA?.isValid || !dateB?.isValid) return 0;
         return dateA.toMillis() - dateB.toMillis();
     });
@@ -187,12 +187,12 @@ const activeEvents = computed<Event[]>(() => {
 
 const completedEvents = computed<Event[]>(() => {
     return store.getters['events/allEvents'].filter((event: Event) => {
-        const end = event.details.date.final?.end ? DateTime.fromJSDate(event.details.date.final.end.toDate()) : null;
+        const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
         return event.status === EventStatus.Completed || 
                (event.status === EventStatus.Approved && end?.isValid && end < now);
     }).sort((a: Event, b: Event) => { 
-        const dateA = a.details.date.final?.end || a.details.date.final?.start;
-        const dateB = b.details.date.final?.end || b.details.date.final?.start;
+        const dateA = a.details.date.end || a.details.date.start;
+        const dateB = b.details.date.end || b.details.date.start;
         const dtA = dateA ? DateTime.fromJSDate(dateA.toDate()) : null;
         const dtB = dateB ? DateTime.fromJSDate(dateB.toDate()) : null;
         if (!dtA?.isValid || !dtB?.isValid) return 0; 

@@ -1,6 +1,6 @@
 // src/store/modules/events/mutations.ts
 import { MutationTree } from 'vuex';
-import { EventState, Event, EventStatus, OrganizerRating, Team, Submission } from '@/types/event'; // <-- Fix import
+import { EventState, Event, EventStatus, OrganizerRating, Team, Submission, EventFormat } from '@/types/event'; // Add EventFormat
 
 // Helper function to compare events for sorting
 function compareEvents(a: Event, b: Event): number {
@@ -23,13 +23,13 @@ function compareEvents(a: Event, b: Event): number {
     if (
       [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status as EventStatus)
     ) {
-        // Use start date, fallback to desired, fallback to creation
-        dateA = a.details.date.final?.start?.toMillis() ?? a.details.date.desired?.start?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
-        dateB = b.details.date.final?.start?.toMillis() ?? b.details.date.desired?.start?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
+        // Use start date, fallback to , fallback to creation
+        dateA = a.details.date.start?.toMillis() ?? a.details.date.start?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
+        dateB = b.details.date.start?.toMillis() ?? b.details.date.start?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
     } else { // Completed, Cancelled, Rejected, Closed
         // Use completion date, fallback to end date, fallback to creation
-        dateA = a.completedAt?.toMillis() ?? a.details.date.final?.end?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
-        dateB = b.completedAt?.toMillis() ?? b.details.date.final?.end?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
+        dateA = a.completedAt?.toMillis() ?? a.details.date.end?.toMillis() ?? a.createdAt?.toMillis() ?? 0;
+        dateB = b.completedAt?.toMillis() ?? b.details.date.end?.toMillis() ?? b.createdAt?.toMillis() ?? 0;
     }
     return dateB - dateA; // Newest first
 }
@@ -82,9 +82,11 @@ export const eventMutations: MutationTree<EventState> = {
     updateOrganizationRatings(state: EventState, { eventId, ratings }: { eventId: string; ratings: OrganizerRating[] }) {
         const event = state.events.find((e: Event) => e.id === eventId);
         if (event) {
+            if (!event.ratings) event.ratings = {};
             event.ratings.organizer = ratings;
         }
         if (state.currentEventDetails?.id === eventId) {
+            if (!state.currentEventDetails.ratings) state.currentEventDetails.ratings = {};
             state.currentEventDetails.ratings.organizer = ratings;
         }
     },

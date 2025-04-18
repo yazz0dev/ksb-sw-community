@@ -160,48 +160,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, reactive } from 'vue';
+import { ref, computed, onMounted, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router'; // useRoute was not used
-import { doc, getDoc, DocumentData } from 'firebase/firestore'; // Added DocumentData type
-import { db } from '../../firebase'; // Assuming path is correct
+import { useRouter } from 'vue-router';
+import { Event, EventFormat, EventStatus, Team, EventCriteria } from '@/types/event';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/firebase';
 
-// --- Interfaces (Optional but recommended for strong typing) ---
-interface XpAllocation {
-  constraintIndex: number;
-  constraintLabel: string;
-  points: number;
-  role: string;
-}
-
-interface Team {
-  teamName: string;
-  members?: string[]; // Array of user UIDs
-  // Add other team properties if needed
-}
-
-interface EventDetails extends DocumentData {
-  eventName: string;
-  isTeamEvent?: boolean;
-  ratingsOpen?: boolean;
-  status?: string; // e.g., 'Upcoming', 'Active', 'Completed'
-  participants?: string[]; // Array of user UIDs
-  teams?: Team[];
-  xpAllocation?: XpAllocation[];
-  teamCriteriaRatings?: Array<{ ratedBy: string; selections: { criteria: Record<string, string>; bestPerformer: string } }>;
-  winnersPerRole?: Record<string, string[]>; // role -> [winnerId]
-}
-
-interface User {
-    uid: string;
-    name?: string;
-    role?: string; // 'Admin', 'Participant', etc.
-    // Add other user properties if needed
-}
-
+// Replace existing interfaces with these more specific ones
 interface TeamMember {
-    uid: string;
-    name?: string; // Name might be fetched later
+  uid: string;
+  name: string;
+}
+
+interface TeamRatingEntry {
+  teamName: string;
+  bestPerformer?: string;
+}
+
+interface IndividualRatingEntry {
+  winnerId: string;
+}
+
+type RatingEntry = TeamRatingEntry | IndividualRatingEntry;
+
+interface Ratings {
+  [key: string]: RatingEntry;
+  bestPerformer?: string;
+}
+
+// Update reactive ratings definition
+const ratings = reactive<Ratings>({});
+
+// Add missing field to Event type locally
+interface ExtendedEvent extends Event {
+  eventName?: string;
 }
 
 // --- Props ---
@@ -221,8 +214,8 @@ const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const isSubmitting = ref<boolean>(false);
 const eventName = ref<string>('');
-const event = ref<EventDetails | null>(null);
-const isTeamEvent = computed(() => event.value?.details?.format === 'Team'); // Updated to use derived field
+const event = ref<ExtendedEvent | null>(null);
+const isTeamEvent = computed(() => event.value?.details?.format === EventFormat.Team); // Updated to use derived field
 const eventTeams = ref<Team[]>([]);
 const allTeamMembers = ref<TeamMember[]>([]); // Store as { uid, name } objects
 const teamMemberMap = ref<Record<string, string>>({}); // Map member UID to team name
@@ -230,23 +223,12 @@ const didLoadExistingRating = ref<boolean>(false);
 
 // Using reactive for nested objects that will be modified
 const nameCache = reactive<Record<string, string>>({}); // Cache for user names { uid: name }
-const ratings = reactive<Record<string, any>>({}); // Structure: { constraintX: { teamName/winnerId }, bestPerformer: uid }
 
 // --- Computed Properties ---
-const currentUser = computed<User | null>(() => store.getters['user/getUser']);
+const currentUser = computed(() => store.getters['user/getUser']);
 
-const sortedXpAllocation = computed<XpAllocation[]>(() => {
-  if (!event.value?.xpAllocation || !Array.isArray(event.value.xpAllocation)) return [];
-
-  const validAllocations = event.value.xpAllocation.filter(
-    (alloc): alloc is XpAllocation => // Type guard for better type safety
-      typeof alloc?.constraintIndex === 'number' &&
-      typeof alloc?.constraintLabel === 'string' && alloc.constraintLabel.trim() !== '' &&
-      typeof alloc?.points === 'number' && alloc.points >= 0 &&
-      typeof alloc?.role === 'string' // Role is required
-  );
-  // Create a new sorted array to avoid mutating the original
-  return [...validAllocations].sort((a, b) => a.constraintIndex - b.constraintIndex);
+const sortedXpAllocation = computed<EventCriteria[]>(() => {
+  return event.value?.criteria?.slice().sort((a, b) => a.constraintIndex - b.constraintIndex) || [];
 });
 
 const hasValidRatingCriteria = computed<boolean>(() => {
@@ -254,22 +236,21 @@ const hasValidRatingCriteria = computed<boolean>(() => {
 });
 
 const isValid = computed<boolean>(() => {
-  if (!hasValidRatingCriteria.value) return false; // Rely on the other computed
+  if (!hasValidRatingCriteria.value) return false;
 
   const allCriteriaSelected = sortedXpAllocation.value.every(allocation => {
     const ratingKey = `constraint${allocation.constraintIndex}`;
-    const ratingEntry = ratings[ratingKey];
-    if (!ratingEntry) return false;
+    const rating = ratings[ratingKey];
+    if (!rating) return false;
 
-    // Check based on event type
     return isTeamEvent.value
-      ? !!ratingEntry.teamName // Check if teamName is truthy (not null/undefined/empty string)
-      : !!ratingEntry.winnerId; // Check if winnerId is truthy
+      ? 'teamName' in rating && !!rating.teamName
+      : 'winnerId' in rating && !!rating.winnerId;
   });
 
   const bestPerformerSelected = isTeamEvent.value
-    ? !!ratings.bestPerformer // Check if bestPerformer is truthy
-    : true; // Not applicable for individual events
+    ? !!ratings.bestPerformer
+    : true;
 
   return allCriteriaSelected && bestPerformerSelected;
 });
@@ -326,27 +307,24 @@ const getTeamNameForMember = (memberId: string): string => {
 
 // --- Watchers ---
 watch([sortedXpAllocation, isTeamEvent], ([allocations, teamEventStatus]) => {
-  // Clear previous rating data when allocations or event type changes significantly
+  // Clear previous rating data
   Object.keys(ratings).forEach(key => {
-      delete ratings[key];
+    delete ratings[key];
   });
 
   if (Array.isArray(allocations)) {
     allocations.forEach(allocation => {
       const allocationKey = `constraint${allocation.constraintIndex}`;
-      // Initialize structure based on event type (can be null initially)
-      if (teamEventStatus === true) {
-          ratings[allocationKey] = { teamName: '' };
-      } else if (teamEventStatus === false) {
-          ratings[allocationKey] = { winnerId: '' };
-      }
+      ratings[allocationKey] = teamEventStatus
+        ? { teamName: '' } as TeamRatingEntry
+        : { winnerId: '' } as IndividualRatingEntry;
     });
-    // Initialize bestPerformer only for team events and if type is confirmed
-    if (teamEventStatus === true) {
+    
+    if (teamEventStatus) {
       ratings.bestPerformer = '';
     }
   }
-}, { immediate: true, deep: true }); // Deep watch might be intensive if allocations are huge
+}, { immediate: true, deep: true });
 
 // Watch available participants to fetch their names for individual events
 watch(availableParticipants, (newParticipants) => {
@@ -368,7 +346,7 @@ watch(allTeamMembers, (newMembers) => {
 
 
 // --- Core Logic Functions ---
-const initializeTeamEventForm = async (eventDetails: EventDetails, loadExisting: boolean = false): Promise<void> => {
+const initializeTeamEventForm = async (eventDetails: Event, loadExisting: boolean = false): Promise<void> => {
   eventTeams.value = eventDetails.teams || [];
   const memberIds = new Set<string>();
   const tempMemberMap: Record<string, string> = {};
@@ -432,7 +410,7 @@ const initializeTeamEventForm = async (eventDetails: EventDetails, loadExisting:
   }
 };
 
-const initializeIndividualEventForm = async (eventDetails: EventDetails, loadExisting: boolean = false): Promise<void> => {
+const initializeIndividualEventForm = async (eventDetails: Event, loadExisting: boolean = false): Promise<void> => {
   const participantIds = eventDetails.participants || [];
 
   // Fetch participant names (if not already fetched by watcher)
@@ -496,16 +474,16 @@ const initializeForm = async (): Promise<void> => {
   try {
     // --- Fetch Event Details ---
     // Type casting the result for better intellisense
-    const eventDetails = await store.dispatch('events/fetchEventDetails', props.eventId) as EventDetails | null;
+    const eventDetails = await store.dispatch('events/fetchEventDetails', props.eventId) as Event | null;
 
     if (!eventDetails) {
       throw new Error('Event not found or not accessible.');
     }
     event.value = eventDetails; // Store fetched details
-    eventName.value = eventDetails.eventName || 'Unnamed Event';
+    eventName.value = event.value?.details?.eventName || 'Unnamed Event';
 
     // --- Validation Checks ---
-    if (eventDetails.status !== 'Completed') {
+    if (eventDetails.status !== EventStatus.Completed) {
       throw new Error('Ratings/Winner selection is only available for completed events.');
     }
     // Use ratingsOpen flag specifically if it exists and is relevant

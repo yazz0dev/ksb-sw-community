@@ -18,7 +18,7 @@
             <div class="d-flex align-items-center">
               <span class="text-secondary me-2"><i class="fas fa-calendar"></i></span>
               <small class="text-secondary">
-                {{ formatDate(event?.details?.date?.final?.start) }} - {{ formatDate(event?.details?.date?.final?.end) }}
+                {{ formatDate(event?.details?.date.start) }} - {{ formatDate(event?.details?.date.end) }}
               </small>
             </div>
             <div class="d-flex align-items-center">
@@ -88,10 +88,8 @@ interface Event {
   title: string;
   details: {
     date: {
-      final: {
         start: Timestamp | null;
         end: Timestamp | null;
-      };
     };
     format: string;
   };

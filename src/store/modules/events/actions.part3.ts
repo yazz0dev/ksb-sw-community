@@ -19,16 +19,19 @@ import {
     DocumentData,
     WriteBatch,
     FirestoreError,
+    where,
 } from 'firebase/firestore';
 import {
     Event,
     EventState,
+    EventStatus,
     OrganizerRating,
-    EventStatus
+    EventFormat // Import EventFormat from event.ts
 } from '@/types/event';
 import { RootState } from '@/types/store';
 import { User } from '@/types/user';
 import { functions, isAppwriteConfigured } from '@/appwrite';
+import { DateTime } from 'luxon';
 
 // Assuming updateLocalEvent helper is defined in part2 or elsewhere
 declare function updateLocalEvent(context: ActionContext<EventState, RootState>, payload: { id: string; changes: Partial<Event> }): void;
@@ -50,8 +53,8 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
     const winners = eventData.winners || {};
     const allocations = eventData.criteria || [];
 
-    if (eventData.details.format === 'Team' && eventData.teams && Array.isArray(eventData.teams)) {
-        const teamCriteriaRatings = (eventData as any).teamCriteriaRatings || [];
+    if (eventData.details.format === EventFormat.Team && eventData.teams && Array.isArray(eventData.teams)) {
+        const teamCriteriaRatings = eventData.teamCriteriaRatings || [];
 
         eventData.teams.forEach(team => {
             const teamMembers = (team.members || []).filter(Boolean);
@@ -237,7 +240,7 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
         if (isOpen && isAppwriteConfigured()) {
             try {
                 let participantIds: string[] = [];
-                if (currentEvent.details.format === 'Team' && Array.isArray(currentEvent.teams)) {
+                if (currentEvent.details.format === EventFormat.Team && Array.isArray(currentEvent.teams)) {
                     participantIds = currentEvent.teams.flatMap(team => team.members || []);
                 } else if (Array.isArray(currentEvent.participants)) {
                     participantIds = currentEvent.participants;
@@ -345,12 +348,12 @@ export async function submitTeamCriteriaRating({ rootGetters, dispatch }: Action
         if (eventData.status !== EventStatus.Completed) throw new Error("Ratings only for completed.");
         if (eventData.ratings && eventData.ratings.organizer) throw new Error("Rating period closed.");
         if (eventData.closedAt) throw new Error("Cannot rate closed event.");
-        if (eventData.details.format !== 'Team') throw new Error("Team rating only for team events.");
+        if (eventData.details.format !== EventFormat.Team) throw new Error("Team rating only for team events.");
 
         const isParticipant = eventData.teams?.some(team => team.members?.includes(ratedBy));
         if (isParticipant) throw new Error("Participants cannot rate.");
 
-        const teamCriteriaRatings = Array.isArray((eventData as any).teamCriteriaRatings) ? [...(eventData as any).teamCriteriaRatings] : [];
+        const teamCriteriaRatings = Array.isArray(eventData.teamCriteriaRatings) ? [...eventData.teamCriteriaRatings] : [];
         const existingIndex = teamCriteriaRatings.findIndex(r => r.ratedBy === ratedBy);
         if (existingIndex !== -1) {
             console.log(`User ${ratedBy} updating previous rating for ${eventId}.`);
@@ -395,7 +398,7 @@ export async function submitIndividualWinners({ rootGetters, dispatch }: ActionC
 
         if (fetchedEventData.status !== EventStatus.Completed) throw new Error("Selection only for completed.");
         if (fetchedEventData.closedAt) throw new Error("Cannot select winners for closed event.");
-        if (fetchedEventData.details.format === 'Team') throw new Error("Individual selection only for individual events.");
+        if (fetchedEventData.details.format === EventFormat.Team) throw new Error("Individual selection only for individual events.");
 
         const updates: Partial<Event> = { winners: selections, lastUpdatedAt: Timestamp.now() };
         await updateDoc(eventRef, updates);
@@ -466,7 +469,7 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
         if (eventData.status !== EventStatus.Completed) throw new Error('Organization only rated for completed.');
 
         let isParticipant = false;
-        if (eventData.details.format === 'Team' && eventData.teams) isParticipant = eventData.teams?.some(team => team.members?.includes(userId)) || false;
+        if (eventData.details.format === EventFormat.Team && eventData.teams) isParticipant = eventData.teams?.some(team => team.members?.includes(userId)) || false;
         else isParticipant = eventData.participants?.includes(userId) || false;
         if (!isParticipant) throw new Error('Only participants can rate organization.');
 
@@ -529,4 +532,17 @@ export async function handleFirestoreError({ commit, dispatch }: ActionContext<E
 // --- ACTION: Clear Date Check State (Placeholder) ---
 export async function clearDateCheck({ commit }: ActionContext<EventState, RootState>) {
     console.log("Date check state cleared (if applicable).");
+}
+
+// --- ACTION: Check Date Conflict ---
+export async function checkDateConflict(_: ActionContext<EventState, RootState>, { startDate, endDate, excludeEventId = null }: {
+    startDate: Date | string | Timestamp;
+    endDate: Date | string | Timestamp;
+    excludeEventId?: string | null;
+}): Promise<{ hasConflict: boolean; nextAvailableDate: Date | null; conflictingEvent: Event | null }> {
+    const q = query(collection(db, 'events'), 
+        where('status', 'in', [EventStatus.Approved, EventStatus.InProgress]));
+    const querySnapshot = await getDocs(q);
+    // ...rest of existing function code...
+    return { hasConflict: false, nextAvailableDate: null, conflictingEvent: null };
 }

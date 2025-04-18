@@ -1,4 +1,3 @@
-
 <template>
   <div class="mb-4">
     <!-- Display Existing Teams -->
@@ -26,6 +25,24 @@
           <TeamMemberSelect :selected-members="team.members" :available-students="availableStudentsForTeam(index)"
             :name-cache="nameCache" :is-submitting="isSubmitting" :min-members="minMembersPerTeam" :max-members="maxMembersPerTeam"
             @update:members="updateTeamMembers(index, $event)" />
+        </div>
+
+        <!-- Team Lead Selection -->
+        <div class="mb-3">
+          <label class="form-label small">Team Lead</label>
+          <select 
+            class="form-select form-select-sm"
+            v-model="team.teamLead"
+            required
+            :disabled="isSubmitting"
+          >
+            <option value="">Select Team Lead</option>
+            <option v-for="memberId in team.members" 
+                    :key="memberId" 
+                    :value="memberId">
+              {{ nameCache[memberId] || memberId }}
+            </option>
+          </select>
         </div>
 
         <!-- Display Selected Members -->
@@ -98,6 +115,7 @@ import { Team as EventTeamType } from '@/types/event'; // Import the actual Team
 interface LocalTeam {
   name: string;
   members: string[];
+  teamLead: string; // Add team lead property
 }
 
 // Interface for a student object (as passed in props)
@@ -185,6 +203,7 @@ const initializeTeams = () => {
   teams.value = (props.initialTeams || []).map(team => ({
     name: team.teamName || '', // Map teamName to name
     members: Array.isArray(team.members) ? [...team.members] : [], // Ensure members is an array copy
+    teamLead: '' // Initialize team lead
     // We don't need submissions/ratings in this component's local state
   }));
   // Ensure default structure if empty
@@ -195,8 +214,11 @@ const initializeTeams = () => {
 
 const addTeam = () => {
   if (teams.value.length < maxTeams) {
-    // Add a new team with a default name suggestion
-    teams.value.push({ name: `Team ${teams.value.length + 1}`, members: [] });
+    teams.value.push({ 
+      name: `Team ${teams.value.length + 1}`, 
+      members: [], 
+      teamLead: '' // Initialize team lead
+    });
     emitTeamsUpdate();
   }
 };
@@ -209,6 +231,13 @@ const removeTeam = (index: number) => {
 const updateTeamMembers = (teamIndex: number, members: string[]) => {
   if (teams.value[teamIndex]) {
     teams.value[teamIndex].members = members;
+    emitTeamsUpdate();
+  }
+};
+
+const setTeamLead = (teamIndex: number, memberId: string) => {
+  if (teams.value[teamIndex]) {
+    teams.value[teamIndex].teamLead = memberId;
     emitTeamsUpdate();
   }
 };
@@ -255,7 +284,8 @@ const handleAutoGenerate = async () => {
     // Update the local state directly with the result from the action
     teams.value = finalTeamsData.map(team => ({
         name: team.teamName || '',
-        members: Array.isArray(team.members) ? [...team.members] : []
+        members: Array.isArray(team.members) ? [...team.members] : [],
+        teamLead: '' // Initialize team lead
     }));
     emitTeamsUpdate(); // Emit the updated list
 

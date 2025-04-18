@@ -15,7 +15,8 @@ import {
 import {
     EventStatus,
     EventState,
-    Event
+    Event,
+    EventFormat // Import EventFormat from event.ts
 } from '@/types/event';
 import { RootState } from '@/types/store';
 import { User } from '@/types/user';
@@ -25,9 +26,6 @@ import { Functions } from 'appwrite';
 // --- Appwrite/SendPulse Integration START ---
 import { functions, isAppwriteConfigured } from '@/appwrite';
 // --- Appwrite/SendPulse Integration END ---
-
-// Define EventFormat enum if not globally available/imported
-enum EventFormat { Individual = 'Individual', Team = 'Team' }
 
 // --- Helper: Validate Organizers ---
 async function validateOrganizersNotAdmin(organizerIds: string[] = []): Promise<void> {
@@ -102,11 +100,11 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
     for (const docSnap of querySnapshot.docs) {
         const event = { id: docSnap.id, ...docSnap.data() } as Event;
         if (excludeEventId && docSnap.id === excludeEventId) continue;
-        if (!event.details?.date?.final?.start || !event.details?.date?.final?.end) continue;
+        if (!event.details?.date?.start || !event.details?.date?.end) continue;
 
         try {
-            const eventStartLuxon = DateTime.fromJSDate(event.details.date.final.start.toDate()).startOf('day');
-            const eventEndLuxon = DateTime.fromJSDate(event.details.date.final.end.toDate()).startOf('day');
+            const eventStartLuxon = DateTime.fromJSDate(event.details.date.start.toDate()).startOf('day');
+            const eventEndLuxon = DateTime.fromJSDate(event.details.date.end.toDate()).startOf('day');
             if (!eventStartLuxon.isValid || !eventEndLuxon.isValid) continue;
 
             // Use Interval for overlap check
@@ -122,8 +120,8 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
         }
     }
 
-    const nextAvailableDate = conflictingEvent?.details?.date?.final?.end
-        ? DateTime.fromJSDate(conflictingEvent.details.date.final.end.toDate()).plus({ days: 1 }).toJSDate()
+    const nextAvailableDate = conflictingEvent?.details?.date?.end
+        ? DateTime.fromJSDate(conflictingEvent.details.date.end.toDate()).plus({ days: 1 }).toJSDate()
         : null;
 
     return { hasConflict: !!conflictingEvent, nextAvailableDate, conflictingEvent };
@@ -135,7 +133,7 @@ export async function createEvent({ rootGetters, commit, dispatch }: ActionConte
     if (currentUser?.role !== 'Admin') throw new Error('Unauthorized: Only Admins can create events directly.');
     if (!currentUser?.uid) throw new Error('Admin user UID is missing.');
 
-    if (!eventData.details?.date?.final?.start || !eventData.details?.date?.final?.end) throw new Error("Admin event creation requires valid start and end dates.");
+    if (!eventData.details?.date?.start || !eventData.details?.date?.end) throw new Error("Admin event creation requires valid start and end dates.");
 
     // --- Always include the requesting user as organizer ---
     let organizers: string[] = Array.isArray(eventData.details?.organizers) ? eventData.details.organizers.filter(Boolean) : [];
@@ -144,8 +142,8 @@ export async function createEvent({ rootGetters, commit, dispatch }: ActionConte
     if (organizers.length > 5) throw new Error("Max 5 organizers.");
     await validateOrganizersNotAdmin(organizers);
 
-    const startDate = eventData.details.date.final.start;
-    const endDate = eventData.details.date.final.end;
+    const startDate = eventData.details.date.start;
+    const endDate = eventData.details.date.end;
     if (!(startDate instanceof Timestamp) || !(endDate instanceof Timestamp)) throw new Error("Invalid date format.");
     if (startDate.toMillis() >= endDate.toMillis()) throw new Error("End date must be after start date.");
     if (startDate.toMillis() <= Timestamp.now().toMillis()) console.warn("Admin creating event starting in past/present.");
@@ -178,39 +176,41 @@ export async function createEvent({ rootGetters, commit, dispatch }: ActionConte
 }
 
 // --- ACTION: Request Event (Non-Admin User) ---
-export async function requestEvent({ commit, rootGetters }: ActionContext<EventState, RootState>, eventData: Partial<Event>): Promise<string> {
-    if (!eventData.details?.date?.desired?.start || !eventData.details?.date?.desired?.end) throw new Error('Desired dates required.');
-
+export async function requestEvent({ commit, rootGetters }: ActionContext<EventState, RootState>, initialData: Partial<Event>): Promise<string> {
     const currentUser: User | null = rootGetters['user/getUser'];
     if (!currentUser?.uid) throw new Error('User must be logged in.');
+    if (!initialData.details?.date?.start || !initialData.details?.date?.end) {
+        throw new Error('Event dates required.');
+    }
 
     try {
-        const desiredStartDate = eventData.details.date.desired.start;
-        const desiredEndDate = eventData.details.date.desired.end;
-        if (!(desiredStartDate instanceof Timestamp) || !(desiredEndDate instanceof Timestamp)) throw new Error("Invalid desired dates.");
-        if (desiredStartDate.toMillis() >= desiredEndDate.toMillis()) throw new Error("Desired end date must be after start.");
+        const startDate = initialData.details.date.start;
+        const endDate = initialData.details.date.end;
+        if (!(startDate instanceof Timestamp) || !(endDate instanceof Timestamp)) {
+            throw new Error("Invalid date format.");
+        }
+        if (startDate.toMillis() >= endDate.toMillis()) {
+            throw new Error("End date must be after start date.");
+        }
 
-        const eventFormat = eventData.details.format;
-
-        // --- Always include the requesting user as organizer ---
-        let organizers: string[] = Array.isArray(eventData.details.organizers) ? eventData.details.organizers.filter(Boolean) : [];
-        if (!organizers.includes(currentUser.uid)) organizers.unshift(currentUser.uid);
+        const eventFormat = initialData.details.format;
+        let organizers: string[] = Array.isArray(initialData.details.organizers) 
+            ? initialData.details.organizers.filter(Boolean) 
+            : [];
+        if (!organizers.includes(currentUser.uid)) {
+            organizers.unshift(currentUser.uid);
+        }
 
         const requestPayload: Partial<Event> = {
             details: {
                 organizers,
-                description: eventData.details.description || '',
-                type: eventData.details.type || '',
+                description: initialData.details?.description || '',
+                type: initialData.details?.type || '',
+                eventName: initialData.details?.type || '',
                 format: eventFormat,
                 date: {
-                    desired: {
-                        start: desiredStartDate,
-                        end: desiredEndDate
-                    },
-                    final: {
-                        start: null,
-                        end: null
-                    }
+                    start: null,
+                    end: null
                 }
             },
             requestedBy: currentUser.uid,
@@ -220,8 +220,10 @@ export async function requestEvent({ commit, rootGetters }: ActionContext<EventS
         };
 
         const docRef = await addDoc(collection(db, 'events'), requestPayload);
-        commit('addOrUpdateEvent', { ...requestPayload, id: docRef.id });
+        const eventData = { ...requestPayload, id: docRef.id }; // Fix spread order
+        commit('addOrUpdateEvent', eventData);
         return docRef.id;
+
     } catch (error: any) {
         console.error('Error requesting event:', error);
         throw new Error(`Failed to submit request: ${error.message || 'Unknown error'}`);
@@ -243,10 +245,19 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
         fetchedEventData = { id: eventId, ...eventSnap.data() } as Event; // Get data before update
 
         if (fetchedEventData.status !== EventStatus.Pending) throw new Error('Only pending events approved.');
-        if (!fetchedEventData.details?.date?.desired?.start || !fetchedEventData.details?.date?.desired?.end) throw new Error("Missing desired dates.");
+        if (!fetchedEventData.details?.date?.start || !fetchedEventData.details?.date?.end) {
+            throw new Error("Missing event dates.");
+        }
 
-        const conflictResult = await dispatch('checkDateConflict', { startDate: fetchedEventData.details.date.desired.start, endDate: fetchedEventData.details.date.desired.end, excludeEventId: eventId });
-        if (conflictResult.hasConflict) throw new Error(`Approval failed: Date conflict with "${conflictResult.conflictingEvent?.details?.type || 'another event'}".`);
+        const conflictResult = await dispatch('checkDateConflict', { 
+            startDate: fetchedEventData.details.date.start, 
+            endDate: fetchedEventData.details.date.end, 
+            excludeEventId: eventId 
+        });
+
+        if (conflictResult.hasConflict) {
+            throw new Error(`Approval failed: Date conflict with "${conflictResult.conflictingEvent?.details?.type || 'another event'}".`);
+        }
 
         // --- Perform Firestore Update ---
         const updates: Partial<Event> = {
@@ -255,11 +266,8 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
             details: {
                 ...fetchedEventData.details,
                 date: {
-                    ...fetchedEventData.details.date,
-                    final: {
-                        start: fetchedEventData.details.date.desired.start,
-                        end: fetchedEventData.details.date.desired.end,
-                    }
+                    start: fetchedEventData.details.date.start,
+                    end: fetchedEventData.details.date.end
                 }
             }
         };
@@ -267,7 +275,7 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
         // --- End Firestore Update ---
 
         // Update local state
-        dispatch('updateLocalEvent', { ...updates, id: eventId });
+        dispatch('updateLocalEvent', { id: eventId, changes: updates });
 
         // --- Trigger Appwrite Push Notification START ---
         if (isAppwriteConfigured() && fetchedEventData?.requestedBy) {
@@ -282,7 +290,6 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
                         messageTitle: `Event Approved: ${fetchedEventData.details?.type || 'Event'}`,
                         messageBody: `Your event request "${fetchedEventData.details?.type || 'Event'}" has been approved!`,
                         eventUrl: `/event/${eventId}`,
-                        eventName: fetchedEventData.details?.type || 'Unnamed Event',
                     };
 
                     console.log("Triggering Appwrite function 'triggerPushNotification' for event approval:", functionPayload);
@@ -318,7 +325,6 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
     }
 }
 
-
 // --- ACTION: Reject Event Request (Admin Only) ---
 export async function rejectEventRequest({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, reason }: { eventId: string; reason?: string }): Promise<void> {
     const currentUser: User | null = rootGetters['user/getUser'];
@@ -335,7 +341,7 @@ export async function rejectEventRequest({ dispatch, rootGetters }: ActionContex
             status: EventStatus.Rejected, rejectionReason: reason?.trim() || null, lastUpdatedAt: Timestamp.now(),
         };
         await updateDoc(eventRef, updates);
-        dispatch('updateLocalEvent', { ...updates, id: eventId });
+        dispatch('updateLocalEvent', { id: eventId, changes: updates });
     } catch (error: any) {
         console.error(`Error rejecting request ${eventId}:`, error);
         throw error;
@@ -362,7 +368,7 @@ export async function cancelEvent({ dispatch, rootGetters }: ActionContext<Event
 
         const updates: Partial<Event> = { status: EventStatus.Cancelled, lastUpdatedAt: Timestamp.now() };
         await updateDoc(eventRef, updates);
-        dispatch('updateLocalEvent', { ...updates, id: eventId });
+        dispatch('updateLocalEvent', { id: eventId, changes: updates });
 
         // --- Appwrite Push Notification Trigger START ---
         if (isAppwriteConfigured() && fetchedEventData) {
@@ -383,7 +389,6 @@ export async function cancelEvent({ dispatch, rootGetters }: ActionContext<Event
                         messageTitle: `Event Cancelled: ${fetchedEventData.details?.type || 'Event'}`,
                         messageBody: `The event "${fetchedEventData.details?.type || 'Event'}" has been cancelled.`,
                         eventUrl: `/event/${eventId}`,
-                        eventName: fetchedEventData.details?.type || 'Unnamed Event',
                     };
 
                     console.log("Triggering Appwrite function for event cancellation:", functionPayload);
@@ -474,8 +479,8 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
             case EventStatus.Approved: // Re-approving
                 if (!isAdmin) throw new Error("Only Admins can re-approve.");
                 if (currentEvent.status !== EventStatus.Cancelled) throw new Error(`Can only re-approve 'Cancelled' events.`);
-                if (!currentEvent.details?.date?.final?.start || !currentEvent.details?.date?.final?.end) throw new Error("Missing dates.");
-                const conflictResult = await dispatch('checkDateConflict', { startDate: currentEvent.details.date.final.start, endDate: currentEvent.details.date.final.end, excludeEventId: eventId });
+                if (!currentEvent.details?.date?.start || !currentEvent.details?.date?.end) throw new Error("Missing dates.");
+                const conflictResult = await dispatch('checkDateConflict', { startDate: currentEvent.details.date.start, endDate: currentEvent.details.date.end, excludeEventId: eventId });
                 if (conflictResult.hasConflict) throw new Error(`Re-approve failed: Date conflict with "${(conflictResult.conflictingEvent?.details?.type as string) || 'another event'}".`);
                 notificationType = 'eventReApproved';
                 notificationTitle = `Event Re-Approved: ${currentEvent.details?.type || 'Event'}`;
@@ -488,7 +493,7 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
 
         // --- Perform Firestore Update ---
         await updateDoc(eventRef, updates);
-        dispatch('updateLocalEvent', { ...updates, id: eventId });
+        dispatch('updateLocalEvent', { id: eventId, changes: updates });
         // --- End Firestore Update ---
 
         // --- Trigger Appwrite Push Notification START ---
@@ -501,7 +506,6 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
                     messageTitle: notificationTitle,
                     messageBody: notificationBody,
                     eventUrl: `/event/${eventId}`,
-                    eventName: currentEvent.details?.type || 'Unnamed Event',
                 };
                 console.log(`Triggering Appwrite function for status update (${newStatus}):`, functionPayload);
                 const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';

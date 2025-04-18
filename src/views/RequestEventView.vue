@@ -168,8 +168,8 @@ const mapEventToFormData = (eventData: any): EventFormData => {
     eventFormat: 'Individual',
     startDate: null,
     endDate: null,
-    desiredStartDate: null,
-    desiredEndDate: null,
+    StartDate: null,
+    EndDate: null,
     teams: [],
     xpAllocation: [],
     organizers: [],
@@ -180,7 +180,7 @@ const mapEventToFormData = (eventData: any): EventFormData => {
   const formData: EventFormData = { ...defaultForm, ...eventData };
 
   // Convert dates
-  const dateFieldsToConvert: (keyof EventFormData)[] = ['startDate', 'endDate', 'desiredStartDate', 'desiredEndDate'];
+  const dateFieldsToConvert: (keyof EventFormData)[] = ['startDate', 'endDate', 'StartDate', 'EndDate'];
   dateFieldsToConvert.forEach(field => {
     const timestamp = formData[field] as any; // Cast to any for conversion
     if (timestamp && typeof timestamp.toDate === 'function') {

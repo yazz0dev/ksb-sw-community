@@ -28,7 +28,7 @@
             <i class="fas fa-tag fa-fw me-1 text-muted"></i>{{ event.details?.type || 'Type N/A' }}
         </div>
         <div class="d-flex align-items-center">
-            <i class="fas fa-calendar-alt fa-fw me-1 text-muted"></i>{{ formatDateRange(event.details?.date?.desired?.start, event.details?.date?.desired?.end) }}
+            <i class="fas fa-calendar-alt fa-fw me-1 text-muted"></i>{{ formatDateRange(event.details?.date?.start, event.details?.date?.end) }}
         </div>
       </div>
       <p class="card-text small text-secondary mb-4 flex-grow-1">{{ truncatedDescription }}</p>
@@ -50,7 +50,8 @@
 <script setup lang="ts">
 import { computed, PropType } from 'vue';
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, type Event } from '@/types/event';
+import { EventStatus, type Event, EventFormat } from '@/types/event';
+import { DateTime } from 'luxon';
 
 // Define props using defineProps
 const props = defineProps({
@@ -90,22 +91,12 @@ const truncatedDescription = computed(() => {
 
 // Participant count
 const participantCount = computed(() => {
-    // Use event.details.format to determine if team event
-    if (props.event.details?.format === 'Team' && Array.isArray(props.event.teams)) {
-        let count = 0;
-        props.event.teams.forEach((team: any) => {
-            count += team.members?.length || 0;
-        });
-        return count;
-    }
-    const participants = props.event?.participants;
-    if (Array.isArray(participants)) {
-        return participants.length;
-    }
-    if (typeof participants === 'object' && participants !== null) {
-        return Object.keys(participants).length;
-    }
-    return 0;
+  if (!props.event) return 0;
+  if (props.event.details.format === EventFormat.Team) {
+    return props.event.teams?.reduce((total, team) => 
+      total + (Array.isArray(team.members) ? team.members.length : 0), 0) || 0;
+  }
+  return Array.isArray(props.event.participants) ? props.event.participants.length : 0;
 });
 
 // Map status to Bootstrap badge classes
@@ -128,6 +119,18 @@ const statusBadgeClass = computed(() => {
   }
 });
 
+const formatDate = (date: any): string => {
+  if (!date) return '';
+  let dateObj;
+  if (date instanceof Timestamp) {
+    dateObj = date.toDate();
+  } else if (typeof date === 'string') {
+    dateObj = new Date(date);
+  } else {
+    dateObj = date;
+  }
+  return DateTime.fromJSDate(dateObj).toFormat('MMM dd, yyyy');
+};
 </script>
 
 <style scoped>

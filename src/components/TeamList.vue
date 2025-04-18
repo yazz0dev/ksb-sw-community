@@ -184,7 +184,7 @@ const toggleTeamDetails = (teamName: string): void => {
     transition: transform 0.3s ease-out;
 }
 
-/* Ensure router links don't have default underline if not desired */
+/* Ensure router links don't have default underline if not  */
 .router-link {
   text-decoration: none;
 }

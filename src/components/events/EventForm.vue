@@ -9,11 +9,11 @@
           <label class="form-label">Event Format <span class="text-danger">*</span></label>
           <div>
             <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" value="Individual" v-model="formData.eventFormat" @change="handleFormatChange" :disabled="isSubmitting">
+              <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" value="Individual" v-model="formData.details.format" @change="handleFormatChange" :disabled="isSubmitting">
               <label class="form-check-label" for="formatIndividual">Individual</label>
             </div>
             <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" value="Team" v-model="formData.eventFormat" @change="handleFormatChange" :disabled="isSubmitting">
+              <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" value="Team" v-model="formData.details.format" @change="handleFormatChange" :disabled="isSubmitting">
               <label class="form-check-label" for="formatTeam">Team</label>
             </div>
           </div>
@@ -39,7 +39,7 @@
               <select
                 id="eventType"
                 class="form-select"
-                v-model="formData.eventType"
+                v-model="formData.details.type"
                 :disabled="isSubmitting"
                 @change="handleEventTypeChange"
                 required
@@ -60,7 +60,7 @@
             id="eventDescription"
             class="form-control"
             rows="4"
-            v-model="formData.description"
+            v-model="formData.details.description"
             :disabled="isSubmitting"
             placeholder="Enter event description (supports Markdown)"
             required
@@ -69,7 +69,7 @@
         </div>
 
         <!-- Team Configuration Section (Conditional) -->
-        <template v-if="formData.eventFormat === 'Team'">
+        <template v-if="formData.details.format === 'Team'">
           <hr class="my-4">
           <h4 class="h5 mb-4">Team Configuration</h4>
           <!-- Only render component when students are loaded -->
@@ -102,7 +102,7 @@
               <label :for="dateFields.startField" class="form-label">{{ dateFields.startLabel }} <span class="text-danger">*</span></label>
               <DatePicker
                   :uid="dateFields.startField"
-                  v-model="formData.desiredStartDate"
+                  v-model="formData.details.date.start"
                   :enable-time-picker="false"
                   :disabled="isSubmitting"
                   @update:model-value="checkNextAvailableDate"
@@ -115,10 +115,10 @@
                   placeholder="Select start date"
                   required
                 />
-               <div v-if="formData.desiredStartDate && !isDateAvailable" class="invalid-feedback d-block">
+               <div v-if="formData.details.date.start && !isDateAvailable" class="invalid-feedback d-block">
                  <i class="fas fa-exclamation-circle me-1"></i> Date conflict detected
                </div>
-               <div v-else-if="formData.desiredStartDate && isDateAvailable" class="valid-feedback d-block">
+               <div v-else-if="formData.details.date.start && isDateAvailable" class="valid-feedback d-block">
                  <i class="fas fa-check-circle me-1"></i> Date available
                </div>
             </div>
@@ -128,20 +128,20 @@
               <label :for="dateFields.endField" class="form-label">{{ dateFields.endLabel }} <span class="text-danger">*</span></label>
                <DatePicker
                   :uid="dateFields.endField"
-                  v-model="formData.desiredEndDate"
+                  v-model="formData.details.date.end"
                   :enable-time-picker="false"
-                  :disabled="isSubmitting || !formData.desiredStartDate"
+                  :disabled="isSubmitting || !formData.details.date.start"
                   @update:model-value="checkNextAvailableDate"
                   model-type="yyyy-MM-dd"
-                  :min-date="formData.desiredStartDate ? new Date(formData.desiredStartDate) : new Date()"
-                  :input-class-name="!formData.desiredStartDate ? 'form-control is-invalid' : 'form-control'"
+                  :min-date="formData.details.date.start ? new Date(formData.details.date.start) : new Date()"
+                  :input-class-name="!formData.details.date.start ? 'form-control is-invalid' : 'form-control'"
                   :auto-apply="true"
                   :teleport="true"
                   :clearable="false"
                   placeholder="Select end date"
                   required
                 />
-              <small v-if="!formData.desiredStartDate" class="form-text text-muted">Select start date first</small>
+              <small v-if="!formData.details.date.start" class="form-text text-muted">Select start date first</small>
             </div>
           </div>
         </div>
@@ -170,22 +170,22 @@
      <!-- Rating Criteria Card -->
     <div class="card shadow-sm mb-4">
       <div class="card-body p-4 p-lg-5">
-        <h3 class="h4 mb-3">Rating Criteria & XP Allocation</h3>
-        <p class="small text-secondary mb-4">Define how teams/participants will be rated and earn XP. Total XP cannot exceed 50.</p>
+        <h3 class="h4 mb-3">Rating Criteria</h3>
+        <p class="small text-secondary mb-4">Define criteria for rating participants. Total XP cannot exceed 50.</p>
         
-        <div v-for="(alloc, index) in formData.xpAllocation" :key="alloc.constraintIndex ?? index" class="mb-4 p-3 bg-light-subtle border rounded">
+        <div v-for="(criterion, index) in formData.criteria" :key="criterion.constraintIndex ?? index" class="mb-4 p-3 bg-light-subtle border rounded">
             <div class="row g-3 align-items-end"> 
                 <div class="col-md-5">
                     <label :for="`criteria-label-${index}`" class="form-label form-label-sm">Criteria Label</label>
-                    <input :id="`criteria-label-${index}`" class="form-control form-control-sm" type="text" v-model="alloc.constraintLabel" :disabled="isSubmitting" placeholder="e.g., Code Quality">
+                    <input :id="`criteria-label-${index}`" class="form-control form-control-sm" type="text" v-model="criterion.constraintLabel" :disabled="isSubmitting" placeholder="e.g., Code Quality">
                 </div>
                 <div class="col-md-4">
-                    <label :for="`criteria-points-${index}`" class="form-label form-label-sm">XP Points ({{ alloc.points }})</label>
+                    <label :for="`criteria-points-${index}`" class="form-label form-label-sm">XP Points ({{ criterion.points }})</label>
                     <input
                        :id="`criteria-points-${index}`"
                        class="form-range"
                        type="range"
-                       v-model.number="alloc.points"
+                       v-model.number="criterion.points"
                        :disabled="isSubmitting"
                        min="1"
                        max="50"
@@ -193,7 +193,7 @@
                 </div>
                  <div class="col-md-3">
                      <label :for="`criteria-role-${index}`" class="form-label form-label-sm">Applies To</label>
-                     <select :id="`criteria-role-${index}`" class="form-select form-select-sm" v-model="alloc.targetRole" :disabled="isSubmitting">
+                     <select :id="`criteria-role-${index}`" class="form-select form-select-sm" v-model="criterion.role" :disabled="isSubmitting">
                          <option value="" disabled>Select Role</option>
                          <option
                              v-for="role in assignableXpRoles"
@@ -202,16 +202,11 @@
                          >{{ role }}</option>
                      </select>
                  </div>
-                <div class="col-md-auto">
-                    <button type="button" class="btn btn-sm btn-outline-danger" @click="removeXPAllocation(index)" :disabled="isSubmitting" title="Remove Criteria">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
             </div>
         </div>
         
         <div class="d-flex justify-content-between align-items-center">
-             <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center" @click="addXPAllocation" :disabled="isSubmitting">
+             <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center" @click="addCriterion" :disabled="isSubmitting">
                  <i class="fas fa-plus me-1"></i>
                  <span>Add Criteria</span>
              </button>
@@ -260,11 +255,11 @@
           </div>
 
           <!-- Selected Co-organizers -->
-          <div v-if="formData.organizers.length > 0" class="mt-3">
+          <div v-if="formData.details.organizers.length > 0" class="mt-3">
               <h6 class="small fw-bold mb-2">Selected Co-organizers:</h6>
               <div class="d-flex flex-wrap gap-2">
                   <span
-                      v-for="orgId in formData.organizers"
+                      v-for="orgId in formData.details.organizers"
                       :key="orgId"
                       class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis d-inline-flex align-items-center"
                   >
@@ -294,23 +289,36 @@
 </template>
 
 <script setup lang="ts">
-// Type checking enabled - will fix errors below
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import DatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
-import ManageTeamsComponent from './ManageTeamsComponent.vue';  // Updated path
-import TeamMemberSelect from './TeamMemberSelect.vue';  // Updated path
 import { Timestamp } from 'firebase/firestore';
 import { DateTime } from 'luxon';
-import { EventStatus } from '@/types/event'; // <-- Add this import
+// Use event.ts for all event-related types/enums
+import { Event, EventStatus, EventFormat, Team, EventCriteria } from '@/types/event';
+import TeamMemberSelect from './TeamMemberSelect.vue';
+import ManageTeamsComponent from '@/components/events/ManageTeamsComponent.vue';
 
-// Interfaces (consider moving to a types file)
-export interface Team {
-  teamName: string;
-  members: string[];
+export interface FormData {
+  eventName: string;
+  details: {
+    format: EventFormat;
+    type: string;
+    description: string;
+    date: {
+      start: string | null; // Keep as string for form handling
+      end: string | null;   // Keep as string for form handling
+    };
+    organizers: string[];
+  };
+  teams: Team[];
+  criteria: EventCriteria[];
+  status?: EventStatus;
+  requestedBy?: string;
 }
 
+// Interfaces (consider moving to a types file)
 export interface Student {
   uid: string;
   name: string;
@@ -323,28 +331,6 @@ export interface NameCache {
 // Define roles for XP allocation (excluding Admin/Organizer potentially)
 const assignableXpRoles = ['fullstack', 'presenter', 'designer', 'problemSolver'] as const; // Use const assertion
 type AssignableXpRole = typeof assignableXpRoles[number];
-
-export interface XpAllocation {
-    constraintLabel: string;
-    points: number;
-    targetRole: AssignableXpRole | ''; // Use specific roles, allow empty initial
-    constraintIndex?: number; // For Vue key prop
-}
-
-export interface FormData {
-  eventName: string;
-  eventType: string;
-  description: string;
-  eventFormat: 'Individual' | 'Team'; // Replace isTeamEvent
-  startDate: string | null; // Store as YYYY-MM-DD
-  endDate: string | null;   // Store as YYYY-MM-DD
-  desiredStartDate?: string | null; // For requests
-  desiredEndDate?: string | null; // For requests
-  teams: Team[]; // Use correct Team interface
-  xpAllocation: XpAllocation[]; // Use updated interface
-  organizers: string[];
-  status?: string; // Added for edit mode
-}
 
 // Props definition using defineProps macro
 const props = defineProps<{
@@ -380,7 +366,7 @@ const teamEventTypes = [
 // Default values for props if not provided (handled slightly differently in <script setup>)
 const availableEventTypes = computed(() => {
     // Return different lists based on the current form state
-    return formData.value.eventFormat === 'Team' ? teamEventTypes : individualEventTypes;
+    return formData.value.details.format === 'Team' ? teamEventTypes : individualEventTypes;
 });
 const isSubmitting = computed(() => props.isSubmitting ?? false);
 const isRequestForm = computed(() => true); // Always treat as request form
@@ -394,21 +380,17 @@ const emit = defineEmits<{
 
 // *** NEW: Computed property for available students based on Vuex state ***
 const availableStudents = computed<Student[]>(() => {
-    // Safety check: Ensure studentList is an array before mapping
-    if (!Array.isArray(store.state.user.studentList)) {
-        console.warn('store.state.user.studentList is not an array in computed property.');
-        return [];
-    }
-    // Map the store data to the expected Student interface
-    return store.state.user.studentList.map((s: any) => ({ 
-        uid: s.uid, 
-        name: s.name 
+  const students = store.state.user.studentList || [];
+  return students
+    .filter((s: any) => s.role !== 'Admin')
+    .map((s: any) => ({
+      uid: s.uid,
+      name: s.name || s.email || s.uid
     }));
 });
 
 const store = useStore();
 const formData = ref<FormData>(initializeFormData());
-// REMOVED: availableStudents ref
 const nameCache = ref<NameCache>({});
 const allUsers = ref<{ uid: string; name: string; email: string }[]>([]);
 const coOrganizerSearch = ref('');
@@ -428,41 +410,46 @@ const stringToDate = (dateString: string | null): Date | null => {
 };
 
 const dateFields = computed(() => ({
-    startLabel: 'Desired Start Date', 
-    endLabel: 'Desired End Date', 
-    startField: 'desiredStartDate', 
-    endField: 'desiredEndDate'
+    startLabel: 'Event Start Date', 
+    endLabel: 'Event End Date', 
+    startField: 'startDate', 
+    endField: 'endDate'
 }));
 
- const totalXP = computed(() => {
-  return formData.value.xpAllocation.reduce((sum, alloc) => sum + (Number(alloc.points) || 0), 0);
+// Add type for totalXP computed
+const totalXP = computed((): number => {
+  return formData.value.criteria.reduce((sum: number, criterion: EventCriteria) => 
+    sum + (Number(criterion.points) || 0), 0);
 });
 
 function initializeFormData(): FormData {
   const defaults: FormData = {
     eventName: '',
-    eventType: '', // Reset event type initially
-    description: '',
-    eventFormat: 'Individual', // Default to Individual instead of isTeamEvent: false
-    startDate: null,
-    endDate: null,
-    desiredStartDate: null,
-    desiredEndDate: null,
+    details: {
+      format: EventFormat.Individual, // Use imported enum
+      type: '',
+      description: '',
+      date: {
+        start: null,
+        end: null
+      },
+      organizers: []
+    },
     teams: [],
-    xpAllocation: [], // Initialize with empty array
-    organizers: [],
-    status: EventStatus.Pending, // Always pending for requests
+    criteria: [], 
+    status: EventStatus.Pending // Use imported enum
   };
 
-  // Add a default XP allocation item if creating a new form
-   if (!props.initialData && defaults.xpAllocation.length === 0) {
-       defaults.xpAllocation.push({
-           constraintLabel: 'Default Criteria',
-           points: 10,
-           targetRole: 'fullstack', // Set default role instead of empty string
-           constraintIndex: 0
-       });
-   }
+  // Add a default criterion if creating new form
+  if (!props.initialData && defaults.criteria.length === 0) {
+    defaults.criteria.push({
+      constraintIndex: 0,
+      constraintLabel: 'Default Criteria',
+      points: 10,
+      role: 'fullstack',
+      criteriaSelections: {}
+    });
+  }
 
   if (props.initialData) {
     const initial = { ...props.initialData };
@@ -480,21 +467,10 @@ function initializeFormData(): FormData {
       return null;
     };
 
-    initial.startDate = formatTimestamp(initial.startDate);
-    initial.endDate = formatTimestamp(initial.endDate);
-    initial.desiredStartDate = formatTimestamp(initial.desiredStartDate);
-    initial.desiredEndDate = formatTimestamp(initial.desiredEndDate);
-
-    // Ensure xpAllocation has constraintIndex and potentially adapt old data structure if necessary
-    initial.xpAllocation = (initial.xpAllocation || []).map((alloc: any, index) => ({
-        constraintLabel: alloc.constraintLabel || `Criteria ${index + 1}`,
-        points: Number(alloc.points) || 0,
-        // Adapt from old 'role' field if present, otherwise default or leave empty
-        targetRole: assignableXpRoles.includes(alloc.targetRole)
-            ? alloc.targetRole
-            : (assignableXpRoles.includes(alloc.role) ? alloc.role : ''), // Basic migration attempt from old 'role'
-        constraintIndex: alloc.constraintIndex ?? index // Assign index if missing
-    }));
+    if (initial.details?.date) {
+      initial.details.date.start = formatTimestamp(initial.details.date.start);
+      initial.details.date.end = formatTimestamp(initial.details.date.end);
+    }
 
     return { ...defaults, ...initial };
   }
@@ -517,7 +493,7 @@ const filteredUsers = computed(() => {
     // Exclude Admins
     if (user.role === 'Admin') return false;
     // Exclude already added organizers
-    if (formData.value.organizers.includes(user.uid)) return false;
+    if (formData.value.details.organizers.includes(user.uid)) return false;
     // Match search query
     const nameMatch = user.name?.toLowerCase().includes(searchLower);
     const emailMatch = user.email?.toLowerCase().includes(searchLower);
@@ -527,14 +503,12 @@ const filteredUsers = computed(() => {
 
 const fetchInitialData = async () => {
   // Ensure refs are arrays initially and reset them
-  // REMOVED: availableStudents.value = []; 
   allUsers.value = [];
 
   try {
     // Fetch students unconditionally, as the user might switch to team format.
     // The computed property 'availableStudents' will react to the store update.
     await store.dispatch('user/fetchAllStudents');
-    // REMOVED: Direct assignment to availableStudents.value
 
     // Fetch all users for co-organizer dropdown
     await store.dispatch('user/fetchAllUsers');
@@ -571,7 +545,6 @@ const fetchInitialData = async () => {
   } catch (error) {
     console.error("Error fetching initial form data:", error);
     // Ensure refs are reset on error too
-    // REMOVED: availableStudents.value = [];
     allUsers.value = [];
     emit('error', 'Failed to load necessary data for the form.');
   }
@@ -586,12 +559,11 @@ onMounted(() => {
 // Re-initialize form when initialData changes (e.g., switching between create/edit)
 watch(() => props.initialData, () => {
     formData.value = initializeFormData();
-    // REMOVED: fetchInitialData(); // Student list is global, fetch on mount is enough
     checkNextAvailableDate(); // Re-check dates
 }, { deep: true });
 
 const handleFormatChange = () => {
-  if (formData.value.eventFormat === 'Individual') {
+  if (formData.value.details.format === 'Individual') {
     formData.value.teams = []; // Clear teams for individual format
   } else {
      // Fetch students if switching to team event and they aren't loaded
@@ -600,8 +572,8 @@ const handleFormatChange = () => {
      }
   }
   // Reset event type if the current one is not valid for the new format
-  if (!availableEventTypes.value.includes(formData.value.eventType)) {
-      formData.value.eventType = ''; // Reset selection
+  if (!availableEventTypes.value.includes(formData.value.details.type)) {
+      formData.value.details.type = ''; // Reset selection
   }
 };
 
@@ -609,37 +581,39 @@ const handleEventTypeChange = () => {
     // If specific logic is needed when event type changes
 };
 
-const updateTeams = (newTeams: { name: string; members: string[] }[]) => {
-  // Accepts array of { name, members } and maps to { teamName, members }
+// Fix team mapping type
+const updateTeams = (newTeams: { name: string; members: string[] }[]): void => {
   formData.value.teams = newTeams.map(t => ({
     teamName: t.name,
-    members: Array.isArray(t.members) ? [...t.members] : []
+    members: Array.isArray(t.members) ? [...t.members] : [],
+    teamLead: t.members[0] || '' // Set first member as teamLead
   }));
 };
 
-const addXPAllocation = () => {
-  formData.value.xpAllocation.push({
+const addCriterion = (): void => {
+  formData.value.criteria.push({
+    constraintIndex: Date.now() + Math.random(),
     constraintLabel: '',
-    points: 5, // Default points
-    targetRole: 'fullstack', // Default to a valid role
-    constraintIndex: Date.now() + Math.random() // Use a more unique key
+    points: 5,
+    role: 'fullstack',
+    criteriaSelections: {}
   });
 };
 
-const removeXPAllocation = (index: number) => {
-  formData.value.xpAllocation.splice(index, 1);
+const removeCriterion = (index: number): void => {
+  formData.value.criteria.splice(index, 1);
 };
 
  const addOrganizer = (userId: string) => {
-  if (!formData.value.organizers.includes(userId)) {
-    formData.value.organizers.push(userId);
+  if (!formData.value.details.organizers.includes(userId)) {
+    formData.value.details.organizers.push(userId);
   }
   coOrganizerSearch.value = '';
   showCoOrganizerDropdown.value = false;
 };
 
 const removeOrganizer = (userId: string) => {
-  formData.value.organizers = formData.value.organizers.filter(id => id !== userId);
+  formData.value.details.organizers = formData.value.details.organizers.filter(id => id !== userId);
 };
 
  const searchUsers = () => {
@@ -647,65 +621,42 @@ const removeOrganizer = (userId: string) => {
   // Implement debouncing if fetching users dynamically instead of from pre-fetched list
 };
 
-const handleSubmit = () => {
+const handleSubmit = (): void => {
   if (totalXP.value > 50) {
     emit('error', 'Total XP allocated cannot exceed 50.');
     return;
   }
 
   // Validate dates are present
-  if (!formData.value.desiredStartDate || !formData.value.desiredEndDate) {
+  if (!formData.value.details.date.start || !formData.value.details.date.end) {
     emit('error', `Both ${dateFields.value.startLabel} and ${dateFields.value.endLabel} are required.`);
     return;
   }
 
-  // Convert ISO date strings to Firestore Timestamp objects
-  let desiredStartTimestamp = null;
-  let desiredEndTimestamp = null;
-  try {
-    desiredStartTimestamp = Timestamp.fromDate(new Date(formData.value.desiredStartDate));
-    desiredEndTimestamp = Timestamp.fromDate(new Date(formData.value.desiredEndDate));
-    if (isNaN(desiredStartTimestamp.toMillis()) || isNaN(desiredEndTimestamp.toMillis())) throw new Error();
-  } catch {
-    emit('error', 'Invalid date format.');
-    return;
+  // Create a deep copy to avoid mutating the form state
+  const dataToSubmit = JSON.parse(JSON.stringify(formData.value));
+
+  // Convert the dates to Timestamps before submitting
+  if (dataToSubmit.details.date.start) {
+    const startDate = new Date(dataToSubmit.details.date.start);
+    dataToSubmit.details.date.start = Timestamp.fromDate(startDate);
   }
 
-  // Build the payload with correct nested structure for backend
-  const dataToSubmit: any = {
-    ...formData.value,
-    desiredStartDate: undefined,
-    desiredEndDate: undefined,
-    startDate: null,
-    endDate: null,
-    status: 'Pending',
-    details: {
-      description: formData.value.description,
-      type: formData.value.eventType,
-      format: formData.value.eventFormat,
-      date: {
-        desired: {
-          start: desiredStartTimestamp,
-          end: desiredEndTimestamp
-        },
-        final: {
-          start: null,
-          end: null
-        }
-      },
-      organizers: formData.value.organizers
-    },
-    xpAllocation: formData.value.xpAllocation.map(({ constraintIndex, ...rest }) => rest),
-    teams: formData.value.teams
-  };
+  if (dataToSubmit.details.date.end) {
+    const endDate = new Date(dataToSubmit.details.date.end);
+    dataToSubmit.details.date.end = Timestamp.fromDate(endDate);
+  }
+
+  dataToSubmit.status = EventStatus.Pending;
+  dataToSubmit.requestedBy = store.getters['user/userId'];
 
   emit('submit', dataToSubmit);
 };
 
  const checkNextAvailableDate = async () => {
     // Directly use the keys
-    const startDateString = formData.value.desiredStartDate;
-    const endDateString = formData.value.desiredEndDate;
+    const startDateString = formData.value.details.date.start;
+    const endDateString = formData.value.details.date.end;
 
     if (!startDateString || !endDateString) {
         isDateAvailable.value = true; // Assume available if dates incomplete
@@ -717,7 +668,7 @@ const handleSubmit = () => {
          // Fix 3: More explicit type checking before datetime operations
          if (typeof startDateString !== 'string' || typeof endDateString !== 'string') {
              // If dates are not valid strings, treat as unavailable or handle appropriately
-             isDateAvailable.value = true; // Or false depending on desired behavior for invalid input
+             isDateAvailable.value = true; // Or false depending on  behavior for invalid input
              nextAvailableDate.value = null;
              console.warn("Attempted date availability check with invalid date strings.");
              return;
@@ -757,8 +708,8 @@ const handleSubmit = () => {
 const useNextAvailableDate = () => {
     if (nextAvailableDate.value) {
          // Directly use the keys
-         const currentEndDateString = formData.value.desiredEndDate;
-         const currentStartDateString = formData.value.desiredStartDate;
+         const currentEndDateString = formData.value.details.date.end;
+         const currentStartDateString = formData.value.details.date.start;
 
          if (!currentStartDateString || !currentEndDateString) return; // Should not happen if button is visible
 
@@ -783,8 +734,8 @@ const useNextAvailableDate = () => {
              const nextEndDateISO: string | null = nextEnd.isValid ? nextEnd.toISODate() : null;
 
             // Directly assign to the correct properties
-            formData.value.desiredStartDate = nextStartDateISO;
-            formData.value.desiredEndDate = nextEndDateISO;
+            formData.value.details.date.start = nextStartDateISO;
+            formData.value.details.date.end = nextEndDateISO;
 
             // Re-check availability after setting new dates
            checkNextAvailableDate();
@@ -817,8 +768,8 @@ const handleCoOrganizerBlur = () => {
 
 <style scoped>
 /* Add styles for DatePicker validation states if needed */
-/* :deep(.dp__input_invalid) { border-color: var(--bs-danger); } */
-/* :deep(.dp__input_valid) { border-color: var(--bs-success); } */
+ :deep(.dp__input_invalid) { border-color: var(--bs-danger); } 
+ :deep(.dp__input_valid) { border-color: var(--bs-success); } 
 
 /* Ensure dropdown menu displays correctly */
 .dropdown-menu.show {
@@ -830,4 +781,3 @@ const handleCoOrganizerBlur = () => {
     padding: 0.25em 0.4em;
 }
 </style>
-`

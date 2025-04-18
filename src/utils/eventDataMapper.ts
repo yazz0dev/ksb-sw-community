@@ -29,17 +29,11 @@ export function mapEventDataToFirestore(eventData: Partial<Event>): MappedEventD
 
     // Update nested fields
     if (mappedData.details && mappedData.details.date) {
-        if (mappedData.details.date.final) {
-            if (mappedData.details.date.final.start)
-                mappedData.details.date.final.start = getISTTimestamp(mappedData.details.date.final.start);
-            if (mappedData.details.date.final.end)
-                mappedData.details.date.final.end = getISTTimestamp(mappedData.details.date.final.end);
-        }
-        if (mappedData.details.date.desired) {
-            if (mappedData.details.date.desired.start)
-                mappedData.details.date.desired.start = getISTTimestamp(mappedData.details.date.desired.start);
-            if (mappedData.details.date.desired.end)
-                mappedData.details.date.desired.end = getISTTimestamp(mappedData.details.date.desired.end);
+        if (mappedData.details.date) {
+            if (mappedData.details.date.start)
+                mappedData.details.date.start = getISTTimestamp(mappedData.details.date.start);
+            if (mappedData.details.date.end)
+                mappedData.details.date.end = getISTTimestamp(mappedData.details.date.end);
         }
     }
     if (mappedData.createdAt)

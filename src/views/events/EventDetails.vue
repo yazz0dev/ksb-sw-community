@@ -7,12 +7,7 @@
       <!-- Event Header -->
       <EventDetailsHeader
         v-if="event"
-        :event="{
-          ...event,
-          title: event.title ?? '',
-          teamSize: event.teamSize ?? 0,
-          description: event.description ?? ''
-        }"
+        :event="mapEventToHeaderProps(event)"
         :canJoin="canJoin"
         :canLeave="canLeave"
         :canEdit="canEdit"
@@ -126,11 +121,11 @@
                       >
                         <i class="fas fa-user text-secondary me-2"></i>
                         <router-link
-                          :to="{ name: 'PublicProfile', params: { userId: userId || '' } }"
+                          :to="{ name: 'PublicProfile', params: { userId: safeString(userId) } }"
                           class="small text-truncate text-decoration-none"
                           :class="userId === currentUserId ? 'text-primary fw-semibold' : 'text-body-secondary'"
                         >
-                          {{ getUserNameFromCache(userId ?? '') }} {{ userId === currentUserId ? '(You)' : '' }}
+                          {{ getUserNameFromCache(safeString(userId)) }} {{ userId === currentUserId ? '(You)' : '' }}
                         </router-link>
                       </div>
                     </div>
@@ -158,22 +153,22 @@
               <div v-if="event.details.format !== 'Team'">
                 <ul class="list-unstyled d-flex flex-column gap-3">
                   <li v-for="(submission, index) in event.submissions" :key="`ind-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                    <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache((submission.submittedBy ?? '') as string) }}</p>
+                    <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(safeString(submission.submittedBy)) }}</p>
                     <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
                     <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
                   </li>
                 </ul>
               </div>
               <div v-else>
-                <p v-if="!teams || teams.length === 0 || teams.every(t => !t.submissions || t.submissions.length === 0)" class="small text-secondary fst-italic">
+                <p v-if="!teams || teams.length === 0 || teams.every(t => !hasTeamSubmissions(t))" class="small text-secondary fst-italic">
                   No project submissions yet for this event.
                 </p>
                 <div v-else class="d-flex flex-column gap-4">
-                  <div v-for="team in teams.filter(t => t.submissions && t.submissions.length > 0)" :key="`team-sub-${team.id || team.teamName}`"> 
+                  <div v-for="team in teams.filter(hasTeamSubmissions)" :key="getTeamKey(team)">
                     <h6 class="text-secondary mb-2">Team: {{ team.teamName }}</h6>
                     <ul class="list-unstyled d-flex flex-column gap-2 ms-4 ps-4 border-start border-2">
                       <li v-for="(submission, index) in team.submissions" :key="`team-${team.id || team.teamName}-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                        <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache((submission.submittedBy ?? '') as string) }}</p>
+                        <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(safeString(submission.submittedBy)) }}</p>
                         <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
                         <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
                       </li>
@@ -252,15 +247,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
-import { useStore, Store } from 'vuex';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import TeamList from '@/components/TeamList.vue';
 import EventManageControls from '@/components/events/EventManageControls.vue';
 import EventDetailsSkeleton from '@/components/skeletons/EventDetailsSkeleton.vue';
 import SkeletonProvider from '@/components/skeletons/SkeletonProvider.vue';
 import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
-import { EventStatus, type Event, Team as EventTeamType, Submission } from '@/types/event';
+import { EventStatus, type Event, Team as EventTeamType, Submission, EventFormat } from '@/types/event'; // Add EventFormat
 import { User } from '@/types/user';
 import { formatRoleName } from '@/utils/formatters';
 
@@ -268,18 +263,20 @@ interface EventDetails extends Event {}
 
 interface Team extends EventTeamType {}
 
-interface BootstrapModal {
-  show(): void;
-  hide():void;
-  dispose(): void;
-}
-
 // Add Collapse interface for type safety
 interface Collapse {
   toggle(): void;
   hide(): void;
   show(): void;
   dispose(): void;
+}
+
+// Add BootstrapModal interface
+interface BootstrapModal {
+  show(): void;
+  hide(): void;
+  dispose(): void;
+  handleUpdate(): void;
 }
 
 declare global {
@@ -304,7 +301,7 @@ const router = useRouter();
 const route = useRoute();
 
 const loading = ref<boolean>(true);
-const event = ref<EventDetails | null>(null);
+const event = ref<Event | null>(null);
 const teams = ref<Team[]>([]);
 const initialFetchError = ref<string>('');
 const nameCache = ref<Map<string, string>>(new Map());
@@ -346,12 +343,13 @@ const currentUserCanRate = computed<boolean>(() => {
   if (!event.value || !currentUserId.value || event.value.status !== EventStatus.Completed) {
     return false;
   }
-  const isOrganizer = event.value.details.organizers?.includes(currentUserId.value);
+  const uid = ensureUserId(currentUserId.value);
+  const isOrganizer = event.value.details.organizers?.includes(uid);
   let isParticipant = false;
-  if (event.value.details.format === 'Team' && Array.isArray(event.value.teams)) {
-      isParticipant = event.value.teams.some(team => team.members?.includes(currentUserId.value ?? ''));
+  if (event.value.details.format === EventFormat.Team && Array.isArray(event.value.teams)) {
+      isParticipant = event.value.teams.some(team => team.members?.includes(uid));
   } else if (Array.isArray(event.value.participants)) {
-      isParticipant = event.value.participants.includes(currentUserId.value ?? '');
+      isParticipant = event.value.participants.includes(uid);
   }
 
   if (isOrganizer || isParticipant) return false;
@@ -362,33 +360,51 @@ const currentUserCanRate = computed<boolean>(() => {
 const canSubmitProject = computed(() => {
   if (!event.value || !currentUserId.value) return false;
   if (event.value.status !== EventStatus.InProgress) return false;
-  if (event.value.details.organizers?.includes(currentUserId.value)) return false;
-  if (event.value.details.format === 'Team') {
-    return event.value.teams?.some(team => team.members?.includes(currentUserId.value)) ?? false;
+  const uid = ensureUserId(currentUserId.value);
+  if (event.value.details.organizers?.includes(uid)) return false;
+  
+  if (event.value.details.format === EventFormat.Team) {
+    const userTeam = event.value.teams?.find(team => team.members?.includes(uid));
+    return userTeam?.teamLead === uid;
   } else {
-    return event.value.participants?.includes(currentUserId.value) ?? false;
+    return event.value.participants?.includes(uid) ?? false;
   }
+});
+
+const canEditTeam = computed(() => {
+  if (!event.value || !currentUserId.value) return false;
+  if (event.value.status !== EventStatus.Pending && event.value.status !== EventStatus.Approved) return false;
+  if (event.value.details.format !== EventFormat.Team) return false;
+
+  const userTeam = event.value.teams?.find(team => team.members?.includes(currentUserId.value));
+  return userTeam?.teamLead === currentUserId.value;
 });
 
 const canJoin = computed(() => {
   if (!event.value || !currentUserId.value) return false;
   if (![EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus)) return false;
   if (event.value.details.organizers?.includes(currentUserId.value)) return false;
-  if (event.value.details.format === 'Team') {
+  if (event.value.details.format === EventFormat.Team) {
     return event.value.teams?.some(team => !team.members?.includes(currentUserId.value)) ?? true;
   } else {
     return !(event.value.participants?.includes(currentUserId.value));
   }
 });
 
+const ensureUserId = (userId: string | null): string => {
+  if (!userId) throw new Error('User ID is required');
+  return userId;
+};
+
 const canLeave = computed(() => {
   if (!event.value || !currentUserId.value) return false;
   if ([EventStatus.Completed, EventStatus.Cancelled].includes(event.value.status as EventStatus)) return false;
-  if (event.value.details.organizers?.includes(currentUserId.value)) return false;
-  if (event.value.details.format === 'Team') {
-    return event.value.teams?.some(team => team.members?.includes(currentUserId.value)) ?? false;
+  const uid = ensureUserId(currentUserId.value);
+  if (event.value.details.organizers?.includes(uid)) return false;
+  if (event.value.details.format === EventFormat.Team) {
+    return event.value.teams?.some(team => team.members?.includes(uid)) ?? false;
   } else {
-    return event.value.participants?.includes(currentUserId.value) ?? false;
+    return event.value.participants?.includes(uid) ?? false;
   }
 });
 
@@ -411,7 +427,7 @@ const allParticipants = computed<string[]>(() => {
         event.value.details.organizers.forEach(id => { if (id) userIds.add(id); });
     }
 
-    if (event.value.details.format === 'Team' && Array.isArray(event.value.teams)) {
+    if (event.value.details.format === EventFormat.Team && Array.isArray(event.value.teams)) {
         event.value.teams.forEach(team => {
             if (Array.isArray(team.members)) {
                 team.members.forEach(id => { if (id) userIds.add(id); });
@@ -439,9 +455,12 @@ function clearGlobalFeedback(): void {
     globalFeedback.value = { message: '', type: 'success' };
 }
 
-const getUserNameFromCache = (userId: string | null | undefined): string => {
-    if (!userId) return 'Unknown User';
-    return nameCache.value.get(userId) || `User (${(userId ?? '').substring(0, 5)}...)`;
+// Update safeString function
+const safeString = (value: string | null | undefined): string => value || '';
+
+// Update the getUserNameFromCache function
+const getUserNameFromCache = (userId: string): string => {
+    return nameCache.value.get(userId) || userId;
 };
 
 async function fetchUserNames(userIds: string[]): Promise<void> {
@@ -455,7 +474,7 @@ async function fetchUserNames(userIds: string[]): Promise<void> {
     try {
         const names: Record<string, string | null> = await store.dispatch('user/fetchUserNamesBatch', uniqueIdsToFetch);
         uniqueIdsToFetch.forEach(id => {
-            nameCache.value.set(id, names[id] || `User (${id.substring(0, 5)}...)`);
+            nameCache.value.set(id, safeString(names[id]) || `User (${id.substring(0, 5)}...)`);
         });
     } catch (error: any) {
         console.error("Error fetching user names batch:", error);
@@ -484,7 +503,7 @@ async function fetchEventData(): Promise<void> {
     }
 
     event.value = storeEvent;
-    teams.value = (storeEvent.details.format === 'Team' && Array.isArray(storeEvent.teams))
+    teams.value = (storeEvent.details.format === EventFormat.Team && Array.isArray(storeEvent.teams))
                   ? [...storeEvent.teams]
                   : [];
 
@@ -620,6 +639,34 @@ function formatDateRange(start: any, end: any): string {
         return 'N/A';
     }
 }
+
+// Add type guard
+const isNonNullString = (value: string | null): value is string => value !== null;
+
+// Fix event mapping function
+const mapEventToHeaderProps = (event: Event) => ({
+  ...event,
+  title: event.details.type || '',
+  teamSize: event.teams?.length || 0,
+  description: event.details.description || '',
+  details: {
+    ...event.details
+  }
+});
+
+// Add team key generation function
+const getTeamKey = (team: Team): string => {
+  return team.id || team.teamName;
+};
+
+// Fix the filterUserIds function
+const filterUserIds = (ids: (string | null)[]): string[] => {
+  return ids.filter(isNonNullString);
+};
+
+const hasTeamSubmissions = (team: Team): boolean => {
+  return Array.isArray(team.submissions) && team.submissions.length > 0;
+};
 
 let fetchTimeoutId: number | undefined;
 

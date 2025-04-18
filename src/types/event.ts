@@ -19,38 +19,23 @@ export interface EventState {
 }
 
 // --- Supporting Types ---
-export interface OrganizerRating {
-  userId: string;
-  rating: number;
-  feedback?: string;
-}
-
-export interface CriteriaRating {
-  criteriaLabel: string;
-  points: number;
-  ratings: Array<{
-    userId: string;
-    rating: number;
-  }>;
-}
-
 export interface EventCriteria {
   constraintIndex: number;
   constraintLabel: string;
   points: number;
-  targetRole: string; // e.g., 'fullstack', 'designer', etc.
-  // Mandatory: userId -> selected winner (teamName or participantId)
+  role?: string; // e.g., 'fullstack', 'designer', etc.
+  targetRole?: string; // Add targetRole as optional
+  // userId -> selected winner (teamName or participantId)
   criteriaSelections: { [userId: string]: string };
-  // For UI compatibility:
-  role?: string; // Alias for targetRole, for EventDisplayCard
 }
 
 export interface Team {
-  id?: string; // For UI v-for compatibility
+  id?: string; 
   teamName: string;
   members: string[];
-  submissions?: Submission[];
-  ratings?: any[]; // For team ratings (optional)
+  teamLead: string; // Add team lead field
+  submissions?: Submission[]; // Add submissions array
+  ratings?: any[]; // Add ratings field
 }
 
 export interface Submission {
@@ -60,6 +45,7 @@ export interface Submission {
   submittedAt: Timestamp;
   description?: string | null;
   participantId?: string | null;
+  teamId?: string; // Add teamId to track which team submitted (if team event)
 }
 
 export interface WinnerInfo {
@@ -69,8 +55,30 @@ export interface WinnerInfo {
 export interface GalleryItem {
   url: string;
   addedBy: string;
-  addedAt: Timestamp;
   description?: string;
+}
+
+// Add EventFormat enum for better type safety
+export enum EventFormat {
+  Individual = 'Individual',
+  Team = 'Team'
+}
+
+// Add TeamCriteriaRating interface
+export interface TeamCriteriaRating {
+  ratedBy: string;
+  ratedAt: Timestamp;
+  selections: {
+    criteria: Record<string, string>;
+    bestPerformer: string;
+  };
+}
+
+// Add OrganizerRating interface
+export interface OrganizerRating {
+  userId: string;
+  rating: number;
+  feedback?: string;
 }
 
 // --- Main Event Interface ---
@@ -78,29 +86,27 @@ export interface Event {
   id: string; // Firestore document ID
 
   // Top-level status and requestor
-  status: EventStatus | string;
+  status: EventStatus;
   requestedBy: string;
 
   // --- Details ---
   details: {
-    format: 'Individual' | 'Team';
+    format: EventFormat;
     type: string;
+    eventName: string;  // Move eventName here
     organizers: string[];
     date: {
-      desired: {
-        start: Timestamp | null;
-        end: Timestamp | null;
-      };
-      final: {
-        start: Timestamp | null;
-        end: Timestamp | null;
-      };
+      start: Timestamp | null;
+      end: Timestamp | null;
     };
     description: string;
   };
 
+  // --- Additional Properties ---
+  teamSize?: number; // Add optional teamSize
+
   // --- Criteria Definition ---
-  criteria: EventCriteria[];
+  criteria?: EventCriteria[];
 
   // --- Participants/Teams ---
   participants?: string[];
@@ -109,27 +115,34 @@ export interface Event {
   // --- Submissions ---
   submissions?: Submission[];
 
-  // --- Ratings ---
-  ratings: {
-    organizer: OrganizerRating[];
-  };
+  // --- Organizer Rating ---
+  organizerRating?: {
+    userId: string;
+    rating: number;
+    feedback?: string;
+  }[];
 
   // --- Winners ---
-  winners: WinnerInfo;
+  winners?: WinnerInfo;
 
   // --- Gallery ---
   gallery?: GalleryItem[];
 
+  // --- Additional Fields ---
+  ratingsOpen?: boolean;
+  teamCriteriaRatings?: TeamCriteriaRating[];
+  winnersPerRole?: Record<string, string[]>;
+
+  // Add ratings field
+  ratings?: {
+    organizer?: OrganizerRating[];
+  };
+
   // --- System fields ---
   createdAt: Timestamp;
-  lastUpdatedAt?: Timestamp;
+  lastUpdatedAt: Timestamp;
   completedAt?: Timestamp | null;
   closedAt?: Timestamp | null;
 
   rejectionReason?: string | null;
-
-  // --- Compatibility/legacy fields for actions ---
-  eventName?: string; // Used in notifications and some actions
-  winnersPerRole?: Record<string, string[]>; // For legacy winner notification logic
-  teamCriteriaRatings?: any[]; // For team rating logic (optional, not always present)
 }
