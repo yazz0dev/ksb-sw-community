@@ -110,7 +110,8 @@ async function handleAppwriteJwtLogin(firebaseUser: User) {
         if (!appwriteJwt) throw new Error("No Appwrite JWT received");
 
         const { account } = await import('../appwrite');
-        await account.createJWT(appwriteJwt);
+        // Fix: createJWT does not take arguments, just call it without parameters
+        await account.createJWT();
         console.log('Appwrite JWT session created successfully.');
 
         // Optionally trigger SendPulse init/check here if needed after Appwrite login
