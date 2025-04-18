@@ -27,6 +27,7 @@ declare function validateOrganizersNotAdmin(organizerIds: string[]): Promise<voi
 // --- Helper: Update Local State ---
 export function updateLocalEvent({ commit }: ActionContext<EventState, RootState>, { id, changes }: { id: string; changes: Partial<Event> }) {
     commit('addOrUpdateEvent', { id, ...changes });
+    // Also update current details if it's the one being viewed
     commit('updateCurrentEventDetails', { id, changes });
 }
 
