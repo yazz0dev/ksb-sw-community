@@ -257,7 +257,7 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
                         messageTitle: 'Ratings are now open!',
                         messageBody: `You can now rate participants/teams for "${currentEvent.details?.type || 'this event'}".`,
                         eventUrl: `/event/${eventId}`,
-                        eventName: currentEvent.details?.type || 'Unnamed Event',
+                        // eventName removed from top-level, use details.eventName for display wherever needed.
                     };
 
                     console.log("Triggering Appwrite function for ratings open:", functionPayload);

@@ -83,12 +83,13 @@ export interface OrganizerRating {
 
 // --- Event Form Data Interface ---
 export interface EventFormData {
-  eventName: string;
-  eventType?: string;
+  // Only details.eventName and details.type are used
   description: string;
   criteria: any[];
   eventFormat?: string;
   details: {
+    eventName: string;
+    type?: string;
     date: {
       start: string | null;
       end: string | null;
@@ -114,7 +115,7 @@ export interface Event {
   details: {
     format: EventFormat;
     type: string;
-    eventName: string;  // Move eventName here
+    eventName: string;
     organizers: string[];
     date: {
       start: Timestamp | null;
@@ -150,7 +151,7 @@ export interface Event {
   gallery?: GalleryItem[];
 
   // --- Additional Fields ---
-  ratingsOpen?: boolean;
+  ratingsOpen: boolean; // Ensure always present
   teamCriteriaRatings?: TeamCriteriaRating[];
   winnersPerRole?: Record<string, string[]>;
 

@@ -9,12 +9,12 @@
         <span>Back</span>
       </button>
 
-      <div v-if="!loading && eventName" class="text-center mb-5">
+      <div v-if="!loading && event?.details?.eventName" class="text-center mb-5">
         <h1 class="h3">
            {{ isTeamEvent ? 'Rate Teams & Select Best Performer' : 'Select Winners' }}
         </h1>
         <p class="fs-6 text-secondary">
-           Event: {{ eventName }}
+           Event: {{ event?.details?.eventName }}
         </p>
       </div>
 
@@ -213,7 +213,7 @@ const router = useRouter();
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const isSubmitting = ref<boolean>(false);
-const eventName = ref<string>('');
+// Removed eventName ref; use event.value?.details?.eventName directly
 const event = ref<ExtendedEvent | null>(null);
 const isTeamEvent = computed(() => event.value?.details?.format === EventFormat.Team); // Updated to use derived field
 const eventTeams = ref<Team[]>([]);
@@ -480,7 +480,7 @@ const initializeForm = async (): Promise<void> => {
       throw new Error('Event not found or not accessible.');
     }
     event.value = eventDetails; // Store fetched details
-    eventName.value = event.value?.details?.eventName || 'Unnamed Event';
+    // Removed assignment; use event.value?.details?.eventName directly
 
     // --- Validation Checks ---
     if (eventDetails.status !== EventStatus.Completed) {

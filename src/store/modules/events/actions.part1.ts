@@ -127,53 +127,7 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
     return { hasConflict: !!conflictingEvent, nextAvailableDate, conflictingEvent };
 }
 
-// --- ACTION: Create Event (Admin Only - Request Flow Preferred) ---
-export async function createEvent({ rootGetters, commit, dispatch }: ActionContext<EventState, RootState>, eventData: Partial<Event>): Promise<string> {
-    const currentUser: User | null = rootGetters['user/getUser'];
-    if (currentUser?.role !== 'Admin') throw new Error('Unauthorized: Only Admins can create events directly.');
-    if (!currentUser?.uid) throw new Error('Admin user UID is missing.');
 
-    if (!eventData.details?.date?.start || !eventData.details?.date?.end) throw new Error("Admin event creation requires valid start and end dates.");
-
-    // --- Always include the requesting user as organizer ---
-    let organizers: string[] = Array.isArray(eventData.details?.organizers) ? eventData.details.organizers.filter(Boolean) : [];
-    if (!organizers.includes(currentUser.uid)) organizers.unshift(currentUser.uid);
-    if (organizers.length === 0) throw new Error("At least one organizer is required.");
-    if (organizers.length > 5) throw new Error("Max 5 organizers.");
-    await validateOrganizersNotAdmin(organizers);
-
-    const startDate = eventData.details.date.start;
-    const endDate = eventData.details.date.end;
-    if (!(startDate instanceof Timestamp) || !(endDate instanceof Timestamp)) throw new Error("Invalid date format.");
-    if (startDate.toMillis() >= endDate.toMillis()) throw new Error("End date must be after start date.");
-    if (startDate.toMillis() <= Timestamp.now().toMillis()) console.warn("Admin creating event starting in past/present.");
-
-    const conflictResult = await dispatch('checkDateConflict', { startDate, endDate, excludeEventId: null });
-    if (conflictResult.hasConflict) throw new Error(`Creation failed: Date conflict with ${conflictResult.conflictingEvent?.details?.type || 'another event'}.`);
-
-    const eventFormat = eventData.details.format;
-
-    const finalData: Partial<Event> = {
-        ...eventData,
-        details: {
-            ...eventData.details,
-            organizers,
-        },
-        requestedBy: currentUser.uid,
-        status: EventStatus.Approved,
-        createdAt: Timestamp.now(),
-        lastUpdatedAt: Timestamp.now(),
-    };
-
-    try {
-        const docRef = await addDoc(collection(db, 'events'), finalData);
-        commit('addOrUpdateEvent', { ...finalData, id: docRef.id });
-        return docRef.id;
-    } catch (error: any) {
-        console.error('Error creating event:', error);
-        throw new Error(`Failed to create event: ${error.message || 'Unknown error'}`);
-    }
-}
 
 // --- ACTION: Request Event (Non-Admin User) ---
 export async function requestEvent({ commit, rootGetters }: ActionContext<EventState, RootState>, initialData: Partial<Event>): Promise<string> {
@@ -189,7 +143,7 @@ export async function requestEvent({ commit, rootGetters }: ActionContext<EventS
         if (!(startDate instanceof Timestamp) || !(endDate instanceof Timestamp)) {
             throw new Error("Invalid date format.");
         }
-        if (startDate.toMillis() >= endDate.toMillis()) {
+        if (startDate.toMillis() > endDate.toMillis()) {
             throw new Error("End date must be after start date.");
         }
 
@@ -202,7 +156,7 @@ export async function requestEvent({ commit, rootGetters }: ActionContext<EventS
         }
 
         const requestPayload: Partial<Event> = {
-            ...initialData, // Spread all form fields first
+            ...initialData, // Spread all form fields first (should not include top-level eventName/type anymore)
             details: {
                 ...initialData.details,
                 organizers,
@@ -219,13 +173,17 @@ export async function requestEvent({ commit, rootGetters }: ActionContext<EventS
             teams: Array.isArray(initialData.teams) ? initialData.teams : [],
             participants: Array.isArray(initialData.participants) ? initialData.participants : [],
             requestedBy: currentUser.uid,
+            ratingsOpen: false, // Always include ratingsOpen
             status: EventStatus.Pending,
             createdAt: Timestamp.now(),
             lastUpdatedAt: Timestamp.now(),
         };
 
         const docRef = await addDoc(collection(db, 'events'), requestPayload);
-        const eventData = { id: docRef.id, ...requestPayload };
+        // Ensure 'id' is not present in requestPayload to avoid duplicate assignment
+        const { id: _discardedId, ...payloadWithoutId } = requestPayload as any;
+        const eventData = { id: docRef.id, ...payloadWithoutId };
+
         commit('addOrUpdateEvent', eventData);
         return docRef.id;
 
@@ -439,7 +397,9 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error("Event not found.");
         const currentEvent = eventSnap.data() as Event;
-        fetchedEventData = { id: eventId, ...currentEvent }; // Store data before update
+        // Prevent duplicate 'id' assignment
+        const { id: _discardedId, ...eventWithoutId } = currentEvent as any;
+        fetchedEventData = { id: eventId, ...eventWithoutId }; // Store data before update
 
         const currentUser: User | null = rootGetters['user/getUser'];
         const isAdmin = currentUser?.role === 'Admin';

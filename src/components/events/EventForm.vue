@@ -414,10 +414,10 @@ const totalXP = computed((): number => {
 
 function initializeFormData(): EventFormData {
   const defaults: FormData = {
-    eventName: '',
-    description: '', // ensure top-level description is always present
+    description: '', 
     details: {
-      format: EventFormat.Individual, // Use imported enum
+      eventName: '', 
+      format: EventFormat.Individual, 
       type: '',
       description: '',
       date: {
@@ -563,8 +563,8 @@ const handleFormatChange = () => {
      }
   }
   // Reset event type if the current one is not valid for the new format
-  if (!availableEventTypes.value.includes(formData.value.details.type)) {
-      formData.value.details.type = ''; // Reset selection
+  if (!availableEventTypes.value.includes(formData.value.details.type || '')) {
+      formData.value.details.type = '';
   }
 };
 

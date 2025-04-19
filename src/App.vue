@@ -162,7 +162,7 @@
                   <li>
                     <button
                       class="dropdown-item"
-                      @click="handleLogout"
+                      @click="() => { closeNavbar(); handleLogout(); }"
                     >
                       <i class="fas fa-sign-out-alt fa-fw me-2"></i>Logout
                     </button>
@@ -188,14 +188,13 @@
     <BottomNav
       v-if="isAuthenticated"
       class="d-lg-none"
-      :class="{ 'nav-hidden': !showNavbar }"
     />
   </div>
 </template>
 
 <script setup lang="ts">
 // --- Core Vue/External Imports ---
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
@@ -283,33 +282,35 @@ const logout = async (): Promise<void> => {
 // Close Navbar (Mobile)
 const closeNavbar = () => {
   try {
-    const navbarContent = document.getElementById('navbarNav');
-    if (navbarContent?.classList.contains('show') && window.bootstrap?.Collapse) {
-      const bsCollapse = window.bootstrap.Collapse.getInstance(navbarContent);
-      bsCollapse?.hide();
+    const toggler = document.querySelector('.navbar-toggler') as HTMLElement | null;
+    // Only trigger if toggler is visible (mobile)
+    if (toggler && window.getComputedStyle(toggler).display !== 'none') {
+      toggler.click();
+    } else {
+      // Fallback to Bootstrap API (desktop, or if toggler missing)
+      const navbarContent = document.getElementById('navbarNav');
+      if (navbarContent?.classList.contains('show') && window.bootstrap?.Collapse) {
+        const bsCollapse = window.bootstrap.Collapse.getInstance(navbarContent);
+        bsCollapse?.hide();
+      }
     }
   } catch (error) {
     console.warn('Failed to close navbar:', error);
   }
 };
 
+// Collapse after navigation (fixes issue with router-link)
+
+
 // Mobile navbar collapse: collapse on link click, outside click, and route change (mobile only)
 onMounted(() => {
   const collapseEl = document.getElementById('navbarNav');
   const toggler = document.querySelector('.navbar-toggler');
+  const collapseParent = collapseEl?.closest('.navbar-collapse') as HTMLElement | null;
   if (!collapseEl || !toggler || !window.bootstrap?.Collapse) return;
   // Initialize Collapse instance if not present
   const bsCollapse = window.bootstrap.Collapse.getInstance(collapseEl)
     || new window.bootstrap.Collapse(collapseEl, { toggle: false });
-
-  // Collapse on nav-link or dropdown-item click
-  collapseEl.querySelectorAll<HTMLElement>('.nav-link, .dropdown-item').forEach(el => {
-    el.addEventListener('click', () => {
-      if (window.innerWidth < 992 && collapseEl.classList.contains('show')) {
-        bsCollapse.hide();
-      }
-    });
-  });
 
   // Collapse on outside click (capture phase)
   const outsideClickHandler = (e: MouseEvent | TouchEvent) => {
@@ -322,6 +323,14 @@ onMounted(() => {
   document.addEventListener('mousedown', outsideClickHandler, true);
   document.addEventListener('touchstart', outsideClickHandler, true);
 
+  // Collapse on Escape key (when menu is open on mobile)
+  const escapeKeyHandler = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && window.innerWidth < 992 && collapseEl.classList.contains('show')) {
+      closeNavbar();
+    }
+  };
+  document.addEventListener('keydown', escapeKeyHandler, true);
+
   // Collapse on route navigation change
   const removeAfterEach = router.afterEach(() => {
     if (window.innerWidth < 992 && collapseEl.classList.contains('show')) {
@@ -333,6 +342,7 @@ onMounted(() => {
   onUnmounted(() => {
     document.removeEventListener('mousedown', outsideClickHandler, true);
     document.removeEventListener('touchstart', outsideClickHandler, true);
+    document.removeEventListener('keydown', escapeKeyHandler, true);
     removeAfterEach();
   });
 });
@@ -341,16 +351,6 @@ onMounted(() => {
 const handleLogout = async (): Promise<void> => {
   closeNavbar();
   await logout(); // Firebase signout triggers onAuthStateChanged which handles redirect/clear
-};
-
-// Scroll Handler for Navbar Hiding/Showing
-const handleScroll = () => {
-  const currentScrollPosition = window.scrollY;
-  if (Math.abs(currentScrollPosition - lastScrollPosition.value) < scrollThreshold && currentScrollPosition > 0) {
-    return;
-  }
-  showNavbar.value = currentScrollPosition < lastScrollPosition.value || currentScrollPosition < 10;
-  lastScrollPosition.value = currentScrollPosition;
 };
 
 // --- Push Notification Methods ---
@@ -417,10 +417,18 @@ watch(isAuthenticated, (loggedIn) => {
 });
 
 // --- Lifecycle Hooks ---
+const handleScroll = () => {
+  const currentScrollPosition = window.scrollY;
+  if (Math.abs(currentScrollPosition - lastScrollPosition.value) < scrollThreshold && currentScrollPosition > 0) {
+    return;
+  }
+  showNavbar.value = currentScrollPosition < lastScrollPosition.value || currentScrollPosition < 10;
+  lastScrollPosition.value = currentScrollPosition;
+};
+
 onMounted(() => {
   store.dispatch('app/initOfflineCapabilities');
   window.addEventListener('scroll', handleScroll, { passive: true });
-
   // Initial check for push permission state if already logged in
   if (isAuthenticated.value) {
        setTimeout(checkPushPermissionState, 1500);
@@ -445,6 +453,12 @@ onUnmounted(() => {
 .app-navbar {
   /* Background color set by Bootstrap class (bg-primary) */
   border-bottom: 1px solid var(--bs-border-color-translucent); /* Use CSS variable */
+  transition: transform 0.3s ease-in-out;
+  will-change: transform;
+}
+
+.navbar-hidden {
+  transform: translateY(-100%);
 }
 
 .app-navbar-brand {
@@ -496,10 +510,9 @@ onUnmounted(() => {
   overflow-x: hidden;
 }
 /* Adjust padding-bottom when bottom nav is visible */
-.app-container:has(.bottom-nav:not(.nav-hidden)) .app-main-content {
+.app-container:has(.bottom-nav) .app-main-content {
    padding-bottom: calc(64px + 1rem + env(safe-area-inset-bottom)); /* BottomNav height + margin + safe area */
 }
-
 
 /* Page Transition */
 .fade-enter-active,
@@ -509,18 +522,6 @@ onUnmounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-}
-
-/* Scroll-based Navbar Hiding */
-.navbar, .bottom-nav {
-  transition: transform 0.3s ease-in-out;
-  will-change: transform;
-}
-.navbar-hidden {
-  transform: translateY(-100%);
-}
-.nav-hidden { /* For BottomNav */
-  transform: translateY(100%);
 }
 
 /* Dropdown Menu Adjustments */

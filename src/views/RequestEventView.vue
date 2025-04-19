@@ -163,11 +163,10 @@ const loadEventData = async () => {
 const mapEventToFormData = (eventData: any): EventFormData => {
   // Create a default form structure matching EventFormData
   const defaultForm: EventFormData = {
-    eventName: '',
-    eventType: '',
     eventFormat: 'Individual',
     description: '',
     details: {
+      eventName: '', // Always present in details
       format: 'Individual',
       type: '',
       description: '',
