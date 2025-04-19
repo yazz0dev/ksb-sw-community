@@ -1,5 +1,5 @@
 <template>
-  <section class="py-5 home-section">
+  <section class="home-section py-5">
     <div class="container-lg">
       <!-- Loading State -->
       <div v-if="loading" class="text-center py-5">
@@ -14,7 +14,7 @@
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 pb-4 header-border">
           <!-- Left side -->
           <div>
-            <h2 class="h2 text-primary mb-0">Events Dashboard</h2>
+            <h2 class="h2 text-primary mb-0"><i class="fas fa-calendar-alt me-2"></i>Events Dashboard</h2>
           </div>
           <!-- Right side -->
           <div class="mt-3 mt-md-0 ms-md-auto">
@@ -41,79 +41,86 @@
 
         <!-- Event Sections -->
         <div class="mb-5">
-          <!-- Updated Header for Active Events -->
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="h4 text-dark mb-0">Active Events</h4>
-            <router-link 
-              v-if="totalActiveCount > maxEventsPerSection" 
-              to="/events?filter=active" 
-              class="btn btn-link btn-sm text-decoration-none"
-            >
-              View All
-            </router-link>
-          </div>
-          <div v-if="activeEvents.length > 0" class="row g-3">
-            <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
-              <EventCard :event="event" />
+          <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h4 class="h4 text-dark mb-0"><i class="fas fa-bolt text-primary me-2"></i>Active Events</h4>
+              <router-link 
+                v-if="totalActiveCount > maxEventsPerSection" 
+                to="/events?filter=active" 
+                class="btn btn-link btn-sm text-decoration-none"
+              >
+                View All
+              </router-link>
             </div>
+            <div v-if="activeEvents.length > 0" class="row g-3">
+              <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
+                <EventCard :event="event" />
+              </div>
+            </div>
+            <p v-else class="text-secondary">No active events at the moment.</p>
           </div>
-          <p v-else class="text-secondary">No active events at the moment.</p>
         </div>
 
         <div class="mb-5">
-          <!-- Updated Header for Upcoming Events -->
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="h4 text-dark mb-0">Upcoming Events</h4>
-             <router-link 
-              v-if="totalUpcomingCount > maxEventsPerSection" 
-              to="/events?filter=upcoming" 
-              class="btn btn-link btn-sm text-decoration-none"
-            >
-              View All
-            </router-link>
-          </div>
-          <div v-if="upcomingEvents.length > 0" class="row g-3">
-            <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
-              <EventCard :event="event" />
+          <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h4 class="h4 text-dark mb-0"><i class="fas fa-hourglass-half text-info me-2"></i>Upcoming Events</h4>
+              <router-link 
+                v-if="totalUpcomingCount > maxEventsPerSection" 
+                to="/events?filter=upcoming" 
+                class="btn btn-link btn-sm text-decoration-none"
+              >
+                View All
+              </router-link>
             </div>
+            <div v-if="upcomingEvents.length > 0" class="row g-3">
+              <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
+                <EventCard :event="event" />
+              </div>
+            </div>
+            <p v-else class="text-secondary">No upcoming events scheduled.</p>
           </div>
-          <p v-else class="text-secondary">No upcoming events scheduled.</p>
         </div>
 
         <div class="mb-5">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="h4 text-dark mb-0">Completed Events</h4>
-            <router-link 
-              v-if="totalCompletedCount > maxEventsPerSection"
-              to="/events?filter=completed" 
-              class="btn btn-link btn-sm text-decoration-none"
-            >
-              View All
-            </router-link>
-          </div>
-          <div v-if="completedEvents.length > 0" class="row g-3">
-            <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
-              <EventCard :event="event" />
+          <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h4 class="h4 text-dark mb-0"><i class="fas fa-check-circle text-success me-2"></i>Completed Events</h4>
+              <router-link 
+                v-if="totalCompletedCount > maxEventsPerSection"
+                to="/events?filter=completed" 
+                class="btn btn-link btn-sm text-decoration-none"
+              >
+                View All
+              </router-link>
             </div>
+            <div v-if="completedEvents.length > 0" class="row g-3">
+              <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
+                <EventCard :event="event" />
+              </div>
+            </div>
+            <p v-else class="text-secondary">No completed events yet.</p>
           </div>
-          <p v-else class="text-secondary">No completed events yet.</p>
         </div>
 
         <!-- Cancelled Events Section (Toggleable) -->
         <div v-if="cancelledEvents.length > 0" class="mb-5">
-          <button class="btn btn-link btn-sm text-decoration-none text-secondary mb-4" @click="showCancelled = !showCancelled">
-            {{ showCancelled ? 'Hide' : 'Show' }} Cancelled Events
-            <i :class="['fas', showCancelled ? 'fa-chevron-up' : 'fa-chevron-down', 'ms-1']"></i>
-          </button>
-          <transition name="fade-fast">
-            <div v-if="showCancelled">
-              <div class="row g-3">
-                <div v-for="event in cancelledEvents" :key="event.id" class="col-md-6 col-lg-4">
-                  <EventCard :event="event" />
+          <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
+            <button class="btn btn-link btn-sm text-decoration-none text-secondary mb-4" @click="showCancelled = !showCancelled">
+              <i class="fas fa-ban me-2"></i>
+              {{ showCancelled ? 'Hide' : 'Show' }} Cancelled Events
+              <i :class="['fas', showCancelled ? 'fa-chevron-up' : 'fa-chevron-down', 'ms-1']"></i>
+            </button>
+            <transition name="fade-fast">
+              <div v-if="showCancelled">
+                <div class="row g-3">
+                  <div v-for="event in cancelledEvents" :key="event.id" class="col-md-6 col-lg-4">
+                    <EventCard :event="event" />
+                  </div>
                 </div>
               </div>
-            </div>
-          </transition>
+            </transition>
+          </div>
         </div>
       </template>
     </div>
@@ -210,7 +217,28 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* .home-section styles removed - handled by inline/global styles */
-/* .fade-fast-* transitions removed - defined globally */
-/* .header-border removed - handled by inline style */
+.home-section {
+  background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+  min-height: 100vh;
+}
+.section-card {
+  background: #fff;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 24px 0 rgba(37,99,235,0.07);
+  margin-bottom: 2rem;
+  animation: fadeInSection 0.7s;
+}
+.animate-fade-in {
+  animation: fadeInSection 0.7s;
+}
+@keyframes fadeInSection {
+  from { opacity: 0; transform: translateY(24px);}
+  to { opacity: 1; transform: none;}
+}
+.header-border {
+  border-bottom: 1px solid #e5e7eb;
+}
+.btn-link.text-secondary {
+  color: #64748b !important;
+}
 </style>

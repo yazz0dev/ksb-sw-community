@@ -343,6 +343,10 @@ const handleLogout = async (): Promise<void> => {
 };
 
 // --- Push Notification Methods ---
+function getOneSignal(): any {
+  return (window as any).OneSignal;
+}
+
 function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
@@ -351,11 +355,20 @@ function checkPushPermissionState() {
   if (!isSupabaseConfigured() || !isPushSupported()) {
     return;
   }
-  if (isAuthenticated.value && Notification.permission === 'default' && !sessionStorage.getItem('pushPromptDismissed')) {
-    showPushPermissionPrompt.value = true;
-  } else {
-    showPushPermissionPrompt.value = false;
+  const OneSignal = getOneSignal();
+  if (!OneSignal || typeof OneSignal.getNotificationPermission !== 'function') {
+    console.warn("OneSignal SDK not loaded or getNotificationPermission missing.");
+    return;
   }
+  OneSignal.getNotificationPermission().then((permission: string) => {
+      if (isAuthenticated.value && permission === 'default' && !sessionStorage.getItem('pushPromptDismissed')) {
+          console.log("Push permission is default, showing prompt.");
+          showPushPermissionPrompt.value = true;
+      } else {
+           console.log(`Push permission state: ${permission}. Prompt hidden.`);
+          showPushPermissionPrompt.value = false;
+      }
+  });
 }
 
 async function requestPushPermission() {
@@ -363,25 +376,48 @@ async function requestPushPermission() {
   sessionStorage.setItem('pushPromptDismissed', 'true');
 
   if (!isSupabaseConfigured() || !isPushSupported()) {
-    store.dispatch('notification/showNotification', { message: 'Push not supported.', type: 'warning' }, { root: true });
+    store.dispatch('notification/showNotification', { message: 'Push notifications not supported on this browser.', type: 'warning' }, { root: true });
+    return;
+  }
+
+  const OneSignal = getOneSignal();
+  if (!OneSignal || typeof OneSignal.registerForPushNotifications !== 'function') {
+    store.dispatch('notification/showNotification', { message: 'Push notification SDK not loaded.', type: 'error' }, { root: true });
     return;
   }
 
   try {
-    const permission = await Notification.requestPermission();
+    console.log("Requesting push permission via OneSignal SDK...");
+    await OneSignal.registerForPushNotifications();
 
-    if (permission !== 'granted') {
-      store.dispatch('notification/showNotification', { message: 'Push permission denied.', type: 'warning' }, { root: true });
-      return;
+    if (typeof OneSignal.getNotificationPermission === 'function') {
+      const permission = await OneSignal.getNotificationPermission();
+      console.log(`Permission status after request: ${permission}`);
+
+      if (permission === 'granted') {
+          store.dispatch('notification/showNotification', { message: 'Push notifications enabled!', type: 'success' }, { root: true });
+          console.log("Push permission granted via OneSignal SDK.");
+
+          // **Crucial:** Ensure External User ID is set *after* successful registration/permission grant
+          const currentUserId = store.state.user.uid;
+          if (currentUserId && typeof OneSignal.setExternalUserId === 'function') {
+              console.log(`Setting OneSignal external_user_id after permission grant: ${currentUserId}`);
+              await OneSignal.setExternalUserId(currentUserId);
+              console.log("External User ID set successfully after permission grant.");
+          } else {
+               console.warn("Could not set external user ID after permission grant: User ID not found in store or method missing.");
+          }
+
+      } else if (permission === 'denied') {
+           store.dispatch('notification/showNotification', { message: 'Push permission was denied. You can enable it in browser settings.', type: 'warning' }, { root: true });
+           console.log("Push permission was denied via OneSignal SDK.");
+      } else {
+          console.log("Push permission prompt likely dismissed without granting.");
+      }
     }
-
-    // No client registration needed; Supabase Edge Function handles push
-    store.dispatch('notification/showNotification', { message: 'Push notifications enabled!', type: 'success' }, { root: true });
-    console.log("Push permission granted for Supabase push notifications.");
-
   } catch (err) {
     store.dispatch('notification/showNotification', { message: 'Failed to enable push notifications.', type: 'error' }, { root: true });
-    console.error('Supabase push registration failed from UI prompt:', err);
+    console.error('OneSignal push registration failed:', err);
   }
 }
 

@@ -126,7 +126,7 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
 
 
 // --- ACTION: Request Event (Non-Admin User) ---
-export async function requestEvent({ commit, rootGetters }: ActionContext<EventState, RootState>, initialData: Partial<Event>): Promise<string> {
+export async function requestEvent({ commit, rootGetters, dispatch }: ActionContext<EventState, RootState>, initialData: Partial<Event>): Promise<string> {
     const currentUser: User | null = rootGetters['user/getUser'];
     if (!currentUser?.uid) throw new Error('User must be logged in.');
     if (!initialData.details?.date?.start || !initialData.details?.date?.end) {
@@ -181,6 +181,37 @@ export async function requestEvent({ commit, rootGetters }: ActionContext<EventS
         const eventData = { id: docRef.id, ...payloadWithoutId };
 
         commit('addOrUpdateEvent', eventData);
+
+        // --- Trigger Push Notification to Admins START ---
+        if (isSupabaseConfigured()) {
+            try {
+                // Fetch all admins (assumes 'users' collection has role field)
+                const adminsQuery = query(collection(db, 'users'), where('role', '==', 'Admin'));
+                const adminsSnap = await getDocs(adminsQuery);
+                const adminUids = adminsSnap.docs.map(doc => doc.id).filter(id => id !== currentUser.uid);
+                if (adminUids.length > 0) {
+                    const functionPayload = {
+                        notificationType: 'eventRequested',
+                        targetUserIds: adminUids,
+                        eventId: docRef.id,
+                        messageTitle: `New Event Request: ${initialData.details?.type || 'Event'}`,
+                        messageBody: `${currentUser.name || 'A user'} has requested a new event: "${initialData.details?.type || 'Event'}".`,
+                        eventUrl: `/event/${docRef.id}`,
+                    };
+                    console.log("Triggering Supabase Edge Function for event request:", functionPayload);
+                    await invokePushNotification(functionPayload);
+                    console.log(`Supabase Edge Function execution triggered for event request ${docRef.id}.`);
+                }
+            } catch (pushError) {
+                console.error(`Failed to trigger Supabase function for event request:`, pushError);
+                dispatch('notification/showNotification', {
+                    message: 'Event requested, but failed to notify admins.',
+                    type: 'warning'
+                }, { root: true });
+            }
+        }
+        // --- Trigger Push Notification to Admins END ---
+
         return docRef.id;
 
     } catch (error: any) {
@@ -297,6 +328,35 @@ export async function rejectEventRequest({ dispatch, rootGetters }: ActionContex
         };
         await updateDoc(eventRef, updates);
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
+
+        // --- Trigger Push Notification to requester START ---
+        if (isSupabaseConfigured()) {
+            try {
+                const eventData = eventSnap.data() as Event;
+                const requesterUid = eventData.requestedBy;
+                if (requesterUid && requesterUid !== currentUser.uid) {
+                    const functionPayload = {
+                        notificationType: 'eventRejected',
+                        targetUserIds: [requesterUid],
+                        eventId: eventId,
+                        messageTitle: `Event Request Rejected: ${eventData.details?.type || 'Event'}`,
+                        messageBody: `Your event request "${eventData.details?.type || 'Event'}" was rejected.${reason ? ' Reason: ' + reason : ''}`,
+                        eventUrl: `/event/${eventId}`,
+                    };
+                    console.log("Triggering Supabase Edge Function for event rejection:", functionPayload);
+                    await invokePushNotification(functionPayload);
+                    console.log(`Supabase Edge Function execution triggered for event rejection ${eventId}.`);
+                }
+            } catch (pushError) {
+                console.error(`Failed to trigger Supabase function for event rejection ${eventId}:`, pushError);
+                dispatch('notification/showNotification', {
+                    message: 'Event rejected, but failed to notify requester.',
+                    type: 'warning'
+                }, { root: true });
+            }
+        }
+        // --- Trigger Push Notification to requester END ---
+
     } catch (error: any) {
         console.error(`Error rejecting request ${eventId}:`, error);
         throw error;

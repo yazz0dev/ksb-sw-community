@@ -240,6 +240,16 @@ const mapEventToFormData = (eventData: any): EventFormData => {
   formData.teams = Array.isArray(formData.teams) ? formData.teams : [];
   formData.details.xpAllocation = Array.isArray(formData.details.xpAllocation) ? formData.details.xpAllocation : [];
 
+  // --- Add first 30 students as participants for individual event requests if not admin and not team event ---
+  if (
+    (formData.details.format === 'Individual' || formData.eventFormat === 'Individual') &&
+    (!Array.isArray(formData.participants) || formData.participants.length === 0)
+  ) {
+    // Get student list from Vuex store (filter out admins)
+    const students = (store.state.user.studentList || []).filter((s: any) => s.role !== 'Admin');
+    formData.participants = students.slice(0, 30).map((s: any) => s.uid);
+  }
+
   return formData;
 };
 

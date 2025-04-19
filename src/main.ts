@@ -42,33 +42,113 @@ async function registerForPushNotifications() {
 }
 // --- Supabase Integration END ---
 
+// --- OneSignal Initialization ---
+const oneSignalAppId = import.meta.env.VITE_ONESIGNAL_APP_ID;
+
+// Use the global OneSignal object loaded by the CDN script in index.html
+function getOneSignal(): any {
+    return (window as any).OneSignal;
+}
+
+async function initOneSignal() {
+    if (!oneSignalAppId) {
+        console.warn("OneSignal App ID not configured. Skipping OneSignal initialization.");
+        return;
+    }
+    if (!isSupabaseConfigured()) {
+         console.warn('Supabase not configured, OneSignal features requiring backend interaction might be limited.');
+    }
+
+    try {
+        const OneSignal = getOneSignal();
+        if (!OneSignal || typeof OneSignal.init !== 'function') {
+            console.warn("OneSignal SDK not loaded on window. Make sure the CDN script is included in index.html.");
+            return;
+        }
+        console.log("Initializing OneSignal SDK...");
+        await OneSignal.init({
+            appId: oneSignalAppId,
+            allowLocalhostAsSecureOrigin: true,
+            notifyButton: { enable: false },
+        });
+        console.log("OneSignal SDK Initialized");
+
+        // If user is already logged in when SDK loads, set their ID
+        const checkInitialAuth = () => {
+            const currentUserId = store.state.user.uid;
+            if (currentUserId && typeof OneSignal.setExternalUserId === 'function') {
+                console.log(`Setting OneSignal external_user_id on init: ${currentUserId}`);
+                OneSignal.setExternalUserId(currentUserId).catch((e: any) => console.error("OneSignal: Failed to set external user ID on init:", e));
+            }
+        }
+        setTimeout(checkInitialAuth, 500);
+    } catch (error) {
+        console.error("Error initializing OneSignal:", error);
+    }
+}
+
+initOneSignal();
+// --- End OneSignal Initialization ---
+
 // --- Firebase Auth State Listener ---
 const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
     console.log("Firebase Auth State Changed. User:", user ? user.uid : 'null');
 
-    // Unsubscribe only after the *very first* determination
     if (!authInitialized) {
         unsubscribe();
         authInitialized = true;
+        console.log("Auth listener unsubscribed after first run.");
     }
 
     try {
+        const OneSignal = getOneSignal();
         if (user) {
-            if (store.state.user.uid !== user.uid || !store.state.user.hasFetched) {
-                await store.dispatch('user/fetchUserData', user.uid);
+            // --- Set OneSignal External User ID ---
+            try {
+                if (OneSignal && typeof OneSignal.setExternalUserId === 'function') {
+                    console.log(`Attempting to set OneSignal external_user_id: ${user.uid}`);
+                    await OneSignal.setExternalUserId(user.uid);
+                    console.log(`OneSignal external_user_id set to: ${user.uid}`);
+                }
+            } catch(osError) {
+                console.error("OneSignal Error setting external user ID:", osError);
             }
-            // No Supabase session logic needed for push
+            // --- End OneSignal ---
+
+            if (store.state.user.uid !== user.uid || !store.state.user.hasFetched) {
+                console.log("Fetching user data for logged-in user:", user.uid);
+                await store.dispatch('user/fetchUserData', user.uid);
+            } else {
+                console.log("User data already present or fetched for:", user.uid);
+            }
         } else {
-            // Clear state immediately on logout
+            // --- Remove OneSignal External User ID ---
+            try {
+                if (OneSignal && typeof OneSignal.removeExternalUserId === 'function') {
+                    console.log("Attempting to remove OneSignal external_user_id.");
+                    await OneSignal.removeExternalUserId();
+                    console.log("OneSignal external_user_id removed.");
+                }
+            } catch (osError) {
+                console.error("OneSignal Error removing external user ID:", osError);
+            }
+            // --- End OneSignal ---
+
+            console.log("User logged out. Clearing user data.");
             store.commit('user/clearUserData');
             store.commit('user/setHasFetched', true);
-            // Force landing page on logout if not already there
-            if (router.currentRoute.value.name !== 'Landing') {
+
+            const currentRouteName = router.currentRoute.value.name;
+            if (!['Landing', 'Login', 'ForgotPassword'].includes(currentRouteName as string)) {
+                console.log("Redirecting to Landing page after logout.");
                 await router.replace({ name: 'Landing' });
             }
         }
     } catch (error) {
         console.error("Error processing auth state change:", error);
+        if (!user) {
+            store.commit('user/clearUserData');
+        }
         store.commit('user/setHasFetched', true);
     } finally {
         mountApp();

@@ -1,5 +1,5 @@
 <template>
-  <div class="event-details-view container-fluid px-0 px-md-2">
+  <div class="event-details-view container-fluid px-0 px-md-2 event-details-bg">
     <SkeletonProvider
       :loading="loading"
       :skeleton-component="EventDetailsSkeleton"
@@ -15,6 +15,7 @@
         :isLeaving="isLeaving"
         @join="handleJoin"
         @leave="handleLeave"
+        class="animate-fade-in"
       />
 
       <!-- Floating Action Button for Submission (visible if eligible) -->
@@ -39,162 +40,180 @@
         <i class="fas fa-upload"></i>
       </button>
 
-      <!-- Event Management Controls -->
-      <div class="mb-4">
-        <EventManageControls
-          v-if="canManageEvent && event"
-          :event="event"
-          class="mb-0"
-        />
-      </div>
-
-      <!-- XP/Criteria Section -->
-      <div v-if="event?.criteria?.length" class="card mb-4 shadow-sm">
-        <div class="card-body">
-          <h5 class="mb-3 text-primary">Rating Criteria &amp; XP</h5>
-          <ul class="list-unstyled mb-0">
-            <li v-for="(alloc, idx) in event.criteria" :key="alloc.constraintIndex ?? idx" class="mb-2">
-              <span class="text-warning me-2"><i class="fas fa-star"></i></span>
-              <span class="fw-semibold">{{ alloc.constraintLabel || 'Unnamed Criteria' }}</span>
-              <span class="text-secondary ms-2">({{ alloc.points }} XP, {{ formatRoleName((alloc.targetRole || alloc.role) ?? '') }})</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Feedback Message -->
-      <div v-if="globalFeedback.message"
-        class="alert alert-sm mt-auto mb-0 transition-opacity duration-300 d-flex align-items-center"
-        :class="globalFeedback.type === 'success' ? 'alert-success' : 'alert-danger'"
-        role="alert"
-      >
-        <i class="fas me-2" :class="globalFeedback.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
-        <div>{{ globalFeedback.message }}</div>
-      </div>
-
-      <!-- Main Content Grid -->
-      <div class="row g-4">
-        <!-- Teams/Participants -->
-        <div class="col-12 col-lg-6">
-          <!-- Team List Section -->
-          <div v-if="event && event.details.format === 'Team'" class="mb-4">
-            <h5 class="mb-3 text-primary">Teams</h5>
-            <TeamList
-              :teams="teams"
-              :event-id="props.id"
-              :event-status="event.status"
-              :user-role="currentUserRole ?? 'Unknown'" 
-              :user-id="currentUserId ?? ''" 
-              :ratingsOpen="false"
-              :getUserName="getUserNameFromCache"
-              @teamRated="handleTeamRated"
-              :organizerNamesLoading="organizerNamesLoading"
-              :currentUserUid="currentUserId"
-              class="card team-list-box p-0 shadow-sm" />
+      <div class="row g-4 mt-0">
+        <!-- Main Content -->
+        <div class="col-12 col-lg-8">
+          <!-- Event Management Controls -->
+          <div class="mb-4">
+            <EventManageControls
+              v-if="canManageEvent && event"
+              :event="event"
+              class="mb-0 animate-fade-in"
+            />
           </div>
-          <!-- Participants Section (Non-Team Events) -->
-          <div v-if="event && event.details.format !== 'Team'" class="card participants-box shadow-sm mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center bg-light">
-              <h5 class="mb-0">Participants</h5>
-              <button
-                @click="showParticipants = !showParticipants"
-                class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
-              >
-                <i class="fas transition-transform duration-200 me-1" :class="showParticipants ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                <span>{{ showParticipants ? 'Hide' : `Show (${participantCount})` }}</span>
-              </button>
+
+          <!-- XP/Criteria Section -->
+          <div v-if="event?.criteria?.length" class="card mb-4 shadow-sm animate-fade-in">
+            <div class="card-body">
+              <h5 class="mb-3 text-primary"><i class="fas fa-star me-2"></i>Rating Criteria &amp; XP</h5>
+              <ul class="list-unstyled mb-0">
+                <li v-for="(alloc, idx) in event.criteria" :key="alloc.constraintIndex ?? idx" class="mb-2">
+                  <span class="text-warning me-2"><i class="fas fa-star"></i></span>
+                  <span class="fw-semibold">{{ alloc.constraintLabel || 'Unnamed Criteria' }}</span>
+                  <span class="text-secondary ms-2">({{ alloc.points }} XP, {{ formatRoleName((alloc.targetRole || alloc.role) ?? '') }})</span>
+                </li>
+              </ul>
             </div>
-            <Transition name="slide-fade">
-              <div v-if="showParticipants" class="card-body animate-fade-in">
-                <div v-if="organizerNamesLoading" class="text-secondary fst-italic py-3">
-                  <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Loading participants...
+          </div>
+
+          <!-- Feedback Message -->
+          <transition name="fade-pop">
+            <div v-if="globalFeedback.message"
+              class="alert alert-sm mt-auto mb-0 transition-opacity duration-300 d-flex align-items-center animate-fade-in"
+              :class="globalFeedback.type === 'success' ? 'alert-success' : 'alert-danger'"
+              role="alert"
+            >
+              <i class="fas me-2" :class="globalFeedback.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
+              <div>{{ globalFeedback.message }}</div>
+            </div>
+          </transition>
+
+          <!-- Teams/Participants -->
+          <div class="mt-4">
+            <!-- Team List Section -->
+            <div v-if="event && event.details.format === 'Team'" class="mb-4">
+              <div class="section-header mb-3">
+                <i class="fas fa-users text-primary me-2"></i>
+                <span class="h5 mb-0 text-primary">Teams</span>
+              </div>
+              <TeamList
+                :teams="teams"
+                :event-id="props.id"
+                :event-status="event.status"
+                :user-role="currentUserRole ?? 'Unknown'" 
+                :user-id="currentUserId ?? ''" 
+                :ratingsOpen="false"
+                :getUserName="getUserNameFromCache"
+                @teamRated="handleTeamRated"
+                :organizerNamesLoading="organizerNamesLoading"
+                :currentUserUid="currentUserId"
+                class="card team-list-box p-0 shadow-sm animate-fade-in" />
+            </div>
+            <!-- Participants Section (Non-Team Events) -->
+            <div v-if="event && event.details.format !== 'Team'" class="card participants-box shadow-sm mb-4 animate-fade-in">
+              <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                <div class="section-header mb-0">
+                  <i class="fas fa-user-friends text-primary me-2"></i>
+                  <span class="h5 mb-0 text-primary">Participants</span>
                 </div>
-                <p v-else-if="participantCount === 0" class="text-secondary fst-italic py-3">
-                  No participants have joined this event yet.
-                </p>
-                <div v-else>
-                  <div class="row g-2">
-                    <div v-for="userId in allParticipants" :key="userId" class="col-12 col-md-6">
-                      <div
-                        class="participant-item d-flex align-items-center p-2 border rounded"
-                        :class="{ 'bg-primary-subtle': userId === currentUserId }"
-                      >
-                        <i class="fas fa-user text-secondary me-2"></i>
-                        <router-link
-                          :to="{ name: 'PublicProfile', params: { userId: safeString(userId) } }"
-                          class="small text-truncate text-decoration-none"
-                          :class="userId === currentUserId ? 'text-primary fw-semibold' : 'text-body-secondary'"
+                <button
+                  @click="showParticipants = !showParticipants"
+                  class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
+                >
+                  <i class="fas transition-transform duration-200 me-1" :class="showParticipants ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                  <span>{{ showParticipants ? 'Hide' : `Show (${participantCount})` }}</span>
+                </button>
+              </div>
+              <Transition name="slide-fade">
+                <div v-if="showParticipants" class="card-body animate-fade-in">
+                  <div v-if="organizerNamesLoading" class="text-secondary fst-italic py-3">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Loading participants...
+                  </div>
+                  <p v-else-if="participantCount === 0" class="text-secondary fst-italic py-3">
+                    No participants have joined this event yet.
+                  </p>
+                  <div v-else>
+                    <div class="row g-2">
+                      <div v-for="userId in allParticipants" :key="userId" class="col-12 col-md-6">
+                        <div
+                          class="participant-item d-flex align-items-center p-2 border rounded"
+                          :class="{ 'bg-primary-subtle': userId === currentUserId }"
                         >
-                          {{ getUserNameFromCache(safeString(userId)) }} {{ userId === currentUserId ? '(You)' : '' }}
-                        </router-link>
+                          <i class="fas fa-user text-secondary me-2"></i>
+                          <router-link
+                            :to="{ name: 'PublicProfile', params: { userId: safeString(userId) } }"
+                            class="small text-truncate text-decoration-none"
+                            :class="userId === currentUserId ? 'text-primary fw-semibold' : 'text-body-secondary'"
+                          >
+                            {{ getUserNameFromCache(safeString(userId)) }} {{ userId === currentUserId ? '(You)' : '' }}
+                          </router-link>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </Transition>
+              </Transition>
+            </div>
           </div>
         </div>
-        <!-- Submissions & Ratings -->
-        <div class="col-12 col-lg-6">
-          <!-- Submission Section -->
-          <div v-if="event" class="card submissions-box shadow-sm mb-4">
-            <div class="card-header bg-light d-flex align-items-center justify-content-between">
-              <h5 class="mb-0">Project Submissions</h5>
-              <button
-                v-if="canSubmitProject"
-                class="btn btn-sm btn-outline-primary d-flex align-items-center"
-                @click="triggerSubmitModalOpen"
-              >
-                <i class="fas fa-upload me-1"></i> Submit
-              </button>
-            </div>
-            <div class="card-body">
-              <div v-if="event.details.format !== 'Team'">
-                <ul class="list-unstyled d-flex flex-column gap-3">
-                  <li v-for="(submission, index) in event.submissions" :key="`ind-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                    <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(safeString(submission.submittedBy)) }}</p>
-                    <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
-                    <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
-                  </li>
-                </ul>
+        <!-- Sidebar: Submissions & Ratings -->
+        <div class="col-12 col-lg-4">
+          <div class="sticky-lg-top" style="top: 2rem;">
+            <!-- Submission Section -->
+            <div v-if="event" class="card submissions-box shadow-sm mb-4 animate-fade-in">
+              <div class="card-header bg-light d-flex align-items-center justify-content-between">
+                <div class="section-header mb-0">
+                  <i class="fas fa-upload text-primary me-2"></i>
+                  <span class="h5 mb-0 text-primary">Project Submissions</span>
+                </div>
+                <button
+                  v-if="canSubmitProject"
+                  class="btn btn-sm btn-outline-primary d-flex align-items-center"
+                  @click="triggerSubmitModalOpen"
+                >
+                  <i class="fas fa-upload me-1"></i> Submit
+                </button>
               </div>
-              <div v-else>
-                <p v-if="!teams || teams.length === 0 || teams.every(t => !hasTeamSubmissions(t))" class="small text-secondary fst-italic">
-                  No project submissions yet for this event.
-                </p>
-                <div v-else class="d-flex flex-column gap-4">
-                  <div v-for="team in teams.filter(hasTeamSubmissions)" :key="getTeamKey(team)">
-                    <h6 class="text-secondary mb-2">Team: {{ team.teamName }}</h6>
-                    <ul class="list-unstyled d-flex flex-column gap-2 ms-4 ps-4 border-start border-2">
-                      <li v-for="(submission, index) in team.submissions" :key="`team-${team.id || team.teamName}-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                        <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(safeString(submission.submittedBy)) }}</p>
-                        <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
-                        <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
-                      </li>
-                    </ul>
+              <div class="card-body">
+                <div v-if="event.details.format !== 'Team'">
+                  <ul class="list-unstyled d-flex flex-column gap-3">
+                    <li v-for="(submission, index) in event.submissions" :key="`ind-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
+                      <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(safeString(submission.submittedBy)) }}</p>
+                      <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
+                      <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
+                    </li>
+                  </ul>
+                </div>
+                <div v-else>
+                  <p v-if="!teams || teams.length === 0 || teams.every(t => !hasTeamSubmissions(t))" class="small text-secondary fst-italic">
+                    No project submissions yet for this event.
+                  </p>
+                  <div v-else class="d-flex flex-column gap-4">
+                    <div v-for="team in teams.filter(hasTeamSubmissions)" :key="getTeamKey(team)">
+                      <h6 class="text-secondary mb-2">Team: {{ team.teamName }}</h6>
+                      <ul class="list-unstyled d-flex flex-column gap-2 ms-4 ps-4 border-start border-2">
+                        <li v-for="(submission, index) in team.submissions" :key="`team-${team.id || team.teamName}-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
+                          <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(safeString(submission.submittedBy)) }}</p>
+                          <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
+                          <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-          <!-- Rating Section -->
-          <div v-if="event" class="card ratings-box shadow-sm mb-4">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-              <h5 class="mb-0">Ratings / Winner Selection</h5>
-              <div class="d-flex align-items-center">
-                <span v-if="event.status === 'Completed'" class="badge rounded-pill d-inline-flex align-items-center text-bg-secondary">Not Started</span>
+            <!-- Rating Section -->
+            <div v-if="event" class="card ratings-box shadow-sm mb-4 animate-fade-in">
+              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <div class="section-header mb-0">
+                  <i class="fas fa-trophy text-warning me-2"></i>
+                  <span class="h5 mb-0 text-primary">Ratings / Winner Selection</span>
+                </div>
+                <div class="d-flex align-items-center">
+                  <span v-if="event.status === 'Completed'" class="badge rounded-pill d-inline-flex align-items-center text-bg-secondary">Not Started</span>
+                </div>
               </div>
-            </div>
-            <div class="card-body">
-              <div v-if="event.status === 'Completed'">
-                <p class="small text-secondary fst-italic">
-                  Rating/Winner selection is currently closed for this event.
+              <div class="card-body">
+                <div v-if="event.status === 'Completed'">
+                  <p class="small text-secondary fst-italic">
+                    Rating/Winner selection is currently closed for this event.
+                  </p>
+                </div>
+                <p v-else class="small text-secondary fst-italic">
+                  Rating/Winner selection will be available once the event is completed.
                 </p>
               </div>
-              <p v-else class="small text-secondary fst-italic">
-                Rating/Winner selection will be available once the event is completed.
-              </p>
             </div>
           </div>
         </div>
@@ -203,9 +222,9 @@
       <!-- Submission Modal -->
       <div class="modal fade" id="submissionModal" tabindex="-1" aria-labelledby="submissionModalLabel" aria-hidden="true" ref="submissionModalRef">
         <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title h5" id="submissionModalLabel">Submit Your Project</h5>
+          <div class="modal-content rounded-4 shadow-lg animate-fade-in">
+            <div class="modal-header border-0 pb-0">
+              <h5 class="modal-title h5" id="submissionModalLabel"><i class="fas fa-upload me-2 text-primary"></i>Submit Your Project</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @click="closeSubmissionModal"></button>
             </div>
             <div class="modal-body">
@@ -225,7 +244,7 @@
                 <div v-if="submissionError" class="form-text text-danger d-flex align-items-center"><i class="fas fa-exclamation-circle me-1"></i> {{ submissionError }}</div>
               </form>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer border-0 pt-0">
               <button type="button" @click="closeSubmissionModal" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
                 Cancel
               </button>
@@ -330,8 +349,8 @@ const currentUser = computed<User | null>(() => store.getters['user/getUser'] ??
 
 const isCurrentUserOrganizer = computed<boolean>(() => {
     if (!event.value || !currentUserId.value) return false;
-    const isOrganizer = (event.value.details.organizers || []).includes(currentUserId.value);
-    const isRequester = event.value.requestedBy === currentUserId.value;
+    const isOrganizer = (event.value.details.organizers || []).includes(currentUserId.value ?? '');
+    const isRequester = event.value.requestedBy === (currentUserId.value ?? '');
     return isOrganizer || isRequester;
 });
 
@@ -383,11 +402,11 @@ const canEditTeam = computed(() => {
 const canJoin = computed(() => {
   if (!event.value || !currentUserId.value) return false;
   if (![EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus)) return false;
-  if (event.value.details.organizers?.includes(currentUserId.value)) return false;
+  if (event.value.details.organizers?.includes(currentUserId.value ?? '')) return false;
   if (event.value.details.format === EventFormat.Team) {
-    return event.value.teams?.some(team => !team.members?.includes(currentUserId.value)) ?? true;
+    return event.value.teams?.some(team => !team.members?.includes(currentUserId.value ?? '')) ?? true;
   } else {
-    return !(event.value.participants?.includes(currentUserId.value));
+    return !(event.value.participants?.includes(currentUserId.value ?? ''));
   }
 });
 
@@ -400,11 +419,11 @@ const canLeave = computed(() => {
   if (!event.value || !currentUserId.value) return false;
   if ([EventStatus.Completed, EventStatus.Cancelled].includes(event.value.status as EventStatus)) return false;
   const uid = ensureUserId(currentUserId.value);
-  if (event.value.details.organizers?.includes(uid)) return false;
+  if (event.value.details.organizers?.includes(uid ?? '')) return false;
   if (event.value.details.format === EventFormat.Team) {
-    return event.value.teams?.some(team => team.members?.includes(uid)) ?? false;
+    return event.value.teams?.some(team => team.members?.includes(uid ?? '')) ?? false;
   } else {
-    return event.value.participants?.includes(uid) ?? false;
+    return event.value.participants?.includes(uid ?? '') ?? false;
   }
 });
 
@@ -712,25 +731,19 @@ defineExpose({
 
 <style scoped>
 /* --- Layout & Responsive --- */
+.event-details-bg {
+  background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+  min-height: 100vh;
+}
 .event-details-view {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   padding-bottom: 2.5rem;
-}
-.event-header-section {
-  border-radius: 1rem;
-  background: var(--bs-white, #fff);
-  border: 1px solid var(--bs-border-color, #dee2e6);
-  margin-bottom: 1.5rem;
-  position: relative;
 }
 @media (max-width: 768px) {
   .event-details-view {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
-  }
-  .event-header-section {
-    margin-bottom: 1.25rem !important;
   }
   .team-list-box,
   .participants-box,
@@ -776,15 +789,22 @@ defineExpose({
 }
 
 /* --- Cards & Sections --- */
-
+.section-header {
+  display: flex;
+  align-items: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  gap: 0.5rem;
+}
 .team-list-box,
 .participants-box,
 .submissions-box,
 .ratings-box {
   padding: 0;
-  border-radius: 0.75rem;
+  border-radius: 1rem;
   background: var(--bs-white, #fff);
   border: 1px solid var(--bs-border-color, #dee2e6);
+  box-shadow: 0 4px 24px 0 rgba(37,99,235,0.07);
 }
 .text-decoration-underline-hover:hover {
   text-decoration: underline;
@@ -804,6 +824,12 @@ defineExpose({
 }
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
+}
+.fade-pop-enter-active {
+  animation: fadeIn 0.7s;
+}
+.fade-pop-leave-active {
+  animation: fadeIn 0.7s reverse;
 }
 .slide-fade-enter-active {
   transition: all 0.3s ease-out;
@@ -854,5 +880,9 @@ defineExpose({
 .event-header-card .text-body,
 .event-header-section .text-body {
   font-size: 1rem;
+}
+.sticky-lg-top {
+  position: sticky;
+  top: 2rem;
 }
 </style>

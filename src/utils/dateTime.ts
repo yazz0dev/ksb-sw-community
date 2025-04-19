@@ -42,9 +42,9 @@ export const validateEventDates = (startDate: Timestamp | Date | string | null, 
 };
 
 export const isEventInProgress = (event: { startDate: any; endDate: any; }): boolean => {
-  const now = DateTime.now().setZone('Asia/Kolkata');
-  const start = toIST(event.startDate);
-  const end = toIST(event.endDate);
+  const now = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+  const start = toIST(event.startDate)?.startOf('day');
+  const end = toIST(event.endDate)?.startOf('day');
   
   return start !== null && 
          end !== null && 
@@ -53,9 +53,9 @@ export const isEventInProgress = (event: { startDate: any; endDate: any; }): boo
 };
 
 export const canStartEvent = (event: { startDate: any; endDate: any; }): boolean => {
-  const now = DateTime.now().setZone('Asia/Kolkata');
-  const start = toIST(event.startDate);
-  const end = toIST(event.endDate);
+  const now = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+  const start = toIST(event.startDate)?.startOf('day');
+  const end = toIST(event.endDate)?.startOf('day');
   
   return start !== null && 
          end !== null && 
