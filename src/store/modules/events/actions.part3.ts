@@ -30,7 +30,7 @@ import {
 } from '@/types/event';
 import { RootState } from '@/types/store';
 import { User } from '@/types/user';
-import { functions, isAppwriteConfigured } from '@/appwrite';
+import { invokePushNotification, isSupabaseConfigured } from '@/notifications';
 import { DateTime } from 'luxon';
 
 // Assuming updateLocalEvent helper is defined in part2 or elsewhere
@@ -160,7 +160,7 @@ async function _internalCloseEventPermanently(
 
         dispatch('updateLocalEvent', { id: eventId, changes: { closedAt: closedTimestamp, lastUpdatedAt: closedTimestamp } });
 
-        if (isAppwriteConfigured() && fetchedEventData) {
+        if (isSupabaseConfigured() && fetchedEventData) {
             try {
                 const organizers = fetchedEventData.details?.organizers || [];
                 const participants = fetchedEventData.participants || [];
@@ -180,17 +180,14 @@ async function _internalCloseEventPermanently(
                         eventUrl: `/event/${eventId}`,
                         eventName: fetchedEventData.details?.type || 'Unnamed Event',
                     };
-                    console.log("Triggering Appwrite function for event closure:", functionPayload);
-                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
-                    await functions.createExecution(
-                        functionId,
-                        JSON.stringify(functionPayload),
-                        false
-                    );
-                    console.log(`Appwrite function execution triggered for event closure ${eventId}.`);
+                    console.log("Triggering Supabase Edge Function for event closure:", functionPayload);
+
+                    await invokePushNotification(functionPayload);
+
+                    console.log(`Supabase Edge Function execution triggered for event closure ${eventId}.`);
                 }
             } catch (pushError) {
-                console.error(`Failed to trigger Appwrite function for event closure ${eventId}:`, pushError);
+                console.error(`Failed to trigger Supabase function for event closure ${eventId}:`, pushError);
                 dispatch('notification/showNotification', {
                     message: 'Event closed, but failed to send notification.',
                     type: 'warning'
@@ -237,7 +234,7 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
 
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
 
-        if (isOpen && isAppwriteConfigured()) {
+        if (isOpen && isSupabaseConfigured()) {
             try {
                 let participantIds: string[] = [];
                 if (currentEvent.details.format === EventFormat.Team && Array.isArray(currentEvent.teams)) {
@@ -257,17 +254,13 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
                         messageTitle: 'Ratings are now open!',
                         messageBody: `You can now rate participants/teams for "${currentEvent.details?.type || 'this event'}".`,
                         eventUrl: `/event/${eventId}`,
-                        // eventName removed from top-level, use details.eventName for display wherever needed.
                     };
 
-                    console.log("Triggering Appwrite function for ratings open:", functionPayload);
-                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
-                    await functions.createExecution(
-                        functionId,
-                        JSON.stringify(functionPayload),
-                        false
-                    );
-                    console.log(`Appwrite function execution triggered for ratings open ${eventId}.`);
+                    console.log("Triggering Supabase Edge Function for ratings open:", functionPayload);
+
+                    await invokePushNotification(functionPayload);
+
+                    console.log(`Supabase Edge Function execution triggered for ratings open ${eventId}.`);
                 }
             } catch (pushError) {
                 console.error('Failed to trigger ratings open push notification:', pushError);
@@ -405,7 +398,7 @@ export async function submitIndividualWinners({ rootGetters, dispatch }: ActionC
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
         console.log(`Individual winners selected for ${eventId} by ${ratedBy}.`);
 
-        if (isAppwriteConfigured() && fetchedEventData) {
+        if (isSupabaseConfigured() && fetchedEventData) {
             try {
                 const allWinnerIds = [...new Set(Object.values(selections).flat())]
                     .filter(Boolean);
@@ -420,18 +413,14 @@ export async function submitIndividualWinners({ rootGetters, dispatch }: ActionC
                         eventUrl: `/event/${eventId}`,
                         eventName: fetchedEventData.details?.type || 'Unnamed Event',
                     };
-                    console.log("Triggering Appwrite function for winners:", functionPayload);
-                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
+                    console.log("Triggering Supabase Edge Function for winners:", functionPayload);
 
-                    await functions.createExecution(
-                        functionId,
-                        JSON.stringify(functionPayload),
-                        false
-                    );
-                    console.log(`Appwrite function execution triggered for winners of ${eventId}.`);
+                    await invokePushNotification(functionPayload);
+
+                    console.log(`Supabase Edge Function execution triggered for winners of ${eventId}.`);
                 }
             } catch (pushError) {
-                console.error(`Failed to trigger Appwrite function for winners of ${eventId}:`, pushError);
+                console.error(`Failed to trigger Supabase function for winners of ${eventId}:`, pushError);
                 dispatch('notification/showNotification', {
                     message: 'Winners selected, but failed to send notification.',
                     type: 'warning'

@@ -7,10 +7,7 @@ import { auth, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
 import AuthGuard from './components/AuthGuard.vue';
-
-// --- Appwrite Integration START ---
-import { isAppwriteConfigured, account } from './appwrite';
-// --- Appwrite Integration END ---
+import { isSupabaseConfigured } from './notifications';
 
 import '@fortawesome/fontawesome-free/css/all.css';
 import './assets/styles/main.scss';
@@ -29,105 +26,21 @@ window.addEventListener('offline', () => {
     disableNetwork(db).catch(console.error);
 });
 
-// --- Appwrite Integration START ---
-// Function to handle Appwrite JWT Login and Push Registration
-async function handleAppwriteSessionAndPush(firebaseUser: User) {
-    if (!firebaseUser || !isAppwriteConfigured()) {
-         console.log("Skipping Appwrite session/push: Firebase user missing or Appwrite not configured.");
-         return; // Exit if no user or Appwrite isn't configured
-    }
-
-    console.log("Attempting Appwrite JWT session creation via verification for:", firebaseUser.uid);
-    try {
-        // 1. Verify Firebase token validity with your Appwrite Function
-        const idToken = await firebaseUser.getIdToken(true);
-        // APPWRITE FUNCTION EXECUTION ENDPOINT !!!
-        const verificationEndpoint = 'https://fra.cloud.appwrite.io/v1/functions/68023bde0015546b5dbc/executions'; 
-
-        const verificationResponse = await fetch(verificationEndpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json', // Appwrite Functions expect JSON by default
-                'Authorization': `Bearer ${idToken}`,
-                // Add Appwrite specific headers if needed, e.g., for synchronous execution
-                'x-appwrite-synchronous': 'true' // Optional: waits for function completion
-            },
-            // Appwrite Functions often don't need a body for this type of verification if using headers
-            // body: JSON.stringify({}) // Send empty body if required by your function implementation
-        });
-
-        // Check the function execution response status directly
-        if (verificationResponse.status !== 200) { // Assuming your function returns 200 on success
-            const errorText = await verificationResponse.text();
-            console.error("Backend Firebase token verification failed via Appwrite Function:", verificationResponse.status, errorText);
-            throw new Error(`Backend verification failed (Status: ${verificationResponse.status})`);
-        }
-        console.log("Firebase token verified by backend Appwrite Function.");
-
-        // 2. Create Appwrite Session using JWT (Client-side SDK initiates)
-        await account.createJWT(); // This tells Appwrite to create a session based on the current Firebase user
-        console.log('Appwrite JWT session created successfully.');
-
-        // 3. After successful Appwrite login, attempt push registration
-        await registerForPushNotifications();
-
-    } catch (error) {
-        console.error("Appwrite session creation or Push Registration failed:", error);
-        store.dispatch('notification/showNotification', {
-            message: 'Could not sync session with Appwrite/Push Service.',
-            type: 'warning',
-            duration: 5000
-        }, { root: true }); // Ensure root dispatch for notification module
-    }
-}
-
-// Function to handle Push Notification registration
+// --- Supabase Push Notification Registration START ---
 async function registerForPushNotifications() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
         console.log('Push notifications not supported by this browser.');
         return;
     }
-    if (!isAppwriteConfigured()) {
-         console.log('Appwrite not configured, skipping push registration.');
+    if (!isSupabaseConfigured()) {
+         console.log('Supabase not configured, skipping push registration.');
          return;
     }
-
-    console.log("Attempting push notification registration...");
-    try {
-        // Ensure Service Worker is ready
-        const registration = await navigator.serviceWorker.ready;
-        console.log('Service Worker ready:', registration);
-
-        // Check current permission status
-        if (Notification.permission === 'denied') {
-             console.log('Push notification permission denied previously.');
-             return; // Don't ask again if denied
-        }
-
-        if (Notification.permission === 'granted') {
-             console.log('Push permission already granted. Subscribing...');
-             // Use 'as any' to bypass type error for createPushSubscription
-             await (account as any).createPushSubscription(registration);
-             console.log('Successfully subscribed/re-subscribed to Appwrite push notifications.');
-        } else {
-             console.log('Push permission is default. Requesting permission...');
-             // Request permission only if 'default' - will be handled by UI prompt in App.vue
-             // We don't call requestPermission() here directly anymore,
-             // the UI prompt in App.vue handles that interaction.
-             // If permission is granted via the prompt, registerForPushNotifications might be called again.
-             console.log("Push permission request deferred to UI prompt.");
-        }
-
-    } catch (error) {
-        console.error('Failed to register for push notifications:', error);
-        store.dispatch('notification/showNotification', {
-            message: 'Failed to enable push notifications.',
-            type: 'error',
-            duration: 5000
-        }, { root: true });
-    }
+    // Registration logic for push with Supabase would go here (if needed)
+    // For now, just log
+    console.log("Supabase push registration is handled by the backend Edge Function.");
 }
-// --- Appwrite Integration END ---
+// --- Supabase Integration END ---
 
 // --- Firebase Auth State Listener ---
 const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
@@ -144,7 +57,7 @@ const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
             if (store.state.user.uid !== user.uid || !store.state.user.hasFetched) {
                 await store.dispatch('user/fetchUserData', user.uid);
             }
-            await handleAppwriteSessionAndPush(user);
+            // No Supabase session logic needed for push
         } else {
             // Clear state immediately on logout
             store.commit('user/clearUserData');

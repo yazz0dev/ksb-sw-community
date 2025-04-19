@@ -21,11 +21,7 @@ import {
 import { RootState } from '@/types/store';
 import { User } from '@/types/user';
 import { DateTime } from 'luxon'; // For date comparisons
-import { Functions } from 'appwrite';
-
-// --- Appwrite/SendPulse Integration START ---
-import { functions, isAppwriteConfigured } from '@/appwrite';
-// --- Appwrite/SendPulse Integration END ---
+import { invokePushNotification, isSupabaseConfigured } from '@/notifications';
 
 // --- Helper: Validate Organizers ---
 async function validateOrganizersNotAdmin(organizerIds: string[] = []): Promise<void> {
@@ -240,8 +236,8 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
         // Update local state
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
 
-        // --- Trigger Appwrite Push Notification START ---
-        if (isAppwriteConfigured() && fetchedEventData?.requestedBy) {
+        // --- Trigger Push Notification START ---
+        if (isSupabaseConfigured() && fetchedEventData?.requestedBy) {
             try {
                 const targetUserIds = [fetchedEventData.requestedBy];
 
@@ -255,28 +251,24 @@ export async function approveEventRequest({ dispatch, commit, rootGetters }: Act
                         eventUrl: `/event/${eventId}`,
                     };
 
-                    console.log("Triggering Appwrite function 'triggerPushNotification' for event approval:", functionPayload);
-                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
+                    console.log("Triggering Supabase Edge Function for event approval:", functionPayload);
 
-                    await functions.createExecution(
-                        functionId,
-                        JSON.stringify(functionPayload),
-                        false // Async execution
-                    );
-                    console.log(`Appwrite function execution triggered for event approval ${eventId}.`);
+                    await invokePushNotification(functionPayload);
+
+                    console.log(`Supabase Edge Function execution triggered for event approval ${eventId}.`);
                 } else {
                     console.log("No target user ID found for approval notification.");
                 }
 
             } catch (pushError) {
-                console.error(`Failed to trigger Appwrite function for event approval ${eventId}:`, pushError);
+                console.error(`Failed to trigger Supabase function for event approval ${eventId}:`, pushError);
                 dispatch('notification/showNotification', {
                     message: 'Event approved, but notification failed to send.',
                     type: 'warning'
                 }, { root: true });
             }
         }
-        // --- Trigger Appwrite Push Notification END ---
+        // --- Trigger Push Notification END ---
 
     } catch (error: any) {
         console.error(`Error approving request ${eventId}:`, error);
@@ -333,8 +325,8 @@ export async function cancelEvent({ dispatch, rootGetters }: ActionContext<Event
         await updateDoc(eventRef, updates);
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
 
-        // --- Appwrite Push Notification Trigger START ---
-        if (isAppwriteConfigured() && fetchedEventData) {
+        // --- Push Notification Trigger START ---
+        if (isSupabaseConfigured() && fetchedEventData) {
             try {
                 // Determine target users
                 const organizers = fetchedEventData.details?.organizers || [];
@@ -354,25 +346,21 @@ export async function cancelEvent({ dispatch, rootGetters }: ActionContext<Event
                         eventUrl: `/event/${eventId}`,
                     };
 
-                    console.log("Triggering Appwrite function for event cancellation:", functionPayload);
-                    const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
+                    console.log("Triggering Supabase Edge Function for event cancellation:", functionPayload);
 
-                    await functions.createExecution(
-                        functionId,
-                        JSON.stringify(functionPayload),
-                        false
-                    );
-                    console.log(`Appwrite function execution triggered for event cancellation ${eventId}.`);
+                    await invokePushNotification(functionPayload);
+
+                    console.log(`Supabase Edge Function execution triggered for event cancellation ${eventId}.`);
                 }
             } catch (pushError) {
-                console.error(`Failed to trigger Appwrite function for event cancellation ${eventId}:`, pushError);
+                console.error(`Failed to trigger Supabase function for event cancellation ${eventId}:`, pushError);
                  dispatch('notification/showNotification', {
                      message: 'Event cancelled, but failed to send notification.',
                      type: 'warning'
                  }, { root: true });
             }
         }
-        // --- Appwrite Push Notification Trigger END ---
+        // --- Push Notification Trigger END ---
 
     } catch (error: any) {
         console.error(`Error cancelling event ${eventId}:`, error);
@@ -461,8 +449,8 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
         // --- End Firestore Update ---
 
-        // --- Trigger Appwrite Push Notification START ---
-        if (isAppwriteConfigured() && notificationType && targetUserIds.length > 0) {
+        // --- Trigger Push Notification START ---
+        if (isSupabaseConfigured() && notificationType && targetUserIds.length > 0) {
              try {
                 const functionPayload = {
                     notificationType: notificationType,
@@ -472,23 +460,20 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
                     messageBody: notificationBody,
                     eventUrl: `/event/${eventId}`,
                 };
-                console.log(`Triggering Appwrite function for status update (${newStatus}):`, functionPayload);
-                const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
-                await functions.createExecution(
-                    functionId,
-                    JSON.stringify(functionPayload),
-                    false
-                );
-                console.log(`Appwrite function execution triggered for status update ${eventId}.`);
+                console.log(`Triggering Supabase Edge Function for status update (${newStatus}):`, functionPayload);
+
+                await invokePushNotification(functionPayload);
+
+                console.log(`Supabase Edge Function execution triggered for status update ${eventId}.`);
             } catch (pushError) {
-                console.error(`Failed to trigger Appwrite function for status update ${eventId}:`, pushError);
+                console.error(`Failed to trigger Supabase function for status update ${eventId}:`, pushError);
                  dispatch('notification/showNotification', {
                      message: `Event status updated, but failed to send notification.`,
                      type: 'warning'
                  }, { root: true });
             }
         }
-        // --- Trigger Appwrite Push Notification END ---
+        // --- Trigger Push Notification END ---
 
     } catch (error: any) {
         console.error(`Error updating status to ${newStatus}:`, error);

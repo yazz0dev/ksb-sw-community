@@ -204,9 +204,9 @@ import BottomNav from './components/BottomNav.vue';
 import OfflineStateHandler from './components/OfflineStateHandler.vue';
 import NotificationSystem from './components/NotificationSystem.vue';
 
-// --- Appwrite Integration START ---
-import { isAppwriteConfigured, account } from './appwrite';
-// --- Appwrite Integration END ---
+// --- Supabase Integration START ---
+import { isSupabaseConfigured } from './notifications';
+// --- Supabase Integration END ---
 
 // --- Types ---
 interface Collapse {
@@ -253,17 +253,6 @@ const logout = async (): Promise<void> => {
     await store.commit('user/clearUserData');
     await store.commit('user/setHasFetched', true);
     
-    // Delete Appwrite session if configured
-    if(isAppwriteConfigured()) {
-      try {
-        await account.deleteSession('current');
-        console.log("Appwrite session deleted successfully.");
-      } catch (e) {
-        // Ignore errors if session already expired/doesn't exist
-        console.warn("Could not delete Appwrite session:", e);
-      }
-    }
-
     // Firebase logout last
     await signOut(auth);
     console.log("Firebase logout successful.");
@@ -359,10 +348,9 @@ function isPushSupported() {
 }
 
 function checkPushPermissionState() {
-  if (!isAppwriteConfigured() || !isPushSupported()) {
-    return; // Not supported or configured
+  if (!isSupabaseConfigured() || !isPushSupported()) {
+    return;
   }
-  // Show prompt only if authenticated, permission is default, and not dismissed
   if (isAuthenticated.value && Notification.permission === 'default' && !sessionStorage.getItem('pushPromptDismissed')) {
     showPushPermissionPrompt.value = true;
   } else {
@@ -371,10 +359,10 @@ function checkPushPermissionState() {
 }
 
 async function requestPushPermission() {
-  showPushPermissionPrompt.value = false; // Hide prompt immediately
-  sessionStorage.setItem('pushPromptDismissed', 'true'); // Don't ask again this session
+  showPushPermissionPrompt.value = false;
+  sessionStorage.setItem('pushPromptDismissed', 'true');
 
-  if (!isAppwriteConfigured() || !isPushSupported()) {
+  if (!isSupabaseConfigured() || !isPushSupported()) {
     store.dispatch('notification/showNotification', { message: 'Push not supported.', type: 'warning' }, { root: true });
     return;
   }
@@ -387,17 +375,13 @@ async function requestPushPermission() {
       return;
     }
 
-    // Permission granted, now register with Appwrite
-    console.log("Push permission granted by user. Attempting subscription...");
-    const registration = await navigator.serviceWorker.ready;
-    // Use 'as any' to bypass type error for createPushSubscription
-    await (account as any).createPushSubscription(registration);
+    // No client registration needed; Supabase Edge Function handles push
     store.dispatch('notification/showNotification', { message: 'Push notifications enabled!', type: 'success' }, { root: true });
-    console.log("Successfully subscribed to Appwrite push notifications via UI prompt.");
+    console.log("Push permission granted for Supabase push notifications.");
 
   } catch (err) {
     store.dispatch('notification/showNotification', { message: 'Failed to enable push notifications.', type: 'error' }, { root: true });
-    console.error('Appwrite push registration failed from UI prompt:', err);
+    console.error('Supabase push registration failed from UI prompt:', err);
   }
 }
 
@@ -409,7 +393,7 @@ function dismissPushPrompt() {
 // Watch isAuthenticated to check push permissions when user logs in
 watch(isAuthenticated, (loggedIn) => {
     if (loggedIn) {
-        // Use setTimeout to allow auth state/Appwrite login to potentially complete
+        // Use setTimeout to allow auth state/Supabase login to potentially complete
         setTimeout(checkPushPermissionState, 1500);
     } else {
         showPushPermissionPrompt.value = false; // Hide prompt if logged out

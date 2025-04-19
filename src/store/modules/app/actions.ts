@@ -4,7 +4,7 @@ import { disableNetwork, enableNetwork } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { AppState, QueuedAction, Notification, RootState } from '@/types/store';
 import { User } from '@/types/user';
-import { functions, isAppwriteConfigured } from '@/appwrite';
+import { invokePushNotification, isSupabaseConfigured } from '@/notifications';
 
 // Define GeneralNotificationPayload type locally
 type GeneralNotificationPayload = {
@@ -168,10 +168,10 @@ const actions: ActionTree<AppState, RootState> = {
       throw new Error('Unauthorized: Only Admins can send general notifications.');
     }
 
-    if (!isAppwriteConfigured()) {
-      console.warn("Appwrite not configured. Cannot send general notification.");
+    if (!isSupabaseConfigured()) {
+      console.warn("Supabase not configured. Cannot send general notification.");
       dispatch('notification/showNotification', {
-        message: 'Appwrite Messaging is not configured.',
+        message: 'Supabase Messaging is not configured.',
         type: 'error'
       }, { root: true });
       return;
@@ -189,25 +189,19 @@ const actions: ActionTree<AppState, RootState> = {
         eventUrl: payload.url || '/',
       };
 
-      console.log("Triggering Appwrite function 'triggerPushNotification' for general notification:", functionPayload);
+      console.log("Triggering Supabase Edge Function for general notification:", functionPayload);
 
-      const functionId = import.meta.env.VITE_APPWRITE_FUNCTION_TRIGGER_PUSH_ID || 'triggerPushNotification';
-
-      await functions.createExecution(
-        functionId,
-        JSON.stringify(functionPayload),
-        false
-      );
+      await invokePushNotification(functionPayload);
 
       dispatch('notification/showNotification', {
         message: 'General notification sent successfully.',
         type: 'success'
       }, { root: true });
 
-      console.log(`Appwrite function execution triggered for general notification.`);
+      console.log(`Supabase Edge Function execution triggered for general notification.`);
 
     } catch (error: any) {
-      console.error('Failed to trigger Appwrite function for general notification:', error);
+      console.error('Failed to trigger Supabase function for general notification:', error);
       dispatch('notification/showNotification', {
         message: `Failed to send general notification: ${error?.message || 'Unknown error'}`,
         type: 'error'
