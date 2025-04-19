@@ -75,7 +75,7 @@
           <!-- Only render component when students are loaded -->
           <ManageTeamsComponent
               v-if="availableStudents.length > 0"
-              :initial-teams="formData.teams.map(t => ({ teamName: t.teamName, members: t.members }))"
+              :initial-teams="(formData.teams ?? []).map(t => ({ teamName: t.teamName, members: t.members, teamLead: t.teamLead || '' }))"
               :students="availableStudents"
               :name-cache="nameCache"
               :is-submitting="isSubmitting"
@@ -290,6 +290,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, reactive, onMounted } from 'vue';
+// Fix: Declare currentUserUid for use in filtering
+const currentUserUid = ref<string | null>(null);
 import { useStore } from 'vuex';
 import DatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
@@ -300,23 +302,11 @@ import { Event, EventStatus, EventFormat, Team, EventCriteria } from '@/types/ev
 import TeamMemberSelect from './TeamMemberSelect.vue';
 import ManageTeamsComponent from '@/components/events/ManageTeamsComponent.vue';
 
-export interface FormData {
-  eventName: string;
-  details: {
-    format: EventFormat;
-    type: string;
-    description: string;
-    date: {
-      start: string | null; // Keep as string for form handling
-      end: string | null;   // Keep as string for form handling
-    };
-    organizers: string[];
-  };
-  teams: Team[];
-  criteria: EventCriteria[];
-  status?: EventStatus;
-  requestedBy?: string;
-}
+// Use EventFormData from @/types/event for consistency
+import { EventFormData } from '@/types/event';
+
+type FormData = EventFormData;
+
 
 // Interfaces (consider moving to a types file)
 export interface Student {
@@ -334,7 +324,7 @@ type AssignableXpRole = typeof assignableXpRoles[number];
 
 // Props definition using defineProps macro
 const props = defineProps<{
-  initialData?: FormData | null;
+  initialData?: EventFormData | null;
   isSubmitting?: boolean;
   isRequestForm?: boolean;
   eventId?: string | null;
@@ -374,7 +364,7 @@ const eventId = computed(() => props.eventId ?? null);
 
 // Emits definition using defineEmits macro
 const emit = defineEmits<{ 
-  (e: 'submit', payload: FormData): void
+  (e: 'submit', payload: EventFormData): void
   (e: 'error', message: string): void
 }>();
 
@@ -390,7 +380,7 @@ const availableStudents = computed<Student[]>(() => {
 });
 
 const store = useStore();
-const formData = ref<FormData>(initializeFormData());
+const formData = ref<EventFormData>(initializeFormData());
 const nameCache = ref<NameCache>({});
 const allUsers = ref<{ uid: string; name: string; email: string }[]>([]);
 const coOrganizerSearch = ref('');
@@ -422,9 +412,10 @@ const totalXP = computed((): number => {
     sum + (Number(criterion.points) || 0), 0);
 });
 
-function initializeFormData(): FormData {
+function initializeFormData(): EventFormData {
   const defaults: FormData = {
     eventName: '',
+    description: '', // ensure top-level description is always present
     details: {
       format: EventFormat.Individual, // Use imported enum
       type: '',
@@ -472,7 +463,9 @@ function initializeFormData(): FormData {
       initial.details.date.end = formatTimestamp(initial.details.date.end);
     }
 
-    return { ...defaults, ...initial };
+    // Always ensure description is present
+    return { ...defaults, ...initial, description: initial.description ?? '' };
+
   }
   return defaults;
 }
@@ -480,21 +473,15 @@ function initializeFormData(): FormData {
 const filteredUsers = computed(() => {
   if (!coOrganizerSearch.value) return [];
   const searchLower = coOrganizerSearch.value.toLowerCase();
-  // Fetch all users from state each time computed property runs
-  const all = store.state.user.allUsers || []; 
-  // Ensure 'all' is an array before filtering
-  if (!Array.isArray(all)) return []; 
+  const all = store.state.user.allUsers || [];
+  if (!Array.isArray(all)) return [];
 
-  return all.filter((user: any) => { // Add type annotation for clarity and use block scope
-    // Basic checks
+  // Use currentUserUid for exclusion and filter out admins
+  return all.filter((user: any) => {
     if (!user || !user.uid) return false;
-    // Exclude self
-    if (user.uid === store.getters['user/userId']) return false;
-    // Exclude Admins
-    if (user.role === 'Admin') return false;
-    // Exclude already added organizers
+    if (currentUserUid.value && user.uid === currentUserUid.value) return false;
+    if (user.role && user.role.toLowerCase() === 'admin') return false;
     if (formData.value.details.organizers.includes(user.uid)) return false;
-    // Match search query
     const nameMatch = user.name?.toLowerCase().includes(searchLower);
     const emailMatch = user.email?.toLowerCase().includes(searchLower);
     return nameMatch || emailMatch;
@@ -554,6 +541,10 @@ onMounted(() => {
     formData.value = initializeFormData(); // Re-initialize on mount
     fetchInitialData();
     checkNextAvailableDate(); // Initial check if dates are pre-filled
+    // Try to get UID from user module or log for debug
+    if (store.getters['user/userId']) {
+      currentUserUid.value = store.getters['user/userId'];
+    }
 });
 
 // Re-initialize form when initialData changes (e.g., switching between create/edit)
@@ -586,7 +577,7 @@ const updateTeams = (newTeams: { name: string; members: string[] }[]): void => {
   formData.value.teams = newTeams.map(t => ({
     teamName: t.name,
     members: Array.isArray(t.members) ? [...t.members] : [],
-    teamLead: t.members[0] || '' // Set first member as teamLead
+    teamLead: t.members && t.members.length > 0 ? t.members[0] : '' // Always include teamLead property
   }));
 };
 

@@ -202,17 +202,22 @@ export async function requestEvent({ commit, rootGetters }: ActionContext<EventS
         }
 
         const requestPayload: Partial<Event> = {
+            ...initialData, // Spread all form fields first
             details: {
+                ...initialData.details,
                 organizers,
+                eventName: initialData.details?.eventName || '',
                 description: initialData.details?.description || '',
                 type: initialData.details?.type || '',
-                eventName: initialData.details?.type || '',
                 format: eventFormat,
                 date: {
-                    start: null,
-                    end: null
+                    start: initialData.details?.date?.start || null,
+                    end: initialData.details?.date?.end || null
                 }
             },
+            criteria: Array.isArray(initialData.criteria) ? initialData.criteria : [],
+            teams: Array.isArray(initialData.teams) ? initialData.teams : [],
+            participants: Array.isArray(initialData.participants) ? initialData.participants : [],
             requestedBy: currentUser.uid,
             status: EventStatus.Pending,
             createdAt: Timestamp.now(),
@@ -220,7 +225,7 @@ export async function requestEvent({ commit, rootGetters }: ActionContext<EventS
         };
 
         const docRef = await addDoc(collection(db, 'events'), requestPayload);
-        const eventData = { ...requestPayload, id: docRef.id }; // Fix spread order
+        const eventData = { id: docRef.id, ...requestPayload };
         commit('addOrUpdateEvent', eventData);
         return docRef.id;
 

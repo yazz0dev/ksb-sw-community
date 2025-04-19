@@ -48,16 +48,13 @@
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
           <div class="mb-2 mb-md-0">
             <span class="me-2">Connect with us:</span>
-            <a href="#" target="_blank" rel="noopener" class="text-secondary me-3" aria-label="Facebook">
-              <i class="fab fa-facebook fa-lg"></i>
-            </a>
-            <a href="#" target="_blank" rel="noopener" class="text-secondary me-3" aria-label="Instagram">
+            <a href="https://instagram.com/USERNAME" target="_blank" rel="noopener" class="text-secondary me-3" aria-label="Instagram">
               <i class="fab fa-instagram fa-lg"></i>
             </a>
-            <a href="#" target="_blank" rel="noopener" class="text-secondary me-3" aria-label="LinkedIn">
+            <a href="https://linkedin.com/in/USERNAME" target="_blank" rel="noopener" class="text-secondary me-3" aria-label="LinkedIn">
               <i class="fab fa-linkedin fa-lg"></i>
             </a>
-            <a href="#" target="_blank" rel="noopener" class="text-secondary" aria-label="GitHub">
+            <a href="https://github.com/USERNAME" target="_blank" rel="noopener" class="text-secondary" aria-label="GitHub">
               <i class="fab fa-github fa-lg"></i>
             </a>
           </div>

@@ -81,6 +81,27 @@ export interface OrganizerRating {
   feedback?: string;
 }
 
+// --- Event Form Data Interface ---
+export interface EventFormData {
+  eventName: string;
+  eventType?: string;
+  description: string;
+  criteria: any[];
+  eventFormat?: string;
+  details: {
+    date: {
+      start: string | null;
+      end: string | null;
+    };
+    organizers: string[];
+    xpAllocation?: any[];
+    [key: string]: any;
+  };
+  teams?: Team[];
+  status?: EventStatus;
+  [key: string]: any;
+}
+
 // --- Main Event Interface ---
 export interface Event {
   id: string; // Firestore document ID

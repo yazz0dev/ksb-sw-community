@@ -61,6 +61,7 @@
                 to="/home"
                 v-if="isAuthenticated"
                 @click="closeNavbar"
+                @keyup.enter="closeNavbar"
               >
                 Home
               </router-link>
@@ -283,14 +284,58 @@ const logout = async (): Promise<void> => {
 const closeNavbar = () => {
   try {
     const navbarContent = document.getElementById('navbarNav');
-    if (navbarContent?.classList.contains('show') && window.bootstrap?.Collapse) { // Check if it's actually shown
+    if (navbarContent?.classList.contains('show') && window.bootstrap?.Collapse) {
       const bsCollapse = window.bootstrap.Collapse.getInstance(navbarContent);
-      bsCollapse?.hide(); // Use optional chaining
+      bsCollapse?.hide();
     }
   } catch (error) {
     console.warn('Failed to close navbar:', error);
   }
 };
+
+// Mobile navbar collapse: collapse on link click, outside click, and route change (mobile only)
+onMounted(() => {
+  const collapseEl = document.getElementById('navbarNav');
+  const toggler = document.querySelector('.navbar-toggler');
+  if (!collapseEl || !toggler || !window.bootstrap?.Collapse) return;
+  // Initialize Collapse instance if not present
+  const bsCollapse = window.bootstrap.Collapse.getInstance(collapseEl)
+    || new window.bootstrap.Collapse(collapseEl, { toggle: false });
+
+  // Collapse on nav-link or dropdown-item click
+  collapseEl.querySelectorAll<HTMLElement>('.nav-link, .dropdown-item').forEach(el => {
+    el.addEventListener('click', () => {
+      if (window.innerWidth < 992 && collapseEl.classList.contains('show')) {
+        bsCollapse.hide();
+      }
+    });
+  });
+
+  // Collapse on outside click (capture phase)
+  const outsideClickHandler = (e: MouseEvent | TouchEvent) => {
+    if (window.innerWidth < 992 && collapseEl.classList.contains('show')
+      && !collapseEl.contains(e.target as Node)
+      && !toggler.contains(e.target as Node)) {
+      bsCollapse.hide();
+    }
+  };
+  document.addEventListener('mousedown', outsideClickHandler, true);
+  document.addEventListener('touchstart', outsideClickHandler, true);
+
+  // Collapse on route navigation change
+  const removeAfterEach = router.afterEach(() => {
+    if (window.innerWidth < 992 && collapseEl.classList.contains('show')) {
+      bsCollapse.hide();
+    }
+  });
+
+  // Cleanup listeners on unmount
+  onUnmounted(() => {
+    document.removeEventListener('mousedown', outsideClickHandler, true);
+    document.removeEventListener('touchstart', outsideClickHandler, true);
+    removeAfterEach();
+  });
+});
 
 // Combine closing navbar and logging out
 const handleLogout = async (): Promise<void> => {
@@ -380,45 +425,10 @@ onMounted(() => {
   if (isAuthenticated.value) {
        setTimeout(checkPushPermissionState, 1500);
   }
-
-  // Simplified Bootstrap Collapse initialization (event delegation is more robust but complex)
-  setTimeout(() => {
-    try {
-        const navbarContent = document.getElementById('navbarNav');
-        if (navbarContent && window.bootstrap?.Collapse) {
-            // Initialize if not already done (toggle: false prevents initial toggle)
-             if (!window.bootstrap.Collapse.getInstance(navbarContent)) {
-                 new window.bootstrap.Collapse(navbarContent, { toggle: false });
-             }
-        }
-         // Add listeners to close menu on link click (mobile) - safe to add multiple times
-         document.querySelectorAll('#navbarNav .nav-link, #navbarNav .dropdown-item').forEach(link => {
-            link.addEventListener('click', () => {
-                const collapseElement = document.getElementById('navbarNav');
-                if (collapseElement && window.innerWidth < 992 && collapseElement.classList.contains('show')) {
-                    const bsCollapseInstance = window.bootstrap?.Collapse?.getInstance(collapseElement);
-                    bsCollapseInstance?.hide();
-                }
-            });
-        });
-    } catch(e) {
-        console.error("Error initializing Bootstrap Collapse:", e);
-    }
-  }, 150);
 });
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll);
-   // Dispose Bootstrap collapse instance if it exists
-   try {
-       const navbarContent = document.getElementById('navbarNav');
-       if (navbarContent && window.bootstrap?.Collapse) {
-           const bsCollapse = window.bootstrap.Collapse.getInstance(navbarContent);
-           bsCollapse?.dispose();
-       }
-   } catch(e) {
-       console.warn("Error disposing Bootstrap Collapse:", e);
-   }
 });
 
 </script>

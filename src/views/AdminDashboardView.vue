@@ -9,26 +9,14 @@
         <p class="text-secondary mt-2">Loading dashboard...</p>
       </div>
       <div v-else>
-        <!-- Stats Grid: 3 cards per row -->
-        <div class="row g-4 mb-4">
-          <div v-for="stat in stats" :key="stat.label" class="col-12 col-md-4">
+        <!-- Stats Grid: 2 rows of 3 cards (combine stats and extraStats) -->
+        <div v-for="(row, rowIndex) in statRows" :key="'stat-row-' + rowIndex" class="row g-4 mb-4 justify-content-center">
+          <div v-for="stat in row" :key="stat.label" class="col-12 col-md-4">
             <div class="card shadow-sm text-center h-100 stat-card shadow-hover">
               <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
                 <div :class="['fs-1 mb-2', stat.iconClass]"><i :class="stat.icon"></i></div>
                 <div class="fw-bold fs-3 mb-1">{{ stat.value }}</div>
                 <div class="small text-secondary">{{ stat.label }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <!-- Extra Stats: all in one horizontal row (3 cards) -->
-        <div class="row g-4 mb-5">
-          <div v-for="extra in extraStats" :key="extra.label" class="col-12 col-md-4">
-            <div class="card shadow-sm text-center h-100 stat-card shadow-hover">
-              <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
-                <div :class="['fs-1 mb-2', extra.iconClass]"><i :class="extra.icon"></i></div>
-                <div class="fw-bold fs-3 mb-1">{{ extra.value }}</div>
-                <div class="small text-secondary">{{ extra.label }}</div>
               </div>
             </div>
           </div>
@@ -111,6 +99,18 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+
+// Helper to chunk an array into subarrays of given size
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
+}
+
+const allStats = computed(() => [...stats.value, ...extraStats.value]);
+const statRows = computed(() => chunkArray(allStats.value, 3));
 import { useStore } from 'vuex';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';

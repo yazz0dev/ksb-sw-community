@@ -76,7 +76,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import EventForm from '../components/events/EventForm.vue';
-import type { FormData as EventFormData } from '../components/events/EventForm.vue';
+import type { EventFormData } from '@/types/event';
+import { EventStatus } from '@/types/event';
 
 const store = useStore();
 const router = useRouter();
@@ -164,52 +165,81 @@ const mapEventToFormData = (eventData: any): EventFormData => {
   const defaultForm: EventFormData = {
     eventName: '',
     eventType: '',
-    description: '',
     eventFormat: 'Individual',
-    startDate: null,
-    endDate: null,
-    StartDate: null,
-    EndDate: null,
+    description: '',
+    details: {
+      format: 'Individual',
+      type: '',
+      description: '',
+      date: {
+        start: null,
+        end: null,
+      },
+      organizers: [],
+      xpAllocation: [],
+    },
+    status: EventStatus.Pending,
     teams: [],
-    xpAllocation: [],
-    organizers: [],
-    status: 'Pending' // Default status or based on context
+    criteria: [],
   };
 
   // Merge fetched data into the default structure
   const formData: EventFormData = { ...defaultForm, ...eventData };
 
-  // Convert dates
-  const dateFieldsToConvert: (keyof EventFormData)[] = ['startDate', 'endDate', 'StartDate', 'EndDate'];
-  dateFieldsToConvert.forEach(field => {
-    const timestamp = formData[field] as any; // Cast to any for conversion
-    if (timestamp && typeof timestamp.toDate === 'function') {
-      try {
-        (formData[field] as any) = timestamp.toDate().toISOString().split('T')[0];
-      } catch (e) {
-        console.warn(`Could not convert timestamp for field ${field}:`, e);
-        (formData[field] as any) = null;
+  // Always ensure criteria and description exist
+  if (!('criteria' in formData) || !Array.isArray(formData.criteria)) {
+    formData.criteria = [];
+  }
+  if (!('description' in formData) || typeof formData.description !== 'string') {
+    formData.description = '';
+  }
+  // Ensure details is always defined and has required fields
+  formData.details = {
+    ...formData.details,
+    format: formData.details?.format || formData.eventFormat || 'Individual',
+    type: formData.details?.type || formData.eventType || '',
+    description: formData.details?.description || formData.description || '',
+    date: formData.details?.date || { start: null, end: null },
+    organizers: Array.isArray(formData.details?.organizers) ? formData.details.organizers : [],
+    xpAllocation: Array.isArray(formData.details?.xpAllocation) ? formData.details.xpAllocation : [],
+  };
+
+
+  // Convert nested date fields
+  if (formData.details?.date) {
+    (['start', 'end'] as Array<'start' | 'end'>).forEach((key) => {
+      const timestamp = formData.details.date[key];
+      if (timestamp && typeof (timestamp as any).toDate === 'function') {
+        try {
+          formData.details.date[key] = (timestamp as any).toDate().toISOString().split('T')[0];
+        } catch (e) {
+          console.warn(`Could not convert timestamp for field details.date.${key}:`, e);
+          formData.details.date[key] = null;
+        }
+      } else if (typeof timestamp === 'string') {
+        try {
+          const parsedDate = new Date(timestamp);
+          if (!isNaN(parsedDate.getTime())) {
+            formData.details.date[key] = parsedDate.toISOString().split('T')[0];
+          } else {
+            formData.details.date[key] = null;
+          }
+        } catch (e) {
+          formData.details.date[key] = null;
+        }
+      } else {
+        formData.details.date[key] = null;
       }
-    } else if (typeof timestamp === 'string') {
-      try {
-        const parsedDate = new Date(timestamp);
-        if (!isNaN(parsedDate.getTime())) {
-            (formData[field] as any) = parsedDate.toISOString().split('T')[0];
-        } else { 
-            (formData[field] as any) = null; 
-        } 
-      } catch (e) {
-          (formData[field] as any) = null;
-      }
-    } else {
-      (formData[field] as any) = null; // Default to null if not a valid type
-    }
-  });
+    });
+  }
+
+  // Ensure details is always defined
+  formData.details = formData.details || { date: { start: null, end: null }, organizers: [], xpAllocation: [] };
 
   // Ensure arrays are present
-  formData.xpAllocation = Array.isArray(formData.xpAllocation) ? formData.xpAllocation : [];
-  formData.organizers = Array.isArray(formData.organizers) ? formData.organizers : [];
+  formData.details.organizers = Array.isArray(formData.details.organizers) ? formData.details.organizers : [];
   formData.teams = Array.isArray(formData.teams) ? formData.teams : [];
+  formData.details.xpAllocation = Array.isArray(formData.details.xpAllocation) ? formData.details.xpAllocation : [];
 
   return formData;
 };

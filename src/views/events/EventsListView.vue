@@ -52,6 +52,16 @@
             </div>
             <p v-else class="text-muted">No upcoming events.</p>
           </div>
+        </div>
+        <!-- Logged-out User: Only show Completed Events -->
+        <div v-else>
+          <div v-if="completedEvents.length > 0" class="row g-4">
+            <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
+              <EventCard :event="event" />
+            </div>
+          </div>
+          <p v-else class="text-muted">No completed events.</p>
+        </div>
 
           <!-- Active Events Section -->
           <div v-if="activeFilter === 'active'">
@@ -78,19 +88,7 @@
              <p v-else class="text-muted">No completed events.</p>
           </div>
         </div>
-
-        <!-- Logged-out User View (Only shows Completed) -->
-        <div v-else>
-          <h2 class="h4 mb-4">Completed Events</h2>
-          <div v-if="completedEvents.length > 0" class="row g-4">
-            <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" />
-            </div>
-          </div>
-           <p v-else class="text-muted">No completed events found.</p>
-        </div>
       </div>
-    </div>
   </section>
 </template>
 
@@ -130,7 +128,7 @@ const activeFilter = ref<FilterValue>(getDefaultFilter());
 const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
 
 const viewTitle = computed(() => {
-  if (!isAuthenticated.value && route.name === 'CompletedEvents') return 'Completed Events';
+  if (!isAuthenticated.value) return 'Completed Events';
   const filter = filters.find(f => f.value === activeFilter.value);
   return filter ? `${filter.label} Events` : 'Events';
 });
