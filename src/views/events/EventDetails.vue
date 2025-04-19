@@ -395,8 +395,9 @@ const canEditTeam = computed(() => {
   if (event.value.status !== EventStatus.Pending && event.value.status !== EventStatus.Approved) return false;
   if (event.value.details.format !== EventFormat.Team) return false;
 
-  const userTeam = event.value.teams?.find(team => team.members?.includes(currentUserId.value));
-  return userTeam?.teamLead === currentUserId.value;
+  const uid = ensureUserId(currentUserId.value);
+  const userTeam = event.value.teams?.find(team => team.members?.includes(uid));
+  return userTeam?.teamLead === uid;
 });
 
 const canJoin = computed(() => {

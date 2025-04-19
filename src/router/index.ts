@@ -68,7 +68,6 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/views/events/EventsListView.vue'),
     meta: { requiresAuth: false } // Allow access for logged-out users (they see completed)
   },
-  { path: '/about', name: 'About', component: () => import('@/views/AboutView.vue'), meta: { requiresAuth: false } },
   {
     path: '/admin/dashboard',
     name: 'AdminDashboard',
@@ -88,11 +87,17 @@ const router = createRouter({
 });
 
 // --- Navigation Guard ---
+// Import logic from navigationGuards.ts
 router.beforeEach(async (
   to: RouteLocationNormalized,
   from: RouteLocationNormalized,
   next: NavigationGuardNext
 ) => {
+  // Clear any pending date checks when navigating away from event forms
+  if (from.name === 'CreateEvent' || from.name === 'EditEvent') {
+    await store.dispatch('events/clearDateCheck');
+  }
+
   if (!store.getters['user/hasFetchedUserData']) {
     await new Promise<void>(resolve => {
       const unwatch = store.watch(
