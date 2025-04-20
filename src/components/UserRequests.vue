@@ -80,13 +80,15 @@ const fetchRequests = async (): Promise<void> => {
         loadingRequests.value = true;
         errorMessage.value = '';
         const q = query(
-            collection(db, 'eventRequests'),
-            where('requester', '==', user.uid),
+            collection(db, 'events'),
+            where('requestedBy', '==', user.uid),
             where('status', '==', 'Pending')
         );
         const querySnapshot = await getDocs(q);
         requests.value = querySnapshot.docs.map(doc => ({
             id: doc.id,
+            eventName: doc.data().details?.eventName || doc.data().details?.type || 'Untitled Event',
+            status: doc.data().status,
             ...doc.data()
         } as Request));
     } catch (error) {

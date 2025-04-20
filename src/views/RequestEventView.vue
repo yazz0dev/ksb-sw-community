@@ -106,14 +106,21 @@ const handleFormError = (message: string) => {
 };
 
 const handleSubmit = async (eventData: EventFormData) => {
-  if (isAdmin.value && !isEditing.value) {
-    errorMessage.value = 'Administrators cannot create events directly. Approve requests instead.';
-    return;
+  // Remove top-level eventName if present, ensure only in details
+  if ('eventName' in eventData) {
+    delete (eventData as any).eventName;
+  }
+  if (eventData.details && eventData.details.eventName) {
+    // OK, keep as is
   }
   errorMessage.value = ''; 
   try {
     if (isAdmin.value) {
       if (isEditing.value) {
+        // Remove top-level eventName if present in updates
+        if ('eventName' in eventData) {
+          delete (eventData as any).eventName;
+        }
         await store.dispatch('events/updateEventDetails', { eventId: eventId.value, updates: eventData });
         store.dispatch('notification/showNotification', { message: 'Event updated successfully!', type: 'success' });
         router.push({ name: 'EventDetails', params: { id: eventId.value } });
@@ -127,6 +134,10 @@ const handleSubmit = async (eventData: EventFormData) => {
             errorMessage.value = 'Users cannot edit events directly.'; // Users shouldn't reach here
             return;
         }
+      // Ensure allowProjectSubmission is always present (default true)
+      if (typeof eventData.details.allowProjectSubmission !== 'boolean') {
+        eventData.details.allowProjectSubmission = true;
+      }
       await store.dispatch('events/requestEvent', eventData);
       store.dispatch('notification/showNotification', { message: 'Event request submitted successfully!', type: 'success' });
       router.push({ name: 'Home' });
@@ -183,6 +194,16 @@ const mapEventToFormData = (eventData: any): EventFormData => {
 
   // Merge fetched data into the default structure
   const formData: EventFormData = { ...defaultForm, ...eventData };
+
+  // Remove top-level eventName if present
+  if ('eventName' in eventData) {
+    delete eventData.eventName;
+  }
+
+  // Always ensure eventName is only in details
+  if (eventData.details && eventData.details.eventName) {
+    // OK
+  }
 
   // Always ensure criteria 
   if (!('criteria' in formData) || !Array.isArray(formData.criteria)) {

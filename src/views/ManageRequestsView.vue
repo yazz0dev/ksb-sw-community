@@ -26,65 +26,79 @@
           No pending event requests.
         </div>
 
-        <div v-else class="row g-4">
+        <div v-else class="row g-3">
           <div 
             v-for="request in sanitizedPendingRequests" 
             :key="request.id" 
             class="col-12 animate-fade-in"
           >
-            <div class="card shadow-sm">
-              <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                  <h3 class="h5 mb-0 text-primary">{{ request.eventName }}</h3>
-                  <span :class="['badge rounded-pill', getStatusClass(request.status)]">
-                    {{ request.status }}
-                  </span>
+            <div class="card shadow-sm compact-request-card">
+              <div class="card-header d-flex justify-content-between align-items-center py-2 px-3 bg-light flex-wrap">
+                <div class="fw-semibold text-primary small d-flex align-items-center gap-2">
+                  <i class="fas fa-calendar-alt"></i>
+                  <span class="truncate-text">{{ request.eventName }}</span>
                 </div>
-                
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <p class="mb-2"><strong>Event Format:</strong> {{ request.eventFormat }}</p>
-                    <p class="mb-2"><strong>Event Type:</strong> {{ request.eventType }}</p>
-                    <p class="mb-2"><strong>Start Date:</strong> {{ formatDate(request.startDate) }}</p>
-                    <p class="mb-2"><strong>End Date:</strong> {{ formatDate(request.endDate) }}</p>
-                    <div v-if="isMissingDates(request)" class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
-                      <i class="fas fa-exclamation-triangle me-1"></i>
-                      This request is missing required start/end dates and cannot be approved.
+                <span :class="['badge rounded-pill', getStatusClass(request.status)]">
+                  {{ request.status }}
+                </span>
+              </div>
+              <div class="card-body py-3 px-3">
+                <div class="row g-2 align-items-center">
+                  <div class="col-12 col-md-7">
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                      <span class="badge bg-secondary-subtle text-secondary-emphasis small">
+                        <i class="fas fa-users me-1"></i>{{ request.eventFormat }}
+                      </span>
+                      <span class="badge bg-info-subtle text-info-emphasis small">
+                        <i class="fas fa-tag me-1"></i>{{ request.eventType }}
+                      </span>
+                      <span class="badge bg-light text-dark small">
+                        <i class="fas fa-user me-1"></i>{{ request.requesterNameDisplay || request.requesterName }}
+                      </span>
+                      <span v-if="request.organizerName" class="badge bg-light text-dark small">
+                        <i class="fas fa-user-friends me-1"></i>{{ request.organizerName }}
+                      </span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 small text-secondary">
+                      <span>
+                        <i class="fas fa-clock me-1"></i>
+                        {{ formatDate(request.startDate) }} - {{ formatDate(request.endDate) }}
+                      </span>
+                      <span v-if="isMissingDates(request)" class="text-warning ms-2">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Missing dates
+                      </span>
                     </div>
                   </div>
-                  <div class="col-md-6">
-                    <p class="mb-2">
-                      <strong>Requestor:</strong>
-                      {{ request.requesterNameDisplay || request.requesterName }}
-                    </p>
-                    <p
-                      v-if="Array.isArray(request.organizerIds) && request.organizerIds.length > 0"
-                      class="mb-2"
+                  <div class="col-12 col-md-5 mt-3 mt-md-0 d-flex flex-md-column flex-row gap-2 align-items-stretch align-items-md-end justify-content-md-end justify-content-start">
+                    <button 
+                      class="btn btn-success btn-sm flex-fill"
+                      :disabled="isProcessing(request.id) || isMissingDates(request)"
+                      @click="approveRequest(request.id)"
+                      :title="isMissingDates(request) ? 'Cannot approve: missing start/end dates' : ''"
                     >
-                      <strong>Organizer:</strong> {{ request.organizerName }}
-                    </p>
-                    <p class="mb-2"><strong>Description:</strong></p>
-                    <p class="text-secondary">{{ request.details?.description }}</p>
+                      <span v-if="isProcessing(request.id)" class="spinner-border spinner-border-sm me-1"></span>
+                      Approve
+                    </button>
+                    <button 
+                      class="btn btn-danger btn-sm flex-fill"
+                      :disabled="isProcessing(request.id)"
+                      @click="() => confirmRejectRequest(request.id)"
+                    >
+                      Reject
+                    </button>
+                    <router-link
+                      :to="{ name: 'EventDetails', params: { id: request.id } }"
+                      class="btn btn-outline-primary btn-sm flex-fill"
+                      title="View event details"
+                    >
+                      <i class="fas fa-info-circle me-1"></i> Details
+                    </router-link>
                   </div>
                 </div>
-
-                <div class="mt-3 d-flex gap-2 justify-content-end">
-                  <button 
-                    class="btn btn-success"
-                    :disabled="isProcessing(request.id) || isMissingDates(request)"
-                    @click="approveRequest(request.id)"
-                    :title="isMissingDates(request) ? 'Cannot approve: missing start/end dates' : ''"
-                  >
-                    <span v-if="isProcessing(request.id)" class="spinner-border spinner-border-sm me-1"></span>
-                    Approve
-                  </button>
-                  <button 
-                    class="btn btn-danger"
-                    :disabled="isProcessing(request.id)"
-                    @click="confirmRejectRequest(request.id)"
-                  >
-                    Reject
-                  </button>
+                <div class="mt-2 small text-secondary">
+                  <span class="fw-semibold">Description:</span>
+                  <span class="truncate-text">{{ request.details?.description || 'No description provided' }}</span>
                 </div>
               </div>
             </div>
@@ -160,6 +174,7 @@ const sanitizedPendingRequests = computed(() => {
         ...request,
         eventFormat: request.details?.format || 'Not specified',
         eventType: request.details?.type || 'Not specified',
+        eventName: request.details?.eventName || 'Untitled Event',
         requesterName: request.requestedBy || 'Unknown',
         requesterNameDisplay: getUserNameByUid(request.requestedBy) || request.requestedBy || 'Unknown',
         organizerIds: Array.isArray(request.details?.organizers) ? request.details.organizers : [],
@@ -301,4 +316,73 @@ const rejectRequestConfirmed = async (): Promise<void> => {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* --- Compact Request Card Styles --- */
+.compact-request-card {
+  border-radius: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.compact-request-card .card-header {
+  border-bottom: 1px solid var(--bs-border-color);
+  background: var(--bs-light);
+  font-size: 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+.compact-request-card .card-body {
+  padding: 0.75rem 1rem;
+}
+.compact-request-card .badge {
+  font-size: 0.85em;
+  padding: 0.35em 0.7em;
+  word-break: break-word;
+}
+.compact-request-card .btn-sm {
+  min-width: 90px;
+}
+.compact-request-card .small {
+  font-size: 0.93em;
+}
+.truncate-text {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
+}
+@media (max-width: 767.98px) {
+  .compact-request-card .card-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.5rem;
+  }
+  .compact-request-card .card-body {
+    padding: 0.75rem 0.5rem;
+  }
+  .compact-request-card .btn-sm {
+    min-width: 0;
+    width: 100%;
+  }
+  .truncate-text {
+    max-width: 120px;
+  }
+  .compact-request-card .row.g-2 {
+    flex-direction: column;
+  }
+  .compact-request-card .col-md-5,
+  .compact-request-card .col-md-7 {
+    width: 100%;
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
+  .compact-request-card .d-flex.flex-md-column {
+    flex-direction: row !important;
+    gap: 0.5rem !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+  }
+}
 </style>
+``` 

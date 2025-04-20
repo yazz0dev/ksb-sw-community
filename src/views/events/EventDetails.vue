@@ -19,7 +19,7 @@
       />
 
       <!-- Floating Action Button for Submission (visible if eligible) -->
-      <div class="d-none d-md-flex flex-column align-items-end">
+      <div class="d-none d-md-flex flex-column align-items-end" v-if="event?.details.allowProjectSubmission !== false">
         <button
           v-if="event && canSubmitProject"
           class="btn btn-lg btn-primary shadow submit-fab"
@@ -32,7 +32,7 @@
 
       <!-- Mobile FAB for Submission -->
       <button
-        v-if="event && canSubmitProject"
+        v-if="event && canSubmitProject && event.details.allowProjectSubmission !== false"
         class="btn btn-primary shadow submit-fab-mobile d-md-none"
         @click="triggerSubmitModalOpen"
         title="Submit Project"
@@ -153,7 +153,10 @@
         <div class="col-12 col-lg-4">
           <div class="sticky-lg-top" style="top: 2rem;">
             <!-- Submission Section -->
-            <div v-if="event" class="card submissions-box shadow-sm mb-4 animate-fade-in">
+            <div
+              v-if="event && event.details.allowProjectSubmission !== false"
+              class="card submissions-box shadow-sm mb-4 animate-fade-in"
+            >
               <div class="card-header bg-light d-flex align-items-center justify-content-between">
                 <div class="section-header mb-0">
                   <i class="fas fa-upload text-primary me-2"></i>
@@ -223,7 +226,15 @@
       </div>
 
       <!-- Submission Modal -->
-      <div class="modal fade" id="submissionModal" tabindex="-1" aria-labelledby="submissionModalLabel" aria-hidden="true" ref="submissionModalRef">
+      <div
+        class="modal fade"
+        id="submissionModal"
+        tabindex="-1"
+        aria-labelledby="submissionModalLabel"
+        aria-hidden="true"
+        ref="submissionModalRef"
+        v-if="event?.details.allowProjectSubmission !== false"
+      >
         <div class="modal-dialog">
           <div class="modal-content rounded-4 shadow-lg animate-fade-in">
             <div class="modal-header border-0 pb-0">
@@ -669,7 +680,7 @@ const isNonNullString = (value: string | null): value is string => value !== nul
 // Fix event mapping function
 const mapEventToHeaderProps = (event: Event) => ({
   ...event,
-  title: event.details.type || '',
+  title: event.details.eventName || event.details.type || '',
   description: event.details.description || '',
   details: {
     ...event.details

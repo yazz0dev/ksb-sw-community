@@ -25,7 +25,7 @@
             id="eventName"
             class="form-control"
             type="text"
-            v-model="formData.eventName"
+            v-model="formData.details.eventName"
             :disabled="isSubmitting"
             placeholder="Enter event name"
             required
@@ -66,6 +66,25 @@
             required
           ></textarea>
            <small class="form-text text-muted">You can use Markdown for formatting.</small>
+        </div>
+
+        <!-- Add toggle for project submission -->
+        <div class="mb-3">
+          <div class="form-check form-switch">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="allowProjectSubmission"
+              v-model="formData.details.allowProjectSubmission"
+              :disabled="isSubmitting"
+            />
+            <label class="form-check-label" for="allowProjectSubmission">
+              Allow Project Submission
+            </label>
+          </div>
+          <small class="form-text text-muted">
+            If enabled, participants will be able to submit projects for this event.
+          </small>
         </div>
 
         <!-- Team Configuration Section (Conditional) -->
@@ -423,7 +442,8 @@ function initializeFormData(): EventFormData {
         start: null,
         end: null
       },
-      organizers: []
+      organizers: [],
+      allowProjectSubmission: true // <-- Default to true
     },
     teams: [],
     criteria: [], 
@@ -462,9 +482,19 @@ function initializeFormData(): EventFormData {
       initial.details.date.end = formatTimestamp(initial.details.date.end);
     }
 
+    // Remove top-level eventName if present
+    if ('eventName' in initial) {
+      delete (initial as any).eventName;
+    }
+
     // Always ensure description is present in details
     if (!initial.details.description) {
       initial.details.description = '';
+    }
+
+    // Ensure allowProjectSubmission is present (default true)
+    if (typeof initial.details.allowProjectSubmission !== 'boolean') {
+      initial.details.allowProjectSubmission = true;
     }
 
     return { ...defaults, ...initial };
@@ -642,6 +672,16 @@ const handleSubmit = (): void => {
 
   dataToSubmit.status = EventStatus.Pending;
   dataToSubmit.requestedBy = store.getters['user/userId'];
+
+  // Ensure allowProjectSubmission is always present (default true)
+  if (typeof dataToSubmit.details.allowProjectSubmission !== 'boolean') {
+    dataToSubmit.details.allowProjectSubmission = true;
+  }
+
+  // Remove top-level eventName if present
+  if ('eventName' in dataToSubmit) {
+    delete (dataToSubmit as any).eventName;
+  }
 
   // --- Ensure 30 non-admin students are included for individual format event requests ---
   if (

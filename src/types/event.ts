@@ -95,6 +95,7 @@ export interface EventFormData {
     };
     organizers: string[];
     xpAllocation?: any[];
+    allowProjectSubmission?: boolean;
     [key: string]: any;
   };
   teams?: Team[];
@@ -121,6 +122,7 @@ export interface Event {
       end: Timestamp | null;
     };
     description: string;
+    allowProjectSubmission?: boolean;
   };
 
   // --- Criteria Definition ---

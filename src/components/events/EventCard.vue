@@ -14,7 +14,7 @@
             'text-primary': !isCancelledOrRejected
           }"
         >
-          {{ event.details?.type || 'Untitled Event' }}
+          {{ event.details?.eventName || 'Untitled Event' }}
         </h5>
         <span 
           class="badge rounded-pill fs-7 flex-shrink-0"

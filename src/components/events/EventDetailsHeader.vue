@@ -11,7 +11,7 @@
           </div>
 
           <h1 class="display-5 text-primary mb-2">
-            {{ event?.title }}
+            {{ event?.details?.eventName || 'Untitled Event' }}
           </h1>
 
           <div class="d-flex flex-wrap mb-4 gap-4">
@@ -87,6 +87,7 @@ interface Event {
   status: string;
   title: string;
   details: {
+    eventName?: string; 
     date: {
         start: Timestamp | null;
         end: Timestamp | null;
