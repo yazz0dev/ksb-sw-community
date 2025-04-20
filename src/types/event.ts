@@ -83,12 +83,11 @@ export interface OrganizerRating {
 
 // --- Event Form Data Interface ---
 export interface EventFormData {
-  // Only details.eventName and details.type are used
-  description: string;
   criteria: any[];
   eventFormat?: string;
   details: {
     eventName: string;
+    description: string;
     type?: string;
     date: {
       start: string | null;
@@ -123,9 +122,6 @@ export interface Event {
     };
     description: string;
   };
-
-  // --- Additional Properties ---
-  teamSize?: number; // Add optional teamSize
 
   // --- Criteria Definition ---
   criteria?: EventCriteria[];

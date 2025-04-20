@@ -52,6 +52,7 @@ import { computed, PropType } from 'vue';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { DateTime } from 'luxon';
+import { Timestamp } from 'firebase/firestore'; // <-- Add this import
 
 // Define props using defineProps
 const props = defineProps({
@@ -81,7 +82,6 @@ const formatDateRange = (start: any, end: any): string => {
 // Truncate description
 const truncatedDescription = computed(() => {
   const maxLen = 90;
-  // Use event.details.description for description
   const desc = props.event?.details?.description || '';
   if (desc.length > maxLen) {
     return desc.substring(0, maxLen).trim() + '…';

@@ -26,6 +26,13 @@ window.addEventListener('offline', () => {
     disableNetwork(db).catch(console.error);
 });
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // Show a UI prompt to reload, or force reload automatically:
+    window.location.reload();
+  });
+}
+
 // --- Supabase Push Notification Registration START ---
 async function registerForPushNotifications() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
@@ -121,6 +128,9 @@ const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
             } else {
                 console.log("User data already present or fetched for:", user.uid);
             }
+
+            // Register for push notifications after login (optional, or do this after explicit user consent)
+            registerForPushNotifications();
         } else {
             // --- Remove OneSignal External User ID ---
             try {
@@ -170,3 +180,9 @@ function mountApp(): void {
           console.log("Auth not initialized yet, delaying app mount.");
     }
 }
+
+// If you have a push permission request flow (e.g., in App.vue), call registerForPushNotifications after permission granted:
+// Example (pseudo-code, place in your push permission grant handler):
+// if (permission === 'granted') {
+//     await registerForPushNotifications();
+// }

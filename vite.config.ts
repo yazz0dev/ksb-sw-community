@@ -33,6 +33,7 @@ interface RuntimeCaching {
 
 // Type the config
 const config: UserConfig = {
+  publicDir: 'public', // Ensure static assets (e.g., OneSignalSDKWorker.js) are served from /public
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -45,10 +46,10 @@ const config: UserConfig = {
       gzipSize: true,
       brotliSize: true,
       open: false
-    }) as Plugin,
+    }) as Plugin, // Type assertion for TypeScript
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'src/assets/logo.png'],
+      includeAssets: ['favicon.ico', 'robots.txt', 'src/assets/logo.png', 'OneSignalSDKWorker.js'],
       manifest: {
         name: 'KSB Tech Community',
         short_name: 'KSB Tech',
@@ -120,7 +121,7 @@ const config: UserConfig = {
           }
         ]
       }
-    } as VitePWAOptions)
+    } as VitePWAOptions) // Type assertion for TypeScript
   ],
   optimizeDeps: {
     esbuildOptions: {

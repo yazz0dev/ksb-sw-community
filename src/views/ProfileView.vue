@@ -158,7 +158,7 @@ const fetchUserProjectsForPortfolio = async () => {
                 projectName: data.projectName || data.eventName || `Project (${doc.id.substring(0, 5)}...)`,
                 eventName: data.eventName || `Event (${data.eventId?.substring(0, 5) || doc.id.substring(0, 5)}...)`,
                 eventType: data.eventType || 'Unknown',
-                description: data.description || '',
+                description: data.details?.description || '',
                 link: data.link || '#', // Required field with fallback
                 submittedAt: data.submittedAt
              };

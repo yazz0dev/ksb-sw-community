@@ -164,7 +164,6 @@ const mapEventToFormData = (eventData: any): EventFormData => {
   // Create a default form structure matching EventFormData
   const defaultForm: EventFormData = {
     eventFormat: 'Individual',
-    description: '',
     details: {
       eventName: '', // Always present in details
       format: 'Individual',
@@ -185,24 +184,21 @@ const mapEventToFormData = (eventData: any): EventFormData => {
   // Merge fetched data into the default structure
   const formData: EventFormData = { ...defaultForm, ...eventData };
 
-  // Always ensure criteria and description exist
+  // Always ensure criteria 
   if (!('criteria' in formData) || !Array.isArray(formData.criteria)) {
     formData.criteria = [];
   }
-  if (!('description' in formData) || typeof formData.description !== 'string') {
-    formData.description = '';
-  }
+
   // Ensure details is always defined and has required fields
   formData.details = {
     ...formData.details,
     format: formData.details?.format || formData.eventFormat || 'Individual',
     type: formData.details?.type || formData.eventType || '',
-    description: formData.details?.description || formData.description || '',
+    description: formData.details?.description || '',
     date: formData.details?.date || { start: null, end: null },
     organizers: Array.isArray(formData.details?.organizers) ? formData.details.organizers : [],
     xpAllocation: Array.isArray(formData.details?.xpAllocation) ? formData.details.xpAllocation : [],
   };
-
 
   // Convert nested date fields
   if (formData.details?.date) {
@@ -239,16 +235,6 @@ const mapEventToFormData = (eventData: any): EventFormData => {
   formData.details.organizers = Array.isArray(formData.details.organizers) ? formData.details.organizers : [];
   formData.teams = Array.isArray(formData.teams) ? formData.teams : [];
   formData.details.xpAllocation = Array.isArray(formData.details.xpAllocation) ? formData.details.xpAllocation : [];
-
-  // --- Add first 30 students as participants for individual event requests if not admin and not team event ---
-  if (
-    (formData.details.format === 'Individual' || formData.eventFormat === 'Individual') &&
-    (!Array.isArray(formData.participants) || formData.participants.length === 0)
-  ) {
-    // Get student list from Vuex store (filter out admins)
-    const students = (store.state.user.studentList || []).filter((s: any) => s.role !== 'Admin');
-    formData.participants = students.slice(0, 30).map((s: any) => s.uid);
-  }
 
   return formData;
 };

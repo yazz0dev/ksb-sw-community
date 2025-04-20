@@ -414,7 +414,6 @@ const totalXP = computed((): number => {
 
 function initializeFormData(): EventFormData {
   const defaults: FormData = {
-    description: '', 
     details: {
       eventName: '', 
       format: EventFormat.Individual, 
@@ -463,9 +462,12 @@ function initializeFormData(): EventFormData {
       initial.details.date.end = formatTimestamp(initial.details.date.end);
     }
 
-    // Always ensure description is present
-    return { ...defaults, ...initial, description: initial.description ?? '' };
+    // Always ensure description is present in details
+    if (!initial.details.description) {
+      initial.details.description = '';
+    }
 
+    return { ...defaults, ...initial };
   }
   return defaults;
 }
@@ -640,6 +642,16 @@ const handleSubmit = (): void => {
 
   dataToSubmit.status = EventStatus.Pending;
   dataToSubmit.requestedBy = store.getters['user/userId'];
+
+  // --- Ensure 30 non-admin students are included for individual format event requests ---
+  if (
+    dataToSubmit.details.format === EventFormat.Individual &&
+    (!Array.isArray(dataToSubmit.participants) || dataToSubmit.participants.length === 0)
+  ) {
+    // Use availableStudents computed property, filter out admins, and take first 30
+    const students = (store.state.user.studentList || []).filter((s: any) => s.role !== 'Admin');
+    dataToSubmit.participants = students.slice(0, 30).map((s: any) => s.uid);
+  }
 
   emit('submit', dataToSubmit);
 };

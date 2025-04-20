@@ -56,7 +56,7 @@
                              <select
                                :id="`team-select-${allocation.constraintIndex}`"
                                class="form-select form-select-sm"
-                               v-model="ratings[`constraint${allocation.constraintIndex}`].teamName"
+                               v-model="teamRatings[`constraint${allocation.constraintIndex}`]"
                                required
                                :disabled="isSubmitting"
                              >
@@ -81,7 +81,7 @@
                              <select
                                id="best-performer-select"
                                class="form-select form-select-sm"
-                               v-model="ratings.bestPerformer"
+                               v-model="bestPerformer"
                                required
                                :disabled="isSubmitting"
                              >
@@ -117,7 +117,7 @@
                                <select
                                  :id="`winner-select-${allocation.constraintIndex}`"
                                  class="form-select form-select-sm"
-                                 v-model="ratings[`constraint${allocation.constraintIndex}`].winnerId"
+                                 v-model="individualRatings[`constraint${allocation.constraintIndex}`]"
                                  required
                                  :disabled="isSubmitting"
                                >
@@ -167,30 +167,24 @@ import { Event, EventFormat, EventStatus, Team, EventCriteria } from '@/types/ev
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
 
+// --- Types for ratings ---
+interface TeamRatings {
+  [constraintKey: string]: string; // constraint0: teamName, constraint1: teamName, ...
+}
+interface IndividualRatings {
+  [constraintKey: string]: string; // constraint0: winnerId, constraint1: winnerId, ...
+}
+
+// --- Reactive state for ratings ---
+const teamRatings = reactive<TeamRatings>({});
+const individualRatings = reactive<IndividualRatings>({});
+const bestPerformer = ref<string>('');
+
 // Replace existing interfaces with these more specific ones
 interface TeamMember {
   uid: string;
   name: string;
 }
-
-interface TeamRatingEntry {
-  teamName: string;
-  bestPerformer?: string;
-}
-
-interface IndividualRatingEntry {
-  winnerId: string;
-}
-
-type RatingEntry = TeamRatingEntry | IndividualRatingEntry;
-
-interface Ratings {
-  [key: string]: RatingEntry;
-  bestPerformer?: string;
-}
-
-// Update reactive ratings definition
-const ratings = reactive<Ratings>({});
 
 // Add missing field to Event type locally
 interface ExtendedEvent extends Event {
@@ -213,7 +207,6 @@ const router = useRouter();
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const isSubmitting = ref<boolean>(false);
-// Removed eventName ref; use event.value?.details?.eventName directly
 const event = ref<ExtendedEvent | null>(null);
 const isTeamEvent = computed(() => event.value?.details?.format === EventFormat.Team); // Updated to use derived field
 const eventTeams = ref<Team[]>([]);
@@ -237,21 +230,13 @@ const hasValidRatingCriteria = computed<boolean>(() => {
 
 const isValid = computed<boolean>(() => {
   if (!hasValidRatingCriteria.value) return false;
-
   const allCriteriaSelected = sortedXpAllocation.value.every(allocation => {
     const ratingKey = `constraint${allocation.constraintIndex}`;
-    const rating = ratings[ratingKey];
-    if (!rating) return false;
-
     return isTeamEvent.value
-      ? 'teamName' in rating && !!rating.teamName
-      : 'winnerId' in rating && !!rating.winnerId;
+      ? !!teamRatings[ratingKey]
+      : !!individualRatings[ratingKey];
   });
-
-  const bestPerformerSelected = isTeamEvent.value
-    ? !!ratings.bestPerformer
-    : true;
-
+  const bestPerformerSelected = isTeamEvent.value ? !!bestPerformer.value : true;
   return allCriteriaSelected && bestPerformerSelected;
 });
 
@@ -308,21 +293,19 @@ const getTeamNameForMember = (memberId: string): string => {
 // --- Watchers ---
 watch([sortedXpAllocation, isTeamEvent], ([allocations, teamEventStatus]) => {
   // Clear previous rating data
-  Object.keys(ratings).forEach(key => {
-    delete ratings[key];
-  });
+  Object.keys(teamRatings).forEach(key => delete teamRatings[key]);
+  Object.keys(individualRatings).forEach(key => delete individualRatings[key]);
+  bestPerformer.value = '';
 
   if (Array.isArray(allocations)) {
     allocations.forEach(allocation => {
       const allocationKey = `constraint${allocation.constraintIndex}`;
-      ratings[allocationKey] = teamEventStatus
-        ? { teamName: '' } as TeamRatingEntry
-        : { winnerId: '' } as IndividualRatingEntry;
+      if (teamEventStatus) {
+        teamRatings[allocationKey] = '';
+      } else {
+        individualRatings[allocationKey] = '';
+      }
     });
-    
-    if (teamEventStatus) {
-      ratings.bestPerformer = '';
-    }
   }
 }, { immediate: true, deep: true });
 
@@ -392,15 +375,15 @@ const initializeTeamEventForm = async (eventDetails: Event, loadExisting: boolea
         // Load criteria selections
         Object.entries(existingRating.selections.criteria || {}).forEach(([index, teamName]) => {
            const key = `constraint${index}`;
-           if (ratings[key]) { // Check if the key exists (initialized by watcher)
-             ratings[key].teamName = teamName || ''; // Ensure empty string if null/undefined
+           if (teamRatings[key] !== undefined) { // Check if the key exists (initialized by watcher)
+             teamRatings[key] = teamName || ''; // Ensure empty string if null/undefined
            } else {
              // Handle case where allocation might have changed since rating
              console.warn(`Rating found for non-existent constraint index: ${index}`);
            }
         });
         // Load best performer
-        ratings.bestPerformer = existingRating.selections.bestPerformer || '';
+        bestPerformer.value = existingRating.selections.bestPerformer || '';
         didLoadExistingRating.value = true; // Mark that existing data was loaded
       } else {
          didLoadExistingRating.value = false; // No existing rating found for user
@@ -433,10 +416,10 @@ const initializeIndividualEventForm = async (eventDetails: Event, loadExisting: 
        const winnerId = winnersData[role]?.[0];
        const key = `constraint${alloc.constraintIndex}`;
 
-       if (winnerId && ratings[key]) { // Check if winner exists and key is initialized
-         ratings[key].winnerId = winnerId;
+       if (winnerId && individualRatings[key] !== undefined) { // Check if winner exists and key is initialized
+         individualRatings[key] = winnerId;
          loadedSomething = true;
-       } else if (winnerId && !ratings[key]) {
+       } else if (winnerId && individualRatings[key] === undefined) {
           // Handle case where allocation might have changed
           console.warn(`Winner data found for non-existent constraint index: ${alloc.constraintIndex}`);
        }
@@ -480,7 +463,6 @@ const initializeForm = async (): Promise<void> => {
       throw new Error('Event not found or not accessible.');
     }
     event.value = eventDetails; // Store fetched details
-    // Removed assignment; use event.value?.details?.eventName directly
 
     // --- Validation Checks ---
     if (eventDetails.status !== EventStatus.Completed) {
@@ -555,15 +537,15 @@ const submitRating = async (): Promise<void> => {
   errorMessage.value = '';
 
   try {
-    let payload: any; // Define a more specific type if possible
+    let payload: any;
     let actionName: string;
 
     if (isTeamEvent.value) {
       // Prepare payload for team event rating
-      const criteriaSelections: Record<string, string> = {}; // { [constraintIndex]: teamName }
+      const criteriaSelections: Record<string, string> = {};
       sortedXpAllocation.value.forEach(allocation => {
         const key = `constraint${allocation.constraintIndex}`;
-        criteriaSelections[allocation.constraintIndex.toString()] = ratings[key]?.teamName || '';
+        criteriaSelections[allocation.constraintIndex.toString()] = teamRatings[key] || '';
       });
 
       payload = {
@@ -572,7 +554,7 @@ const submitRating = async (): Promise<void> => {
         ratedBy: currentUser.value.uid,
         selections: {
           criteria: criteriaSelections,
-          bestPerformer: ratings.bestPerformer || ''
+          bestPerformer: bestPerformer.value || ''
         }
       };
       actionName = 'events/submitTeamCriteriaRating';
@@ -580,15 +562,16 @@ const submitRating = async (): Promise<void> => {
 
     } else {
       // Prepare payload for individual event winner selection
-      const winnerSelections: Record<string, string[]> = {}; // { [role]: [winnerId] }
-       sortedXpAllocation.value.forEach(allocation => {
-          const role = allocation.role || 'general'; // Ensure role exists, default if necessary
-          const winnerId = ratings[`constraint${allocation.constraintIndex}`]?.winnerId;
-          if (winnerId) { // Only add if a winner was selected
-             winnerSelections[role] = winnerSelections[role] || []; // Ensure array exists for the role
-             winnerSelections[role].push(winnerId);
-          }
-       });
+      const winnerSelections: Record<string, string[]> = {};
+      sortedXpAllocation.value.forEach(allocation => {
+        const role = allocation.role || 'general';
+        const key = `constraint${allocation.constraintIndex}`;
+        const winnerId = individualRatings[key];
+        if (winnerId) {
+          winnerSelections[role] = winnerSelections[role] || [];
+          winnerSelections[role].push(winnerId);
+        }
+      });
 
       payload = {
         eventId: props.eventId,
@@ -596,14 +579,12 @@ const submitRating = async (): Promise<void> => {
         ratedBy: currentUser.value.uid,
         selections: winnerSelections
       };
-      actionName = 'events/submitIndividualWinners'; // Use a potentially different action
+      actionName = 'events/submitIndividualWinners';
       console.log("Submitting Individual Winner Payload:", payload);
     }
 
-    // Dispatch to Vuex store
     await store.dispatch(actionName, payload);
 
-    // Common success handling
     store.dispatch('notification/showNotification', {
         message: `${didLoadExistingRating.value ? 'Update' : 'Submission'} successful!`,
         type: 'success'
@@ -613,8 +594,6 @@ const submitRating = async (): Promise<void> => {
   } catch (error: any) {
     console.error("Rating/Selection submission error:", error);
     errorMessage.value = `Submission failed: ${error.message || 'An unknown error occurred'}`;
-    // Optionally use store notification for errors too
-    // store.dispatch('notification/showNotification', { message: errorMessage.value, type: 'error' });
   } finally {
     isSubmitting.value = false;
   }

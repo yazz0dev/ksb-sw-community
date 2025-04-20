@@ -24,7 +24,7 @@
             <div class="d-flex align-items-center">
               <span class="text-secondary me-2"><i class="fas fa-users"></i></span>
               <small class="text-secondary">
-                {{ event?.teamSize }} members per team
+                {{ totalParticipants }} participant{{ totalParticipants === 1 ? '' : 's' }}
               </small>
             </div>
           </div>
@@ -92,10 +92,11 @@ interface Event {
         end: Timestamp | null;
     };
     format: string;
+    description: string; 
   };
-  teamSize: number;
-  description: string;
   closed?: boolean;
+  teams?: { members: string[] }[];
+  participants?: string[];
 }
 
 const props = defineProps<{
@@ -149,7 +150,7 @@ const renderDescription = async (description: string | undefined) => {
 };
 
 watchEffect(() => {
-    renderDescription(props.event?.description);
+    renderDescription(props.event?.details?.description);
 });
 
 const statusTagClass = computed((): string => {
@@ -161,6 +162,20 @@ const statusTagClass = computed((): string => {
     case 'Cancelled': return 'bg-danger-subtle text-danger-emphasis';
     default: return 'bg-secondary-subtle text-secondary-emphasis';
   }
+});
+
+const totalParticipants = computed(() => {
+  if (!props.event) return 0;
+  if (props.event.details?.format === 'Team' && Array.isArray(props.event.teams)) {
+    const memberSet = new Set<string>();
+    props.event.teams.forEach(team => {
+      (team.members || []).forEach(m => m && memberSet.add(m));
+    });
+    return memberSet.size;
+  } else if (Array.isArray(props.event.participants)) {
+    return props.event.participants.length;
+  }
+  return 0;
 });
 </script>
 

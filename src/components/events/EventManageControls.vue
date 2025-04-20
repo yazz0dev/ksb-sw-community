@@ -193,14 +193,27 @@ const statusBadgeClass = computed(() => {
 // Check if the current time is within the event's start and end dates
 const isWithinEventDates = computed(() => {
   if (!props.event.details?.date?.start || !props.event.details?.date?.end) return false;
-  // Use the utility function, ensuring dates are passed correctly
   try {
-    return canEventBeStarted({
-        startDate: props.event.details.date.start,
-        endDate: props.event.details.date.end
+    // Use IST for comparison, but only compare the date (ignore time)
+    const { toIST } = require('@/utils/dateTime');
+    const todayIST = toIST(new Date())?.startOf('day');
+    const startIST = toIST(props.event.details.date.start)?.startOf('day');
+    const endIST = toIST(props.event.details.date.end)?.startOf('day');
+    // Debug log for date checking
+    // eslint-disable-next-line no-console
+    console.log('[EventManageControls.vue] Date check:', {
+      today: new Date(),
+      todayIST: todayIST?.toISODate?.(),
+      start: props.event.details.date.start,
+      startIST: startIST?.toISODate?.(),
+      end: props.event.details.date.end,
+      endIST: endIST?.toISODate?.(),
+      result: !!(todayIST && startIST && endIST && todayIST >= startIST && todayIST <= endIST)
     });
+    if (!todayIST || !startIST || !endIST) return false;
+    return todayIST >= startIST && todayIST <= endIST;
   } catch (e) {
-    console.error("Error checking event dates:", e);
+    console.error("Error checking event dates (IST, date only):", e);
     return false;
   }
 });

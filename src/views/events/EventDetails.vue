@@ -45,11 +45,14 @@
         <div class="col-12 col-lg-8">
           <!-- Event Management Controls -->
           <div class="mb-4">
-            <EventManageControls
-              v-if="canManageEvent && event"
-              :event="event"
-              class="mb-0 animate-fade-in"
-            />
+            <!-- Add console log for debugging EventManageControls rendering -->
+            <template v-if="canManageEvent && event">
+              <EventManageControls
+                :event="event"
+                class="mb-0 animate-fade-in"
+                v-on:hook:mounted="logEventManageControls"
+              />
+            </template>
           </div>
 
           <!-- XP/Criteria Section -->
@@ -667,7 +670,6 @@ const isNonNullString = (value: string | null): value is string => value !== nul
 const mapEventToHeaderProps = (event: Event) => ({
   ...event,
   title: event.details.type || '',
-  teamSize: event.teams?.length || 0,
   description: event.details.description || '',
   details: {
     ...event.details
@@ -694,6 +696,49 @@ const modalHiddenHandler = () => {
     submissionForm.value = { projectName: '', link: '', description: '' };
     submissionError.value = '';
 };
+
+function logEventManageControls() {
+  // Log when EventManageControls is rendered
+  // Use nextTick to ensure props are up-to-date
+  setTimeout(() => {
+    // eslint-disable-next-line no-console
+    console.log('[EventDetails.vue] EventManageControls rendered', {
+      canManageEvent: canManageEvent.value,
+      event: event.value
+    });
+  }, 0);
+}
+
+watch([canManageEvent, event], ([canManage, evt]) => {
+  // eslint-disable-next-line no-console
+  console.log('[EventDetails.vue] canManageEvent or event changed', { canManage, evt });
+});
+
+// Add this to confirm if EventManageControls is being rendered
+watch([canManageEvent, event], ([canManage, evt]) => {
+  if (canManage && evt) {
+    // eslint-disable-next-line no-console
+    console.log('[EventDetails.vue] About to render <EventManageControls>', { canManage, evt });
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('[EventDetails.vue] <EventManageControls> will NOT render', { canManage, evt });
+    // Additional debug: why can't manage?
+    if (!canManage) {
+      const currentUserId = store.getters['user/userId'];
+      const isAdmin = store.getters['user/userRole'] === 'Admin';
+      const isOrganizer = evt?.details?.organizers?.includes?.(currentUserId);
+      // eslint-disable-next-line no-console
+      console.log('[EventDetails.vue] canManageEvent breakdown:', {
+        currentUserId,
+        isAdmin,
+        isOrganizer,
+        eventStatus: evt?.status,
+        eventClosedAt: evt?.closedAt,
+        eventOrganizers: evt?.details?.organizers,
+      });
+    }
+  }
+});
 
 onMounted(() => {
     fetchEventData();

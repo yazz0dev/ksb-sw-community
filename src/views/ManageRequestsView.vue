@@ -64,7 +64,7 @@
                       <strong>Organizer:</strong> {{ request.organizerName }}
                     </p>
                     <p class="mb-2"><strong>Description:</strong></p>
-                    <p class="text-secondary">{{ request.description }}</p>
+                    <p class="text-secondary">{{ request.details?.description }}</p>
                   </div>
                 </div>
 
