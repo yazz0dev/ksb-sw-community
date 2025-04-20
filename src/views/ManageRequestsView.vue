@@ -83,7 +83,7 @@
                     <button 
                       class="btn btn-danger btn-sm flex-fill"
                       :disabled="isProcessing(request.id)"
-                      @click="() => confirmRejectRequest(request.id)"
+                      @click="confirmRejectRequest(request.id)"
                     >
                       Reject
                     </button>
@@ -294,6 +294,7 @@ const rejectRequestConfirmed = async (): Promise<void> => {
         message: 'Event request rejected successfully.',
         type: 'success'
     });
+    await fetchRequests();
   } catch (err: any) {
     error.value = `Failed to reject request: ${err.message}`;
     console.error("Error rejecting event request:", err);
@@ -385,4 +386,3 @@ const rejectRequestConfirmed = async (): Promise<void> => {
   }
 }
 </style>
-``` 

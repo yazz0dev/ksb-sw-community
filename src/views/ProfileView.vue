@@ -1,5 +1,5 @@
 <template>
-  <div class="py-5 profile-section" style="background-color: var(--bs-body-bg); min-height: calc(100vh - 8rem);">
+  <div class="py-3 py-md-5 profile-section" style="background-color: var(--bs-body-bg); min-height: calc(100vh - 8rem);">
     <div class="container-lg">
       <!-- Back Button -->
       <div v-if="!isCurrentUser" class="mb-5">
@@ -32,13 +32,11 @@
               v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
               :user="userForPortfolio"
               :projects="userProjectsForPortfolio"
-            />
-            <p v-else-if="loadingProjectsForPortfolio" class="small text-secondary fst-italic ms-2 mb-0">
+              :event-participation-count="eventParticipationCount"  />
+            <p v-else-if="loadingProjectsForPortfolio || loadingEventCount" class="small text-secondary fst-italic ms-2 mb-0">
               Loading portfolio data...
             </p>
-            <p v-else class="small text-secondary fst-italic ms-2 mb-0">
-              (Portfolio PDF available after completing events with submissions)
-            </p>
+
           </div>
         </div>
 
@@ -76,7 +74,10 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, orderBy, doc, getDoc, DocumentData } from 'firebase/firestore';
+// Import necessary Firestore functions
+import { collection, query, where, getDocs, orderBy, doc, getDoc, DocumentData, collectionGroup,getCountFromServer } from 'firebase/firestore';
+import { generatePortfolioPDF } from '../utils/pdfGenerator'; // Import PDF generator
+
 
 // Import Components
 import ProfileViewContent from '../components/ProfileViewContent.vue';
@@ -110,6 +111,9 @@ const isCurrentUser = ref<boolean>(false);
 const isAdminProfile = ref<boolean>(false);
 const userProjectsForPortfolioButton = ref<Project[]>([]); // Use Project[] type
 const loadingProjectsForPortfolio = ref<boolean>(false);
+const eventParticipationCount = ref<number>(0); // State for event count
+const loadingEventCount = ref<boolean>(false); // Loading state for count
+const isGeneratingTempPortfolio = ref<boolean>(false); // Loading state for temp button
 
 // --- Add missing refs for profileUser, loading, error ---
 const profileUser = ref<UserData | null>(null);
@@ -139,7 +143,7 @@ const userProjectsForPortfolio = computed(() => {
     return userProjectsForPortfolioButton.value;
 });
 
-// --- Methods ---
+
 const fetchUserProjectsForPortfolio = async () => {
     if (!loggedInUserId.value) return;
     loadingProjectsForPortfolio.value = true;
@@ -171,6 +175,37 @@ const fetchUserProjectsForPortfolio = async () => {
         loadingProjectsForPortfolio.value = false;
     }
 };
+
+const fetchEventParticipationCount = async (userId: string) => {
+    if (!userId) return 0;
+    loadingEventCount.value = true;
+    let count = 0;
+    try {
+        // Query for events organized by the user
+        const organizedEventsQuery = query(collection(db, 'events'), where('organizerId', '==', userId));
+        const organizedEventsSnap = await getCountFromServer(organizedEventsQuery);
+        const organizedCount = organizedEventsSnap.data().count;
+
+
+        // Option 2: Subcollection 'participants' under each 'events' document
+        // This requires a collectionGroup query
+        const participatedEventsQuery = query(collectionGroup(db, 'participants'), where('userId', '==', userId));
+        const participatedEventsSnap = await getCountFromServer(participatedEventsQuery);
+        const participatedCount = participatedEventsSnap.data().count;
+
+        // Simple sum for now. Refine if duplicate counting (organizer also participant) is an issue.
+        count = organizedCount + participatedCount;
+        eventParticipationCount.value = count;
+
+    } catch (err) {
+        console.error("Error fetching event participation count:", err);
+        eventParticipationCount.value = 0; // Reset on error
+    } finally {
+        loadingEventCount.value = false;
+    }
+    return count; // Return the count if needed elsewhere
+};
+
 
 const determineProfileContext = async () => {
     const routeUserId = route.params.userId;
@@ -222,11 +257,15 @@ const fetchUserProfile = async (userIdToFetch: string) => {
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
             profileUser.value = { uid: userDocSnap.id, ...userDocSnap.data() } as UserData;
-            // Fetch projects only if viewing a student profile
+            // Fetch projects and participation count only if viewing a student profile
             if ((profileUser.value as any).role === 'Student') {
-                 await fetchUserProjectsForPortfolio();
+                 await Promise.all([
+                     fetchUserProjectsForPortfolio(),
+                     fetchEventParticipationCount(userIdToFetch) // Fetch count concurrently
+                 ]);
             } else {
                  userProjectsForPortfolioButton.value = []; // Clear projects for non-students
+                 eventParticipationCount.value = 0; // Reset count for non-students
             }
         } else {
             error.value = 'User profile not found.';

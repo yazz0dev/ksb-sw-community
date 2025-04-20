@@ -3,7 +3,8 @@
     type="button"
     class="btn btn-primary btn-sm shadow-sm d-inline-flex align-items-center"
     @click="generatePDF"
-    :disabled="isGenerating"
+    :disabled="isGenerating || !isEligible" 
+    :title="!isEligible ? 'Requires participation in at least 5 events' : 'Generate Portfolio PDF'"
     style="transition: background-color 0.2s;"
   >
     <span v-if="isGenerating" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
@@ -13,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue'; // Import computed
 import { generatePortfolioPDF } from '../utils/pdfGenerator';
 
 // Define an interface for the project object
@@ -32,9 +33,13 @@ interface User {
 const props = defineProps<{
   user: User;
   projects: Project[];
+  eventParticipationCount: number; // Add new prop for event count
 }>();
 
 const isGenerating = ref(false);
+
+// Computed property to check eligibility
+const isEligible = computed(() => props.eventParticipationCount >= 5);
 
 const emit = defineEmits<{
   (e: 'error', message: string): void;

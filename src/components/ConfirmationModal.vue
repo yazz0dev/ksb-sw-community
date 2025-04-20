@@ -33,7 +33,7 @@
                         type="button" 
                         class="btn"
                         :class="confirmButtonClass"
-                        @click="handleConfirm"
+                        @click="$emit('confirm')"
                     >
                         {{ confirmText }}
                     </button>

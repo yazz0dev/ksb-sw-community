@@ -23,30 +23,42 @@
             <div class="mb-4">
               <img 
                 :src="user.photoURL || defaultAvatarUrl" 
-                :alt="user.name || 'Profile Photo'" 
-                class="img-fluid rounded-circle border border-3 border-primary shadow-sm" 
-                style="width: 128px; height: 128px; object-fit: cover;" 
-                @error="handleImageError" 
+                :alt="user.name || 'Profile Photo'"
+                class="img-fluid rounded-circle border border-3 border-primary shadow-sm"
+                style="width: 110px; height: 110px; object-fit: cover;" 
+                @error="handleImageError"
               />
             </div>
-            <h1 class="h4 mb-4">{{ user.name || 'User Profile' }}</h1>
+            <h1 class="h4 mb-2">{{ user.name || 'User Profile' }}</h1>
+
+            <!-- Social Link -->
+            <div v-if="user.socialLink" class="mb-3">
+              <a :href="user.socialLink" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info">
+                <i class="fas fa-link me-1"></i> Social Profile
+              </a>
+            </div>
+
+            <!-- Bio -->
+            <p v-if="user.bio" class="text-muted small mb-4">{{ user.bio }}</p>
+            <p v-else class="text-muted small fst-italic mb-4">No bio provided.</p>
+
             <!-- Stats Section -->
             <div class="d-flex justify-content-around mb-5">
               <div class="text-center">
                 <div class="bg-primary-subtle text-primary-emphasis p-2 rounded mb-1">
-                  <h4 class="h4 mb-0">{{ stats.participatedCount }}</h4>
+                  <h5 class="h5 mb-0">{{ stats.participatedCount }}</h5> <!-- h4 to h5 -->
                 </div>
                 <small class="text-muted text-uppercase">Participated</small>
               </div>
               <div class="text-center">
                  <div class="bg-primary-subtle text-primary-emphasis p-2 rounded mb-1">
-                  <h4 class="h4 mb-0">{{ stats.organizedCount }}</h4>
+                  <h5 class="h5 mb-0">{{ stats.organizedCount }}</h5> <!-- h4 to h5 -->
                  </div>
                 <small class="text-muted text-uppercase">Organized</small>
               </div>
               <div class="text-center">
                  <div class="bg-warning-subtle text-warning-emphasis p-2 rounded mb-1">
-                  <h4 class="h4 mb-0">{{ stats.wonCount }}</h4>
+                  <h5 class="h5 mb-0">{{ stats.wonCount }}</h5> <!-- h4 to h5 -->
                  </div>
                 <small class="text-muted text-uppercase">Won</small>
               </div>
@@ -56,7 +68,7 @@
               <p class="small fw-semibold text-secondary mb-1">
                 <i class="fas fa-star text-warning me-1"></i> Total XP Earned
               </p>
-              <p class="display-5 text-primary fw-bold">{{ totalXp }}</p>
+              <p class="fs-2 text-primary fw-bold">{{ totalXp }}</p> <!-- display-5 to fs-2 -->
             </div>
           </div>
         </div>
@@ -85,6 +97,59 @@
              </div>
            </div>
 
+           <!-- Event History -->
+           <div v-if="sortedEventsHistory.length > 0" class="card shadow-sm">
+             <div class="card-header">
+               <h5 class="card-title mb-0">Event History</h5>
+             </div>
+             <ul class="list-group list-group-flush">
+               <li
+                 v-for="event in sortedEventsHistory"
+                 :key="event.id"
+                 class="list-group-item px-3 py-3"
+               >
+                 <div class="d-flex flex-wrap justify-content-between align-items-center">
+                   <div class="d-flex align-items-center gap-2 flex-wrap">
+                     <i class="fas fa-calendar-alt text-primary me-2"></i>
+                     <router-link
+                       :to="{ name: 'EventDetails', params: { id: event.id } }"
+                       class="fw-semibold text-primary text-decoration-none me-2"
+                     >
+                       {{ event.details?.eventName || 'Unnamed Event' }}
+                     </router-link>
+                     <span
+                       v-if="isOrganizer(event)"
+                       class="badge bg-success-subtle text-success-emphasis rounded-pill ms-1"
+                     >
+                       <i class="fas fa-crown me-1"></i> Organizer
+                     </span>
+                   </div>
+                   <div class="text-end">
+                     <span class="badge bg-light text-secondary border border-1 fw-normal">
+                       {{ formatEventDate(event.details?.date?.start) }}
+                     </span>
+                   </div>
+                 </div>
+                 <div class="d-flex flex-wrap align-items-center gap-2 mt-2 ms-4">
+                   <span v-if="event.details?.type" class="badge bg-info-subtle text-info-emphasis small">
+                     <i class="fas fa-tag me-1"></i>{{ event.details.type }}
+                   </span>
+                   <span v-if="event.details?.format" class="badge bg-secondary-subtle text-secondary-emphasis small">
+                     <i class="fas fa-users me-1"></i>{{ formatEventFormat(event.details.format) }}
+                   </span>
+                 </div>
+               </li>
+             </ul>
+             <div v-if="loadingEventsOrProjects" class="card-footer text-center text-muted small">
+                Loading event details...
+             </div>
+           </div>
+           <div v-else-if="!loadingEventsOrProjects" class="card shadow-sm">
+              <div class="card-body text-center text-muted">
+                No event participation history found.
+              </div>
+           </div>
+
            <!-- Additional Content Slot -->
            <slot name="additional-content"></slot>
         </div>
@@ -97,10 +162,11 @@
 import { ref, computed, watch, toRefs } from 'vue';
 import { useStore } from 'vuex';
 import { db } from '../firebase';
-import { doc, getDoc, collection, query, where, getDocs, orderBy, DocumentData } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, DocumentData, Timestamp } from 'firebase/firestore'; // Import Timestamp
 import { DateTime } from 'luxon';
 import { formatRoleName as formatRoleNameUtil } from '../utils/formatters';
-import { Event } from '@/types/event'; // Import Event type
+import { Event, EventStatus } from '@/types/event'; // Import Event type AND EventStatus
+import { User } from '@/types/user'; // Import User type for casting
 
 interface Props {
     userId: string;
@@ -124,7 +190,7 @@ const user = ref<DocumentData | null>(null);
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const userProjects = ref<DocumentData[]>([]);
-const participatedEvents = ref<DocumentData[]>([]);
+const participatedEvents = ref<Event[]>([]); // Change DocumentData[] to Event[]
 const loadingEventsOrProjects = ref<boolean>(true);
 
 const stats = ref<Stats>({
@@ -154,6 +220,17 @@ const filteredXpByRole = computed(() => {
     }, {});
 });
 
+// Computed property to sort events by date (most recent first)
+const sortedEventsHistory = computed(() => {
+  return [...participatedEvents.value].sort((a, b) => {
+    // Access the Timestamp object and convert to milliseconds
+    const timeA = a.details?.date?.start ? a.details.date.start.toMillis() : 0;
+    const timeB = b.details?.date?.start ? b.details.date.start.toMillis() : 0;
+    // Sort descending (newest first)
+    return timeB - timeA;
+  });
+});
+
 const handleImageError = (e: any) => {
   // Accept any event, fallback to any for Vue template compatibility
   if (e && e.target && 'src' in e.target) {
@@ -168,6 +245,34 @@ const formatRoleName = (roleKey: string) => {
 const xpPercentage = (xp: number): number => { // Add return type
   const total = totalXp.value; // total is already a number
   return total > 0 ? Math.min(100, Math.round((xp / total) * 100)) : 0;
+};
+
+// Helper to format event date from Timestamp
+const formatEventDate = (timestamp: Timestamp | null | undefined): string => {
+    if (!timestamp) return 'Date unknown';
+    try {
+        // Convert Firestore Timestamp to Luxon DateTime
+        return DateTime.fromMillis(timestamp.toMillis()).toLocaleString(DateTime.DATE_MED);
+    } catch (e) {
+        console.error("Error formatting date:", e);
+        return 'Invalid date';
+    }
+};
+
+// Helper to check if the current user organized an event
+const isOrganizer = (event: Event): boolean => {
+    // Ensure user.value and userId.value are available and event.details.organizers is an array
+    if (!user.value || !userId.value || !Array.isArray(event.details?.organizers)) {
+        return false;
+    }
+    return event.details.organizers.includes(userId.value);
+};
+
+const formatEventFormat = (format: string | undefined): string => {
+  if (!format) return '';
+  if (format === 'Team') return 'Team Event';
+  if (format === 'Individual') return 'Individual Event';
+  return format;
 };
 
 const fetchProfileData = async () => {
@@ -186,7 +291,17 @@ const fetchProfileData = async () => {
     if (!userDocSnap.exists()) {
       throw new Error('User profile not found.');
     }
-    user.value = { id: userDocSnap.id, ...userDocSnap.data() };
+    const data = userDocSnap.data();
+    if (!data) {
+        throw new Error('User data is empty.');
+    }
+    // Safer assignment ensuring core fields exist for the User type
+    user.value = {
+        id: userDocSnap.id, // Keep Firestore ID if needed elsewhere, though User type uses uid
+        uid: userDocSnap.id, // Assign Firestore ID to uid
+        name: data.name || 'Unknown User', // Provide default if name is missing
+        ...data // Spread the rest of the data
+    } as User; // Cast after ensuring core fields
 
     // Fetch participated events and projects in parallel
     await Promise.all([
@@ -242,7 +357,12 @@ const fetchParticipatedEvents = async () => {
     let organized = 0;
     let won = 0;
 
-    allEvents.forEach((event: Event) => { // Ensure event is typed as Event
+    // Filter for completed or closed events first
+    const relevantEvents = allEvents.filter(event =>
+        event.status === EventStatus.Completed || event.status === EventStatus.Closed
+    );
+
+    relevantEvents.forEach((event: Event) => { // Iterate over filtered events
       let isParticipant = false;
       let isOrganizerFlag = false;
       let isPartOfEvent = false;

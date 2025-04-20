@@ -4,6 +4,9 @@
 export interface User {
   uid: string;
   name: string;
+  photoURL?: string; // Add profile photo URL
+  bio?: string; // Add user bio
+  socialLink?: string; // Add social media link (optional)
   role?: string;
   xpByRole?: Record<string, number>;
   skills?: string[];
@@ -21,7 +24,7 @@ export interface UserState {
   // Core User Data
   uid: string | null;
   name: string | null;
-  role: string | null; // Consider specific roles: 'Student' | 'Admin' | null;
+  role: string | null; // roles:  'Admin' | null('Student');
   isAuthenticated: boolean;
   hasFetched: boolean;
 
