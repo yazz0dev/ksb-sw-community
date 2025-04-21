@@ -134,6 +134,7 @@ import { useRouter } from 'vue-router';
 import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
 import EventCardSkeleton from '../components/skeletons/EventCardSkeleton.vue'; 
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 
 const store = useStore();
 const router = useRouter();

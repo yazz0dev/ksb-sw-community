@@ -1,5 +1,6 @@
 import type { jsPDF } from 'jspdf';
 import type { UserOptions } from 'jspdf-autotable';
+import { formatRoleName } from './formatters';
 
 interface UserData {
   name: string;
@@ -36,7 +37,7 @@ export async function generatePortfolioPDF(user: UserData, projects: ProjectData
     if (user.xpByRole) {
       Object.entries(user.xpByRole).forEach(([role, xp]) => {
         if (typeof xp === 'number' && xp > 0) {
-          pdf.text(`${role}: ${xp} XP`, 30, yPosition);
+          pdf.text(`${formatRoleName(role)}: ${xp} XP`, 30, yPosition);
           yPosition += 10;
         }
       });

@@ -123,7 +123,7 @@ function updateLocalTeams(teamsFromProps: Team[]): void {
   }
   
   const existingStates = teamsWithDetails.value.reduce((acc, team) => {
-    acc[team.teamName] = team.showDetails;
+    acc[team.teamName] = !!team.showDetails; // Ensure boolean, not undefined
     return acc;
   }, {} as { [key: string]: boolean });
 
@@ -154,37 +154,7 @@ const toggleTeamDetails = (teamName: string): void => {
 /* Removed hover style as Bootstrap cards have subtle hover effects or can be customized globally */
 /* .team-card:hover { ... } */
 
-/* Transition for collapsible section */
-.slide-fade-enter-active {
-  transition: all 0.3s ease-out;
-}
-.slide-fade-leave-active {
-  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
-}
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  transform: translateY(-10px);
-  opacity: 0;
-}
-
-
-/* Transition for list items */
-.fade-fast-enter-active,
-.fade-fast-leave-active {
-    transition: all 0.2s ease-out;
-}
-
-.fade-fast-enter-from,
-.fade-fast-leave-to {
-    opacity: 0;
-    transform: translateY(-10px);
-}
-
-.fade-fast-move {
-    transition: transform 0.3s ease-out;
-}
-
-/* Ensure router links don't have default underline if not  */
+/* Remove transition styles, now in global SCSS */
 .router-link {
   text-decoration: none;
 }

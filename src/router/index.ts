@@ -18,7 +18,6 @@ const routes: Array<RouteRecordRaw> = [
   { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { requiresAuth: false, guestOnly: true } },
   { path: '/event/:id', name: 'EventDetails', component: () => import('@/views/events/EventDetails.vue'), meta: { requiresAuth: true }, props: true },
   { path: '/leaderboard', name: 'Leaderboard', component: () => import('@/views/LeaderboardView.vue'), meta: { requiresAuth: false } },
-  { path: '/rating/:eventId/:teamId?', name: 'RatingForm', component: () => import('@/views/events/RatingForm.vue'), meta: { requiresAuth: true }, props: true },
   { path: '/resources', name: 'Resources', component: () => import('@/views/ResourcesView.vue'), meta: { requiresAuth: false } },
   { 
     path: '/transparency', 
@@ -74,6 +73,7 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/views/AdminDashboardView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
+  { path: '/selection/:eventId/:teamId?', name: 'SelectionForm', component: () => import('@/views/events/SelectionForm.vue'), meta: { requiresAuth: true }, props: true },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFoundView.vue'), meta: { requiresAuth: false } },
 ] as RouteRecordRaw[];
 

@@ -51,7 +51,7 @@
                       <div class="fw-semibold">{{ req.eventName }}</div>
                       <div class="small text-secondary">{{ req.requesterName || 'Unknown' }}</div>
                     </div>
-                    <span :class="['badge rounded-pill', getStatusClass(req.status)]">{{ req.status }}</span>
+                    <span :class="getEventStatusBadgeClass(req.status)">{{ req.status }}</span>
                   </li>
                 </ul>
                 <router-link to="/manage-requests" class="btn btn-link btn-sm mt-3 px-0">View All Requests</router-link>
@@ -72,7 +72,7 @@
                       <router-link :to="{ name: 'EventDetails', params: { id: event.id } }" class="fw-semibold text-decoration-underline-hover">
                         {{ event.eventName || event.name || 'Untitled Event' }}
                       </router-link>
-                      <div class="small text-secondary">{{ formatDate(event.completedAt || event.endDate) }}</div>
+                      <div class="small text-secondary">{{ formatISTDate(event.completedAt || event.endDate) }}</div>
                     </div>
                     <span class="badge bg-info-subtle text-info-emphasis">Completed</span>
                   </li>
@@ -99,6 +99,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
+import { formatISTDate } from '@/utils/dateTime';
 
 // Helper to chunk an array into subarrays of given size
 function chunkArray<T>(arr: T[], size: number): T[][] {
@@ -189,22 +191,6 @@ const getStatusClass = (status: string) => {
     default: return 'bg-secondary-subtle text-secondary-emphasis';
   }
 };
-
-function formatDate(date: any): string {
-  if (!date) return '';
-  try {
-    const d = typeof date.toDate === 'function' ? date.toDate() : new Date(date);
-    return d.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch {
-    return '';
-  }
-}
 
 onMounted(async () => {
   loading.value = true;

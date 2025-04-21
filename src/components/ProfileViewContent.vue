@@ -123,10 +123,17 @@
                      >
                        <i class="fas fa-crown me-1"></i> Organizer
                      </span>
+                     <!-- Use centralized badge class for event status -->
+                     <span
+                       class="badge rounded-pill ms-1"
+                       :class="getEventStatusBadgeClass(event.status)"
+                     >
+                       {{ event.status }}
+                     </span>
                    </div>
                    <div class="text-end">
                      <span class="badge bg-light text-secondary border border-1 fw-normal">
-                       {{ formatEventDate(event.details?.date?.start) }}
+                       {{ formatISTDate(event.details?.date?.start) }}
                      </span>
                    </div>
                  </div>
@@ -163,10 +170,11 @@ import { ref, computed, watch, toRefs } from 'vue';
 import { useStore } from 'vuex';
 import { db } from '../firebase';
 import { doc, getDoc, collection, query, where, getDocs, orderBy, DocumentData, Timestamp } from 'firebase/firestore'; // Import Timestamp
-import { DateTime } from 'luxon';
+import { formatISTDate } from '@/utils/dateTime';
 import { formatRoleName as formatRoleNameUtil } from '../utils/formatters';
 import { Event, EventStatus } from '@/types/event'; // Import Event type AND EventStatus
 import { User } from '@/types/user'; // Import User type for casting
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 
 interface Props {
     userId: string;
@@ -245,18 +253,6 @@ const formatRoleName = (roleKey: string) => {
 const xpPercentage = (xp: number): number => { // Add return type
   const total = totalXp.value; // total is already a number
   return total > 0 ? Math.min(100, Math.round((xp / total) * 100)) : 0;
-};
-
-// Helper to format event date from Timestamp
-const formatEventDate = (timestamp: Timestamp | null | undefined): string => {
-    if (!timestamp) return 'Date unknown';
-    try {
-        // Convert Firestore Timestamp to Luxon DateTime
-        return DateTime.fromMillis(timestamp.toMillis()).toLocaleString(DateTime.DATE_MED);
-    } catch (e) {
-        console.error("Error formatting date:", e);
-        return 'Invalid date';
-    }
 };
 
 // Helper to check if the current user organized an event

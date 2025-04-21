@@ -143,6 +143,7 @@ import { computed, ref, PropType } from 'vue';
 import { useStore } from 'vuex';
 import { canStartEvent as canEventBeStarted, formatISTDate } from '@/utils/dateTime'; // Assuming formatISTDate exists
 import { EventStatus, type Event } from '@/types/event';
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 
 const props = defineProps({
   event: {
@@ -177,18 +178,7 @@ const canShowManageControls = computed(() => {
 });
 
 // CSS class for the status badge
-const statusBadgeClass = computed(() => {
-  switch (props.event.status) {
-    case EventStatus.Approved: return 'bg-info-subtle text-info-emphasis';
-    case EventStatus.InProgress: return 'bg-primary-subtle text-primary-emphasis';
-    case EventStatus.Completed: return 'bg-success-subtle text-success-emphasis';
-    case EventStatus.Cancelled: return 'bg-secondary-subtle text-secondary-emphasis';
-    case EventStatus.Pending: return 'bg-warning-subtle text-warning-emphasis';
-    case EventStatus.Rejected: return 'bg-danger-subtle text-danger-emphasis';
-    case EventStatus.Closed: return 'bg-dark text-white'; // Add style for Closed
-    default: return 'bg-light text-dark';
-  }
-});
+const statusBadgeClass = computed(() => getEventStatusBadgeClass(props.event.status));
 
 // Check if the current time is within the event's start and end dates
 const isWithinEventDates = computed(() => {

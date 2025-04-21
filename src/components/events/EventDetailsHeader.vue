@@ -18,7 +18,7 @@
             <div class="d-flex align-items-center">
               <span class="text-secondary me-2"><i class="fas fa-calendar"></i></span>
               <small class="text-secondary">
-                {{ formatDate(event?.details?.date.start) }} - {{ formatDate(event?.details?.date.end) }}
+                {{ formatISTDate(event?.details?.date?.start ?? null, 'dd MMM yyyy') }} - {{ formatISTDate(event?.details?.date?.end ?? null, 'dd MMM yyyy') }}
               </small>
             </div>
             <div class="d-flex align-items-center">
@@ -79,8 +79,9 @@ import { computed, ref, watchEffect } from 'vue';
 import { useRouter } from 'vue-router';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { DateTime } from 'luxon';
 import { Timestamp } from 'firebase/firestore';
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
+import { formatISTDate } from '@/utils/dateTime';
 
 interface Event {
   id: string;
@@ -118,20 +119,6 @@ const router = useRouter();
 
 const renderedDescriptionHtml = ref('');
 
-const formatDate = (dateInput: Timestamp | string | Date | null | undefined): string => {
-  if (!dateInput) return 'TBA';
-  let dt: DateTime | null = null;
-  if (dateInput instanceof Timestamp) {
-      dt = DateTime.fromJSDate(dateInput.toDate());
-  } else if (dateInput instanceof Date) {
-      dt = DateTime.fromJSDate(dateInput);
-  } else if (typeof dateInput === 'string') {
-      dt = DateTime.fromISO(dateInput);
-  }
-
-  return dt && dt.isValid ? dt.toLocaleString(DateTime.DATE_MED) : 'Invalid Date';
-};
-
 const renderDescription = async (description: string | undefined) => {
     if (!description) {
         renderedDescriptionHtml.value = '';
@@ -154,16 +141,7 @@ watchEffect(() => {
     renderDescription(props.event?.details?.description);
 });
 
-const statusTagClass = computed((): string => {
-  switch (props.event?.status) {
-    case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
-    case 'Approved': return 'bg-info-subtle text-info-emphasis';
-    case 'InProgress': return 'bg-primary-subtle text-primary-emphasis';
-    case 'Completed': return 'bg-success-subtle text-success-emphasis';
-    case 'Cancelled': return 'bg-danger-subtle text-danger-emphasis';
-    default: return 'bg-secondary-subtle text-secondary-emphasis';
-  }
-});
+const statusTagClass = computed((): string => getEventStatusBadgeClass(props.event?.status));
 
 const totalParticipants = computed(() => {
   if (!props.event) return 0;

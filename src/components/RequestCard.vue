@@ -8,7 +8,17 @@
           <div class="small">
             <p class="d-flex align-items-center text-secondary mb-1">
               <i class="fas fa-calendar fa-fw me-2"></i>
-              <span>Requested Date: {{ formatDate(request.requestDate) }}</span>
+              <span>
+                Requested Date:
+                {{
+                  formatISTDate(
+                    typeof request.requestDate === 'object' && request.requestDate !== null && 'toDate' in request.requestDate
+                      ? request.requestDate.toDate()
+                      : request.requestDate,
+                    'dd MMM yyyy'
+                  )
+                }}
+              </span>
             </p>
             <p class="d-flex align-items-center text-secondary mb-0">
               <i class="fas fa-user fa-fw me-2"></i>
@@ -48,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { DateTime } from 'luxon';
+import { formatISTDate } from '@/utils/dateTime';
 
 interface Request {
   id: string;
@@ -75,20 +85,6 @@ const reject = () => {
   emit('reject', props.request.id);
 };
 
-const formatDate = (date: { toDate?: () => Date } | string | Date | null): string => {
-  if (!date) return 'N/A';
-  let dt: DateTime;
-  if (date instanceof Date) {
-      dt = DateTime.fromJSDate(date);
-  } else if (typeof date === 'object' && date !== null && typeof (date as any).toDate === 'function') {
-      dt = DateTime.fromJSDate((date as any).toDate()); // Use toDate if available
-  } else if (typeof date === 'string') {
-      dt = DateTime.fromISO(date);
-  } else {
-      return 'Invalid Date'; // Handle unexpected types
-  }
-  return dt.isValid ? dt.toLocaleString(DateTime.DATE_MED) : 'Invalid Date';
-};
 </script>
 
 <style scoped>

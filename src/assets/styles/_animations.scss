@@ -11,31 +11,87 @@
 }
 
 // Vue Transitions
+
+// Fade
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;
 }
-
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
 
+// Fade Fast
+.fade-fast-enter-active,
+.fade-fast-leave-active {
+  transition: all 0.2s ease-out;
+}
+.fade-fast-enter-from,
+.fade-fast-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+.fade-fast-move {
+  transition: transform 0.3s ease-out;
+}
+
+// Slide Fade
 .slide-fade-enter-active {
   transition: all 0.3s ease-out;
 }
-
 .slide-fade-leave-active {
   transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
 }
-
 .slide-fade-enter-from,
 .slide-fade-leave-to {
   transform: translateY(-10px);
   opacity: 0;
 }
 
+// Fade Pop (used for pop-in effect)
+.fade-pop-enter-active {
+  animation: fadeIn 0.7s;
+}
+.fade-pop-leave-active {
+  animation: fadeIn 0.7s reverse;
+}
+
+// Fade Slide Down/Up/Left/Right (used in LandingView and others)
+.fade-slide-down-enter-active,
+.fade-slide-up-enter-active,
+.fade-slide-left-enter-active,
+.fade-slide-right-enter-active {
+  transition: all 0.7s cubic-bezier(.23,1.01,.32,1);
+}
+.fade-slide-down-enter-from {
+  opacity: 0;
+  transform: translateY(-40px);
+}
+.fade-slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(40px);
+}
+.fade-slide-left-enter-from {
+  opacity: 0;
+  transform: translateX(-40px);
+}
+.fade-slide-right-enter-from {
+  opacity: 0;
+  transform: translateX(40px);
+}
+.fade-slide-down-enter-to,
+.fade-slide-up-enter-to,
+.fade-slide-left-enter-to,
+.fade-slide-right-enter-to {
+  opacity: 1;
+  transform: none;
+}
+
 // Animation Classes
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
+}
+.animate-pop {
+  animation: fadeIn 0.7s cubic-bezier(.23,1.01,.32,1) both;
 }

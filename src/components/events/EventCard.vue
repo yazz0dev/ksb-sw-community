@@ -18,7 +18,7 @@
         </h5>
         <span 
           class="badge rounded-pill fs-7 flex-shrink-0"
-          :class="statusBadgeClass"
+          :class="getEventStatusBadgeClass(event.status)"
         >
           {{ event.status }}
         </span>
@@ -51,8 +51,8 @@
 import { computed, PropType } from 'vue';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
-import { DateTime } from 'luxon';
 import { Timestamp } from 'firebase/firestore'; // <-- Add this import
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 
 // Define props using defineProps
 const props = defineProps({
@@ -70,8 +70,8 @@ const isCancelledOrRejected = computed(() =>
 // Helper to format date range
 const formatDateRange = (start: any, end: any): string => {
   try {
-    const startDate = formatISTDate(start);
-    const endDate = formatISTDate(end);
+    const startDate = formatISTDate(start, 'dd MMM yyyy');
+    const endDate = formatISTDate(end, 'dd MMM yyyy');
     return endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate;
   } catch (e) {
     console.error("Error formatting date:", e);
@@ -98,39 +98,6 @@ const participantCount = computed(() => {
   }
   return Array.isArray(props.event.participants) ? props.event.participants.length : 0;
 });
-
-// Map status to Bootstrap badge classes
-const statusBadgeClass = computed(() => {
-  switch (props.event?.status) {
-    case EventStatus.Approved:
-      return 'bg-success-subtle text-success-emphasis';
-    case EventStatus.Pending:
-      return 'bg-warning-subtle text-warning-emphasis';
-    case EventStatus.InProgress:
-      return 'bg-info-subtle text-info-emphasis';
-    case EventStatus.Rejected:
-      return 'bg-danger-subtle text-danger-emphasis';
-    case EventStatus.Completed:
-      return 'bg-dark text-white';
-    case EventStatus.Cancelled:
-      return 'bg-secondary-subtle text-secondary-emphasis';
-    default:
-      return 'bg-secondary-subtle text-secondary-emphasis';
-  }
-});
-
-const formatDate = (date: any): string => {
-  if (!date) return '';
-  let dateObj;
-  if (date instanceof Timestamp) {
-    dateObj = date.toDate();
-  } else if (typeof date === 'string') {
-    dateObj = new Date(date);
-  } else {
-    dateObj = date;
-  }
-  return DateTime.fromJSDate(dateObj).toFormat('MMM dd, yyyy');
-};
 </script>
 
 <style scoped>

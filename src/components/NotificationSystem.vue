@@ -117,22 +117,20 @@ const getTypeIcon = (type: Notification['type']): string => {
   z-index: 1100; /* Ensure it's above Bootstrap modals (1050+) */
 }
 
-
-/* Transition styles - Adapt if needed for toast */
-.notification-enter-active,
-.notification-leave-active {
-  transition: all 0.3s ease;
+.toast.show {
+  opacity: 1;
+  transition: opacity 0.3s;
 }
-.notification-enter-from {
+.toast {
   opacity: 0;
-  transform: translateX(30px);
+  transform: scale(0.98);
+  transition: opacity 0.3s, transform 0.3s;
 }
-.notification-leave-to {
+.toast.notification-leave-active {
   opacity: 0;
   transform: scale(0.8);
 }
 
 /* Adjust close button color if needed based on header */
 /* .toast-header .btn-close { ... } */
-
 </style>

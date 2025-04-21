@@ -127,6 +127,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
 import { EventStatus } from '@/types/event';
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 
 const store = useStore();
 const loading = ref<boolean>(false);
@@ -187,14 +188,7 @@ const sanitizedPendingRequests = computed(() => {
     }));
 });
 
-const getStatusClass = (status: EventStatus): string => {
-    switch (status) {
-        case EventStatus.Pending: return 'bg-warning-subtle text-warning-emphasis';
-        case EventStatus.Approved: return 'bg-success-subtle text-success-emphasis';
-        case EventStatus.Rejected: return 'bg-danger-subtle text-danger-emphasis';
-        default: return 'bg-secondary-subtle text-secondary-emphasis';
-    }
-};
+const getStatusClass = (status: EventStatus): string => getEventStatusBadgeClass(status);
 
 const isProcessing = (requestId: string): boolean => {
     return processingRequestId.value === requestId;

@@ -100,6 +100,7 @@ import { LocationQueryValue } from 'vue-router';
 import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
 import { Event, EventStatus } from '@/types/event';
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 
 const store = useStore();
 const route = useRoute();

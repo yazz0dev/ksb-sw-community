@@ -11,7 +11,7 @@
                <strong class="fw-medium text-dark me-1">Requested by:</strong> {{ nameCache[event.requestedBy] || '(Name unavailable)' }}
            </div>
            <div class="col-md-6 col-12 py-1">
-               <strong class="fw-medium text-dark me-1">Dates:</strong> {{ formatDate(event.details.date.start) }} - {{ formatDate(event.details.date.end) }}
+               <strong class="fw-medium text-dark me-1">Dates:</strong> {{ formatISTDate(event.details.date.start) }} - {{ formatISTDate(event.details.date.end) }}
            </div>
            <div class="col-md-6 col-12 py-1">
                <strong class="fw-medium text-dark me-1">Team Event:</strong> {{ event.details.format === 'Team' ? 'Yes' : 'No' }}
@@ -68,6 +68,8 @@
 import { computed } from 'vue';
 import { formatRoleName } from '../../utils/formatters';
 import { EventStatus, Event } from '@/types/event';
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
+import { formatISTDate } from '@/utils/dateTime';
 
 const props = defineProps<{
   event: Event;
@@ -75,49 +77,13 @@ const props = defineProps<{
   showStatus: boolean;
 }>();
 
-function formatDate(dateInput: { toDate?: () => Date } | Date | string | null | undefined): string {
-  if (!dateInput) return 'N/A';
-  let date: Date;
-  if (typeof dateInput === 'object' && dateInput !== null && typeof (dateInput as any).toDate === 'function') {
-    date = (dateInput as any).toDate();
-  } else if (dateInput instanceof Date) {
-    date = dateInput;
-  } else {
-    date = new Date(dateInput as string);
-  }
-  if (isNaN(date.getTime())) return 'Invalid Date';
-  try {
-    return new Intl.DateTimeFormat('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    }).format(date);
-  } catch (error) { 
-    return 'Formatting Error'; 
-  }
-}
-
 interface ColorScheme {
   class: string;
 }
 
-const statusColorScheme = computed<ColorScheme>(() => {
-  switch (props.event?.status) {
-    case EventStatus.Approved:
-      return { class: 'bg-success-subtle text-success-emphasis' };
-    case EventStatus.Pending:
-      return { class: 'bg-warning-subtle text-warning-emphasis' };
-    case EventStatus.Rejected:
-      return { class: 'bg-danger-subtle text-danger-emphasis' };
-    case EventStatus.InProgress:
-      return { class: 'bg-info-subtle text-info-emphasis' };
-    case EventStatus.Completed:
-    case EventStatus.Cancelled:
-      return { class: 'bg-light text-dark' };
-    default:
-      return { class: 'bg-secondary-subtle text-secondary-emphasis' };
-  }
-});
+const statusColorScheme = computed(() => ({
+  class: getEventStatusBadgeClass(props.event?.status)
+}));
 </script>
 
 <style scoped>

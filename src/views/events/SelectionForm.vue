@@ -38,121 +38,119 @@
       </div>
 
       <div v-else>
-        <div class="card shadow-sm" style="background-color: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
-           <div class="card-body">
-              <form @submit.prevent="submitRating">
-                 <div class="d-flex flex-column gap-4">
-                    <template v-if="isTeamEvent">
-                      <!-- Team Event Rating Section -->
-                      <div>
-                        <h5 class="h5 mb-4">Select Best Team per Criterion:</h5>
-                        <div class="d-flex flex-column mb-4 gap-3">
-                          <div
-                            v-for="allocation in sortedXpAllocation"
-                            :key="`team-crit-${allocation.constraintIndex}`"
-                            class="mb-2"
+        <div v-if="canSubmitSelection" class="card shadow-sm" style="background-color: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+          <div class="card-body">
+            <form @submit.prevent="submitSelection">
+              <div class="d-flex flex-column gap-4">
+                <template v-if="isTeamEvent">
+                  <!-- Team Event Selection Section -->
+                  <div>
+                    <h5 class="h5 mb-4">Select Best Team per Criterion:</h5>
+                    <div class="d-flex flex-column mb-4 gap-3">
+                      <div
+                        v-for="allocation in sortedXpAllocation"
+                        :key="`team-crit-${allocation.constraintIndex}`"
+                        class="mb-2"
+                      >
+                        <label :for="`team-select-${allocation.constraintIndex}`" class="form-label small">{{ allocation.constraintLabel }} ({{ allocation.points }} XP)</label>
+                        <select
+                          :id="`team-select-${allocation.constraintIndex}`"
+                          class="form-select form-select-sm"
+                          v-model="teamSelections[`constraint${allocation.constraintIndex}`]"
+                          required
+                          :disabled="isSubmitting"
+                        >
+                          <option disabled value="">Select Team...</option>
+                          <option
+                            v-for="team in selectableTeams"
+                            :key="team.teamName"
+                            :value="team.teamName"
+                            :disabled="isUserInTeam(team)"
                           >
-                             <label :for="`team-select-${allocation.constraintIndex}`" class="form-label small">{{ allocation.constraintLabel }} ({{ allocation.points }} XP)</label>
-                             <select
-                               :id="`team-select-${allocation.constraintIndex}`"
-                               class="form-select form-select-sm"
-                               v-model="teamRatings[`constraint${allocation.constraintIndex}`]"
-                               required
-                               :disabled="isSubmitting"
-                             >
-                               <option disabled value="">Select Team...</option>
-                               <!-- Added null check for eventTeams -->
-                               <option v-for="team in eventTeams" :key="team.teamName" :value="team.teamName">
-                                 {{ team.teamName }}
-                               </option>
-                             </select>
-                          </div>
-                        </div>
-
-                        <h5 class="h5 mb-3 pt-4 border-top">
-                          Select Overall Best Performer:
-                        </h5>
-                        <p v-if="!allTeamMembers || allTeamMembers.length === 0" class="small text-secondary fst-italic">
-                          No participants found in teams.
-                        </p>
-                        <div v-else>
-                          <div class="mb-3">
-                             <label for="best-performer-select" class="form-label small mb-1">Select the standout individual participant</label>
-                             <select
-                               id="best-performer-select"
-                               class="form-select form-select-sm"
-                               v-model="bestPerformer"
-                               required
-                               :disabled="isSubmitting"
-                             >
-                               <option disabled value="">Select Participant...</option>
-                               <!-- Note: Assuming member object has uid -->
-                               <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
-                                 {{ nameCache[member.uid] || member.uid }} ({{ getTeamNameForMember(member.uid) }})
-                               </option>
-                             </select>
-                             <div class="form-text small text-secondary mt-2 d-flex align-items-center">
-                                <i class="fas fa-award text-info me-1"></i> Best Performer gets a bonus 10 XP (General)
-                             </div>
-                          </div>
-                        </div>
+                            {{ team.teamName }}
+                          </option>
+                        </select>
                       </div>
-                    </template>
-
-                    <template v-else>
-                      <!-- Individual Event Winner Selection Section -->
-                      <div>
-                        <h5 class="h5 mb-4">Select Winners for Each Criterion:</h5>
-                        <div class="d-flex flex-column gap-3">
-                          <div
-                            v-for="allocation in sortedXpAllocation"
-                            :key="`ind-crit-${allocation.constraintIndex}`"
-                            class="p-3 border rounded bg-light"
-                          >
-                             <h6 class="h6 mb-3">
-                               {{ allocation.constraintLabel }}
-                             </h6>
-                             <div class="mb-2">
-                               <label :for="`winner-select-${allocation.constraintIndex}`" class="form-label small mb-1">Select Winner</label>
-                               <select
-                                 :id="`winner-select-${allocation.constraintIndex}`"
-                                 class="form-select form-select-sm"
-                                 v-model="individualRatings[`constraint${allocation.constraintIndex}`]"
-                                 required
-                                 :disabled="isSubmitting"
-                               >
-                                 <option value="">Choose winner...</option>
-                                 <option
-                                   v-for="participantId in availableParticipants"
-                                   :key="`ind-part-${participantId}`"
-                                   :value="participantId"
-                                 >
-                                   {{ nameCache[participantId] || participantId }}
-                                 </option>
-                               </select>
-                               <div v-if="allocation.points" class="form-text small text-secondary mt-2 d-flex align-items-center">
-                                 <i class="fas fa-trophy text-warning me-1"></i> Winner gets {{ allocation.points }} XP
-                                 <span class="ms-1 text-body-tertiary">({{ formatRoleName(allocation.role) }})</span>
-                               </div>
-                             </div>
-                          </div>
-                        </div>
-                      </div>
-                    </template>
-
-                    <div class="mt-4 d-grid">
-                       <button
-                         type="submit"
-                         class="btn btn-primary"
-                         :disabled="!isValid || isSubmitting"
-                       >
-                         <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                         {{ submitButtonText }}
-                       </button>
                     </div>
-                 </div>
-              </form>
-           </div>
+                    <h5 class="h5 mb-3 pt-4 border-top">Select Overall Best Performer:</h5>
+                    <div v-if="allTeamMembers.length > 0" class="mb-3">
+                      <label for="best-performer-select" class="form-label small mb-1">Select the standout individual participant</label>
+                      <select
+                        id="best-performer-select"
+                        class="form-select form-select-sm"
+                        v-model="bestPerformer"
+                        required
+                        :disabled="isSubmitting"
+                      >
+                        <option disabled value="">Select Participant...</option>
+                        <option
+                          v-for="member in selectableBestPerformers"
+                          :key="member.uid"
+                          :value="member.uid"
+                        >
+                          {{ getUserName(member.uid) }} ({{ getTeamNameForMember(member.uid) }})
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+                </template>
+                <template v-else>
+                  <!-- Individual Event Selection Section -->
+                  <div>
+                    <h5 class="h5 mb-4">Select Winners for Each Criterion:</h5>
+                    <div class="d-flex flex-column gap-3">
+                      <div
+                        v-for="allocation in sortedXpAllocation"
+                        :key="`ind-crit-${allocation.constraintIndex}`"
+                        class="p-3 border rounded bg-light"
+                      >
+                        <h6 class="h6 mb-3">{{ allocation.constraintLabel }}</h6>
+                        <div class="mb-2">
+                          <label :for="`winner-select-${allocation.constraintIndex}`" class="form-label small mb-1">Select Winner</label>
+                          <select
+                            :id="`winner-select-${allocation.constraintIndex}`"
+                            class="form-select form-select-sm"
+                            v-model="individualSelections[`constraint${allocation.constraintIndex}`]"
+                            required
+                            :disabled="isSubmitting"
+                          >
+                            <option value="">Choose winner...</option>
+                            <option
+                              v-for="participantId in selectableParticipants"
+                              :key="`ind-part-${participantId}`"
+                              :value="participantId"
+                              :disabled="participantId === currentUser.value?.uid"
+                            >
+                              {{ getUserName(participantId) }}
+                            </option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <div class="mt-4 d-grid">
+                  <button
+                    type="submit"
+                    class="btn btn-primary"
+                    :disabled="!isValid || isSubmitting"
+                  >
+                    <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    {{ submitButtonText }}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div v-else-if="canFindWinner" class="text-center mt-4">
+          <button class="btn btn-success" @click="findWinner" :disabled="isFindingWinner">
+            <span v-if="isFindingWinner" class="spinner-border spinner-border-sm me-1"></span>
+            Find Winner
+          </button>
+        </div>
+        <div v-else class="alert alert-warning" role="alert">
+          You are not authorized to submit selections for this event.
         </div>
       </div>
     </div>
@@ -179,6 +177,9 @@ interface IndividualRatings {
 const teamRatings = reactive<TeamRatings>({});
 const individualRatings = reactive<IndividualRatings>({});
 const bestPerformer = ref<string>('');
+const teamSelections = reactive<Record<string, string>>({});
+const individualSelections = reactive<Record<string, string>>({});
+const isFindingWinner = ref(false);
 
 // Replace existing interfaces with these more specific ones
 interface TeamMember {
@@ -215,7 +216,9 @@ const teamMemberMap = ref<Record<string, string>>({}); // Map member UID to team
 const didLoadExistingRating = ref<boolean>(false);
 
 // Using reactive for nested objects that will be modified
-const nameCache = reactive<Record<string, string>>({}); // Cache for user names { uid: name }
+
+// --- Use centralized name cache from Vuex store ---
+const getUserName = (userId: string) => store.getters['user/getUserNameById'](userId);
 
 // --- Computed Properties ---
 const currentUser = computed(() => store.getters['user/getUser']);
@@ -256,6 +259,67 @@ const submitButtonText = computed<string>(() => {
   return isSubmitting.value ? 'Submitting...' : `${action} ${target}`;
 });
 
+const isCurrentUserOrganizer = computed(() => {
+  if (!event.value || !currentUser.value?.uid) return false;
+  const organizers = event.value.details?.organizers || [];
+  const requester = event.value.requestedBy;
+  return organizers.includes(currentUser.value.uid) || requester === currentUser.value.uid;
+});
+
+const isAdmin = computed(() => currentUser.value?.role === 'Admin');
+
+const canSubmitRating = computed(() => {
+  if (!event.value || !currentUser.value) return false;
+  if (isTeamEvent.value) {
+    // Only organizers can submit team criteria ratings
+    return isCurrentUserOrganizer.value;
+  } else {
+    // Only organizers or admins can select individual winners
+    return isCurrentUserOrganizer.value || isAdmin.value;
+  }
+});
+
+const isParticipant = computed(() => {
+  if (!event.value || !currentUser.value?.uid) return false;
+  if (isTeamEvent.value) {
+    return event.value.teams?.some(team => team.members?.includes(currentUser.value.uid));
+  } else {
+    return event.value.participants?.includes(currentUser.value.uid);
+  }
+});
+
+const isOrganizer = computed(() => {
+  if (!event.value || !currentUser.value?.uid) return false;
+  const organizers = event.value.details?.organizers || [];
+  const requester = event.value.requestedBy;
+  return organizers.includes(currentUser.value.uid) || requester === currentUser.value.uid;
+});
+
+const canSubmitSelection = computed(() => {
+  // Only participants (including organizers if they are participants) can select
+  return isParticipant.value;
+});
+
+const canFindWinner = computed(() => {
+  // Only organizers or admins can find winner
+  return isOrganizer.value || isAdmin.value;
+});
+
+// Filter out self/team for selection
+const selectableTeams = computed(() => {
+  if (!event.value?.teams || !currentUser.value?.uid) return [];
+  return event.value.teams.filter(team => !team.members?.includes(currentUser.value.uid));
+});
+const selectableBestPerformers = computed(() => {
+  if (!allTeamMembers.value || !currentUser.value?.uid) return [];
+  return allTeamMembers.value.filter(member => member.uid !== currentUser.value.uid);
+});
+const selectableParticipants = computed(() => {
+  if (!event.value?.participants || !currentUser.value?.uid) return [];
+  return event.value.participants.filter(pId => pId !== currentUser.value.uid);
+});
+const isUserInTeam = (team: Team) => team.members?.includes(currentUser.value?.uid);
+
 // --- Helper Functions ---
 const formatRoleName = (roleKey: string | undefined | null): string => {
   if (!roleKey) return '';
@@ -265,25 +329,6 @@ const formatRoleName = (roleKey: string | undefined | null): string => {
     .replace(/_/g, ' ') // Replace underscores with spaces
     .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
     .trim();
-};
-
-const fetchAndCacheUserName = async (userId: string): Promise<void> => {
-  if (!userId || nameCache[userId]) return; // Skip if no ID or already cached/loading
-
-  nameCache[userId] = 'Loading...'; // Placeholder
-  try {
-    const userDocRef = doc(db, 'users', userId);
-    const docSnap = await getDoc(userDocRef);
-    if (docSnap.exists()) {
-      nameCache[userId] = docSnap.data()?.name || userId; // Use name or fallback to UID
-    } else {
-      console.warn(`User document not found for ID: ${userId}`);
-      nameCache[userId] = `User (${userId.substring(0, 5)}...)`; // Indicate not found
-    }
-  } catch (error) {
-    console.error(`Error fetching name for ${userId}:`, error);
-    nameCache[userId] = `Error (${userId.substring(0, 5)}...)`; // Indicate error
-  }
 };
 
 const getTeamNameForMember = (memberId: string): string => {
@@ -310,20 +355,26 @@ watch([sortedXpAllocation, isTeamEvent], ([allocations, teamEventStatus]) => {
 }, { immediate: true, deep: true });
 
 // Watch available participants to fetch their names for individual events
-watch(availableParticipants, (newParticipants) => {
+watch(availableParticipants, async (newParticipants) => {
   if (!isTeamEvent.value && Array.isArray(newParticipants)) {
-    newParticipants.forEach(pId => {
-      if (pId) fetchAndCacheUserName(pId); // Ensure pId is valid before fetching
-    });
+    const idsToFetch = newParticipants.filter(
+      id => !getUserName(id) || getUserName(id) === id
+    );
+    if (idsToFetch.length > 0) {
+      await store.dispatch('user/fetchUserNamesBatch', idsToFetch);
+    }
   }
 }, { immediate: true });
 
 // Watch all team members to fetch their names for team events
-watch(allTeamMembers, (newMembers) => {
+watch(allTeamMembers, async (newMembers) => {
   if (isTeamEvent.value && Array.isArray(newMembers)) {
-    newMembers.forEach(member => {
-      if (member?.uid) fetchAndCacheUserName(member.uid); // Ensure member and uid exist
-    });
+    const idsToFetch = newMembers
+      .map(member => member?.uid)
+      .filter(uid => uid && (!getUserName(uid) || getUserName(uid) === uid));
+    if (idsToFetch.length > 0) {
+      await store.dispatch('user/fetchUserNamesBatch', idsToFetch);
+    }
   }
 }, { immediate: true }); // Fetch names as soon as members are populated
 
@@ -351,10 +402,6 @@ const initializeTeamEventForm = async (eventDetails: Event, loadExisting: boolea
     const userIdsArray = Array.from(memberIds);
     // Fetch names in batch (assuming fetchUserNamesBatch exists and returns Record<string, string>)
     const userNames = await store.dispatch('user/fetchUserNamesBatch', userIdsArray);
-    // Populate name cache directly from batch result
-    userIdsArray.forEach(uid => {
-        nameCache[uid] = userNames[uid] || uid; // Cache name or UID
-    });
     // Populate allTeamMembers with { uid, name }
     allTeamMembers.value = userIdsArray
       .map(uid => ({ uid, name: userNames[uid] || uid }))
@@ -398,9 +445,9 @@ const initializeIndividualEventForm = async (eventDetails: Event, loadExisting: 
 
   // Fetch participant names (if not already fetched by watcher)
   if (participantIds.length > 0) {
-      const idsToFetch = participantIds.filter(id => id && !nameCache[id]);
+      const idsToFetch = participantIds.filter(id => id && !getUserName(id));
       if (idsToFetch.length > 0) {
-        await Promise.all(idsToFetch.map(fetchAndCacheUserName));
+        await store.dispatch('user/fetchUserNamesBatch', idsToFetch);
       }
   }
 
@@ -442,12 +489,19 @@ const initializeForm = async (): Promise<void> => {
       return; // Stop execution if no user
   }
 
-  if (currentUserRole === 'Admin') {
-    errorMessage.value = 'Administrators cannot submit ratings or select winners.';
-    loading.value = false;
-     // Optional: Redirect admin away
-     // setTimeout(() => router.push({ name: 'Home' }), 100);
-    return;
+  // Permission checks for rating
+  if (isTeamEvent.value) {
+    if (!isCurrentUserOrganizer.value) {
+      errorMessage.value = 'Only event organizers can submit team ratings and select best performer.';
+      loading.value = false;
+      return;
+    }
+  } else {
+    if (!(isCurrentUserOrganizer.value || isAdmin.value)) {
+      errorMessage.value = 'Only event organizers or admins can select winners for this event.';
+      loading.value = false;
+      return;
+    }
   }
 
   loading.value = true;
@@ -523,7 +577,7 @@ const initializeForm = async (): Promise<void> => {
 };
 
 
-const submitRating = async (): Promise<void> => {
+const submitSelection = async (): Promise<void> => {
   if (!isValid.value) {
     errorMessage.value = 'Please complete all selections before submitting.';
     return;
@@ -592,10 +646,20 @@ const submitRating = async (): Promise<void> => {
     router.push({ name: 'EventDetails', params: { id: props.eventId } });
 
   } catch (error: any) {
-    console.error("Rating/Selection submission error:", error);
+    console.error("election submission error:", error);
     errorMessage.value = `Submission failed: ${error.message || 'An unknown error occurred'}`;
   } finally {
     isSubmitting.value = false;
+  }
+};
+
+const findWinner = async () => {
+  isFindingWinner.value = true;
+  try {
+    await store.dispatch('events/findWinner', { eventId: props.eventId });
+    // Show notification, refresh event, etc.
+  } finally {
+    isFindingWinner.value = false;
   }
 };
 

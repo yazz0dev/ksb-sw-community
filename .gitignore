@@ -32,3 +32,6 @@ firestore.indexes.json
 *.njsproj
 *.sln
 *.sw?
+
+# windsurf rules
+.windsurfrules

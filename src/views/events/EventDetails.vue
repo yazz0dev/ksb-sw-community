@@ -179,6 +179,9 @@
                       <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
                     </li>
                   </ul>
+                  <p v-if="!event.submissions || event.submissions.length === 0" class="small text-secondary fst-italic">
+                    No project submissions yet for this event.
+                  </p>
                 </div>
                 <div v-else>
                   <p v-if="!teams || teams.length === 0 || teams.every(t => !hasTeamSubmissions(t))" class="small text-secondary fst-italic">
@@ -204,7 +207,7 @@
               <div class="card-header bg-light d-flex justify-content-between align-items-center">
                 <div class="section-header mb-0">
                   <i class="fas fa-trophy text-warning me-2"></i>
-                  <span class="h5 mb-0 text-primary">Ratings / Winner Selection</span>
+                  <span class="h5 mb-0 text-primary">Winner Selection</span>
                 </div>
                 <div class="d-flex align-items-center">
                   <span v-if="event.status === 'Completed'" class="badge rounded-pill d-inline-flex align-items-center text-bg-secondary">Not Started</span>
@@ -213,11 +216,11 @@
               <div class="card-body">
                 <div v-if="event.status === 'Completed'">
                   <p class="small text-secondary fst-italic">
-                    Rating/Winner selection is currently closed for this event.
+                    Winner selection is currently closed for this event.
                   </p>
                 </div>
                 <p v-else class="small text-secondary fst-italic">
-                  Rating/Winner selection will be available once the event is completed.
+                  Winner selection will be available once the event is completed.
                 </p>
               </div>
             </div>
@@ -291,6 +294,8 @@ import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
 import { EventStatus, type Event, Team as EventTeamType, Submission, EventFormat } from '@/types/event'; // Add EventFormat
 import { User } from '@/types/user';
 import { formatRoleName } from '@/utils/formatters';
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
+import { formatISTDate } from '@/utils/dateTime';
 
 interface EventDetails extends Event {}
 
@@ -649,31 +654,6 @@ const openRatingForm = (): void => {
     }
 };
 
-function statusBadgeClass(status: string | undefined) {
-    switch (status) {
-        case 'Approved': return 'bg-success-subtle text-success-emphasis';
-        case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
-        case 'InProgress': return 'bg-info-subtle text-info-emphasis';
-        case 'Rejected': return 'bg-danger-subtle text-danger-emphasis';
-        case 'Completed': return 'bg-dark text-white';
-        case 'Cancelled': return 'bg-secondary-subtle text-secondary-emphasis';
-        default: return 'bg-secondary-subtle text-secondary-emphasis';
-    }
-}
-
-function formatDateRange(start: any, end: any): string {
-    try {
-        if (!start) return 'N/A';
-        const toDateString = (d: any) =>
-            d && d.toDate ? d.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-        const startStr = toDateString(start);
-        const endStr = toDateString(end);
-        return endStr && startStr !== endStr ? `${startStr} - ${endStr}` : startStr;
-    } catch {
-        return 'N/A';
-    }
-}
-
 // Add type guard
 const isNonNullString = (value: string | null): value is string => value !== null;
 
@@ -875,30 +855,12 @@ defineExpose({
 .duration-300 {
   transition-duration: 300ms;
 }
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
-}
-.fade-pop-enter-active {
-  animation: fadeIn 0.7s;
-}
-.fade-pop-leave-active {
-  animation: fadeIn 0.7s reverse;
-}
-.slide-fade-enter-active {
-  transition: all 0.3s ease-out;
-}
-.slide-fade-leave-active {
-  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
-}
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  transform: translateY(-10px);
-  opacity: 0;
-}
+
 .modal:not(.show) {
   display: none;
   opacity: 0;

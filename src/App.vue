@@ -453,6 +453,12 @@ onMounted(() => {
   if (isAuthenticated.value) {
        setTimeout(checkPushPermissionState, 1500);
   }
+  // Fix: Use commit instead of dispatch for clearStaleCache
+  try {
+    store.commit('user/clearStaleCache');
+  } catch (error) {
+    console.error("Error clearing stale cache on App mount:", error);
+  }
 });
 
 onUnmounted(() => {
