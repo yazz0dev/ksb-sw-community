@@ -68,12 +68,6 @@
                     </button>
                   </div>
                 </form>
-                <div class="text-center mt-4">
-                  <span class="small text-muted">Don't have an account?</span>
-                  <router-link to="/register" class="small text-primary text-decoration-underline-hover ms-1">
-                    Register
-                  </router-link>
-                </div>
               </div>
             </div>
           </transition>
