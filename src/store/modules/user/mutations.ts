@@ -14,7 +14,7 @@ interface UserDataPayload {
 
 // Helper for default XP structure
 const defaultXpStructure: Record<string, number> = {
-    fullstack: 0,
+    developer: 0,
     presenter: 0,
     designer: 0,
     organizer: 0,

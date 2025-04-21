@@ -1,7 +1,7 @@
 import { Module } from 'vuex';
 import { userActions } from './actions'; // Assuming actions are in './actions.ts'
 import { userMutations } from './mutations'; // Assuming mutations are in './mutations.ts'
-import { RootState } from '@/store/types'; // Assuming RootState type is defined here
+import { RootState } from '@/types/store'; // Assuming RootState type is defined here
 
 // --- Import UserState from the central types file ---
 import { UserState, User } from '@/types/user'; // Import User if needed for lists
@@ -19,13 +19,12 @@ const state: UserState = {
 
     // Student Specific Defaults
     xpByRole: {
-        fullstack: 0,
+        developer: 0,
         presenter: 0,
         designer: 0,
         organizer: 0,
         problemSolver: 0,
-        participation: 0,
-        general: 0,
+        participation: 0
     },
     skills: [],
     preferredRoles: [],
@@ -114,7 +113,7 @@ const mutations = {
             state.preferredRoles = [];
         } else if (state.role === 'Student') { // Or check if role is not Admin
             const dbXp = userData.xpByRole || {};
-            const expectedRoles = ['fullstack', 'presenter', 'designer', 'organizer', 'problemSolver', 'participation', 'general'];
+            const expectedRoles = ['developer', 'presenter', 'designer', 'organizer', 'problemSolver', 'participation'];
             state.xpByRole = expectedRoles.reduce((acc, key) => {
                 acc[key] = Number(dbXp[key]) || 0;
                 return acc;

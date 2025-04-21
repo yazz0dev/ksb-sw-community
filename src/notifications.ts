@@ -30,8 +30,6 @@ export async function invokePushNotification(payload: any): Promise<Response> {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // Use the Anon key for invoking the function publicly
-                // Security can be added within the function if needed (e.g., checking roles from a JWT)
                 'Authorization': `Bearer ${supabaseFunctionKey}`
             },
             body: JSON.stringify(payload)

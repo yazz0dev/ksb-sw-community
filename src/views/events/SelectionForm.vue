@@ -172,8 +172,7 @@ interface TeamRatings {
 interface IndividualRatings {
   [constraintKey: string]: string; // constraint0: winnerId, constraint1: winnerId, ...
 }
-
-// --- Reactive state for ratings ---
+  // --- Reactive state for ratings ---
 const teamRatings = reactive<TeamRatings>({});
 const individualRatings = reactive<IndividualRatings>({});
 const bestPerformer = ref<string>('');
@@ -458,17 +457,19 @@ const initializeIndividualEventForm = async (eventDetails: Event, loadExisting: 
      const winnersData = eventDetails.winnersPerRole || {};
      let loadedSomething = false;
      sortedXpAllocation.value.forEach(alloc => {
-       const role = alloc.role || 'general'; // Default to general if role missing? Check requirements.
-       // Assuming single winner per role/criteria for now based on original logic
+       const role = alloc.role;
+       // single winner per role/criteria
+       if (typeof role === 'undefined') return; // <-- Add this guard
        const winnerId = winnersData[role]?.[0];
-       const key = `constraint${alloc.constraintIndex}`;
-
-       if (winnerId && individualRatings[key] !== undefined) { // Check if winner exists and key is initialized
-         individualRatings[key] = winnerId;
-         loadedSomething = true;
-       } else if (winnerId && individualRatings[key] === undefined) {
-          // Handle case where allocation might have changed
-          console.warn(`Winner data found for non-existent constraint index: ${alloc.constraintIndex}`);
+       if (typeof alloc.constraintIndex === 'number') {
+         const key = `constraint${alloc.constraintIndex}`;
+         if (role && winnerId && individualRatings[key] !== undefined) { // Check if winner exists and key is initialized
+           individualRatings[key] = winnerId;
+           loadedSomething = true;
+         } else if (winnerId && individualRatings[key] === undefined) {
+            // Handle case where allocation might have changed
+            console.warn(`Winner data found for non-existent constraint index: ${alloc.constraintIndex}`);
+         }
        }
      });
      didLoadExistingRating.value = loadedSomething; // Mark if any existing data was loaded
@@ -618,10 +619,10 @@ const submitSelection = async (): Promise<void> => {
       // Prepare payload for individual event winner selection
       const winnerSelections: Record<string, string[]> = {};
       sortedXpAllocation.value.forEach(allocation => {
-        const role = allocation.role || 'general';
+        const role = allocation.role;
         const key = `constraint${allocation.constraintIndex}`;
         const winnerId = individualRatings[key];
-        if (winnerId) {
+        if (role && winnerId) {
           winnerSelections[role] = winnerSelections[role] || [];
           winnerSelections[role].push(winnerId);
         }

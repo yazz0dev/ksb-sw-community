@@ -112,8 +112,8 @@
         :visible="showRejectConfirmModal"
         title="Reject Event Request?"
         message="Are you sure you want to reject this event request? This action cannot be undone."
-        confirm-text="Reject Request"
-        cancel-text="Cancel"
+        confirmText="Reject Request"
+        cancelText="Cancel"
         @confirm="rejectRequestConfirmed"
         @cancel="cancelRejectRequest"
         @close="cancelRejectRequest"
@@ -266,6 +266,7 @@ const approveRequest = async (eventId: string): Promise<void> => {
 
 const confirmRejectRequest = (eventId: string): void => {
   if (processingRequestId.value) return;
+  console.log('Reject button clicked for event:', eventId); // DEBUG LOG
   eventIdToReject.value = eventId;
   showRejectConfirmModal.value = true;
 };
@@ -278,6 +279,8 @@ const cancelRejectRequest = (): void => {
 const rejectRequestConfirmed = async (): Promise<void> => {
   const eventId = eventIdToReject.value;
   if (!eventId || processingRequestId.value) return;
+
+  console.log('Reject confirmed for event:', eventId); // DEBUG LOG
 
   processingRequestId.value = eventId;
   showRejectConfirmModal.value = false; 

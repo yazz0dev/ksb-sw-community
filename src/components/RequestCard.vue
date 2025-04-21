@@ -82,6 +82,7 @@ const approve = () => {
 };
 
 const reject = () => {
+  console.log('Reject emit for request:', props.request.id); // DEBUG LOG
   emit('reject', props.request.id);
 };
 

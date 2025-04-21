@@ -12,8 +12,6 @@ export const toIST = (date: Date | string | Timestamp | null): DateTime | null =
     } else {
       dt = DateTime.fromISO(date);
     }
-    // eslint-disable-next-line no-console
-    console.log('[dateTime.ts] toIST input:', date, 'output:', dt.setZone('Asia/Kolkata').toISO());
     return dt.setZone('Asia/Kolkata');
   } catch (e) {
     console.error('DateTime conversion error:', e);
@@ -23,8 +21,6 @@ export const toIST = (date: Date | string | Timestamp | null): DateTime | null =
 
 export const formatISTDate = (date: Date | string | Timestamp | null, format: string = 'dd MMM yyyy'): string => {
   const dt = toIST(date);
-  // eslint-disable-next-line no-console
-  console.log('[dateTime.ts] formatISTDate input:', date, 'format:', format, 'output:', dt ? dt.toFormat(format) : '');
   return dt ? dt.toFormat(format) : '';
 };
 

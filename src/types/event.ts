@@ -23,7 +23,7 @@ export interface EventCriteria {
   constraintIndex: number;
   constraintLabel: string;
   points: number;
-  role?: string; // e.g., 'fullstack', 'designer', etc.
+  role?: string; // e.g., 'developer', 'designer', etc.
   targetRole?: string; // Add targetRole as optional
   // userId -> selected winner (teamName or participantId)
   criteriaSelections: { [userId: string]: string };

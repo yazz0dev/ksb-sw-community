@@ -338,7 +338,7 @@ export interface NameCache {
 }
 
 // Define roles for XP allocation (excluding Admin/Organizer potentially)
-const assignableXpRoles = ['fullstack', 'presenter', 'designer', 'problemSolver'] as const; // Use const assertion
+const assignableXpRoles = ['developer', 'presenter', 'designer', 'problemSolver'] as const; // Use const assertion
 type AssignableXpRole = typeof assignableXpRoles[number];
 
 // Props definition using defineProps macro
@@ -443,7 +443,7 @@ function initializeFormData(): EventFormData {
         end: null
       },
       organizers: [],
-      allowProjectSubmission: true // <-- Default to true
+      allowProjectSubmission: false // Default to false
     },
     teams: [],
     criteria: [], 
@@ -456,7 +456,7 @@ function initializeFormData(): EventFormData {
       constraintIndex: 0,
       constraintLabel: 'Default Criteria',
       points: 10,
-      role: 'fullstack',
+      role: 'developer',
       criteriaSelections: {}
     });
   }
@@ -618,7 +618,7 @@ const addCriterion = (): void => {
     constraintIndex: Date.now() + Math.random(),
     constraintLabel: '',
     points: 5,
-    role: 'fullstack',
+    role: 'developer',
     criteriaSelections: {}
   });
 };

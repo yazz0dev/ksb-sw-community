@@ -45,8 +45,8 @@
         <div class="col-12 col-lg-8">
           <!-- Event Management Controls -->
           <div class="mb-4">
-            <!-- Add console log for debugging EventManageControls rendering -->
-            <template v-if="canManageEvent && event">
+            <!-- Always render EventManageControls when event is loaded -->
+            <template v-if="event">
               <EventManageControls
                 :event="event"
                 class="mb-0 animate-fade-in"
@@ -291,17 +291,15 @@ import EventManageControls from '@/components/events/EventManageControls.vue';
 import EventDetailsSkeleton from '@/components/skeletons/EventDetailsSkeleton.vue';
 import SkeletonProvider from '@/components/skeletons/SkeletonProvider.vue';
 import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
-import { EventStatus, type Event, Team as EventTeamType, Submission, EventFormat } from '@/types/event'; // Add EventFormat
+import { EventStatus, type Event, Team as EventTeamType, Submission, EventFormat } from '@/types/event';
 import { User } from '@/types/user';
 import { formatRoleName } from '@/utils/formatters';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
 
 interface EventDetails extends Event {}
-
 interface Team extends EventTeamType {}
 
-// Add Collapse interface for type safety
 interface Collapse {
   toggle(): void;
   hide(): void;
@@ -309,7 +307,6 @@ interface Collapse {
   dispose(): void;
 }
 
-// Add BootstrapModal interface
 interface BootstrapModal {
   show(): void;
   hide(): void;
@@ -494,10 +491,8 @@ function clearGlobalFeedback(): void {
     globalFeedback.value = { message: '', type: 'success' };
 }
 
-// Update safeString function
 const safeString = (value: string | null | undefined): string => value || '';
 
-// Update the getUserNameFromCache function
 const getUserNameFromCache = (userId: string): string => {
     return nameCache.value.get(userId) || userId;
 };
@@ -516,7 +511,6 @@ async function fetchUserNames(userIds: string[]): Promise<void> {
             nameCache.value.set(id, safeString(names[id]) || `User (${id.substring(0, 5)}...)`);
         });
     } catch (error: any) {
-        console.error("Error fetching user names batch:", error);
         uniqueIdsToFetch.forEach(id => {
             if (!nameCache.value.has(id)) {
                 nameCache.value.set(id, `Error (${id.substring(0, 5)}...)`);
@@ -549,7 +543,6 @@ async function fetchEventData(): Promise<void> {
     await fetchUserNames(allParticipants.value.filter(id => typeof id === 'string' && id !== null));
 
   } catch (error: any) {
-    console.error('Error fetching event data:', error);
     initialFetchError.value = error.message || 'Failed to load event data';
     event.value = null;
     teams.value = [];
@@ -614,7 +607,6 @@ const submitProject = async (): Promise<void> => {
         closeSubmissionModal();
 
     } catch (error: any) {
-        console.error("Error submitting project:", error);
         submissionError.value = error.message || 'Failed to submit project.';
     } finally {
         isSubmittingProject.value = false;
@@ -623,9 +615,7 @@ const submitProject = async (): Promise<void> => {
 };
 
 const handleJoin = (): void => {
-    // Implement join logic here
     isJoining.value = true;
-    // Example: Call store action to join event
     setTimeout(() => {
         isJoining.value = false;
         setGlobalFeedback('Successfully joined the event!', 'success');
@@ -633,9 +623,7 @@ const handleJoin = (): void => {
 };
 
 const handleLeave = (): void => {
-    // Implement leave logic here
     isLeaving.value = true;
-    // Example: Call store action to leave event
     setTimeout(() => {
         isLeaving.value = false;
         setGlobalFeedback('Successfully left the event!', 'success');
@@ -654,10 +642,8 @@ const openRatingForm = (): void => {
     }
 };
 
-// Add type guard
 const isNonNullString = (value: string | null): value is string => value !== null;
 
-// Fix event mapping function
 const mapEventToHeaderProps = (event: Event) => ({
   ...event,
   title: event.details.eventName || event.details.type || '',
@@ -667,12 +653,10 @@ const mapEventToHeaderProps = (event: Event) => ({
   }
 });
 
-// Add team key generation function
 const getTeamKey = (team: Team): string => {
   return team.id || team.teamName;
 };
 
-// Fix the filterUserIds function
 const filterUserIds = (ids: (string | null)[]): string[] => {
   return ids.filter(isNonNullString);
 };
@@ -689,46 +673,12 @@ const modalHiddenHandler = () => {
 };
 
 function logEventManageControls() {
-  // Log when EventManageControls is rendered
-  // Use nextTick to ensure props are up-to-date
-  setTimeout(() => {
-    // eslint-disable-next-line no-console
-    console.log('[EventDetails.vue] EventManageControls rendered', {
-      canManageEvent: canManageEvent.value,
-      event: event.value
-    });
-  }, 0);
 }
 
 watch([canManageEvent, event], ([canManage, evt]) => {
-  // eslint-disable-next-line no-console
-  console.log('[EventDetails.vue] canManageEvent or event changed', { canManage, evt });
 });
 
-// Add this to confirm if EventManageControls is being rendered
 watch([canManageEvent, event], ([canManage, evt]) => {
-  if (canManage && evt) {
-    // eslint-disable-next-line no-console
-    console.log('[EventDetails.vue] About to render <EventManageControls>', { canManage, evt });
-  } else {
-    // eslint-disable-next-line no-console
-    console.log('[EventDetails.vue] <EventManageControls> will NOT render', { canManage, evt });
-    // Additional debug: why can't manage?
-    if (!canManage) {
-      const currentUserId = store.getters['user/userId'];
-      const isAdmin = store.getters['user/userRole'] === 'Admin';
-      const isOrganizer = evt?.details?.organizers?.includes?.(currentUserId);
-      // eslint-disable-next-line no-console
-      console.log('[EventDetails.vue] canManageEvent breakdown:', {
-        currentUserId,
-        isAdmin,
-        isOrganizer,
-        eventStatus: evt?.status,
-        eventClosedAt: evt?.closedAt,
-        eventOrganizers: evt?.details?.organizers,
-      });
-    }
-  }
 });
 
 onMounted(() => {
@@ -753,7 +703,6 @@ watch(() => props.id, (newId, oldId) => {
     }
 }, { immediate: false });
 
-// Expose these to the template for SkeletonProvider slot context
 defineExpose({
   canJoin,
   canLeave,

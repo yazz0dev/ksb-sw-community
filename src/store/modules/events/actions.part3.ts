@@ -67,13 +67,15 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
                 xpAwardMap[memberId]['Participation'] = (xpAwardMap[memberId]['Participation'] || 0) + participationXP;
 
                 allocations.forEach(alloc => {
-                    const constraintIdxStr = alloc.constraintIndex.toString();
-                    const wonThisCriterion = teamCriteriaRatings.some((rating: any) =>
-                        rating.selections?.criteria?.[constraintIdxStr] === team.teamName
-                    );
-                    if (wonThisCriterion) {
-                        const roleKey = alloc.targetRole || 'general';
-                        xpAwardMap[memberId][roleKey] = (xpAwardMap[memberId][roleKey] || 0) + (alloc.points || 0);
+                    // Only assign if targetRole is defined
+                    if (alloc.targetRole) {
+                        const roleKey = alloc.targetRole;
+                        const wonThisCriterion = teamCriteriaRatings.some((rating: any) =>
+                            rating.selections?.criteria?.[alloc.constraintIndex.toString()] === team.teamName
+                        );
+                        if (wonThisCriterion) {
+                            xpAwardMap[memberId][roleKey] = (xpAwardMap[memberId][roleKey] || 0) + (alloc.points || 0);
+                        }
                     }
                 });
 
@@ -81,7 +83,7 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
                     rating.selections?.bestPerformer === memberId
                 );
                 if (wasBestPerformer) {
-                    xpAwardMap[memberId]['general'] = (xpAwardMap[memberId]['general'] || 0) + bestPerformerBonusXP;
+                    xpAwardMap[memberId]['Participation'] = (xpAwardMap[memberId]['Participation'] || 0) + bestPerformerBonusXP;
                 }
             });
         });
@@ -94,10 +96,12 @@ async function calculateEventXP(eventData: Event): Promise<Record<string, Record
             xpAwardMap[uid]['Participation'] = (xpAwardMap[uid]['Participation'] || 0) + (hasSubmission ? submittedParticipationXP : baseParticipationXP);
 
             allocations.forEach(alloc => {
-                const roleKey = alloc.targetRole || 'general';
-                const isWinnerForRole = winners[roleKey]?.includes(uid);
-                if (isWinnerForRole) {
-                    xpAwardMap[uid][roleKey] = (xpAwardMap[uid][roleKey] || 0) + (alloc.points || 0) + winnerBonusXP;
+                if (alloc.targetRole) {
+                    const roleKey = alloc.targetRole;
+                    const isWinnerForRole = winners[roleKey]?.includes(uid);
+                    if (isWinnerForRole) {
+                        xpAwardMap[uid][roleKey] = (xpAwardMap[uid][roleKey] || 0) + (alloc.points || 0) + winnerBonusXP;
+                    }
                 }
             });
         });

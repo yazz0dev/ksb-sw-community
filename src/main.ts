@@ -129,8 +129,9 @@ const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
                 console.log("User data already present or fetched for:", user.uid);
             }
 
-            // Register for push notifications after login (optional, or do this after explicit user consent)
-            registerForPushNotifications();
+            // --- Register for push notifications only after login ---
+            // Only the latest device per user will receive notifications (enforced by backend/device registration).
+            await registerForPushNotifications();
         } else {
             // --- Remove OneSignal External User ID ---
             try {
@@ -142,7 +143,6 @@ const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
             } catch (osError) {
                 console.error("OneSignal Error removing external user ID:", osError);
             }
-            // --- End OneSignal ---
 
             console.log("User logged out. Clearing user data.");
             store.commit('user/clearUserData');
@@ -181,8 +181,4 @@ function mountApp(): void {
     }
 }
 
-// If you have a push permission request flow (e.g., in App.vue), call registerForPushNotifications after permission granted:
-// Example (pseudo-code, place in your push permission grant handler):
-// if (permission === 'granted') {
-//     await registerForPushNotifications();
-// }
+

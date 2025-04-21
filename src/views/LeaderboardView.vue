@@ -88,7 +88,7 @@ const getRoleKey = (roleName: string): string => {
   const lower = roleName.toLowerCase();
   if (lower === 'overall') return 'overall';
   const roleMap: Record<string, string> = {
-    'fullstack': 'fullstack',
+    'developer': 'developer',
     'presenter': 'presenter',
     'designer': 'designer',
     'organizer': 'organizer',
@@ -100,7 +100,7 @@ const getRoleKey = (roleName: string): string => {
 // Define available roles
 const availableRoles = ref<string[]>([
   'Overall',
-  'fullstack',
+  'developer',
   'presenter',
   'designer',
   'organizer',

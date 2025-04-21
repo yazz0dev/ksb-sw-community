@@ -120,18 +120,17 @@ const xpContent = `
 ## Experience Points (XP) System
 
 ### ✨ How to Earn XP
-- Event participation: 1-2 XP
-- Project completion: 5-20 XP
-- High ratings: Bonus XP
+- Event participation: 2 XP
+- Best Performer: Bonus XP
 - Team leadership: Extra XP
 - Event organization: 10-50 XP
 
 ### 🏷️ XP Categories
-- Fullstack Development
+- Developer
 - Frontend Design
-- Backend Implementation
-- Project Management
-- Team Collaboration
+- Presentation Skills
+- Design 
+- Problem Solving
 
 ### 🚀 Level System
 - Levels are based on total XP.

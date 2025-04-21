@@ -1,342 +1,512 @@
 <template>
-  <!-- Only render the controls if the user has permission and the event is in a manageable state -->
-  <template v-if="canShowManageControls">
-    <div class="event-manage-controls p-4 border bg-light rounded shadow-sm">
+  <div v-if="shouldShowControls" class="event-manage-controls p-4 border bg-light rounded shadow-sm mb-4"> <!-- Added mb-4 -->
 
-      <!-- Status Management Section -->
-      <div class="mb-5">
-        <h3 class="h4 text-primary mb-3">Event Management</h3>
-        <div class="d-flex align-items-center mb-4">
-          <span class="small fw-medium text-secondary me-3">Current Status:</span>
-          <span class="badge rounded-pill fs-6" :class="statusBadgeClass">{{ event.status }}</span>
-        </div>
-
-        <!-- Status Update Controls -->
-        <div class="d-flex flex-wrap gap-2">
-          <!-- Start Event Button: Visible in Approved state -->
-          <button
-            v-if="event.status === EventStatus.Approved"
-            type="button"
-            class="btn btn-sm btn-primary d-inline-flex align-items-center"
-            :disabled="!isWithinEventDates || isActionLoading(EventStatus.InProgress)"
-            @click="updateStatus(EventStatus.InProgress)"
-            :title="!isWithinEventDates ? 'Cannot start event outside of its scheduled dates' : 'Start the event'"
-          >
-            <span v-if="isActionLoading(EventStatus.InProgress)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            <i v-else class="fas fa-play me-1"></i>
-            <span>Start Event</span>
-          </button>
-
-          <!-- Mark Complete Button: Visible in InProgress state -->
-          <button
-            v-if="event.status === EventStatus.InProgress"
-            type="button"
-            class="btn btn-sm btn-success d-inline-flex align-items-center"
-            :disabled="isActionLoading(EventStatus.Completed)"
-            @click="updateStatus(EventStatus.Completed)"
-          >
-            <span v-if="isActionLoading(EventStatus.Completed)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            <i v-else class="fas fa-check me-1"></i>
-            <span>Mark Complete</span>
-          </button>
-
-          <!-- Cancel Event Button: Visible in Approved or InProgress state -->
-          <button
-            v-if="canCancel"
-            type="button"
-            class="btn btn-sm btn-danger d-inline-flex align-items-center"
-            :disabled="isActionLoading(EventStatus.Cancelled)"
-            @click="confirmCancel"
-          >
-            <span v-if="isActionLoading(EventStatus.Cancelled)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            <i v-else class="fas fa-times me-1"></i>
-            <span>Cancel Event</span>
-          </button>
-        </div>
-
-        <!-- Informational Text for Status Section -->
-        <p v-if="event.status === EventStatus.Approved && !isWithinEventDates" class="small text-danger mt-2">
-          The event can only be started between its start ({{ formattedStartDate }}) and end ({{ formattedEndDate }}) dates.
-        </p>
-        <p v-else-if="event.status === EventStatus.Approved && isWithinEventDates" class="small text-success mt-2">
-          You can start the event now.
-        </p>
-        <p v-if="event.status === EventStatus.InProgress" class="small text-secondary mt-2">
-          Mark the event as completed when all activities are finished.
-        </p>
+    <!-- Status Management Section (For Admins/Organizers) -->
+    <div v-if="showStatusManagementSection" class="mb-5">
+      <h3 class="h4 text-primary mb-3">Event Management</h3>
+      <div class="d-flex align-items-center mb-4">
+        <span class="small fw-medium text-secondary me-3">Current Status:</span>
+        <span class="badge rounded-pill fs-6" :class="statusBadgeClass">{{ event.status }}</span>
       </div>
-
-      <!-- Rating & Closing Controls (Only visible when Completed and not permanently closed) -->
-      <div v-if="event.status === EventStatus.Completed && !event.closedAt" class="pt-5 border-top">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h3 class="h4 text-primary mb-0">Ratings & Closing</h3>
-          <!-- Using event.ratingsOpen which should be a boolean -->
-          <span class="badge rounded-pill fs-6" :class="event.ratingsOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-warning-subtle text-warning-emphasis'">
-            Ratings: {{ event.ratingsOpen ? 'Open' : 'Closed' }}
-          </span>
-        </div>
-
-        <div class="d-flex flex-wrap gap-2">
-          <!-- Open Ratings Button: Visible if ratings are closed -->
-          <button
-            v-if="!event.ratingsOpen"
-            type="button"
-            class="btn btn-sm btn-success d-inline-flex align-items-center"
-            :disabled="isLoadingRatings"
-            @click="toggleRatings(true)"
-          >
-            <span v-if="loadingAction === 'openRatings'" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            <i v-else class="fas fa-lock-open me-1"></i>
-            <span>Open Ratings</span>
-          </button>
-
-          <!-- Close Ratings Button: Visible if ratings are open -->
-          <button
-            v-if="event.ratingsOpen"
-            type="button"
-            class="btn btn-sm btn-warning d-inline-flex align-items-center"
-            :disabled="isLoadingRatings"
-            @click="toggleRatings(false)"
-          >
-            <span v-if="loadingAction === 'closeRatings'" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            <i v-else class="fas fa-lock me-1"></i>
-            <span>Close Ratings</span>
-          </button>
-
-          <!-- Close Event Button: Visible if ratings are CLOSED -->
-          <button
-            v-if="!event.ratingsOpen"
-            type="button"
-            class="btn btn-sm btn-outline-danger d-inline-flex align-items-center"
-            :disabled="isClosingEvent || isLoadingRatings"
-            @click="confirmCloseEvent"
-            title="Permanently close event and award XP"
-          >
-            <span v-if="isClosingEvent" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            <i v-else class="fas fa-archive me-1"></i>
-            <span>{{ isClosingEvent ? 'Closing & Awarding XP...' : 'Close Event Permanently' }}</span>
-          </button>
-        </div>
-
-        <!-- Informational Text for Ratings/Closing Section -->
-        <p v-if="!event.ratingsOpen" class="small text-secondary mt-2">
-          Open ratings to allow participants to rate projects/teams and select winners.
-        </p>
-         <p v-if="event.ratingsOpen" class="small text-secondary mt-2">
-           Close ratings once all selections/feedback are submitted. This is required before permanently closing the event.
-         </p>
-        <p v-if="!event.ratingsOpen" class="small text-secondary mt-2">
-           After ratings are closed, you can permanently close the event to finalize it and award XP.
-        </p>
+      <div class="d-flex flex-wrap gap-2">
+        <!-- Start Event Button -->
+        <button
+          v-if="showStartButton"
+          type="button"
+          class="btn btn-sm btn-primary d-inline-flex align-items-center"
+          :disabled="isActionLoading(EventStatus.InProgress)"
+          @click="updateStatus(EventStatus.InProgress)"
+        >
+          <span v-if="isActionLoading(EventStatus.InProgress)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-play me-1"></i>
+          <span>Start Event</span>
+        </button>
+        <!-- Mark Complete Button -->
+        <button
+          v-if="showMarkCompleteButton"
+          type="button"
+          class="btn btn-sm btn-success d-inline-flex align-items-center"
+          :disabled="isActionLoading(EventStatus.Completed)"
+          @click="updateStatus(EventStatus.Completed)"
+        >
+          <span v-if="isActionLoading(EventStatus.Completed)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-check me-1"></i>
+          <span>Mark Complete</span>
+        </button>
+        <!-- Cancel Event Button -->
+        <button
+          v-if="showCancelButton"
+          type="button"
+          class="btn btn-sm btn-outline-danger d-inline-flex align-items-center"
+          :disabled="isActionLoading(EventStatus.Cancelled)"
+          @click="confirmCancel"
+        >
+          <span v-if="isActionLoading(EventStatus.Cancelled)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-times me-1"></i>
+          <span>Cancel Event</span>
+        </button>
       </div>
-
+      <!-- Info Text for Start Button -->
+      <p v-if="showStartButton && !isWithinEventDates" class="small text-danger mt-2">
+        Event can only be started between {{ formattedStartDate }} and {{ formattedEndDate }}.
+      </p>
+      <p v-if="showStartButton && isWithinEventDates" class="small text-success mt-2">
+        Ready to start the event.
+      </p>
     </div>
-  </template>
-  <!-- Optional: Add an else template if needed when controls are hidden -->
-  <!-- <template v-else>
-    <div class="p-3 text-muted small">Event management controls are not available for this event state or your role.</div>
-  </template> -->
+
+    <!-- Ratings & Closing Section (For Admins/Organizers AND Participants) -->
+    <div v-if="showRatingsClosingSection" :class="{ 'pt-5 border-top': showStatusManagementSection }"> <!-- Add border-top only if status section was shown -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="h4 text-primary mb-0">Ratings & Closing</h3>
+        <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill fs-6" :class="event.ratingsOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
+          Ratings: {{ event.ratingsOpen ? 'Open' : 'Closed' }}
+        </span>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <!-- Open Ratings Button (Admin/Organizer) -->
+        <button
+          v-if="showOpenRatingsButton"
+          type="button"
+          class="btn btn-sm btn-success d-inline-flex align-items-center"
+          :disabled="isActionLoading('openRatings')"
+          @click="toggleRatings(true)"
+        >
+          <span v-if="isActionLoading('openRatings')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-lock-open me-1"></i>
+          <span>Open Ratings</span>
+        </button>
+         <!-- Close Ratings Button (Admin/Organizer) -->
+        <button
+          v-if="showCloseRatingsButton"
+          type="button"
+          class="btn btn-sm btn-warning d-inline-flex align-items-center"
+          :disabled="isActionLoading('closeRatings')"
+          @click="toggleRatings(false)"
+        >
+          <span v-if="isActionLoading('closeRatings')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-lock me-1"></i>
+          <span>Close Ratings</span>
+        </button>
+        <!-- Find Winner Button (Admin/Organizer) -->
+        <button
+          v-if="showFindWinnerButton"
+          type="button"
+          class="btn btn-sm btn-primary d-inline-flex align-items-center"
+          :disabled="isActionLoading('findWinner')"
+          @click="findWinnerAction"
+        >
+          <span v-if="isActionLoading('findWinner')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-trophy me-1"></i>
+          <span>Find Winner</span>
+        </button>
+        <!-- Close Event Button (Admin/Organizer) -->
+        <button
+          v-if="showCloseEventButton"
+          type="button"
+          class="btn btn-sm btn-outline-danger d-inline-flex align-items-center"
+          :disabled="isClosingEvent || isActionLoading('closeEvent')"
+          @click="confirmCloseEvent"
+          title="Permanently close event and award XP"
+        >
+          <span v-if="isClosingEvent || isActionLoading('closeEvent')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-archive me-1"></i>
+          <span>{{ isClosingEvent ? 'Closing...' : 'Close Event Permanently' }}</span>
+        </button>
+        <!-- Winner Selection Link (Participant) -->
+        <router-link
+          v-if="showParticipantWinnerSelection"
+          :to="{ name: 'SelectionForm', params: { eventId: event.id } }"
+          class="btn btn-sm btn-primary d-inline-flex align-items-center"
+        >
+          <i class="fas fa-trophy me-1"></i>
+          <span>Select Winner</span>
+        </router-link>
+        <!-- Organizer Rating Link (Participant) -->
+        <router-link
+          v-if="showParticipantOrganizerRating"
+          :to="{ name: 'OrganizerRatingForm', params: { eventId: event.id } }"
+          class="btn btn-sm btn-secondary d-inline-flex align-items-center"
+        >
+          <i class="fas fa-star me-1"></i>
+          <span>Rate Organizers</span>
+        </router-link>
+      </div>
+       <!-- Info Texts -->
+      <p v-if="showOpenRatingsButton" class="small text-secondary mt-2">
+        Open ratings to allow participants to rate projects/teams and select winners.
+      </p>
+      <p v-if="showCloseRatingsButton" class="small text-secondary mt-2">
+        Close ratings once all selections/feedback are submitted. Required before permanently closing event.
+      </p>
+      <p v-if="showFindWinnerButton" class="small text-secondary mt-2">
+        Requires ratings to be closed and at least 10 submissions (currently {{ submissionCount }}) to find winners.
+      </p>
+      <p v-if="showCloseEventButton" class="small text-secondary mt-2">
+        Ratings must be closed and winners selected before you can permanently close the event and award XP.
+      </p>
+       <p v-if="showParticipantWinnerSelection" class="small text-secondary mt-2">
+         Ratings are open! Participants can now submit their selections.
+       </p>
+       <p v-if="showParticipantOrganizerRating" class="small text-secondary mt-2">
+         The event is complete. Please rate the organizers.
+       </p>
+    </div>
+  </div>
+   <div v-else class="text-center text-muted small py-3">
+       <!-- Optional: Message when no controls are shown -->
+       <!-- No management actions available at this time. -->
+   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts">
+/* eslint-disable no-console */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// src/components/events/EventManageControls.vue
+
 import { computed, ref, PropType } from 'vue';
 import { useStore } from 'vuex';
-import { canStartEvent as canEventBeStarted, formatISTDate } from '@/utils/dateTime'; // Assuming formatISTDate exists
-import { EventStatus, type Event } from '@/types/event';
-import { getEventStatusBadgeClass } from '@/utils/eventUtils';
+import { DateTime } from 'luxon'; // Import DateTime
+import { formatISTDate } from '../../utils/dateTime'; // Corrected path, removed .ts
+import { EventStatus, type Event, EventFormat } from '../../types/event'; // Corrected path, removed .ts
+import { getEventStatusBadgeClass } from '../../utils/eventUtils'; // Corrected path, removed .ts
+// Import ConfirmationModal if needed, or rely on window.confirm
+// import ConfirmationModal from '../ConfirmationModal.vue'; // Adjusted path relative to events dir
 
-const props = defineProps({
-  event: {
-    type: Object as PropType<Event>,
-    required: true
-  }
-});
+export default {
+  name: 'EventManageControls',
+  props: {
+    event: {
+      type: Object as PropType<Event>,
+      required: true
+    }
+  },
+  setup(props) {
+    const store = useStore();
+    const loadingAction = ref<EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent' | null>(null);
+    const isClosingEvent = ref(false); // Specific loading for close action
 
-const store = useStore();
-const isLoadingRatings = ref(false); // Specific state for toggle ratings action
-const loadingAction = ref<EventStatus | 'openRatings' | 'closeRatings' | null>(null); // Tracks specific loading actions
-const isClosingEvent = ref(false); // Specific state for the close event action
-
-// --- Computed Properties for Visibility & State ---
-
-// Determine if the current user can see the management controls at all
-const canShowManageControls = computed(() => {
-  if (!props.event) return false;
-  // Hide controls if event is cancelled or permanently closed
-  if (props.event.status === EventStatus.Cancelled || props.event.status === EventStatus.Rejected || props.event.closedAt) return false;
-
-  // Allow Admins or Organizers to see controls
-  const currentUserId = store.getters['user/userId'];
-  const isAdmin = store.getters['user/isAdmin'];
-  const isOrganizer = Array.isArray(props.event.details?.organizers) && props.event.details.organizers.includes(currentUserId);
-
-  // Allow Requester to see controls ONLY if the event is Pending
-  // const isRequester = props.event.requestedBy === currentUserId;
-  // if (isRequester && props.event.status === EventStatus.Pending) return true;
-
-  return isAdmin || isOrganizer;
-});
-
-// CSS class for the status badge
-const statusBadgeClass = computed(() => getEventStatusBadgeClass(props.event.status));
-
-// Check if the current time is within the event's start and end dates
-const isWithinEventDates = computed(() => {
-  if (!props.event.details?.date?.start || !props.event.details?.date?.end) return false;
-  try {
-    // Use IST for comparison, but only compare the date (ignore time)
-    const { toIST } = require('@/utils/dateTime');
-    const todayIST = toIST(new Date())?.startOf('day');
-    const startIST = toIST(props.event.details.date.start)?.startOf('day');
-    const endIST = toIST(props.event.details.date.end)?.startOf('day');
-    // Debug log for date checking
-    // eslint-disable-next-line no-console
-    console.log('[EventManageControls.vue] Date check:', {
-      today: new Date(),
-      todayIST: todayIST?.toISODate?.(),
-      start: props.event.details.date.start,
-      startIST: startIST?.toISODate?.(),
-      end: props.event.details.date.end,
-      endIST: endIST?.toISODate?.(),
-      result: !!(todayIST && startIST && endIST && todayIST >= startIST && todayIST <= endIST)
+    // --- User Role & Permissions ---
+    const currentUserId = computed<string | null>(() => store.getters['user/userId']);
+    const currentUserRole = computed<string | null>(() => store.getters['user/userRole']);
+    const isAdmin = computed(() => currentUserRole.value === 'Admin');
+    const isOrganizer = computed(() =>
+      props.event?.details?.organizers?.includes(currentUserId.value ?? '') || props.event?.requestedBy === currentUserId.value
+    );
+    const isParticipant = computed(() => {
+      if (!currentUserId.value || !props.event) return false;
+      if (props.event.details.format === EventFormat.Team) {
+        return props.event.teams?.some(team => team.members?.includes(currentUserId.value!));
+      }
+      return props.event.participants?.includes(currentUserId.value);
     });
-    if (!todayIST || !startIST || !endIST) return false;
-    return todayIST >= startIST && todayIST <= endIST;
-  } catch (e) {
-    console.error("Error checking event dates (IST, date only):", e);
-    return false;
-  }
-});
+    const canManageEvent = computed(() => isAdmin.value || isOrganizer.value);
 
-// Format dates for display
-const formattedStartDate = computed(() => formatISTDate(props.event.details?.date?.start, 'MMM d, HH:mm'));
-const formattedEndDate = computed(() => formatISTDate(props.event.details?.date?.end, 'MMM d, HH:mm'));
+    // --- Event State Checks ---
+    const isWithinEventDates = computed(() => {
+      if (!props.event?.details?.date?.start || !props.event?.details?.date?.end) return false;
+      try {
+        // Assume dates are Timestamps; convert to Luxon DateTime in IST
+        const toIST = (date: any): DateTime | null => {
+           if (!date) return null;
+           let dt: DateTime;
+           if (date.toDate && typeof date.toDate === 'function') dt = DateTime.fromJSDate(date.toDate());
+           else if (date instanceof Date) dt = DateTime.fromJSDate(date);
+           else dt = DateTime.fromISO(date);
+           return dt.isValid ? dt.setZone('Asia/Kolkata') : null;
+        };
 
-// Check if the event can be cancelled (Approved or InProgress, not closed)
-const canCancel = computed(() =>
-    [EventStatus.Approved, EventStatus.InProgress].includes(props.event.status as EventStatus) && !props.event.closedAt
-);
+        const nowIST = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+        const startIST = toIST(props.event.details.date.start)?.startOf('day');
+        const endIST = toIST(props.event.details.date.end)?.startOf('day');
 
-// Check if a specific action is currently loading
-const isActionLoading = (action: EventStatus | 'openRatings' | 'closeRatings') => {
-    return loadingAction.value === action;
-};
-
-
-// --- Methods ---
-
-// Dispatch action to update the event status
-const updateStatus = async (newStatus: EventStatus) => {
-    if (loadingAction.value) return; // Prevent multiple simultaneous actions
-    loadingAction.value = newStatus;
-    try {
-        await store.dispatch('events/updateEventStatus', {
-            eventId: props.event.id,
-            newStatus: newStatus
-        });
-         store.dispatch('notification/showNotification', {
-            message: `Event status updated to ${newStatus}.`,
-            type: 'success'
-        }, { root: true });
-    } catch (error: any) {
-        store.dispatch('notification/showNotification', {
-            message: error?.message || `Failed to update status to ${newStatus}.`,
-            type: 'error'
-        }, { root: true });
-    } finally {
-        loadingAction.value = null;
-    }
-};
-
-// Dispatch action to toggle the ratingsOpen state
-const toggleRatings = async (openState: boolean) => {
-    if (loadingAction.value || isLoadingRatings.value) return; // Prevent multiple simultaneous actions
-    loadingAction.value = openState ? 'openRatings' : 'closeRatings';
-    isLoadingRatings.value = true; // Use specific flag
-    try {
-        // Ensure the action name matches the one defined in Vuex (part3)
-        await store.dispatch('events/toggleRatingsOpen', {
-            eventId: props.event.id,
-            isOpen: openState
-        });
-         store.dispatch('notification/showNotification', {
-            message: `Ratings are now ${openState ? 'Open' : 'Closed'}.`,
-            type: 'success'
-        }, { root: true });
-    } catch (error: any) {
-        store.dispatch('notification/showNotification', {
-            message: error?.message || 'Failed to toggle ratings status.',
-            type: 'error'
-        }, { root: true });
-    } finally {
-        loadingAction.value = null;
-        isLoadingRatings.value = false;
-    }
-};
-
-// Show confirmation before cancelling
-const confirmCancel = async () => {
-    if (window.confirm('Are you sure you want to cancel this event? This action cannot be undone.')) {
-        await updateStatus(EventStatus.Cancelled); // Update status directly
-    }
-};
-
-// Show confirmation before permanently closing
-const confirmCloseEvent = () => { // Renamed to avoid conflict with action name
-    if (window.confirm('Are you sure you want to permanently close this event and award XP? This action cannot be reopened.')) {
-        closeEventAction();
-    }
-};
-
-// Helper function to calculate total XP from an XP map (if needed)
-const calculateTotalXP = (xpMap: Record<string, Record<string, number>> | null | undefined): number => {
-    if (!xpMap) return 0;
-    return Object.values(xpMap).reduce((userSum, roles) =>
-        userSum + Object.values(roles).reduce((roleSum, xp) => roleSum + (Number(xp) || 0), 0)
-    , 0);
-};
-
-// Dispatch action to permanently close the event and award XP
-const closeEventAction = async () => {
-    if (isClosingEvent.value) return; // Prevent multiple clicks
-    isClosingEvent.value = true;
-    try {
-        // Ensure the action name matches the one defined in Vuex (part3)
-        const result = await store.dispatch('events/closeEventPermanently', {
-            eventId: props.event.id
-        });
-
-        // Show success notification with XP summary (result structure depends on action return)
-        let message = 'Event closed permanently. ';
-        if (result?.xpAwarded) {
-            const totalUsers = Object.keys(result.xpAwarded).length;
-            const totalXP = calculateTotalXP(result.xpAwarded); // Use helper if result structure matches
-            message += `XP awarded to ${totalUsers} users (Total: ${totalXP} XP).`;
-        } else if (result?.message) {
-            message = result.message; // Use message from action if provided
+        if (!nowIST.isValid || !startIST?.isValid || !endIST?.isValid) {
+          console.warn("Invalid dates for isWithinEventDates check:", nowIST, startIST, endIST);
+          return false;
         }
+        // console.log(`Date Check: Now=${nowIST.toISO()}, Start=${startIST.toISO()}, End=${endIST.toISO()}`);
+        return nowIST >= startIST && nowIST <= endIST;
+      } catch (e) {
+        console.error("Error in isWithinEventDates:", e);
+        return false;
+      }
+    });
+    const formattedStartDate = computed(() => formatISTDate(props.event?.details?.date?.start));
+    const formattedEndDate = computed(() => formatISTDate(props.event?.details?.date?.end));
+    const statusBadgeClass = computed(() => getEventStatusBadgeClass(props.event?.status));
+    const ratingsAreClosed = computed(() => !props.event?.ratingsOpen);
 
+    // --- Submission/Winner State ---
+    const submissionCount = computed(() => {
+      if (!props.event) return 0;
+      if (props.event.details.format === EventFormat.Team) {
+        return props.event.teams?.reduce((sum, team) => sum + (team.submissions?.length || 0), 0) ?? 0;
+      }
+      return props.event.submissions?.length ?? 0;
+    });
+    const hasWinners = computed(() => !!props.event?.winners && Object.keys(props.event.winners).length > 0);
+
+    // --- Button Visibility Logic ---
+    // 1. Show "Start Event": Only for organizers/admins, when event is `Approved`, current date is within start/end.
+    const showStartButton = computed(() =>
+      canManageEvent.value &&
+      props.event?.status === EventStatus.Approved &&
+      isWithinEventDates.value &&
+      !props.event?.closedAt
+    );
+
+    // 2. Show "Mark Complete": Only for organizers/admins, when event is `InProgress`.
+    const showMarkCompleteButton = computed(() =>
+      canManageEvent.value &&
+      props.event?.status === EventStatus.InProgress &&
+      !props.event?.closedAt
+    );
+
+    // 3. Show "Open Ratings": Only for organizers/admins, when event is `Completed`, ratings are closed.
+    const showOpenRatingsButton = computed(() =>
+      canManageEvent.value &&
+      props.event?.status === EventStatus.Completed &&
+      ratingsAreClosed.value &&
+      !props.event?.closedAt
+    );
+
+    // Show "Close Ratings": Only for organizers/admins, when event is `Completed`, ratings are open. (Implied opposite of #3)
+    const showCloseRatingsButton = computed(() =>
+        canManageEvent.value &&
+        props.event?.status === EventStatus.Completed &&
+        props.event?.ratingsOpen === true && // Explicitly check if open
+        !props.event?.closedAt
+    );
+
+    // 4. Show "Find Winner": Only for organizers/admins, when event is `Completed`, after ratings are closed, and at least 10 submissions exist.
+    const showFindWinnerButton = computed(() =>
+      canManageEvent.value &&
+      props.event?.status === EventStatus.Completed &&
+      ratingsAreClosed.value && // Explicitly check if closed
+      submissionCount.value >= 10 &&
+      !props.event?.closedAt
+    );
+
+    // 5. Show "Organizer Rating": Only for participants (not admins), when event is `Completed`.
+    const showParticipantOrganizerRating = computed(() =>
+      !canManageEvent.value && // Participants are not managers
+      isParticipant.value &&  // Must be a participant
+      props.event?.status === EventStatus.Completed &&
+      !props.event?.closedAt
+      // Note: Original template showed this when ratings were open. Rule 5 doesn't specify. Assuming it's available once completed.
+    );
+
+    // 6. Show "Winner Selection": Only for participants (not admins), when event is `Completed`, not closed, and ratings are open.
+    const showParticipantWinnerSelection = computed(() =>
+      !canManageEvent.value && // Participants are not managers
+      isParticipant.value &&  // Must be a participant
+      props.event?.status === EventStatus.Completed &&
+      !props.event?.closedAt &&
+      props.event?.ratingsOpen === true // Explicitly check if open
+    );
+
+    // 7. Show "Close Event": Only for organizers/admins, when event is `Completed`, ratings are closed, and winners are selected.
+    const showCloseEventButton = computed(() =>
+      canManageEvent.value &&
+      props.event?.status === EventStatus.Completed &&
+      ratingsAreClosed.value && // Explicitly check if closed
+      hasWinners.value && // Winners must be selected
+      !props.event?.closedAt
+    );
+
+    // Show Cancel Button (Not explicitly in rules, but common)
+    const showCancelButton = computed(() =>
+      canManageEvent.value &&
+      [EventStatus.Approved, EventStatus.InProgress].includes(props.event?.status as EventStatus) &&
+      !props.event?.closedAt
+    );
+
+    // --- Overall Visibility ---
+    const shouldShowControls = computed(() =>
+        canManageEvent.value ||
+        showParticipantOrganizerRating.value ||
+        showParticipantWinnerSelection.value
+    );
+
+    // --- Section Visibility ---
+     const showStatusManagementSection = computed(() =>
+        canManageEvent.value &&
+        (showStartButton.value || showMarkCompleteButton.value || showCancelButton.value)
+     );
+
+     const showRatingsClosingSection = computed(() =>
+        (canManageEvent.value && (showOpenRatingsButton.value || showCloseRatingsButton.value || showFindWinnerButton.value || showCloseEventButton.value)) ||
+        showParticipantWinnerSelection.value ||
+        showParticipantOrganizerRating.value
+     );
+
+    // --- Actions ---
+    const isActionLoading = (action: EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent') => loadingAction.value === action;
+
+    const updateStatus = async (newStatus: EventStatus) => {
+      if (loadingAction.value) return;
+      loadingAction.value = newStatus;
+      try {
+        await store.dispatch('events/updateEventStatus', {
+          eventId: props.event.id,
+          newStatus: newStatus
+        });
         store.dispatch('notification/showNotification', {
-            message,
-            type: 'success',
-            duration: 6000 // Longer duration for important info
+          message: `Event status updated to ${newStatus}.`,
+          type: 'success'
         }, { root: true });
-    } catch (error: any) {
+      } catch (error: any) {
         store.dispatch('notification/showNotification', {
-            message: error?.message || 'Failed to close the event.',
-            type: 'error',
-            duration: 5000
+          message: error?.message || `Failed to update status to ${newStatus}.`,
+          type: 'error'
         }, { root: true });
-    } finally {
-        isClosingEvent.value = false;
-    }
+      } finally {
+        loadingAction.value = null;
+      }
+    };
+
+    const toggleRatings = async (openState: boolean) => {
+        if (loadingAction.value) return;
+        loadingAction.value = openState ? 'openRatings' : 'closeRatings';
+        try {
+            const result = await store.dispatch('events/toggleRatingsOpen', {
+                eventId: props.event.id,
+                isOpen: openState
+            });
+            // Check result status if the action returns it
+            if (result?.status === 'success') {
+                store.dispatch('notification/showNotification', {
+                    message: `Ratings are now ${openState ? 'Open' : 'Closed'}.`,
+                    type: 'success'
+                }, { root: true });
+            } else {
+                 throw new Error(result?.message || 'Failed to toggle ratings.');
+            }
+        } catch (error: any) {
+            store.dispatch('notification/showNotification', {
+                message: error?.message || 'Failed to toggle ratings status.',
+                type: 'error'
+            }, { root: true });
+        } finally {
+            loadingAction.value = null;
+        }
+    };
+
+    const confirmCancel = async () => {
+      if (window.confirm('Are you sure you want to cancel this event? This action cannot be undone.')) {
+        await updateStatus(EventStatus.Cancelled);
+      }
+    };
+
+    const confirmCloseEvent = () => {
+      if (window.confirm('Are you sure you want to permanently close this event and award XP? This action cannot be reopened.')) {
+        closeEventAction();
+      }
+    };
+
+    const calculateTotalXP = (xpMap: Record<string, Record<string, number>> | null | undefined): number => {
+      if (!xpMap) return 0;
+      return Object.values(xpMap).reduce((userSum, roles) =>
+        userSum + Object.values(roles).reduce((roleSum, xp) => roleSum + (Number(xp) || 0), 0)
+      , 0);
+    };
+
+    const closeEventAction = async () => {
+        if (loadingAction.value || isClosingEvent.value) return;
+        loadingAction.value = 'closeEvent';
+        isClosingEvent.value = true;
+        try {
+            const result = await store.dispatch('events/closeEventPermanently', {
+                eventId: props.event.id
+            });
+            // Assume result contains { success: boolean, message: string, xpAwarded?: ... }
+            let message = result?.message || 'Event closed permanently.';
+            if (result?.success && result?.xpAwarded) {
+                const totalUsers = Object.keys(result.xpAwarded).length;
+                const totalXP = calculateTotalXP(result.xpAwarded);
+                message += ` XP awarded to ${totalUsers} users (Total: ${totalXP} XP).`;
+            }
+            store.dispatch('notification/showNotification', {
+                message,
+                type: result?.success ? 'success' : 'warning', // Use warning if success=false but message exists
+                duration: 6000
+            }, { root: true });
+        } catch (error: any) {
+            store.dispatch('notification/showNotification', {
+                message: error?.message || 'Failed to close the event.',
+                type: 'error',
+                duration: 5000
+            }, { root: true });
+        } finally {
+            loadingAction.value = null;
+            isClosingEvent.value = false;
+        }
+    };
+
+    const findWinnerAction = async () => {
+        if (loadingAction.value) return;
+        loadingAction.value = 'findWinner';
+        try {
+            await store.dispatch('events/findWinner', { eventId: props.event.id });
+            store.dispatch('notification/showNotification', {
+                message: 'Winner(s) selected successfully.',
+                type: 'success'
+            }, { root: true });
+        } catch (error: any) {
+            store.dispatch('notification/showNotification', {
+                message: error?.message || 'Failed to select winner(s).',
+                type: 'error'
+            }, { root: true });
+        } finally {
+            loadingAction.value = null;
+        }
+    };
+
+    return {
+      // Computed Visibility Flags
+      shouldShowControls,
+      showStatusManagementSection,
+      showRatingsClosingSection,
+      showStartButton,
+      showMarkCompleteButton,
+      showCancelButton,
+      showOpenRatingsButton,
+      showCloseRatingsButton,
+      showFindWinnerButton,
+      showCloseEventButton,
+      showParticipantWinnerSelection,
+      showParticipantOrganizerRating,
+
+      // State & Data
+      loadingAction,
+      isClosingEvent,
+      isWithinEventDates,
+      formattedStartDate,
+      formattedEndDate,
+      statusBadgeClass,
+      canManageEvent,
+      submissionCount, // Expose for display if needed
+
+      // Methods
+      isActionLoading,
+      updateStatus,
+      toggleRatings,
+      confirmCancel,
+      confirmCloseEvent,
+      findWinnerAction, // Renamed to avoid conflict with computed prop name
+    };
+  },
 };
 </script>
 
 <style scoped>
-/* Add any specific scoped styles if needed */
 .event-manage-controls {
-  max-width: 800px; /* Optional: Limit width */
-  margin: 0 auto 1.5rem auto; /* Center and add bottom margin */
+  max-width: 900px; /* Slightly wider if needed */
+  margin: 0 auto; /* Center it */
+}
+/* Ensure badges have enough contrast and padding */
+.badge {
+    padding: 0.4em 0.8em;
+    font-size: 0.85rem;
 }
 </style>

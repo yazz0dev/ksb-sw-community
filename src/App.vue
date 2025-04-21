@@ -1,10 +1,8 @@
 <template>
   <div id="app" class="d-flex flex-column app-container">
-    <!-- Fixed Position Utilities -->
     <OfflineStateHandler />
     <NotificationSystem />
 
-    <!-- Push Notification Prompt -->
     <div v-if="showPushPermissionPrompt" class="push-prompt-banner alert alert-info d-flex justify-content-between align-items-center p-2">
       <span class="small">Enable push notifications for event updates?</span>
       <div>
@@ -15,16 +13,13 @@
       </div>
     </div>
 
-    <!-- Top Navigation Bar -->
     <nav
       class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm fixed-top app-navbar"
       :class="{ 'navbar-hidden': !showNavbar }"
       role="navigation"
       aria-label="main navigation"
     >
-      <!-- Navbar content as previously provided -->
        <div class="container-lg">
-        <!-- Brand -->
         <router-link
           class="navbar-brand d-flex align-items-center app-navbar-brand"
           to="/"
@@ -33,7 +28,6 @@
           <span class="fw-bold">KSB Community</span>
         </router-link>
 
-        <!-- Toggler Button -->
         <button
           class="navbar-toggler"
           type="button"
@@ -46,14 +40,11 @@
           <span class="navbar-toggler-icon"></span>
         </button>
 
-        <!-- Navbar Content (Collapsible) -->
         <div
           class="collapse navbar-collapse app-navbar-menu"
           id="navbarNav"
         >
-          <!-- Left-aligned Links -->
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <!-- Home (Desktop only if authenticated) -->
             <li class="nav-item d-none d-lg-block">
               <router-link
                 class="nav-link"
@@ -66,7 +57,6 @@
                 Home
               </router-link>
             </li>
-            <!-- Events (Visible when logged out) -->
             <li class="nav-item" v-if="!isAuthenticated">
               <router-link
                 class="nav-link"
@@ -77,7 +67,6 @@
                 Events
               </router-link>
             </li>
-            <!-- Leaderboard (Desktop only when logged out) -->
              <li class="nav-item d-none d-lg-block" v-if="!isAuthenticated">
                <router-link
                   class="nav-link"
@@ -88,7 +77,6 @@
                   Leaderboard
                </router-link>
              </li>
-            <!-- Resources (Always Visible) -->
             <li class="nav-item">
               <router-link
                 class="nav-link"
@@ -99,7 +87,6 @@
                 Resources
               </router-link>
             </li>
-            <!-- Transparency (Always Visible) -->
             <li class="nav-item">
               <router-link
                 class="nav-link"
@@ -112,9 +99,7 @@
             </li>
           </ul>
 
-          <!-- Right-aligned Links (Auth/User) -->
           <ul class="navbar-nav ms-auto align-items-lg-center">
-            <!-- Logged Out State -->
             <template v-if="!isAuthenticated">
               <li class="nav-item">
                 <router-link
@@ -127,17 +112,13 @@
               </li>
             </template>
 
-            <!-- Logged In State -->
             <template v-if="isAuthenticated">
               <li class="nav-item dropdown">
-                <!-- Dropdown Toggle -->
                 <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   <i class="fas fa-user-circle me-1"></i>
                   <span>{{ userName }}</span>
                 </a>
-                <!-- Dropdown Menu -->
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
-                  <!-- Profile Link (Non-Admin Only) -->
                   <li v-if="!isAdmin">
                     <router-link
                       class="dropdown-item"
@@ -147,7 +128,6 @@
                       <i class="fas fa-user fa-fw me-2"></i>Profile
                     </router-link>
                   </li>
-                   <!-- Admin Dashboard Link (Admin Only) -->
                   <li v-if="isAdmin">
                     <router-link
                       class="dropdown-item"
@@ -158,7 +138,6 @@
                     </router-link>
                   </li>
                   <li><hr class="dropdown-divider"></li>
-                  <!-- Logout Button -->
                   <li>
                     <button
                       class="dropdown-item"
@@ -175,7 +154,6 @@
       </div>
     </nav>
 
-    <!-- Main Content Area -->
     <main class="flex-grow-1 app-main-content">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
@@ -184,7 +162,6 @@
         </router-view>
     </main>
 
-    <!-- Bottom Navigation (Mobile Only) -->
     <BottomNav
       v-if="isAuthenticated"
       class="d-lg-none"
@@ -193,22 +170,17 @@
 </template>
 
 <script setup lang="ts">
-// --- Core Vue/External Imports ---
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
 
-// --- Internal Components ---
 import BottomNav from './components/BottomNav.vue';
 import OfflineStateHandler from './components/OfflineStateHandler.vue';
 import NotificationSystem from './components/NotificationSystem.vue';
 
-// --- Supabase Integration START ---
 import { isSupabaseConfigured } from './notifications';
-// --- Supabase Integration END ---
 
-// --- Types ---
 interface Collapse {
   toggle(): void;
   hide(): void;
@@ -227,56 +199,43 @@ declare global {
   }
 }
 
-// --- Composables ---
 const store = useStore();
 const router = useRouter();
 
-// --- State ---
 const showNavbar = ref(true);
 const lastScrollPosition = ref(0);
 const scrollThreshold = 50;
-const showPushPermissionPrompt = ref(false); // State for the prompt visibility
+const showPushPermissionPrompt = ref(false);
 
-// --- Computed Vuex Getters ---
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 const isAdmin = computed(() => store.getters['user/isAdmin']);
 const userName = computed(() => store.getters['user/getUser']?.name || 'User');
 const userId = computed(() => store.getters['user/userId']);
 
-// --- Methods ---
 
-// Logout Logic
 const logout = async (): Promise<void> => {
   const auth = getAuth();
   try {
-    // Clear Vuex state first
     await store.commit('user/clearUserData');
     await store.commit('user/setHasFetched', true);
-    
-    // Firebase logout last
-    await signOut(auth);
-    console.log("Firebase logout successful.");
 
-    // Force navigation to landing page
+    await signOut(auth);
+
     await router.replace({ name: 'Landing' });
   } catch (error) {
-    console.error("Logout failed:", error);
-    store.dispatch('notification/showNotification', { 
-      message: 'Logout failed. Please try again.', 
-      type: 'error' 
+    store.dispatch('notification/showNotification', {
+      message: 'Logout failed. Please try again.',
+      type: 'error'
     }, { root: true });
   }
 };
 
-// Close Navbar (Mobile)
 const closeNavbar = () => {
   try {
     const toggler = document.querySelector('.navbar-toggler') as HTMLElement | null;
-    // Only trigger if toggler is visible (mobile)
     if (toggler && window.getComputedStyle(toggler).display !== 'none') {
       toggler.click();
     } else {
-      // Fallback to Bootstrap API (desktop, or if toggler missing)
       const navbarContent = document.getElementById('navbarNav');
       if (navbarContent?.classList.contains('show') && window.bootstrap?.Collapse) {
         const bsCollapse = window.bootstrap.Collapse.getInstance(navbarContent);
@@ -284,24 +243,18 @@ const closeNavbar = () => {
       }
     }
   } catch (error) {
-    console.warn('Failed to close navbar:', error);
+    // Optionally handle or log the error differently if needed
   }
 };
 
-// Collapse after navigation (fixes issue with router-link)
-
-
-// Mobile navbar collapse: collapse on link click, outside click, and route change (mobile only)
 onMounted(() => {
   const collapseEl = document.getElementById('navbarNav');
   const toggler = document.querySelector('.navbar-toggler');
   const collapseParent = collapseEl?.closest('.navbar-collapse') as HTMLElement | null;
   if (!collapseEl || !toggler || !window.bootstrap?.Collapse) return;
-  // Initialize Collapse instance if not present
   const bsCollapse = window.bootstrap.Collapse.getInstance(collapseEl)
     || new window.bootstrap.Collapse(collapseEl, { toggle: false });
 
-  // Collapse on outside click (capture phase)
   const outsideClickHandler = (e: MouseEvent | TouchEvent) => {
     if (window.innerWidth < 992 && collapseEl.classList.contains('show')
       && !collapseEl.contains(e.target as Node)
@@ -312,7 +265,6 @@ onMounted(() => {
   document.addEventListener('mousedown', outsideClickHandler, true);
   document.addEventListener('touchstart', outsideClickHandler, true);
 
-  // Collapse on Escape key (when menu is open on mobile)
   const escapeKeyHandler = (e: KeyboardEvent) => {
     if (e.key === 'Escape' && window.innerWidth < 992 && collapseEl.classList.contains('show')) {
       closeNavbar();
@@ -320,14 +272,12 @@ onMounted(() => {
   };
   document.addEventListener('keydown', escapeKeyHandler, true);
 
-  // Collapse on route navigation change
   const removeAfterEach = router.afterEach(() => {
     if (window.innerWidth < 992 && collapseEl.classList.contains('show')) {
       bsCollapse.hide();
     }
   });
 
-  // Cleanup listeners on unmount
   onUnmounted(() => {
     document.removeEventListener('mousedown', outsideClickHandler, true);
     document.removeEventListener('touchstart', outsideClickHandler, true);
@@ -336,13 +286,11 @@ onMounted(() => {
   });
 });
 
-// Combine closing navbar and logging out
 const handleLogout = async (): Promise<void> => {
   closeNavbar();
-  await logout(); // Firebase signout triggers onAuthStateChanged which handles redirect/clear
+  await logout();
 };
 
-// --- Push Notification Methods ---
 function getOneSignal(): any {
   return (window as any).OneSignal;
 }
@@ -357,15 +305,12 @@ function checkPushPermissionState() {
   }
   const OneSignal = getOneSignal();
   if (!OneSignal || typeof OneSignal.getNotificationPermission !== 'function') {
-    console.warn("OneSignal SDK not loaded or getNotificationPermission missing.");
     return;
   }
   OneSignal.getNotificationPermission().then((permission: string) => {
       if (isAuthenticated.value && permission === 'default' && !sessionStorage.getItem('pushPromptDismissed')) {
-          console.log("Push permission is default, showing prompt.");
           showPushPermissionPrompt.value = true;
       } else {
-           console.log(`Push permission state: ${permission}. Prompt hidden.`);
           showPushPermissionPrompt.value = false;
       }
   });
@@ -387,56 +332,45 @@ async function requestPushPermission() {
   }
 
   try {
-    console.log("Requesting push permission via OneSignal SDK...");
     await OneSignal.registerForPushNotifications();
 
     if (typeof OneSignal.getNotificationPermission === 'function') {
       const permission = await OneSignal.getNotificationPermission();
-      console.log(`Permission status after request: ${permission}`);
 
       if (permission === 'granted') {
           store.dispatch('notification/showNotification', { message: 'Push notifications enabled!', type: 'success' }, { root: true });
-          console.log("Push permission granted via OneSignal SDK.");
 
-          // **Crucial:** Ensure External User ID is set *after* successful registration/permission grant
           const currentUserId = store.state.user.uid;
           if (currentUserId && typeof OneSignal.setExternalUserId === 'function') {
-              console.log(`Setting OneSignal external_user_id after permission grant: ${currentUserId}`);
               await OneSignal.setExternalUserId(currentUserId);
-              console.log("External User ID set successfully after permission grant.");
           } else {
-               console.warn("Could not set external user ID after permission grant: User ID not found in store or method missing.");
+               // Optionally log a warning if needed
           }
 
       } else if (permission === 'denied') {
            store.dispatch('notification/showNotification', { message: 'Push permission was denied. You can enable it in browser settings.', type: 'warning' }, { root: true });
-           console.log("Push permission was denied via OneSignal SDK.");
       } else {
-          console.log("Push permission prompt likely dismissed without granting.");
+          // Prompt dismissed without granting
       }
     }
   } catch (err) {
     store.dispatch('notification/showNotification', { message: 'Failed to enable push notifications.', type: 'error' }, { root: true });
-    console.error('OneSignal push registration failed:', err);
   }
 }
 
 function dismissPushPrompt() {
     showPushPermissionPrompt.value = false;
-    sessionStorage.setItem('pushPromptDismissed', 'true'); // Remember dismissal for this session
+    sessionStorage.setItem('pushPromptDismissed', 'true');
 }
 
-// Watch isAuthenticated to check push permissions when user logs in
 watch(isAuthenticated, (loggedIn) => {
     if (loggedIn) {
-        // Use setTimeout to allow auth state/Supabase login to potentially complete
         setTimeout(checkPushPermissionState, 1500);
     } else {
-        showPushPermissionPrompt.value = false; // Hide prompt if logged out
+        showPushPermissionPrompt.value = false;
     }
 });
 
-// --- Lifecycle Hooks ---
 const handleScroll = () => {
   const currentScrollPosition = window.scrollY;
   if (Math.abs(currentScrollPosition - lastScrollPosition.value) < scrollThreshold && currentScrollPosition > 0) {
@@ -449,15 +383,13 @@ const handleScroll = () => {
 onMounted(() => {
   store.dispatch('app/initOfflineCapabilities');
   window.addEventListener('scroll', handleScroll, { passive: true });
-  // Initial check for push permission state if already logged in
   if (isAuthenticated.value) {
        setTimeout(checkPushPermissionState, 1500);
   }
-  // Fix: Use commit instead of dispatch for clearStaleCache
   try {
     store.commit('user/clearStaleCache');
   } catch (error) {
-    console.error("Error clearing stale cache on App mount:", error);
+    // Optionally handle or log the error differently if needed
   }
 });
 
@@ -468,17 +400,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Styles as previously provided */
 .app-container {
   min-height: 100vh;
-  background-color: var(--bs-light); /* Use Bootstrap light background */
+  background-color: var(--bs-light);
   color: var(--bs-body-color); /* Use Bootstrap default body color */
 }
 
-/* Navbar Styling */
 .app-navbar {
-  /* Background color set by Bootstrap class (bg-primary) */
-  border-bottom: 1px solid var(--bs-border-color-translucent); /* Use CSS variable */
+  border-bottom: 1px solid var(--bs-border-color-translucent);
   transition: transform 0.3s ease-in-out;
   will-change: transform;
 }
@@ -488,59 +417,53 @@ onUnmounted(() => {
 }
 
 .app-navbar-brand {
-  color: var(--bs-light) !important; /* Light text for brand on primary bg */
+  color: var(--bs-light) !important;
   white-space: nowrap;
 }
 .app-navbar-brand:hover {
-  color: var(--bs-white) !important; /* Slightly brighter on hover */
+  color: var(--bs-white) !important;
 }
 
-/* Navbar link colors */
 .navbar-dark .navbar-nav .nav-link {
-    color: var(--bs-navbar-color); /* Use Bootstrap variable */
+    color: var(--bs-navbar-color);
     transition: color 0.2s ease-in-out;
 }
 .navbar-dark .navbar-nav .nav-link:hover,
 .navbar-dark .navbar-nav .nav-link:focus {
-    color: var(--bs-navbar-hover-color); /* Use Bootstrap variable */
+    color: var(--bs-navbar-hover-color);
 }
-/* Active link styling */
 .navbar-dark .navbar-nav .nav-link.active {
-  color: var(--bs-navbar-active-color) !important; /* Use Bootstrap variable */
-  font-weight: var(--bs-font-weight-bold); /* Use Bootstrap variable */
+  color: var(--bs-navbar-active-color) !important;
+  font-weight: var(--bs-font-weight-bold);
 }
 
-/* Mobile Menu Background */
 @media (max-width: 991.98px) {
   .app-navbar-menu.navbar-collapse {
-    background-color: var(--bs-primary); /* Match navbar */
+    background-color: var(--bs-primary);
     padding: 0.5rem 1rem;
-    margin-top: 0.5rem; /* Add some space */
-    border-top: 1px solid var(--bs-border-color-translucent); /* Use CSS variable */
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--bs-border-color-translucent);
   }
   .navbar-nav {
-      width: 100%; /* Ensure full width for layout */
+      width: 100%;
   }
   .navbar-nav .nav-item {
-      margin-bottom: 0.25rem; /* Spacing between items */
+      margin-bottom: 0.25rem;
   }
 }
 
-/* Main Content Area Padding */
 .app-main-content {
-  padding-top: 72px; /* Adjust based on fixed navbar height + extra space */
-  padding-bottom: 80px; /* Default padding if bottom nav isn't shown */
+  padding-top: 72px;
+  padding-bottom: 80px;
   min-height: 100vh;
   position: relative;
   z-index: 1;
   overflow-x: hidden;
 }
-/* Adjust padding-bottom when bottom nav is visible */
 .app-container:has(.bottom-nav) .app-main-content {
-   padding-bottom: calc(64px + 1rem + env(safe-area-inset-bottom)); /* BottomNav height + margin + safe area */
+   padding-bottom: calc(64px + 1rem + env(safe-area-inset-bottom));
 }
 
-/* Page Transition */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease-out;
@@ -550,9 +473,8 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* Dropdown Menu Adjustments */
 .dropdown-menu {
-  margin-top: 0.5rem; /* Add space below navbar */
+  margin-top: 0.5rem;
   box-shadow: var(--bs-box-shadow-sm);
   border-color: var(--bs-border-color-translucent);
 }
@@ -565,35 +487,31 @@ onUnmounted(() => {
     color: var(--bs-secondary);
 }
 
-/* Ensure links are clickable */
 .nav-link, .dropdown-item, .navbar-brand {
   cursor: pointer;
-  user-select: none; /* Prevent text selection on click */
-  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Push Prompt Banner Styling */
 .push-prompt-banner {
   position: fixed;
-  bottom: calc(64px + 1rem); /* Position above bottom nav */
+  bottom: calc(64px + 1rem);
   left: 1rem;
   right: 1rem;
-  z-index: 1045; /* Above bottom nav, below modals */
-  border-radius: var(--bs-border-radius); /* Use CSS variable */
-  box-shadow: var(--bs-box-shadow); /* Use CSS variable */
+  z-index: 1045;
+  border-radius: var(--bs-border-radius);
+  box-shadow: var(--bs-box-shadow);
   transition: bottom 0.3s ease-in-out;
 }
-/* Adjust position if bottom nav is hidden */
 .app-container:has(.bottom-nav.nav-hidden) .push-prompt-banner {
     bottom: 1rem;
 }
 @media (min-width: 992px) {
-    /* Position differently on desktop */
     .push-prompt-banner {
         bottom: 1rem;
-        left: auto; /* Align right */
+        left: auto;
         right: 1rem;
-        width: auto; /* Auto width */
+        width: auto;
         max-width: 400px;
     }
 }
