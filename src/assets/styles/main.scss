@@ -1,19 +1,118 @@
-@use 'sass:color' as color;
-@use 'animations';
-@use '_variables' as v;
-@use 'bootstrap';
+// --- src/assets/styles/main.scss ---
 
+// 1. Import custom variables first using @use
+// This makes your variables available with the 'v' namespace (e.g., v.$primary)
+@use 'variables' as v;
+// 8. Import your custom animations using @use
+@use 'animations';
+
+// 2. Import Bootstrap functions and default variables
+// Required by many other modules
+@import "bootstrap/scss/functions";
+
+// 3. --- IMPORTANT: Define Bootstrap variable overrides HERE ---
+// Use the values from your _variables.scss to override Bootstrap defaults *before*
+// the rest of Bootstrap is imported. You can directly use the values or reference
+// your 'v' namespace if needed, but it's cleaner to define them directly here.
+$primary: v.$primary;
+$secondary: v.$secondary;
+$success: v.$success;
+$info: v.$info;
+$warning: v.$warning;
+$danger: v.$danger;
+$light: v.$light;
+$dark: v.$dark;
+
+$body-bg: v.$body-bg;
+$body-color: v.$body-color;
+$border-color: v.$border-color;
+$card-bg: v.$card-bg;
+$card-cap-bg: v.$card-cap-bg;
+$input-bg: v.$input-bg;
+$input-border-color: v.$input-border-color;
+
+
+
+// Continue overriding other Bootstrap variables as needed from your _variables.scss
+$font-family-sans-serif: v.$font-family-sans-serif;
+$font-weight-normal: v.$font-weight-normal;
+$font-weight-medium: v.$font-weight-medium;
+$font-weight-bold: v.$font-weight-bold;
+
+$border-radius: v.$border-radius;
+$border-radius-sm: v.$border-radius-sm;
+$border-radius-lg: v.$border-radius-lg;
+// Note: $border-radius-xl is used, but not defined in _variables.scss, so BS default will be used unless added.
+
+$box-shadow-sm: v.$box-shadow-sm;
+$box-shadow: v.$box-shadow;
+$box-shadow-lg: v.$box-shadow-lg;
+
+$z-index-dropdown: map-get(v.$z-indices, dropdown);
+$z-index-sticky: map-get(v.$z-indices, sticky);
+$z-index-fixed: map-get(v.$z-indices, fixed);
+// ... map other z-indices if Bootstrap needs them explicitly
+
+// 4. Import remaining Bootstrap core files (using your overrides)
+@import "bootstrap/scss/variables"; // Default BS variables (uses your overrides now)
+@import "bootstrap/scss/variables-dark"; // If you plan to support dark mode
+@import "bootstrap/scss/maps";
+@import "bootstrap/scss/mixins";
+@import "bootstrap/scss/utilities"; // Import base utilities definition
+
+// 5. Import Layout & Components (Selectively)
+@import "bootstrap/scss/root";
+@import "bootstrap/scss/reboot";
+@import "bootstrap/scss/type";
+@import "bootstrap/scss/images";
+@import "bootstrap/scss/containers";
+@import "bootstrap/scss/grid";
+@import "bootstrap/scss/forms"; // Includes form controls, selects, checks, input groups, validation
+@import "bootstrap/scss/buttons";
+@import "bootstrap/scss/transitions";
+@import "bootstrap/scss/dropdown";
+@import "bootstrap/scss/button-group"; // Used implicitly by dropdowns sometimes
+@import "bootstrap/scss/nav";
+@import "bootstrap/scss/navbar";
+@import "bootstrap/scss/card";
+@import "bootstrap/scss/alert";
+@import "bootstrap/scss/progress";
+@import "bootstrap/scss/list-group";
+@import "bootstrap/scss/close";
+@import "bootstrap/scss/modal";
+@import "bootstrap/scss/badge";
+@import "bootstrap/scss/spinners";
+@import "bootstrap/scss/toasts";
+
+// 6. Import Helpers
+@import "bootstrap/scss/helpers"; // Includes visually-hidden, etc.
+
+// 7. Import Utilities API last
+// This generates the utility classes like .d-flex, .p-4, .text-primary, etc.
+@import "bootstrap/scss/utilities/api";
+
+// --- Your Customizations ---
+
+
+
+// 9. Your custom global styles (potentially using Bootstrap mixins or functions)
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  // Use the body-bg and body-color defined above (which now use your variables)
+  background-color: $body-bg;
+  color: $body-color;
+  font-family: $font-family-sans-serif; // Apply your font family
 }
 
+// Apply hover styles using Bootstrap variables
 .card {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   &:hover {
     transform: translateY(-2px);
-    box-shadow: v.$box-shadow-lg !important;
+    // Use the $box-shadow-lg variable which incorporates your definition
+    box-shadow: $box-shadow-lg !important;
   }
 }
 
@@ -24,10 +123,12 @@ body {
 }
 
 .badge {
-  font-weight: v.$font-weight-medium;
+  // Use the $font-weight-medium variable which incorporates your definition
+  font-weight: $font-weight-medium;
 }
 
-.fs-7 { font-size: 0.875rem !important; }
+// Your custom utility classes
+.fs-7 { font-size: 0.875rem !important; } // Keep if needed globally
 .text-decoration-underline-hover:hover {
   text-decoration: underline !important;
 }
@@ -40,14 +141,31 @@ body {
 
 .shadow-hover {
   transition: box-shadow 0.2s ease-in-out;
-  &:hover { box-shadow: v.$box-shadow-lg !important; }
+  &:hover {
+    // Use the $box-shadow-lg variable which incorporates your definition
+    box-shadow: $box-shadow-lg !important;
+  }
 }
 
-.text-gradient {
-  background: linear-gradient(to right, v.$primary, color.adjust(v.$primary, $lightness: 15%));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+
+// Vibrant blue for attention-grabbing text
+.text-vibrant {
+  color: #2563eb !important; // vibrant blue (same as BS primary)
+}
+
+// Muted gray for less prominent text
+.text-muted {
+  color: #64748b !important; // muted slate
+}
+
+// Accent teal for highlights or links
+.text-accent {
+  color: #14b8a6 !important; // teal accent
+}
+
+// Soft neutral for subtle UI elements
+.text-soft {
+  color: #94a3b8 !important; // soft blue-gray
 }
 
 .alert-sm {

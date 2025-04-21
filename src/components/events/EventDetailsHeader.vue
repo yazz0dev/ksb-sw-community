@@ -75,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watchEffect } from 'vue';
+import { ref, watch, defineAsyncComponent, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -119,27 +119,28 @@ const router = useRouter();
 
 const renderedDescriptionHtml = ref('');
 
-const renderDescription = async (description: string | undefined) => {
-    if (!description) {
-        renderedDescriptionHtml.value = '';
-        return;
-    }
-    marked.setOptions({
-        breaks: true,
-        gfm: true,
-    });
-    try {
-        const rawHtml: string = await marked.parse(description);
-        renderedDescriptionHtml.value = DOMPurify.sanitize(rawHtml);
-    } catch (error) {
-        console.error('Error rendering markdown description:', error);
-        renderedDescriptionHtml.value = '<p class="text-danger">Error rendering description.</p>';
-    }
-};
+async function renderDescription(description: string | undefined) {
+  if (!description) {
+    renderedDescriptionHtml.value = '';
+    return;
+  }
+  try {
+    // Dynamically import when needed
+    const { marked } = await import('marked');
+    const DOMPurify = (await import('dompurify')).default; // Use .default for default exports
 
-watchEffect(() => {
-    renderDescription(props.event?.details?.description);
-});
+    marked.setOptions({ breaks: true, gfm: true });
+    const rawHtml: string = await marked.parse(description); // marked.parse might be async now
+    renderedDescriptionHtml.value = DOMPurify.sanitize(rawHtml);
+  } catch (error) {
+    console.error('Error rendering markdown description:', error);
+    renderedDescriptionHtml.value = '<p class="text-danger">Error rendering description.</p>';
+  }
+}
+
+watch(() => props.event?.details?.description, (newDesc) => {
+     renderDescription(newDesc);
+}, { immediate: true });
 
 const statusTagClass = computed((): string => getEventStatusBadgeClass(props.event?.status));
 

@@ -1,14 +1,16 @@
-@use "sass:color";
+// --- Vibrant & Muted Color Palette ---
 
-// Theme Colors
-$primary: #8b94e4;      // Muted Indigo
-$secondary: #94a3b8;    // Muted Slate
-$success: #6ee7b7;      // Muted Green
-$info: #7dd3fc;         // Muted Sky
-$warning: #fcd34d;      // Muted Amber
-$danger: #f87171;       // Muted Red
-$light: #f8fafc;        // Slate-50 (Keep light as a base)
-$dark: #475569;         // Muted Slate-700
+$fa-font-formats: woff2;
+
+// Theme Colors (Vibrant/Muted)
+$primary: #2563eb;      // Vibrant Blue
+$secondary: #64748b;    // Muted Slate
+$success: #10b981;      // Vibrant Green
+$info: #0ea5e9;         // Vibrant Sky
+$warning: #f59e42;      // Vibrant Orange
+$danger: #ef4444;       // Vibrant Red
+$light: #f8fafc;        // Light Gray
+$dark: #1e293b;         // Deep Slate
 
 // System Colors
 $body-bg: #f8fafc;      // Slate-50

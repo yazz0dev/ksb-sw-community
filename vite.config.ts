@@ -3,7 +3,6 @@ import type { UserConfig, Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { VitePWA } from 'vite-plugin-pwa';
 import type { VitePWAOptions } from 'vite-plugin-pwa';
-import { visualizer } from 'rollup-plugin-visualizer';
 import { resolve } from 'path';
 import { fileURLToPath, URL } from 'url';
 
@@ -40,13 +39,7 @@ const config: UserConfig = {
     }
   },
   plugins: [
-    vue(),
-    visualizer({
-      filename: 'stats.html',
-      gzipSize: true,
-      brotliSize: true,
-      open: false
-    }) as Plugin, // Type assertion for TypeScript
+    vue(),// Type assertion for TypeScript
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'src/assets/logo.png', 'OneSignalSDKWorker.js'],

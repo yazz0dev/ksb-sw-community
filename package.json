@@ -24,7 +24,6 @@
     "jspdf-autotable": "^5.0.2",
     "luxon": "^3.6.1",
     "marked": "^15.0.7",
-    "rollup-plugin-visualizer": "^5.14.0",
     "uuid": "^11.1.0",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",
