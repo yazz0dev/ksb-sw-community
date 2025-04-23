@@ -26,15 +26,9 @@ export const userMutations = {
     setUserData(state: UserState, userData: UserDataPayload) {
         state.uid = userData.uid;
         state.name = userData.name;
-        state.role = userData.role || 'Student'; // Default role if missing
 
-        if (state.role === 'Admin') {
-            // Admins have no XP structure, skills, or preferred roles
-            state.xpByRole = {}; // Use empty object for type consistency
-            state.skills = [];
-            state.preferredRoles = [];
-        } else {
-            // Set student-specific fields only for non-Admins
+   
+            // Set student-specific fields
             const dbXp = userData.xpByRole || {};
             // Ensure all default keys exist, taking values from payload or defaulting to 0
             state.xpByRole = Object.keys(defaultXpStructure).reduce((acc, key) => {
@@ -44,7 +38,7 @@ export const userMutations = {
 
             state.skills = Array.isArray(userData.skills) ? userData.skills : [];
             state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
-        }
+        
 
         // Set isAuthenticated based on payload if available, otherwise derive from uid?
         // Decide on the source of truth for isAuthenticated. Payload source is flexible.
@@ -59,7 +53,6 @@ export const userMutations = {
     clearUserData(state: UserState) {
         state.uid = null;
         state.name = null;
-        state.role = null;
         // Reset xpByRole map using the full structure
         state.xpByRole = { ...defaultXpStructure }; // Reset with default 0s
         state.skills = [];
@@ -84,7 +77,7 @@ export const userMutations = {
     incrementUserXpRole(state: UserState, { role, amount }: { role: string; amount: number }) {
         // Ensure xpByRole exists and is an object before modifying
         if (typeof state.xpByRole !== 'object' || state.xpByRole === null) {
-             // Should ideally not happen if initialized correctly, especially for non-admins
+             // Should ideally not happen if initialized correctly
              console.warn(`Attempted to increment XP for role '${role}', but xpByRole object was missing or null. Initializing.`);
              state.xpByRole = { ...defaultXpStructure }; // Initialize with defaults
         }

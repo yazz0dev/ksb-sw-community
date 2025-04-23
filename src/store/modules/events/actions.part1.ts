@@ -23,28 +23,6 @@ import { User } from '@/types/user';
 import { DateTime } from 'luxon'; // For date comparisons
 import { invokePushNotification, isSupabaseConfigured } from '@/notifications';
 
-// --- Helper: Validate Organizers ---
-async function validateOrganizersNotAdmin(organizerIds: string[] = []): Promise<void> {
-    const userIdsToCheck = new Set(organizerIds.filter(Boolean));
-    if (userIdsToCheck.size === 0) return;
-
-    const fetchPromises = Array.from(userIdsToCheck).map(async (uid) => {
-        try {
-            const userDocRef = doc(db, 'users', uid);
-            const docSnap = await getDoc(userDocRef);
-            if (docSnap.exists() && docSnap.data()?.role === 'Admin') {
-                const adminName = docSnap.data()?.name || uid;
-                throw new Error(`User '${adminName}' (Admin) cannot be assigned as an organizer.`);
-            }
-        } catch (error: any) {
-            if (error.message.includes('cannot be assigned')) throw error;
-            console.error(`Error fetching user role for ${uid}:`, error);
-            throw new Error(`Failed to verify role for user ${uid}.`);
-        }
-    });
-    await Promise.all(fetchPromises);
-}
-
 
 // --- ACTION: Check if current user has existing pending/active requests ---
 export async function checkExistingRequests({ rootGetters }: ActionContext<EventState, RootState>): Promise<boolean> {
@@ -121,7 +99,7 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
 
 
 
-// --- ACTION: Request Event (Non-Admin User) ---
+// --- ACTION: Request Event (User) ---
 export async function requestEvent({ commit, rootGetters, dispatch }: ActionContext<EventState, RootState>, initialData: Partial<Event>): Promise<string> {
     const currentUser: User | null = rootGetters['user/getUser'];
     if (!currentUser?.uid) throw new Error('User must be logged in.');
@@ -182,9 +160,9 @@ export async function requestEvent({ commit, rootGetters, dispatch }: ActionCont
         if (isSupabaseConfigured()) {
             try {
                 // Fetch all admins (assumes 'users' collection has role field)
-                const adminsQuery = query(collection(db, 'users'), where('role', '==', 'Admin'));
+                const adminsQuery = query(collection(db, 'admin'));
                 const adminsSnap = await getDocs(adminsQuery);
-                const adminUids = adminsSnap.docs.map(doc => doc.id).filter(id => id !== currentUser.uid);
+                const adminUids = adminsSnap.docs.map(doc => doc.id).filter(Boolean); // Filter out any falsy values
                 if (adminUids.length > 0) {
                     const functionPayload = {
                         notificationType: 'eventRequested',
@@ -216,150 +194,9 @@ export async function requestEvent({ commit, rootGetters, dispatch }: ActionCont
     }
 }
 
-// --- ACTION: Approve Event Request (Admin Only) ---
-export async function approveEventRequest({ dispatch, commit, rootGetters }: ActionContext<EventState, RootState>, eventId: string): Promise<void> {
-    const currentUser: User | null = rootGetters['user/getUser'];
-    if (currentUser?.role !== 'Admin') throw new Error('Unauthorized.');
-    if (!eventId) throw new Error('Event ID required.');
 
-    const eventRef = doc(db, 'events', eventId);
-    let fetchedEventData: Event | null = null; // To store data for notification
 
-    try {
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) throw new Error('Request not found.');
-        fetchedEventData = { id: eventId, ...eventSnap.data() } as Event; // Get data before update
-
-        if (fetchedEventData.status !== EventStatus.Pending) throw new Error('Only pending events approved.');
-        if (!fetchedEventData.details?.date?.start || !fetchedEventData.details?.date?.end) {
-            throw new Error("Missing event dates.");
-        }
-
-        const conflictResult = await dispatch('checkDateConflict', { 
-            startDate: fetchedEventData.details.date.start, 
-            endDate: fetchedEventData.details.date.end, 
-            excludeEventId: eventId 
-        });
-
-        if (conflictResult.hasConflict) {
-            throw new Error(`Approval failed: Date conflict with "${conflictResult.conflictingEvent?.details?.type || 'another event'}".`);
-        }
-
-        // --- Perform Firestore Update ---
-        const updates: Partial<Event> = {
-            status: EventStatus.Approved,
-            lastUpdatedAt: Timestamp.now(),
-            details: {
-                ...fetchedEventData.details,
-                date: {
-                    start: fetchedEventData.details.date.start,
-                    end: fetchedEventData.details.date.end
-                }
-            }
-        };
-        await updateDoc(eventRef, updates);
-        // --- End Firestore Update ---
-
-        // Update local state
-        dispatch('updateLocalEvent', { id: eventId, changes: updates });
-
-        // --- Trigger Push Notification START ---
-        if (isSupabaseConfigured() && fetchedEventData?.requestedBy) {
-            try {
-                const targetUserIds = [fetchedEventData.requestedBy];
-
-                if (targetUserIds.length > 0) {
-                    const functionPayload = {
-                        notificationType: 'eventApproved',
-                        targetUserIds: targetUserIds,
-                        eventId: eventId,
-                        messageTitle: `Event Approved: ${fetchedEventData.details?.type || 'Event'}`,
-                        messageBody: `Your event request "${fetchedEventData.details?.type || 'Event'}" has been approved!`,
-                        eventUrl: `/event/${eventId}`,
-                    };
-
-                    console.log("Triggering Supabase Edge Function for event approval:", functionPayload);
-
-                    await invokePushNotification(functionPayload);
-
-                    console.log(`Supabase Edge Function execution triggered for event approval ${eventId}.`);
-                } else {
-                    console.log("No target user ID found for approval notification.");
-                }
-
-            } catch (pushError) {
-                console.error(`Failed to trigger Supabase function for event approval ${eventId}:`, pushError);
-                dispatch('notification/showNotification', {
-                    message: 'Event approved, but notification failed to send.',
-                    type: 'warning'
-                }, { root: true });
-            }
-        }
-        // --- Trigger Push Notification END ---
-
-    } catch (error: any) {
-        console.error(`Error approving request ${eventId}:`, error);
-         dispatch('notification/showNotification', {
-             message: `Failed to approve request: ${error.message || 'Unknown error'}`,
-             type: 'error'
-         }, { root: true });
-        throw error; // Re-throw original error
-    }
-}
-
-// --- ACTION: Reject Event Request (Admin Only) ---
-export async function rejectEventRequest({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, reason }: { eventId: string; reason?: string }): Promise<void> {
-    const currentUser: User | null = rootGetters['user/getUser'];
-    if (currentUser?.role !== 'Admin') throw new Error('Unauthorized.');
-    if (!eventId) throw new Error('Event ID required.');
-
-    try {
-        const eventRef = doc(db, 'events', eventId);
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) throw new Error('Request not found.');
-        if (eventSnap.data()?.status !== EventStatus.Pending) console.warn(`Rejecting non-pending event ${eventId}.`);
-
-        const updates: Partial<Event> = {
-            status: EventStatus.Rejected, rejectionReason: reason?.trim() || null, lastUpdatedAt: Timestamp.now(),
-        };
-        await updateDoc(eventRef, updates);
-        dispatch('updateLocalEvent', { id: eventId, changes: updates });
-
-        // --- Trigger Push Notification to requester START ---
-        if (isSupabaseConfigured()) {
-            try {
-                const eventData = eventSnap.data() as Event;
-                const requesterUid = eventData.requestedBy;
-                if (requesterUid && requesterUid !== currentUser.uid) {
-                    const functionPayload = {
-                        notificationType: 'eventRejected',
-                        targetUserIds: [requesterUid],
-                        eventId: eventId,
-                        messageTitle: `Event Request Rejected: ${eventData.details?.type || 'Event'}`,
-                        messageBody: `Your event request "${eventData.details?.type || 'Event'}" was rejected.${reason ? ' Reason: ' + reason : ''}`,
-                        eventUrl: `/event/${eventId}`,
-                    };
-                    console.log("Triggering Supabase Edge Function for event rejection:", functionPayload);
-                    await invokePushNotification(functionPayload);
-                    console.log(`Supabase Edge Function execution triggered for event rejection ${eventId}.`);
-                }
-            } catch (pushError) {
-                console.error(`Failed to trigger Supabase function for event rejection ${eventId}:`, pushError);
-                dispatch('notification/showNotification', {
-                    message: 'Event rejected, but failed to notify requester.',
-                    type: 'warning'
-                }, { root: true });
-            }
-        }
-        // --- Trigger Push Notification to requester END ---
-
-    } catch (error: any) {
-        console.error(`Error rejecting request ${eventId}:`, error);
-        throw error;
-    }
-}
-
-// --- ACTION: Cancel Event (Admin or Organizer) ---
+// --- ACTION: Cancel Event ( Organizer) ---
 export async function cancelEvent({ dispatch, rootGetters }: ActionContext<EventState, RootState>, eventId: string): Promise<void> {
     if (!eventId) throw new Error('Event ID required.');
     const eventRef = doc(db, 'events', eventId);
@@ -371,9 +208,8 @@ export async function cancelEvent({ dispatch, rootGetters }: ActionContext<Event
         fetchedEventData = { id: eventId, ...eventSnap.data() } as Event;
 
         const currentUser: User | null = rootGetters['user/getUser'];
-        const isAdmin = currentUser?.role === 'Admin';
         const isOrganizer = Array.isArray(fetchedEventData.details?.organizers) && fetchedEventData.details.organizers.includes(currentUser?.uid ?? '');
-        if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
+        if ( !isOrganizer) throw new Error("Permission denied.");
 
         if (![EventStatus.Approved, EventStatus.InProgress].includes(fetchedEventData.status as EventStatus)) throw new Error(`Cannot cancel event with status '${fetchedEventData.status}'.`);
 
@@ -446,9 +282,8 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
         fetchedEventData = { id: eventId, ...eventWithoutId }; // Store data before update
 
         const currentUser: User | null = rootGetters['user/getUser'];
-        const isAdmin = currentUser?.role === 'Admin';
         const isOrganizer = Array.isArray(currentEvent.details?.organizers) && currentEvent.details.organizers.includes(currentUser?.uid ?? '');
-        if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
+        if ( !isOrganizer) throw new Error("Permission denied.");
 
         const updates: Partial<Event> = { status: newStatus, lastUpdatedAt: Timestamp.now() };
         let notificationType: string | null = null;
@@ -486,7 +321,6 @@ export async function updateEventStatus({ dispatch, rootGetters }: ActionContext
                 await dispatch('cancelEvent', eventId);
                 return; // Exit early as cancelEvent handles everything
             case EventStatus.Approved: // Re-approving
-                if (!isAdmin) throw new Error("Only Admins can re-approve.");
                 if (currentEvent.status !== EventStatus.Cancelled) throw new Error(`Can only re-approve 'Cancelled' events.`);
                 if (!currentEvent.details?.date?.start || !currentEvent.details?.date?.end) throw new Error("Missing dates.");
                 const conflictResult = await dispatch('checkDateConflict', { startDate: currentEvent.details.date.start, endDate: currentEvent.details.date.end, excludeEventId: eventId });

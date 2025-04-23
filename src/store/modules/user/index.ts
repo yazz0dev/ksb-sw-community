@@ -13,7 +13,6 @@ const state: UserState = {
     // Core User Data Defaults
     uid: null,
     name: null,
-    role: null,
     isAuthenticated: false,
     hasFetched: false,
 
@@ -55,16 +54,13 @@ const state: UserState = {
 // Type annotations use the imported UserState
 const getters = {
     isAuthenticated: (state: UserState): boolean => state.isAuthenticated,
-    getUserRole: (state: UserState): string | null => state.role,
     getUser: (state: UserState) => ({ // Return immutable copies
         uid: state.uid,
         name: state.name,
-        role: state.role,
         xpByRole: state.xpByRole ? { ...state.xpByRole } : {},
         skills: state.skills ? [...state.skills] : [],
         preferredRoles: state.preferredRoles ? [...state.preferredRoles] : [],
     }),
-    isAdmin: (state: UserState): boolean => state.role === 'Admin',
     hasFetchedUserData: (state: UserState): boolean => state.hasFetched,
 
     getAllUsers: (state: UserState): User[] => state.allUsers, // Use User[] if defined in UserState
@@ -101,7 +97,6 @@ const mutations = {
     setUserData(state: UserState, userData: any) { // Keep 'any' for flexibility from DB/API
         state.uid = userData.uid || null;
         state.name = userData.name || null;
-        state.role = userData.role || null;
         state.isAuthenticated = !!userData.uid;
         state.hasFetched = true;
         state.loading = false;

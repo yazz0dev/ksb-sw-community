@@ -157,7 +157,7 @@ export const userActions: ActionTree<UserState, RootState> = {
             console.log(`Found ${querySnapshot.size} total user documents.`);
 
             const students = querySnapshot.docs
-                .filter(doc => doc.data().role !== 'Admin')
+                .filter(doc => doc.data())
                 .map(doc => ({
                     uid: doc.id, 
                     name: doc.data().name || 'Unnamed',

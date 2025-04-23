@@ -334,7 +334,6 @@ export async function submitTeamCriteriaRating({ rootGetters, dispatch }: Action
 
     const currentUser: User | null = rootGetters['user/getUser'];
     if (currentUser?.uid !== ratedBy) throw new Error("RatedBy ID mismatch.");
-    if (currentUser?.role === 'Admin') throw new Error("Admins cannot rate.");
 
     const eventRef = doc(db, 'events', eventId);
     try {
@@ -459,7 +458,6 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
     const currentUser: User | null = rootGetters['user/getUser'];
     const userId = currentUser?.uid;
     if (!userId) throw new Error('User must be logged in.');
-    if (currentUser?.role === 'Admin') throw new Error('Admins cannot rate organization.');
 
     const eventRef = doc(db, 'events', eventId);
     try {
@@ -468,7 +466,7 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
         const eventData = eventSnap.data() as Event;
         if (eventData.status !== EventStatus.Completed) throw new Error('Organization only rated for completed.');
 
-        // --- Permission: Only participants (not organizers/admins) can rate organization ---
+        // --- Permission: Only participants (not organizers) can rate organization ---
         let isParticipant = false;
         if (eventData.details.format === EventFormat.Team && eventData.teams) isParticipant = eventData.teams?.some(team => team.members?.includes(userId)) || false;
         else isParticipant = eventData.participants?.includes(userId) || false;
@@ -476,7 +474,7 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
         const organizers = eventData.details.organizers || [];
         const requester = eventData.requestedBy;
         const isOrganizer = organizers.includes(userId) || requester === userId;
-        if (!isParticipant || isOrganizer || currentUser?.role === 'Admin') throw new Error('Only participants (not organizers/admins) can rate organization.');
+        if (!isParticipant || isOrganizer ) throw new Error('Only participants (not organizers) can rate organization.');
 
         const organizationRatings = Array.isArray(eventData.ratings?.organizer) ? [...eventData.ratings.organizer] : [];
         const existingRatingIndex = organizationRatings.findIndex((r: OrganizerRating) => r.userId === userId);

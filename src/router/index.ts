@@ -5,8 +5,6 @@ import store from '../store';
 
 interface RouteMeta {
   requiresAuth?: boolean;
-  requiresAdmin?: boolean;
-  adminForbidden?: boolean;
   guestOnly?: boolean;
   roles?: string[];
   publicAccess?: boolean;
@@ -37,21 +35,16 @@ const routes: Array<RouteRecordRaw> = [
   { 
     path: '/edit-event/:eventId', 
     name: 'EditEvent', 
-    meta: { requiresAuth: true, roles: ['Admin'] }, // Ensure only admins can access
+    meta: { requiresAuth: true, roles: ['Student'] }, // Ensure only Organizer can access
     component: () => import('@/views/RequestEventView.vue'),
     props: true
   },
-  { 
-    path: '/manage-requests', 
-    name: 'ManageRequests', 
-    component: () => import('@/views/ManageRequestsView.vue'), 
-    meta: { requiresAuth: true, requiresAdmin: true } 
-  },
+
   {
     path: '/profile', 
     name: 'Profile',
     component: () => import('@/views/ProfileView.vue'), 
-    meta: { requiresAuth: true, adminForbidden: true } 
+    meta: { requiresAuth: true } 
   },
   {
     path: '/user/:userId', 
@@ -66,12 +59,6 @@ const routes: Array<RouteRecordRaw> = [
     name: 'EventsList',
     component: () => import('@/views/events/EventsListView.vue'),
     meta: { requiresAuth: false } // Allow access for logged-out users (they see completed)
-  },
-  {
-    path: '/admin/dashboard',
-    name: 'AdminDashboard',
-    component: () => import('@/views/AdminDashboardView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true }
   },
   { path: '/selection/:eventId/:teamId?', name: 'SelectionForm', component: () => import('@/views/events/SelectionForm.vue'), meta: { requiresAuth: true }, props: true },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFoundView.vue'), meta: { requiresAuth: false } },
@@ -113,20 +100,12 @@ router.beforeEach(async (
   }
 
   const isAuthenticated = store.getters['user/isAuthenticated'];
-  const isAdmin = store.getters['user/isAdmin'];
 
   if (to.meta.guestOnly && isAuthenticated) {
     next({ name: 'Home' }); return;
   }
   if (to.meta.requiresAuth && !isAuthenticated) {
     next({ name: 'Login' }); return;
-  }
-  if (to.meta.requiresAdmin && !isAdmin) {
-    next({ name: 'Home' }); return;
-  }
-  if (to.meta.adminForbidden && isAdmin) {
-    next({ name: 'Home' }); 
-    return;
   }
 
   next();

@@ -337,7 +337,7 @@ export interface NameCache {
   [key: string]: string;
 }
 
-// Define roles for XP allocation (excluding Admin/Organizer potentially)
+// Define roles for XP allocation (excluding Organizer potentially)
 const assignableXpRoles = ['developer', 'presenter', 'designer', 'problemSolver'] as const; // Use const assertion
 type AssignableXpRole = typeof assignableXpRoles[number];
 
@@ -391,7 +391,6 @@ const emit = defineEmits<{
 const availableStudents = computed<Student[]>(() => {
   const students = store.state.user.studentList || [];
   return students
-    .filter((s: any) => s.role !== 'Admin')
     .map((s: any) => ({
       uid: s.uid,
       name: s.name || s.email || s.uid
@@ -508,11 +507,10 @@ const filteredUsers = computed(() => {
   const all = store.state.user.allUsers || [];
   if (!Array.isArray(all)) return [];
 
-  // Use currentUserUid for exclusion and filter out admins
+  // Use currentUserUid for exclusion
   return all.filter((user: any) => {
     if (!user || !user.uid) return false;
     if (currentUserUid.value && user.uid === currentUserUid.value) return false;
-    if (user.role && user.role.toLowerCase() === 'admin') return false;
     if (formData.value.details.organizers.includes(user.uid)) return false;
     const nameMatch = user.name?.toLowerCase().includes(searchLower);
     const emailMatch = user.email?.toLowerCase().includes(searchLower);
@@ -688,9 +686,9 @@ const handleSubmit = (): void => {
     dataToSubmit.details.format === EventFormat.Individual &&
     (!Array.isArray(dataToSubmit.participants) || dataToSubmit.participants.length === 0)
   ) {
-    // Use availableStudents computed property, filter out admins, and take first 30
-    const students = (store.state.user.studentList || []).filter((s: any) => s.role !== 'Admin');
-    dataToSubmit.participants = students.slice(0, 30).map((s: any) => s.uid);
+    // Use availableStudents computed property 
+    const students = (store.state.user.studentList || [])
+    dataToSubmit.participants = students.map((s: any) => s.uid);
   }
 
   emit('submit', dataToSubmit);

@@ -265,7 +265,6 @@ const isCurrentUserOrganizer = computed(() => {
   return organizers.includes(currentUser.value.uid) || requester === currentUser.value.uid;
 });
 
-const isAdmin = computed(() => currentUser.value?.role === 'Admin');
 
 const canSubmitRating = computed(() => {
   if (!event.value || !currentUser.value) return false;
@@ -274,7 +273,7 @@ const canSubmitRating = computed(() => {
     return isCurrentUserOrganizer.value;
   } else {
     // Only organizers or admins can select individual winners
-    return isCurrentUserOrganizer.value || isAdmin.value;
+    return isCurrentUserOrganizer.value ;
   }
 });
 
@@ -301,7 +300,7 @@ const canSubmitSelection = computed(() => {
 
 const canFindWinner = computed(() => {
   // Only organizers or admins can find winner
-  return isOrganizer.value || isAdmin.value;
+  return isOrganizer.value ;
 });
 
 // Filter out self/team for selection
@@ -498,7 +497,7 @@ const initializeForm = async (): Promise<void> => {
       return;
     }
   } else {
-    if (!(isCurrentUserOrganizer.value || isAdmin.value)) {
+    if (!(isCurrentUserOrganizer.value )) {
       errorMessage.value = 'Only event organizers or admins can select winners for this event.';
       loading.value = false;
       return;

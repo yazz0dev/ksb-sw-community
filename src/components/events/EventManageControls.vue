@@ -1,7 +1,7 @@
 <template>
   <div v-if="shouldShowControls" class="event-manage-controls p-4 border bg-light rounded shadow-sm mb-4"> <!-- Added mb-4 -->
 
-    <!-- Status Management Section (For Admins/Organizers) -->
+    <!-- Status Management Section (For Organizers Only) -->
     <div v-if="showStatusManagementSection" class="mb-5">
       <h3 class="h4 text-primary mb-3">Event Management</h3>
       <div class="d-flex align-items-center mb-4">
@@ -55,7 +55,7 @@
       </p>
     </div>
 
-    <!-- Ratings & Closing Section (For Admins/Organizers AND Participants) -->
+    <!-- Ratings & Closing Section (For Organizers AND Participants) -->
     <div v-if="showRatingsClosingSection" :class="{ 'pt-5 border-top': showStatusManagementSection }"> <!-- Add border-top only if status section was shown -->
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="h4 text-primary mb-0">Ratings & Closing</h3>
@@ -64,7 +64,7 @@
         </span>
       </div>
       <div class="d-flex flex-wrap gap-2">
-        <!-- Open Ratings Button (Admin/Organizer) -->
+        <!-- Open Ratings Button (Organizer) -->
         <button
           v-if="showOpenRatingsButton"
           type="button"
@@ -76,7 +76,7 @@
           <i v-else class="fas fa-lock-open me-1"></i>
           <span>Open Ratings</span>
         </button>
-         <!-- Close Ratings Button (Admin/Organizer) -->
+         <!-- Close Ratings Button (Organizer) -->
         <button
           v-if="showCloseRatingsButton"
           type="button"
@@ -88,7 +88,7 @@
           <i v-else class="fas fa-lock me-1"></i>
           <span>Close Ratings</span>
         </button>
-        <!-- Find Winner Button (Admin/Organizer) -->
+        <!-- Find Winner Button (Organizer) -->
         <button
           v-if="showFindWinnerButton"
           type="button"
@@ -100,7 +100,7 @@
           <i v-else class="fas fa-trophy me-1"></i>
           <span>Find Winner</span>
         </button>
-        <!-- Close Event Button (Admin/Organizer) -->
+        <!-- Close Event Button (Organizer) -->
         <button
           v-if="showCloseEventButton"
           type="button"
@@ -189,7 +189,6 @@ export default {
     // --- User Role & Permissions ---
     const currentUserId = computed<string | null>(() => store.getters['user/userId']);
     const currentUserRole = computed<string | null>(() => store.getters['user/userRole']);
-    const isAdmin = computed(() => currentUserRole.value === 'Admin');
     const isOrganizer = computed(() =>
       props.event?.details?.organizers?.includes(currentUserId.value ?? '') || props.event?.requestedBy === currentUserId.value
     );
@@ -200,7 +199,7 @@ export default {
       }
       return props.event.participants?.includes(currentUserId.value);
     });
-    const canManageEvent = computed(() => isAdmin.value || isOrganizer.value);
+    const canManageEvent = computed(() => isOrganizer.value);
 
     // --- Event State Checks ---
     const isWithinEventDates = computed(() => {
@@ -247,7 +246,7 @@ export default {
     const hasWinners = computed(() => !!props.event?.winners && Object.keys(props.event.winners).length > 0);
 
     // --- Button Visibility Logic ---
-    // 1. Show "Start Event": Only for organizers/admins, when event is `Approved`, current date is within start/end.
+    // 1. Show "Start Event": Only for organizers, when event is `Approved`, current date is within start/end.
     const showStartButton = computed(() =>
       canManageEvent.value &&
       props.event?.status === EventStatus.Approved &&
@@ -255,14 +254,14 @@ export default {
       !props.event?.closedAt
     );
 
-    // 2. Show "Mark Complete": Only for organizers/admins, when event is `InProgress`.
+    // 2. Show "Mark Complete": Only for organizers, when event is `InProgress`.
     const showMarkCompleteButton = computed(() =>
       canManageEvent.value &&
       props.event?.status === EventStatus.InProgress &&
       !props.event?.closedAt
     );
 
-    // 3. Show "Open Ratings": Only for organizers/admins, when event is `Completed`, ratings are closed.
+    // 3. Show "Open Ratings": Only for organizers, when event is `Completed`, ratings are closed.
     const showOpenRatingsButton = computed(() =>
       canManageEvent.value &&
       props.event?.status === EventStatus.Completed &&
@@ -270,7 +269,7 @@ export default {
       !props.event?.closedAt
     );
 
-    // Show "Close Ratings": Only for organizers/admins, when event is `Completed`, ratings are open. (Implied opposite of #3)
+    // Show "Close Ratings": Only for organizers, when event is `Completed`, ratings are open.
     const showCloseRatingsButton = computed(() =>
         canManageEvent.value &&
         props.event?.status === EventStatus.Completed &&
@@ -278,7 +277,7 @@ export default {
         !props.event?.closedAt
     );
 
-    // 4. Show "Find Winner": Only for organizers/admins, when event is `Completed`, after ratings are closed, and at least 10 submissions exist.
+    // 4. Show "Find Winner": Only for organizers, when event is `Completed`, after ratings are closed, and at least 10 submissions exist.
     const showFindWinnerButton = computed(() =>
       canManageEvent.value &&
       props.event?.status === EventStatus.Completed &&
@@ -287,7 +286,7 @@ export default {
       !props.event?.closedAt
     );
 
-    // 5. Show "Organizer Rating": Only for participants (not admins), when event is `Completed`.
+    // 5. Show "Organizer Rating": Only for participants (not organizers), when event is `Completed`.
     const showParticipantOrganizerRating = computed(() =>
       !canManageEvent.value && // Participants are not managers
       isParticipant.value &&  // Must be a participant
@@ -296,7 +295,7 @@ export default {
       // Note: Original template showed this when ratings were open. Rule 5 doesn't specify. Assuming it's available once completed.
     );
 
-    // 6. Show "Winner Selection": Only for participants (not admins), when event is `Completed`, not closed, and ratings are open.
+    // 6. Show "Winner Selection": Only for participants (not organizers), when event is `Completed`, not closed, and ratings are open.
     const showParticipantWinnerSelection = computed(() =>
       !canManageEvent.value && // Participants are not managers
       isParticipant.value &&  // Must be a participant
@@ -305,7 +304,7 @@ export default {
       props.event?.ratingsOpen === true // Explicitly check if open
     );
 
-    // 7. Show "Close Event": Only for organizers/admins, when event is `Completed`, ratings are closed, and winners are selected.
+    // 7. Show "Close Event": Only for organizers, when event is `Completed`, ratings are closed, and winners are selected.
     const showCloseEventButton = computed(() =>
       canManageEvent.value &&
       props.event?.status === EventStatus.Completed &&
@@ -494,6 +493,7 @@ export default {
       confirmCancel,
       confirmCloseEvent,
       findWinnerAction, // Renamed to avoid conflict with computed prop name
+      EventStatus // <-- Add this line to expose EventStatus to the template
     };
   },
 };

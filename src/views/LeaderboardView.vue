@@ -78,7 +78,6 @@ import { formatRoleName } from '../utils/formatters';
 interface User {
     uid: string;
     name: string;
-    role: string;
     xpByRole?: Record<string, number>;
 }
 
@@ -120,10 +119,8 @@ onMounted(async () => {
             .map((doc: QueryDocumentSnapshot) => ({
                 uid: doc.id,
                 name: doc.data().name || 'Anonymous User',
-                role: doc.data().role || 'Student',
                 xpByRole: doc.data().xpByRole || {}
             }))
-            .filter(user => user.role !== 'Admin');
     } catch (error) {
         console.error("Error fetching leaderboard users:", error);
         users.value = [];

@@ -1,12 +1,11 @@
 // src/types/user.ts
 
-// Keep or refine your User interface
 export interface User {
   uid: string;
   name: string;
-  photoURL?: string; // Add profile photo URL
-  bio?: string; // Add user bio
-  socialLink?: string; // Add social media link (optional)
+  photoURL?: string;
+  bio?: string;
+  socialLink?: string;
   role?: string;
   xpByRole?: Record<string, number>;
   skills?: string[];
@@ -19,16 +18,15 @@ export interface UserData extends User {
   isAuthenticated: boolean;
 }
 
-// --- Updated UserState Interface ---
+// --- UserState Interface (for student/community users only) ---
 export interface UserState {
   // Core User Data
   uid: string | null;
   name: string | null;
-  role: string | null; // roles:  'Admin' | null('Student');
   isAuthenticated: boolean;
   hasFetched: boolean;
 
-  // Student Specific Data (or data relevant to non-Admins)
+  // Student Data
   xpByRole: Record<string, number>;
   skills: string[];
   preferredRoles: string[];
@@ -37,14 +35,14 @@ export interface UserState {
   lastXpCalculationTimestamp: number | null;
 
   // Student List Management
-  studentList: User[]; // Use User[] for better type safety
+  studentList: User[];
   studentListLastFetch: number | null;
   studentListTTL: number;
   studentListLoading: boolean;
-  studentListError: Error | null; // Use Error type
+  studentListError: Error | null;
 
   // General User List
-  allUsers: User[]; // Use User[] for better type safety
+  allUsers: User[];
 
   // Name Caching (Using Map structure)
   nameCache: Map<string, { name: string; timestamp: number }>;
@@ -52,10 +50,9 @@ export interface UserState {
 
   // General Loading/Error State
   loading: boolean;
-  error: Error | null; // Use Error type
+  error: Error | null;
 }
 
-// Add Record type for name cache
 export interface NameCacheEntry {
   name: string;
   timestamp: number;

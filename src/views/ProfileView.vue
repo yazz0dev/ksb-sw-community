@@ -12,17 +12,8 @@
         </button>
       </div>
 
-      <!-- Admin View Message -->
-      <div v-if="isAdminProfile" class="alert alert-info d-flex align-items-center" role="alert">
-        <i class="fas fa-user-shield fs-4 me-3"></i>
-         <div>
-            <h5 class="fw-semibold mb-1">Admin Account</h5>
-            <p class="small mb-0">Admin accounts do not have personal profiles. Access admin tools via the main navigation.</p>
-         </div>
-      </div>
-
       <!-- Standard User View -->
-      <template v-else>
+      <template>
         <!-- Header for Current User -->
         <div v-if="isCurrentUser" class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5 pb-4" style="border-bottom: 1px solid var(--bs-border-color);">
           <h2 class="h2 text-primary mb-0">My Profile</h2>
@@ -108,7 +99,6 @@ const router = useRouter();
 // --- State ---
 const targetUserId = ref<string | null>(null);
 const isCurrentUser = ref<boolean>(false);
-const isAdminProfile = ref<boolean>(false);
 const userProjectsForPortfolioButton = ref<Project[]>([]); // Use Project[] type
 const loadingProjectsForPortfolio = ref<boolean>(false);
 const eventParticipationCount = ref<number>(0); // State for event count
@@ -122,7 +112,6 @@ const error = ref<string>('');
 
 // --- Computed Properties ---
 const loggedInUserId = computed<string | null>(() => store.state.user.uid);
-const loggedInUserIsAdmin = computed<boolean>(() => store.getters['user/isAdmin']);
 
 const userForPortfolio = computed<UserData>(() => {
     if (!isCurrentUser.value) return {} as UserData;
@@ -218,22 +207,12 @@ const determineProfileContext = async () => {
         // Viewing someone else's profile (or own via /user/:userId)
         isCurrentUser.value = targetUid === loggedInUid;
         targetUserId.value = targetUid; // Assign the string value
-        isAdminProfile.value = false; // Public profiles are never "Admin" profiles in this context
         await fetchUserProfile(targetUid); // Fetch specific user profile
     } else if (loggedInUid && route.name === 'Profile') {
         // Viewing own profile via /profile
         isCurrentUser.value = true;
         targetUserId.value = loggedInUid;
-        isAdminProfile.value = loggedInUserIsAdmin.value; // Check if logged-in user is admin
-        if (!isAdminProfile.value) {
-            await fetchUserProfile(loggedInUid); // Fetch own profile if not admin
-        } else {
-            // Handle admin viewing their own "profile" page (might be different)
-            console.log("Admin viewing their profile page.");
-            // Reset or load admin-specific data if necessary
-            profileUser.value = null;
-            loading.value = false;
-        }
+        await fetchUserProfile(loggedInUid);
     } else {
         // No target user and not logged in or invalid route
         console.error("Cannot determine profile context.");
@@ -257,16 +236,11 @@ const fetchUserProfile = async (userIdToFetch: string) => {
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
             profileUser.value = { uid: userDocSnap.id, ...userDocSnap.data() } as UserData;
-            // Fetch projects and participation count only if viewing a student profile
-            if ((profileUser.value as any).role === 'Student') {
-                 await Promise.all([
-                     fetchUserProjectsForPortfolio(),
-                     fetchEventParticipationCount(userIdToFetch) // Fetch count concurrently
-                 ]);
-            } else {
-                 userProjectsForPortfolioButton.value = []; // Clear projects for non-students
-                 eventParticipationCount.value = 0; // Reset count for non-students
-            }
+            // Fetch projects and participation count for all users now
+            await Promise.all([
+                fetchUserProjectsForPortfolio(),
+                fetchEventParticipationCount(userIdToFetch)
+            ]);
         } else {
             error.value = 'User profile not found.';
             profileUser.value = null;

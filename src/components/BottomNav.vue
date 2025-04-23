@@ -13,7 +13,7 @@
 
       <!-- Event Request Link (Non-Admin Only) -->
       <router-link
-        v-if="isAuthenticated && !isAdmin"
+        v-if="isAuthenticated"
         to="/request-event"
         class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
         active-class="active"
@@ -36,7 +36,7 @@
 
       <!-- Profile (User Only) -->
       <router-link
-        v-if="typeof isAuthenticated === 'boolean' && typeof isAdmin === 'boolean' && isAuthenticated && !isAdmin"
+        v-if="typeof isAuthenticated === 'boolean'"
         to="/profile"
         class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
         active-class="active"
@@ -67,7 +67,6 @@ const store = useStore();
 const imgError = ref<boolean>(false);
 
 // Computed properties with type annotations
-const isAdmin = computed<boolean>(() => store.getters['user/isAdmin']);
 const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
 const userProfilePicUrl = computed<string | null>(() => store.getters['user/profilePictureUrl']);
 const userName = computed<string | null>(() => store.getters['user/getUser']?.name);

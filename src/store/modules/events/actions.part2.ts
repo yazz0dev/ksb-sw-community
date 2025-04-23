@@ -20,9 +20,6 @@ import {
 import { RootState } from '@/types/store';
 import { User } from '@/types/user';
 
-// --- Helper: Validate Organizers ---
-declare function validateOrganizersNotAdmin(organizerIds: string[]): Promise<void>;
-
 // --- Helper: Update Local State ---
 export function updateLocalEvent({ commit }: ActionContext<EventState, RootState>, { id, changes }: { id: string; changes: Partial<Event> }) {
     commit('addOrUpdateEvent', { id, ...changes });
@@ -30,7 +27,7 @@ export function updateLocalEvent({ commit }: ActionContext<EventState, RootState
     commit('updateCurrentEventDetails', { id, changes });
 }
 
-// --- ACTION: Update Event Details (Admin, Organizer, or Requester) ---
+// --- ACTION: Update Event Details (Organizer, or Requester) ---
 export async function updateEventDetails({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, updates }: { eventId: string; updates: Partial<Event> }): Promise<void> {
     if (!eventId) throw new Error('Event ID is required.');
     if (typeof updates !== 'object' || updates === null || Object.keys(updates).length === 0) return;
@@ -42,15 +39,13 @@ export async function updateEventDetails({ dispatch, rootGetters }: ActionContex
         const eventData = eventSnap.data() as Event;
 
         const currentUser: User | null = rootGetters['user/getUser'];
-        const isAdmin = currentUser?.role === 'Admin';
         const isOrganizer = Array.isArray(eventData.details?.organizers) && eventData.details.organizers.includes(currentUser?.uid ?? '');
         const isRequester = eventData.requestedBy === currentUser?.uid;
         const currentStatus = eventData.status as EventStatus;
         const editableStatuses: EventStatus[] = [EventStatus.Pending, EventStatus.Approved];
 
         let canEdit = false;
-        if (isAdmin && editableStatuses.includes(currentStatus)) canEdit = true;
-        else if (isOrganizer && editableStatuses.includes(currentStatus)) canEdit = true;
+        if (isOrganizer && editableStatuses.includes(currentStatus)) canEdit = true;
         else if (isRequester && currentStatus === EventStatus.Pending) canEdit = true;
         if (!canEdit) throw new Error(`Permission denied: Cannot edit status '${currentStatus}'.`);
 
@@ -112,9 +107,8 @@ export async function autoGenerateTeams({ dispatch, rootGetters }: ActionContext
         const eventData = eventSnap.data() as Event;
 
         const currentUser: User | null = rootGetters['user/getUser'];
-        const isAdmin = currentUser?.role === 'Admin';
         const isOrganizer = Array.isArray(eventData.details?.organizers) && eventData.details.organizers.includes(currentUser?.uid ?? '');
-        if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
+        if ( !isOrganizer) throw new Error("Permission denied.");
 
         if (![EventStatus.Pending, EventStatus.Approved].includes(eventData.status as EventStatus)) throw new Error(`Cannot generate teams for status '${eventData.status}'.`);
 
@@ -231,9 +225,8 @@ export async function addTeamToEvent({ dispatch, rootGetters }: ActionContext<Ev
         const eventData = eventSnap.data() as Event;
 
         const currentUser: User | null = rootGetters['user/getUser'];
-        const isAdmin = currentUser?.role === 'Admin';
         const isOrganizer = Array.isArray(eventData.details?.organizers) && eventData.details.organizers.includes(currentUser?.uid ?? '');
-        if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
+        if ( !isOrganizer) throw new Error("Permission denied.");
 
         if (![EventStatus.Pending, EventStatus.Approved].includes(eventData.status as EventStatus)) throw new Error(`Cannot add teams to status '${eventData.status}'.`);
 

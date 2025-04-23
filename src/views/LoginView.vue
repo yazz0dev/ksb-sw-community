@@ -97,15 +97,15 @@ const processLoginSuccess = async (user: UserCredential['user']): Promise<void> 
         await store.dispatch('user/fetchUserData', user.uid);
         console.log("Firebase user data fetch dispatched.");
 
-        // Proceed with routing based on Firebase role
-        const role = store.getters['user/getUserRole'];
-        if (role === 'Admin') {
-            router.replace({ name: 'AdminDashboard' });
-        } else {
-            router.replace({ name: 'Home' });
+        // Check if user data exists in Vuex after fetch
+        const userData = store.getters['user/getUser'];
+        if (!userData || !userData.uid) {
+            errorMessage.value = 'Your account exists in authentication, but no user profile was found. Please contact support or try registering again.';
+            return; // Do not navigate
         }
-        console.log(`Navigation to ${role === 'Admin' ? 'AdminDashboard' : 'Home'} attempted.`);
 
+        router.replace({ name: 'Home' });
+        console.log(`Navigation to 'Home' attempted.`);
     } catch (fetchError) {
         console.error("Error fetching user data after Firebase login:", fetchError);
         errorMessage.value = 'Login successful, but failed to load profile. Please try refreshing.';
