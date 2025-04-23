@@ -1,31 +1,9 @@
 <template>
-  <div id="app" class="d-flex flex-column app-container">
-    <OfflineStateHandler />
-    <NotificationSystem />
-
-    <div v-if="showPushPermissionPrompt" class="push-prompt-banner alert alert-info d-flex justify-content-between align-items-center p-2">
-      <span class="small">Enable push notifications for event updates?</span>
-      <div>
-        <button @click="requestPushPermission" class="btn btn-sm btn-light me-2">Enable</button>
-        <button @click="dismissPushPrompt" class="btn btn-sm btn-link text-secondary p-0" aria-label="Dismiss prompt">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    </div>
-
-    <nav
-      class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm fixed-top app-navbar"
-      :class="{ 'navbar-hidden': !showNavbar }"
-      role="navigation"
-      aria-label="main navigation"
-    >
-       <div class="container-lg">
-        <router-link
-          class="navbar-brand d-flex align-items-center app-navbar-brand"
-          to="/"
-        >
-          <i class="fas fa-users fa-lg me-2"></i>
-          <span class="fw-bold">KSB Community</span>
+  <div class="app-wrapper d-flex flex-column min-vh-100">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-2 px-3">
+      <div class="container-fluid">
+        <router-link class="navbar-brand fw-bold text-primary" :to="{ name: 'Home' }" @click="closeNavbar">
+          <span>KSB Tech Community</span>
         </router-link>
 
         <button
@@ -40,22 +18,10 @@
           <span class="navbar-toggler-icon"></span>
         </button>
 
-        <div
-          class="collapse navbar-collapse app-navbar-menu"
-          id="navbarNav"
-        >
+        <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item d-none d-lg-block">
-              <router-link
-                class="nav-link"
-                active-class="active fw-semibold"
-                to="/home"
-                v-if="isAuthenticated"
-                @click="closeNavbar"
-                @keyup.enter="closeNavbar"
-              >
-                Home
-              </router-link>
+            <li class="nav-item">
+              <router-link class="nav-link" :to="{ name: 'Home' }" @click="closeNavbar">Home</router-link>
             </li>
             <li class="nav-item" v-if="!isAuthenticated">
               <router-link
@@ -119,25 +85,6 @@
                   <span>{{ userName }}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
-                  <li v-if="!isAdmin">
-                    <router-link
-                      class="dropdown-item"
-                      :to="{ name: 'Profile' }"
-                      @click="closeNavbar"
-                    >
-                      <i class="fas fa-user fa-fw me-2"></i>Profile
-                    </router-link>
-                  </li>
-                  <li v-if="isAdmin">
-                    <router-link
-                      class="dropdown-item"
-                      :to="{ name: 'AdminDashboard' }"
-                       @click="closeNavbar"
-                    >
-                      <i class="fas fa-tachometer-alt fa-fw me-2"></i>Admin Dashboard
-                    </router-link>
-                  </li>
-                  <li><hr class="dropdown-divider"></li>
                   <li>
                     <button
                       class="dropdown-item"
@@ -155,11 +102,11 @@
     </nav>
 
     <main class="flex-grow-1 app-main-content">
-        <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
+      <router-view v-slot="{ Component }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </main>
 
     <BottomNav
@@ -208,7 +155,6 @@ const scrollThreshold = 50;
 const showPushPermissionPrompt = ref(false);
 
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-const isAdmin = computed(() => store.getters['user/isAdmin']);
 const userName = computed(() => store.getters['user/getUser']?.name || 'User');
 const userId = computed(() => store.getters['user/userId']);
 

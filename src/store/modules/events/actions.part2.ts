@@ -7,9 +7,7 @@ import {
     Timestamp,
     updateDoc,
     arrayUnion,
-    arrayRemove,
-    DocumentReference,
-    DocumentData,
+    arrayRemove
 } from 'firebase/firestore';
 import {
     EventStatus,
@@ -97,7 +95,7 @@ export async function updateEventDetails({ dispatch, rootGetters }: ActionContex
     }
 }
 
-// --- ACTION: Auto-Generate Teams (Admin or Organizer) - SIMPLIFIED ---
+// --- ACTION: Auto-Generate Teams (Organizer) -  ---
 export async function autoGenerateTeams({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, numberOfTeams, maxTeams = 8 }: {
     eventId: string;
     numberOfTeams: number;
@@ -217,7 +215,7 @@ export async function leaveEvent({ rootGetters, dispatch }: ActionContext<EventS
     }
 }
 
-// --- ACTION: Add Team to Event (Admin or Organizer) ---
+// --- ACTION: Add Team to Event (Organizer) ---
 export async function addTeamToEvent({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, teamName, members }: { eventId: string; teamName: string; members: string[] }): Promise<Team> {
     if (!eventId) throw new Error('Event ID required.');
     const trimmedTeamName = teamName?.trim();

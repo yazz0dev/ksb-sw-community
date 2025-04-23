@@ -45,10 +45,6 @@ async function validateOrganizersNotAdmin(organizerIds: string[] = []): Promise<
     await Promise.all(fetchPromises);
 }
 
-// --- Helper: Update Local State (defined in part2, but needed here) ---
-// We'll call dispatch('updateLocalEvent', ...) assuming it's defined in another part
-// Or, define it here if preferred, but keep it consistent. Let's assume it's in part2.
-
 
 // --- ACTION: Check if current user has existing pending/active requests ---
 export async function checkExistingRequests({ rootGetters }: ActionContext<EventState, RootState>): Promise<boolean> {
@@ -432,7 +428,7 @@ export async function cancelEvent({ dispatch, rootGetters }: ActionContext<Event
     }
 }
 
-// --- ACTION: Update Event Status (Admin or Organizer) ---
+// --- ACTION: Update Event Status (Organizer) ---
 export async function updateEventStatus({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, newStatus }: { eventId: string; newStatus: EventStatus }): Promise<void> {
     const validStatuses = Object.values(EventStatus);
     if (!validStatuses.includes(newStatus)) throw new Error(`Invalid status: ${newStatus}.`);

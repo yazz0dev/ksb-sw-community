@@ -216,7 +216,7 @@ async function _internalCloseEventPermanently(
     }
 }
 
-// --- ACTION: Toggle Ratings Open/Closed (Admin or Organizer) ---
+// --- ACTION: Toggle Ratings Open/Closed (Organizer only) ---
 export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, isOpen }: { eventId: string; isOpen: boolean }): Promise<{ status: 'success' | 'error'; message?: string }> {
     if (!eventId) throw new Error('Event ID required.');
     const eventRef = doc(db, 'events', eventId);
@@ -226,9 +226,9 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
         const currentEvent = eventSnap.data() as Event;
 
         const currentUser: User | null = rootGetters['user/getUser'];
-        const isAdmin = currentUser?.role === 'Admin';
+        // Only organizers can toggle
         const isOrganizer = currentEvent.details.organizers?.includes(currentUser?.uid ?? '') || false;
-        if (!isAdmin && !isOrganizer) throw new Error("Permission denied.");
+        if (!isOrganizer) throw new Error("Permission denied.");
 
         if (currentEvent.status !== EventStatus.Completed) throw new Error("Ratings only toggle for completed events.");
         if (currentEvent.closedAt) throw new Error("Cannot toggle ratings for a closed event.");
@@ -378,7 +378,7 @@ export async function submitTeamCriteriaRating({ rootGetters, dispatch }: Action
     }
 }
 
-// --- ACTION: Submit Individual Winners ---
+// --- ACTION: Submit Individual Winners (organizer only) ---
 export async function submitIndividualWinners({ rootGetters, dispatch }: ActionContext<EventState, RootState>, payload: {
     eventId: string; ratingType: 'individual_winners'; ratedBy: string; selections: Record<string, string[]>;
 }): Promise<void> {
@@ -399,12 +399,11 @@ export async function submitIndividualWinners({ rootGetters, dispatch }: ActionC
         if (eventData.closedAt) throw new Error("Cannot select winners for closed event.");
         if (eventData.details.format !== EventFormat.Individual) throw new Error("Winner selection only for individual events.");
 
-        // --- Permission: Only organizers (including requester) or admins can submit ---
+        // --- Permission: Only organizers (including requester) can submit ---
         const organizers = eventData.details.organizers || [];
         const requester = eventData.requestedBy;
         const isOrganizer = organizers.includes(ratedBy) || requester === ratedBy;
-        const isAdmin = currentUser?.role === 'Admin';
-        if (!(isOrganizer || isAdmin)) throw new Error("Only event organizers or admins can select winners.");
+        if (!isOrganizer) throw new Error("Only event organizers can select winners.");
 
         const updates: Partial<Event> = { winners: payload.selections, lastUpdatedAt: Timestamp.now() };
         await updateDoc(eventRef, updates);
@@ -499,12 +498,18 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
     }
 }
 
-// --- ACTION: Close Event Permanently (Public Action) ---
+// --- ACTION: Close Event Permanently (Organizer only) ---
 export async function closeEventPermanently(context: ActionContext<EventState, RootState>, { eventId }: { eventId: string }): Promise<CloseEventResult> {
     const { rootGetters } = context;
     const currentUser: User | null = rootGetters['user/getUser'];
-    if (currentUser?.role !== 'Admin') throw new Error("Unauthorized: Only Admins can permanently close events.");
-
+    // Only organizers can close
+    // Fetch event to check organizers
+    const eventRef = doc(db, 'events', eventId);
+    const eventSnap = await getDoc(eventRef);
+    if (!eventSnap.exists()) throw new Error('Event not found.');
+    const eventData = eventSnap.data() as Event;
+    const isOrganizer = eventData.details.organizers?.includes(currentUser?.uid ?? '') || false;
+    if (!isOrganizer) throw new Error("Unauthorized: Only organizers can permanently close events.");
     try {
         return await _internalCloseEventPermanently(context, eventId);
     } catch (error: any) {
@@ -595,18 +600,16 @@ export async function submitSelection({ rootGetters, dispatch }: ActionContext<E
     }
 }
 
-// --- ACTION: Find Winner (organizer/admin only) ---
+// --- ACTION: Find Winner (organizer only) ---
 export async function findWinner({ rootGetters, dispatch }: ActionContext<EventState, RootState>, { eventId }: { eventId: string }): Promise<void> {
     const currentUser: User | null = rootGetters['user/getUser'];
     const eventRef = doc(db, 'events', eventId);
     const eventSnap = await getDoc(eventRef);
     if (!eventSnap.exists()) throw new Error('Event not found.');
     const eventData = eventSnap.data() as Event;
-
-    // Only organizers or admins
+    // Only organizers can find winners
     const organizers = eventData.details.organizers || [];
     const requester = eventData.requestedBy;
     const isOrganizer = organizers.includes(currentUser?.uid ?? '') || requester === (currentUser?.uid ?? '');
-    const isAdmin = currentUser?.role === 'Admin';
-    if (!(isOrganizer || isAdmin)) throw new Error("Only organizers or admins can find winners.");
+    if (!isOrganizer) throw new Error("Only organizers can find winners.");
 }

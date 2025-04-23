@@ -1,130 +1,110 @@
 <template>
-  <section class="home-section py-5">
+  <div class="home-section">
     <div class="container-lg">
-      <!-- Loading State -->
-      <div v-if="loading" class="text-center py-5">
-        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="text-secondary mt-2">Loading...</p>
-      </div>
-
-      <!-- Content -->
-      <template v-else>
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 pb-4 header-border">
-          <!-- Left side -->
-          <div>
-            <h2 class="h2 text-primary mb-0"><i class="fas fa-calendar-alt me-2"></i>Events Dashboard</h2>
-          </div>
-          <!-- Right side -->
-          <div class="mt-3 mt-md-0 ms-md-auto">
-            <div class="d-flex flex-wrap justify-content-end gap-2">
-              <router-link
-                v-if="canRequestEvent && !isAdmin"
-                to="/request-event"
-                class="btn btn-primary d-inline-flex align-items-center"
-              >
-                <i class="fas fa-calendar-plus me-2"></i>
-                <span>{{ isAdmin ? 'Create Event' : 'Request Event' }}</span>
-              </router-link>
-              <router-link
-                v-if="isAdmin"
-                to="/manage-requests"
-                class="btn btn-outline-secondary d-inline-flex align-items-center"
-              >
-                <i class="fas fa-tasks me-2"></i>
-                <span>Manage Requests</span>
-              </router-link>
-            </div>
-          </div>
-        </div>
-
-        <!-- Event Sections -->
-        <div class="mb-5">
-          <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
+      <div class="row g-4 mb-4">
+        <div class="col-12 col-lg-8">
+          <div class="section-card shadow-sm rounded-4 p-4 animate-fade-in">
             <div class="d-flex justify-content-between align-items-center mb-4">
-              <h4 class="h4 text-dark mb-0"><i class="fas fa-bolt text-primary me-2"></i>Active Events</h4>
-              <router-link 
-                v-if="totalActiveCount > maxEventsPerSection" 
-                to="/events?filter=active" 
-                class="btn btn-link btn-sm text-decoration-none"
-              >
-                View All
-              </router-link>
-            </div>
-            <div v-if="activeEvents.length > 0" class="row g-3">
-              <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" />
+              <h2 class="h3 text-dark mb-0"><i class="fas fa-calendar-alt text-primary me-2"></i>Events</h2>
+              <div>
+                <router-link
+                  to="/request-event"
+                  class="btn btn-primary d-inline-flex align-items-center"
+                >
+                  <i class="fas fa-calendar-plus me-2"></i>
+                  <span>Request Event</span>
+                </router-link>
               </div>
             </div>
-            <p v-else class="text-secondary">No active events at the moment.</p>
-          </div>
-        </div>
 
-        <div class="mb-5">
-          <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-              <h4 class="h4 text-dark mb-0"><i class="fas fa-hourglass-half text-info me-2"></i>Upcoming Events</h4>
-              <router-link 
-                v-if="totalUpcomingCount > maxEventsPerSection" 
-                to="/events?filter=upcoming" 
-                class="btn btn-link btn-sm text-decoration-none"
-              >
-                View All
-              </router-link>
-            </div>
-            <div v-if="upcomingEvents.length > 0" class="row g-3">
-              <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" />
-              </div>
-            </div>
-            <p v-else class="text-secondary">No upcoming events scheduled.</p>
-          </div>
-        </div>
-
-        <div class="mb-5">
-          <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-              <h4 class="h4 text-dark mb-0"><i class="fas fa-check-circle text-success me-2"></i>Completed Events</h4>
-              <router-link 
-                v-if="totalCompletedCount > maxEventsPerSection"
-                to="/events?filter=completed" 
-                class="btn btn-link btn-sm text-decoration-none"
-              >
-                View All
-              </router-link>
-            </div>
-            <div v-if="completedEvents.length > 0" class="row g-3">
-              <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" />
-              </div>
-            </div>
-            <p v-else class="text-secondary">No completed events yet.</p>
-          </div>
-        </div>
-
-        <!-- Cancelled Events Section (Toggleable) -->
-        <div v-if="cancelledEvents.length > 0" class="mb-5">
-          <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
-            <button class="btn btn-link btn-sm text-decoration-none text-secondary mb-4" @click="showCancelled = !showCancelled">
-              <i class="fas fa-ban me-2"></i>
-              {{ showCancelled ? 'Hide' : 'Show' }} Cancelled Events
-              <i :class="['fas', showCancelled ? 'fa-chevron-up' : 'fa-chevron-down', 'ms-1']"></i>
-            </button>
-            <transition name="fade-fast">
-              <div v-if="showCancelled">
-                <div class="row g-3">
-                  <div v-for="event in cancelledEvents" :key="event.id" class="col-md-6 col-lg-4">
+            <!-- Event Sections -->
+            <div class="mb-5">
+              <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                  <h4 class="h4 text-dark mb-0"><i class="fas fa-bolt text-primary me-2"></i>Active Events</h4>
+                  <router-link 
+                    v-if="totalActiveCount > maxEventsPerSection" 
+                    to="/events?filter=active" 
+                    class="btn btn-link btn-sm text-decoration-none"
+                  >
+                    View All
+                  </router-link>
+                </div>
+                <div v-if="activeEvents.length > 0" class="row g-3">
+                  <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
                     <EventCard :event="event" />
                   </div>
                 </div>
+                <p v-else class="text-secondary">No active events at the moment.</p>
               </div>
-            </transition>
+            </div>
+
+            <div class="mb-5">
+              <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                  <h4 class="h4 text-dark mb-0"><i class="fas fa-hourglass-half text-info me-2"></i>Upcoming Events</h4>
+                  <router-link 
+                    v-if="totalUpcomingCount > maxEventsPerSection" 
+                    to="/events?filter=upcoming" 
+                    class="btn btn-link btn-sm text-decoration-none"
+                  >
+                    View All
+                  </router-link>
+                </div>
+                <div v-if="upcomingEvents.length > 0" class="row g-3">
+                  <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
+                    <EventCard :event="event" />
+                  </div>
+                </div>
+                <p v-else class="text-secondary">No upcoming events scheduled.</p>
+              </div>
+            </div>
+
+            <div class="mb-5">
+              <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                  <h4 class="h4 text-dark mb-0"><i class="fas fa-check-circle text-success me-2"></i>Completed Events</h4>
+                  <router-link 
+                    v-if="totalCompletedCount > maxEventsPerSection"
+                    to="/events?filter=completed" 
+                    class="btn btn-link btn-sm text-decoration-none"
+                  >
+                    View All
+                  </router-link>
+                </div>
+                <div v-if="completedEvents.length > 0" class="row g-3">
+                  <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
+                    <EventCard :event="event" />
+                  </div>
+                </div>
+                <p v-else class="text-secondary">No completed events yet.</p>
+              </div>
+            </div>
+
+            <!-- Cancelled Events Section (Toggleable) -->
+            <div v-if="cancelledEvents.length > 0" class="mb-5">
+              <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
+                <button class="btn btn-link btn-sm text-decoration-none text-secondary mb-4" @click="showCancelled = !showCancelled">
+                  <i class="fas fa-ban me-2"></i>
+                  {{ showCancelled ? 'Hide' : 'Show' }} Cancelled Events
+                  <i :class="['fas', showCancelled ? 'fa-chevron-up' : 'fa-chevron-down', 'ms-1']"></i>
+                </button>
+                <transition name="fade-fast">
+                  <div v-if="showCancelled">
+                    <div class="row g-3">
+                      <div v-for="event in cancelledEvents" :key="event.id" class="col-md-6 col-lg-4">
+                        <EventCard :event="event" />
+                      </div>
+                    </div>
+                  </div>
+                </transition>
+              </div>
+            </div>
           </div>
         </div>
-      </template>
+      </div>
     </div>
-  </section>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -142,7 +122,6 @@ const allEvents = computed<Event[]>(() => store.getters['events/allEvents']);
 const loading = ref<boolean>(true);
 const userRole = computed<string>(() => store.getters['user/getUserRole']);
 const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
-const isAdmin = computed<boolean>(() => userRole.value === 'Admin');
 const canRequestEvent = computed<boolean>(() => isAuthenticated.value);
 
 // Limit display on dashboard, use reasonable defaults

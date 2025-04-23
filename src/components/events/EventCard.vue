@@ -31,7 +31,7 @@
             <i class="fas fa-calendar-alt fa-fw me-1 text-muted"></i>{{ formatDateRange(event.details?.date?.start, event.details?.date?.end) }}
         </div>
       </div>
-      <p class="card-text small text-secondary mb-4 flex-grow-1">{{ truncatedDescription }}</p>
+      <div class="card-text small text-secondary mb-4 flex-grow-1" v-html="truncatedDescription"></div>
       <div class="d-flex justify-content-between align-items-center mt-auto pt-3 border-top">
         <router-link
           :to="{ name: 'EventDetails', params: { id: event.id } }"
@@ -53,6 +53,7 @@ import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { Timestamp } from 'firebase/firestore'; // <-- Add this import
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
+import { marked } from 'marked';
 
 // Define props using defineProps
 const props = defineProps({
@@ -82,11 +83,14 @@ const formatDateRange = (start: any, end: any): string => {
 // Truncate description
 const truncatedDescription = computed(() => {
   const maxLen = 90;
-  const desc = props.event?.details?.description || '';
+  let desc = props.event?.details?.description || '';
   if (desc.length > maxLen) {
-    return desc.substring(0, maxLen).trim() + '…';
+    desc = desc.substring(0, maxLen).trim() + '…';
   }
-  return desc || 'No description provided.';
+  desc = desc || 'No description provided.';
+    
+  // Use marked to render Markdown
+  return marked(desc);
 });
 
 // Participant count

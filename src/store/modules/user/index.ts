@@ -107,25 +107,15 @@ const mutations = {
         state.loading = false;
         state.error = null; // Clear error on success
 
-        if (state.role === 'Admin') {
-            state.xpByRole = {};
-            state.skills = [];
-            state.preferredRoles = [];
-        } else if (state.role === 'Student') { // Or check if role is not Admin
-            const dbXp = userData.xpByRole || {};
-            const expectedRoles = ['developer', 'presenter', 'designer', 'organizer', 'problemSolver', 'participation'];
-            state.xpByRole = expectedRoles.reduce((acc, key) => {
-                acc[key] = Number(dbXp[key]) || 0;
-                return acc;
-            }, {} as Record<string, number>);
-            state.skills = Array.isArray(userData.skills) ? userData.skills : [];
-            state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
-        } else {
-             // Handle other roles or null roles - clear student-specific data
-            state.xpByRole = {};
-            state.skills = [];
-            state.preferredRoles = [];
-        }
+        // Only handle student fields
+        const dbXp = userData.xpByRole || {};
+        const expectedRoles = ['developer', 'presenter', 'designer', 'organizer', 'problemSolver', 'participation'];
+        state.xpByRole = expectedRoles.reduce((acc, key) => {
+            acc[key] = Number(dbXp[key]) || 0;
+            return acc;
+        }, {} as Record<string, number>);
+        state.skills = Array.isArray(userData.skills) ? userData.skills : [];
+        state.preferredRoles = Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [];
     },
 
     SET_LOADING(state: UserState, isLoading: boolean) {

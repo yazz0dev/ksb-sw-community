@@ -1,6 +1,6 @@
 import { ActionTree } from 'vuex';
 import { UserState, UserData, User, NameCacheMap } from '@/types/user';
-import { RootState } from '@/store/types';
+import { RootState } from '@/types/store';
 import { db } from '../../../firebase';
 import { 
     doc, 

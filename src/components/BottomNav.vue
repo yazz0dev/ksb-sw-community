@@ -1,80 +1,62 @@
 <template>
-    <nav
-        class="bottom-navbar fixed-bottom d-flex justify-content-around align-items-center shadow-sm d-lg-none bg-light"
-        role="navigation" 
-        aria-label="bottom navigation"
-    >
-        <!-- Using a simple div container for flex items -->
-        <div class="d-flex justify-content-around align-items-stretch w-100 h-100">
-            <!-- Home -->
-            <router-link
-                to="/home"
-                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
-                active-class="active"
-                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
-            >
-                <span class="fs-4 mb-1"><i class="fas fa-home"></i></span>
-                <span class="fs-7">Home</span>
-            </router-link>
+  <nav class="bottom-nav navbar fixed-bottom navbar-light bg-white shadow-lg d-flex d-lg-none">
+    <div class="container-fluid d-flex justify-content-between align-items-center px-0">
+      <router-link
+        to="/"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+        active-class="active"
+        style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
+      >
+        <span class="fs-4 mb-1"><i class="fas fa-home"></i></span>
+        <span class="fs-7">Home</span>
+      </router-link>
 
-            <!-- Event Request Link (Non-Admin Only) -->
-            <router-link
-                v-if="isAuthenticated && !isAdmin"
-                to="/request-event"
-                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
-                active-class="active"
-                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
-            >
-                <span class="fs-4 mb-1"><i class="fas fa-calendar-plus"></i></span>
-                <span class="fs-7">Request</span>
-            </router-link>
+      <!-- Event Request Link (Non-Admin Only) -->
+      <router-link
+        v-if="isAuthenticated && !isAdmin"
+        to="/request-event"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+        active-class="active"
+        style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
+      >
+        <span class="fs-4 mb-1"><i class="fas fa-calendar-plus"></i></span>
+        <span class="fs-7">Request</span>
+      </router-link>
 
-            <!-- Leaderboard -->
-            <router-link
-                to="/leaderboard"
-                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
-                active-class="active"
-                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
-            >
-                <span class="fs-4 mb-1"><i class="fas fa-trophy"></i></span>
-                <span class="fs-7">Leaderboard</span>
-            </router-link>
+      <!-- Leaderboard -->
+      <router-link
+        to="/leaderboard"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+        active-class="active"
+        style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
+      >
+        <span class="fs-4 mb-1"><i class="fas fa-trophy"></i></span>
+        <span class="fs-7">Leaderboard</span>
+      </router-link>
 
-            <!-- Manage Requests/Admin Dashboard (Admin Only) -->
-            <router-link
-                v-if="isAdmin != null && isAdmin"
-                to="/admin/dashboard" 
-                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
-                active-class="active"
-                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
-            >
-                <span class="fs-4 mb-1"><i class="fas fa-tachometer-alt"></i></span>
-                <span class="fs-7">Admin</span>
-            </router-link>
-
-            <!-- Profile (User Only) -->
-            <router-link
-                v-if="typeof isAuthenticated === 'boolean' && typeof isAdmin === 'boolean' && isAuthenticated && !isAdmin"
-                to="/profile"
-                class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
-                active-class="active"
-                style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
-            >
-                <!-- Profile Pic or Icon -->
-                <figure v-if="userProfilePicUrl && !imgError" class="mb-1 profile-pic-figure">
-                    <img 
-                        class="rounded-circle" 
-                        :src="userProfilePicUrl" 
-                        :alt="userName || 'Profile'" 
-                        style="border: 1px solid var(--bs-border-color); object-fit: cover; width: 28px; height: 28px;" 
-                        @error="handleImageError" 
-                    />
-                </figure>
-                <span v-else class="fs-4 mb-1"><i class="fas fa-user-circle"></i></span>
-                <span class="fs-7">Profile</span>
-            </router-link>
-        </div>
-    </nav>
+      <!-- Profile (User Only) -->
+      <router-link
+        v-if="typeof isAuthenticated === 'boolean' && typeof isAdmin === 'boolean' && isAuthenticated && !isAdmin"
+        to="/profile"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+        active-class="active"
+        style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
+      >
+        <!-- Profile Pic or Icon -->
+        <figure v-if="userProfilePicUrl && !imgError" class="mb-1 profile-pic-figure">
+          <img 
+            class="rounded-circle" 
+            :src="userProfilePicUrl" 
+            :alt="userName || 'Profile'" 
+            style="border: 1px solid var(--bs-border-color); object-fit: cover; width: 28px; height: 28px;" 
+            @error="handleImageError" 
+          />
+        </figure>
+        <span v-else class="fs-4 mb-1"><i class="fas fa-user-circle"></i></span>
+        <span class="fs-7">Profile</span>
+      </router-link>
+    </div>
+  </nav>
 </template>
 
 <script setup lang="ts">
@@ -91,16 +73,18 @@ const userProfilePicUrl = computed<string | null>(() => store.getters['user/prof
 const userName = computed<string | null>(() => store.getters['user/getUser']?.name);
 
 const handleImageError = (): void => {
-    imgError.value = true;
-    console.warn('Failed to load profile image:', userProfilePicUrl.value);
+  imgError.value = true;
+  console.warn('Failed to load profile image:', userProfilePicUrl.value);
 };
 
 const handleNavClick = (): void => {
-    const navbar = document.getElementById('navbarNav');
-    if (navbar?.classList.contains('show')) {
-        const collapse = window.bootstrap?.Collapse.getInstance(navbar);
-        if (collapse) collapse.hide();
+  const navbar = document.getElementById('navbarNav');
+  if (navbar?.classList.contains('show')) {
+    if (window.bootstrap && window.bootstrap.Collapse) {
+      const collapse = window.bootstrap.Collapse.getInstance(navbar);
+      if (collapse) collapse.hide();
     }
+  }
 };
 </script>
 
