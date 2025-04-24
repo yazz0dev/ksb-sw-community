@@ -1,6 +1,6 @@
 <template>
   <div class="app-wrapper d-flex flex-column min-vh-100">
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-2 px-3">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-2 px-3 fixed-top">
       <div class="container-fluid">
         <router-link class="navbar-brand fw-bold text-primary" :to="{ name: 'Home' }" @click="closeNavbar">
           <span>KSB Tech Community</span>
@@ -101,10 +101,10 @@
       </div>
     </nav>
 
-    <main class="flex-grow-1 app-main-content">
+    <main class="flex-grow-1 app-main-content pt-5">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
-          <component :is="Component" />
+          <component :is="Component" :key="route.fullPath" />
         </transition>
       </router-view>
     </main>
@@ -119,7 +119,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
 
 import BottomNav from './components/BottomNav.vue';
@@ -148,6 +148,7 @@ declare global {
 
 const store = useStore();
 const router = useRouter();
+const route = useRoute();
 
 const showNavbar = ref(true);
 const lastScrollPosition = ref(0);

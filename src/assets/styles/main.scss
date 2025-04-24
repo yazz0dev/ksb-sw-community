@@ -106,6 +106,25 @@ body {
   font-family: $font-family-sans-serif; // Apply your font family
 }
 
+// Custom spacing classes for navbar spacing
+.app-main-content {
+  padding-top: 4rem; // Default for mobile (64px navbar)
+  padding-bottom: 4rem; // Default for mobile (64px bottom nav)
+
+  @include media-breakpoint-up(lg) {
+    padding-top: 4.5rem; // Slightly taller on larger screens
+    padding-bottom: 0; // No bottom nav on larger screens
+  }
+}
+
+// Custom viewport height classes 
+.min-vh-100-subtract-nav {
+  min-height: calc(100vh - 8rem);
+  @include media-breakpoint-up(lg) {
+    min-height: calc(100vh - 4.5rem);
+  }
+}
+
 // Apply hover styles using Bootstrap variables
 .card {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;

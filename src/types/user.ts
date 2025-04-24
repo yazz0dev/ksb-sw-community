@@ -6,16 +6,31 @@ export interface User {
   photoURL?: string;
   bio?: string;
   socialLink?: string;
-  role?: string;
   xpByRole?: Record<string, number>;
   skills?: string[];
   preferredRoles?: string[];
   isAuthenticated?: boolean;
   lastXpCalculationTimestamp?: number | null;
+  /**
+   * Array of event IDs the user has participated in
+   */
+  participatedEvent?: string[];
+  /**
+   * Array of event IDs the user has organized
+   */
+  organizedEvent?: string[];
 }
 
 export interface UserData extends User {
   isAuthenticated: boolean;
+  /**
+   * Array of event IDs the user has participated in
+   */
+  participatedEvent?: string[];
+  /**
+   * Array of event IDs the user has organized
+   */
+  organizedEvent?: string[];
 }
 
 // --- UserState Interface (for student/community users only) ---

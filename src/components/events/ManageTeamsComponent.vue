@@ -82,22 +82,20 @@
         </button>
       </div>
 
-      <!-- Auto-Generate Section -->
-      <div v-if="canAutoGenerate">
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          <label for="numberOfTeamsInput" class="form-label mb-0">Generate</label>
-          <input id="numberOfTeamsInput" class="form-control form-control-sm" type="number" v-model.number="numberOfTeamsToGenerate" style="width: 5em;"
-            :min="1" :max="maxTeamsToGenerate" :disabled="isSubmitting || teams.length >= maxTeams" />
-          <label for="numberOfTeamsInput" class="form-label mb-0">Teams</label>
-          <button type="button" class="btn btn-sm btn-outline-info d-inline-flex align-items-center"
-            :disabled="isSubmitting || !canGenerateAnyTeam || !hasValidEventId || teams.length >= maxTeams"
-            :title="autoGenerateButtonTitle"
-            @click="handleAutoGenerate">
-            <i class="fas fa-random me-1"></i>
-            <span>Auto-Generate</span>
-          </button>
-        </div>
-      </div>
+      <!-- Simplified Auto-Generate Section -->
+<div class="d-flex flex-wrap align-items-center gap-2 my-2">
+  <label for="simpleNumTeams" class="form-label mb-0">Auto-generate</label>
+  <input id="simpleNumTeams" class="form-control form-control-sm" type="number" v-model.number="numberOfTeamsToGenerate" style="width: 5em;"
+    :min="1" :max="maxTeams" :disabled="isSubmitting || teams.length >= maxTeams || students.length === 0" />
+  <label for="simpleNumTeams" class="form-label mb-0">teams</label>
+  <button type="button" class="btn btn-sm btn-outline-info d-inline-flex align-items-center"
+    :disabled="isSubmitting || students.length === 0 || numberOfTeamsToGenerate < 1 || teams.length >= maxTeams"
+    title="Distribute all students randomly into the specified number of teams."
+    @click="simpleAutoGenerateTeams">
+    <i class="fas fa-random me-1"></i>
+    <span>Auto-Generate</span>
+  </button>
+</div>
     </div>
     <p v-if="teams.length >= maxTeams" class="form-text text-warning mt-2">Maximum number of teams ({{ maxTeams }})
       reached.</p>
@@ -145,26 +143,32 @@ const maxTeams = 8; // Overall maximum teams allowed for the event
 const minMembersPerTeam = 2;
 const maxMembersPerTeam = 8; // Updated max members per team
 
-// Calculate max number of teams that can be generated
-const maxTeamsToGenerate = computed(() => {
-  const availableSlots = maxTeams - teams.value.length;
-  const studentCount = Array.isArray(props.students) ? props.students.length : 0;
-  const assignedMembersCount = teams.value.flatMap(t => t.members || []).length;
-  const availableStudentsCount = studentCount - assignedMembersCount;
-  // Max teams is limited by available slots and available students (min 2 per team)
-  const maxFromStudents = Math.floor(availableStudentsCount / minMembersPerTeam);
-  return Math.max(0, Math.min(availableSlots, maxFromStudents)); // Ensure non-negative
-});
-
-// Check if *any* new team can be generated (basic check for enabling button)
-const canGenerateAnyTeam = computed(() => {
-  const studentCount = Array.isArray(props.students) ? props.students.length : 0;
-  const assignedMembersCount = teams.value.flatMap(t => t.members || []).length;
-  const availableStudentsCount = studentCount - assignedMembersCount;
-  return availableStudentsCount >= minMembersPerTeam && teams.value.length < maxTeams; // Enough students and slots available?
-});
-
-const hasValidEventId = computed(() => Boolean(props.eventId?.trim()));
+// --- Simplified Auto-Generate Logic ---
+const simpleAutoGenerateTeams = () => {
+  const numTeams = numberOfTeamsToGenerate.value;
+  if (!numTeams || numTeams < 1) {
+    emit('error', 'Please enter a valid number of teams to generate (must be > 0).');
+    return;
+  }
+  // Ensure enough students for the requested teams
+  if (props.students.length < numTeams * minMembersPerTeam) {
+    emit('error', `Not enough students to generate ${numTeams} teams with at least ${minMembersPerTeam} members each.`);
+    return;
+  }
+  const shuffled = [...props.students].sort(() => Math.random() - 0.5);
+  const teamsArr = Array.from({ length: numTeams }, () => [] as string[]);
+  // Distribute students round-robin
+  shuffled.forEach((student, idx) => {
+    teamsArr[idx % numTeams].push(student.uid);
+  });
+  teams.value = teamsArr.map((members, i) => ({
+    name: `Team ${i + 1}`,
+    members,
+    teamLead: members[0] || ''
+  }));
+  emitTeamsUpdate();
+};
+// --- End Simplified Auto-Generate Logic ---
 
 // --- Button Titles ---
 const addTeamButtonTitle = computed(() => {
@@ -175,21 +179,18 @@ const addTeamButtonTitle = computed(() => {
 });
 
 const autoGenerateButtonTitle = computed(() => {
-  if (!hasValidEventId.value) {
+  if (!props.eventId) {
     return 'Please save the event first before generating teams';
   }
   if (teams.value.length >= maxTeams) {
      return `Maximum number of teams (${maxTeams}) already reached.`;
   }
-  if (!canGenerateAnyTeam.value) {
-    // Check why it's disabled
-    const studentCount = Array.isArray(props.students) ? props.students.length : 0;
-    const assignedMembersCount = teams.value.flatMap(t => t.members || []).length;
-    const availableStudentsCount = studentCount - assignedMembersCount;
-    if (availableStudentsCount < minMembersPerTeam) {
-        return `Not enough available students (${availableStudentsCount}) to generate new teams (minimum ${minMembersPerTeam} required).`;
-    }
-    return 'Cannot generate more teams.'; // Generic fallback if disabled for other reasons
+  // Check if enough students are available for at least one team
+  const studentCount = Array.isArray(props.students) ? props.students.length : 0;
+  const assignedMembersCount = teams.value.flatMap(t => t.members || []).length;
+  const availableStudentsCount = studentCount - assignedMembersCount;
+  if (availableStudentsCount < minMembersPerTeam) {
+      return `Not enough available students (${availableStudentsCount}) to generate new teams (minimum ${minMembersPerTeam} required).`;
   }
   if (props.isSubmitting) {
     return 'Processing...';
@@ -257,43 +258,6 @@ const emitTeamsUpdate = () => {
   emit('update:teams', JSON.parse(JSON.stringify(teams.value)));
 };
 
-const handleAutoGenerate = async () => {
-  try {
-    if (!hasValidEventId.value) {
-      throw new Error('Please save the event first before generating teams.');
-    }
-    if (teams.value.length >= maxTeams) {
-      throw new Error(`Maximum number of teams (${maxTeams}) already reached.`);
-    }
-    if (!numberOfTeamsToGenerate.value || numberOfTeamsToGenerate.value <= 0) {
-      throw new Error('Please enter a valid number of teams to generate (must be > 0).');
-    }
-    // Input validation against dynamic max
-    if (numberOfTeamsToGenerate.value > maxTeamsToGenerate.value) {
-        throw new Error(`Cannot generate ${numberOfTeamsToGenerate.value} teams. Maximum possible is ${maxTeamsToGenerate.value} based on available students and slots.`);
-    }
-
-    // Dispatch the simplified action
-    const finalTeamsData: EventTeamType[] = await store.dispatch('events/autoGenerateTeams', {
-      eventId: props.eventId!,
-      numberOfTeams: numberOfTeamsToGenerate.value, // Pass the number requested
-      maxTeams: maxTeams // Pass the overall max teams limit
-    });
-
-    // Action now returns the final, complete list of teams (EventTeamType[])
-    // Update the local state directly with the result from the action
-    teams.value = finalTeamsData.map(team => ({
-        name: team.teamName || '',
-        members: Array.isArray(team.members) ? [...team.members] : [],
-        teamLead: '' // Initialize team lead
-    }));
-    emitTeamsUpdate(); // Emit the updated list
-
-  } catch (error) {
-    console.error('Error generating teams:', error);
-    emit('error', error instanceof Error ? error.message : 'Failed to generate teams');
-  }
-};
 
 const availableStudentsForTeam = (teamIndex: number): Student[] => {
   if (!Array.isArray(props.students)) return [];

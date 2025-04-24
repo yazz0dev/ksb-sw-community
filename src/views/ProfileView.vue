@@ -1,5 +1,5 @@
 <template>
-  <div class="py-3 py-md-5 profile-section" style="background-color: var(--bs-body-bg); min-height: calc(100vh - 8rem);">
+  <div class="py-3 py-md-5 profile-section bg-body min-vh-100-subtract-nav">
     <div class="container-lg">
       <!-- Back Button -->
       <div v-if="!isCurrentUser" class="mb-5">
@@ -13,49 +13,48 @@
       </div>
 
       <!-- Standard User View -->
-      <template>
-        <!-- Header for Current User -->
-        <div v-if="isCurrentUser" class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5 pb-4" style="border-bottom: 1px solid var(--bs-border-color);">
-          <h2 class="h2 text-primary mb-0">My Profile</h2>
-          <!-- Portfolio Button Area -->
-          <div class="d-flex align-items-center">
-            <PortfolioGeneratorButton
-              v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
-              :user="userForPortfolio"
-              :projects="userProjectsForPortfolio"
-              :event-participation-count="eventParticipationCount"  />
-            <p v-else-if="loadingProjectsForPortfolio || loadingEventCount" class="small text-secondary fst-italic ms-2 mb-0">
-              Loading portfolio data...
-            </p>
+      <!-- Main Content Block (removed extra <template> tag) -->
+      <!-- Header for Current User -->
+      <div v-if="isCurrentUser" class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5 pb-4 border-bottom">
+        <h2 class="h2 text-primary mb-0">My Profile</h2>
+        <!-- Portfolio Button Area -->
+        <div class="d-flex align-items-center">
+          <PortfolioGeneratorButton
+            v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
+            :user="userForPortfolio"
+            :projects="userProjectsForPortfolio"
+            :event-participation-count="eventParticipationCount"  />
+          <p v-else-if="loadingProjectsForPortfolio || loadingEventCount" class="small text-secondary fst-italic ms-2 mb-0">
+            Loading portfolio data...
+          </p>
 
-          </div>
         </div>
+      </div>
 
-        <!-- Profile Content -->
-        <ProfileViewContent v-if="targetUserId" :user-id="targetUserId" :is-current-user="isCurrentUser">
-           <!-- Slot for Additional Content (e.g., User Requests) -->
-           <template #additional-content v-if="isCurrentUser">
-             <AuthGuard>
-                <div class="card mt-5">
-                  <div class="card-header requests-card-header">
-                     <h6 class="mb-0 d-flex align-items-center">
-                       <i class="fas fa-paper-plane text-primary me-2"></i>
-                       My Event Requests
-                     </h6>
-                  </div>
-                  <div class="card-body p-0"> <!-- Bootstrap uses card-body -->
-                     <UserRequests />
-                  </div>
-                </div>
-             </AuthGuard>
-           </template>
-        </ProfileViewContent>
+      <!-- Profile Content -->
+      <ProfileViewContent v-if="targetUserId" :user-id="targetUserId" :is-current-user="isCurrentUser" @hook:mounted="() => { console.log('[ProfileView] ProfileViewContent mounted, targetUserId:', targetUserId); }">
+        <!-- Slot for Additional Content (e.g., User Requests) -->
+        <template #additional-content v-if="isCurrentUser">
+          <AuthGuard>
+            <div class="card mt-5">
+              <div class="card-header requests-card-header">
+                <h6 class="mb-0 d-flex align-items-center">
+                  <i class="fas fa-paper-plane text-primary me-2"></i>
+                  My Event Requests
+                </h6>
+              </div>
+              <div class="card-body p-0"> <!-- Bootstrap uses card-body -->
+                <UserRequests />
+              </div>
+            </div>
+          </AuthGuard>
+        </template>
+      </ProfileViewContent>
 
-        <!-- Fallback if no target user -->
-        <p v-else class="text-center text-secondary py-5">
-          Could not determine user profile to display.
-        </p>
-      </template>
+      <!-- Fallback if no target user -->
+      <p v-else class="text-center text-secondary py-5">
+        Could not determine user profile to display.
+      </p>
     </div>
   </div>
 </template>
@@ -103,7 +102,6 @@ const userProjectsForPortfolioButton = ref<Project[]>([]); // Use Project[] type
 const loadingProjectsForPortfolio = ref<boolean>(false);
 const eventParticipationCount = ref<number>(0); // State for event count
 const loadingEventCount = ref<boolean>(false); // Loading state for count
-const isGeneratingTempPortfolio = ref<boolean>(false); // Loading state for temp button
 
 // --- Add missing refs for profileUser, loading, error ---
 const profileUser = ref<UserData | null>(null);
@@ -168,31 +166,24 @@ const fetchUserProjectsForPortfolio = async () => {
 const fetchEventParticipationCount = async (userId: string) => {
     if (!userId) return 0;
     loadingEventCount.value = true;
-    let count = 0;
+    let participatedCount = 0;
+    let organizedCount = 0;
     try {
-        // Query for events organized by the user
-        const organizedEventsQuery = query(collection(db, 'events'), where('organizerId', '==', userId));
-        const organizedEventsSnap = await getCountFromServer(organizedEventsQuery);
-        const organizedCount = organizedEventsSnap.data().count;
-
-
-        // Option 2: Subcollection 'participants' under each 'events' document
-        // This requires a collectionGroup query
-        const participatedEventsQuery = query(collectionGroup(db, 'participants'), where('userId', '==', userId));
-        const participatedEventsSnap = await getCountFromServer(participatedEventsQuery);
-        const participatedCount = participatedEventsSnap.data().count;
-
-        // Simple sum for now. Refine if duplicate counting (organizer also participant) is an issue.
-        count = organizedCount + participatedCount;
-        eventParticipationCount.value = count;
-
+        // Fetch user doc and count participated/organized events from user fields
+        const userDocRef = doc(db, 'users', userId);
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists()) throw new Error('User profile not found.');
+        const data = userDocSnap.data();
+        participatedCount = Array.isArray(data.participatedEvent) ? data.participatedEvent.length : 0;
+        organizedCount = Array.isArray(data.organizedEvent) ? data.organizedEvent.length : 0;
+        eventParticipationCount.value = participatedCount + organizedCount;
     } catch (err) {
         console.error("Error fetching event participation count:", err);
         eventParticipationCount.value = 0; // Reset on error
     } finally {
         loadingEventCount.value = false;
     }
-    return count; // Return the count if needed elsewhere
+    return eventParticipationCount.value;
 };
 
 

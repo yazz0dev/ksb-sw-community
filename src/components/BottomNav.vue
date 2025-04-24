@@ -3,9 +3,8 @@
     <div class="container-fluid d-flex justify-content-between align-items-center px-0">
       <router-link
         to="/"
-        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill text-secondary nav-link-transition"
         active-class="active"
-        style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
       >
         <span class="fs-4 mb-1"><i class="fas fa-home"></i></span>
         <span class="fs-7">Home</span>
@@ -15,9 +14,8 @@
       <router-link
         v-if="isAuthenticated"
         to="/request-event"
-        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill text-secondary nav-link-transition"
         active-class="active"
-        style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
       >
         <span class="fs-4 mb-1"><i class="fas fa-calendar-plus"></i></span>
         <span class="fs-7">Request</span>
@@ -26,9 +24,8 @@
       <!-- Leaderboard -->
       <router-link
         to="/leaderboard"
-        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill text-secondary nav-link-transition"
         active-class="active"
-        style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
       >
         <span class="fs-4 mb-1"><i class="fas fa-trophy"></i></span>
         <span class="fs-7">Leaderboard</span>
@@ -38,17 +35,17 @@
       <router-link
         v-if="typeof isAuthenticated === 'boolean'"
         to="/profile"
-        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill text-secondary nav-link-transition"
         active-class="active"
-        style="color: var(--bs-secondary); transition: color 0.2s ease-in-out;"
       >
         <!-- Profile Pic or Icon -->
         <figure v-if="userProfilePicUrl && !imgError" class="mb-1 profile-pic-figure">
           <img 
-            class="rounded-circle" 
+            class="rounded-circle border" 
             :src="userProfilePicUrl" 
             :alt="userName || 'Profile'" 
-            style="border: 1px solid var(--bs-border-color); object-fit: cover; width: 28px; height: 28px;" 
+            width="28"
+            height="28"
             @error="handleImageError" 
           />
         </figure>
@@ -104,6 +101,14 @@ const handleNavClick = (): void => {
   transform: translateY(0);
   transition: transform 0.3s ease-in-out;
   will-change: transform;
+}
+
+.nav-link-transition {
+  transition: color 0.2s ease-in-out;
+}
+
+img.rounded-circle {
+  object-fit: cover;
 }
 
 .navbar {

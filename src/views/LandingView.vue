@@ -13,9 +13,10 @@
             </p>
             <router-link
               to="/login"
-              class="btn btn-lg btn-primary px-5 shadow-sm animate-pop"
+              class="btn btn-lg btn-primary px-5 py-2 shadow animate-pop d-inline-flex align-items-center justify-content-center gap-2"
             >
-              <i class="fas fa-sign-in-alt me-2"></i> Log In to Get Started
+              <i class="fas fa-sign-in-alt"></i>
+              <span>Log In to Get Started</span>
             </router-link>
           </div>
         </transition>

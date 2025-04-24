@@ -188,7 +188,9 @@ interface Stats {
 }
 
 const props = defineProps<Props>();
-const { userId, isCurrentUser } = toRefs(props);
+const { userId } = toRefs(props);
+
+console.log('[ProfileViewContent] userId prop:', userId.value);
 
 const defaultAvatarUrl: string = new URL('../assets/default-avatar.png', import.meta.url).href;
 
@@ -198,8 +200,12 @@ const user = ref<DocumentData | null>(null);
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const userProjects = ref<DocumentData[]>([]);
-const participatedEvents = ref<Event[]>([]); // Change DocumentData[] to Event[]
+const participatedEvents = ref<Event[]>([]); // All events relevant to the user (participated or organized)
 const loadingEventsOrProjects = ref<boolean>(true);
+
+const organizedEvents = ref<Event[]>([]); // For possible future use or filtering
+const participatedEventIds = ref<string[]>([]);
+const organizedEventIds = ref<string[]>([]);
 
 const stats = ref<Stats>({
     participatedCount: 0,
@@ -278,6 +284,7 @@ const fetchProfileData = async () => {
   user.value = null;
   userProjects.value = [];
   participatedEvents.value = [];
+  organizedEvents.value = [];
   stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
 
   try {
@@ -299,11 +306,13 @@ const fetchProfileData = async () => {
         ...data // Spread the rest of the data
     } as User; // Cast after ensuring core fields
 
-    // Fetch participated events and projects in parallel
-    await Promise.all([
-        fetchParticipatedEvents(),
-        fetchUserProjects(userId.value)
-    ]);
+    // Extract participated/organized event IDs directly from user doc fields
+    participatedEventIds.value = Array.isArray(data.participatedEvent) ? data.participatedEvent : [];
+    organizedEventIds.value = Array.isArray(data.organizedEvent) ? data.organizedEvent : [];
+
+    // Fetch event objects from the store using the new getter (events themselves are loaded from store, ids from user doc)
+    await fetchUserEventsFromStore();
+    await fetchUserProjects(userId.value);
 
   } catch (error: any) { // Type error
     console.error('Error fetching profile data:', error);
@@ -341,71 +350,52 @@ const fetchUserProjects = async (targetUserId: string) => {
   }
 };
 
-const fetchParticipatedEvents = async () => {
-  if (!userId.value) return;
-  const targetUserId = userId.value;
-  try {
-    // Fetch all events (consider filtering by status or date range if needed)
-    const allEvents: Event[] = await store.dispatch('events/fetchEvents'); // Assuming fetchEvents returns Event[]
-
-    const eventsHistory: Event[] = [];
-    let participated = 0;
-    let organized = 0;
-    let won = 0;
-
-    // Filter for completed or closed events first
-    const relevantEvents = allEvents.filter(event =>
-        event.status === EventStatus.Completed || event.status === EventStatus.Closed
-    );
-
-    relevantEvents.forEach((event: Event) => { // Iterate over filtered events
-      let isParticipant = false;
-      let isOrganizerFlag = false;
-      let isPartOfEvent = false;
-      let isWinnerFlag = false;
-
-      // Check if organizer
-      if (Array.isArray(event.details?.organizers) && event.details.organizers.includes(targetUserId)) {
-        isOrganizerFlag = true;
-        isPartOfEvent = true;
-      }
-
-      // Check participation and winning status based on event type
-      if (event.details?.format === 'Team' && Array.isArray(event.teams)) {
-        const userTeam = event.teams.find(team => Array.isArray(team.members) && team.members.includes(targetUserId));
-        if (userTeam) {
-          isParticipant = true;
-          isPartOfEvent = true;
-          // Check winners for team events (assuming teamName is the value)
-          if (event.winners && Object.values(event.winners).flat().includes(userTeam.teamName)) {
-              isWinnerFlag = true;
-          }
+// Fetch user's events (participated and organized) from the store
+const fetchUserEventsFromStore = async () => {
+  // Ensure events are loaded in the store
+  await store.dispatch('events/fetchEvents');
+  // Get the event getter
+  const getEventsByIds = store.getters['events/getEventsByIds'] as (ids: string[]) => Event[];
+  // Merge, deduplicate event IDs
+  const allIds = Array.from(new Set([
+    ...participatedEventIds.value,
+    ...organizedEventIds.value
+  ]));
+  // Get event objects
+  let allEvents = getEventsByIds(allIds);
+  // Only show completed/closed events in history
+  allEvents = allEvents.filter((event: Event) =>
+    event.status === EventStatus.Completed || event.status === EventStatus.Closed
+  );
+  // Sort by most recent
+  allEvents.sort((a: Event, b: Event) => {
+    const timeA = a.details?.date?.start ? a.details.date.start.toMillis() : 0;
+    const timeB = b.details?.date?.start ? b.details.date.start.toMillis() : 0;
+    return timeB - timeA;
+  });
+  participatedEvents.value = allEvents;
+  // Stats
+  let participated = 0, organized = 0, won = 0;
+  allEvents.forEach((event: Event) => {
+    const isOrganizer = Array.isArray(event.details?.organizers) && event.details.organizers.includes(userId.value);
+    const isParticipant = Array.isArray(event.participants) && event.participants.includes(userId.value);
+    // Team events
+    let isWinnerFlag = false;
+    if (event.details?.format === 'Team' && Array.isArray(event.teams)) {
+      const userTeam = event.teams.find(team => Array.isArray(team.members) && team.members.includes(userId.value));
+      if (userTeam) {
+        if (event.winners && Object.values(event.winners).flat().includes(userTeam.teamName)) {
+          isWinnerFlag = true;
         }
-      } else if (Array.isArray(event.participants) && event.participants.includes(targetUserId)) {
-          isParticipant = true;
-          isPartOfEvent = true;
-          // Check winners for individual events
-          if (event.winners && Object.values(event.winners).flat().includes(targetUserId)) {
-              isWinnerFlag = true;
-          }
       }
-
-      if (isPartOfEvent) {
-          eventsHistory.push(event);
-          if (isParticipant) participated++;
-          if (isOrganizerFlag) organized++;
-          if (isWinnerFlag) won++;
-      }
-    });
-
-    participatedEvents.value = eventsHistory;
-    stats.value = { participatedCount: participated, organizedCount: organized, wonCount: won };
-
-  } catch (error) {
-    console.error("Error fetching event history:", error);
-    participatedEvents.value = [];
-    stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
-  }
+    } else if (event.winners && Object.values(event.winners).flat().includes(userId.value)) {
+      isWinnerFlag = true;
+    }
+    if (isParticipant) participated++;
+    if (isOrganizer) organized++;
+    if (isWinnerFlag) won++;
+  });
+  stats.value = { participatedCount: participated, organizedCount: organized, wonCount: won };
 };
 
 // Watch for userId changes to refetch data

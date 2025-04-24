@@ -13,6 +13,15 @@ const state: EventState = {
 };
 
 const getters = {
+    /**
+     * Get events by an array of event IDs
+     * @param state
+     * @returns (ids: string[]) => Event[]
+     */
+    getEventsByIds: (state: EventState) => (ids: string[]): Event[] => {
+        if (!Array.isArray(ids) || ids.length === 0) return [];
+        return state.events.filter((e: Event) => ids.includes(e.id));
+    },
     allEvents: (state: EventState): Event[] => state.events,
 
     // Filter events by status and sort appropriately

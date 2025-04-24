@@ -187,11 +187,25 @@ export default {
     const isClosingEvent = ref(false); // Specific loading for close action
 
     // --- User Role & Permissions ---
-    const currentUserId = computed<string | null>(() => store.getters['user/userId']);
-    const currentUserRole = computed<string | null>(() => store.getters['user/userRole']);
-    const isOrganizer = computed(() =>
-      props.event?.details?.organizers?.includes(currentUserId.value ?? '') || props.event?.requestedBy === currentUserId.value
-    );
+    const currentUserId = computed<string | null>(() => store.getters['user/getUser']?.uid ?? null);
+    const currentUserRole = computed<string | null>(() => store.getters['user/userRole']); // Assuming this getter exists elsewhere or needs checking too
+    const isOrganizer = computed(() => {
+      const uid = currentUserId.value;
+      const eventData = props.event;
+      const organizers = eventData?.details?.organizers;
+      const requestedBy = eventData?.requestedBy;
+
+      if (!uid || !eventData) {
+        return false;
+      }
+
+      const isListedOrganizer = Array.isArray(organizers) && organizers.includes(uid);
+      const isRequestingUser = requestedBy === uid;
+      const result = isListedOrganizer || isRequestingUser;
+
+      return result;
+    });
+
     const isParticipant = computed(() => {
       if (!currentUserId.value || !props.event) return false;
       if (props.event.details.format === EventFormat.Team) {

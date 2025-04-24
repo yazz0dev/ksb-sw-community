@@ -94,7 +94,6 @@ async function initOneSignal() {
     }
 }
 
-initOneSignal();
 // --- End OneSignal Initialization ---
 
 // --- Firebase Auth State Listener ---
@@ -129,8 +128,8 @@ const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
                 console.log("User data already present or fetched for:", user.uid);
             }
 
-            // --- Register for push notifications only after login ---
-            // Only the latest device per user will receive notifications (enforced by backend/device registration).
+            // --- Initialize OneSignal and register for push notifications only after login ---
+            await initOneSignal();
             await registerForPushNotifications();
         } else {
             // --- Remove OneSignal External User ID ---
