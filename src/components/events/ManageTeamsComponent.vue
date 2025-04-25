@@ -13,7 +13,7 @@
           </div>
           <div>
             <!-- Remove Team Button -->
-            <button type="button" class="btn btn-sm btn-outline-danger" :disabled="isSubmitting"
+            <button type="button" class="btn btn-sm btn-outline-danger" :disabled="isSubmitting || teams.length <= 2"
               @click="removeTeam(index)" aria-label="Remove team">
               <i class="fas fa-times"></i>
             </button>
@@ -200,11 +200,11 @@ const autoGenerateButtonTitle = computed(() => {
 // --- End Button Titles ---
 
 const initializeTeams = () => {
-  // Map EventTeamType from props to LocalTeam structure
+  // Map EventTeamType from props to LocalTeam structure, preserving teamLead if present
   teams.value = (props.initialTeams || []).map(team => ({
     name: team.teamName || '', // Map teamName to name
     members: Array.isArray(team.members) ? [...team.members] : [], // Ensure members is an array copy
-    teamLead: '' // Initialize team lead
+    teamLead: team.teamLead || '' // Preserve team lead if present
     // We don't need submissions/ratings in this component's local state
   }));
   // Ensure default structure if empty
@@ -225,13 +225,23 @@ const addTeam = () => {
 };
 
 const removeTeam = (index: number) => {
+  if (teams.value.length <= 2) {
+    emit('error', `At least 2 teams are required. Cannot remove more teams.`);
+    return;
+  }
   teams.value.splice(index, 1);
   emitTeamsUpdate();
 };
 
 const updateTeamMembers = (teamIndex: number, members: string[]) => {
   if (teams.value[teamIndex]) {
-    teams.value[teamIndex].members = members;
+    const team = teams.value[teamIndex];
+    // Only set teamLead to '' if the CURRENT teamLead is removed from THIS team's members
+    if (team.teamLead && !members.includes(team.teamLead)) {
+      team.teamLead = '';
+    }
+    // Do NOT change teamLead if adding other members
+    team.members = [...members];
     emitTeamsUpdate();
   }
 };

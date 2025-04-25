@@ -113,15 +113,6 @@
           <i v-else class="fas fa-archive me-1"></i>
           <span>{{ isClosingEvent ? 'Closing...' : 'Close Event Permanently' }}</span>
         </button>
-        <!-- Winner Selection Link (Participant) -->
-        <router-link
-          v-if="showParticipantWinnerSelection"
-          :to="{ name: 'SelectionForm', params: { eventId: event.id } }"
-          class="btn btn-sm btn-primary d-inline-flex align-items-center"
-        >
-          <i class="fas fa-trophy me-1"></i>
-          <span>Select Winner</span>
-        </router-link>
         <!-- Organizer Rating Link (Participant) -->
         <router-link
           v-if="showParticipantOrganizerRating"
@@ -155,7 +146,7 @@
   </div>
    <div v-else class="text-center text-muted small py-3">
        <!-- Optional: Message when no controls are shown -->
-       <!-- No management actions available at this time. -->
+        No management actions available at this time.  
    </div>
 </template>
 
@@ -170,8 +161,7 @@ import { DateTime } from 'luxon'; // Import DateTime
 import { formatISTDate } from '../../utils/dateTime'; // Corrected path, removed .ts
 import { EventStatus, type Event, EventFormat } from '../../types/event'; // Corrected path, removed .ts
 import { getEventStatusBadgeClass } from '../../utils/eventUtils'; // Corrected path, removed .ts
-// Import ConfirmationModal if needed, or rely on window.confirm
-// import ConfirmationModal from '../ConfirmationModal.vue'; // Adjusted path relative to events dir
+
 
 export default {
   name: 'EventManageControls',

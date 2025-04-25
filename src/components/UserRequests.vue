@@ -22,13 +22,26 @@
       <div v-if="!loadingRequests && requests.length > 0">
         <div v-for="(request, index) in requests" :key="request.id" class="py-3 request-item">
           <h6 class="h6 text-primary mb-1">
-            {{ request.eventName }}
+            <router-link :to="{ name: 'EventDetails', params: { id: request.id } }" class="text-decoration-none">
+              {{ request.eventName }}
+            </router-link>
           </h6>
-          <div class="d-flex align-items-center">
+          <div class="d-flex align-items-center mb-2">
             <small class="text-secondary me-2">Status:</small>
             <span :class="['badge rounded-pill', getStatusClass(request.status)]">
               {{ request.status }}
             </span>
+          </div>
+          <div v-if="request.status === 'Pending'" class="d-flex gap-2">
+            <button
+              class="btn btn-sm btn-outline-danger"
+              :disabled="request._deleting"
+              @click="deleteRequest(request, index)"
+            >
+              <span v-if="request._deleting" class="spinner-border spinner-border-sm me-1" role="status"></span>
+              <i v-else class="fas fa-trash me-1"></i>
+              Delete Request
+            </button>
           </div>
         </div>
       </div>
@@ -43,9 +56,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 
 interface Request {
     id: string;
@@ -98,6 +112,18 @@ const fetchRequests = async (): Promise<void> => {
     } finally {
         loadingRequests.value = false;
     }
+};
+
+const deleteRequest = async (request: Request, index: number) => {
+  if (!confirm('Are you sure you want to delete this pending event request?')) return;
+  request._deleting = true;
+  try {
+    await deleteDoc(doc(db, 'events', request.id));
+    requests.value.splice(index, 1);
+  } catch (error) {
+    errorMessage.value = 'Failed to delete the request.';
+    request._deleting = false;
+  }
 };
 
 onMounted(fetchRequests);

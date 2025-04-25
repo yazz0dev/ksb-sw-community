@@ -211,18 +211,44 @@
                   <span class="h5 mb-0 text-primary">Winner Selection</span>
                 </div>
                 <div class="d-flex align-items-center">
-                  <span v-if="event.status === 'Completed'" class="badge rounded-pill d-inline-flex align-items-center text-bg-secondary">Not Started</span>
+                  <span v-if="event.status === 'Completed'" class="badge rounded-pill d-inline-flex align-items-center text-bg-secondary">
+                    {{ event.ratingsOpen ? 'Open' : 'Closed' }}
+                  </span>
                 </div>
               </div>
               <div class="card-body">
-                <div v-if="event.status === 'Completed'">
+                <template v-if="event.status === 'Completed'">
+                  <template v-if="event.ratingsOpen === true">
+                    <!-- Use isCurrentUserParticipant for winner selection eligibility -->
+                    <template v-if="isCurrentUserParticipant">
+                      <p class="small text-secondary fst-italic">
+                        Ratings are open! You can now select winners.
+                      </p>
+                      <router-link
+                        :to="{ name: 'SelectionForm', params: { eventId: event.id } }"
+                        class="btn btn-sm btn-primary d-inline-flex align-items-center mt-3"
+                      >
+                        <i class="fas fa-trophy me-1"></i>
+                        <span>Select Winner</span>
+                      </router-link>
+                    </template>
+                    <template v-else>
+                      <p class="small text-secondary fst-italic">
+                        Ratings are open, but only participants can select winners.
+                      </p>
+                    </template>
+                  </template>
+                  <template v-else>
+                    <p class="small text-secondary fst-italic">
+                      Winner selection is currently closed for this event.
+                    </p>
+                  </template>
+                </template>
+                <template v-else>
                   <p class="small text-secondary fst-italic">
-                    Winner selection is currently closed for this event.
+                    Winner selection will be available once the event is completed.
                   </p>
-                </div>
-                <p v-else class="small text-secondary fst-italic">
-                  Winner selection will be available once the event is completed.
-                </p>
+                </template>
               </div>
             </div>
           </div>
@@ -473,7 +499,7 @@ const allParticipants = computed<string[]>(() => {
         });
     } else if (Array.isArray(event.value.participants)) {
         event.value.participants.forEach(id => { if (id) userIds.add(id); });
-    } else if (typeof event.value.participants === 'object' && event.value.participants !== null) {
+    } else if (typeof event.value.participants === 'object' && event.value !== null) {
         Object.keys(event.value.participants).forEach(id => { if (id) userIds.add(id); });
     }
 
@@ -752,6 +778,17 @@ watch(() => props.id, (newId, oldId) => {
     }
 }, { immediate: false });
 
+const isCurrentUserParticipant = computed(() => {
+  if (!event.value || !currentUserId.value) return false;
+  const uid = safeString(currentUserId.value);
+  if (event.value.details.format === EventFormat.Team && Array.isArray(event.value.teams)) {
+    return event.value.teams.some(team => Array.isArray(team.members) && team.members.includes(uid));
+  }
+  if (Array.isArray(event.value.participants)) {
+    return event.value.participants.includes(uid);
+  }
+  return false;
+});
 
 defineExpose({
   canJoin,

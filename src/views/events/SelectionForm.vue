@@ -11,7 +11,7 @@
 
       <div v-if="!loading && event?.details?.eventName" class="text-center mb-5">
         <h1 class="h3">
-           {{ isTeamEvent ? 'Rate Teams & Select Best Performer' : 'Select Winners' }}
+           {{ isTeamEvent ? 'Select Best Teams and Performer' : 'Select Winners' }}
         </h1>
         <p class="fs-6 text-secondary">
            Event: {{ event?.details?.eventName }}

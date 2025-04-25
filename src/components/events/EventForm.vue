@@ -207,25 +207,32 @@
                        v-model.number="criterion.points"
                        :disabled="isSubmitting"
                        min="1"
-                       max="50"
+                       :max="getCriterionMax(index)"
+                       @input="onCriterionPointsInput(index)"
                     >
+                    <small class="form-text text-muted">Max: {{ getCriterionMax(index) }} XP</small>
                 </div>
-                 <div class="col-md-3">
-                     <label :for="`criteria-role-${index}`" class="form-label form-label-sm">Applies To</label>
-                     <select :id="`criteria-role-${index}`" class="form-select form-select-sm" v-model="criterion.role" :disabled="isSubmitting">
-                         <option value="" disabled>Select Role</option>
-                         <option
-                             v-for="role in assignableXpRoles"
-                             :key="role"
-                             :value="role"
-                         >{{ role }}</option>
-                     </select>
+                 <div class="col-md-3 d-flex align-items-end gap-2">
+                     <div class="flex-grow-1">
+                       <label :for="`criteria-role-${index}`" class="form-label form-label-sm">Applies To</label>
+                       <select :id="`criteria-role-${index}`" class="form-select form-select-sm" v-model="criterion.role" :disabled="isSubmitting">
+                           <option value="" disabled>Select Role</option>
+                           <option
+                               v-for="role in assignableXpRoles"
+                               :key="role"
+                               :value="role"
+                           >{{ role }}</option>
+                       </select>
+                     </div>
+                     <button type="button" class="btn btn-sm btn-outline-danger align-self-end" @click="removeCriterion(index)" :disabled="formData.criteria.length === 1 || isSubmitting">
+                        <i class="fas fa-minus"></i>
+                     </button>
                  </div>
             </div>
         </div>
         
         <div class="d-flex justify-content-between align-items-center">
-             <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center" @click="addCriterion" :disabled="isSubmitting">
+             <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center" @click="addCriterion" :disabled="isSubmitting || formData.criteria.length >= 4">
                  <i class="fas fa-plus me-1"></i>
                  <span>Add Criteria</span>
              </button>
@@ -298,7 +305,7 @@
 
       <!-- Submit Button -->
       <div class="text-end">
-          <button type="submit" class="btn btn-primary" :disabled="isSubmitting || totalXP > 50">
+          <button type="submit" class="btn btn-primary" :disabled="isSubmitting || totalXP > 50 || !isFormValid">
               <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
               {{ isSubmitting ? 'Submitting...' : 'Submit Request' }}
           </button>
@@ -309,8 +316,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, reactive, onMounted } from 'vue';
-// Fix: Declare currentUserUid for use in filtering
-const currentUserUid = ref<string | null>(null);
+// Fix: Use computed so currentUserUid is always up-to-date
+const currentUserUid = computed(() => store.getters['user/userId']);
 import { useStore } from 'vuex';
 import DatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
@@ -430,6 +437,29 @@ const totalXP = computed((): number => {
     sum + (Number(criterion.points) || 0), 0);
 });
 
+// Computed property to validate the form
+const isFormValid = computed(() => {
+  // Validate required event details
+  const details = formData.value.details;
+  if (!details.format || !details.eventName || !details.type || !details.description) return false;
+  // Validate dates
+  if (!details.date || !details.date.start || !details.date.end) return false;
+  // Check date availability
+  if (!isDateAvailable.value) return false;
+  // At least one criteria, and total XP must not exceed 50
+  if (!formData.value.criteria || formData.value.criteria.length === 0 || totalXP.value > 50) return false;
+  // For team format, check teams
+  if (details.format === 'Team') {
+    // At least 2 teams
+    if (!Array.isArray(formData.value.teams) || formData.value.teams.length < 2) return false;
+    // Each team must have a name, at least minMembers, and a team lead
+    for (const team of formData.value.teams) {
+      if (!team.teamName || !Array.isArray(team.members) || team.members.length < 2 || !team.teamLead) return false;
+    }
+  }
+  return true;
+});
+
 function initializeFormData(): EventFormData {
   const defaults: FormData = {
     details: {
@@ -448,6 +478,16 @@ function initializeFormData(): EventFormData {
     criteria: [], 
     status: EventStatus.Pending // Use imported enum
   };
+
+  // Ensure at least 2 teams if defaulting to team format
+  if ((props.initialData && props.initialData.details && props.initialData.details.format === 'Team') || defaults.details.format === 'Team') {
+    if (!Array.isArray(defaults.teams) || defaults.teams.length < 2) {
+      defaults.teams = [
+        { teamName: 'Team 1', members: [], teamLead: '' },
+        { teamName: 'Team 2', members: [], teamLead: '' }
+      ];
+    }
+  }
 
   // Add a default criterion if creating new form
   if (!props.initialData && defaults.criteria.length === 0) {
@@ -507,7 +547,7 @@ const filteredUsers = computed(() => {
   const all = store.state.user.allUsers || [];
   if (!Array.isArray(all)) return [];
 
-  // Use currentUserUid for exclusion
+  // Exclude current user (requester) and already-selected organizers
   return all.filter((user: any) => {
     if (!user || !user.uid) return false;
     if (currentUserUid.value && user.uid === currentUserUid.value) return false;
@@ -572,9 +612,7 @@ onMounted(() => {
     fetchInitialData();
     checkNextAvailableDate(); // Initial check if dates are pre-filled
     // Try to get UID from user module or log for debug
-    if (store.getters['user/userId']) {
-      currentUserUid.value = store.getters['user/userId'];
-    }
+    // No assignment needed for currentUserUid; it is a computed property
 });
 
 // Re-initialize form when initialData changes (e.g., switching between create/edit)
@@ -587,14 +625,21 @@ const handleFormatChange = () => {
   if (formData.value.details.format === 'Individual') {
     formData.value.teams = []; // Clear teams for individual format
   } else {
-     // Fetch students if switching to team event and they aren't loaded
-     if (availableStudents.value.length === 0) {
-         fetchInitialData(); // Consider a more targeted fetch if needed
-     }
+    // Always ensure at least 2 teams for team format
+    if (!Array.isArray(formData.value.teams) || formData.value.teams.length < 2) {
+      formData.value.teams = [
+        { teamName: 'Team 1', members: [], teamLead: '' },
+        { teamName: 'Team 2', members: [], teamLead: '' }
+      ];
+    }
+    // Fetch students if switching to team event and they aren't loaded
+    if (availableStudents.value.length === 0) {
+      fetchInitialData();
+    }
   }
   // Reset event type if the current one is not valid for the new format
   if (!availableEventTypes.value.includes(formData.value.details.type || '')) {
-      formData.value.details.type = '';
+    formData.value.details.type = '';
   }
 };
 
@@ -603,27 +648,58 @@ const handleEventTypeChange = () => {
 };
 
 // Fix team mapping type
-const updateTeams = (newTeams: { name: string; members: string[] }[]): void => {
-  formData.value.teams = newTeams.map(t => ({
-    teamName: t.name,
-    members: Array.isArray(t.members) ? [...t.members] : [],
-    teamLead: t.members && t.members.length > 0 ? t.members[0] : '' // Always include teamLead property
-  }));
+const updateTeams = (newTeams: { name: string; members: string[]; teamLead?: string }[]): void => {
+  formData.value.teams = newTeams.map((t, idx) => {
+    // Try to preserve teamLead if still present in members, otherwise null it
+    let teamLead = t.teamLead;
+    if (teamLead && Array.isArray(t.members) && !t.members.includes(teamLead)) {
+      teamLead = '';
+    }
+    return {
+      teamName: t.name,
+      members: Array.isArray(t.members) ? [...t.members] : [],
+      teamLead: teamLead || ''
+    };
+  });
 };
 
 const addCriterion = (): void => {
+  if (formData.value.criteria.length >= 4) return;
+  // Calculate remaining XP to allocate
+  const remainingXP = 50 - totalXP.value;
   formData.value.criteria.push({
     constraintIndex: Date.now() + Math.random(),
     constraintLabel: '',
-    points: 5,
+    points: Math.max(1, Math.min(5, remainingXP)),
     role: 'developer',
     criteriaSelections: {}
   });
 };
 
 const removeCriterion = (index: number): void => {
+  if (formData.value.criteria.length <= 1) return;
   formData.value.criteria.splice(index, 1);
 };
+
+function getCriterionMax(index: number): number {
+  // The max for this criterion is 50 - sum of all other criteria (min 1)
+  const otherTotal = formData.value.criteria.reduce((sum, c, i) => i === index ? sum : sum + (Number(c.points) || 0), 0);
+  return Math.max(1, 50 - otherTotal);
+}
+
+function onCriterionPointsInput(index: number) {
+  // Cap the slider if user tries to exceed the allowed max
+  const max = getCriterionMax(index);
+  if (formData.value.criteria[index].points > max) {
+    formData.value.criteria[index].points = max;
+  }
+  // If totalXP > 50, forcibly reduce this criterion
+  if (totalXP.value > 50) {
+    formData.value.criteria[index].points -= (totalXP.value - 50);
+    if (formData.value.criteria[index].points < 1) formData.value.criteria[index].points = 1;
+  }
+}
+
 
  const addOrganizer = (userId: string) => {
   if (!formData.value.details.organizers.includes(userId)) {
