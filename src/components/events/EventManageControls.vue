@@ -181,7 +181,7 @@ export default {
       required: true
     }
   },
-  setup(props) {
+  setup(props, { emit }) { // <-- add emit to setup signature
     const store = useStore();
     const loadingAction = ref<EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent' | null>(null);
     const isClosingEvent = ref(false); // Specific loading for close action
@@ -309,10 +309,9 @@ export default {
       // Note: Original template showed this when ratings were open. Rule 5 doesn't specify. Assuming it's available once completed.
     );
 
-    // 6. Show "Winner Selection": Only for participants (not organizers), when event is `Completed`, not closed, and ratings are open.
+    // 6. Show "Winner Selection": For any participant (including organizers), when event is `Completed`, not closed, and ratings are open.
     const showParticipantWinnerSelection = computed(() =>
-      !canManageEvent.value && // Participants are not managers
-      isParticipant.value &&  // Must be a participant
+      isParticipant.value &&  // Must be a participant (organizer or not)
       props.event?.status === EventStatus.Completed &&
       !props.event?.closedAt &&
       props.event?.ratingsOpen === true // Explicitly check if open
@@ -368,6 +367,8 @@ export default {
           message: `Event status updated to ${newStatus}.`,
           type: 'success'
         }, { root: true });
+        // Emit update event for parent to refresh
+        emit('update');
       } catch (error: any) {
         store.dispatch('notification/showNotification', {
           message: error?.message || `Failed to update status to ${newStatus}.`,
@@ -386,12 +387,12 @@ export default {
                 eventId: props.event.id,
                 isOpen: openState
             });
-            // Check result status if the action returns it
             if (result?.status === 'success') {
                 store.dispatch('notification/showNotification', {
                     message: `Ratings are now ${openState ? 'Open' : 'Closed'}.`,
                     type: 'success'
                 }, { root: true });
+                emit('update');
             } else {
                  throw new Error(result?.message || 'Failed to toggle ratings.');
             }
@@ -432,7 +433,6 @@ export default {
             const result = await store.dispatch('events/closeEventPermanently', {
                 eventId: props.event.id
             });
-            // Assume result contains { success: boolean, message: string, xpAwarded?: ... }
             let message = result?.message || 'Event closed permanently.';
             if (result?.success && result?.xpAwarded) {
                 const totalUsers = Object.keys(result.xpAwarded).length;
@@ -441,9 +441,10 @@ export default {
             }
             store.dispatch('notification/showNotification', {
                 message,
-                type: result?.success ? 'success' : 'warning', // Use warning if success=false but message exists
+                type: result?.success ? 'success' : 'warning',
                 duration: 6000
             }, { root: true });
+            emit('update');
         } catch (error: any) {
             store.dispatch('notification/showNotification', {
                 message: error?.message || 'Failed to close the event.',
@@ -465,6 +466,7 @@ export default {
                 message: 'Winner(s) selected successfully.',
                 type: 'success'
             }, { root: true });
+            emit('update');
         } catch (error: any) {
             store.dispatch('notification/showNotification', {
                 message: error?.message || 'Failed to select winner(s).',

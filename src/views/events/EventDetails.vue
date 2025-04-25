@@ -1,15 +1,5 @@
 <template>
-  <!-- Removed mt-n4, added mt-2 for a little top space -->
-  <div class="event-details-view container-fluid px-3 px-lg-4 event-details-bg mt-3">
-
-    <!-- Back Button -->
-    <div class="mb-3">
-      <button class="btn btn-outline-secondary btn-sm" @click="$router.back()">
-        <i class="fas fa-arrow-left me-1"></i>
-        <span>Back</span>
-      </button>
-    </div>
-
+  <div class="event-details-view container-fluid px-0 px-md-2 event-details-bg">
     <SkeletonProvider
       :loading="loading"
       :skeleton-component="EventDetailsSkeleton"
@@ -61,6 +51,7 @@
                 :event="event"
                 class="mb-0 animate-fade-in"
                 v-on:hook:mounted="logEventManageControls"
+                @update="fetchEventData"
               />
             </template>
           </div>
@@ -114,7 +105,7 @@
             </div>
             <!-- Participants Section (Non-Team Events) -->
             <div v-if="event && event.details.format !== 'Team'" class="card participants-box shadow-sm mb-4 animate-fade-in">
-              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+              <div class="card-header d-flex justify-content-between align-items-center bg-light">
                 <div class="section-header mb-0">
                   <i class="fas fa-user-friends text-primary me-2"></i>
                   <span class="h5 mb-0 text-primary">Participants</span>
@@ -128,11 +119,11 @@
                 </button>
               </div>
               <Transition name="slide-fade">
-                <div v-if="showParticipants" class="card-body animate-fade-in" id="participantsCollapseBody">
+                <div v-if="showParticipants" class="card-body animate-fade-in">
                   <div v-if="organizerNamesLoading" class="text-secondary fst-italic py-3">
                     <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Loading participants...
                   </div>
-                  <p v-else-if="participantCount === 0" class="text-secondary fst-italic">
+                  <p v-else-if="participantCount === 0" class="text-secondary fst-italic py-3">
                     No participants have joined this event yet.
                   </p>
                   <div v-else>
@@ -308,7 +299,9 @@ import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
 
 interface EventDetails extends Event {}
+
 interface Team extends EventTeamType {}
+
 
 interface Collapse {
   toggle(): void;
@@ -316,6 +309,7 @@ interface Collapse {
   show(): void;
   dispose(): void;
 }
+
 
 interface BootstrapModal {
   show(): void;
@@ -349,28 +343,28 @@ const loading = ref<boolean>(true);
 const event = ref<Event | null>(null);
 const teams = ref<Team[]>([]);
 const initialFetchError = ref<string>('');
-const nameCache = ref<Map<string, string>>(new Map()); // User ID -> User Name
-const organizerNamesLoading = ref(false);
+const nameCache = ref<Map<string, string>>(new Map());
+const organizerNamesLoading = ref<boolean>(false);
 const submissionModalRef = ref<HTMLElement | null>(null);
-const participantsCollapseRef = ref<HTMLElement | null>(null);
 const showParticipants = ref<boolean>(false);
 interface SubmissionFormData {
-  projectName: string;
-  link: string;
-  description: string;
+	projectName: string;
+	link: string;
+	description: string;
 }
 const submissionForm = ref<SubmissionFormData>({ projectName: '', link: '', description: '' });
 const submissionError = ref<string>('');
 const isSubmittingProject = ref<boolean>(false);
 const actionInProgress = ref<boolean>(false);
 interface FeedbackState {
-  message: string;
-  type: 'success' | 'error';
+	message: string;
+	type: 'success' | 'error';
 }
 const globalFeedback = ref<FeedbackState>({ message: '', type: 'success' });
 
 const currentUserId = computed<string | null>(() => store.getters['user/userId'] ?? null);
 const currentUserRole = computed<string | null>(() => store.getters['user/userRole'] ?? null);
+const isAdmin = computed<boolean>(() => currentUserRole.value === 'Admin');
 const currentUser = computed<User | null>(() => store.getters['user/getUser'] ?? null);
 
 const isCurrentUserOrganizer = computed<boolean>(() => {
@@ -381,7 +375,7 @@ const isCurrentUserOrganizer = computed<boolean>(() => {
 });
 
 const canManageEvent = computed<boolean>(() => {
-    return isCurrentUserOrganizer.value;
+    return isAdmin.value || isCurrentUserOrganizer.value;
 });
 
 const currentUserCanRate = computed<boolean>(() => {
@@ -389,17 +383,15 @@ const currentUserCanRate = computed<boolean>(() => {
     return false;
   }
   const uid = ensureUserId(currentUserId.value);
-  const isOrganizer = event.value.details.organizers?.includes(uid);
+  // Remove the check that blocks organizers who are also participants
   let isParticipant = false;
   if (event.value.details.format === EventFormat.Team && Array.isArray(event.value.teams)) {
       isParticipant = event.value.teams.some(team => team.members?.includes(uid));
   } else if (Array.isArray(event.value.participants)) {
       isParticipant = event.value.participants.includes(uid);
   }
-
-  if (isOrganizer || isParticipant) return false;
-
-  return true;
+  // Only allow participants to rate
+  return isParticipant;
 });
 
 const canSubmitProject = computed(() => {
@@ -457,7 +449,7 @@ const canLeave = computed(() => {
 const canEdit = computed(() => {
   if (!event.value || !currentUserId.value) return false;
   if ([EventStatus.Completed, EventStatus.Cancelled].includes(event.value.status as EventStatus)) return false;
-  return isCurrentUserOrganizer.value;
+  return isAdmin.value || isCurrentUserOrganizer.value;
 });
 
 const isJoining = ref(false);
@@ -501,48 +493,29 @@ function clearGlobalFeedback(): void {
     globalFeedback.value = { message: '', type: 'success' };
 }
 
-const safeString = (value: string | null): string => value ?? '';
 
-function getUserNameFromCache(userId: string): string {
-  if (!userId) return 'Invalid User';
-  if (nameCache.value.has(userId)) {
-    return nameCache.value.get(userId) || `User (${userId.substring(0, 5)}...)`;
-  }
-  return `Loading (${userId.substring(0, 5)}...)`; // Placeholder while fetching
-}
+const safeString = (value: string | null | undefined): string => value || '';
+
+
+const getUserNameFromCache = (userId: string): string => {
+    return nameCache.value.get(userId) || userId;
+};
 
 async function fetchUserNames(userIds: string[]): Promise<void> {
+    if (!Array.isArray(userIds) || userIds.length === 0) return;
+
     const uniqueIdsToFetch = [...new Set(userIds)].filter(id => id && !nameCache.value.has(id));
 
-    if (uniqueIdsToFetch.length === 0) {
-        return; // All names likely cached or no IDs to fetch
-    }
+    if (uniqueIdsToFetch.length === 0) return;
 
     organizerNamesLoading.value = true;
     try {
-        console.log(`Fetching ${uniqueIdsToFetch.length} user names...`);
-        // Revert to the likely correct action name
-        const namesMap: Record<string, string | null> = await store.dispatch('user/fetchUserNamesBatch', uniqueIdsToFetch);
-
-        // Update local cache based on the returned map
+        const names: Record<string, string | null> = await store.dispatch('user/fetchUserNamesBatch', uniqueIdsToFetch);
         uniqueIdsToFetch.forEach(id => {
-            const fetchedName = namesMap[id];
-            if (fetchedName) {
-                 nameCache.value.set(id, fetchedName);
-            } else {
-                 // Check the store getter as a fallback (assuming getter name like 'user/userNameById')
-                 // Adjust 'user/userNameById' if the actual getter name is different
-                 const storeName = store.getters['user/userNameById'] ? store.getters['user/userNameById'](id) : null;
-                 if (storeName && storeName !== 'Unknown User') {
-                     nameCache.value.set(id, storeName);
-                 } else if (!nameCache.value.has(id)) { // Avoid overwriting if somehow set
-                    nameCache.value.set(id, `User (${id.substring(0, 5)}...)`);
-                 }
-            }
+            nameCache.value.set(id, safeString(names[id]) || `User (${id.substring(0, 5)}...)`);
         });
-    } catch (error) {
-        console.error('Error fetching user names:', error);
-        // Optionally set a generic error state in cache for fetched IDs
+    } catch (error: any) {
+
         uniqueIdsToFetch.forEach(id => {
             if (!nameCache.value.has(id)) {
                 nameCache.value.set(id, `Error (${id.substring(0, 5)}...)`);
@@ -558,8 +531,6 @@ async function fetchEventData(): Promise<void> {
   initialFetchError.value = '';
   event.value = null;
   teams.value = [];
-  // Clear local name cache for the new event context
-  // nameCache.value.clear(); // Decide if cache should persist across event views
 
   try {
     await store.dispatch('events/fetchEventDetails', props.id);
@@ -574,25 +545,15 @@ async function fetchEventData(): Promise<void> {
                   ? [...storeEvent.teams]
                   : [];
 
-    // Event data is loaded, stop the main loading indicator
-    loading.value = false; 
-
-    // Now fetch user names asynchronously without awaiting
-    const participantIds = allParticipants.value.filter(id => typeof id === 'string' && id !== null);
-    if (participantIds.length > 0) {
-        fetchUserNames(participantIds); // No await here
-    } else {
-        // No participants, ensure loading state for names is false
-        organizerNamesLoading.value = false;
-    }
+    await fetchUserNames(allParticipants.value.filter(id => typeof id === 'string' && id !== null));
 
   } catch (error: any) {
-    console.error('Failed to fetch event details:', error);
-    initialFetchError.value = error.message || 'Failed to load event data.';
-    loading.value = false; // Ensure loading stops on error too
+
+    initialFetchError.value = error.message || 'Failed to load event data';
+    event.value = null;
+    teams.value = [];
   } finally {
-     // Optional: Redundant if loading set false earlier, but safe
-     if (loading.value) loading.value = false;
+    loading.value = false;
   }
 }
 
@@ -652,6 +613,7 @@ const submitProject = async (): Promise<void> => {
         closeSubmissionModal();
 
     } catch (error: any) {
+
         submissionError.value = error.message || 'Failed to submit project.';
     } finally {
         isSubmittingProject.value = false;
@@ -660,7 +622,9 @@ const submitProject = async (): Promise<void> => {
 };
 
 const handleJoin = (): void => {
+
     isJoining.value = true;
+
     setTimeout(() => {
         isJoining.value = false;
         setGlobalFeedback('Successfully joined the event!', 'success');
@@ -668,7 +632,9 @@ const handleJoin = (): void => {
 };
 
 const handleLeave = (): void => {
+
     isLeaving.value = true;
+
     setTimeout(() => {
         isLeaving.value = false;
         setGlobalFeedback('Successfully left the event!', 'success');
@@ -687,7 +653,9 @@ const openRatingForm = (): void => {
     }
 };
 
+
 const isNonNullString = (value: string | null): value is string => value !== null;
+
 
 const mapEventToHeaderProps = (event: Event) => ({
   ...event,
@@ -698,9 +666,11 @@ const mapEventToHeaderProps = (event: Event) => ({
   }
 });
 
+
 const getTeamKey = (team: Team): string => {
   return team.id || team.teamName;
 };
+
 
 const filterUserIds = (ids: (string | null)[]): string[] => {
   return ids.filter(isNonNullString);
@@ -718,12 +688,46 @@ const modalHiddenHandler = () => {
 };
 
 function logEventManageControls() {
+
+
+
+
+
+
+
+
+
 }
 
 watch([canManageEvent, event], ([canManage, evt]) => {
+
+
 });
 
+
 watch([canManageEvent, event], ([canManage, evt]) => {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 });
 
 onMounted(() => {
@@ -738,18 +742,8 @@ onBeforeUnmount(() => {
     if (fetchTimeoutId) {
         clearTimeout(fetchTimeoutId);
     }
-    if (submissionModalRef.value) {
-        submissionModalRef.value.removeEventListener('hidden.bs.modal', modalHiddenHandler);
-    }
     const modalInstance = getModalInstance();
     modalInstance?.dispose();
-
-    // Dispose of Bootstrap Collapse instance
-    const collapseElement = document.getElementById('participantsCollapseBody'); // Use the ID we added
-    if (collapseElement && window.bootstrap?.Collapse) {
-        const collapseInstance = window.bootstrap.Collapse.getInstance(collapseElement);
-        collapseInstance?.dispose();
-    }
 });
 
 watch(() => props.id, (newId, oldId) => {
@@ -757,6 +751,7 @@ watch(() => props.id, (newId, oldId) => {
         fetchEventData();
     }
 }, { immediate: false });
+
 
 defineExpose({
   canJoin,

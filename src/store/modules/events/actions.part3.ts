@@ -233,11 +233,14 @@ export async function toggleRatingsOpen({ dispatch, rootGetters }: ActionContext
         if (currentEvent.status !== EventStatus.Completed) throw new Error("Ratings only toggle for completed events.");
         if (currentEvent.closedAt) throw new Error("Cannot toggle ratings for a closed event.");
 
-        const updates: Partial<Event> = { lastUpdatedAt: Timestamp.now() };
+        // --- MAIN FIX: Actually update ratingsOpen in Firestore ---
+        const updates: Partial<Event> = { ratingsOpen: isOpen, lastUpdatedAt: Timestamp.now() };
         await updateDoc(eventRef, updates);
 
+        // --- Update local event state ---
         dispatch('updateLocalEvent', { id: eventId, changes: updates });
 
+        // ...existing notification logic...
         if (isOpen && isSupabaseConfigured()) {
             try {
                 let participantIds: string[] = [];

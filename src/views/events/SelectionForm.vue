@@ -217,7 +217,19 @@ const didLoadExistingRating = ref<boolean>(false);
 // Using reactive for nested objects that will be modified
 
 // --- Use centralized name cache from Vuex store ---
-const getUserName = (userId: string) => store.getters['user/getUserNameById'](userId);
+const getUserName = (userId: string) => {
+  // Always try to get the name from Vuex nameCache (Map-based)
+  const cache = store.state.user.nameCache;
+  if (cache && typeof cache.get === 'function') {
+    const entry = cache.get(userId);
+    if (entry && entry.name && entry.name !== userId) return entry.name;
+  }
+  // Fallback to Vuex getter (for legacy support)
+  const getterName = store.getters['user/getUserNameById']?.(userId);
+  if (getterName && getterName !== userId) return getterName;
+  // Never show UID, fallback to "Unknown User"
+  return "Unknown User";
+};
 
 // --- Computed Properties ---
 const currentUser = computed(() => store.getters['user/getUser']);
@@ -355,9 +367,16 @@ watch([sortedXpAllocation, isTeamEvent], ([allocations, teamEventStatus]) => {
 // Watch available participants to fetch their names for individual events
 watch(availableParticipants, async (newParticipants) => {
   if (!isTeamEvent.value && Array.isArray(newParticipants)) {
-    const idsToFetch = newParticipants.filter(
-      id => !getUserName(id) || getUserName(id) === id
-    );
+    // Only fetch if not already in cache as a real name
+    const cache = store.state.user.nameCache;
+    const idsToFetch = newParticipants.filter(id => {
+      if (!id) return false;
+      if (cache && typeof cache.get === 'function') {
+        const entry = cache.get(id);
+        if (entry && entry.name && entry.name !== id) return false;
+      }
+      return true;
+    });
     if (idsToFetch.length > 0) {
       await store.dispatch('user/fetchUserNamesBatch', idsToFetch);
     }
@@ -367,9 +386,17 @@ watch(availableParticipants, async (newParticipants) => {
 // Watch all team members to fetch their names for team events
 watch(allTeamMembers, async (newMembers) => {
   if (isTeamEvent.value && Array.isArray(newMembers)) {
+    const cache = store.state.user.nameCache;
     const idsToFetch = newMembers
       .map(member => member?.uid)
-      .filter(uid => uid && (!getUserName(uid) || getUserName(uid) === uid));
+      .filter(uid => {
+        if (!uid) return false;
+        if (cache && typeof cache.get === 'function') {
+          const entry = cache.get(uid);
+          if (entry && entry.name && entry.name !== uid) return false;
+        }
+        return true;
+      });
     if (idsToFetch.length > 0) {
       await store.dispatch('user/fetchUserNamesBatch', idsToFetch);
     }
@@ -496,12 +523,6 @@ const initializeForm = async (): Promise<void> => {
       loading.value = false;
       return;
     }
-  } else {
-    if (!(isCurrentUserOrganizer.value )) {
-      errorMessage.value = 'Only event organizers or admins can select winners for this event.';
-      loading.value = false;
-      return;
-    }
   }
 
   loading.value = true;
@@ -529,21 +550,6 @@ const initializeForm = async (): Promise<void> => {
     if (!hasValidRatingCriteria.value) { // Check after event loaded and sortedXpAllocation computed
         throw new Error('This event has no valid rating criteria defined.');
     }
-
-    // --- Participant Check ---
-    let isParticipant = false;
-    if (isTeamEvent.value && eventDetails.teams) {
-        isParticipant = eventDetails.teams.some(team => team.members?.includes(currentUserId));
-    } else if (!isTeamEvent.value && eventDetails.participants) {
-        isParticipant = eventDetails.participants.includes(currentUserId);
-    }
-
-    // Re-evaluate if participants *can* rate/select. The original code prevents it.
-    // Keeping the original logic here:
-    if (isParticipant) {
-         throw new Error('Participants cannot rate or select winners for events they were part of.');
-    }
-
 
     // --- Determine if Loading Existing Data ---
     let shouldLoadExisting = false;
