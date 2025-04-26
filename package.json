@@ -34,6 +34,7 @@
     "@firebase/auth-types": "^0.13.0",
     "@firebase/firestore-types": "^3.0.3",
     "@firebase/util": "^1.8.3",
+    "@types/bootstrap": "^5.2.10",
     "@types/marked": "^5.0.2",
     "@types/node": "^20.0.0",
     "@types/uuid": "^9.0.7",

@@ -13,26 +13,42 @@
       </div>
 
       <!-- Standard User View -->
-      <!-- Main Content Block (removed extra <template> tag) -->
+      <!-- Main Content Block  -->
       <!-- Header for Current User -->
       <div v-if="isCurrentUser" class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5 pb-4 border-bottom">
-        <h2 class="h2 text-primary mb-0">My Profile</h2>
+        <div>
+          <h2 class="h2 text-primary mb-2">My Profile</h2>
+          <button 
+            v-if="isCurrentUser"
+            @click="profileContentRef?.openEditProfile()"
+            class="btn btn-outline-primary"
+          >
+            <i class="fas fa-edit me-1"></i> Edit Profile
+          </button>
+        </div>
         <!-- Portfolio Button Area -->
         <div class="d-flex align-items-center">
           <PortfolioGeneratorButton
             v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
             :user="userForPortfolio"
             :projects="userProjectsForPortfolio"
-            :event-participation-count="eventParticipationCount"  />
-          <p v-else-if="loadingProjectsForPortfolio || loadingEventCount" class="small text-secondary fst-italic ms-2 mb-0">
-            Loading portfolio data...
-          </p>
-
+            :event-participation-count="eventParticipationCount"
+          />
+          <div v-else class="d-flex align-items-center text-secondary">
+            <div v-if="loadingProjectsForPortfolio || loadingEventCount" class="spinner-border spinner-border-sm me-2"></div>
+            <span class="small">{{ loadingProjectsForPortfolio ? 'Loading portfolio data...' : 'No portfolio data' }}</span>
+          </div>
         </div>
       </div>
 
       <!-- Profile Content -->
-      <ProfileViewContent v-if="targetUserId" :user-id="targetUserId" :is-current-user="isCurrentUser" @hook:mounted="() => { console.log('[ProfileView] ProfileViewContent mounted, targetUserId:', targetUserId); }">
+      <ProfileViewContent
+        ref="profileContentRef"
+        v-if="targetUserId"
+        :user-id="targetUserId"
+        :is-current-user="isCurrentUser"
+        @hook:mounted="() => { console.log('[ProfileView] ProfileViewContent mounted, targetUserId:', targetUserId); }"
+      >
         <!-- Slot for Additional Content (e.g., User Requests) -->
         <template #additional-content v-if="isCurrentUser">
           <AuthGuard>
@@ -108,6 +124,9 @@ const profileUser = ref<UserData | null>(null);
 const loading = ref<boolean>(false);
 const error = ref<string>('');
 
+// Add ref for ProfileViewContent
+const profileContentRef = ref();
+
 // --- Computed Properties ---
 const loggedInUserId = computed<string | null>(() => store.state.user.uid);
 
@@ -146,9 +165,9 @@ const fetchUserProjectsForPortfolio = async () => {
              // Ensure all required fields are present
              const project: Project = {
                 id: doc.id,
-                projectName: data.projectName || data.eventName || `Project (${doc.id.substring(0, 5)}...)`,
-                eventName: data.eventName || `Event (${data.eventId?.substring(0, 5) || doc.id.substring(0, 5)}...)`,
-                eventType: data.eventType || 'Unknown',
+                projectName: data.projectName || data.details.eventName || `Project (${doc.id.substring(0, 5)}...)`,
+                eventName: data.details.eventName || `Event (${data.eventId?.substring(0, 5) || doc.id.substring(0, 5)}...)`,
+                eventType: data.details.type || 'Unknown',
                 description: data.details?.description || '',
                 link: data.link || '#', // Required field with fallback
                 submittedAt: data.submittedAt
@@ -243,6 +262,13 @@ const fetchUserProfile = async (userIdToFetch: string) => {
     } finally {
         loading.value = false;
     }
+};
+
+// Update openEditProfile method
+const openEditProfile = () => {
+  if (profileContentRef.value) {
+    profileContentRef.value.openEditModal();
+  }
 };
 
 // --- Watchers ---

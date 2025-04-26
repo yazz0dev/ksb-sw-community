@@ -30,6 +30,8 @@
               />
             </div>
             <h1 class="h4 mb-2">{{ user.name || 'User Profile' }}</h1>
+            
+            <!-- Remove Edit Profile Button from here -->
 
             <!-- Social Link -->
             <div v-if="user.socialLink" class="mb-3">
@@ -105,11 +107,12 @@
              <ul class="list-group list-group-flush">
                <li
                  v-for="event in sortedEventsHistory"
-                 :key="event.id"
+                 :key="event.id" 
                  class="list-group-item px-3 py-3"
                >
-                 <div class="d-flex flex-wrap justify-content-between align-items-center">
-                   <div class="d-flex align-items-center gap-2 flex-wrap">
+                 <!-- Row 1: Event Name & Format with Organizer Badge -->
+                 <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                   <div class="d-flex align-items-center">
                      <i class="fas fa-calendar-alt text-primary me-2"></i>
                      <router-link
                        :to="{ name: 'EventDetails', params: { id: event.id } }"
@@ -117,33 +120,34 @@
                      >
                        {{ event.details?.eventName || 'Unnamed Event' }}
                      </router-link>
-                     <span
-                       v-if="isOrganizer(event)"
-                       class="badge bg-success-subtle text-success-emphasis rounded-pill ms-1"
-                     >
-                       <i class="fas fa-crown me-1"></i> Organizer
+                     <span v-if="event.details?.format" class="badge bg-secondary-subtle text-secondary-emphasis small ms-2">
+                       <i class="fas fa-users me-1"></i>{{ formatEventFormat(event.details.format) }}
                      </span>
-                     <!-- Use centralized badge class for event status -->
+                   </div>
+                   <span
+                     v-if="isOrganizer(event)"
+                     class="badge bg-success-subtle text-success-emphasis rounded-pill"
+                   >
+                     <i class="fas fa-crown me-1"></i> Organizer
+                   </span>
+                 </div>
+
+                 <!-- Row 2: Type, Status and Date -->
+                 <div class="d-flex justify-content-between align-items-center">
+                   <span v-if="event.details?.type" class="badge bg-info-subtle text-info-emphasis small">
+                     <i class="fas fa-tag me-1"></i>{{ event.details.type }}
+                   </span>
+                   <div class="d-flex align-items-center gap-2">
                      <span
-                       class="badge rounded-pill ms-1"
+                       class="badge rounded-pill"
                        :class="getEventStatusBadgeClass(event.status)"
                      >
                        {{ event.status }}
                      </span>
-                   </div>
-                   <div class="text-end">
                      <span class="badge bg-light text-secondary border border-1 fw-normal">
                        {{ formatISTDate(event.details?.date?.start) }}
                      </span>
                    </div>
-                 </div>
-                 <div class="d-flex flex-wrap align-items-center gap-2 mt-2 ms-4">
-                   <span v-if="event.details?.type" class="badge bg-info-subtle text-info-emphasis small">
-                     <i class="fas fa-tag me-1"></i>{{ event.details.type }}
-                   </span>
-                   <span v-if="event.details?.format" class="badge bg-secondary-subtle text-secondary-emphasis small">
-                     <i class="fas fa-users me-1"></i>{{ formatEventFormat(event.details.format) }}
-                   </span>
                  </div>
                </li>
              </ul>
@@ -166,15 +170,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, toRefs } from 'vue';
+import { ref, computed, watch, toRefs, nextTick, onMounted, onUnmounted, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { db } from '../firebase';
-import { doc, getDoc, collection, query, where, getDocs, orderBy, DocumentData, Timestamp } from 'firebase/firestore'; // Import Timestamp
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy, DocumentData } from 'firebase/firestore';
 import { formatISTDate } from '@/utils/dateTime';
 import { formatRoleName as formatRoleNameUtil } from '../utils/formatters';
-import { Event, EventStatus } from '@/types/event'; // Import Event type AND EventStatus
-import { User } from '@/types/user'; // Import User type for casting
+import { Event, EventStatus } from '@/types/event';
+import { User } from '@/types/user';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
+import { Modal } from 'bootstrap';
+import { defineExpose } from 'vue';  // Add this import
+import { useRouter } from 'vue-router';
+
+// Add interface for Bootstrap Modal methods
+interface BootstrapModalInstance {
+  show: () => void;
+  hide: () => void;
+  dispose: () => void;
+}
 
 interface Props {
     userId: string;
@@ -352,28 +366,35 @@ const fetchUserProjects = async (targetUserId: string) => {
 
 // Fetch user's events (participated and organized) from the store
 const fetchUserEventsFromStore = async () => {
-  // Ensure events are loaded in the store
   await store.dispatch('events/fetchEvents');
-  // Get the event getter
   const getEventsByIds = store.getters['events/getEventsByIds'] as (ids: string[]) => Event[];
-  // Merge, deduplicate event IDs
   const allIds = Array.from(new Set([
     ...participatedEventIds.value,
     ...organizedEventIds.value
   ]));
-  // Get event objects
+
   let allEvents = getEventsByIds(allIds);
-  // Only show completed/closed events in history
-  allEvents = allEvents.filter((event: Event) =>
-    event.status === EventStatus.Completed || event.status === EventStatus.Closed
-  );
+
+  // Filter events based on whether it's the user's own profile or public view
+  allEvents = allEvents.filter((event: Event) => {
+    const excludedStatuses = [EventStatus.Pending, EventStatus.Cancelled];
+    if (props.isCurrentUser) {
+      // For own profile: show all except pending and cancelled
+      return !excludedStatuses.includes(event.status as EventStatus);
+    } else {
+      // For public profile: only show completed and closed
+      return event.status === EventStatus.Completed || event.status === EventStatus.Closed;
+    }
+  });
+
   // Sort by most recent
-  allEvents.sort((a: Event, b: Event) => {
+  allEvents.sort((a, b) => {
     const timeA = a.details?.date?.start ? a.details.date.start.toMillis() : 0;
     const timeB = b.details?.date?.start ? b.details.date.start.toMillis() : 0;
     return timeB - timeA;
   });
   participatedEvents.value = allEvents;
+
   // Stats
   let participated = 0, organized = 0, won = 0;
   allEvents.forEach((event: Event) => {
@@ -405,6 +426,16 @@ watch(userId, (newUserId) => {
   }
 }, { immediate: true });
 
+// Add router
+const router = useRouter();
+
+// Replace openEditModal with navigation
+const openEditProfile = () => {
+  router.push({ name: 'EditProfile', params: { id: userId.value } });
+};
+
+// Update expose
+defineExpose({
+  openEditProfile
+});
 </script>
-
-

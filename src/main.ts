@@ -12,6 +12,8 @@ import { isSupabaseConfigured } from './notifications';
 import '@fortawesome/fontawesome-free/css/all.css';
 import './assets/styles/main.scss';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap'; // This imports bootstrap JS bundle
 
 let appInstance: VueApp | null = null;
 let authInitialized: boolean = false;
@@ -58,8 +60,8 @@ function getOneSignal(): any {
 }
 
 async function initOneSignal() {
-    if (!oneSignalAppId) {
-        console.warn("OneSignal App ID not configured. Skipping OneSignal initialization.");
+    if (!oneSignalAppId || window.location.hostname === 'localhost') {
+        console.log('Skipping OneSignal initialization on localhost');
         return;
     }
     if (!isSupabaseConfigured()) {

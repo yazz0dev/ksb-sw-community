@@ -46,8 +46,21 @@ export const eventMutations: MutationTree<EventState> = {
         if (index !== -1) {
             // Merge changes: Ensure existing fields aren't overwritten with undefined
             const existingEvent = state.events[index];
-            const updatedEvent = { ...existingEvent, ...event };
-            state.events[index] = updatedEvent;
+            // Deep merge for details and other nested fields
+            state.events[index] = {
+                ...existingEvent,
+                ...event,
+                details: { ...existingEvent.details, ...event.details },
+                criteria: event.criteria ?? existingEvent.criteria,
+                // --- FIX: Always replace teams array if present ---
+                teams: Array.isArray(event.teams) ? event.teams : existingEvent.teams,
+                participants: event.participants ?? existingEvent.participants,
+                submissions: event.submissions ?? existingEvent.submissions,
+                ratings: event.ratings ?? existingEvent.ratings,
+                winners: event.winners ?? existingEvent.winners,
+                bestPerformerSelections: event.bestPerformerSelections ?? existingEvent.bestPerformerSelections,
+                // Add any other fields as needed
+            };
         } else {
             state.events.push(event);
         }

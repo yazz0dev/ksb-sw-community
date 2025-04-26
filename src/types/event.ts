@@ -28,6 +28,7 @@ export interface EventCriteria {
   /**
    * For team events: userId -> selected teamName
    * For individual events: userId -> selected participantId
+   * Note: Team events should always include a "Best Performer" criteria with 10 XP
    */
   criteriaSelections: { [userId: string]: string }; // Always present, used for both event types
 }
@@ -160,6 +161,8 @@ export interface Event {
   ratings?: {
     organizer?: OrganizerRating[];
   };
+
+  bestPerformerSelections?: Record<string, string>; // userId -> selectedParticipantId
 
   // --- System fields ---
   createdAt: Timestamp;

@@ -108,42 +108,48 @@ export async function requestEvent({ commit, rootGetters, dispatch }: ActionCont
     }
 
     try {
-        const startDate = initialData.details.date.start;
-        const endDate = initialData.details.date.end;
-        if (!(startDate instanceof Timestamp) || !(endDate instanceof Timestamp)) {
-            throw new Error("Invalid date format.");
-        }
-        if (startDate.toMillis() > endDate.toMillis()) {
-            throw new Error("End date must be after start date.");
-        }
+        // --- ENFORCE STRUCTURE ---
+        // Remove any top-level eventName/type/format fields
+        const cleanInitialData = { ...initialData };
+        delete (cleanInitialData as any).eventName;
+        delete (cleanInitialData as any).type;
+        delete (cleanInitialData as any).format;
 
-        const eventFormat = initialData.details.format;
-        let organizers: string[] = Array.isArray(initialData.details.organizers) 
-            ? initialData.details.organizers.filter(Boolean) 
-            : [];
-        if (!organizers.includes(currentUser.uid)) {
-            organizers.unshift(currentUser.uid);
-        }
+        // Ensure all fields are inside details
+        const details = {
+            ...cleanInitialData.details,
+            eventName: cleanInitialData.details?.eventName || '',
+            type: cleanInitialData.details?.type || '',
+            // Fix: Only allow EventFormat values
+            format: cleanInitialData.details?.format === EventFormat.Team
+                ? EventFormat.Team
+                : EventFormat.Individual,
+            description: cleanInitialData.details?.description || '',
+            date: {
+                start: cleanInitialData.details?.date?.start || null,
+                end: cleanInitialData.details?.date?.end || null
+            },
+            organizers: Array.isArray(cleanInitialData.details?.organizers)
+                ? cleanInitialData.details.organizers.filter(Boolean)
+                : [currentUser.uid],
+            allowProjectSubmission: typeof cleanInitialData.details?.allowProjectSubmission === 'boolean'
+                ? cleanInitialData.details.allowProjectSubmission
+                : true
+        };
+
+        // Ensure arrays
+        const criteria = Array.isArray(cleanInitialData.criteria) ? cleanInitialData.criteria : [];
+        const teams = Array.isArray(cleanInitialData.teams) ? cleanInitialData.teams : [];
+        const participants = Array.isArray(cleanInitialData.participants) ? cleanInitialData.participants : [];
 
         const requestPayload: Partial<Event> = {
-            ...initialData, // Spread all form fields first (should not include top-level eventName/type anymore)
-            details: {
-                ...initialData.details,
-                organizers,
-                eventName: initialData.details?.eventName || '',
-                description: initialData.details?.description || '',
-                type: initialData.details?.type || '',
-                format: eventFormat,
-                date: {
-                    start: initialData.details?.date?.start || null,
-                    end: initialData.details?.date?.end || null
-                }
-            },
-            criteria: Array.isArray(initialData.criteria) ? initialData.criteria : [],
-            teams: Array.isArray(initialData.teams) ? initialData.teams : [],
-            participants: Array.isArray(initialData.participants) ? initialData.participants : [],
+            ...cleanInitialData,
+            details,
+            criteria,
+            teams,
+            participants,
             requestedBy: currentUser.uid,
-            ratingsOpen: false, // Always include ratingsOpen
+            ratingsOpen: false,
             status: EventStatus.Pending,
             createdAt: Timestamp.now(),
             lastUpdatedAt: Timestamp.now(),
@@ -194,7 +200,95 @@ export async function requestEvent({ commit, rootGetters, dispatch }: ActionCont
     }
 }
 
+// --- ACTION: Update Event Details (Organizer, or Requester) ---
+export async function updateEventDetails({ dispatch, rootGetters }: ActionContext<EventState, RootState>, { eventId, updates }: { eventId: string; updates: Partial<Event> }): Promise<void> {
+    if (!eventId) throw new Error('Event ID required.');
+    const eventRef = doc(db, 'events', eventId);
+    let fetchedEventData: Event | null = null; // To store data for notification
 
+    try {
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error("Event not found.");
+        fetchedEventData = { id: eventId, ...eventSnap.data() } as Event;
+
+        const currentUser: User | null = rootGetters['user/getUser'];
+        const isOrganizer = Array.isArray(fetchedEventData.details?.organizers) && fetchedEventData.details.organizers.includes(currentUser?.uid ?? '');
+        if (!isOrganizer) throw new Error("Permission denied.");
+
+        // --- ENFORCE STRUCTURE ON UPDATES ---
+        // Remove any top-level eventName/type/format fields
+        if ('eventName' in updates) delete (updates as any).eventName;
+        if ('type' in updates) delete (updates as any).type;
+        if ('format' in updates) delete (updates as any).format;
+
+        // Ensure all fields are inside details
+        if (updates.details) {
+            updates.details = {
+                ...fetchedEventData.details,
+                ...updates.details,
+                eventName: updates.details.eventName || fetchedEventData.details.eventName || '',
+                type: updates.details.type || fetchedEventData.details.type || '',
+                format: updates.details.format || fetchedEventData.details.format || '',
+                description: updates.details.description || fetchedEventData.details.description || '',
+                date: {
+                    start: updates.details.date?.start || fetchedEventData.details.date.start,
+                    end: updates.details.date?.end || fetchedEventData.details.date.end
+                },
+                organizers: Array.isArray(updates.details.organizers)
+                    ? updates.details.organizers.filter(Boolean)
+                    : fetchedEventData.details.organizers
+            };
+        }
+
+        await updateDoc(eventRef, updates);
+        dispatch('updateLocalEvent', { id: eventId, changes: updates });
+
+        // --- Push Notification Trigger START ---
+        if (isSupabaseConfigured() && fetchedEventData) {
+            try {
+                // Determine target users
+                const organizers = fetchedEventData.details?.organizers || [];
+                const participants = fetchedEventData.participants || [];
+                const teamMembers = (fetchedEventData.teams || []).flatMap(t => t.members || []);
+                const targetUserIds = [...new Set([...organizers, ...participants, ...teamMembers])]
+                    .filter(Boolean)
+                    .filter(id => id !== currentUser?.uid); // Don't notify the user who updated
+
+                if (targetUserIds.length > 0) {
+                    const functionPayload = {
+                        notificationType: 'eventUpdated',
+                        targetUserIds: targetUserIds,
+                        eventId: eventId,
+                        messageTitle: `Event Updated: ${fetchedEventData.details?.type || 'Event'}`,
+                        messageBody: `The event "${fetchedEventData.details?.type || 'Event'}" has been updated.`,
+                        eventUrl: `/event/${eventId}`,
+                    };
+
+                    console.log("Triggering Supabase Edge Function for event update:", functionPayload);
+
+                    await invokePushNotification(functionPayload);
+
+                    console.log(`Supabase Edge Function execution triggered for event update ${eventId}.`);
+                }
+            } catch (pushError) {
+                console.error(`Failed to trigger Supabase function for event update ${eventId}:`, pushError);
+                dispatch('notification/showNotification', {
+                    message: 'Event updated, but failed to send notification.',
+                    type: 'warning'
+                }, { root: true });
+            }
+        }
+        // --- Push Notification Trigger END ---
+
+    } catch (error: any) {
+        console.error(`Error updating event ${eventId}:`, error);
+        dispatch('notification/showNotification', {
+            message: `Failed to update event: ${error.message || 'Unknown error'}`,
+            type: 'error'
+        }, { root: true });
+        throw error;
+    }
+}
 
 // --- ACTION: Cancel Event ( Organizer) ---
 export async function cancelEvent({ dispatch, rootGetters }: ActionContext<EventState, RootState>, eventId: string): Promise<void> {

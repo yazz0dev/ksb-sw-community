@@ -21,8 +21,14 @@ import { RootState } from '@/types/store';
 import { User } from '@/types/user';
 
 // --- Helper: Update Local State ---
-export function updateLocalEvent({ commit }: ActionContext<EventState, RootState>, { id, changes }: { id: string; changes: Partial<Event> }) {
-    commit('addOrUpdateEvent', { id, ...changes });
+export function updateLocalEvent({ commit, state }: ActionContext<EventState, RootState>, { id, changes }: { id: string; changes: Partial<Event> }) {
+    // Find the existing event and merge changes for addOrUpdateEvent
+    const existing = state.events.find((e: Event) => e.id === id);
+    if (existing) {
+        commit('addOrUpdateEvent', { ...existing, ...changes, id });
+    } else {
+        commit('addOrUpdateEvent', { id, ...changes });
+    }
     // Also update current details if it's the one being viewed
     commit('updateCurrentEventDetails', { id, changes });
 }
@@ -46,44 +52,59 @@ export async function updateEventDetails({ dispatch, rootGetters }: ActionContex
 
         let canEdit = false;
         if (isOrganizer && editableStatuses.includes(currentStatus)) canEdit = true;
-        else if (isRequester && currentStatus === EventStatus.Pending) canEdit = true;
+        // Allow requester to edit in Pending OR Approved
+        else if (isRequester && [EventStatus.Pending, EventStatus.Approved].includes(currentStatus)) canEdit = true;
         if (!canEdit) throw new Error(`Permission denied: Cannot edit status '${currentStatus}'.`);
 
-        const allowedUpdates: Partial<Event> = {};
+        // Remove any top-level eventName/type/format fields
+        if ('eventName' in updates) delete (updates as any).eventName;
+        if ('type' in updates) delete (updates as any).type;
+        if ('format' in updates) delete (updates as any).format;
 
-        if ('description' in updates && typeof updates.description === 'string') {
-            allowedUpdates.details = { ...eventData.details, description: updates.description };
-        }
-
-        if ('teams' in updates && Array.isArray(updates.teams)) {
-            allowedUpdates.teams = updates.teams as Team[];
-        }
-
-        if ('organizers' in updates && Array.isArray(updates.organizers)) {
-            allowedUpdates.details = { ...eventData.details, organizers: updates.organizers as string[] };
-        }
-
-        if ('startDate' in updates || 'endDate' in updates) {
-            const start = (updates as any).startDate ?? eventData.details.date.start;
-            const end = (updates as any).endDate ?? eventData.details.date.end;
-            allowedUpdates.details = {
+        // Merge details
+        let mergedDetails = { ...eventData.details };
+        if (updates.details) {
+            mergedDetails = {
                 ...eventData.details,
+                ...updates.details,
+                eventName: updates.details.eventName || eventData.details.eventName || '',
+                type: updates.details.type || eventData.details.type || '',
+                format: updates.details.format || eventData.details.format || '',
+                description: updates.details.description || eventData.details.description || '',
                 date: {
-                    ...eventData.details.date,
-                    start,
-                    end
-                }
+                    start: updates.details.date?.start || eventData.details.date.start,
+                    end: updates.details.date?.end || eventData.details.date.end
+                },
+                organizers: Array.isArray(updates.details.organizers)
+                    ? updates.details.organizers.filter(Boolean)
+                    : eventData.details.organizers
             };
         }
 
-        if (Object.keys(allowedUpdates).length > 0) {
-            allowedUpdates.lastUpdatedAt = Timestamp.now();
-            await updateDoc(eventRef, allowedUpdates);
-            dispatch('updateLocalEvent', { id: eventId, changes: allowedUpdates });
-            console.log(`Event ${eventId} details updated.`);
-        } else {
-            console.log(`No valid updates for event ${eventId}.`);
+        // --- TEAM UPDATE LOGIC ---
+        // If teams are present in updates, always use them (add, remove, edit)
+        let mergedTeams = eventData.teams;
+        if ('teams' in updates && Array.isArray(updates.teams)) {
+            mergedTeams = updates.teams;
         }
+
+        // Build the update payload for Firestore (only changed fields)
+        const updatePayload: any = {
+            details: mergedDetails,
+            lastUpdatedAt: Timestamp.now(),
+        };
+        if (Array.isArray(mergedTeams)) {
+            updatePayload.teams = mergedTeams;
+        }
+        if ('criteria' in updates) updatePayload.criteria = updates.criteria;
+        if ('participants' in updates) updatePayload.participants = updates.participants;
+
+        // Remove id, createdAt, status, requestedBy, etc. from Firestore update
+        // (status/requestedBy should only be changed by status actions)
+
+        await updateDoc(eventRef, updatePayload);
+        dispatch('updateLocalEvent', { id: eventId, changes: { ...updatePayload } });
+        console.log(`Event ${eventId} details updated.`);
     } catch (error: any) {
         console.error(`Error updating event ${eventId}:`, error);
         throw error;

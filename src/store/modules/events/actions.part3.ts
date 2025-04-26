@@ -646,6 +646,16 @@ export async function submitTeamCriteriaVote({ rootGetters, dispatch }: ActionCo
         const isParticipant = eventData.teams?.some(team => team.members?.includes(ratedBy)) || false;
         if (!isParticipant) throw new Error("Only participants can submit ratings.");
 
+        // --- NEW: Update bestPerformerSelections ---
+        let updatedBestPerformerSelections: Record<string, string> = {};
+        if (eventData.bestPerformerSelections && typeof eventData.bestPerformerSelections === 'object') {
+            updatedBestPerformerSelections = { ...eventData.bestPerformerSelections };
+        }
+        // Only set if valid (not empty, not self)
+        if (typeof selections.bestPerformer === 'string' && selections.bestPerformer) {
+            updatedBestPerformerSelections[ratedBy] = selections.bestPerformer;
+        }
+
         // Update criteriaSelections for each criterion
         const updatedCriteria = (eventData.criteria || []).map((criterion: any) => {
             const idx = String(criterion.constraintIndex);
@@ -658,9 +668,10 @@ export async function submitTeamCriteriaVote({ rootGetters, dispatch }: ActionCo
 
         await updateDoc(eventRef, {
             criteria: updatedCriteria,
+            bestPerformerSelections: updatedBestPerformerSelections,
             lastUpdatedAt: Timestamp.now()
         });
-        dispatch('updateLocalEvent', { id: eventId, changes: { criteria: updatedCriteria } });
+        dispatch('updateLocalEvent', { id: eventId, changes: { criteria: updatedCriteria, bestPerformerSelections: updatedBestPerformerSelections } });
     } catch (error: any) {
         console.error(`Error submitting team criteria vote for ${eventId}:`, error);
         throw error;

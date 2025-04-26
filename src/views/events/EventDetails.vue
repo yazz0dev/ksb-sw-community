@@ -263,6 +263,15 @@
                     <i class="fas fa-trophy me-1"></i>
                     <span>Select Winner</span>
                   </router-link>
+                  <!-- Organizer Rating Button: Only for eligible participants (not organizers) -->
+                  <router-link
+                    v-if="canRateOrganizer"
+                    :to="{ name: 'OrganizerRatingForm', params: { eventId: event.id } }"
+                    class="btn btn-sm btn-secondary d-inline-flex align-items-center mt-3 ms-2"
+                  >
+                    <i class="fas fa-star me-1"></i>
+                    <span>Rate Organizers</span>
+                  </router-link>
                 </template>
               </div>
             </div>
@@ -849,6 +858,25 @@ watch([currentUser, event], ([user, evt], [oldUser, oldEvt]) => {
 const getWinnersPerCriterion = computed(() => {
   if (!event.value?.criteria) return {};
   const winners: Record<string, string[]> = {};
+  
+  // Handle best performer selections separately
+  if (event.value.bestPerformerSelections && event.value.details.format === 'Team') {
+    const bestPerformerVotes: Record<string, number> = {};
+    Object.values(event.value.bestPerformerSelections).forEach(selectedId => {
+      if (selectedId) {
+        bestPerformerVotes[selectedId] = (bestPerformerVotes[selectedId] || 0) + 1;
+      }
+    });
+    // Find participant(s) with most votes
+    const maxVotes = Math.max(0, ...Object.values(bestPerformerVotes));
+    const bestPerformers = Object.entries(bestPerformerVotes)
+      .filter(([_, count]) => count === maxVotes && maxVotes > 0)
+      .map(([participantId]) => participantId);
+    
+    winners['Best Performer'] = bestPerformers;
+  }
+
+  // Handle other criteria
   event.value.criteria.forEach(criterion => {
     // Count votes for each participant/team for this criterion
     const voteCounts: Record<string, number> = {};
@@ -864,7 +892,25 @@ const getWinnersPerCriterion = computed(() => {
       winners[criterion.constraintLabel || `Criteria ${criterion.constraintIndex}`] = topWinners;
     }
   });
+  
   return winners;
+});
+
+const canRateOrganizer = computed(() => {
+  if (!event.value || !currentUser.value?.uid) return false;
+  if (event.value.status !== EventStatus.Completed) return false;
+  const uid = currentUser.value.uid;
+  // Must be a participant
+  let isParticipant = false;
+  if (event.value.details.format === EventFormat.Team && Array.isArray(event.value.teams)) {
+    isParticipant = event.value.teams.some(team => team.members?.includes(uid));
+  } else if (Array.isArray(event.value.participants)) {
+    isParticipant = event.value.participants.includes(uid);
+  }
+  // Must NOT be an organizer or requester
+  const organizers = event.value.details.organizers || [];
+  const isOrganizer = organizers.includes(uid) || event.value.requestedBy === uid;
+  return isParticipant && !isOrganizer;
 });
 
 defineExpose({

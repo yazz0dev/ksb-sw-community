@@ -128,13 +128,49 @@ const handleSubmit = async (eventData: EventFormData) => {
   }
   errorMessage.value = '';
   try {
+    if (eventData.details?.format === 'Team') {
+      // Ensure best performer criteria exists
+      const hasBestPerformer = eventData.criteria.some(c => 
+        c.constraintLabel.toLowerCase().includes('best performer'));
+      
+      if (!hasBestPerformer) {
+        eventData.criteria.push({
+          constraintIndex: Date.now() + Math.random(),
+          constraintLabel: 'Best Performer',
+          points: 10,
+          role: 'developer',
+          criteriaSelections: {}
+        });
+      }
+    }
+
     if (isEditing.value && eventId.value) {
-      // Update event details (do not change status)
-      await store.dispatch('events/updateEventDetails', {
-        eventId: eventId.value,
-        updates: eventData
-      });
-      store.dispatch('notification/showNotification', { message: 'Event updated successfully!', type: 'success' });
+      // --- Only update if there are changes ---
+      // Fetch the original event data for comparison
+      const original = initialEventData.value;
+      // Deep compare function (simple version)
+      function deepEqual(a: any, b: any): boolean {
+        return JSON.stringify(a) === JSON.stringify(b);
+      }
+      // Remove non-editable fields from comparison if needed
+      const clean = (obj: any) => {
+        if (!obj) return obj;
+        const { status, ...rest } = obj;
+        return rest;
+      };
+      if (!deepEqual(clean(eventData), clean(original))) {
+        // --- FIX: Always include teams in updates payload ---
+        await store.dispatch('events/updateEventDetails', {
+          eventId: eventId.value,
+          updates: {
+            ...eventData,
+            teams: Array.isArray(eventData.teams) ? eventData.teams : []
+          }
+        });
+        store.dispatch('notification/showNotification', { message: 'Event updated successfully!', type: 'success' });
+      } else {
+        store.dispatch('notification/showNotification', { message: 'No changes detected. Event not updated.', type: 'info' });
+      }
       router.push({ name: 'EventDetails', params: { id: eventId.value } });
     } else {
       // Only allow event requests (creation)

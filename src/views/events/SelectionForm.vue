@@ -93,7 +93,7 @@
                       </div>
                       <!-- Move Best Performer selection into criteria selection -->
                       <div class="mb-2">
-                        <label :for="`team-select-best-performer`" class="form-label small">Overall Best Performer</label>
+                        <label :for="`team-select-best-performer`" class="form-label small">Best Performer</label>
                         <select
                           id="team-select-best-performer"
                           class="form-select form-select-sm"
@@ -318,8 +318,20 @@ const canFindWinner = computed(() => {
 // Filter out self/team for selection
 const selectableBestPerformers = computed(() => {
   if (!allTeamMembers.value || !currentUser.value?.uid) return [];
-  return allTeamMembers.value.filter(member => member.uid !== currentUser.value.uid);
+  // Find current user's team
+  const currentUserTeam = event.value?.teams?.find(team => 
+    team.members?.includes(currentUser.value.uid)
+  );
+  // Filter out members of current user's team and the current user
+  return allTeamMembers.value.filter(member => {
+    const memberTeam = event.value?.teams?.find(team => 
+      team.members?.includes(member.uid)
+    );
+    return member.uid !== currentUser.value.uid && 
+           memberTeam?.teamName !== currentUserTeam?.teamName;
+  });
 });
+
 const selectableParticipants = computed(() => {
   if (!event.value?.participants || !currentUser.value?.uid) return [];
   return event.value.participants.filter(pId => pId !== currentUser.value.uid);
@@ -398,7 +410,7 @@ const initializeTeamEventForm = async (eventDetails: Event, loadExisting: boolea
     });
   });
 
-  teamMemberMap.value = tempMemberMap; // Assign the map
+  teamMemberMap.value = tempMemberMap;
 
   // Fetch names for all members
   if (memberIds.size > 0) {
@@ -419,53 +431,43 @@ const initializeTeamEventForm = async (eventDetails: Event, loadExisting: boolea
     }
   }
 
-  // Initialize ratings structure (handled by watcher)
+  // --- Restore previous selections if present ---
+  didLoadExistingRating.value = false;
+  const currentUserId = currentUser.value?.uid;
 
-  // Load existing data if applicable
-  if (loadExisting) {
-      const currentUserId = currentUser.value?.uid;
-      const existingRating = eventDetails.teamCriteriaRatings?.find(
-        r => r.ratedBy === currentUserId
-      );
-      if (existingRating?.selections) {
-        // Load criteria selections
-        Object.entries(existingRating.selections.criteria || {}).forEach(([index, teamName]) => {
-           const key = `constraint${index}`;
-           if (teamRatings[key] !== undefined) { // Check if the key exists (initialized by watcher)
-             teamRatings[key] = teamName || ''; // Ensure empty string if null/undefined
-           } else {
-             // Handle case where allocation might have changed since rating
-             console.warn(`Rating found for non-existent constraint index: ${index}`);
-           }
-        });
-        // Load best performer
-        teamRatings['bestPerformer'] = existingRating.selections.bestPerformer || '';
-        didLoadExistingRating.value = true; // Mark that existing data was loaded
-      } else {
-         didLoadExistingRating.value = false; // No existing rating found for user
-      }
-  } else {
-       didLoadExistingRating.value = false; // Explicitly set when not loading existing
+  // Find previous rating by this user (teamCriteriaRatings)
+  let previous = null;
+  if (Array.isArray(eventDetails.teamCriteriaRatings)) {
+    previous = eventDetails.teamCriteriaRatings.find(r => r.ratedBy === currentUserId);
   }
 
-  // --- Load previous vote if present ---
-  const previousVote = Array.isArray(eventDetails.teamCriteriaRatings)
-    ? eventDetails.teamCriteriaRatings.find((v: any) => v.ratedBy === currentUser.value?.uid)
-    : null;
-  if (previousVote && previousVote.selections) {
-    Object.entries(previousVote.selections.criteria || {}).forEach(([index, teamName]) => {
+  if (previous?.selections) {
+    // Restore all criteria selections
+    Object.entries(previous.selections.criteria || {}).forEach(([index, teamName]) => {
       const key = `constraint${index}`;
       if (teamRatings[key] !== undefined) {
         teamRatings[key] = teamName || '';
       }
     });
-    teamRatings['bestPerformer'] = previousVote.selections.bestPerformer || '';
+    // Restore best performer
+    teamRatings['bestPerformer'] = previous.selections.bestPerformer || '';
     didLoadExistingRating.value = true;
-  } else if (loadExisting) {
-    // fallback to legacy/existingRating logic if needed
-    // ...existing code for loading from teamCriteriaRatings...
   } else {
-    didLoadExistingRating.value = false;
+    // Try to restore from bestPerformerSelections (legacy/alternate)
+    if (eventDetails.bestPerformerSelections?.[currentUserId ?? '']) {
+      const bestPerformerId = eventDetails.bestPerformerSelections[currentUserId ?? ''];
+      // Validate best performer is from different team
+      const currentUserTeam = eventDetails.teams?.find(team => 
+        team.members?.includes(currentUserId)
+      );
+      const bestPerformerTeam = eventDetails.teams?.find(team => 
+        team.members?.includes(bestPerformerId)
+      );
+      if (bestPerformerTeam?.teamName !== currentUserTeam?.teamName) {
+        teamRatings['bestPerformer'] = bestPerformerId;
+        didLoadExistingRating.value = true;
+      }
+    }
   }
 };
 
@@ -484,29 +486,25 @@ const initializeIndividualEventForm = async (eventDetails: Event, loadExisting: 
     }
   }
 
-  // Initialize ratings structure (handled by watcher)
+  // --- Restore previous selections if present ---
+  didLoadExistingRating.value = false;
+  const currentUserId = currentUser.value?.uid;
 
-  // Load existing data if applicable
-  if (loadExisting) {
-     // Use criteriaSelections to load previous votes for current user
-     let loadedSomething = false;
-     const currentUserId = currentUser.value?.uid;
-     if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
-       eventDetails.criteria.forEach(alloc => {
-         if (!alloc.criteriaSelections) return;
-         const winnerId = alloc.criteriaSelections[currentUserId || ''];
-         if (typeof alloc.constraintIndex === 'number') {
-           const key = `constraint${alloc.constraintIndex}`;
-           if (winnerId && individualRatings[key] !== undefined) {
-             individualRatings[key] = winnerId;
-             loadedSomething = true;
-           }
-         }
-       });
-     }
-     didLoadExistingRating.value = loadedSomething;
-  } else {
-      didLoadExistingRating.value = false;
+  // For each criterion, check if this user has a previous selection
+  if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
+    let loaded = false;
+    eventDetails.criteria.forEach(alloc => {
+      if (!alloc.criteriaSelections) return;
+      const winnerId = alloc.criteriaSelections[currentUserId || ''];
+      if (typeof alloc.constraintIndex === 'number') {
+        const key = `constraint${alloc.constraintIndex}`;
+        if (winnerId !== undefined && individualRatings[key] !== undefined) {
+          individualRatings[key] = winnerId;
+          loaded = true;
+        }
+      }
+    });
+    didLoadExistingRating.value = loaded;
   }
 };
 
@@ -613,12 +611,14 @@ const submitSelection = async (): Promise<void> => {
         criteriaSelections[allocation.constraintIndex.toString()] = teamRatings[key] || '';
       });
 
+      // Update payload to use new structure
       payload = {
         eventId: props.eventId,
         ratingType: 'team_criteria_vote',
         ratedBy: currentUser.value.uid,
         selections: {
           criteria: criteriaSelections,
+          // Now updates bestPerformerSelections instead of handling in criteria
           bestPerformer: teamRatings['bestPerformer'] || ''
         }
       };
@@ -676,23 +676,45 @@ const goBack = (): void => {
 // --- Computed: Organizer Stats for Criteria Selections ---
 const criteriaStats = computed(() => {
   if (!event.value?.criteria) return [];
-  return event.value.criteria.map(criterion => {
-    // Count votes for each selection (team or participant)
+  const stats = [];
+
+  // Add Best Performer stats for team events
+  if (isTeamEvent.value && event.value.bestPerformerSelections) {
+    const bestPerformerCounts: Record<string, number> = {};
+    Object.values(event.value.bestPerformerSelections).forEach(selectedId => {
+      if (selectedId) {
+        bestPerformerCounts[selectedId] = (bestPerformerCounts[selectedId] || 0) + 1;
+      }
+    });
+
+    const bestPerformerSorted = Object.entries(bestPerformerCounts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([id, count]) => [getUserName(id), count]);
+
+    stats.push({
+      constraintLabel: 'Best Performer',
+      constraintIndex: -1, // Special index for Best Performer
+      points: 10,
+      selections: bestPerformerSorted
+    });
+  }
+
+  // Add other criteria stats
+  return stats.concat(event.value.criteria.map(criterion => {
     const counts: Record<string, number> = {};
     if (criterion.criteriaSelections) {
       Object.values(criterion.criteriaSelections).forEach(sel => {
         if (sel) counts[sel] = (counts[sel] || 0) + 1;
       });
     }
-    // For display: sort by count desc, then name
+    
     const sorted = Object.entries(counts)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 3) // Only top 3
+      .slice(0, 3)
       .map(([id, count]) => {
-        // For team events, show team name; for individual, show user name
         let displayName = id;
         if (isTeamEvent.value) {
-          // Try to find the team by name
           const team = event.value?.teams?.find(t => t.teamName === id);
           displayName = team ? team.teamName : id;
         } else {
@@ -700,13 +722,14 @@ const criteriaStats = computed(() => {
         }
         return [displayName, count];
       });
+
     return {
       constraintLabel: criterion.constraintLabel,
       constraintIndex: criterion.constraintIndex,
       points: criterion.points,
       selections: sorted
     };
-  });
+  }));
 });
 
 // --- Show stats only for organizers ---

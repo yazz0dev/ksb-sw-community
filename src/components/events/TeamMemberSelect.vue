@@ -23,38 +23,24 @@
         {{ nameCache[student.uid] || student.uid }}
       </option>
     </select>
-    <!-- Selected members are typically displayed in the parent component -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 
-const props = defineProps({
-  selectedMembers: {
-    type: Array as () => string[],
-    required: true
-  },
-  availableStudents: {
-    type: Array as () => { uid: string }[],
-    required: true
-  },
-  nameCache: {
-    type: Object as () => Record<string, string>,
-    required: true
-  },
-  isSubmitting: {
-    type: Boolean,
-    default: false
-  },
-  minMembers: {
-    type: Number,
-    default: 2
-  },
-  maxMembers: {
-    type: Number,
-    default: 10
-  }
+interface Props {
+  selectedMembers: string[];
+  availableStudents: { uid: string }[];
+  nameCache: Record<string, string>;
+  isSubmitting: boolean;
+  minMembers?: number;
+  maxMembers?: number;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  minMembers: 2,
+  maxMembers: 10
 });
 
 const emit = defineEmits(['update:members']);
@@ -68,19 +54,18 @@ const addMember = () => {
       emit('update:members', newMembers);
     }
   }
-  // Reset dropdown after selection
-  selectedMember.value = ''; 
+  selectedMember.value = ''; // Reset selection
 };
 
+// Enforce max members limit
 watch(() => props.selectedMembers, (newMembers) => {
   if (newMembers.length > props.maxMembers) {
     emit('update:members', newMembers.slice(0, props.maxMembers));
   }
 }, { deep: true });
 
-// Reset selection on mount
 onMounted(() => {
-  selectedMember.value = '';
+  selectedMember.value = ''; // Reset selection on mount
 });
 </script>
 

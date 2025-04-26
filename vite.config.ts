@@ -147,6 +147,15 @@ const config: UserConfig = {
     },
     chunkSizeWarningLimit: 1000,
     sourcemap: false
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://instagram.fcok10-1.fna.fbcdn.net',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
   }
 };
 

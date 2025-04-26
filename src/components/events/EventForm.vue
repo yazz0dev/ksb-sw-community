@@ -193,46 +193,68 @@
         <p class="small text-secondary mb-4">Define criteria for rating participants. Total XP cannot exceed 50.</p>
         
         <div v-for="(criterion, index) in formData.criteria" :key="criterion.constraintIndex ?? index" class="mb-4 p-3 bg-light-subtle border rounded">
-            <div class="row g-3 align-items-end"> 
-                <div class="col-md-5">
-                    <label :for="`criteria-label-${index}`" class="form-label form-label-sm">Criteria Label</label>
-                    <input :id="`criteria-label-${index}`" class="form-control form-control-sm" type="text" v-model="criterion.constraintLabel" :disabled="isSubmitting" placeholder="e.g., Code Quality">
-                </div>
-                <div class="col-md-4">
-                    <label :for="`criteria-points-${index}`" class="form-label form-label-sm">XP Points ({{ criterion.points }})</label>
-                    <input
-                       :id="`criteria-points-${index}`"
-                       class="form-range"
-                       type="range"
-                       v-model.number="criterion.points"
-                       :disabled="isSubmitting"
-                       min="1"
-                       :max="getCriterionMax(index)"
-                       @input="onCriterionPointsInput(index)"
-                    >
-                    <small class="form-text text-muted">Max: {{ getCriterionMax(index) }} XP</small>
-                </div>
-                 <div class="col-md-3 d-flex align-items-end gap-2">
-                     <div class="flex-grow-1">
-                       <label :for="`criteria-role-${index}`" class="form-label form-label-sm">Applies To</label>
-                       <select :id="`criteria-role-${index}`" class="form-select form-select-sm" v-model="criterion.role" :disabled="isSubmitting">
-                           <option value="" disabled>Select Role</option>
-                           <option
-                               v-for="role in assignableXpRoles"
-                               :key="role"
-                               :value="role"
-                           >{{ role }}</option>
-                       </select>
-                     </div>
-                     <button type="button" class="btn btn-sm btn-outline-danger align-self-end" @click="removeCriterion(index)" :disabled="formData.criteria.length === 1 || isSubmitting">
-                        <i class="fas fa-minus"></i>
-                     </button>
-                 </div>
+            <div class="row g-3 align-items-end">
+                <!-- Fix: Properly check format without .value -->
+                <template v-if="formData.details.format === 'Team' && criterion.constraintLabel && criterion.constraintLabel.toLowerCase().includes('best performer')">
+                  <div class="col-12">
+                    <label class="form-label form-label-sm fw-bold text-secondary">Best Performer (Auto-awarded)</label>
+                    <div class="alert alert-info py-2 px-3 mb-0 small">
+                      <i class="fas fa-star text-warning me-1"></i>
+                      10 XP will be awarded to the selected Best Performer at the end of the event.
+                    </div>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="col-md-5">
+                      <label :for="`criteria-label-${index}`" class="form-label form-label-sm">Criteria Label</label>
+                      <input :id="`criteria-label-${index}`" class="form-control form-control-sm" type="text" v-model="criterion.constraintLabel" :disabled="isSubmitting" placeholder="e.g., Code Quality">
+                  </div>
+                  <div class="col-md-4">
+                      <label :for="`criteria-points-${index}`" class="form-label form-label-sm">XP Points ({{ criterion.points }})</label>
+                      <input
+                         :id="`criteria-points-${index}`"
+                         class="form-range"
+                         type="range"
+                         v-model.number="criterion.points"
+                         :disabled="isSubmitting"
+                         min="1"
+                         :max="getCriterionMax(index)"
+                         @input="onCriterionPointsInput(index)"
+                      >
+                      <small class="form-text text-muted">Max: {{ getCriterionMax(index) }} XP</small>
+                  </div>
+                  <div class="col-md-3 d-flex align-items-end gap-2">
+                       <div class="flex-grow-1">
+                         <label :for="`criteria-role-${index}`" class="form-label form-label-sm">Applies To</label>
+                         <select :id="`criteria-role-${index}`" class="form-select form-select-sm" v-model="criterion.role" :disabled="isSubmitting">
+                             <option value="" disabled>Select Role</option>
+                             <option
+                                 v-for="role in assignableXpRoles"
+                                 :key="role"
+                                 :value="role"
+                             >{{ role }}</option>
+                         </select>
+                       </div>
+                       <button
+                         type="button"
+                         class="btn btn-sm btn-outline-danger align-self-end"
+                         @click="removeCriterion(index)"
+                         :disabled="formData.criteria.length === 1 || isSubmitting"
+                       >
+                          <i class="fas fa-minus"></i>
+                       </button>
+                  </div>
+                </template>
             </div>
         </div>
         
         <div class="d-flex justify-content-between align-items-center">
-             <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center" @click="addCriterion" :disabled="isSubmitting || formData.criteria.length >= 4">
+             <button
+               type="button"
+               class="btn btn-sm btn-outline-primary d-inline-flex align-items-center"
+               @click="addCriterion"
+               :disabled="isSubmitting || formData.criteria.length >= 4 || (formData.details.format === 'Team' && formData.criteria.some(c => c.constraintLabel && c.constraintLabel.toLowerCase().includes('best performer')))"
+             >
                  <i class="fas fa-plus me-1"></i>
                  <span>Add Criteria</span>
              </button>
@@ -476,7 +498,8 @@ function initializeFormData(): EventFormData {
     },
     teams: [],
     criteria: [], 
-    status: EventStatus.Pending // Use imported enum
+    status: EventStatus.Pending, // Use imported enum
+    bestPerformerSelections: {} // Add this line
   };
 
   // Ensure at least 2 teams if defaulting to team format
@@ -487,6 +510,16 @@ function initializeFormData(): EventFormData {
         { teamName: 'Team 2', members: [], teamLead: '' }
       ];
     }
+  }
+
+  // Add Best Performer criteria for team events
+  if (defaults.details.format === 'Team') {
+    defaults.criteria.push({
+      constraintIndex: -1, 
+      constraintLabel: 'Best Performer',
+      points: 10,
+      criteriaSelections: {}
+    });
   }
 
   // Add a default criterion if creating new form
@@ -624,7 +657,20 @@ watch(() => props.initialData, () => {
 const handleFormatChange = () => {
   if (formData.value.details.format === 'Individual') {
     formData.value.teams = []; // Clear teams for individual format
+    // Remove Best Performer criteria if exists
+    formData.value.criteria = formData.value.criteria.filter(c => c.constraintIndex !== -1);
   } else {
+    // Remove all Best Performer criteria first, then add one if not exists
+    formData.value.criteria = formData.value.criteria.filter(c => c.constraintIndex !== -1);
+    if (!formData.value.criteria.some(c => c.constraintIndex === -1)) {
+      formData.value.criteria.push({
+        constraintIndex: -1,
+        constraintLabel: 'Best Performer',
+        points: 10,
+        role: 'developer',
+        criteriaSelections: {}
+      });
+    }
     // Always ensure at least 2 teams for team format
     if (!Array.isArray(formData.value.teams) || formData.value.teams.length < 2) {
       formData.value.teams = [
@@ -650,7 +696,6 @@ const handleEventTypeChange = () => {
 // Fix team mapping type
 const updateTeams = (newTeams: { name: string; members: string[]; teamLead?: string }[]): void => {
   formData.value.teams = newTeams.map((t, idx) => {
-    // Try to preserve teamLead if still present in members, otherwise null it
     let teamLead = t.teamLead;
     if (teamLead && Array.isArray(t.members) && !t.members.includes(teamLead)) {
       teamLead = '';
@@ -664,8 +709,14 @@ const updateTeams = (newTeams: { name: string; members: string[]; teamLead?: str
 };
 
 const addCriterion = (): void => {
-  if (formData.value.criteria.length >= 4) return;
-  // Calculate remaining XP to allocate
+  // Remove all Best Performer criteria before adding a new one if needed
+  if (formData.value.details.format === 'Team') {
+    formData.value.criteria = formData.value.criteria.filter(c => c.constraintIndex !== -1);
+  }
+  const maxCriteria = formData.value.details.format === 'Team' ? 3 : 4;
+  const regularCriteria = formData.value.criteria.filter(c => c.constraintIndex !== -1);
+  if (regularCriteria.length >= maxCriteria) return;
+
   const remainingXP = 50 - totalXP.value;
   formData.value.criteria.push({
     constraintIndex: Date.now() + Math.random(),
@@ -674,10 +725,22 @@ const addCriterion = (): void => {
     role: 'developer',
     criteriaSelections: {}
   });
+
+  // For team format, always ensure only one Best Performer at the end
+  if (formData.value.details.format === 'Team' && !formData.value.criteria.some(c => c.constraintIndex === -1)) {
+    formData.value.criteria.push({
+      constraintIndex: -1,
+      constraintLabel: 'Best Performer',
+      points: 10,
+      role: 'developer',
+      criteriaSelections: {}
+    });
+  }
 };
 
 const removeCriterion = (index: number): void => {
   if (formData.value.criteria.length <= 1) return;
+  if (formData.value.criteria[index].constraintIndex === -1) return; // Prevent removing Best Performer
   formData.value.criteria.splice(index, 1);
 };
 
@@ -730,6 +793,13 @@ const handleSubmit = (): void => {
     return;
   }
 
+  // Remove duplicate Best Performer criteria before submit
+  if (formData.value.details.format === 'Team') {
+    formData.value.criteria = formData.value.criteria.filter((c, idx, arr) =>
+      c.constraintIndex !== -1 || arr.findIndex(x => x.constraintIndex === -1) === idx
+    );
+  }
+
   // Create a deep copy to avoid mutating the form state
   const dataToSubmit = JSON.parse(JSON.stringify(formData.value));
 
@@ -767,6 +837,7 @@ const handleSubmit = (): void => {
     dataToSubmit.participants = students.map((s: any) => s.uid);
   }
 
+  // Emit all fields for update/create (including teams)
   emit('submit', dataToSubmit);
 };
 

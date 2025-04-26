@@ -2,6 +2,7 @@
 
 import { createRouter, createWebHistory, RouteRecordRaw, NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 import store from '../store';
+import EditProfileView from '../views/EditProfileView.vue';
 
 interface RouteMeta {
   requiresAuth?: boolean;
@@ -39,12 +40,17 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/views/RequestEventView.vue'),
     props: true
   },
-
   {
     path: '/profile', 
     name: 'Profile',
     component: () => import('@/views/ProfileView.vue'), 
     meta: { requiresAuth: true } 
+  },
+  {
+    path: '/profile/:id/edit',
+    name: 'EditProfile',
+    component: EditProfileView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/user/:userId', 

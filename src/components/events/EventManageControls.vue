@@ -103,13 +103,16 @@
           v-if="showFindWinnerButton"
           type="button"
           class="btn btn-sm btn-primary d-inline-flex align-items-center"
-          :disabled="isActionLoading('findWinner')"
+          :disabled="submissionCount < 10 || isActionLoading('findWinner')"
           @click="findWinnerAction"
         >
           <span v-if="isActionLoading('findWinner')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
           <i v-else class="fas fa-trophy me-1"></i>
           <span>Find Winner</span>
         </button>
+        <span v-if="showFindWinnerButton && submissionCount < 10" class="small text-danger ms-2">
+          At least 10 ratings/submissions are required to find winners (currently {{ submissionCount }}).
+        </span>
         <!-- Close Event Button (Organizer) -->
         <button
           v-if="showCloseEventButton"
@@ -252,12 +255,33 @@ export default {
     const ratingsAreClosed = computed(() => !props.event?.ratingsOpen);
 
     // --- Submission/Winner State ---
+    // submissionCount now counts rating submissions/selections, not project submissions
     const submissionCount = computed(() => {
       if (!props.event) return 0;
+      // Team event: count unique users who submitted team criteria votes or bestPerformerSelections
       if (props.event.details.format === EventFormat.Team) {
-        return props.event.teams?.reduce((sum, team) => sum + (team.submissions?.length || 0), 0) ?? 0;
+        // Prefer teamCriteriaRatings if present, else fallback to bestPerformerSelections
+        if (Array.isArray(props.event.teamCriteriaRatings)) {
+          return new Set(props.event.teamCriteriaRatings.map(r => r.ratedBy)).size;
+        }
+        if (props.event.bestPerformerSelections && typeof props.event.bestPerformerSelections === 'object') {
+          return Object.keys(props.event.bestPerformerSelections).length;
+        }
+        return 0;
       }
-      return props.event.submissions?.length ?? 0;
+      // Individual event: count unique users who have submitted at least one criteria selection
+      if (Array.isArray(props.event.criteria)) {
+        const userIds = new Set<string>();
+        props.event.criteria.forEach(criterion => {
+          if (criterion.criteriaSelections) {
+            Object.keys(criterion.criteriaSelections).forEach(uid => {
+              if (criterion.criteriaSelections[uid]) userIds.add(uid);
+            });
+          }
+        });
+        return userIds.size;
+      }
+      return 0;
     });
     const hasWinners = computed(() => !!props.event?.winners && Object.keys(props.event.winners).length > 0);
 
@@ -293,14 +317,15 @@ export default {
         !props.event?.closedAt
     );
 
-    // 4. Show "Find Winner": Only for organizers, when event is `Completed`, after ratings are closed, and at least 10 submissions exist.
-    const showFindWinnerButton = computed(() =>
+    // 4. Show "Find Winner": Only for organizers, when event is `Completed`, after ratings are closed.
+    //    Button is always visible if eligible, but disabled if <10 submissions.
+    const canFindWinner = computed(() =>
       canManageEvent.value &&
       props.event?.status === EventStatus.Completed &&
       ratingsAreClosed.value && // Explicitly check if closed
-      submissionCount.value >= 10 &&
       !props.event?.closedAt
     );
+    const showFindWinnerButton = canFindWinner; // Show button if eligible
 
     // 5. Show "Organizer Rating": Only for participants (not organizers), when event is `Completed`.
     const showParticipantOrganizerRating = computed(() =>
@@ -502,6 +527,7 @@ export default {
       showOpenRatingsButton,
       showCloseRatingsButton,
       showFindWinnerButton,
+      canFindWinner,
       showCloseEventButton,
       showParticipantWinnerSelection,
       showParticipantOrganizerRating,
