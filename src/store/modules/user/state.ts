@@ -1,3 +1,5 @@
+import { User } from '@/types/user'; // Import User type
+
 interface UserState {
   studentList: any[];
   studentListLastFetch: number | null;
@@ -6,6 +8,9 @@ interface UserState {
   studentListError: null | Error;
   nameCache: Map<string, { name: string; timestamp: number }>;
   nameCacheTTL: number;
+  currentUser: User | null; // Add currentUser property
+  uid: string | null; // Add uid property
+  hasFetched: boolean; // Add hasFetched property
 }
 
 export default {
@@ -16,4 +21,7 @@ export default {
   studentListError: null,
   nameCache: new Map(), // Cache for user names
   nameCacheTTL: 1000 * 60 * 30, // 30 minute TTL for names
+  currentUser: null, // Initialize currentUser
+  uid: null, // Initialize uid
+  hasFetched: false, // Initialize hasFetched
 } as UserState;

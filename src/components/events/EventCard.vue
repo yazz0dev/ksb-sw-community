@@ -31,6 +31,15 @@
             <i class="fas fa-calendar-alt fa-fw me-1 text-muted"></i>{{ formatDateRange(event.details?.date?.start, event.details?.date?.end) }}
         </div>
       </div>
+
+      <!-- Add organizers section -->
+      <div v-if="event.details?.organizers?.length" class="d-flex small text-secondary mb-3" style="gap: 0.5rem;">
+        <i class="fas fa-user-shield fa-fw text-muted"></i>
+        <div class="text-truncate">
+          {{ formatOrganizers }}
+        </div>
+      </div>
+
       <div class="card-text small text-secondary mb-4 flex-grow-1" v-html="truncatedDescription"></div>
       <div class="d-flex justify-content-between align-items-center mt-auto pt-3 border-top">
         <router-link
@@ -60,6 +69,11 @@ const props = defineProps({
   event: {
     type: Object as PropType<Event>,
     required: true
+  },
+  nameCache: {
+    // Update prop type to accept Map or Record
+    type: [Map, Object] as PropType<Map<string, string> | Record<string, string>>,
+    default: () => new Map()
   }
 });
 
@@ -79,6 +93,30 @@ const formatDateRange = (start: any, end: any): string => {
     return 'Date N/A';
   }
 };
+
+// Format organizers names
+const formatOrganizers = computed(() => {
+  const organizers = props.event?.details?.organizers;
+  if (!organizers?.length) {
+    return 'N/A';
+  }
+
+  const getName = (uid: string): string => {
+    if (!uid) return 'Unknown';
+    
+    let name: string | undefined | null = null;
+    
+    if (props.nameCache instanceof Map) {
+      name = props.nameCache.get(uid);
+    } else if (props.nameCache && typeof props.nameCache === 'object') {
+      name = props.nameCache[uid];
+    }
+    
+    return name || 'Member';
+  };
+
+  return organizers.map(getName).join(', ');
+});
 
 // Truncate description
 const truncatedDescription = computed(() => {
@@ -102,6 +140,9 @@ const participantCount = computed(() => {
   }
   return Array.isArray(props.event.participants) ? props.event.participants.length : 0;
 });
+
+
+
 </script>
 
 <style scoped>

@@ -25,8 +25,11 @@ export interface EventCriteria {
   points: number;
   role?: string; // e.g., 'developer', 'designer', etc.
   targetRole?: string; // Add targetRole as optional
-  // userId -> selected winner (teamName or participantId)
-  criteriaSelections: { [userId: string]: string };
+  /**
+   * For team events: userId -> selected teamName
+   * For individual events: userId -> selected participantId
+   */
+  criteriaSelections: { [userId: string]: string }; // Always present, used for both event types
 }
 
 export interface Team {

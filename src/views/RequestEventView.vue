@@ -87,10 +87,31 @@ const initialEventData = ref<EventFormData | null>(null);
 
 // Computed
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-const isEditing = computed(() => false); // Editing is not allowed
+const isEditing = computed(() => !!eventId.value);
 
 const pageTitle = computed(() => 'Request New Event');
 const pageSubtitle = computed(() => 'Submit a request for a new event');
+
+// Add this computed property to access the global name cache from the store
+const nameCache = computed(() => {
+  // store.state.user.nameCache is a Map<string, { name: string, timestamp: number }>
+  const cache = store.state.user.nameCache;
+  if (cache instanceof Map) {
+    // Convert to a simple uid->name object for easy lookup
+    const obj: Record<string, string> = {};
+    cache.forEach((entry, uid) => {
+      obj[uid] = entry.name;
+    });
+    return obj;
+  }
+  return {};
+});
+
+// Helper to get name from cache (object)
+function getNameFromCache(uid: string): string {
+  if (!uid) return 'Unknown';
+  return nameCache.value[uid] || 'Unknown';
+}
 
 // Methods
 const handleFormError = (message: string) => {
@@ -105,16 +126,25 @@ const handleSubmit = async (eventData: EventFormData) => {
   if (eventData.details && eventData.details.eventName) {
     // OK, keep as is
   }
-  errorMessage.value = ''; 
+  errorMessage.value = '';
   try {
-    // Only allow event requests (creation)
-    // Ensure allowProjectSubmission is always present (default true)
-    if (typeof eventData.details.allowProjectSubmission !== 'boolean') {
-      eventData.details.allowProjectSubmission = true;
+    if (isEditing.value && eventId.value) {
+      // Update event details (do not change status)
+      await store.dispatch('events/updateEventDetails', {
+        eventId: eventId.value,
+        updates: eventData
+      });
+      store.dispatch('notification/showNotification', { message: 'Event updated successfully!', type: 'success' });
+      router.push({ name: 'EventDetails', params: { id: eventId.value } });
+    } else {
+      // Only allow event requests (creation)
+      if (typeof eventData.details.allowProjectSubmission !== 'boolean') {
+        eventData.details.allowProjectSubmission = true;
+      }
+      await store.dispatch('events/requestEvent', eventData);
+      store.dispatch('notification/showNotification', { message: 'Event request submitted successfully!', type: 'success' });
+      router.push({ name: 'Home' });
     }
-    await store.dispatch('events/requestEvent', eventData);
-    store.dispatch('notification/showNotification', { message: 'Event request submitted successfully!', type: 'success' });
-    router.push({ name: 'Home' });
   } catch (error: any) {
     console.error("Error handling event submission:", error);
     errorMessage.value = error.message || 'Failed to process event';
@@ -123,9 +153,20 @@ const handleSubmit = async (eventData: EventFormData) => {
 };
 
 const loadEventData = async () => {
-  // Editing is not allowed, so this should never be called
-  loading.value = false;
-  errorMessage.value = "Editing events is not permitted.";
+  if (!eventId.value) return;
+  loading.value = true;
+  errorMessage.value = '';
+  try {
+    // Fetch event details for editing
+    await store.dispatch('events/fetchEventDetails', eventId.value);
+    const storeEvent = store.state.events.currentEventDetails;
+    if (!storeEvent) throw new Error('Event not found or inaccessible.');
+    initialEventData.value = mapEventToFormData(storeEvent);
+    loading.value = false;
+  } catch (error: any) {
+    errorMessage.value = error.message || 'Failed to load event for editing.';
+    loading.value = false;
+  }
 };
 
 // Helper to map Firestore event data to form data
@@ -220,27 +261,30 @@ const mapEventToFormData = (eventData: any): EventFormData => {
 
 // Lifecycle
 onMounted(async () => {
-  loading.value = true; 
-  errorMessage.value = ''; 
+  loading.value = true;
+  errorMessage.value = '';
   if (!isAuthenticated.value) {
     loading.value = false;
     return;
   }
 
   try {
-    // Check for active request only for non-admins (now: for all)
-    hasActiveRequest.value = await store.dispatch('events/checkExistingRequests');
-    if (hasActiveRequest.value) {
-      loading.value = false; // Stop loading, show warning
-      return;
+    if (isEditing.value && eventId.value) {
+      await loadEventData();
+      hasActiveRequest.value = false; // Editing, so skip active request check
+    } else {
+      hasActiveRequest.value = await store.dispatch('events/checkExistingRequests');
+      if (hasActiveRequest.value) {
+        loading.value = false;
+        return;
+      }
+      initialEventData.value = null;
+      loading.value = false;
     }
-    // Only allow creation (request), never editing
-    initialEventData.value = null;
-    loading.value = false; // Stop loading for create/request form
   } catch (error: any) {
     console.error("Error during component mount:", error);
     errorMessage.value = error.message || 'Failed to initialize event form';
-    loading.value = false; // Stop loading on error
+    loading.value = false;
   }
 });
 

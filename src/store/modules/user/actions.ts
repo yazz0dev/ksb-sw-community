@@ -63,43 +63,33 @@ export const userActions: ActionTree<UserState, RootState> = {
         }
     },
 
-    async fetchUserNamesBatch(_, userIds: string[]): Promise<Record<string, string>> {
-        const uniqueIds = [...new Set(userIds)].filter(Boolean);
-        if (uniqueIds.length === 0) {
-            return {};
-        }
-
-        const namesMap: Record<string, string> = {};
-        const chunkSize = 30;
-
+    async fetchUserNamesBatch({ commit }, uids: string[]): Promise<Record<string, string>> {
         try {
-            for (let i = 0; i < uniqueIds.length; i += chunkSize) {
-                const chunk = uniqueIds.slice(i, i + chunkSize);
-                if (chunk.length > 0) {
-                     // Query users collection where document ID is in the current chunk
-                     const usersRef = collection(db, 'users');
-                     const q = query(usersRef, where(documentId(), 'in', chunk)); // Use documentId()
-                     const querySnapshot = await getDocs(q);
+            // Debug log
+            console.log('[User Actions] Fetching names for UIDs:', uids);
+            
+            const usersRef = collection(db, 'users');
+            const userDocs = await Promise.all(
+                uids.map(uid => getDoc(doc(usersRef, uid)))
+            );
 
-                     querySnapshot.forEach((doc) => {
-                         namesMap[doc.id] = doc.data()?.name || doc.id; // Use name or fallback to UID
-                     });
+            const nameMap: Record<string, string> = {};
+            userDocs.forEach((doc, idx) => {
+                if (doc.exists()) {
+                    const name = doc.data().name || `User ${uids[idx].substring(0, 5)}`;
+                    nameMap[uids[idx]] = name;
+                    // Add to cache with individual commits
+                    commit('addToNameCache', { uid: uids[idx], name });
                 }
-            }
-            // Ensure all requested IDs have an entry, even if not found (use UID as fallback)
-            uniqueIds.forEach(id => {
-                 if (!namesMap.hasOwnProperty(id)) {
-                     namesMap[id] = id;
-                 }
             });
-             return namesMap;
+
+            // Debug log
+            console.log('[User Actions] Fetched names:', nameMap);
+            
+            return nameMap;
         } catch (error) {
-             console.error("Error fetching user names batch:", error);
-             // Fallback: return UIDs for all requested IDs on error
-             uniqueIds.forEach(id => {
-                 namesMap[id] = id;
-             });
-             return namesMap;
+            console.error('Error fetching user names:', error);
+            return {};
         }
     },
 

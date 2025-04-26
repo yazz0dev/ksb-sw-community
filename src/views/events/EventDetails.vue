@@ -13,6 +13,7 @@
         :canEdit="canEdit"
         :isJoining="isJoining"
         :isLeaving="isLeaving"
+        :name-cache="nameCache"
         @join="handleJoin"
         @leave="handleLeave"
         class="animate-fade-in"
@@ -217,37 +218,51 @@
                 </div>
               </div>
               <div class="card-body">
-                <template v-if="event.status === 'Completed'">
-                  <template v-if="event.ratingsOpen === true">
-                    <!-- Use isCurrentUserParticipant for winner selection eligibility -->
-                    <template v-if="isCurrentUserParticipant">
-                      <p class="small text-secondary fst-italic">
-                        Ratings are open! You can now select winners.
-                      </p>
-                      <router-link
-                        :to="{ name: 'SelectionForm', params: { eventId: event.id } }"
-                        class="btn btn-sm btn-primary d-inline-flex align-items-center mt-3"
-                      >
-                        <i class="fas fa-trophy me-1"></i>
-                        <span>Select Winner</span>
-                      </router-link>
-                    </template>
-                    <template v-else>
-                      <p class="small text-secondary fst-italic">
-                        Ratings are open, but only participants can select winners.
-                      </p>
-                    </template>
-                  </template>
-                  <template v-else>
-                    <p class="small text-secondary fst-italic">
-                      Winner selection is currently closed for this event.
-                    </p>
-                  </template>
+                <!-- Winner Selection Logic -->
+                <template v-if="loading">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="small text-secondary">Loading eligibility...</span>
+                  </div>
                 </template>
-                <template v-else>
+                <template v-else-if="!currentUser">
+                  <p class="small text-secondary fst-italic">
+                    Please log in to select winners.
+                  </p>
+                </template>
+                <template v-else-if="!event">
+                  <p class="small text-secondary fst-italic">
+                    Event data not available.
+                  </p>
+                </template>
+                <template v-else-if="event.status !== EventStatus.Completed">
                   <p class="small text-secondary fst-italic">
                     Winner selection will be available once the event is completed.
                   </p>
+                </template>
+                <template v-else-if="event.ratingsOpen !== true">
+                  <p class="small text-secondary fst-italic">
+                    Winner selection is currently closed for this event.
+                  </p>
+                </template>
+                <template v-else-if="!isCurrentUserParticipant">
+                  <p class="small text-secondary fst-italic">
+                    You must be a participant in this event to select winners.
+                  </p>
+                </template>
+                <template v-else>
+                  <p class="small text-secondary fst-italic">
+                    Ratings are open! You can now select winners.
+                  </p>
+                  <router-link
+                    :to="{ name: 'SelectionForm', params: { eventId: event.id } }"
+                    class="btn btn-sm btn-primary d-inline-flex align-items-center mt-3"
+                  >
+                    <i class="fas fa-trophy me-1"></i>
+                    <span>Select Winner</span>
+                  </router-link>
                 </template>
               </div>
             </div>
@@ -524,7 +539,7 @@ const safeString = (value: string | null | undefined): string => value || '';
 
 
 const getUserNameFromCache = (userId: string): string => {
-    return nameCache.value.get(userId) || userId;
+    return nameCache.value.get(userId) || 'Member';
 };
 
 async function fetchUserNames(userIds: string[]): Promise<void> {
@@ -779,15 +794,77 @@ watch(() => props.id, (newId, oldId) => {
 }, { immediate: false });
 
 const isCurrentUserParticipant = computed(() => {
-  if (!event.value || !currentUserId.value) return false;
-  const uid = safeString(currentUserId.value);
-  if (event.value.details.format === EventFormat.Team && Array.isArray(event.value.teams)) {
-    return event.value.teams.some(team => Array.isArray(team.members) && team.members.includes(uid));
+  if (!event.value || !currentUser.value?.uid) {
+    console.log('Early return - missing data:', {
+      hasEvent: !!event.value,
+      userId: currentUser.value?.uid
+    });
+    return false;
   }
-  if (Array.isArray(event.value.participants)) {
-    return event.value.participants.includes(uid);
+
+  const uid = currentUser.value.uid; // Use directly from currentUser
+  let isParticipant = false;
+
+  // Check if user is organizer first
+  if (event.value.details.organizers?.includes(uid) || event.value.requestedBy === uid) {
+    console.log('User is organizer');
+    isParticipant = true;
+  } 
+  // Then check regular participant status
+  else if (event.value.details.format === EventFormat.Team && Array.isArray(event.value.teams)) {
+    isParticipant = event.value.teams.some(team => 
+      Array.isArray(team.members) && team.members.includes(uid)
+    );
+    console.log('Team format check:', { isParticipant, teams: event.value.teams });
+  } else if (Array.isArray(event.value.participants)) {
+    isParticipant = event.value.participants.includes(uid);
+    console.log('Individual format check:', { isParticipant, participants: event.value.participants });
   }
-  return false;
+
+  console.log('Final participant status:', { 
+    uid, 
+    isParticipant, 
+    format: event.value.details.format,
+    hasTeams: Array.isArray(event.value.teams),
+    hasParticipants: Array.isArray(event.value.participants)
+  });
+
+  return isParticipant;
+});
+
+// Update watcher to use currentUser instead of currentUserId
+watch([currentUser, event], ([user, evt], [oldUser, oldEvt]) => {
+  console.log('Auth/Event State Update:', {
+    user: user?.uid,
+    oldUser: oldUser?.uid,
+    eventId: evt?.id,
+    oldEventId: oldEvt?.id,
+    format: evt?.details?.format,
+    isParticipant: isCurrentUserParticipant.value,
+    hasTeams: evt?.teams?.length,
+    hasParticipants: evt?.participants?.length
+  });
+}, { immediate: true });
+
+const getWinnersPerCriterion = computed(() => {
+  if (!event.value?.criteria) return {};
+  const winners: Record<string, string[]> = {};
+  event.value.criteria.forEach(criterion => {
+    // Count votes for each participant/team for this criterion
+    const voteCounts: Record<string, number> = {};
+    if (criterion.criteriaSelections) {
+      Object.values(criterion.criteriaSelections).forEach(sel => {
+        if (sel) voteCounts[sel] = (voteCounts[sel] || 0) + 1;
+      });
+      // Find the participant(s)/team(s) with the most votes
+      const maxVotes = Math.max(0, ...Object.values(voteCounts));
+      const topWinners = Object.entries(voteCounts)
+        .filter(([_, count]) => count === maxVotes && maxVotes > 0)
+        .map(([winnerId]) => winnerId);
+      winners[criterion.constraintLabel || `Criteria ${criterion.constraintIndex}`] = topWinners;
+    }
+  });
+  return winners;
 });
 
 defineExpose({

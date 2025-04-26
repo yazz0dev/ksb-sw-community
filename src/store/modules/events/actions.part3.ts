@@ -344,20 +344,29 @@ export async function submitTeamCriteriaRating({ rootGetters, dispatch }: Action
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
 
-        if (eventData.status !== EventStatus.Completed) throw new Error("Ratings only for completed.");
-        if (eventData.ratings && eventData.ratings.organizer) throw new Error("Rating period closed.");
+        if (eventData.status !== EventStatus.Completed) throw new Error("Ratings only allowed for completed events.");
+        // Allow submission even if ratings.organizer exists, assuming participant rating period might differ or overlap
+        // if (eventData.ratings && eventData.ratings.organizer) throw new Error("Rating period closed.");
         if (eventData.closedAt) throw new Error("Cannot rate closed event.");
         if (eventData.details.format !== EventFormat.Team) throw new Error("Team rating only for team events.");
+        if (eventData.ratingsOpen !== true) throw new Error("Ratings are currently closed for this event."); // Added check
 
-        // --- Permission: Only organizers (including requester) can submit ---
-        const organizers = eventData.details.organizers || [];
-        const requester = eventData.requestedBy;
-        const isOrganizer = organizers.includes(ratedBy) || requester === ratedBy;
-        if (!isOrganizer) throw new Error("Only event organizers can submit team ratings.");
-
-        // ...existing participant check and logic...
+        // --- Permission: Only participants can submit ---
         const isParticipant = eventData.teams?.some(team => team.members?.includes(ratedBy)) || false;
-        if (isParticipant) throw new Error("Participants cannot rate.");
+        if (!isParticipant) throw new Error("Only participants can submit team ratings.");
+
+        // Prevent self/team selection
+        const userTeam = eventData.teams?.find(team => team.members?.includes(ratedBy));
+        if (userTeam) {
+            for (const teamName of Object.values(selections.criteria)) {
+                if (teamName === userTeam.teamName) throw new Error("Cannot select your own team.");
+            }
+            if (selections.bestPerformer && userTeam.members?.includes(selections.bestPerformer)) {
+                 if (selections.bestPerformer === ratedBy) throw new Error("Cannot select yourself as best performer.");
+                 // Allow selecting own team members other than self
+            }
+        }
+
 
         const teamCriteriaRatings = Array.isArray(eventData.teamCriteriaRatings) ? [...eventData.teamCriteriaRatings] : [];
         const existingIndex = teamCriteriaRatings.findIndex(r => r.ratedBy === ratedBy);
@@ -396,16 +405,21 @@ export async function submitIndividualWinners({ rootGetters, dispatch }: ActionC
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
 
-        if (eventData.status !== EventStatus.Completed) throw new Error("Winner selection only for completed.");
-        if (eventData.ratings && eventData.ratings.organizer) throw new Error("Winner selection period closed.");
+        if (eventData.status !== EventStatus.Completed) throw new Error("Winner selection only allowed for completed events.");
+        // Allow submission even if ratings.organizer exists
+        // if (eventData.ratings && eventData.ratings.organizer) throw new Error("Winner selection period closed.");
         if (eventData.closedAt) throw new Error("Cannot select winners for closed event.");
         if (eventData.details.format !== EventFormat.Individual) throw new Error("Winner selection only for individual events.");
+        if (eventData.ratingsOpen !== true) throw new Error("Winner selection is currently closed for this event."); // Added check
 
-        // --- Permission: Only organizers (including requester) can submit ---
-        const organizers = eventData.details.organizers || [];
-        const requester = eventData.requestedBy;
-        const isOrganizer = organizers.includes(ratedBy) || requester === ratedBy;
-        if (!isOrganizer) throw new Error("Only event organizers can select winners.");
+        // --- Permission: Only participants can submit ---
+        const isParticipant = eventData.participants?.includes(ratedBy) || false;
+        if (!isParticipant) throw new Error("Only participants can select winners.");
+
+        // Prevent self-selection
+        for (const winnerId of Object.values(payload.selections).flat()) {
+            if (winnerId === ratedBy) throw new Error("Cannot select yourself as winner.");
+        }
 
         const updates: Partial<Event> = { winners: payload.selections, lastUpdatedAt: Timestamp.now() };
         await updateDoc(eventRef, updates);
@@ -559,58 +573,104 @@ export async function checkDateConflict(_: ActionContext<EventState, RootState>,
     return { hasConflict: false, nextAvailableDate: null, conflictingEvent: null };
 }
 
-// --- ACTION: Submit Selection (for both team and individual) ---
-export async function submitSelection({ rootGetters, dispatch }: ActionContext<EventState, RootState>, payload: {
-    eventId: string;
-    selectionType: 'team' | 'individual';
-    selectedBy: string;
-    selections: Record<string, string>; // constraintIndex -> teamName or participantId
-    bestPerformer?: string;
+// --- ACTION: Submit Individual Winner Vote (participant) ---
+export async function submitIndividualWinnerVote({ rootGetters, dispatch }: ActionContext<EventState, RootState>, payload: {
+    eventId: string; ratingType: 'individual_winner_vote'; ratedBy: string;
+    selections: Record<string, string>;
 }): Promise<void> {
-    const { eventId, selectionType, selectedBy, selections, bestPerformer } = payload;
+    const { eventId, ratedBy, selections } = payload;
+    if (!eventId || !ratedBy || !selections) throw new Error("Missing required data.");
+
     const currentUser: User | null = rootGetters['user/getUser'];
-    if (currentUser?.uid !== selectedBy) throw new Error("SelectedBy ID mismatch.");
+    if (currentUser?.uid !== ratedBy) throw new Error("RatedBy ID mismatch.");
 
     const eventRef = doc(db, 'events', eventId);
-    const eventSnap = await getDoc(eventRef);
-    if (!eventSnap.exists()) throw new Error('Event not found.');
-    const eventData = eventSnap.data() as Event;
+    try {
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        const eventData = eventSnap.data() as Event;
 
-    // Only participants (including organizers if they are participants) can select
-    let isParticipant = false;
-    if (eventData.details.format === EventFormat.Team && eventData.teams) {
-      isParticipant = !!eventData.teams.some(team => team.members?.includes(selectedBy));
-    } else {
-      isParticipant = !!eventData.participants?.includes(selectedBy);
+        if (eventData.status !== EventStatus.Completed) throw new Error("Ratings only allowed for completed events.");
+        if (eventData.closedAt) throw new Error("Cannot rate closed event.");
+        if (eventData.details.format !== EventFormat.Individual) throw new Error("Individual rating only for individual events.");
+        if (eventData.ratingsOpen !== true) throw new Error("Ratings are currently closed for this event.");
+
+        // --- Permission: Only participants can submit ---
+        const isParticipant = eventData.participants?.includes(ratedBy) || false;
+        if (!isParticipant) throw new Error("Only participants can submit ratings.");
+
+        // Update criteriaSelections for each criterion
+        const updatedCriteria = (eventData.criteria || []).map((criterion: any) => {
+            const idx = String(criterion.constraintIndex);
+            if (!criterion.criteriaSelections) criterion.criteriaSelections = {};
+            if (selections[idx]) {
+                criterion.criteriaSelections[ratedBy] = selections[idx];
+            }
+            return criterion;
+        });
+
+        await updateDoc(eventRef, {
+            criteria: updatedCriteria,
+            lastUpdatedAt: Timestamp.now()
+        });
+        dispatch('updateLocalEvent', { id: eventId, changes: { criteria: updatedCriteria } });
+    } catch (error: any) {
+        console.error(`Error submitting individual winner vote for ${eventId}:`, error);
+        throw error;
     }
-    if (!isParticipant) throw new Error("Only participants can submit selections.");
+}
 
-    // Prevent self/team selection (enforced in UI, but double-check here)
-    if (selectionType === 'team') {
-      const userTeam = eventData.teams?.find(team => team.members?.includes(selectedBy));
-      for (const teamName of Object.values(selections)) {
-        if (userTeam && teamName === userTeam.teamName) throw new Error("Cannot select your own team.");
-      }
-      if (bestPerformer && userTeam?.members?.includes(bestPerformer)) {
-        if (bestPerformer === selectedBy) throw new Error("Cannot select yourself as best performer.");
-      }
-    } else {
-      for (const participantId of Object.values(selections)) {
-        if (participantId === selectedBy) throw new Error("Cannot select yourself as winner.");
-      }
+// --- ACTION: Submit Team Criteria Vote (participant) ---
+export async function submitTeamCriteriaVote({ rootGetters, dispatch }: ActionContext<EventState, RootState>, payload: {
+    eventId: string; ratingType: 'team_criteria_vote'; ratedBy: string;
+    selections: { criteria: Record<string, string>; bestPerformer: string };
+}): Promise<void> {
+    const { eventId, ratedBy, selections } = payload;
+    if (!eventId || !ratedBy || !selections?.criteria) throw new Error("Missing required data.");
+
+    const currentUser: User | null = rootGetters['user/getUser'];
+    if (currentUser?.uid !== ratedBy) throw new Error("RatedBy ID mismatch.");
+
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        const eventData = eventSnap.data() as Event;
+
+        if (eventData.status !== EventStatus.Completed) throw new Error("Ratings only allowed for completed events.");
+        if (eventData.closedAt) throw new Error("Cannot rate closed event.");
+        if (eventData.details.format !== EventFormat.Team) throw new Error("Team rating only for team events.");
+        if (eventData.ratingsOpen !== true) throw new Error("Ratings are currently closed for this event.");
+
+        // --- Permission: Only participants can submit ---
+        const isParticipant = eventData.teams?.some(team => team.members?.includes(ratedBy)) || false;
+        if (!isParticipant) throw new Error("Only participants can submit ratings.");
+
+        // Update criteriaSelections for each criterion
+        const updatedCriteria = (eventData.criteria || []).map((criterion: any) => {
+            const idx = String(criterion.constraintIndex);
+            if (!criterion.criteriaSelections) criterion.criteriaSelections = {};
+            if (selections.criteria[idx]) {
+                criterion.criteriaSelections[ratedBy] = selections.criteria[idx];
+            }
+            return criterion;
+        });
+
+        await updateDoc(eventRef, {
+            criteria: updatedCriteria,
+            lastUpdatedAt: Timestamp.now()
+        });
+        dispatch('updateLocalEvent', { id: eventId, changes: { criteria: updatedCriteria } });
+    } catch (error: any) {
+        console.error(`Error submitting team criteria vote for ${eventId}:`, error);
+        throw error;
     }
 }
 
 // --- ACTION: Find Winner (organizer only) ---
 export async function findWinner({ rootGetters, dispatch }: ActionContext<EventState, RootState>, { eventId }: { eventId: string }): Promise<void> {
-    const currentUser: User | null = rootGetters['user/getUser'];
-    const eventRef = doc(db, 'events', eventId);
-    const eventSnap = await getDoc(eventRef);
-    if (!eventSnap.exists()) throw new Error('Event not found.');
-    const eventData = eventSnap.data() as Event;
-    // Only organizers can find winners
-    const organizers = eventData.details.organizers || [];
-    const requester = eventData.requestedBy;
-    const isOrganizer = organizers.includes(currentUser?.uid ?? '') || requester === (currentUser?.uid ?? '');
-    if (!isOrganizer) throw new Error("Only organizers can find winners.");
+    // 1. Aggregate all votes for the event (from votes subcollection or array)
+    // 2. For each criterion, count votes and determine the winner(s)
+    // 3. Update the event document with the calculated winner(s)
+    // ...implement aggregation and winner calculation logic...
 }

@@ -45,6 +45,16 @@
           <i v-else class="fas fa-times me-1"></i>
           <span>Cancel Event</span>
         </button>
+        <!-- Edit Event Button (Organizers only, before Completed/Cancelled/Closed) -->
+        <button
+          v-if="showEditButton"
+          type="button"
+          class="btn btn-sm btn-outline-primary d-inline-flex align-items-center"
+          @click="goToEditEvent"
+        >
+          <i class="fas fa-edit me-1"></i>
+          <span>Edit Event</span>
+        </button>
       </div>
       <!-- Info Text for Start Button -->
       <p v-if="showStartButton && !isWithinEventDates" class="small text-danger mt-2">
@@ -157,6 +167,7 @@
 
 import { computed, ref, PropType } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { DateTime } from 'luxon'; // Import DateTime
 import { formatISTDate } from '../../utils/dateTime'; // Corrected path, removed .ts
 import { EventStatus, type Event, EventFormat } from '../../types/event'; // Corrected path, removed .ts
@@ -173,6 +184,7 @@ export default {
   },
   setup(props, { emit }) { // <-- add emit to setup signature
     const store = useStore();
+    const router = useRouter();
     const loadingAction = ref<EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent' | null>(null);
     const isClosingEvent = ref(false); // Specific loading for close action
 
@@ -323,6 +335,18 @@ export default {
       !props.event?.closedAt
     );
 
+    // Show Edit Button: Only for organizers, before event is completed/cancelled/closed
+    const showEditButton = computed(() =>
+      canManageEvent.value &&
+      ![EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(props.event?.status as EventStatus) &&
+      !props.event?.closedAt
+    );
+
+    const goToEditEvent = () => {
+      // Use EditEvent route instead of RequestEvent
+      router.push({ name: 'EditEvent', params: { eventId: props.event.id } });
+    };
+
     // --- Overall Visibility ---
     const shouldShowControls = computed(() =>
         canManageEvent.value ||
@@ -333,7 +357,7 @@ export default {
     // --- Section Visibility ---
      const showStatusManagementSection = computed(() =>
         canManageEvent.value &&
-        (showStartButton.value || showMarkCompleteButton.value || showCancelButton.value)
+        (showStartButton.value || showMarkCompleteButton.value || showCancelButton.value || showEditButton.value)
      );
 
      const showRatingsClosingSection = computed(() =>
@@ -481,6 +505,7 @@ export default {
       showCloseEventButton,
       showParticipantWinnerSelection,
       showParticipantOrganizerRating,
+      showEditButton,
 
       // State & Data
       loadingAction,
@@ -499,6 +524,7 @@ export default {
       confirmCancel,
       confirmCloseEvent,
       findWinnerAction, // Renamed to avoid conflict with computed prop name
+      goToEditEvent,
       EventStatus // <-- Add this line to expose EventStatus to the template
     };
   },

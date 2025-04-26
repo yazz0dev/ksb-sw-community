@@ -47,7 +47,7 @@
             <h2 class="h4 mb-4">Upcoming Events</h2>
             <div v-if="upcomingEvents.length > 0" class="row g-4">
               <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" />
+                <EventCard :event="event" :name-cache="nameCache" />
               </div>
             </div>
             <p v-else class="text-muted">No upcoming events.</p>
@@ -57,7 +57,7 @@
         <div v-else>
           <div v-if="completedEvents.length > 0" class="row g-4">
             <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
-              <EventCard :event="event" />
+              <EventCard :event="event" :name-cache="nameCache" />
             </div>
           </div>
           <p v-else class="text-muted">No completed events.</p>
@@ -69,7 +69,7 @@
             <h2 class="h4 mb-4">Active Events</h2>
             <div v-if="activeEvents.length > 0" class="row g-4">
               <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
-                  <EventCard :event="event" />
+                  <EventCard :event="event" :name-cache="nameCache" />
               </div>
             </div>
             <p v-else class="text-muted">No active events.</p
@@ -82,7 +82,7 @@
             <h2 class="h4 mb-4">Completed Events</h2>
             <div v-if="completedEvents.length > 0" class="row g-4">
               <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
-                  <EventCard :event="event" />
+                  <EventCard :event="event" :name-cache="nameCache" />
               </div>
             </div>
              <p v-else class="text-muted">No completed events.</p>
@@ -199,11 +199,32 @@ const completedEvents = computed<Event[]>(() => {
     });
 });
 
+const nameCache = computed(() => {
+  const cache = store.state.user.nameCache;
+  if (cache instanceof Map) {
+    const obj: Record<string, string> = {};
+    cache.forEach((entry, uid) => {
+      obj[uid] = entry.name;
+    });
+    return obj;
+  }
+  return {};
+});
+
 onMounted(async () => {
   loading.value = true;
   error.value = null;
   try {
     await store.dispatch('events/fetchEvents');
+    const allEventsArr = store.getters['events/allEvents'];
+    const allOrganizerUids = Array.from(
+      new Set(
+        allEventsArr.flatMap((e: any) => Array.isArray(e.details.organizers) ? e.details.organizers : [])
+      )
+    ).filter(Boolean);
+    if (allOrganizerUids.length > 0) {
+      await store.dispatch('user/fetchUserNamesBatch', allOrganizerUids);
+    }
   } catch (err: any) {
     error.value = err.message || 'Failed to load events.';
   } finally {

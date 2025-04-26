@@ -38,6 +38,26 @@
       </div>
 
       <div v-else>
+        <div v-if="showCriteriaStats" class="mb-4">
+          <div class="card border-info">
+            <div class="card-header bg-info-subtle text-info fw-bold">
+              Current Selections (Live Stats)
+            </div>
+            <div class="card-body">
+              <div v-for="stat in criteriaStats" :key="stat.constraintIndex" class="mb-3">
+                <div class="fw-semibold mb-1">{{ stat.constraintLabel }} ({{ stat.points }} XP)</div>
+                <div v-if="stat.selections.length">
+                  <ul class="mb-0 ps-3">
+                    <li v-for="[name, count] in stat.selections" :key="name">
+                      <span class="fw-bold">{{ name }}</span>: {{ count }} vote{{ Number(count) > 1 ? 's' : '' }}
+                    </li>
+                  </ul>
+                </div>
+                <div v-else class="text-secondary small fst-italic">No selections yet.</div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div v-if="canSubmitSelection" class="card shadow-sm" style="background-color: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
           <div class="card-body">
             <form @submit.prevent="submitSelection">
@@ -56,13 +76,13 @@
                         <select
                           :id="`team-select-${allocation.constraintIndex}`"
                           class="form-select form-select-sm"
-                          v-model="teamSelections[`constraint${allocation.constraintIndex}`]"
+                          v-model="teamRatings[`constraint${allocation.constraintIndex}`]"
                           required
                           :disabled="isSubmitting"
                         >
                           <option disabled value="">Select Team...</option>
                           <option
-                            v-for="team in selectableTeams"
+                            v-for="team in (event && event.teams ? event.teams : [])"
                             :key="team.teamName"
                             :value="team.teamName"
                             :disabled="isUserInTeam(team)"
@@ -71,26 +91,26 @@
                           </option>
                         </select>
                       </div>
-                    </div>
-                    <h5 class="h5 mb-3 pt-4 border-top">Select Overall Best Performer:</h5>
-                    <div v-if="allTeamMembers.length > 0" class="mb-3">
-                      <label for="best-performer-select" class="form-label small mb-1">Select the standout individual participant</label>
-                      <select
-                        id="best-performer-select"
-                        class="form-select form-select-sm"
-                        v-model="bestPerformer"
-                        required
-                        :disabled="isSubmitting"
-                      >
-                        <option disabled value="">Select Participant...</option>
-                        <option
-                          v-for="member in selectableBestPerformers"
-                          :key="member.uid"
-                          :value="member.uid"
+                      <!-- Move Best Performer selection into criteria selection -->
+                      <div class="mb-2">
+                        <label :for="`team-select-best-performer`" class="form-label small">Overall Best Performer</label>
+                        <select
+                          id="team-select-best-performer"
+                          class="form-select form-select-sm"
+                          v-model="teamRatings['bestPerformer']"
+                          required
+                          :disabled="isSubmitting"
                         >
-                          {{ getUserName(member.uid) }} ({{ getTeamNameForMember(member.uid) }})
-                        </option>
-                      </select>
+                          <option disabled value="">Select Participant...</option>
+                          <option
+                            v-for="member in selectableBestPerformers"
+                            :key="member.uid"
+                            :value="member.uid"
+                          >
+                            {{ getUserName(member.uid) }} ({{ getTeamNameForMember(member.uid) }})
+                          </option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </template>
@@ -110,7 +130,7 @@
                           <select
                             :id="`winner-select-${allocation.constraintIndex}`"
                             class="form-select form-select-sm"
-                            v-model="individualSelections[`constraint${allocation.constraintIndex}`]"
+                            v-model="individualRatings[`constraint${allocation.constraintIndex}`]"
                             required
                             :disabled="isSubmitting"
                           >
@@ -162,8 +182,6 @@ import { ref, computed, onMounted, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { Event, EventFormat, EventStatus, Team, EventCriteria } from '@/types/event';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/firebase';
 
 // --- Types for ratings ---
 interface TeamRatings {
@@ -175,9 +193,6 @@ interface IndividualRatings {
   // --- Reactive state for ratings ---
 const teamRatings = reactive<TeamRatings>({});
 const individualRatings = reactive<IndividualRatings>({});
-const bestPerformer = ref<string>('');
-const teamSelections = reactive<Record<string, string>>({});
-const individualSelections = reactive<Record<string, string>>({});
 const isFindingWinner = ref(false);
 
 // Replace existing interfaces with these more specific ones
@@ -189,6 +204,7 @@ interface TeamMember {
 // Add missing field to Event type locally
 interface ExtendedEvent extends Event {
   eventName?: string;
+  individualWinnerVotes?: any[]; // Add this line to fix type error
 }
 
 // --- Props ---
@@ -216,19 +232,14 @@ const didLoadExistingRating = ref<boolean>(false);
 
 // Using reactive for nested objects that will be modified
 
-// --- Use centralized name cache from Vuex store ---
-const getUserName = (userId: string) => {
-  // Always try to get the name from Vuex nameCache (Map-based)
-  const cache = store.state.user.nameCache;
-  if (cache && typeof cache.get === 'function') {
-    const entry = cache.get(userId);
-    if (entry && entry.name && entry.name !== userId) return entry.name;
-  }
-  // Fallback to Vuex getter (for legacy support)
-  const getterName = store.getters['user/getUserNameById']?.(userId);
-  if (getterName && getterName !== userId) return getterName;
-  // Never show UID, fallback to "Unknown User"
-  return "Unknown User";
+// --- Local user name map for fast lookup ---
+const userNameMap = ref<Record<string, string>>({});
+
+// --- Use local userNameMap for display ---
+const getUserName = (userId: string): string => {
+  if (!userId) return 'Unknown User';
+  if (userNameMap.value[userId]) return userNameMap.value[userId];
+  return 'Anonymous User';
 };
 
 // --- Computed Properties ---
@@ -250,7 +261,7 @@ const isValid = computed<boolean>(() => {
       ? !!teamRatings[ratingKey]
       : !!individualRatings[ratingKey];
   });
-  const bestPerformerSelected = isTeamEvent.value ? !!bestPerformer.value : true;
+  const bestPerformerSelected = isTeamEvent.value ? !!teamRatings['bestPerformer'] : true;
   return allCriteriaSelected && bestPerformerSelected;
 });
 
@@ -277,17 +288,6 @@ const isCurrentUserOrganizer = computed(() => {
   return organizers.includes(currentUser.value.uid) || requester === currentUser.value.uid;
 });
 
-
-const canSubmitRating = computed(() => {
-  if (!event.value || !currentUser.value) return false;
-  if (isTeamEvent.value) {
-    // Only organizers can submit team criteria ratings
-    return isCurrentUserOrganizer.value;
-  } else {
-    // Only organizers or admins can select individual winners
-    return isCurrentUserOrganizer.value ;
-  }
-});
 
 const isParticipant = computed(() => {
   if (!event.value || !currentUser.value?.uid) return false;
@@ -316,10 +316,6 @@ const canFindWinner = computed(() => {
 });
 
 // Filter out self/team for selection
-const selectableTeams = computed(() => {
-  if (!event.value?.teams || !currentUser.value?.uid) return [];
-  return event.value.teams.filter(team => !team.members?.includes(currentUser.value.uid));
-});
 const selectableBestPerformers = computed(() => {
   if (!allTeamMembers.value || !currentUser.value?.uid) return [];
   return allTeamMembers.value.filter(member => member.uid !== currentUser.value.uid);
@@ -331,16 +327,6 @@ const selectableParticipants = computed(() => {
 const isUserInTeam = (team: Team) => team.members?.includes(currentUser.value?.uid);
 
 // --- Helper Functions ---
-const formatRoleName = (roleKey: string | undefined | null): string => {
-  if (!roleKey) return '';
-  // Improved formatting for camelCase and snake_case
-  return roleKey
-    .replace(/([A-Z])/g, ' $1') // Add space before uppercase letters
-    .replace(/_/g, ' ') // Replace underscores with spaces
-    .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
-    .trim();
-};
-
 const getTeamNameForMember = (memberId: string): string => {
   return teamMemberMap.value[memberId] || 'Unknown Team';
 };
@@ -350,7 +336,7 @@ watch([sortedXpAllocation, isTeamEvent], ([allocations, teamEventStatus]) => {
   // Clear previous rating data
   Object.keys(teamRatings).forEach(key => delete teamRatings[key]);
   Object.keys(individualRatings).forEach(key => delete individualRatings[key]);
-  bestPerformer.value = '';
+  teamRatings['bestPerformer'] = '';
 
   if (Array.isArray(allocations)) {
     allocations.forEach(allocation => {
@@ -365,40 +351,32 @@ watch([sortedXpAllocation, isTeamEvent], ([allocations, teamEventStatus]) => {
 }, { immediate: true, deep: true });
 
 // Watch available participants to fetch their names for individual events
-watch(availableParticipants, async (newParticipants) => {
-  if (!isTeamEvent.value && Array.isArray(newParticipants)) {
-    // Only fetch if not already in cache as a real name
-    const cache = store.state.user.nameCache;
-    const idsToFetch = newParticipants.filter(id => {
-      if (!id) return false;
-      if (cache && typeof cache.get === 'function') {
-        const entry = cache.get(id);
-        if (entry && entry.name && entry.name !== id) return false;
-      }
-      return true;
-    });
-    if (idsToFetch.length > 0) {
-      await store.dispatch('user/fetchUserNamesBatch', idsToFetch);
+watch([availableParticipants, event], async ([participants]) => {
+  if (!isTeamEvent.value && Array.isArray(participants) && participants.length > 0) {
+    try {
+      const names: Record<string, string> = await store.dispatch('user/fetchUserNamesBatch', participants);
+      Object.entries(names).forEach(([uid, name]) => {
+        userNameMap.value[uid] = name || 'Anonymous User';
+      });
+    } catch (error) {
+      console.error('Error fetching participant names:', error);
     }
   }
 }, { immediate: true });
 
 // Watch all team members to fetch their names for team events
-watch(allTeamMembers, async (newMembers) => {
-  if (isTeamEvent.value && Array.isArray(newMembers)) {
-    const cache = store.state.user.nameCache;
-    const idsToFetch = newMembers
-      .map(member => member?.uid)
-      .filter(uid => {
-        if (!uid) return false;
-        if (cache && typeof cache.get === 'function') {
-          const entry = cache.get(uid);
-          if (entry && entry.name && entry.name !== uid) return false;
-        }
-        return true;
-      });
-    if (idsToFetch.length > 0) {
-      await store.dispatch('user/fetchUserNamesBatch', idsToFetch);
+watch([allTeamMembers, event], async ([members]) => {
+  if (isTeamEvent.value && members.length > 0) {
+    const memberIds = members.map(m => m.uid).filter(Boolean);
+    if (memberIds.length > 0) {
+      try {
+        const names: Record<string, string> = await store.dispatch('user/fetchUserNamesBatch', memberIds);
+        Object.entries(names).forEach(([uid, name]) => {
+          userNameMap.value[uid] = name || 'Anonymous User';
+        });
+      } catch (error) {
+        console.error('Error fetching team member names:', error);
+      }
     }
   }
 }, { immediate: true }); // Fetch names as soon as members are populated
@@ -422,17 +400,23 @@ const initializeTeamEventForm = async (eventDetails: Event, loadExisting: boolea
 
   teamMemberMap.value = tempMemberMap; // Assign the map
 
-  // Fetch names and populate allTeamMembers
+  // Fetch names for all members
   if (memberIds.size > 0) {
     const userIdsArray = Array.from(memberIds);
-    // Fetch names in batch (assuming fetchUserNamesBatch exists and returns Record<string, string>)
-    const userNames = await store.dispatch('user/fetchUserNamesBatch', userIdsArray);
-    // Populate allTeamMembers with { uid, name }
-    allTeamMembers.value = userIdsArray
-      .map(uid => ({ uid, name: userNames[uid] || uid }))
-      .sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Sort by name
-  } else {
-    allTeamMembers.value = []; // Clear if no members
+    try {
+      const names: Record<string, string> = await store.dispatch('user/fetchUserNamesBatch', userIdsArray);
+      Object.entries(names).forEach(([uid, name]) => {
+        userNameMap.value[uid] = name || 'Anonymous User';
+      });
+      allTeamMembers.value = userIdsArray
+        .map(uid => ({
+          uid,
+          name: getUserName(uid)
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    } catch (error) {
+      console.error('Error fetching team member names:', error);
+    }
   }
 
   // Initialize ratings structure (handled by watcher)
@@ -455,7 +439,7 @@ const initializeTeamEventForm = async (eventDetails: Event, loadExisting: boolea
            }
         });
         // Load best performer
-        bestPerformer.value = existingRating.selections.bestPerformer || '';
+        teamRatings['bestPerformer'] = existingRating.selections.bestPerformer || '';
         didLoadExistingRating.value = true; // Mark that existing data was loaded
       } else {
          didLoadExistingRating.value = false; // No existing rating found for user
@@ -463,51 +447,71 @@ const initializeTeamEventForm = async (eventDetails: Event, loadExisting: boolea
   } else {
        didLoadExistingRating.value = false; // Explicitly set when not loading existing
   }
+
+  // --- Load previous vote if present ---
+  const previousVote = Array.isArray(eventDetails.teamCriteriaRatings)
+    ? eventDetails.teamCriteriaRatings.find((v: any) => v.ratedBy === currentUser.value?.uid)
+    : null;
+  if (previousVote && previousVote.selections) {
+    Object.entries(previousVote.selections.criteria || {}).forEach(([index, teamName]) => {
+      const key = `constraint${index}`;
+      if (teamRatings[key] !== undefined) {
+        teamRatings[key] = teamName || '';
+      }
+    });
+    teamRatings['bestPerformer'] = previousVote.selections.bestPerformer || '';
+    didLoadExistingRating.value = true;
+  } else if (loadExisting) {
+    // fallback to legacy/existingRating logic if needed
+    // ...existing code for loading from teamCriteriaRatings...
+  } else {
+    didLoadExistingRating.value = false;
+  }
 };
 
 const initializeIndividualEventForm = async (eventDetails: Event, loadExisting: boolean = false): Promise<void> => {
   const participantIds = eventDetails.participants || [];
 
-  // Fetch participant names (if not already fetched by watcher)
+  // Fetch participant names immediately
   if (participantIds.length > 0) {
-      const idsToFetch = participantIds.filter(id => id && !getUserName(id));
-      if (idsToFetch.length > 0) {
-        await store.dispatch('user/fetchUserNamesBatch', idsToFetch);
-      }
+    try {
+      const names: Record<string, string> = await store.dispatch('user/fetchUserNamesBatch', participantIds);
+      Object.entries(names).forEach(([uid, name]) => {
+        userNameMap.value[uid] = name || 'Anonymous User';
+      });
+    } catch (error) {
+      console.error('Error initializing participant names:', error);
+    }
   }
 
   // Initialize ratings structure (handled by watcher)
 
   // Load existing data if applicable
   if (loadExisting) {
-     const winnersData = eventDetails.winnersPerRole || {};
+     // Use criteriaSelections to load previous votes for current user
      let loadedSomething = false;
-     sortedXpAllocation.value.forEach(alloc => {
-       const role = alloc.role;
-       // single winner per role/criteria
-       if (typeof role === 'undefined') return; // <-- Add this guard
-       const winnerId = winnersData[role]?.[0];
-       if (typeof alloc.constraintIndex === 'number') {
-         const key = `constraint${alloc.constraintIndex}`;
-         if (role && winnerId && individualRatings[key] !== undefined) { // Check if winner exists and key is initialized
-           individualRatings[key] = winnerId;
-           loadedSomething = true;
-         } else if (winnerId && individualRatings[key] === undefined) {
-            // Handle case where allocation might have changed
-            console.warn(`Winner data found for non-existent constraint index: ${alloc.constraintIndex}`);
+     const currentUserId = currentUser.value?.uid;
+     if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
+       eventDetails.criteria.forEach(alloc => {
+         if (!alloc.criteriaSelections) return;
+         const winnerId = alloc.criteriaSelections[currentUserId || ''];
+         if (typeof alloc.constraintIndex === 'number') {
+           const key = `constraint${alloc.constraintIndex}`;
+           if (winnerId && individualRatings[key] !== undefined) {
+             individualRatings[key] = winnerId;
+             loadedSomething = true;
+           }
          }
-       }
-     });
-     didLoadExistingRating.value = loadedSomething; // Mark if any existing data was loaded
+       });
+     }
+     didLoadExistingRating.value = loadedSomething;
   } else {
-      didLoadExistingRating.value = false; // Explicitly set when not loading existing
+      didLoadExistingRating.value = false;
   }
 };
 
-
 const initializeForm = async (): Promise<void> => {
   const currentUserId = currentUser.value?.uid;
-  const currentUserRole = currentUser.value?.role; // Assuming role is available in user object
 
   // --- Initial Checks ---
   if (!currentUserId) {
@@ -601,46 +605,42 @@ const submitSelection = async (): Promise<void> => {
     let actionName: string;
 
     if (isTeamEvent.value) {
-      // Prepare payload for team event rating
+      // Prepare payload for team event rating (vote)
       const criteriaSelections: Record<string, string> = {};
       sortedXpAllocation.value.forEach(allocation => {
         const key = `constraint${allocation.constraintIndex}`;
+        // For team events, value is the team name the user voted for
         criteriaSelections[allocation.constraintIndex.toString()] = teamRatings[key] || '';
       });
 
       payload = {
         eventId: props.eventId,
-        ratingType: 'team_criteria',
+        ratingType: 'team_criteria_vote',
         ratedBy: currentUser.value.uid,
         selections: {
           criteria: criteriaSelections,
-          bestPerformer: bestPerformer.value || ''
+          bestPerformer: teamRatings['bestPerformer'] || ''
         }
       };
-      actionName = 'events/submitTeamCriteriaRating';
-      console.log("Submitting Team Criteria Payload:", payload);
+      actionName = 'events/submitTeamCriteriaVote';
 
     } else {
-      // Prepare payload for individual event winner selection
-      const winnerSelections: Record<string, string[]> = {};
+      // Prepare payload for individual event winner selection (vote)
+      // Store in criteriaSelections: { [userId]: winnerId }
+      const criteriaSelections: Record<string, string> = {};
       sortedXpAllocation.value.forEach(allocation => {
-        const role = allocation.role;
         const key = `constraint${allocation.constraintIndex}`;
-        const winnerId = individualRatings[key];
-        if (role && winnerId) {
-          winnerSelections[role] = winnerSelections[role] || [];
-          winnerSelections[role].push(winnerId);
-        }
+        // For individual events, value is the user ID the user voted for
+        criteriaSelections[allocation.constraintIndex.toString()] = individualRatings[key] || '';
       });
 
       payload = {
         eventId: props.eventId,
-        ratingType: 'individual_winners',
+        ratingType: 'individual_winner_vote',
         ratedBy: currentUser.value.uid,
-        selections: winnerSelections
+        selections: criteriaSelections // This will be stored in criteriaSelections
       };
-      actionName = 'events/submitIndividualWinners';
-      console.log("Submitting Individual Winner Payload:", payload);
+      actionName = 'events/submitIndividualWinnerVote';
     }
 
     await store.dispatch(actionName, payload);
@@ -652,7 +652,7 @@ const submitSelection = async (): Promise<void> => {
     router.push({ name: 'EventDetails', params: { id: props.eventId } });
 
   } catch (error: any) {
-    console.error("election submission error:", error);
+    console.error("selection submission error:", error);
     errorMessage.value = `Submission failed: ${error.message || 'An unknown error occurred'}`;
   } finally {
     isSubmitting.value = false;
@@ -672,6 +672,45 @@ const findWinner = async () => {
 const goBack = (): void => {
   router.back();
 };
+
+// --- Computed: Organizer Stats for Criteria Selections ---
+const criteriaStats = computed(() => {
+  if (!event.value?.criteria) return [];
+  return event.value.criteria.map(criterion => {
+    // Count votes for each selection (team or participant)
+    const counts: Record<string, number> = {};
+    if (criterion.criteriaSelections) {
+      Object.values(criterion.criteriaSelections).forEach(sel => {
+        if (sel) counts[sel] = (counts[sel] || 0) + 1;
+      });
+    }
+    // For display: sort by count desc, then name
+    const sorted = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3) // Only top 3
+      .map(([id, count]) => {
+        // For team events, show team name; for individual, show user name
+        let displayName = id;
+        if (isTeamEvent.value) {
+          // Try to find the team by name
+          const team = event.value?.teams?.find(t => t.teamName === id);
+          displayName = team ? team.teamName : id;
+        } else {
+          displayName = getUserName(id);
+        }
+        return [displayName, count];
+      });
+    return {
+      constraintLabel: criterion.constraintLabel,
+      constraintIndex: criterion.constraintIndex,
+      points: criterion.points,
+      selections: sorted
+    };
+  });
+});
+
+// --- Show stats only for organizers ---
+const showCriteriaStats = computed(() => isCurrentUserOrganizer.value && event.value?.criteria?.length);
 
 // --- Lifecycle Hooks ---
 onMounted(async () => {

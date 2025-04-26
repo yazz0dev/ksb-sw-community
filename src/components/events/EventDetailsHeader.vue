@@ -14,6 +14,23 @@
             {{ event?.details?.eventName || 'Untitled Event' }}
           </h1>
 
+          <!-- Add Organizers Section -->
+          <div v-if="event?.details?.organizers?.length" class="d-flex align-items-center mb-3">
+            <span class="text-secondary me-2"><i class="fas fa-user-shield"></i></span>
+            <div class="text-secondary">
+              Organized by: 
+              <span v-for="(orgId, idx) in event.details.organizers" :key="orgId">
+                <router-link 
+                  :to="{ name: 'PublicProfile', params: { userId: orgId }}"
+                  class="text-decoration-none text-primary"
+                >
+                  {{ formatOrganizerName(orgId) }}
+                </router-link>
+                <span v-if="idx < event.details.organizers.length - 1">, </span>
+              </span>
+            </div>
+          </div>
+
           <div class="d-flex flex-wrap mb-4 gap-4">
             <div class="d-flex align-items-center">
               <span class="text-secondary me-2"><i class="fas fa-calendar"></i></span>
@@ -95,6 +112,7 @@ interface Event {
     };
     format: string;
     description: string; 
+    organizers?: string[];
   };
   closed?: boolean;
   teams?: { members: string[] }[];
@@ -108,6 +126,7 @@ const props = defineProps<{
   canEdit: boolean;
   isJoining: boolean;
   isLeaving: boolean;
+  nameCache?: Record<string, string> | Map<string, string>; // Add this prop
 }>();
 
 const emit = defineEmits<{
@@ -157,6 +176,21 @@ const totalParticipants = computed(() => {
   }
   return 0;
 });
+
+// Add name formatting helper
+const formatOrganizerName = (uid: string): string => {
+  if (!uid) return 'Unknown';
+  
+  let name: string | undefined | null = null;
+  
+  if (props.nameCache instanceof Map) {
+    name = props.nameCache.get(uid);
+  } else if (props.nameCache && typeof props.nameCache === 'object') {
+    name = props.nameCache[uid];
+  }
+  
+  return name || 'Member';
+};
 </script>
 
 <style scoped>

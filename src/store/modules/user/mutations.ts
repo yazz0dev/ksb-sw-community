@@ -61,6 +61,12 @@ export const userMutations = {
         // state.hasFetched = false; // Keep existing logic: Don't reset hasFetched on clear
     },
 
+    SET_CURRENT_USER(state: UserState, user: User | null) {
+        state.currentUser = user;
+        state.uid = user ? user.uid : null;
+        state.hasFetched = true; // Set hasFetched to true when user data is set (or cleared)
+    },
+
     setUserXpByRole(state: UserState, xpByRoleMap: Record<string, number> | null | undefined) {
         // Ensure the map structure is correct and includes all roles
         const newMap = xpByRoleMap || {};

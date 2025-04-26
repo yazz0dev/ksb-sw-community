@@ -30,7 +30,7 @@
             </div>
             <div v-if="activeEvents.length > 0" class="row g-3">
               <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" />
+                <EventCard :event="event" :name-cache="nameCache" />
               </div>
             </div>
             <p v-else class="text-secondary">No active events at the moment.</p>
@@ -49,7 +49,7 @@
             </div>
             <div v-if="upcomingEvents.length > 0" class="row g-3">
               <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" />
+                <EventCard :event="event" :name-cache="nameCache" />
               </div>
             </div>
             <p v-else class="text-secondary">No upcoming events scheduled.</p>
@@ -68,7 +68,7 @@
             </div>
             <div v-if="completedEvents.length > 0" class="row g-3">
               <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" />
+                <EventCard :event="event" :name-cache="nameCache" />
               </div>
             </div>
             <p v-else class="text-secondary">No completed events yet.</p>
@@ -85,7 +85,7 @@
                 <div v-if="showCancelled">
                   <div class="row g-3">
                     <div v-for="event in cancelledEvents" :key="event.id" class="col-md-6 col-lg-4">
-                      <EventCard :event="event" />
+                      <EventCard :event="event" :name-cache="nameCache" />
                     </div>
                   </div>
                 </div>
@@ -174,13 +174,35 @@ const cancelledEvents = computed<Event[]>(() =>
     })
 );
 
+const nameCache = computed(() => {
+  const cache = store.state.user.nameCache;
+  if (cache instanceof Map) {
+    const obj: Record<string, string> = {};
+    cache.forEach((entry, uid) => {
+      obj[uid] = entry.name;
+    });
+    return obj;
+  }
+  return {};
+});
+
 onMounted(async () => {
   loading.value = true;
   try {
     await store.dispatch('events/fetchEvents');
+    const allOrganizerUids = Array.from(
+      new Set(
+        allEvents.value.flatMap(e => 
+          Array.isArray(e.details?.organizers) ? e.details.organizers : []
+        )
+      )
+    ).filter(Boolean);
+
+    if (allOrganizerUids.length > 0) {
+      await store.dispatch('user/fetchUserNamesBatch', allOrganizerUids);
+    }
   } catch (error) {
     console.error("Failed to load events:", error);
-    // Handle error display if needed
   } finally {
     loading.value = false;
   }

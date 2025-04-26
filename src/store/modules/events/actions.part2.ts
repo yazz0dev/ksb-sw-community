@@ -42,7 +42,7 @@ export async function updateEventDetails({ dispatch, rootGetters }: ActionContex
         const isOrganizer = Array.isArray(eventData.details?.organizers) && eventData.details.organizers.includes(currentUser?.uid ?? '');
         const isRequester = eventData.requestedBy === currentUser?.uid;
         const currentStatus = eventData.status as EventStatus;
-        const editableStatuses: EventStatus[] = [EventStatus.Pending, EventStatus.Approved];
+        const editableStatuses: EventStatus[] = [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress];
 
         let canEdit = false;
         if (isOrganizer && editableStatuses.includes(currentStatus)) canEdit = true;

@@ -307,7 +307,7 @@
       <div class="text-end">
           <button type="submit" class="btn btn-primary" :disabled="isSubmitting || totalXP > 50 || !isFormValid">
               <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              {{ isSubmitting ? 'Submitting...' : 'Submit Request' }}
+              {{ isSubmitting ? 'Submitting...' : eventId ? 'Update Event' : 'Submit Request' }}
           </button>
       </div>
 

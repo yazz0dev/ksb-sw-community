@@ -40,7 +40,7 @@
             <option v-for="memberId in team.members" 
                     :key="memberId" 
                     :value="memberId">
-              {{ nameCache[memberId] || memberId }}
+              {{ getNameFromCache(memberId) }}
             </option>
           </select>
         </div>
@@ -50,7 +50,7 @@
           <div class="d-flex flex-wrap gap-2 mb-1">
             <span v-for="memberId in team.members" :key="memberId"
               class="badge rounded-pill bg-primary-subtle text-primary-emphasis d-inline-flex align-items-center">
-              {{ nameCache[memberId] || memberId }}
+              {{ getNameFromCache(memberId) }}
               <button type="button" class="btn-close btn-close-sm ms-1" :disabled="isSubmitting"
                 @click="removeMember(index, memberId)" aria-label="Remove member"></button>
             </span>
@@ -142,6 +142,12 @@ const numberOfTeamsToGenerate = ref(2); // Default number of teams to generate
 const maxTeams = 8; // Overall maximum teams allowed for the event
 const minMembersPerTeam = 2;
 const maxMembersPerTeam = 8; // Updated max members per team
+
+// Helper to get name from cache (object)
+function getNameFromCache(uid: string): string {
+  if (!uid) return 'Unknown';
+  return props.nameCache[uid] || 'Unknown';
+}
 
 // --- Simplified Auto-Generate Logic ---
 const simpleAutoGenerateTeams = () => {
