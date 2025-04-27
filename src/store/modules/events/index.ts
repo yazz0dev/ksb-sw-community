@@ -1,11 +1,9 @@
 // src/store/modules/events/index.ts
 import { Module } from 'vuex';
-import { EventState, Event, EventStatus, EventFormat } from '@/types/event'; // Import EventFormat as well
+import { Event, EventState, EventStatus, EventCriteria } from '../../../types/event';
 import { RootState } from '@/types/store';
 import { eventActions } from './actions';
-import * as eventActionsPart2 from './actions.part2';
 import { eventMutations } from './mutations';
-import { DateTime } from 'luxon'; // For date comparisons
 
 const state: EventState = {
     events: [],
@@ -47,15 +45,15 @@ const getters = {
     },
 
     // Specific status getters using the generalized one
-    upcomingEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Approved),
-    activeEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.InProgress),
-    completedEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Completed),
-    pendingEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Pending),
-    cancelledEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Cancelled),
-    rejectedEvents: (state: EventState, getters: any): Event[] => getters.getEventsByStatus(EventStatus.Rejected),
+    upcomingEvents: (state: EventState, getters: { getEventsByStatus: (status: EventStatus) => Event[] }): Event[] => getters.getEventsByStatus(EventStatus.Approved),
+    activeEvents: (state: EventState, getters: { getEventsByStatus: (status: EventStatus) => Event[] }): Event[] => getters.getEventsByStatus(EventStatus.InProgress),
+    completedEvents: (state: EventState, getters: { getEventsByStatus: (status: EventStatus) => Event[] }): Event[] => getters.getEventsByStatus(EventStatus.Completed),
+    pendingEvents: (state: EventState, getters: { getEventsByStatus: (status: EventStatus) => Event[] }): Event[] => getters.getEventsByStatus(EventStatus.Pending),
+    cancelledEvents: (state: EventState, getters: { getEventsByStatus: (status: EventStatus) => Event[] }): Event[] => getters.getEventsByStatus(EventStatus.Cancelled),
+    rejectedEvents: (state: EventState, getters: { getEventsByStatus: (status: EventStatus) => Event[] }): Event[] => getters.getEventsByStatus(EventStatus.Rejected),
 
     // User's pending/rejected requests
-    userRequests: (state: EventState, _getters: any, _rootState: RootState, rootGetters: any): Event[] => {
+    userRequests: (state: EventState, _getters: unknown, _rootState: RootState, rootGetters: { [key: string]: unknown }): Event[] => {
         const userId = rootGetters['user/userId']; // Use namespaced getter
         if (!userId) return [];
         return state.events
@@ -74,7 +72,7 @@ const getters = {
     },
 
     // Get sorted XP Allocation for an event
-    getEventXPAllocation: (state: EventState, getters: any) => (eventId: string): any[] => {
+    getEventXPAllocation: (state: EventState, getters: { getEventById: (id: string) => Event | undefined }) => (eventId: string): EventCriteria[] => {
         const event = getters.getEventById(eventId);
         if (!event?.criteria || !Array.isArray(event.criteria)) {
             return [];
@@ -86,7 +84,7 @@ const getters = {
     },
 
     // Get just the constraint labels in order
-    getEventRatingConstraints: (state: EventState, getters: any) => (eventId: string): string[] => {
+    getEventRatingConstraints: (state: EventState, getters: { getEventById: (id: string) => Event | undefined; getEventXPAllocation: (eventId: string) => EventCriteria[] }) => (eventId: string): string[] => {
         const allocations = getters.getEventXPAllocation(eventId) as any[];
         return allocations.map(allocation => allocation.constraintLabel || `Criteria ${allocation.constraintIndex + 1}`);
     },
@@ -111,8 +109,7 @@ export default {
     state,
     getters,
     actions: {
-        ...eventActions,
-        ...eventActionsPart2, // <-- Add this line to merge in the new actions (including requestEvent)
+        ...eventActions
     },
     mutations: eventMutations
 } as Module<EventState, RootState>;

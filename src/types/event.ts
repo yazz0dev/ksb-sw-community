@@ -68,15 +68,7 @@ export enum EventFormat {
   Team = 'Team'
 }
 
-// Add TeamCriteriaRating interface
-export interface TeamCriteriaRating {
-  ratedBy: string;
-  ratedAt: Timestamp;
-  selections: {
-    criteria: Record<string, string>;
-    bestPerformer: string;
-  };
-}
+// TeamCriteriaRating removed as per new XP/selection structure.
 
 // Add OrganizerRating interface
 export interface OrganizerRating {
@@ -154,7 +146,7 @@ export interface Event {
 
   // --- Additional Fields ---
   ratingsOpen: boolean; // Ensure always present
-  teamCriteriaRatings?: TeamCriteriaRating[];
+  // teamCriteriaRatings removed as per new XP/selection structure.
   winnersPerRole?: Record<string, string[]>;
 
   // Add ratings field

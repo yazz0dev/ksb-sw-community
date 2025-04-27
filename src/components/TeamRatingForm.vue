@@ -258,20 +258,15 @@ const submitTeamRatings = async (): Promise<void> => {
         }
     });
 
-    const ratingPayload: RatingPayload = {
+    // Use submitTeamCriteriaVote, which updates only criteriaSelections and bestPerformerSelections
+    await store.dispatch('events/submitTeamCriteriaVote', {
       eventId: props.eventId,
-      ratingType: 'team_criteria',
-      ratedBy: currentUserId.value,
-      ratedAt: new Date(),
       selections: {
         criteria: criteriaSelections,
-        bestPerformer: bestPerformerSelection.value,
-      },
-    };
+        bestPerformer: bestPerformerSelection.value
+      }
+    });
 
-    // Dispatch the new Vuex action
-    await store.dispatch('events/submitTeamCriteriaRating', ratingPayload); 
-    
     emit('submitted', { message: 'Team ratings submitted successfully!', type: 'success' });
     emit('close');
 

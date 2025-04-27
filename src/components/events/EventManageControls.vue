@@ -251,14 +251,21 @@ export default {
       if (!props.event) return 0;
       // Team event: count unique users who submitted team criteria votes or bestPerformerSelections
       if (props.event.details.format === EventFormat.Team) {
-        // Prefer teamCriteriaRatings if present, else fallback to bestPerformerSelections
-        if (Array.isArray(props.event.teamCriteriaRatings)) {
-          return new Set(props.event.teamCriteriaRatings.map(r => r.ratedBy)).size;
+        // Count unique users who have submitted at least one criteriaSelections or bestPerformerSelections
+        const userIds = new Set<string>();
+        if (Array.isArray(props.event.criteria)) {
+          props.event.criteria.forEach(criterion => {
+            if (criterion.criteriaSelections) {
+              Object.keys(criterion.criteriaSelections).forEach(uid => {
+                if (criterion.criteriaSelections[uid]) userIds.add(uid);
+              });
+            }
+          });
         }
         if (props.event.bestPerformerSelections && typeof props.event.bestPerformerSelections === 'object') {
-          return Object.keys(props.event.bestPerformerSelections).length;
+          Object.keys(props.event.bestPerformerSelections).forEach(uid => userIds.add(uid));
         }
-        return 0;
+        return userIds.size;
       }
       // Individual event: count unique users who have submitted at least one criteria selection
       if (Array.isArray(props.event.criteria)) {
@@ -415,7 +422,7 @@ export default {
         try {
             const result = await store.dispatch('events/toggleRatingsOpen', {
                 eventId: props.event.id,
-                isOpen: openState
+                open: openState
             });
             if (result?.status === 'success') {
                 store.dispatch('notification/showNotification', {

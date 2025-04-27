@@ -8,7 +8,7 @@ import { RootState } from '@/types/store';
 
 import { invokePushNotification, isSupabaseConfigured } from '@/notifications';
 
-export async function requestEvent({ commit, rootGetters, dispatch }: ActionContext<EventState, RootState>, initialData: Partial<Event>): Promise<string> {
+export async function requestEvent({ rootGetters, dispatch }: ActionContext<EventState, RootState>, initialData: Partial<Event>): Promise<string> {
     const currentUser: User | null = rootGetters['user/getUser'];
     if (!currentUser?.uid) throw new Error('User must be logged in.');
     if (!initialData.details?.date?.start || !initialData.details?.date?.end) {
@@ -89,11 +89,18 @@ export async function updateEventDetails({ dispatch, rootGetters }: ActionContex
         // Prepare update payload
         const updatePayload: Partial<Event> = { ...updates };
         if ('participants' in updates) updatePayload.participants = updates.participants;
+        // Prevent accidental status change
+        delete updatePayload.status;
 
         // Remove id, createdAt, status, requestedBy, etc. from Firestore update
         // (status/requestedBy should only be changed by status actions)
 
-        await updateDoc(eventRef, updatePayload);
+        // Remove undefined values from updatePayload
+        const filteredUpdatePayload = Object.fromEntries(
+            Object.entries(updatePayload).filter(([_, v]) => v !== undefined)
+        );
+
+        await updateDoc(eventRef, filteredUpdatePayload);
         dispatch('updateLocalEvent', { id: eventId, changes: { ...updatePayload } });
         console.log(`Event ${eventId} details updated.`);
     } catch (error: any) {

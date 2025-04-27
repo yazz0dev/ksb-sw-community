@@ -91,11 +91,9 @@ const router = useRouter();
 const store = useStore();
 
 const processLoginSuccess = async (user: UserCredential['user']): Promise<void> => {
-    console.log("Firebase Login successful for:", user.uid);
     try {
         // Fetch Firebase user data first
         await store.dispatch('user/fetchUserData', user.uid);
-        console.log("Firebase user data fetch dispatched.");
 
         // Check if user data exists in Vuex after fetch
         const userData = store.getters['user/getUser'];
@@ -105,7 +103,6 @@ const processLoginSuccess = async (user: UserCredential['user']): Promise<void> 
         }
 
         router.replace({ name: 'Home' });
-        console.log(`Navigation to 'Home' attempted.`);
     } catch (fetchError) {
         console.error("Error fetching user data after Firebase login:", fetchError);
         errorMessage.value = 'Login successful, but failed to load profile. Please try refreshing.';

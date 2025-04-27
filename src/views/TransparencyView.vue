@@ -175,7 +175,6 @@ const renderSection = async (content: string): Promise<string> => {
         const rawHtml: string = await marked(content); // Await the promise
         return DOMPurify.sanitize(rawHtml);
     } catch (error) {
-        console.error('Error rendering markdown:', error);
         return `<p class="text-danger">Error rendering content.</p>`;
     }
 };

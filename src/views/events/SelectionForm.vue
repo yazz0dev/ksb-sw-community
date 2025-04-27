@@ -246,7 +246,13 @@ const getUserName = (userId: string): string => {
 const currentUser = computed(() => store.getters['user/getUser']);
 
 const sortedXpAllocation = computed<EventCriteria[]>(() => {
-  return event.value?.criteria?.slice().sort((a, b) => a.constraintIndex - b.constraintIndex) || [];
+  let criteria = event.value?.criteria;
+  if (!criteria) return [];
+  // Convert object to array if needed
+  if (!Array.isArray(criteria)) {
+    criteria = Object.values(criteria);
+  }
+  return criteria.slice().sort((a, b) => a.constraintIndex - b.constraintIndex);
 });
 
 const hasValidRatingCriteria = computed<boolean>(() => {
@@ -435,38 +441,36 @@ const initializeTeamEventForm = async (eventDetails: Event, loadExisting: boolea
   didLoadExistingRating.value = false;
   const currentUserId = currentUser.value?.uid;
 
-  // Find previous rating by this user (teamCriteriaRatings)
-  let previous = null;
-  if (Array.isArray(eventDetails.teamCriteriaRatings)) {
-    previous = eventDetails.teamCriteriaRatings.find(r => r.ratedBy === currentUserId);
-  }
-
-  if (previous?.selections) {
-    // Restore all criteria selections
-    Object.entries(previous.selections.criteria || {}).forEach(([index, teamName]) => {
-      const key = `constraint${index}`;
-      if (teamRatings[key] !== undefined) {
-        teamRatings[key] = teamName || '';
+  // Restore all criteria selections for this user
+  if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
+    let loaded = false;
+    eventDetails.criteria.forEach(alloc => {
+      if (!alloc.criteriaSelections) return;
+      const teamName = alloc.criteriaSelections[currentUserId || ''];
+      if (typeof alloc.constraintIndex === 'number') {
+        const key = `constraint${alloc.constraintIndex}`;
+        if (teamName !== undefined && teamRatings[key] !== undefined) {
+          teamRatings[key] = teamName;
+          loaded = true;
+        }
       }
     });
-    // Restore best performer
-    teamRatings['bestPerformer'] = previous.selections.bestPerformer || '';
-    didLoadExistingRating.value = true;
-  } else {
-    // Try to restore from bestPerformerSelections (legacy/alternate)
-    if (eventDetails.bestPerformerSelections?.[currentUserId ?? '']) {
-      const bestPerformerId = eventDetails.bestPerformerSelections[currentUserId ?? ''];
-      // Validate best performer is from different team
-      const currentUserTeam = eventDetails.teams?.find(team => 
-        team.members?.includes(currentUserId)
-      );
-      const bestPerformerTeam = eventDetails.teams?.find(team => 
-        team.members?.includes(bestPerformerId)
-      );
-      if (bestPerformerTeam?.teamName !== currentUserTeam?.teamName) {
-        teamRatings['bestPerformer'] = bestPerformerId;
-        didLoadExistingRating.value = true;
-      }
+    didLoadExistingRating.value = loaded;
+  }
+
+  // Restore best performer selection
+  if (eventDetails.bestPerformerSelections?.[currentUserId ?? '']) {
+    const bestPerformerId = eventDetails.bestPerformerSelections[currentUserId ?? ''];
+    // Validate best performer is from different team
+    const currentUserTeam = eventDetails.teams?.find(team => 
+      team.members?.includes(currentUserId)
+    );
+    const bestPerformerTeam = eventDetails.teams?.find(team => 
+      team.members?.includes(bestPerformerId)
+    );
+    if (bestPerformerTeam?.teamName !== currentUserTeam?.teamName) {
+      teamRatings['bestPerformer'] = bestPerformerId;
+      didLoadExistingRating.value = true;
     }
   }
 };
@@ -490,22 +494,20 @@ const initializeIndividualEventForm = async (eventDetails: Event, loadExisting: 
   didLoadExistingRating.value = false;
   const currentUserId = currentUser.value?.uid;
 
-  // For each criterion, check if this user has a previous selection
-  if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
-    let loaded = false;
-    eventDetails.criteria.forEach(alloc => {
-      if (!alloc.criteriaSelections) return;
-      const winnerId = alloc.criteriaSelections[currentUserId || ''];
-      if (typeof alloc.constraintIndex === 'number') {
-        const key = `constraint${alloc.constraintIndex}`;
-        if (winnerId !== undefined && individualRatings[key] !== undefined) {
-          individualRatings[key] = winnerId;
-          loaded = true;
+    // For each criterion, check if this user has a previous selection
+    if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
+      let loaded = false;
+      eventDetails.criteria.forEach(alloc => {
+        if (!alloc.criteriaSelections) return;
+        const winnerId = alloc.criteriaSelections[currentUserId || ''];
+        if (typeof alloc.constraintIndex === 'number') {
+          const key = `constraint${alloc.constraintIndex}`;
+          individualRatings[key] = winnerId || '';
+          if (winnerId) loaded = true;
         }
-      }
-    });
-    didLoadExistingRating.value = loaded;
-  }
+      });
+      didLoadExistingRating.value = loaded;
+    }
 };
 
 const initializeForm = async (): Promise<void> => {
@@ -556,16 +558,25 @@ const initializeForm = async (): Promise<void> => {
     // --- Determine if Loading Existing Data ---
     let shouldLoadExisting = false;
     if (isTeamEvent.value) {
-        // Check if *this user* has already submitted criteria ratings
-        shouldLoadExisting = eventDetails.teamCriteriaRatings?.some(r => r.ratedBy === currentUserId) ?? false;
-         // If you want to block updates uncomment the below:
-         // if (shouldLoadExisting) throw new Error('You have already submitted team selections.');
+        // Check if *this user* has already submitted criteria ratings (using criteriaSelections or bestPerformerSelections)
+        shouldLoadExisting = false;
+        if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
+          shouldLoadExisting = eventDetails.criteria.some(alloc => alloc.criteriaSelections && alloc.criteriaSelections[currentUserId]);
+        }
+        if (!shouldLoadExisting && eventDetails.bestPerformerSelections) {
+          shouldLoadExisting = !!eventDetails.bestPerformerSelections[currentUserId];
+        }
+        // If you want to block updates uncomment the below:
+        // if (shouldLoadExisting) throw new Error('You have already submitted team selections.');
 
     } else {
-        // Check if *any* winners have been selected (implies submission by someone)
-        shouldLoadExisting = Object.keys(eventDetails.winnersPerRole || {}).length > 0;
+        // Check if *this user* has already submitted for any criterion
+        shouldLoadExisting = false;
+        if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
+          shouldLoadExisting = eventDetails.criteria.some(alloc => alloc.criteriaSelections && alloc.criteriaSelections[currentUserId]);
+        }
         // If you want to block updates uncomment the below:
-        // if (shouldLoadExisting) throw new Error('Winners have already been selected for this event.');
+        // if (shouldLoadExisting) throw new Error('You have already submitted individual selections.');
     }
 
     // --- Initialize Specific Form Type ---
@@ -608,7 +619,7 @@ const submitSelection = async (): Promise<void> => {
       sortedXpAllocation.value.forEach(allocation => {
         const key = `constraint${allocation.constraintIndex}`;
         // For team events, value is the team name the user voted for
-        criteriaSelections[allocation.constraintIndex.toString()] = teamRatings[key] || '';
+        criteriaSelections[String(allocation.constraintIndex)] = teamRatings[key] || '';
       });
 
       // Update payload to use new structure
@@ -631,25 +642,30 @@ const submitSelection = async (): Promise<void> => {
       sortedXpAllocation.value.forEach(allocation => {
         const key = `constraint${allocation.constraintIndex}`;
         // For individual events, value is the user ID the user voted for
-        criteriaSelections[allocation.constraintIndex.toString()] = individualRatings[key] || '';
+        criteriaSelections[String(allocation.constraintIndex)] = individualRatings[key] || '';
       });
 
+      // Find the winnerId from the selections (should be the selected userId for the first/only criterion)
+      const winnerId = Object.values(criteriaSelections).find(v => !!v) || '';
       payload = {
         eventId: props.eventId,
-        ratingType: 'individual_winner_vote',
-        ratedBy: currentUser.value.uid,
-        selections: criteriaSelections // This will be stored in criteriaSelections
+        winnerId,
+        vote: true
       };
       actionName = 'events/submitIndividualWinnerVote';
     }
 
     await store.dispatch(actionName, payload);
 
+    // Immediately reload event data to reflect update
+    await initializeForm();
+
     store.dispatch('notification/showNotification', {
         message: `${didLoadExistingRating.value ? 'Update' : 'Submission'} successful!`,
         type: 'success'
     });
-    router.push({ name: 'EventDetails', params: { id: props.eventId } });
+    // Optionally, do not redirect immediately so user sees their updated selection
+    // router.push({ name: 'EventDetails', params: { id: props.eventId } });
 
   } catch (error: any) {
     console.error("selection submission error:", error);

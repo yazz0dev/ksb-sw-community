@@ -122,7 +122,6 @@ onMounted(async () => {
                 xpByRole: doc.data().xpByRole || {}
             }))
     } catch (error) {
-        console.error("Error fetching leaderboard users:", error);
         users.value = [];
     } finally {
         loading.value = false;

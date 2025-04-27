@@ -47,7 +47,7 @@
         v-if="targetUserId"
         :user-id="targetUserId"
         :is-current-user="isCurrentUser"
-        @hook:mounted="() => { console.log('[ProfileView] ProfileViewContent mounted, targetUserId:', targetUserId); }"
+        @hook:mounted="() => {}"
       >
         <!-- Slot for Additional Content (e.g., User Requests) -->
         <template #additional-content v-if="isCurrentUser">
@@ -175,7 +175,6 @@ const fetchUserProjectsForPortfolio = async () => {
              return project;
          });
     } catch (error) {
-        console.error("Error fetching user projects for portfolio:", error);
         userProjectsForPortfolioButton.value = [];
     } finally {
         loadingProjectsForPortfolio.value = false;
@@ -197,7 +196,6 @@ const fetchEventParticipationCount = async (userId: string) => {
         organizedCount = Array.isArray(data.organizedEvent) ? data.organizedEvent.length : 0;
         eventParticipationCount.value = participatedCount + organizedCount;
     } catch (err) {
-        console.error("Error fetching event participation count:", err);
         eventParticipationCount.value = 0; // Reset on error
     } finally {
         loadingEventCount.value = false;
@@ -225,7 +223,6 @@ const determineProfileContext = async () => {
         await fetchUserProfile(loggedInUid);
     } else {
         // No target user and not logged in or invalid route
-        console.error("Cannot determine profile context.");
         // Optionally redirect to login or show an error
         // if (!loggedInUid) {
         //    router.push({ name: 'Login' });
@@ -256,7 +253,6 @@ const fetchUserProfile = async (userIdToFetch: string) => {
             profileUser.value = null;
         }
     } catch (err: any) {
-        console.error('Error fetching user profile:', err);
         error.value = err.message || 'Failed to load profile.';
         profileUser.value = null;
     } finally {

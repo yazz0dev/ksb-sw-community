@@ -28,7 +28,7 @@ export async function fetchEventDetails({ commit }: ActionContext<EventState, Ro
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const event = { id: eventSnap.id, ...eventSnap.data() } as Event;
-        commit('setEventDetails', event);
+        commit('setCurrentEventDetails', event);
         return event;
         const eventData = { id: eventId, ...eventSnap.data() } as Event;
         commit('addOrUpdateEvent', eventData);

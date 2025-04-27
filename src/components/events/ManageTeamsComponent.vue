@@ -156,22 +156,50 @@ const simpleAutoGenerateTeams = () => {
     emit('error', 'Please enter a valid number of teams to generate (must be > 0).');
     return;
   }
-  // Ensure enough students for the requested teams
-  if (props.students.length < numTeams * minMembersPerTeam) {
-    emit('error', `Not enough students to generate ${numTeams} teams with at least ${minMembersPerTeam} members each.`);
+
+  // Enforce maxTeams limit
+  if (teams.value.length >= maxTeams) {
+    emit('error', `Maximum number of teams (${maxTeams}) already reached.`);
     return;
   }
-  const shuffled = [...props.students].sort(() => Math.random() - 0.5);
-  const teamsArr = Array.from({ length: numTeams }, () => [] as string[]);
-  // Distribute students round-robin
+  if (teams.value.length + numTeams > maxTeams) {
+    emit('error', `Cannot create ${numTeams} new teams: would exceed the maximum allowed (${maxTeams}).`);
+    return;
+  }
+
+  // Gather assigned student IDs
+  const assignedIds = new Set(teams.value.flatMap(t => t.members));
+  // Filter unassigned students
+  const unassignedStudents = props.students.filter(s => !assignedIds.has(s.uid));
+
+  // Check if enough unassigned students
+  if (unassignedStudents.length < numTeams * minMembersPerTeam) {
+    emit('error', `Not enough unassigned students (${unassignedStudents.length}) to generate ${numTeams} teams with at least ${minMembersPerTeam} members each.`);
+    return;
+  }
+
+  // Shuffle unassigned students
+  const shuffled = [...unassignedStudents].sort(() => Math.random() - 0.5);
+  // Create new teams
+  const newTeamsArr = Array.from({ length: numTeams }, () => [] as string[]);
   shuffled.forEach((student, idx) => {
-    teamsArr[idx % numTeams].push(student.uid);
+    newTeamsArr[idx % numTeams].push(student.uid);
   });
-  teams.value = teamsArr.map((members, i) => ({
-    name: `Team ${i + 1}`,
+  // Only keep teams with minMembersPerTeam or more
+  const validNewTeams = newTeamsArr.filter(members => members.length >= minMembersPerTeam);
+  if (validNewTeams.length < numTeams) {
+    emit('error', `Could not form ${numTeams} complete teams. Only ${validNewTeams.length} teams with at least ${minMembersPerTeam} members could be created.`);
+    return;
+  }
+  // Prepare new teams
+  const startIdx = teams.value.length;
+  const newTeams = validNewTeams.map((members, i) => ({
+    name: `Team ${startIdx + i + 1}`,
     members,
     teamLead: members[0] || ''
   }));
+  // Append new teams
+  teams.value = [...teams.value, ...newTeams];
   emitTeamsUpdate();
 };
 // --- End Simplified Auto-Generate Logic ---

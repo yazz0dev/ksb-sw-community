@@ -1,6 +1,6 @@
 // src/store/modules/events/mutations.ts
 import { MutationTree } from 'vuex';
-import { EventState, Event, EventStatus, OrganizerRating, Team, Submission, EventFormat } from '@/types/event'; // Add EventFormat
+import { EventState, Event, EventStatus, OrganizerRating, Team, Submission } from '@/types/event';
 
 // Helper function to compare events for sorting
 function compareEvents(a: Event, b: Event): number {

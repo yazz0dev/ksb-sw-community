@@ -18,23 +18,7 @@ export async function toggleRatingsOpen({ dispatch }: ActionContext<EventState, 
     }
 }
 
-export async function submitTeamCriteriaRating({ rootGetters, dispatch }: ActionContext<EventState, RootState>, { eventId, teamId, criteria, rating }: { eventId: string; teamId: string; criteria: string; rating: number }): Promise<void> {
-    if (!eventId || !teamId || !criteria) throw new Error('Missing required parameters.');
-    const eventRef = doc(db, 'events', eventId);
-    const currentUser: User | null = rootGetters['user/getUser'];
-    const userId = currentUser?.uid;
-    if (!userId) throw new Error("User not authenticated.");
-    try {
-        // For simplicity, just append rating; deduplication logic can be added as needed
-        await updateDoc(eventRef, {
-            [`teamCriteriaRatings.${teamId}.${criteria}.${userId}`]: rating,
-            lastUpdatedAt: Timestamp.now()
-        });
-        dispatch('updateLocalEvent', { id: eventId, changes: { /* structure may vary */ } });
-    } catch (error: any) {
-        throw error;
-    }
-}
+// submitTeamCriteriaRating removed as teamCriteriaRatings is deprecated. Use submitTeamCriteriaVote for all XP/selection logic.
 
 export async function submitIndividualWinnerVote({ rootGetters, dispatch }: ActionContext<EventState, RootState>, { eventId, winnerId, vote }: { eventId: string; winnerId: string; vote: boolean }): Promise<void> {
     if (!eventId || !winnerId) throw new Error('Missing required parameters.');
@@ -54,23 +38,34 @@ export async function submitIndividualWinnerVote({ rootGetters, dispatch }: Acti
     }
 }
 
-export async function submitTeamCriteriaVote({ rootGetters, dispatch }: ActionContext<EventState, RootState>, { eventId, teamId, vote }: { eventId: string; teamId: string; vote: boolean }): Promise<void> {
-    if (!eventId || !teamId) throw new Error('Missing required parameters.');
-    const eventRef = doc(db, 'events', eventId);
-    const currentUser: User | null = rootGetters['user/getUser'];
-    const userId = currentUser?.uid;
-    if (!userId) throw new Error("User not authenticated.");
-    try {
-        // For simplicity, just append vote; deduplication logic can be added as needed
-        await updateDoc(eventRef, {
-            [`teamVotes.${teamId}.${userId}`]: vote,
-            lastUpdatedAt: Timestamp.now()
-        });
-        dispatch('updateLocalEvent', { id: eventId, changes: { /* structure may vary */ } });
-    } catch (error: any) {
-        throw error;
+export async function submitTeamCriteriaVote(
+  { rootGetters, dispatch }: ActionContext<EventState, RootState>,
+  { eventId, selections }: { eventId: string; selections: { criteria: Record<string, string>, bestPerformer?: string } }
+): Promise<void> {
+  if (!eventId || !selections || !selections.criteria) throw new Error('Missing required parameters.');
+  const eventRef = doc(db, 'events', eventId);
+  const currentUser: User | null = rootGetters['user/getUser'];
+  const userId = currentUser?.uid;
+  if (!userId) throw new Error("User not authenticated.");
+  try {
+    // Build update object for all criteria votes
+    const updateObj: Record<string, any> = { lastUpdatedAt: Timestamp.now() };
+    for (const [constraintIndex, teamId] of Object.entries(selections.criteria)) {
+      if (teamId) {
+        updateObj[`criteria.${constraintIndex}.criteriaSelections.${userId}`] = teamId;
+      }
     }
+    // Optionally handle bestPerformer selection
+    if (selections.bestPerformer) {
+      updateObj[`bestPerformerSelections.${userId}`] = selections.bestPerformer;
+    }
+    await updateDoc(eventRef, updateObj);
+    dispatch('updateLocalEvent', { id: eventId, changes: { /* structure may vary */ } });
+  } catch (error: any) {
+    throw error;
+  }
 }
+
 
 export async function submitOrganizationRating({ rootGetters, dispatch }: ActionContext<EventState, RootState>, { eventId, score }: { eventId: string; score: number | string }): Promise<void> {
     if (!eventId) throw new Error('Event ID required.');
@@ -79,9 +74,10 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
     const userId = currentUser?.uid;
     if (!userId) throw new Error("User not authenticated.");
     try {
-        // For simplicity, just append rating; deduplication logic can be added as needed
+        // Write both per-user and single field for compatibility
         await updateDoc(eventRef, {
             [`organizationRatings.${userId}`]: score,
+            organizerRating: score,
             lastUpdatedAt: Timestamp.now()
         });
         dispatch('updateLocalEvent', { id: eventId, changes: { /* structure may vary */ } });
@@ -89,6 +85,7 @@ export async function submitOrganizationRating({ rootGetters, dispatch }: Action
         throw error;
     }
 }
+
 
 export async function findWinner({ }: ActionContext<EventState, RootState>, eventId: string): Promise<string | null> {
     if (!eventId) throw new Error('Event ID required.');

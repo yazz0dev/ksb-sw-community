@@ -34,7 +34,6 @@ export async function calculateEventXP(eventData: Event): Promise<Record<string,
     const allocations = eventData.criteria || [];
 
     if (eventData.details.format === EventFormat.Team && eventData.teams && Array.isArray(eventData.teams)) {
-        const teamCriteriaRatings = eventData.teamCriteriaRatings || [];
         eventData.teams.forEach(team => {
             const teamMembers = (team.members || []).filter(Boolean);
             const hasSubmission = Array.isArray(team.submissions) && team.submissions.length > 0;
@@ -43,7 +42,26 @@ export async function calculateEventXP(eventData: Event): Promise<Record<string,
                 xpAwardMap[uid]['Participation'] = (xpAwardMap[uid]['Participation'] || 0) + (hasSubmission ? submittedParticipationXP : baseParticipationXP);
             });
         });
-        // Winner and best performer logic can be added here as needed
+        // XP for criteriaSelections (per cirea)
+        (eventData.criteria || []).forEach(criterion => {
+            if (criterion.criteriaSelections) {
+                Object.entries(criterion.criteriaSelections).forEach(([userId, teamName]) => {
+                    if (userId && teamName) {
+                        if (!xpAwardMap[userId]) xpAwardMap[userId] = {};
+                        xpAwardMap[userId][`Criterion:${criterion.constraintLabel}`] = (xpAwardMap[userId][`Criterion:${criterion.constraintLabel}`] || 0) + (criterion.points || 0);
+                    }
+                });
+            }
+        });
+        // XP for best performer (team only)
+        if (eventData.bestPerformerSelections) {
+            Object.values(eventData.bestPerformerSelections).forEach(uid => {
+                if (uid) {
+                    if (!xpAwardMap[uid]) xpAwardMap[uid] = {};
+                    xpAwardMap[uid]['BestPerformer'] = (xpAwardMap[uid]['BestPerformer'] || 0) + bestPerformerBonusXP;
+                }
+            });
+        }
     } else if (eventData.details.format === EventFormat.Individual && Array.isArray(eventData.participants)) {
         eventData.participants.filter(Boolean).forEach(uid => {
             if (!xpAwardMap[uid]) xpAwardMap[uid] = {};

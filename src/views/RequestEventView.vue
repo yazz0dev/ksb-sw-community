@@ -149,15 +149,19 @@ const handleSubmit = async (eventData: EventFormData) => {
       // Fetch the original event data for comparison
       const original = initialEventData.value;
       // Deep compare function (simple version)
-      function deepEqual(a: any, b: any): boolean {
+      function deepEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
         return JSON.stringify(a) === JSON.stringify(b);
       }
       // Remove non-editable fields from comparison if needed
-      const clean = (obj: any) => {
-        if (!obj) return obj;
+      const clean = (obj: Record<string, unknown> | null) => {
+        if (!obj) return {};
         const { status, ...rest } = obj;
         return rest;
       };
+      // Ensure we only pass non-null objects to clean and deepEqual
+      const cleanedCurrent = clean(eventData as Record<string, unknown> | null);
+      const cleanedOriginal = clean(original as Record<string, unknown> | null);
+      const isEqual = deepEqual(cleanedCurrent, cleanedOriginal);
       if (!deepEqual(clean(eventData), clean(original))) {
         // --- FIX: Always include teams in updates payload ---
         await store.dispatch('events/updateEventDetails', {
@@ -182,7 +186,6 @@ const handleSubmit = async (eventData: EventFormData) => {
       router.push({ name: 'Home' });
     }
   } catch (error: any) {
-    console.error("Error handling event submission:", error);
     errorMessage.value = error.message || 'Failed to process event';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -264,7 +267,6 @@ const mapEventToFormData = (eventData: any): EventFormData => {
         try {
           formData.details.date[key] = (timestamp as any).toDate().toISOString().split('T')[0];
         } catch (e) {
-          console.warn(`Could not convert timestamp for field details.date.${key}:`, e);
           formData.details.date[key] = null;
         }
       } else if (typeof timestamp === 'string') {
@@ -318,7 +320,6 @@ onMounted(async () => {
       loading.value = false;
     }
   } catch (error: any) {
-    console.error("Error during component mount:", error);
     errorMessage.value = error.message || 'Failed to initialize event form';
     loading.value = false;
   }
