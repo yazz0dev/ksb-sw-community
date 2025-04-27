@@ -48,7 +48,7 @@
                         class="small text-primary text-truncate"
                         :class="{ 'fw-semibold': memberId === currentUserUid }"
                       >
-                        {{ getUserName(memberId) || memberId }} {{ memberId === currentUserUid ? '(You)' : '' }}
+                        {{ getUserName(memberId) || memberId }}{{ memberId === currentUserUid ? ' (You)' : '' }}
                       </router-link>
                     </div>
                   </div>

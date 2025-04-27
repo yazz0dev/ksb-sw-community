@@ -58,18 +58,7 @@
           </div>
 
           <!-- XP/Criteria Section -->
-          <div v-if="event?.criteria?.length" class="card mb-4 shadow-sm animate-fade-in">
-            <div class="card-body">
-              <h5 class="mb-3 text-primary"><i class="fas fa-star me-2"></i>Rating Criteria &amp; XP</h5>
-              <ul class="list-unstyled mb-0">
-                <li v-for="(alloc, idx) in event.criteria" :key="alloc.constraintIndex ?? idx" class="mb-2">
-                  <span class="text-warning me-2"><i class="fas fa-star"></i></span>
-                  <span class="fw-semibold">{{ alloc.constraintLabel || 'Unnamed Criteria' }}</span>
-                  <span class="text-secondary ms-2">({{ alloc.points }} XP, {{ formatRoleName((alloc.targetRole || alloc.role) ?? '') }})</span>
-                </li>
-              </ul>
-            </div>
-          </div>
+          <EventCriteriaDisplay v-if="event?.criteria?.length" :criteria="event.criteria" />
 
           <!-- Feedback Message -->
           <transition name="fade-pop">
@@ -105,49 +94,26 @@
                 class="card team-list-box p-0 shadow-sm animate-fade-in" />
             </div>
             <!-- Participants Section (Non-Team Events) -->
-            <div v-if="event && event.details.format !== 'Team'" class="card participants-box shadow-sm mb-4 animate-fade-in">
-              <div class="card-header d-flex justify-content-between align-items-center bg-light">
-                <div class="section-header mb-0">
-                  <i class="fas fa-user-friends text-primary me-2"></i>
-                  <span class="h5 mb-0 text-primary">Participants</span>
+            <EventParticipantList
+              v-if="event && event.details.format !== 'Team'"
+              :participants="event.participants ?? []"
+              :loading="loading"
+              :getUserName="getUserNameFromCache"
+              :currentUserId="currentUserId"
+            />
+            <p v-else-if="participantCount === 0" class="text-secondary fst-italic py-3">
+              No participants have joined this event yet.
+            </p>
+            <div v-else>
+              <div class="row g-2">
+                <div v-for="userId in allParticipants" :key="userId" class="col-12 col-md-6">
+                  <div
+                    class="participant-item d-flex align-items-center p-2 border rounded"
+                    :class="{ 'bg-primary-subtle': userId === currentUserId }"
+                  >
+                  </div>
                 </div>
-                <button
-                  @click="showParticipants = !showParticipants"
-                  class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
-                >
-                  <i class="fas transition-transform duration-200 me-1" :class="showParticipants ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                  <span>{{ showParticipants ? 'Hide' : `Show (${participantCount})` }}</span>
-                </button>
               </div>
-              <Transition name="slide-fade">
-                <div v-if="showParticipants" class="card-body animate-fade-in">
-                  <div v-if="organizerNamesLoading" class="text-secondary fst-italic py-3">
-                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Loading participants...
-                  </div>
-                  <p v-else-if="participantCount === 0" class="text-secondary fst-italic py-3">
-                    No participants have joined this event yet.
-                  </p>
-                  <div v-else>
-                    <div class="row g-2">
-                      <div v-for="userId in allParticipants" :key="userId" class="col-12 col-md-6">
-                        <div
-                          class="participant-item d-flex align-items-center p-2 border rounded"
-                          :class="{ 'bg-primary-subtle': userId === currentUserId }"
-                        >
-                          <i class="fas fa-user text-secondary me-2"></i>
-                          <router-link
-                            :to="{ name: 'PublicProfile', params: { userId: safeString(userId) } }"
-                            class="small text-truncate text-decoration-none"
-                            :class="userId === currentUserId ? 'text-primary fw-semibold' : 'text-body-secondary'"
-                          >
-                            {{ getUserNameFromCache(safeString(userId)) }} {{ userId === currentUserId ? '(You)' : '' }}
-                          </router-link>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Transition>
             </div>
           </div>
         </div>
@@ -155,125 +121,79 @@
         <div class="col-12 col-lg-4">
           <div class="sticky-lg-top" style="top: 2rem;">
             <!-- Submission Section -->
-            <div
+            <EventSubmissionsSection
               v-if="event && event.details.allowProjectSubmission !== false"
-              class="card submissions-box shadow-sm mb-4 animate-fade-in"
-            >
-              <div class="card-header bg-light d-flex align-items-center justify-content-between">
-                <div class="section-header mb-0">
-                  <i class="fas fa-upload text-primary me-2"></i>
-                  <span class="h5 mb-0 text-primary">Project Submissions</span>
-                </div>
-                <button
-                  v-if="canSubmitProject"
-                  class="btn btn-sm btn-outline-primary d-flex align-items-center"
-                  @click="triggerSubmitModalOpen"
-                >
-                  <i class="fas fa-upload me-1"></i> Submit
-                </button>
-              </div>
-              <div class="card-body">
-                <div v-if="event.details.format !== 'Team'">
-                  <ul class="list-unstyled d-flex flex-column gap-3">
-                    <li v-for="(submission, index) in event.submissions" :key="`ind-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                      <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(safeString(submission.submittedBy)) }}</p>
-                      <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
-                      <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
-                    </li>
-                  </ul>
-                  <p v-if="!event.submissions || event.submissions.length === 0" class="small text-secondary fst-italic">
-                    No project submissions yet for this event.
-                  </p>
-                </div>
-                <div v-else>
-                  <p v-if="!teams || teams.length === 0 || teams.every(t => !hasTeamSubmissions(t))" class="small text-secondary fst-italic">
-                    No project submissions yet for this event.
-                  </p>
-                  <div v-else class="d-flex flex-column gap-4">
-                    <div v-for="team in teams.filter(hasTeamSubmissions)" :key="getTeamKey(team)">
-                      <h6 class="text-secondary mb-2">Team: {{ team.teamName }}</h6>
-                      <ul class="list-unstyled d-flex flex-column gap-2 ms-4 ps-4 border-start border-2">
-                        <li v-for="(submission, index) in team.submissions" :key="`team-${team.id || team.teamName}-sub-${submission.submittedBy || index}`" class="submission-item p-3 rounded border bg-body-tertiary">
-                          <p class="small text-secondary mb-1">Submitted by: {{ getUserNameFromCache(safeString(submission.submittedBy)) }}</p>
-                          <a :href="submission.link || ''" target="_blank" rel="noopener noreferrer" class="small text-primary text-decoration-underline-hover text-break">{{ submission.link }}</a>
-                          <p v-if="submission.description" class="mt-1 small text-secondary">{{ submission.description }}</p>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              :event="event"
+              :teams="teams"
+              :loading="loading"
+              :getUserName="getUserNameFromCache"
+              :canSubmitProject="canSubmitProject"
+              @open-submission-modal="triggerSubmitModalOpen"
+            />
             <!-- Rating Section -->
-            <div v-if="event" class="card ratings-box shadow-sm mb-4 animate-fade-in">
-              <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <div class="section-header mb-0">
-                  <i class="fas fa-trophy text-warning me-2"></i>
-                  <span class="h5 mb-0 text-primary">Winner Selection</span>
-                </div>
-                <div class="d-flex align-items-center">
-                  <span v-if="event.status === 'Completed'" class="badge rounded-pill d-inline-flex align-items-center text-bg-secondary">
-                    {{ event.ratingsOpen ? 'Open' : 'Closed' }}
-                  </span>
-                </div>
-              </div>
-              <div class="card-body">
-                <!-- Winner Selection Logic -->
-                <template v-if="loading">
-                  <div class="d-flex align-items-center gap-2">
-                    <div class="spinner-border spinner-border-sm" role="status">
-                      <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <span class="small text-secondary">Loading eligibility...</span>
+            <EventRatingTrigger
+              v-if="event"
+              :event="event"
+              :currentUser="currentUser"
+              :isCurrentUserParticipant="isCurrentUserParticipant"
+              :canRateOrganizer="canRateOrganizer"
+              :loading="loading"
+            >
+              <template v-if="loading">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
                   </div>
-                </template>
-                <template v-else-if="!currentUser">
-                  <p class="small text-secondary fst-italic">
-                    Please log in to select winners.
-                  </p>
-                </template>
-                <template v-else-if="!event">
-                  <p class="small text-secondary fst-italic">
-                    Event data not available.
-                  </p>
-                </template>
-                <template v-else-if="event.status !== EventStatus.Completed">
-                  <p class="small text-secondary fst-italic">
-                    Winner selection will be available once the event is completed.
-                  </p>
-                </template>
-                <template v-else-if="event.ratingsOpen !== true">
-                  <p class="small text-secondary fst-italic">
-                    Winner selection is currently closed for this event.
-                  </p>
-                </template>
-                <template v-else-if="!isCurrentUserParticipant">
-                  <p class="small text-secondary fst-italic">
-                    You must be a participant in this event to select winners.
-                  </p>
-                </template>
-                <template v-else>
-                  <p class="small text-secondary fst-italic">
-                    Ratings are open! You can now select winners.
-                  </p>
-                  <router-link
-                    :to="{ name: 'SelectionForm', params: { eventId: event.id } }"
-                    class="btn btn-sm btn-primary d-inline-flex align-items-center mt-3"
-                  >
-                    <i class="fas fa-trophy me-1"></i>
-                    <span>Select Winner</span>
-                  </router-link>
-                  <!-- Organizer Rating Form: Only for eligible participants (not organizers) -->                  <OrganizerRatingForm
-                    v-if="canRateOrganizer && event"
-                    :event-id="event.id"
-                    :current-user-id="currentUser?.uid"
-                    :existing-ratings="event.ratings?.organizer || []"
-                    class="mt-3"
-                  />
-                </template>
-              </div>
+                  <span class="small text-secondary">Loading eligibility...</span>
+                </div>
+              </template>
+              <template v-else-if="!currentUser">
+                <p class="small text-secondary fst-italic">
+                  Please log in to select winners.
+                </p>
+              </template>
+              <template v-else-if="!event">
+                <p class="small text-secondary fst-italic">
+                  Event data not available.
+                </p>
+              </template>
+              <template v-else-if="event.status !== EventStatus.Completed">
+                <p class="small text-secondary fst-italic">
+                  Winner selection will be available once the event is completed.
+                </p>
+              </template>
+              <template v-else-if="event.ratingsOpen !== true">
+                <p class="small text-secondary fst-italic">
+                  Winner selection is currently closed for this event.
+                </p>
+              </template>
+              <template v-else-if="!isCurrentUserParticipant">
+                <p class="small text-secondary fst-italic">
+                  You must be a participant in this event to select winners.
+                </p>
+              </template>
+              <template v-else>
+                <p class="small text-secondary fst-italic">
+                  Ratings are open! You can now select winners.
+                </p>
+                <router-link
+                  :to="{ name: 'SelectionForm', params: { eventId: event.id } }"
+                  class="btn btn-sm btn-primary d-inline-flex align-items-center mt-3"
+                >
+                  <i class="fas fa-trophy me-1"></i>
+                  <span>Select Winner</span>
+                </router-link>
+              </template>
+            </EventRatingTrigger>
+            <!-- Organizer Rating Form: Only for eligible participants (not organizers) --> 
+            <OrganizerRatingForm
+              v-if="canRateOrganizer && event"
+              :event-id="event.id"
+              :current-user-id="currentUser?.uid ?? ''"
+              :existing-ratings="event.ratings?.organizer || []"
+              class="mt-3"
+            />
             </div>
-          </div>
         </div>
       </div>
 
@@ -334,6 +254,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useStore } from 'vuex';
+import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
+import EventParticipantList from '@/components/events/EventParticipantList.vue';
+import EventSubmissionsSection from '@/components/events/EventSubmissionsSection.vue';
+import EventRatingTrigger from '@/components/events/EventRatingTrigger.vue';
 import OrganizerRatingForm from '@/components/events/OrganizerRatingForm.vue';
 import { useRouter, useRoute } from 'vue-router';
 import TeamList from '@/components/TeamList.vue';

@@ -1,7 +1,13 @@
 <template>
   <div class="mb-4">
     <!-- Display Existing Teams -->
-    <div v-if="teams.length > 0" class="mb-4">
+    <div v-if="students.length === 0">
+  <div class="text-center text-muted small py-3">
+    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+    Loading student list...
+  </div>
+</div>
+<div v-else-if="teams.length > 0" class="mb-4">
       <div v-for="(team, index) in teams" :key="team.name || index" class="p-4 mb-4 border rounded bg-light-subtle team-box">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div class="flex-grow-1 me-3">
@@ -150,66 +156,42 @@ function getNameFromCache(uid: string): string {
 }
 
 // --- Simplified Auto-Generate Logic ---
-const simpleAutoGenerateTeams = () => {
-  const numTeams = numberOfTeamsToGenerate.value;
-  if (!numTeams || numTeams < 1) {
-    emit('error', 'Please enter a valid number of teams to generate (must be > 0).');
+function simpleAutoGenerateTeams() {
+  // Enforce min/max teams
+  if (props.students.length < minMembersPerTeam * 2) {
+    emit('error', `At least ${minMembersPerTeam * 2} students required to auto-generate 2 teams.`);
     return;
   }
+  let nTeams = Math.max(2, Math.min(numberOfTeamsToGenerate.value || 2, maxTeams));
+  if (nTeams > Math.floor(props.students.length / minMembersPerTeam)) {
+    nTeams = Math.floor(props.students.length / minMembersPerTeam);
+  }
+  if (nTeams > maxTeams) nTeams = maxTeams;
 
-  // Enforce maxTeams limit
-  if (teams.value.length >= maxTeams) {
-    emit('error', `Maximum number of teams (${maxTeams}) already reached.`);
-    return;
-  }
-  if (teams.value.length + numTeams > maxTeams) {
-    emit('error', `Cannot create ${numTeams} new teams: would exceed the maximum allowed (${maxTeams}).`);
-    return;
-  }
-
-  // Gather assigned student IDs
-  const assignedIds = new Set(teams.value.flatMap(t => t.members));
-  // Filter unassigned students
-  const unassignedStudents = props.students.filter(s => !assignedIds.has(s.uid));
-
-  // Check if enough unassigned students
-  if (unassignedStudents.length < numTeams * minMembersPerTeam) {
-    emit('error', `Not enough unassigned students (${unassignedStudents.length}) to generate ${numTeams} teams with at least ${minMembersPerTeam} members each.`);
-    return;
-  }
-
-  // Shuffle unassigned students
-  const shuffled = [...unassignedStudents].sort(() => Math.random() - 0.5);
-  // Create new teams
-  const newTeamsArr = Array.from({ length: numTeams }, () => [] as string[]);
-  shuffled.forEach((student, idx) => {
-    newTeamsArr[idx % numTeams].push(student.uid);
-  });
-  // Only keep teams with minMembersPerTeam or more
-  const validNewTeams = newTeamsArr.filter(members => members.length >= minMembersPerTeam);
-  if (validNewTeams.length < numTeams) {
-    emit('error', `Could not form ${numTeams} complete teams. Only ${validNewTeams.length} teams with at least ${minMembersPerTeam} members could be created.`);
-    return;
-  }
-  // Prepare new teams
-  const startIdx = teams.value.length;
-  const newTeams = validNewTeams.map((members, i) => ({
-    name: `Team ${startIdx + i + 1}`,
-    members,
-    teamLead: members[0] || ''
+  // Shuffle all students
+  const shuffled = [...props.students.map(s => s.uid)].sort(() => Math.random() - 0.5);
+  // Distribute
+  const newTeams: LocalTeam[] = Array.from({ length: nTeams }, (_, i) => ({
+    name: `Team ${i + 1}`,
+    members: [],
+    teamLead: '',
   }));
-  // Append new teams
-  teams.value = [...teams.value, ...newTeams];
+  shuffled.forEach((uid, idx) => {
+    newTeams[idx % nTeams].members.push(uid);
+  });
+  // Assign team leads
+  newTeams.forEach(team => {
+    team.teamLead = team.members[0] || '';
+  });
+  teams.value = newTeams;
   emitTeamsUpdate();
-};
-// --- End Simplified Auto-Generate Logic ---
-
+}
 // --- Button Titles ---
 const addTeamButtonTitle = computed(() => {
   if (teams.value.length >= maxTeams) {
     return `Maximum number of teams (${maxTeams}) reached.`;
   }
-  return 'Add a new team';
+  return 'Add Team';
 });
 
 const autoGenerateButtonTitle = computed(() => {
@@ -318,8 +300,11 @@ const availableStudentsForTeam = (teamIndex: number): Student[] => {
   return props.students.filter(student => student?.uid && !assignedToOtherTeams.has(student.uid));
 };
 
-watch(() => props.initialTeams, (newVal) => {
-  initializeTeams(); // Re-initialize when initial data changes
+import isEqual from 'fast-deep-equal';
+watch(() => props.initialTeams, (newVal, oldVal) => {
+  if (!isEqual(newVal, oldVal)) {
+    initializeTeams();
+  }
 }, { deep: true });
 
 onMounted(() => {
