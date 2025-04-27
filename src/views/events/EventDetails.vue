@@ -263,15 +263,13 @@
                     <i class="fas fa-trophy me-1"></i>
                     <span>Select Winner</span>
                   </router-link>
-                  <!-- Organizer Rating Button: Only for eligible participants (not organizers) -->
-                  <router-link
-                    v-if="canRateOrganizer"
-                    :to="{ name: 'OrganizerRatingForm', params: { eventId: event.id } }"
-                    class="btn btn-sm btn-secondary d-inline-flex align-items-center mt-3 ms-2"
-                  >
-                    <i class="fas fa-star me-1"></i>
-                    <span>Rate Organizers</span>
-                  </router-link>
+                  <!-- Organizer Rating Form: Only for eligible participants (not organizers) -->                  <OrganizerRatingForm
+                    v-if="canRateOrganizer && event"
+                    :event-id="event.id"
+                    :current-user-id="currentUser?.uid"
+                    :existing-ratings="event.ratings?.organizer || []"
+                    class="mt-3"
+                  />
                 </template>
               </div>
             </div>
@@ -336,6 +334,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useStore } from 'vuex';
+import OrganizerRatingForm from '@/components/events/OrganizerRatingForm.vue';
 import { useRouter, useRoute } from 'vue-router';
 import TeamList from '@/components/TeamList.vue';
 import EventManageControls from '@/components/events/EventManageControls.vue';

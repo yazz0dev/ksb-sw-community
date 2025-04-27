@@ -126,15 +126,6 @@
           <i v-else class="fas fa-archive me-1"></i>
           <span>{{ isClosingEvent ? 'Closing...' : 'Close Event Permanently' }}</span>
         </button>
-        <!-- Organizer Rating Link (Participant) -->
-        <router-link
-          v-if="showParticipantOrganizerRating"
-          :to="{ name: 'OrganizerRatingForm', params: { eventId: event.id } }"
-          class="btn btn-sm btn-secondary d-inline-flex align-items-center"
-        >
-          <i class="fas fa-star me-1"></i>
-          <span>Rate Organizers</span>
-        </router-link>
       </div>
        <!-- Info Texts -->
       <p v-if="showOpenRatingsButton" class="small text-secondary mt-2">

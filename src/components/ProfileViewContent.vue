@@ -179,16 +179,8 @@ import { formatRoleName as formatRoleNameUtil } from '../utils/formatters';
 import { Event, EventStatus } from '@/types/event';
 import { User } from '@/types/user';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
-import { Modal } from 'bootstrap';
-import { defineExpose } from 'vue';  // Add this import
 import { useRouter } from 'vue-router';
 
-// Add interface for Bootstrap Modal methods
-interface BootstrapModalInstance {
-  show: () => void;
-  hide: () => void;
-  dispose: () => void;
-}
 
 interface Props {
     userId: string;
