@@ -1,59 +1,72 @@
 <template>
-  <div class="event-details-header bg-light border rounded shadow-sm overflow-hidden">
+  <div class="event-details-header bg-light border rounded-3 shadow-sm overflow-hidden mb-4"> <!-- Added rounded-3 -->
     <div class="p-4 p-md-5">
       <!-- Header Content -->
       <div class="row g-4 align-items-start">
         <!-- Left Column: Details -->
         <div class="col-md">
-          <div class="d-flex gap-2 mb-2 flex-wrap">
-            <span :class="['badge rounded-pill fs-6', statusTagClass]">{{ event?.status }}</span>
-            <span v-if="event?.closed" class="badge rounded-pill bg-light text-dark fs-6">Archived</span>
+          <!-- Status Badges -->
+          <div class="d-flex gap-2 mb-3 flex-wrap"> <!-- Increased bottom margin -->
+            <span :class="['badge rounded-pill fs-6 lh-1', statusTagClass]">{{ event?.status }}</span> <!-- Added lh-1 -->
+            <span v-if="event?.closed" class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis fs-6 lh-1">Archived</span> <!-- Used subtle bg -->
+            <span class="badge rounded-pill bg-info-subtle text-info-emphasis fs-6 lh-1">{{ event?.details?.format || 'N/A' }}</span> <!-- Format badge -->
           </div>
 
-          <h1 class="display-5 text-primary mb-2">
+          <!-- Event Name -->
+          <h1 class="display-6 fw-bold text-primary mb-3"> <!-- Adjusted heading size -->
             {{ event?.details?.eventName || 'Untitled Event' }}
           </h1>
 
-          <!-- Add Organizers Section -->
-          <div v-if="event?.details?.organizers?.length" class="d-flex align-items-center mb-3">
-            <span class="text-secondary me-2"><i class="fas fa-user-shield"></i></span>
-            <div class="text-secondary">
-              Organized by: 
-              <span v-for="(orgId, idx) in event.details.organizers" :key="orgId">
-                <router-link 
+           <!-- Prize Display (for Competition) -->
+           <div v-if="event?.details?.format === 'Competition' && event?.details?.prize" class="mb-3 d-flex align-items-center text-warning-emphasis bg-warning-subtle p-2 rounded-pill border border-warning-subtle" style="max-width: fit-content;">
+               <i class="fas fa-trophy me-2"></i>
+               <span class="fw-medium small">Prize: {{ event.details.prize }}</span>
+           </div>
+
+          <!-- Organizers Section -->
+          <div v-if="event?.details?.organizers?.length" class="d-flex align-items-center mb-4"> <!-- Increased bottom margin -->
+            <span class="text-secondary me-2"><i class="fas fa-user-shield fa-fw"></i></span>
+            <div class="text-secondary small"> <!-- Adjusted font size -->
+              Organized by:
+              <template v-for="(orgId, idx) in event.details.organizers" :key="orgId">
+                <router-link
                   :to="{ name: 'PublicProfile', params: { userId: orgId }}"
-                  class="text-decoration-none text-primary"
+                  class="text-decoration-none text-primary fw-medium"
                 >
                   {{ formatOrganizerName(orgId) }}
                 </router-link>
                 <span v-if="idx < event.details.organizers.length - 1">, </span>
-              </span>
+              </template>
             </div>
           </div>
 
-          <div class="d-flex flex-wrap mb-4 gap-4">
-            <div class="d-flex align-items-center">
-              <span class="text-secondary me-2"><i class="fas fa-calendar"></i></span>
-              <small class="text-secondary">
-                {{ formatISTDate(event?.details?.date?.start ?? null, 'dd MMM yyyy') }} - {{ formatISTDate(event?.details?.date?.end ?? null, 'dd MMM yyyy') }}
+          <!-- Event Meta: Date, Participants -->
+          <div class="d-flex flex-wrap mb-4 gap-3"> <!-- Use gap-3 for spacing -->
+            <!-- Date -->
+            <div class="d-flex align-items-center text-secondary">
+              <i class="fas fa-calendar-alt fa-fw me-2"></i>
+              <small>
+                {{ formatISTDate(event?.details?.date?.start, 'dd MMM yyyy') }} - {{ formatISTDate(event?.details?.date?.end, 'dd MMM yyyy') }}
               </small>
             </div>
-            <div class="d-flex align-items-center">
-              <span class="text-secondary me-2"><i class="fas fa-users"></i></span>
-              <small class="text-secondary">
+            <!-- Participants -->
+            <div class="d-flex align-items-center text-secondary">
+              <i class="fas fa-users fa-fw me-2"></i>
+              <small>
                 {{ totalParticipants }} participant{{ totalParticipants === 1 ? '' : 's' }}
               </small>
             </div>
           </div>
 
           <!-- Rendered Description -->
-          <div class="rendered-description small" v-html="renderedDescriptionHtml"></div>
+          <div class="rendered-description small border-top pt-4 mt-4" v-html="renderedDescriptionHtml"></div> <!-- Added border-top -->
 
         </div>
 
         <!-- Right Column: Action Buttons -->
-        <div class="col-md-auto">
-          <div class="d-flex flex-column gap-2" style="min-width: 180px;">
+        <div class="col-md-auto mt-4 mt-md-0">
+          <div class="d-flex flex-column gap-2 align-items-stretch" style="min-width: 170px;"> <!-- Adjusted min-width -->
+            <!-- Join Event -->
             <button
               v-if="canJoin"
               class="btn btn-primary w-100 d-flex align-items-center justify-content-center"
@@ -65,6 +78,7 @@
               <span>Join Event</span>
             </button>
 
+            <!-- Leave Event -->
             <button
               v-if="canLeave"
               class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center"
@@ -76,10 +90,11 @@
               <span>Leave Event</span>
             </button>
 
+             <!-- Edit Event -->
             <button
               v-if="canEdit && event?.id"
               class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center"
-              @click="$router.push(`/event/${event.id}/edit`)"
+              @click="$router.push({ name: 'EditEvent', params: { eventId: event.id } })"
             >
                <i class="fas fa-edit me-2"></i>
               <span>Edit Event</span>
@@ -92,40 +107,50 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, PropType } from 'vue';
 import { useRouter } from 'vue-router';
 import { Timestamp } from 'firebase/firestore';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
+import { EventFormat } from '@/types/event'; // Import EventFormat
 
-interface Event {
+// Define a more specific Event type for the header props
+interface EventHeaderProps {
   id: string;
   status: string;
-  title: string;
+  title: string; // Combined from eventName/type
   details: {
-    eventName?: string; 
+    eventName?: string;
+    type?: string; // Added type
+    format: EventFormat; // Use enum
     date: {
         start: Timestamp | null;
         end: Timestamp | null;
     };
-    format: string;
-    description: string; 
+    description: string;
     organizers?: string[];
+    prize?: string; // Added prize
   };
   closed?: boolean;
   teams?: { members: string[] }[];
   participants?: string[];
 }
 
-const props = defineProps<{
-  event: Event | null;
-  canJoin: boolean;
-  canLeave: boolean;
-  canEdit: boolean;
-  isJoining: boolean;
-  isLeaving: boolean;
-  nameCache?: Record<string, string> | Map<string, string>; // Add this prop
-}>();
+const props = defineProps({
+  event: {
+    type: Object as PropType<EventHeaderProps>, // Use the specific type
+    required: true,
+  },
+  canJoin: Boolean,
+  canLeave: Boolean,
+  canEdit: Boolean,
+  isJoining: Boolean,
+  isLeaving: Boolean,
+  nameCache: {
+    type: Object as PropType<Record<string, string>>, // Use Record
+    default: () => ({}),
+  },
+});
 
 const emit = defineEmits<{
   (e: 'join'): void;
@@ -138,16 +163,15 @@ const renderedDescriptionHtml = ref('');
 
 async function renderDescription(description: string | undefined) {
   if (!description) {
-    renderedDescriptionHtml.value = '';
+    renderedDescriptionHtml.value = '<p class="text-muted fst-italic">No description provided.</p>';
     return;
   }
   try {
-    // Dynamically import when needed
     const { marked } = await import('marked');
-    const DOMPurify = (await import('dompurify')).default; // Use .default for default exports
+    const DOMPurify = (await import('dompurify')).default;
 
     marked.setOptions({ breaks: true, gfm: true });
-    const rawHtml: string = await marked.parse(description); // marked.parse might be async now
+    const rawHtml: string = await marked.parse(description);
     renderedDescriptionHtml.value = DOMPurify.sanitize(rawHtml);
   } catch (error) {
     console.error('Error rendering markdown description:', error);
@@ -163,46 +187,73 @@ const statusTagClass = computed((): string => getEventStatusBadgeClass(props.eve
 
 const totalParticipants = computed(() => {
   if (!props.event) return 0;
-  if (props.event.details?.format === 'Team' && Array.isArray(props.event.teams)) {
+  // Team Format
+  if (props.event.details?.format === EventFormat.Team && Array.isArray(props.event.teams)) {
     const memberSet = new Set<string>();
     props.event.teams.forEach(team => {
       (team.members || []).forEach(m => m && memberSet.add(m));
     });
     return memberSet.size;
-  } else if (Array.isArray(props.event.participants)) {
+  }
+  // Individual or Competition Format (use participants array)
+  else if (Array.isArray(props.event.participants)) {
     return props.event.participants.length;
   }
   return 0;
 });
 
-// Add name formatting helper
+// Name formatting helper using Record
 const formatOrganizerName = (uid: string): string => {
   if (!uid) return 'Unknown';
-  
-  let name: string | undefined | null = null;
-  
-  if (props.nameCache instanceof Map) {
-    name = props.nameCache.get(uid);
-  } else if (props.nameCache && typeof props.nameCache === 'object') {
-    name = props.nameCache[uid];
-  }
-  
-  return name || 'Member';
+  return props.nameCache[uid] || 'Member'; // Access directly
 };
 </script>
 
 <style scoped>
-/* Minor style adjustments if needed for rendered HTML */
 .rendered-description :deep(p:last-child) {
-  margin-bottom: 0; /* Remove extra margin from last paragraph */
+  margin-bottom: 0;
 }
-.rendered-description :deep(ul) {
-  padding-left: 1.5rem; /* Adjust list padding if needed */
-  margin-top: 0.5rem;
+.rendered-description :deep(ul),
+.rendered-description :deep(ol) {
+  padding-left: 1.5rem;
+  margin-top: 0.75rem; /* Added margin */
+  margin-bottom: 0;
+}
+.rendered-description :deep(h1),
+.rendered-description :deep(h2),
+.rendered-description :deep(h3),
+.rendered-description :deep(h4),
+.rendered-description :deep(h5),
+.rendered-description :deep(h6) {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600; /* Make headings slightly bolder */
+}
+.rendered-description :deep(code) {
+    background-color: var(--bs-secondary-bg);
+    padding: 0.2em 0.4em;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+}
+.rendered-description :deep(pre) {
+    background-color: var(--bs-dark);
+    color: var(--bs-light);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+}
+.rendered-description :deep(pre code) {
+    background-color: transparent;
+    padding: 0;
+    color: inherit;
 }
 
-/* Ensure buttons maintain consistent height with spinner */
 .btn {
-  min-height: 38px; /* Adjust based on Bootstrap's default btn height */
+  min-height: 38px; /* Ensure consistent button height */
+}
+
+.badge.lh-1 {
+    padding-top: 0.4em; /* Adjust padding for line-height 1 */
+    padding-bottom: 0.4em;
 }
 </style>

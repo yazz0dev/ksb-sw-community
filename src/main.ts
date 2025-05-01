@@ -12,8 +12,6 @@ import { isSupabaseConfigured } from './notifications';
 import '@fortawesome/fontawesome-free/css/all.css';
 import './assets/styles/main.scss';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap'; // This imports bootstrap JS bundle
 
 let appInstance: VueApp | null = null;
 let authInitialized: boolean = false;
@@ -22,16 +20,22 @@ let isOnline: boolean = navigator.onLine;
 window.addEventListener('online', () => {
     isOnline = true;
     enableNetwork(db).catch(console.error);
+    // FIX: Use commit for mutations
+    store.commit('app/setOnlineStatus', true);
+    store.dispatch('app/syncOfflineChanges');
 });
 window.addEventListener('offline', () => {
     isOnline = false;
     disableNetwork(db).catch(console.error);
+    // FIX: Use commit for mutations
+    store.commit('app/setOnlineStatus', false);
 });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    // Show a UI prompt to reload, or force reload automatically:
-    window.location.reload();
+    if (confirm('A new version of the app is available. Reload now?')) {
+        window.location.reload();
+    }
   });
 }
 
@@ -45,8 +49,6 @@ async function registerForPushNotifications() {
          console.log('Supabase not configured, skipping push registration.');
          return;
     }
-    // Registration logic for push with Supabase would go here (if needed)
-    // For now, just log
     console.log("Supabase push registration is handled by the backend Edge Function.");
 }
 // --- Supabase Integration END ---
@@ -54,121 +56,144 @@ async function registerForPushNotifications() {
 // --- OneSignal Initialization ---
 const oneSignalAppId = import.meta.env.VITE_ONESIGNAL_APP_ID;
 
-// Use the global OneSignal object loaded by the CDN script in index.html
 function getOneSignal(): any {
+    // Ensure OneSignal array exists for push queue
+    (window as any).OneSignal = (window as any).OneSignal || [];
     return (window as any).OneSignal;
 }
 
 async function initOneSignal() {
     if (!oneSignalAppId || window.location.hostname === 'localhost') {
-        console.log('Skipping OneSignal initialization on localhost');
+        console.log('Skipping OneSignal initialization for localhost or missing App ID.');
         return;
     }
     if (!isSupabaseConfigured()) {
-         console.warn('Supabase not configured, OneSignal features requiring backend interaction might be limited.');
+         console.warn('Supabase not configured, OneSignal features might be limited.');
     }
 
     try {
         const OneSignal = getOneSignal();
-        if (!OneSignal || typeof OneSignal.init !== 'function') {
-            console.warn("OneSignal SDK not loaded on window. Make sure the CDN script is included in index.html.");
-            return;
-        }
-        console.log("Initializing OneSignal SDK...");
-        await OneSignal.init({
-            appId: oneSignalAppId,
-            allowLocalhostAsSecureOrigin: true,
-            notifyButton: { enable: false },
+        // Use push for initialization as well
+        OneSignal.push(() => {
+            console.log("Initializing OneSignal SDK via push queue...");
+            OneSignal.init({
+                appId: oneSignalAppId,
+                allowLocalhostAsSecureOrigin: true,
+                notifyButton: { enable: false },
+            }).then(() => {
+                console.log("OneSignal SDK Initialized (async)");
+                // Now SDK is ready, potentially check initial auth state again if needed
+                checkAndSetExternalId();
+            }).catch((e: any) => {
+                 console.error("Error initializing OneSignal via push:", e);
+            });
         });
-        console.log("OneSignal SDK Initialized");
 
-        // If user is already logged in when SDK loads, set their ID
-        const checkInitialAuth = () => {
-            const currentUserId = store.state.user.uid;
-            if (currentUserId && typeof OneSignal.setExternalUserId === 'function') {
-                console.log(`Setting OneSignal external_user_id on init: ${currentUserId}`);
-                OneSignal.setExternalUserId(currentUserId).catch((e: any) => console.error("OneSignal: Failed to set external user ID on init:", e));
-            }
-        }
-        setTimeout(checkInitialAuth, 500);
     } catch (error) {
-        console.error("Error initializing OneSignal:", error);
+        console.error("Error setting up OneSignal push queue:", error);
     }
 }
 
+// Helper function to set external ID safely
+function checkAndSetExternalId() {
+    const OneSignal = getOneSignal();
+    const currentUserId = store.state.user.uid;
+    // Check if SDK is ready (sometimes needed even after init promise resolves)
+    if (OneSignal && typeof OneSignal.setExternalUserId === 'function' && currentUserId) {
+         console.log(`Setting OneSignal external_user_id after init: ${currentUserId}`);
+         OneSignal.setExternalUserId(currentUserId).catch((e: any) => console.error("OneSignal: Failed to set external user ID after init:", e));
+    }
+}
 // --- End OneSignal Initialization ---
 
 // --- Firebase Auth State Listener ---
-const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
-    console.log("Firebase Auth State Changed. User:", user ? user.uid : 'null');
+let unsubscribeAuth: (() => void) | null = null;
 
-    if (!authInitialized) {
-        unsubscribe();
-        authInitialized = true;
-        console.log("Auth listener unsubscribed after first run.");
+function setupAuthListener() {
+    if (unsubscribeAuth) {
+        console.log("Auth listener already active.");
+        return;
     }
+    console.log("Setting up Firebase Auth State Listener...");
+    unsubscribeAuth = onAuthStateChanged(auth, async (user: User | null) => {
+        console.log("Firebase Auth State Changed. User:", user ? user.uid : 'null');
 
-    try {
-        const OneSignal = getOneSignal();
-        if (user) {
-            // --- Set OneSignal External User ID ---
-            try {
-                if (OneSignal && typeof OneSignal.setExternalUserId === 'function') {
-                    console.log(`Attempting to set OneSignal external_user_id: ${user.uid}`);
-                    await OneSignal.setExternalUserId(user.uid);
-                    console.log(`OneSignal external_user_id set to: ${user.uid}`);
+        if (!authInitialized) {
+            authInitialized = true;
+            console.log("Auth state initialized.");
+        }
+
+        try {
+            const OneSignal = getOneSignal();
+            // Use OneSignal.push to queue operations until SDK is ready
+            OneSignal.push(async () => {
+                 console.log("OneSignal SDK ready (in auth listener callback).");
+                 try {
+                     if (user) {
+                         // User is signed IN
+                         if (typeof OneSignal.setExternalUserId === 'function') {
+                             console.log(`Push Queue: Attempting setExternalUserId: ${user.uid}`);
+                             await OneSignal.setExternalUserId(user.uid);
+                             console.log(`Push Queue: external_user_id set to: ${user.uid}`);
+                         } else {
+                             console.warn("Push Queue: setExternalUserId function not available yet.");
+                         }
+                     } else {
+                         // User is signed OUT
+                         if (typeof OneSignal.removeExternalUserId === 'function') {
+                             console.log("Push Queue: Attempting removeExternalUserId.");
+                             await OneSignal.removeExternalUserId();
+                             console.log("Push Queue: external_user_id removed.");
+                         } else {
+                             console.warn("Push Queue: removeExternalUserId function not available yet.");
+                         }
+                     }
+                 } catch (osError) {
+                     console.error("OneSignal Error (within push queue):", osError);
+                 }
+            });
+
+            // Proceed with Vuex/App logic immediately (doesn't need to wait for OneSignal push)
+            if (user) {
+                if (store.state.user.uid !== user.uid || !store.state.user.hasFetched) {
+                    console.log("Fetching user data for logged-in user:", user.uid);
+                    await store.dispatch('user/fetchUserData', user.uid);
+                } else {
+                    console.log("User data already present or fetched for:", user.uid);
                 }
-            } catch(osError) {
-                console.error("OneSignal Error setting external user ID:", osError);
-            }
-            // --- End OneSignal ---
+                // Call initOneSignal here to ensure it starts initialization
+                // It's okay if it runs multiple times; the push queue handles readiness.
+                await initOneSignal();
+                await registerForPushNotifications(); // Can attempt registration
 
-            if (store.state.user.uid !== user.uid || !store.state.user.hasFetched) {
-                console.log("Fetching user data for logged-in user:", user.uid);
-                await store.dispatch('user/fetchUserData', user.uid);
             } else {
-                console.log("User data already present or fetched for:", user.uid);
-            }
+                console.log("User logged out. Clearing user data.");
+                store.commit('user/clearUserData');
+                store.commit('user/setHasFetched', true);
 
-            // --- Initialize OneSignal and register for push notifications only after login ---
-            await initOneSignal();
-            await registerForPushNotifications();
-        } else {
-            // --- Remove OneSignal External User ID ---
-            try {
-                if (OneSignal && typeof OneSignal.removeExternalUserId === 'function') {
-                    console.log("Attempting to remove OneSignal external_user_id.");
-                    await OneSignal.removeExternalUserId();
-                    console.log("OneSignal external_user_id removed.");
+                const currentRouteMeta = router.currentRoute.value.meta;
+                if (currentRouteMeta.requiresAuth) {
+                     console.log("Redirecting to Landing page after logout from protected route.");
+                     await router.replace({ name: 'Landing' });
                 }
-            } catch (osError) {
-                console.error("OneSignal Error removing external user ID:", osError);
             }
-
-            console.log("User logged out. Clearing user data.");
-            store.commit('user/clearUserData');
+        } catch (error) {
+            console.error("Error processing auth state change:", error);
+            if (!user) {
+                store.commit('user/clearUserData');
+            }
             store.commit('user/setHasFetched', true);
-
-            const currentRouteName = router.currentRoute.value.name;
-            if (!['Landing', 'Login', 'ForgotPassword'].includes(currentRouteName as string)) {
-                console.log("Redirecting to Landing page after logout.");
-                await router.replace({ name: 'Landing' });
+        } finally {
+            if (authInitialized && !appInstance) {
+                mountApp();
             }
         }
-    } catch (error) {
-        console.error("Error processing auth state change:", error);
-        if (!user) {
-            store.commit('user/clearUserData');
-        }
-        store.commit('user/setHasFetched', true);
-    } finally {
-        mountApp();
-    }
-});
+    });
+}
 // --- End Firebase Auth State Listener ---
 
 function mountApp(): void {
-    if (!appInstance && authInitialized) { // Mount only if initialized
+    if (!appInstance && authInitialized) {
         appInstance = createApp(App);
         appInstance.use(router);
         appInstance.use(store);
@@ -176,10 +201,15 @@ function mountApp(): void {
         appInstance.mount('#app');
         console.log("Vue app mounted.");
     } else if (appInstance) {
-         console.log("Vue app already mounted.");
+         // console.log("Vue app already mounted.");
     } else {
           console.log("Auth not initialized yet, delaying app mount.");
     }
 }
 
-
+// --- Initial Setup ---
+// FIX: Use commit for mutation
+store.commit('app/setOnlineStatus', isOnline);
+initOneSignal(); // Start OneSignal init early (uses push queue)
+setupAuthListener();
+store.dispatch('app/checkNetworkAndSync'); // Initial check

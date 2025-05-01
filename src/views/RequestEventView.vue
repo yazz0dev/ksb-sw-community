@@ -2,492 +2,404 @@
   <section class="py-5 create-event-section">
     <div class="container-lg">
 
-      <!-- Auth Warning -->
-      <div v-if="!isAuthenticated" class="alert alert-danger d-flex align-items-center mb-5" role="alert">
-         <i class="fas fa-exclamation-circle me-2"></i>
-         <div>
-           Please log in to request events.
-         </div>
-      </div>
-
-      <!-- Loading State -->
-      <div v-else-if="loading" class="text-center py-5">
+      <!-- Loading State - Placed OUTSIDE AuthGuard -->
+      <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
           <span class="visually-hidden">Loading...</span>
         </div>
-        <p class="text-muted mt-2">Loading...</p>
+        <p class="text-muted mt-2">Loading initial data...</p>
       </div>
 
-      <!-- Active Request Warning -->
-      <div v-else-if="hasActiveRequest " class="alert alert-warning d-flex align-items-start mb-5" role="alert">
-         <i class="fas fa-exclamation-triangle me-3 fs-5"></i>
-          <div>
-             <h6 class="alert-heading mb-1">Pending Request Active</h6>
-             <small>You already have a pending event request. Please wait for it to be reviewed before submitting a new one.</small>
-          </div>
-      </div>
+      <!-- Auth Guard - Render only AFTER loading is false -->
+      <AuthGuard v-else message="You must be logged in to request or edit events.">
 
-      <div v-else>
-        <!-- Header -->
-        <div class="d-flex justify-content-between align-items-center mb-5 pb-4" style="border-bottom: 1px solid var(--bs-border-color);">
+        <!-- Active Request Warning (Show after loading, only when creating) -->
+        <div v-if="!isEditing && hasActiveRequest" class="alert alert-warning d-flex align-items-start mb-5 shadow-sm border-warning-subtle" role="alert" style="background-color: var(--bs-warning-bg-subtle);">
+          <i class="fas fa-exclamation-triangle text-warning me-3 fs-4 mt-1"></i>
           <div>
-            <h3 class="text-primary mb-0">Request New Event</h3>
-            <p class="small text-muted mt-1">Submit a request for a new event</p>
-          </div>
-          <div>
-            <button
-              class="btn btn-outline-secondary btn-sm"
-              @click="$router.back()"
-            >
-              <i class="fas fa-arrow-left me-1"></i>
-              <span>Back</span>
-            </button>
+            <h6 class="alert-heading mb-1 fw-medium">Pending Request Active</h6>
+            <small class="text-body">You already have a pending event request. Please wait for it to be reviewed before submitting a new one, or <router-link :to="{ name: 'Profile' }" class="alert-link">view your requests</router-link>.</small>
           </div>
         </div>
 
-        <!-- Error Message -->
-        <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-5" role="alert">
-          <i class="fas fa-exclamation-circle me-2"></i>
-          <div>{{ errorMessage }}</div>
-          <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close"></button>
-        </div>
-
-        <!-- Event Form (split into sub-forms) -->
-        <form @submit.prevent="handleSubmitForm" class="mb-5">
-          <!-- Event Details Card -->
-          <div class="card shadow-sm mb-4">
-            <div class="card-body p-4 p-lg-5">
-              <h3 class="h4 mb-4">Event Details</h3>
-              <EventBasicDetailsForm
-                v-model:details="formData.details"
-                :isSubmitting="isSubmitting"
-                :availableEventTypes="availableEventTypes"
-              />
+        <!-- Main Form Content (Render only when not loading and no active request conflict) -->
+        <!-- The v-else below is now relative to the v-else-if above, ensuring it only shows when NOT loading AND no active request conflict -->
+        <div v-else>
+          <!-- Header -->
+          <div class="d-flex justify-content-between align-items-center mb-5 pb-4 border-bottom">
+            <div>
+              <h2 class="h3 text-primary mb-0">{{ isEditing ? 'Edit Event' : 'Request New Event' }}</h2>
+              <p class="small text-muted mt-1">{{ isEditing ? 'Update the details of the existing event.' : 'Submit a request for a new community event.' }}</p>
+            </div>
+            <div>
+              <button
+                class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center"
+                @click="$router.back()"
+              >
+                <i class="fas fa-arrow-left me-1"></i>
+                <span>Back</span>
+              </button>
             </div>
           </div>
 
-          <!-- Team Configuration Section (Conditional) -->
-          <template v-if="formData.details.format === 'Team'">
+          <!-- Global Error Message -->
+          <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
+            <i class="fas fa-times-circle me-2"></i>
+            <div>{{ errorMessage }}</div>
+            <button type="button" class="btn-close btn-sm" @click="errorMessage = ''" aria-label="Close"></button>
+          </div>
+
+          <!-- Event Form -->
+          <form @submit.prevent="handleSubmitForm" class="mb-5 needs-validation" novalidate>
+            <!-- Event Details Card -->
             <div class="card shadow-sm mb-4">
+              <div class="card-header bg-light">
+                <h4 class="h5 mb-0 text-dark">1. Event Details</h4>
+              </div>
               <div class="card-body p-4 p-lg-5">
-                <h4 class="h5 mb-4">Team Configuration</h4>
+                <EventBasicDetailsForm
+                  v-model:details="formData.details"
+                  :isSubmitting="isSubmitting"
+                />
+              </div>
+            </div>
+
+            <!-- Team Configuration Card (Only for Team Format) -->
+            <div v-if="formData.details.format === EventFormat.Team" class="card shadow-sm mb-4">
+              <div class="card-header bg-light">
+                <h4 class="h5 mb-0 text-dark">2. Team Configuration</h4>
+              </div>
+              <div class="card-body p-4 p-lg-5">
                 <ManageTeamsComponent
-                  v-if="availableStudents.length > 0"
                   :initial-teams="formData.teams ?? []"
                   :students="availableStudents"
                   :name-cache="nameCache"
                   :is-submitting="isSubmitting"
                   :can-auto-generate="true"
                   :event-id="eventId || ''"
-                  @update:teams="teams => formData.teams = teams.map(t => ({
-  ...t,
-  teamName: t.name,
-  name: undefined // remove 'name' property if needed
-}))"
+                  @update:teams="handleTeamUpdate"
                   @error="handleFormError"
                 />
-                <div v-else class="text-center text-muted small py-3">
-                  <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                  Loading student list...
-                </div>
               </div>
             </div>
-          </template>
 
-          <!-- Event Schedule Card -->
-          <div class="card shadow-sm mb-4">
-            <div class="card-body p-4 p-lg-5">
-              <h3 class="h4 mb-4">Event Schedule</h3>
-              <EventScheduleForm
-                v-model:dates="formData.details.date"
-                :isSubmitting="isSubmitting"
-                :eventId="eventId"
-                @error="handleFormError"
-                @availability-change="(val) => isDateAvailable = val"
-              />
+            <!-- Event Schedule Card -->
+            <div class="card shadow-sm mb-4">
+              <div class="card-header bg-light">
+                <h4 class="h5 mb-0 text-dark">{{ scheduleCardNumber }}. Event Schedule</h4>
+              </div>
+              <div class="card-body p-4 p-lg-5">
+                <EventScheduleForm
+                  v-model:dates="formData.details.date"
+                  :isSubmitting="isSubmitting"
+                  :eventId="eventId"
+                  @error="handleFormError"
+                  @availability-change="(val) => isDateAvailable = val"
+                />
+              </div>
             </div>
-          </div>
 
-          <!-- Rating Criteria Card -->
-          <div class="card shadow-sm mb-4">
-            <div class="card-body p-4 p-lg-5">
-              <h3 class="h4 mb-3">Rating Criteria</h3>
-              <p class="small text-secondary mb-4">Define criteria for rating participants. Total XP cannot exceed 50.</p>
-              <EventCriteriaForm
-                v-model:criteria="formData.criteria"
-                :isSubmitting="isSubmitting"
-                :eventFormat="formData.details.format"
-                :assignableXpRoles="assignableXpRoles"
-                :totalXP="totalXP"
-              />
-              <p class="small fw-medium mb-0" :class="{ 'text-danger': totalXP > 50, 'text-success': totalXP > 0 && totalXP <= 50 }">
-                Total XP: {{ totalXP }} / 50
-              </p>
-              <p v-if="totalXP > 50" class="form-text text-danger mt-2">Total XP cannot exceed 50.</p>
+            <!-- Rating Criteria Card (Not for Competition Format) -->
+            <div v-if="formData.details.format !== EventFormat.Competition" class="card shadow-sm mb-4">
+              <div class="card-header bg-light">
+                <h4 class="h5 mb-0 text-dark">{{ criteriaCardNumber }}. Rating Criteria & XP</h4>
+              </div>
+              <div class="card-body p-4 p-lg-5">
+                <p class="small text-secondary mb-4">Define how participants will be rated and earn XP. Total XP cannot exceed 50. <span v-if="formData.details.format === EventFormat.Team">A fixed 'Best Performer' criterion (10 XP) is added automatically.</span></p>
+                <EventCriteriaForm
+                  v-model:criteria="formData.criteria"
+                  :isSubmitting="isSubmitting"
+                  :eventFormat="formData.details.format"
+                  :assignableXpRoles="assignableXpRoles"
+                  :totalXP="totalXP"
+                />
+                <p class="small fw-medium mt-3 mb-0" :class="{ 'text-danger': totalXP > 50, 'text-success': totalXP > 0 && totalXP <= 50 }">
+                  Total Assignable XP: {{ totalXP }} / 50
+                </p>
+                <p v-if="totalXP > 50" class="form-text text-danger mt-1">Total XP must not exceed 50.</p>
+              </div>
             </div>
-          </div>
 
-          <!-- Co-organizers Card -->
-          <div class="card shadow-sm mb-4">
-            <div class="card-body p-4 p-lg-5">
-              <h3 class="h4 mb-3">Co-organizers (Optional)</h3>
-              <EventCoOrganizerForm
-                v-model:organizers="formData.details.organizers"
-                :isSubmitting="isSubmitting"
-                :nameCache="nameCache"
-                :currentUserUid="currentUserUid"
-                :allUsers="allUsers"
-              />
+            <!-- Co-organizers Card -->
+            <div class="card shadow-sm mb-4">
+              <div class="card-header bg-light">
+                <h4 class="h5 mb-0 text-dark">{{ coorganizerCardNumber }}. Co-organizers (Optional)</h4>
+              </div>
+              <div class="card-body p-4 p-lg-5">
+                <EventCoOrganizerForm
+                  v-model:organizers="formData.details.organizers"
+                  :isSubmitting="isSubmitting"
+                  :nameCache="nameCache"
+                  :currentUserUid="currentUserUid"
+                  :allUsers="allUsers"
+                />
+              </div>
             </div>
-          </div>
 
-          <!-- Submit Button -->
-          <div class="text-end">
-            <button type="submit" class="btn btn-primary" :disabled="isSubmitting || totalXP > 50 || !isFormValid">
-              <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              {{ isSubmitting ? 'Submitting...' : eventId ? 'Update Event' : 'Submit Request' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            <!-- Submit Button -->
+            <div class="text-end mt-5">
+              <button type="submit" class="btn btn-primary btn-lg" :disabled="!canSubmitForm">
+                <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                {{ submitButtonText }}
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </AuthGuard> <!-- End AuthGuard -->
+
+    </div> <!-- End container-lg -->
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
+import { DateTime } from 'luxon';
+// Form Components
 import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
 import EventScheduleForm from '@/components/forms/EventScheduleForm.vue';
 import EventCriteriaForm from '@/components/forms/EventCriteriaForm.vue';
 import EventCoOrganizerForm from '@/components/forms/EventCoOrganizerForm.vue';
 import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
-import type { EventFormData } from '@/types/event';
-import { EventStatus } from '@/types/event';
+import AuthGuard from '@/components/AuthGuard.vue';
+// Types
+import { EventFormData, EventFormat, Event, Team, EventStatus, EventCriteria } from '@/types/event';
+import { User } from '@/types/user';
 
-// --- SPLIT FORM STATE ---
-const availableStudents = computed(() => {
-  return store.state.user.studentList || [];
-});
+// --- Composables ---
 const store = useStore();
 const router = useRouter();
 const route = useRoute();
-const eventId = computed(() => route.params.eventId as string | undefined);
 
-const loading = ref(true);
+// --- Constants ---
+const assignableXpRoles = ['developer', 'presenter', 'designer', 'problemSolver'] as const;
+
+// --- Helper Functions ---
+function createDefaultFormData(): EventFormData {
+    return {
+        details: { eventName: '', format: EventFormat.Individual, type: '', description: '', date: { start: null, end: null }, organizers: [], allowProjectSubmission: true, prize: '', },
+        status: EventStatus.Pending, teams: [],
+        criteria: [{ constraintIndex: Date.now(), constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], criteriaSelections: {} }]
+    };
+}
+
+// --- State ---
+const loading = ref(true); // Single loading flag
+const isSubmitting = ref(false);
 const errorMessage = ref('');
 const hasActiveRequest = ref(false);
 const initialEventData = ref<EventFormData | null>(null);
-const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-const isEditing = computed(() => !!eventId.value);
-const nameCache = computed(() => {
-  const cache = store.state.user.nameCache;
-  if (cache instanceof Map) {
-    const obj: Record<string, string> = {};
-    cache.forEach((entry, uid) => {
-      obj[uid] = entry.name;
-    });
-    return obj;
-  }
-  return {};
-});
-
-const formData = ref<EventFormData>({
-  eventFormat: 'Individual',
-  details: {
-    eventName: '',
-    format: 'Individual',
-    type: '',
-    description: '',
-    date: { start: null, end: null },
-    organizers: [],
-    xpAllocation: [],
-    allowProjectSubmission: true,
-  },
-  status: EventStatus.Pending,
-  teams: [],
-  criteria: [],
-});
-
-const isSubmitting = ref(false);
 const isDateAvailable = ref(true);
-const individualEventTypes = [
-  'Topic Presentation',
-  'Discussion session',
-  'Hands-on Presentation',
-  'Quiz',
-  'Program logic solver',
-  'Google Search',
-  'Typing competition',
-  'Algorithm writing',
-];
-const teamEventTypes = [
-  'Debate',
-  'Hackathon',
-  'Ideathon',
-  'Debug competition',
-  'Design Competition',
-  'Testing',
-  'Treasure hunt',
-  'Open Source',
-  'Tech Business plan',
-];
-const availableEventTypes = computed(() => {
-  return formData.value.details.format === 'Team' ? teamEventTypes : individualEventTypes;
+const formData = ref<EventFormData>(createDefaultFormData());
+
+// --- Computed Properties ---
+const eventId = computed(() => route.params.eventId as string | undefined);
+const isEditing = computed(() => !!eventId.value);
+const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
+const currentUserUid = computed<string | null>(() => store.getters['user/userId']);
+
+// Removed loading checks from inside computed properties
+const allUsers = computed<User[]>(() => store.state.user.allUsers || []);
+const availableStudents = computed<User[]>(() => store.state.user.studentList || []);
+const nameCache = computed(() => {
+    const cache = store.state.user.nameCache;
+    const obj: Record<string, string> = {};
+    if (cache instanceof Map) { cache.forEach((entry, uid) => { obj[uid] = entry.name; }); }
+    return obj;
 });
-const assignableXpRoles = ['developer', 'presenter', 'designer', 'problemSolver'] as const;
-const totalXP = computed(() => formData.value.criteria?.reduce((sum, c) => sum + (c.points || 0), 0) || 0);
-const currentUserUid = computed(() => store.getters['user/userId'] ?? null);
-const allUsers = computed(() => store.state.user.allUsers || []);
+
+const totalXP = computed(() => formData.value.criteria?.reduce((sum, c) => (c.constraintLabel === 'Best Performer' ? sum : sum + (Number(c.points) || 0)), 0) || 0);
+
 const isFormValid = computed(() => {
-  // Basic validation for the form
+  // Keep this check - form isn't valid if still loading data
+  if (loading.value) return false;
   const d = formData.value.details;
-  if (!(!!d.eventName && !!d.type && !!d.description && d.date.start && d.date.end && totalXP.value > 0 && totalXP.value <= 50)) return false;
-  if (d.format === 'Team') {
-    // At least 2 teams
-    if (!Array.isArray(formData.value.teams) || formData.value.teams.length < 2) return false;
-    // Each team must have a name, at least 2 members, and a team lead
-    for (const team of formData.value.teams) {
-      if (!team.teamName || !Array.isArray(team.members) || team.members.length < 2 || !team.teamLead) return false;
-    }
+  if (!(d.eventName.trim() && d.format && d.type && d.description.trim() && d.date.start && d.date.end)) return false;
+  if (!isDateAvailable.value) return false;
+  if (d.format === EventFormat.Team) {
+    const teams = formData.value.teams ?? [];
+    if (teams.length < 2) return false;
+    for (const team of teams) { if (!team.teamName?.trim() || !Array.isArray(team.members) || team.members.length < 2 || !team.teamLead) return false; }
+  }
+  if (d.format !== EventFormat.Competition) {
+      if (!Array.isArray(formData.value.criteria) || formData.value.criteria.length === 0) return false;
+      if (totalXP.value <= 0 || totalXP.value > 50) return false;
+      for (const criterion of formData.value.criteria) { if (criterion.constraintLabel !== 'Best Performer' && (!criterion.constraintLabel?.trim() || !criterion.role)) return false; }
   }
   return true;
 });
 
-function handleSubmitForm() {
-  isSubmitting.value = true;
-  handleSubmit(formData.value)
-    .finally(() => { isSubmitting.value = false; });
-}
+const canSubmitForm = computed(() => !isSubmitting.value && isFormValid.value);
+const submitButtonText = computed(() => isSubmitting.value ? 'Processing...' : (isEditing.value ? 'Update Event' : 'Submit Request'));
 
-// Helper to get name from cache (object)
-function getNameFromCache(uid: string): string {
+const scheduleCardNumber = computed(() => formData.value.details.format === EventFormat.Team ? 3 : 2);
+const criteriaCardNumber = computed(() => scheduleCardNumber.value + 1);
+const coorganizerCardNumber = computed(() => criteriaCardNumber.value + (formData.value.details.format !== EventFormat.Competition ? 1 : 0));
 
-  if (!uid) return 'Unknown';
-  return nameCache.value[uid] || 'Unknown';
-}
+// --- Methods ---
+const handleFormError = (message: string) => { errorMessage.value = message; window.scrollTo({ top: 0, behavior: 'smooth' }); };
+const handleTeamUpdate = (updatedTeams: Team[]) => { formData.value.teams = updatedTeams; };
 
-// Methods
-const handleFormError = (message: string) => {
-  errorMessage.value = message;
-};
-
-const handleSubmit = async (eventData: EventFormData) => {
-  // Remove top-level eventName if present, ensure only in details
-  if ('eventName' in eventData) {
-    delete (eventData as any).eventName;
-  }
-  if (eventData.details && eventData.details.eventName) {
-    // OK, keep as is
-  }
-  errorMessage.value = '';
+const handleSubmitForm = async () => {
+  if (!isFormValid.value) { handleFormError("Please fix validation errors before submitting."); return; }
+  isSubmitting.value = true; errorMessage.value = '';
   try {
-    if (eventData.details?.format === 'Team') {
-      // Ensure best performer criteria exists
-      const hasBestPerformer = eventData.criteria.some(c => 
-        c.constraintLabel.toLowerCase().includes('best performer'));
-      
-      if (!hasBestPerformer) {
-        eventData.criteria.push({
-          constraintIndex: Date.now() + Math.random(),
-          constraintLabel: 'Best Performer',
-          points: 10,
-          role: 'developer',
-          criteriaSelections: {}
-        });
-      }
+    const dataToSubmit = JSON.parse(JSON.stringify(formData.value));
+    // Cleanup data based on format
+    if (dataToSubmit.details.format !== EventFormat.Team) delete dataToSubmit.teams;
+    if (dataToSubmit.details.format === EventFormat.Competition) delete dataToSubmit.criteria;
+    else delete dataToSubmit.details.prize; // Remove prize if not competition
+    // Ensure Best Performer criteria is removed if not a Team event
+    if (dataToSubmit.details.format !== EventFormat.Team && dataToSubmit.criteria) {
+        dataToSubmit.criteria = dataToSubmit.criteria.filter((c: EventCriteria) => c.constraintLabel !== 'Best Performer');
     }
 
     if (isEditing.value && eventId.value) {
-      // --- Only update if there are changes ---
-      // Fetch the original event data for comparison
-      const original = initialEventData.value;
-      // Deep compare function (simple version)
-      function deepEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
-        return JSON.stringify(a) === JSON.stringify(b);
-      }
-      // Remove non-editable fields from comparison if needed
-      const clean = (obj: Record<string, unknown> | null) => {
-        if (!obj) return {};
-        const { status, ...rest } = obj;
-        return rest;
-      };
-      // Ensure we only pass non-null objects to clean and deepEqual
-      const cleanedCurrent = clean(eventData as Record<string, unknown> | null);
-      const cleanedOriginal = clean(original as Record<string, unknown> | null);
-      const isEqual = deepEqual(cleanedCurrent, cleanedOriginal);
-      if (!deepEqual(clean(eventData), clean(original))) {
-        // --- FIX: Always include teams in updates payload ---
-        await store.dispatch('events/updateEventDetails', {
-          eventId: eventId.value,
-          updates: {
-            ...eventData,
-            teams: Array.isArray(eventData.teams) ? eventData.teams : []
-          }
-        });
-        store.dispatch('notification/showNotification', { message: 'Event updated successfully!', type: 'success' });
-      } else {
-        store.dispatch('notification/showNotification', { message: 'No changes detected. Event not updated.', type: 'info' });
-      }
+      await store.dispatch('events/updateEventDetails', { eventId: eventId.value, updates: dataToSubmit });
+      store.dispatch('notification/showNotification', { message: 'Event updated successfully!', type: 'success' });
       router.push({ name: 'EventDetails', params: { id: eventId.value } });
     } else {
-      // Only allow event requests (creation)
-      if (typeof eventData.details.allowProjectSubmission !== 'boolean') {
-        eventData.details.allowProjectSubmission = true;
-      }
-      await store.dispatch('events/requestEvent', eventData);
+      const newEventId = await store.dispatch('events/requestEvent', dataToSubmit);
       store.dispatch('notification/showNotification', { message: 'Event request submitted successfully!', type: 'success' });
+      // Optionally redirect to the new event details page or home
       router.push({ name: 'Home' });
+      // router.push({ name: 'EventDetails', params: { id: newEventId } });
     }
-  } catch (error: any) {
-    errorMessage.value = error.message || 'Failed to process event';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+  } catch (error: any) { handleFormError(error.message || 'An unexpected error occurred.'); }
+  finally { isSubmitting.value = false; }
 };
 
-const loadEventData = async () => {
-  if (!eventId.value) return;
+const loadInitialData = async () => {
   loading.value = true;
   errorMessage.value = '';
+  hasActiveRequest.value = false;
+  initialEventData.value = null;
+  formData.value = createDefaultFormData();
+
   try {
-    // Fetch event details for editing
-    await store.dispatch('events/fetchEventDetails', eventId.value);
-    const storeEvent = store.state.events.currentEventDetails;
-    if (!storeEvent) throw new Error('Event not found or inaccessible.');
-    initialEventData.value = mapEventToFormData(storeEvent);
-    loading.value = false;
-  } catch (error: any) {
-    errorMessage.value = error.message || 'Failed to load event for editing.';
-    loading.value = false;
-  }
-};
+      await Promise.all([
+          store.dispatch('user/fetchAllStudents'),
+          store.dispatch('user/fetchAllUsers')
+      ]);
 
-// Helper to map Firestore event data to form data
-const mapEventToFormData = (eventData: any): EventFormData => {
-  // Create a default form structure matching EventFormData
-  const defaultForm: EventFormData = {
-    eventFormat: 'Individual',
-    details: {
-      eventName: '', // Always present in details
-      format: 'Individual',
-      type: '',
-      description: '',
-      date: {
-        start: null,
-        end: null,
-      },
-      organizers: [],
-      xpAllocation: [],
-    },
-    status: EventStatus.Pending,
-    teams: [],
-    criteria: [],
-  };
-
-  // Merge fetched data into the default structure
-  const formData: EventFormData = { ...defaultForm, ...eventData };
-
-  // Remove top-level eventName if present
-  if ('eventName' in eventData) {
-    delete eventData.eventName;
-  }
-
-  // Always ensure eventName is only in details
-  if (eventData.details && eventData.details.eventName) {
-    // OK
-  }
-
-  // Always ensure criteria 
-  if (!('criteria' in formData) || !Array.isArray(formData.criteria)) {
-    formData.criteria = [];
-  }
-
-  // Ensure details is always defined and has required fields
-  formData.details = {
-    ...formData.details,
-    format: formData.details?.format || formData.eventFormat || 'Individual',
-    type: formData.details?.type || formData.eventType || '',
-    description: formData.details?.description || '',
-    date: formData.details?.date || { start: null, end: null },
-    organizers: Array.isArray(formData.details?.organizers) ? formData.details.organizers : [],
-    xpAllocation: Array.isArray(formData.details?.xpAllocation) ? formData.details.xpAllocation : [],
-  };
-
-  // Convert nested date fields
-  if (formData.details?.date) {
-    (['start', 'end'] as Array<'start' | 'end'>).forEach((key) => {
-      const timestamp = formData.details.date[key];
-      if (timestamp && typeof (timestamp as any).toDate === 'function') {
-        try {
-          formData.details.date[key] = (timestamp as any).toDate().toISOString().split('T')[0];
-        } catch (e) {
-          formData.details.date[key] = null;
-        }
-      } else if (typeof timestamp === 'string') {
-        try {
-          const parsedDate = new Date(timestamp);
-          if (!isNaN(parsedDate.getTime())) {
-            formData.details.date[key] = parsedDate.toISOString().split('T')[0];
-          } else {
-            formData.details.date[key] = null;
+      if (!isEditing.value) {
+          hasActiveRequest.value = await store.dispatch('events/checkExistingRequests');
+          if (hasActiveRequest.value) {
+              loading.value = false;
+              return;
           }
-        } catch (e) {
-          formData.details.date[key] = null;
-        }
-      } else {
-        formData.details.date[key] = null;
       }
-    });
+
+      if (isEditing.value && eventId.value) {
+          await store.dispatch('events/fetchEventDetails', eventId.value);
+          const storeEvent = store.state.events.currentEventDetails as Event | null;
+          if (!storeEvent) throw new Error('Event not found or inaccessible.');
+
+          // Authorization Check: Only allow organizers/requester to edit
+          const userId = currentUserUid.value;
+          const isOrganizer = storeEvent.details.organizers?.includes(userId ?? '') || storeEvent.requestedBy === userId;
+          if (!isOrganizer) {
+              throw new Error('You do not have permission to edit this event.');
+          }
+          // Prevent editing of events in final states
+          if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(storeEvent.status as EventStatus)) {
+              throw new Error(`Cannot edit an event with status: ${storeEvent.status}`);
+          }
+
+          formData.value = mapEventToFormData(storeEvent);
+          initialEventData.value = JSON.parse(JSON.stringify(formData.value)); // Store initial state for comparison if needed
+      }
+
+  } catch (error: any) {
+      console.error("Error loading initial data:", error);
+      handleFormError(error.message || 'Failed to initialize the event form.');
+      // Optionally redirect if editing fails critically
+      if (isEditing.value) {
+          router.push({ name: 'Home' }); // Redirect home on critical edit load failure
+      }
+  } finally {
+      loading.value = false;
   }
-
-  // Ensure details is always defined
-  formData.details = formData.details || { date: { start: null, end: null }, organizers: [], xpAllocation: [] };
-
-  // Ensure arrays are present
-  formData.details.organizers = Array.isArray(formData.details.organizers) ? formData.details.organizers : [];
-  formData.teams = Array.isArray(formData.teams) ? formData.teams : [];
-  formData.details.xpAllocation = Array.isArray(formData.details.xpAllocation) ? formData.details.xpAllocation : [];
-
-  return formData;
 };
 
-// Lifecycle
-onMounted(async () => {
-  loading.value = true;
-  errorMessage.value = '';
-  if (!isAuthenticated.value) {
-    loading.value = false;
-    return;
-  }
 
-  try {
-    // Always fetch students for team events
-    await store.dispatch('user/fetchAllStudents');
-    if (isEditing.value && eventId.value) {
-      await loadEventData();
-      hasActiveRequest.value = false; // Editing, so skip active request check
-    } else {
-      hasActiveRequest.value = await store.dispatch('events/checkExistingRequests');
-      if (hasActiveRequest.value) {
-        loading.value = false;
-        return;
-      }
-      initialEventData.value = null;
-      loading.value = false;
+const mapEventToFormData = (eventData: Event): EventFormData => {
+    const startDate = eventData.details.date.start ? DateTime.fromJSDate(eventData.details.date.start.toDate()).toISODate() : null;
+    const endDate = eventData.details.date.end ? DateTime.fromJSDate(eventData.details.date.end.toDate()).toISODate() : null;
+    // Ensure criteria is always an array, default if missing/not array
+    let criteria = Array.isArray(eventData.criteria) ? eventData.criteria : [];
+    if (criteria.length === 0 && eventData.details.format !== EventFormat.Competition) {
+         criteria = [{ constraintIndex: Date.now(), constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], criteriaSelections: {} }];
     }
-  } catch (error: any) {
-    errorMessage.value = error.message || 'Failed to initialize event form';
-    loading.value = false;
-  }
-});
+
+    return {
+        details: {
+             ...eventData.details,
+             eventName: eventData.details.eventName || '',
+             format: eventData.details.format || EventFormat.Individual,
+             type: eventData.details.type || '',
+             description: eventData.details.description || '',
+             organizers: Array.isArray(eventData.details.organizers) ? eventData.details.organizers : [],
+             allowProjectSubmission: typeof eventData.details.allowProjectSubmission === 'boolean' ? eventData.details.allowProjectSubmission : true,
+             prize: eventData.details.prize || '',
+             date: { start: startDate, end: endDate },
+         },
+        criteria: criteria,
+        teams: Array.isArray(eventData.teams) ? eventData.teams : [],
+        status: eventData.status || EventStatus.Pending, // Default status if missing
+    };
+};
+
+// --- Watchers ---
+watch(() => formData.value.details.format, (newFormat, oldFormat) => {
+    // --- Only run watcher after initial load and if format actually changed ---
+    if (!loading.value && newFormat !== oldFormat) {
+        // Reset teams if format changes away from Team
+        if (newFormat !== EventFormat.Team) formData.value.teams = [];
+
+        // Reset criteria if changing to Competition, or add default if changing away and criteria is empty
+        if (newFormat === EventFormat.Competition) formData.value.criteria = [];
+        else if (oldFormat === EventFormat.Competition && (!formData.value.criteria || formData.value.criteria.length === 0)) {
+             formData.value.criteria = [{ constraintIndex: Date.now() + 1, constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], criteriaSelections: {} }];
+        }
+
+        // Remove prize if not Competition
+        if (newFormat !== EventFormat.Competition) formData.value.details.prize = '';
+
+        // Add/Remove 'Best Performer' criterion based on Team format
+         const bestPerformerCriterion = { constraintIndex: -1, constraintLabel: 'Best Performer', points: 10, role: '', criteriaSelections: {} };
+         const criteriaList = formData.value.criteria || []; // Ensure array
+         const hasBestPerf = criteriaList.some(c => c.constraintLabel === 'Best Performer');
+
+         if (newFormat === EventFormat.Team && !hasBestPerf) {
+             formData.value.criteria = [...criteriaList, bestPerformerCriterion];
+         } else if (newFormat !== EventFormat.Team && hasBestPerf) {
+              formData.value.criteria = criteriaList.filter(c => c.constraintLabel !== 'Best Performer');
+         }
+    }
+}, { deep: true });
+
+// --- Lifecycle Hooks ---
+onMounted(loadInitialData);
 
 </script>
 
 <style scoped>
-.create-event-section {
-  background-color: var(--color-background);
+.create-event-section { background-color: var(--bs-light); }
+.card { border: none; border-radius: 0.75rem; }
+.card-header { background-color: var(--bs-light); border-bottom: 1px solid var(--bs-border-color-translucent); padding: 1rem 1.5rem; }
+.card-body { padding: 1.5rem; }
+/* Improved validation styling */
+.needs-validation .form-control.is-invalid,
+.needs-validation .form-select.is-invalid {
+    border-color: var(--bs-danger);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
 }
-
-/* Removed custom loader styles */
+.needs-validation .invalid-feedback { display: block; font-size: 0.8em; margin-top: 0.25rem; color: var(--bs-danger); }
+.form-label .text-danger { font-size: 1.2em; line-height: 1; vertical-align: text-top; margin-left: 0.1em; }
 </style>

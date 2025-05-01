@@ -1,93 +1,132 @@
 <template>
-    <div class="event-display-card" style="margin-top: 0.5rem;">
-       <h4 class="h4 text-primary mb-1">
-           {{ event.details.eventName }} 
-           <span class="fw-normal text-secondary">({{ event.details.type }})</span>
-       </h4>
+  <div class="event-display-card p-3 border rounded bg-light-subtle mb-3"> <!-- Added padding and bg -->
+     <h5 class="h5 text-primary mb-2"> <!-- Changed h4 to h5 -->
+         {{ event.details.eventName }}
+         <span class="fw-normal text-secondary small">({{ event.details.type }})</span>
+     </h5>
 
-       <!-- Details Section with Bootstrap grid -->
-       <div class="row g-1 fs-7 text-secondary">
-           <div class="col-md-6 col-12 py-1">
-               <strong class="fw-medium text-dark me-1">Requested by:</strong> {{ nameCache[event.requestedBy] || '(Name unavailable)' }}
-           </div>
-           <div class="col-md-6 col-12 py-1">
-               <strong class="fw-medium text-dark me-1">Dates:</strong> {{ formatISTDate(event.details.date.start) }} - {{ formatISTDate(event.details.date.end) }}
-           </div>
-           <div class="col-md-6 col-12 py-1">
-               <strong class="fw-medium text-dark me-1">Team Event:</strong> {{ event.details.format === 'Team' ? 'Yes' : 'No' }}
-           </div>
-           <div class="col-md-6 col-12 py-1" v-if="showStatus && event.status">
-               <strong class="fw-medium text-dark me-1">Status:</strong>
-               <span :class="['badge rounded-pill', statusColorScheme.class]">{{ event.status }}</span>
-           </div>
-       </div>
-
-       <p v-if="event.details.organizers && event.details.organizers.length > 0" class="fs-7 text-secondary mt-1 mb-0">
-           <strong class="fw-medium text-dark">Co-Organizers:</strong>
-           <span v-for="(orgId, idx) in event.details.organizers" :key="orgId">
-               {{ nameCache[orgId] || '(Name unavailable)' }}{{ idx < event.details.organizers.length - 1 ? ', ' : '' }}
-           </span>
-       </p>
-
-       <div 
-         v-if="showStatus && event.status === 'Rejected' && event.rejectionReason" 
-         class="alert alert-light text-danger border-danger-subtle fs-7 mt-2 p-2 d-flex align-items-center"
-         style="border-radius: var(--bs-border-radius-sm);"
-         role="alert"
-       >
-         <span class="me-1">
-           <i class="fas fa-exclamation-triangle"></i>
-         </span>
-         <div>
-           <strong class="fw-medium">Rejection Reason:</strong> {{ event.rejectionReason }}
+     <!-- Details Section -->
+     <div class="row g-1 fs-7 text-secondary mb-2"> <!-- Use fs-7 and mb-2 -->
+         <div class="col-md-6 col-12 py-1 d-flex align-items-center">
+             <i class="fas fa-user-edit fa-fw me-2 text-muted"></i>
+             <strong class="fw-medium text-dark me-1">Requested by:</strong> {{ nameCache[event.requestedBy] || '(Name unavailable)' }}
          </div>
-       </div>
+         <div class="col-md-6 col-12 py-1 d-flex align-items-center">
+              <i class="fas fa-calendar-alt fa-fw me-2 text-muted"></i>
+             <strong class="fw-medium text-dark me-1">Dates:</strong> {{ formatISTDate(event.details.date.start) }} - {{ formatISTDate(event.details.date.end) }}
+         </div>
+         <div class="col-md-6 col-12 py-1 d-flex align-items-center">
+             <i class="fas fa-users fa-fw me-2 text-muted"></i>
+             <strong class="fw-medium text-dark me-1">Format:</strong> {{ event.details.format }}
+         </div>
+         <!-- Prize for Competition -->
+         <div v-if="event.details.format === 'Competition' && event.details.prize" class="col-md-6 col-12 py-1 d-flex align-items-center">
+              <i class="fas fa-trophy fa-fw me-2 text-warning"></i>
+             <strong class="fw-medium text-dark me-1">Prize:</strong> {{ event.details.prize }}
+         </div>
+         <!-- Status -->
+         <div class="col-md-6 col-12 py-1 d-flex align-items-center" v-if="showStatus && event.status">
+             <i class="fas fa-info-circle fa-fw me-2 text-muted"></i>
+             <strong class="fw-medium text-dark me-1">Status:</strong>
+             <span :class="['badge rounded-pill', statusColorScheme.class]">{{ event.status }}</span>
+         </div>
+     </div>
 
-       <!-- Description -->
-       <div class="pt-2">
-           <strong class="d-block fs-7 fw-medium text-dark mb-1">Description:</strong>
-           <p class="fs-7 text-secondary mb-0">{{ event.details.description }}</p> 
-       </div>
+     <!-- Co-Organizers -->
+     <p v-if="event.details.organizers && event.details.organizers.length > 0" class="fs-7 text-secondary mt-1 mb-2 d-flex align-items-start"> <!-- Use mb-2 -->
+         <i class="fas fa-user-shield fa-fw me-2 text-muted mt-1"></i>
+         <div>
+              <strong class="fw-medium text-dark">Co-Organizers:</strong>
+              <span v-for="(orgId, idx) in event.details.organizers" :key="orgId">
+                  {{ nameCache[orgId] || '(Name unavailable)' }}{{ idx < event.details.organizers.length - 1 ? ', ' : '' }}
+              </span>
+         </div>
+     </p>
 
-       <!-- Display XP/Constraint Info -->
-       <div v-if="event.criteria && event.criteria.length > 0" class="mt-3 pt-3" style="border-top: 1px solid var(--bs-border-color);">
-           <strong class="d-block fs-7 fw-medium text-dark mb-1">Rating Criteria & XP:</strong>
-           <ul class="list-unstyled fs-7 text-secondary mb-0">
-               <li v-for="(alloc, index) in event.criteria" :key="index" class="d-flex align-items-center mb-1">
-                   <span class="text-warning me-2" style="font-size: 0.8em;">
-                     <i class="fas fa-star"></i> 
-                   </span>
-                   <span>{{ alloc.constraintLabel || 'Unnamed Criteria' }}: <span class="fw-medium">{{ alloc.points }} XP</span> <span class="fs-7 text-secondary">({{ formatRoleName(alloc.role || '') }})</span></span>
-               </li>
-           </ul>
+     <!-- Rejection Reason -->
+     <div
+       v-if="showStatus && event.status === 'Rejected' && event.rejectionReason"
+       class="alert alert-danger alert-sm border-danger-subtle mt-2 p-2 d-flex align-items-center"
+       role="alert"
+     >
+       <i class="fas fa-exclamation-triangle fa-fw me-2"></i>
+       <div>
+         <strong class="fw-medium">Rejection Reason:</strong> {{ event.rejectionReason }}
        </div>
-    </div>
+     </div>
+
+     <!-- Description -->
+     <div class="pt-2 mt-2 border-top"> <!-- Added border-top -->
+         <strong class="d-block fs-7 fw-medium text-dark mb-1">Description:</strong>
+         <p class="fs-7 text-secondary mb-0 description-text">{{ event.details.description }}</p>
+     </div>
+
+     <!-- XP/Constraint Info -->
+     <div v-if="event.criteria && event.criteria.length > 0" class="mt-3 pt-3 border-top">
+         <strong class="d-block fs-7 fw-medium text-dark mb-2">Rating Criteria & XP:</strong> <!-- Increased mb -->
+         <ul class="list-unstyled fs-7 text-secondary mb-0">
+             <li v-for="(alloc, index) in event.criteria" :key="index" class="d-flex align-items-center mb-1">
+                 <span class="text-warning me-2" style="font-size: 0.8em;">
+                   <i class="fas fa-star fa-fw"></i>
+                 </span>
+                 <span>{{ alloc.constraintLabel || 'Unnamed Criteria' }}: <span class="fw-medium">{{ alloc.points }} XP</span> <span class="text-muted ms-1">({{ formatRoleName(alloc.role || '') }})</span></span>
+             </li>
+         </ul>
+     </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, PropType } from 'vue';
 import { formatRoleName } from '../../utils/formatters';
-import { Event } from '@/types/event';
+import { Event, EventFormat } from '@/types/event'; // Import EventFormat
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
 
-const props = defineProps<{
-  event: Event;
-  nameCache: Record<string, string>;
-  showStatus: boolean;
-}>();
+const props = defineProps({
+event: {
+  type: Object as PropType<Event>,
+  required: true,
+},
+nameCache: {
+  type: Object as PropType<Record<string, string>>, // Use Record
+  required: true,
+},
+showStatus: {
+  type: Boolean,
+  default: false,
+},
+});
 
 interface ColorScheme {
-  class: string;
+class: string;
 }
 
-const statusColorScheme = computed(() => ({
-  class: getEventStatusBadgeClass(props.event?.status)
+const statusColorScheme = computed<ColorScheme>(() => ({
+class: getEventStatusBadgeClass(props.event?.status)
 }));
+
+// Make EventFormat available in template
+defineExpose({ EventFormat });
+
 </script>
 
 <style scoped>
 .fs-7 {
-    font-size: 0.8rem !important;
+  font-size: 0.85rem !important; /* Slightly larger small text */
+}
+.alert-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8em;
+}
+.description-text {
+  line-height: 1.6; /* Improve readability */
+  white-space: pre-wrap; /* Respect line breaks in description */
+}
+.event-display-card {
+  transition: box-shadow 0.2s ease-in-out;
+}
+.event-display-card:hover {
+  box-shadow: var(--bs-box-shadow-sm);
 }
 </style>

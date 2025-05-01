@@ -1,46 +1,64 @@
 <template>
   <div
-    v-if="event && event.id"
+    v-if="event?.id"
     class="card event-card h-100 shadow-sm border"
     :class="{ 'bg-light opacity-75': isCancelledOrRejected }"
-    style="border-radius: var(--bs-border-radius); overflow: hidden; transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;"
+    style="border-radius: var(--bs-border-radius-lg); overflow: hidden; transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;"
   >
-    <div class="card-body d-flex flex-column p-4">
-      <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap">
+    <div class="card-body d-flex flex-column p-3 p-md-4"> <!-- Adjusted padding -->
+      <!-- Header: Name & Status -->
+      <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
         <h5
-          class="card-title h5 mb-0 me-2 text-break"
-          :class="{ 
+          class="card-title h6 fw-bold mb-0 me-2 text-break" 
+          :class="{
             'text-secondary text-decoration-line-through': isCancelledOrRejected,
             'text-primary': !isCancelledOrRejected
           }"
         >
           {{ event.details?.eventName || 'Untitled Event' }}
         </h5>
-        <span 
+        <span
           class="badge rounded-pill fs-7 flex-shrink-0"
           :class="getEventStatusBadgeClass(event.status)"
+          style="font-size: 0.7rem;" 
         >
           {{ event.status }}
         </span>
       </div>
-      <div class="d-flex small text-secondary mb-3 flex-wrap" style="gap: 0.75rem;">
-        <div class="d-flex align-items-center">
-            <i class="fas fa-tag fa-fw me-1 text-muted"></i>{{ event.details?.type || 'Type N/A' }}
+
+      <!-- Meta Info: Type, Format, Date, Prize -->
+      <div class="d-flex small text-secondary mb-3 flex-wrap" style="gap: 0.5rem 1rem;"> <!-- Adjusted gap -->
+        <!-- Type -->
+        <div class="d-flex align-items-center" title="Event Type">
+            <i class="fas fa-tag fa-fw me-1 text-muted"></i>{{ event.details?.type || 'N/A' }}
         </div>
-        <div class="d-flex align-items-center">
+        <!-- Format -->
+        <div class="d-flex align-items-center" title="Event Format">
+            <i class="fas fa-users fa-fw me-1 text-muted"></i>{{ event.details?.format || 'N/A' }}
+        </div>
+         <!-- Prize (if Competition) -->
+        <div v-if="event.details?.format === 'Competition' && event.details?.prize" class="d-flex align-items-center" title="Prize">
+            <i class="fas fa-trophy fa-fw me-1 text-warning"></i>
+            <span class="text-truncate" style="max-width: 150px;">{{ event.details.prize }}</span>
+        </div>
+         <!-- Date -->
+        <div class="d-flex align-items-center" title="Date Range">
             <i class="fas fa-calendar-alt fa-fw me-1 text-muted"></i>{{ formatDateRange(event.details?.date?.start, event.details?.date?.end) }}
         </div>
       </div>
 
-      <!-- Add organizers section -->
-      <div v-if="event.details?.organizers?.length" class="d-flex small text-secondary mb-3" style="gap: 0.5rem;">
+      <!-- Organizers -->
+      <div v-if="event.details?.organizers?.length" class="d-flex small text-secondary mb-3" style="gap: 0.5rem;" title="Organizers">
         <i class="fas fa-user-shield fa-fw text-muted"></i>
         <div class="text-truncate">
           {{ formatOrganizers }}
         </div>
       </div>
 
-      <div class="card-text small text-secondary mb-4 flex-grow-1" v-html="truncatedDescription"></div>
+      <!-- Description -->
+      <div class="card-text small text-secondary mb-4 flex-grow-1 rendered-markdown" v-html="truncatedDescription"></div>
+
+      <!-- Footer: Action & Participants -->
       <div class="d-flex justify-content-between align-items-center mt-auto pt-3 border-top">
         <router-link
           :to="{ name: 'EventDetails', params: { id: event.id } }"
@@ -48,11 +66,16 @@
         >
           View Details
         </router-link>
-        <div class="d-flex align-items-center small text-secondary">
+        <div class="d-flex align-items-center small text-secondary" title="Participant Count">
           <i class="fas fa-users fa-fw me-1 text-muted"></i> {{ participantCount }}
         </div>
       </div>
     </div>
+  </div>
+  <div v-else class="card h-100 border-light">
+      <div class="card-body d-flex align-items-center justify-content-center text-muted">
+           Event data unavailable.
+      </div>
   </div>
 </template>
 
@@ -63,6 +86,12 @@ import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { marked } from 'marked';
 
+// Configure marked
+marked.setOptions({
+  breaks: true, // Convert single line breaks to <br>
+  gfm: true,    // Enable GitHub Flavored Markdown
+});
+
 // Define props using defineProps
 const props = defineProps({
   event: {
@@ -70,9 +99,8 @@ const props = defineProps({
     required: true
   },
   nameCache: {
-    // Update prop type to accept Map or Record
-    type: [Map, Object] as PropType<Map<string, string> | Record<string, string>>,
-    default: () => new Map()
+    type: Object as PropType<Record<string, string>>, // Use Record<string, string> for nameCache
+    default: () => ({}) // Default to an empty object
   }
 });
 
@@ -84,8 +112,9 @@ const isCancelledOrRejected = computed(() =>
 // Helper to format date range
 const formatDateRange = (start: any, end: any): string => {
   try {
-    const startDate = formatISTDate(start, 'dd MMM yyyy');
-    const endDate = formatISTDate(end, 'dd MMM yyyy');
+    const startDate = formatISTDate(start, 'dd MMM yy'); // Shortened year
+    const endDate = formatISTDate(end, 'dd MMM yy');
+    if (!startDate) return 'Date TBD';
     return endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate;
   } catch (e) {
     console.error("Error formatting date:", e);
@@ -102,55 +131,74 @@ const formatOrganizers = computed(() => {
 
   const getName = (uid: string): string => {
     if (!uid) return 'Unknown';
-    
-    let name: string | undefined | null = null;
-    
-    if (props.nameCache instanceof Map) {
-      name = props.nameCache.get(uid);
-    } else if (props.nameCache && typeof props.nameCache === 'object') {
-      name = props.nameCache[uid];
-    }
-    
-    return name || 'Member';
+    // Use the Record type for nameCache
+    return props.nameCache[uid] || 'Member';
   };
 
-  return organizers.map(getName).join(', ');
+  // Show only the first organizer if there are many
+  const names = organizers.map(getName);
+  if (names.length > 1) {
+    return `${names[0]}, +${names.length - 1} more`;
+  }
+  return names[0];
 });
 
 // Truncate description
 const truncatedDescription = computed(() => {
-  const maxLen = 90;
+  const maxLen = 80; // Slightly shorter max length
   let desc = props.event?.details?.description || '';
   if (desc.length > maxLen) {
     desc = desc.substring(0, maxLen).trim() + '…';
   }
   desc = desc || 'No description provided.';
-    
-  // Use marked to render Markdown
-  return marked(desc);
+
+  try {
+     return marked.parse(desc); // Assuming internal/safe content for now
+  } catch (e) {
+     console.error("Markdown parsing error:", e);
+     return `<p class="text-danger">Error rendering description.</p>`; // Fallback
+  }
 });
 
 // Participant count
 const participantCount = computed(() => {
   if (!props.event) return 0;
+  // Handle Team format
   if (props.event.details.format === EventFormat.Team) {
-    return props.event.teams?.reduce((total, team) => 
+    return props.event.teams?.reduce((total, team) =>
       total + (Array.isArray(team.members) ? team.members.length : 0), 0) || 0;
   }
+  // Handle Individual and Competition formats (using participants array)
   return Array.isArray(props.event.participants) ? props.event.participants.length : 0;
 });
-
-
 
 </script>
 
 <style scoped>
-.event-card:hover {
-  box-shadow: var(--bs-box-shadow-lg) !important; /* Use Bootstrap variable for consistency */
-  transform: translateY(-4px);
+.event-card {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  border-width: 1px;
+  border-color: var(--bs-border-color-translucent); /* Softer border */
 }
-
+.event-card:hover {
+  transform: translateY(-4px) scale(1.02); /* Slightly more lift */
+  box-shadow: var(--bs-box-shadow-lg) !important; /* Use Bootstrap variable for consistency */
+}
 .fs-7 {
-    font-size: 0.75rem !important; /* Define fs-7 if not global */
+    font-size: 0.8rem !important; /* Adjusted size */
+}
+/* Style for rendered markdown - prevent excessive margins */
+.rendered-markdown :deep(p:last-child) {
+    margin-bottom: 0;
+}
+.rendered-markdown :deep(ul),
+.rendered-markdown :deep(ol) {
+    margin-bottom: 0;
+    padding-left: 1.2rem; /* Adjust list indent */
+}
+.text-break {
+   overflow-wrap: break-word;
+   word-wrap: break-word; /* Older browsers */
+   word-break: break-word; /* Ensure long words break */
 }
 </style>

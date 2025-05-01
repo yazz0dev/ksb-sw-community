@@ -34,10 +34,10 @@ export interface EventCriteria {
 }
 
 export interface Team {
-  id?: string; 
+  id?: string;
   teamName: string;
   members: string[];
-  teamLead: string; // Add team lead field
+  teamLead: string; // Required field
   submissions?: Submission[]; // Add submissions array
   ratings?: any[]; // Add ratings field
 }
@@ -65,10 +65,9 @@ export interface GalleryItem {
 // Add EventFormat enum for better type safety
 export enum EventFormat {
   Individual = 'Individual',
-  Team = 'Team'
+  Team = 'Team',
+  Competition = 'Competition' // Added Competition format
 }
-
-// TeamCriteriaRating removed as per new XP/selection structure.
 
 // Add OrganizerRating interface
 export interface OrganizerRating {
@@ -79,21 +78,21 @@ export interface OrganizerRating {
 
 // --- Event Form Data Interface ---
 export interface EventFormData {
-  criteria: any[];
-  eventFormat?: string;
   details: {
     eventName: string;
     description: string;
+    format: EventFormat; // Use enum
     type?: string;
     date: {
       start: string | null;
       end: string | null;
     };
     organizers: string[];
-    xpAllocation?: any[];
     allowProjectSubmission?: boolean;
+    prize?: string; // Add prize field
     [key: string]: any;
   };
+  criteria: EventCriteria[]; // Keep criteria
   teams?: Team[];
   status?: EventStatus;
   [key: string]: any;
@@ -109,7 +108,7 @@ export interface Event {
 
   // --- Details ---
   details: {
-    format: EventFormat;
+    format: EventFormat; // Use enum
     type: string;
     eventName: string;
     organizers: string[];
@@ -119,24 +118,21 @@ export interface Event {
     };
     description: string;
     allowProjectSubmission?: boolean;
+    prize?: string; // Add prize field
   };
 
   // --- Criteria Definition ---
   criteria?: EventCriteria[];
 
   // --- Participants/Teams ---
-  participants?: string[];
-  teams?: Team[];
+  participants?: string[]; // Used for Individual and Competition
+  teams?: Team[]; // Used for Team format
 
   // --- Submissions ---
   submissions?: Submission[];
 
   // --- Organizer Rating ---
-  organizerRating?: {
-    userId: string;
-    rating: number;
-    feedback?: string;
-  }[];
+  organizerRating?: OrganizerRating[]; // Keep array structure
 
   // --- Winners ---
   winners?: WinnerInfo;
@@ -146,15 +142,14 @@ export interface Event {
 
   // --- Additional Fields ---
   ratingsOpen: boolean; // Ensure always present
-  // teamCriteriaRatings removed as per new XP/selection structure.
   winnersPerRole?: Record<string, string[]>;
 
-  // Add ratings field
+  // Updated ratings structure
   ratings?: {
-    organizer?: OrganizerRating[];
+    organizer?: OrganizerRating[]; // Use array
   };
 
-  bestPerformerSelections?: Record<string, string>; // userId -> selectedParticipantId
+  bestPerformerSelections?: Record<string, string>; // userId -> selectedParticipantId (Team only)
 
   // --- System fields ---
   createdAt: Timestamp;

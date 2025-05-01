@@ -1,13 +1,20 @@
+// src/store/app/mutations.ts
 import { AppState, Notification, QueuedAction } from '@/types/store';
 
 export const appMutations = {
   // --- Offline Queue Mutations ---
   addOfflineChange(state: AppState, change: QueuedAction) {
-    state.offlineQueue.actions.push(change); // Use offlineQueue.actions
+    state.offlineQueue.actions.push(change);
   },
 
+  // --- FIX: Added removeQueuedAction mutation ---
+  removeQueuedAction(state: AppState, actionId: string) {
+      state.offlineQueue.actions = state.offlineQueue.actions.filter(a => a.id !== actionId);
+  },
+  // --- END FIX ---
+
   clearOfflineChanges(state: AppState) {
-    state.offlineQueue.actions = []; // Use offlineQueue.actions
+    state.offlineQueue.actions = [];
   },
 
   setOfflineQueueSyncing(state: AppState, syncing: boolean) {
@@ -15,60 +22,34 @@ export const appMutations = {
   },
 
   setOfflineQueueLastSync(state: AppState, timestamp: number | null) {
-    state.offlineQueue.lastSyncAttempt = timestamp; // Use correct property
+    state.offlineQueue.lastSyncAttempt = timestamp;
   },
 
-  addFailedAction(state: AppState, action: QueuedAction) {
+  addFailedAction(state: AppState, action: QueuedAction & { error: string }) { // Add error type
     if (!state.offlineQueue.failedActions) {
-        state.offlineQueue.failedActions = []; // Initialize if undefined
+        state.offlineQueue.failedActions = [];
     }
-    state.offlineQueue.failedActions.push(action); // Use correct property
+    state.offlineQueue.failedActions.push(action);
   },
 
   setOfflineQueueLastError(state: AppState, error: string | null) {
-      state.offlineQueue.lastError = error; // Use correct property
-  },
-
-  // --- Notification Mutations ---
-  addNotification(state: AppState, notification: Omit<Notification, 'id'>) {
-    const newNotification: Notification = {
-      ...notification,
-      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      title: notification.title || '', // Ensure title exists
-    };
-    state.notifications.push(newNotification); // Use notifications property
-  },
-
-  dismissNotification(state: AppState, notificationId: string) {
-    state.notifications = state.notifications.filter((n: Notification) => n.id !== notificationId); // Use notifications property, type n
-  },
-
-  clearAllNotifications(state: AppState) {
-    state.notifications = []; // Use notifications property
+      state.offlineQueue.lastError = error;
   },
 
   // --- Network Status Mutations ---
   setOnlineStatus(state: AppState, isOnline: boolean) {
     state.networkStatus.online = isOnline;
-    state.networkStatus.lastChecked = Date.now(); // Use correct property
-  },
-
-  // --- Cache Status Mutations ---
-  setLastSyncTimestamp(state: AppState, timestamp: number | null) {
-    state.lastSyncTimestamp = timestamp;
+    state.networkStatus.lastChecked = Date.now();
   },
 
   // --- Event Closed State ---
-  setEventClosed(state: AppState, { eventId, isClosed }: { eventId: string; isClosed: boolean }) {
-    state.eventClosed = { ...state.eventClosed, [eventId]: isClosed };
-  },
+setEventClosed(state: AppState, { eventId, isClosed }: { eventId: string; isClosed: boolean }) {
+  state.eventClosed = { ...state.eventClosed, [eventId]: isClosed };
+},
 
-  // --- Aliases for legacy mutation names (for compatibility) ---
-  SET_ONLINE_STATUS(state: AppState, isOnline: boolean) {
-    state.networkStatus.online = isOnline;
-    state.networkStatus.lastChecked = Date.now();
-  },
-  SET_LAST_SYNC_TIMESTAMP(state: AppState, timestamp: number | null) {
-    state.lastSyncTimestamp = timestamp;
-  },
+  // --- Aliases for legacy mutation names (Remove if not needed) ---
+SET_ONLINE_STATUS(state: AppState, isOnline: boolean) {
+  // This directly calls the main mutation now
+  appMutations.setOnlineStatus(state, isOnline);
+},
 };

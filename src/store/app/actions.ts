@@ -2,30 +2,21 @@
 import { ActionTree } from 'vuex';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { AppState, QueuedAction, Notification, RootState } from '@/types/store';
-import { User } from '@/types/user';
-
-// Define GeneralNotificationPayload type locally
-type GeneralNotificationPayload = {
-  title: string;
-  body: string;
-  url?: string;
-};
+import { AppState, QueuedAction, RootState } from '@/types/store';
 
 const actions: ActionTree<AppState, RootState> = {
   initOfflineCapabilities({ commit, state, dispatch }) {
     try {
       window.addEventListener('online', () => {
-        commit('SET_ONLINE_STATUS', true);
+        commit('setOnlineStatus', true); // Use the correct mutation name
         dispatch('syncOfflineChanges');
       });
 
       window.addEventListener('offline', () => {
-        commit('SET_ONLINE_STATUS', false);
+        commit('setOnlineStatus', false); // Use the correct mutation name
       });
 
-      commit('SET_ONLINE_STATUS', navigator.onLine);
-      commit('SET_LAST_SYNC_TIMESTAMP', Date.now());
+      commit('setOnlineStatus', navigator.onLine); // Use the correct mutation name
       console.log('Offline listeners initialized.');
     } catch (error) {
       console.error('Error setting up offline listeners:', error);
@@ -33,7 +24,8 @@ const actions: ActionTree<AppState, RootState> = {
   },
 
   async toggleNetworkConnection({ commit, state }) {
-    if (state.isOnline) {
+    const isCurrentlyOnline = state.networkStatus.online;
+    if (isCurrentlyOnline) {
       await enableNetwork(db);
       console.log('Firebase network connection enabled');
     } else {
@@ -43,119 +35,87 @@ const actions: ActionTree<AppState, RootState> = {
   },
 
   async syncOfflineChanges({ state, commit, dispatch }) {
-    if (state.offlineQueue.syncInProgress || !navigator.onLine) return;
+    if (state.offlineQueue.syncInProgress || !state.networkStatus.online) return; // Check networkStatus.online
 
-    commit('setSyncStatus', { inProgress: true });
+    commit('setOfflineQueueSyncing', true); // Use correct mutation
 
     for (const action of state.offlineQueue.actions) {
       try {
         await dispatch(action.type, action.payload, { root: true });
-        commit('removeQueuedAction', action.id);
+        commit('removeQueuedAction', action.id); // Need mutation 'removeQueuedAction'
       } catch (error: any) {
         commit('addFailedAction', { ...action, error: error?.message || 'Unknown processing error' });
         console.error('Sync failed for action:', action, error);
       }
     }
 
-    commit('setSyncStatus', {
-      inProgress: false,
-      lastAttempt: Date.now()
-    });
+    commit('setOfflineQueueSyncing', false); // Use correct mutation
+    commit('setOfflineQueueLastSync', Date.now()); // Use correct mutation
   },
 
   monitorNetworkStatus({ commit, dispatch }) {
     window.addEventListener('online', () => {
-      commit('setNetworkStatus', { online: true });
+      commit('setOnlineStatus', true); // Use correct mutation
       dispatch('syncOfflineChanges');
     });
 
     window.addEventListener('offline', () => {
-      commit('setNetworkStatus', { online: false });
+      commit('setOnlineStatus', false); // Use correct mutation
     });
+    // Set initial status
+    commit('setOnlineStatus', navigator.onLine);
   },
 
   recordOfflineChange({ commit }, { type, data }: { type: string; data: any }) {
-    // Generate a unique id for the queued action
     const id = `queued_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    commit('ADD_OFFLINE_CHANGE', { id, type, payload: data, timestamp: Date.now() });
-  },
-
-  updateLastSyncTimestamp({ commit }) {
-    commit('SET_LAST_SYNC_TIMESTAMP', Date.now());
+    commit('addOfflineChange', { id, type, payload: data, timestamp: Date.now() }); // Use correct mutation
   },
 
   setEventClosedState({ commit }, { eventId, isClosed }: { eventId: string; isClosed: boolean }) {
-    commit('SET_EVENT_CLOSED_STATE', { eventId, isClosed });
-  },
-
-  showNotification({ commit, dispatch }, notification: Omit<Notification, 'id'>) {
-    if (!notification.message) {
-      console.error('Notification message is required');
-      return;
-    }
-
-    // Generate a unique ID for this notification
-    const id = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const notificationWithId = { ...notification, id };
-
-    commit('ADD_NOTIFICATION', notificationWithId);
-
-    // Use 'duration' for auto-dismiss, default 5000ms
-    const duration = (notification as any).duration;
-    if (duration !== 0) {
-      setTimeout(() => {
-        dispatch('dismissNotification', id);
-      }, duration || 5000);
-    }
-
-    return id;
-  },
-
-  dismissNotification({ commit }, notificationId: string) {
-    commit('REMOVE_NOTIFICATION', notificationId);
-  },
-
-  clearAllNotifications({ commit }) {
-    commit('CLEAR_ALL_NOTIFICATIONS');
+    commit('setEventClosed', { eventId, isClosed }); // Use correct mutation
   },
 
   async handleOfflineAction({ state, commit }, { type, payload }: QueuedAction) {
-    if (state.offlineQueue.supportedTypes.includes(type)) {
-      // Generate a unique id for the queued action
+    const supported = state.offlineQueue?.supportedTypes || [];
+    if (supported.includes(type)) {
       const id = `queued_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      commit('queueOfflineAction', { id, type, payload, timestamp: Date.now() });
+      commit('addOfflineChange', { id, type, payload, timestamp: Date.now() }); // Use correct mutation
       return { queued: true };
     }
     throw new Error('This action cannot be performed offline');
   },
 
-  async syncOfflineQueue({ state, commit, dispatch }) {
+  async processOfflineQueue({ state, commit, dispatch }) {
     if (state.offlineQueue.syncInProgress || !state.networkStatus.online) return;
 
-    commit('setSyncProgress', true);
+    commit('setOfflineQueueSyncing', true); // Use correct mutation
 
-    for (const action of state.offlineQueue.actions) {
+    // Iterate over a copy in case mutations change the array during loop
+    const actionsToProcess = [...state.offlineQueue.actions];
+    for (const action of actionsToProcess) {
       try {
         await dispatch(action.type, action.payload, { root: true });
         console.log(`Successfully replayed action: ${action.type}`);
-        commit('removeQueuedAction', action.id);
+        commit('removeQueuedAction', action.id); // Need mutation 'removeQueuedAction'
       } catch (error: any) {
         console.error(`Failed to replay action ${action.type}:`, error);
         commit('addFailedAction', { ...action, error: error?.message || 'Unknown replay error' });
       }
     }
 
-    commit('setSyncProgress', false);
+    commit('setOfflineQueueSyncing', false); // Use correct mutation
+    commit('setOfflineQueueLastSync', Date.now()); // Use correct mutation
   },
 
   async checkNetworkAndSync({ state, dispatch, commit }) {
     const online = navigator.onLine;
-    commit('setNetworkStatus', online);
+    commit('setOnlineStatus', online);
 
     if (online && state.offlineQueue.actions.length > 0) {
-      await dispatch('syncOfflineQueue');
+      await dispatch('syncOfflineChanges');
     }
   },
+
 };
 
 export default actions;
