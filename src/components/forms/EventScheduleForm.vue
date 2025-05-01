@@ -8,6 +8,7 @@
           :disabled="isSubmitting"
           :min-date="minDate"
           @change="onDateChange"
+          :enable-time-picker="false"
         />
       </div>
       <div class="col-md-6">
@@ -17,6 +18,7 @@
           :disabled="isSubmitting"
           :min-date="localDates.start || minDate"
           @change="onDateChange"
+          :enable-time-picker="false"
         />
       </div>
     </div>

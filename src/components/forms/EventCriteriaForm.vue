@@ -54,14 +54,14 @@
               required
             >
               <option value="" disabled>Select Role...</option>
-              <option v-for="role in assignableXpRoles" :key="role" :value="role">{{ formatRoleName(role) }}</option>
+              <option v-for="role in props.assignableXpRoles" :key="role" :value="role">{{ formatRoleName(role) }}</option>
             </select>
           </div>
 
           <!-- Remove Button -->
           <div class="col-md-2 text-md-end text-center mt-2 mt-md-0">
             <button
-              v-if="!isBestPerformerCriterion(criterion) && localCriteria.filter(c => !isBestPerformerCriterion(c)).length > 1"
+              v-if="!isBestPerformerCriterion(criterion) && userAddedCriteriaCount > 1"
               type="button"
               class="btn btn-sm btn-outline-danger"
               :disabled="isSubmitting"
@@ -94,154 +94,199 @@
     >
       <i class="fas fa-plus me-1"></i> Add Criterion
     </button>
-    <p v-if="!canAddMoreCriteria && eventFormat !== 'Competition'" class="form-text text-warning mt-2">
+    <p v-if="!canAddMoreCriteria && props.eventFormat !== 'Competition'" class="form-text text-warning mt-2">
         Maximum number of rating criteria reached ({{ maxUserCriteria }} user-defined + default/best performer).
     </p>
-    <p v-if="eventFormat === 'Competition'" class="form-text text-muted mt-2">
+    <p v-if="props.eventFormat === 'Competition'" class="form-text text-muted mt-2">
         Rating criteria are typically not defined for competitions.
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, toRefs, computed } from 'vue';
-import type { EventCriteria, EventFormat } from '@/types/event';
-import { formatRoleName } from '@/utils/formatters'; // Import formatter
+import { ref, watch, computed, nextTick } from 'vue';
+// Remove 'type' from EventFormat import
+import { EventFormat, type EventCriteria } from '@/types/event';
+import { formatRoleName } from '@/utils/formatters';
 
+// --- Constants ---
+const BEST_PERFORMER_LABEL = 'Best Performer';
+const BEST_PERFORMER_POINTS = 10;
+const DEFAULT_CRITERION_LABEL = 'Overall Performance';
+const DEFAULT_CRITERION_POINTS = 10;
+const MAX_USER_CRITERIA = 4; // Max non-Best Performer criteria
+
+// --- Props & Emits ---
 interface Props {
   criteria: EventCriteria[];
   isSubmitting: boolean;
   eventFormat: EventFormat;
   assignableXpRoles: readonly string[];
-  totalXP: number;
+  totalXP: number; // Keep receiving totalXP for display in parent, but calculate max points locally
 }
-
-const emit = defineEmits(['update:criteria']);
 const props = defineProps<Props>();
-const { criteria, isSubmitting, eventFormat, assignableXpRoles, totalXP } = toRefs(props);
+const emit = defineEmits(['update:criteria']);
 
-const localCriteria = ref<EventCriteria[]>([...criteria.value]);
-const maxUserCriteria = 4; // Maximum number of criteria user can add
+// --- State ---
+const localCriteria = ref<EventCriteria[]>([]);
+
+// --- Helper Functions ---
+const isBestPerformerCriterion = (criterion: EventCriteria): boolean => {
+  return criterion.constraintLabel === BEST_PERFORMER_LABEL;
+};
+
+const createBestPerformerCriterion = (): EventCriteria => ({
+  constraintIndex: -1, // Fixed index for easy identification
+  constraintLabel: BEST_PERFORMER_LABEL,
+  points: BEST_PERFORMER_POINTS,
+  role: '', // No specific role
+  criteriaSelections: {}
+});
+
+const createDefaultCriterion = (): EventCriteria => ({
+  constraintIndex: Date.now(), // Unique index
+  constraintLabel: DEFAULT_CRITERION_LABEL,
+  points: DEFAULT_CRITERION_POINTS,
+  role: props.assignableXpRoles[0] || '', // Default to first role
+  criteriaSelections: {}
+});
 
 // --- Computed Properties ---
 const userAddedCriteriaCount = computed(() => {
-    return localCriteria.value.filter(c => !isBestPerformerCriterion(c)).length;
+  return localCriteria.value.filter(c => !isBestPerformerCriterion(c)).length;
 });
 
 const canAddMoreCriteria = computed(() => {
-    // Competitions typically don't have user-defined criteria for XP in the same way
-    if (eventFormat.value === 'Competition') return false;
-    // Otherwise, check against the limit
-    return userAddedCriteriaCount.value < maxUserCriteria;
+  return props.eventFormat !== EventFormat.Competition && userAddedCriteriaCount.value < MAX_USER_CRITERIA;
 });
 
-// --- Watchers ---
-watch([criteria, eventFormat], ([newCriteria, format]) => {
-    let updated = JSON.parse(JSON.stringify(newCriteria || [])); // Deep copy
+// --- Watcher for Prop Changes ---
+watch(
+  [() => props.criteria, () => props.eventFormat],
+  ([newCriteria, newFormat], [oldCriteria, oldFormat]) => {
+    // Deep copy to avoid modifying props directly
+    let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as EventCriteria[];
 
-    // Remove any existing Best Performer criteria initially for clean slate
-    updated = updated.filter((c: EventCriteria) => !isBestPerformerCriterion(c));
-
-    // Add Best Performer for Team format if not present
-    if (format === 'Team') {
-        if (!updated.some((c: EventCriteria) => isBestPerformerCriterion(c))) {
-             updated.push({
-                constraintIndex: -1, // Use a fixed indicator or unique temporary ID
-                constraintLabel: 'Best Performer',
-                points: 10,
-                role: '', // Best performer doesn't target a specific assignable role
-                criteriaSelections: {}
-             });
+    // 1. Handle Format Change Effects
+    if (newFormat !== oldFormat) {
+      if (newFormat === EventFormat.Competition) {
+        // Clear all criteria for Competition format
+        workingCriteria = [];
+      } else {
+        // Remove Best Performer if switching away from Team
+        if (oldFormat === EventFormat.Team) {
+          workingCriteria = workingCriteria.filter(c => !isBestPerformerCriterion(c));
         }
+        // Add Best Performer if switching to Team
+        if (newFormat === EventFormat.Team && !workingCriteria.some(isBestPerformerCriterion)) {
+          workingCriteria.push(createBestPerformerCriterion());
+        }
+      }
+    } else {
+      // If format didn't change, but criteria prop did, ensure Best Performer consistency
+      const hasBestPerf = workingCriteria.some(isBestPerformerCriterion);
+      if (newFormat === EventFormat.Team && !hasBestPerf) {
+        workingCriteria.push(createBestPerformerCriterion());
+      } else if (newFormat !== EventFormat.Team && hasBestPerf) {
+        workingCriteria = workingCriteria.filter(c => !isBestPerformerCriterion(c));
+      }
     }
 
-    // Ensure at least one default criterion if none exist (excluding Best Performer)
-    if (updated.filter((c: EventCriteria) => !isBestPerformerCriterion(c)).length === 0 && format !== 'Competition') {
-        updated.unshift({ // Add to the beginning
-            constraintIndex: Date.now(), // Unique key
-            constraintLabel: 'Overall Performance',
-            points: 10, // Default points
-            role: assignableXpRoles.value[0] || '', // Default role
-            criteriaSelections: {}
-        });
+    // 2. Ensure Default Criterion (if not Competition and no user criteria exist)
+    const nonBestPerfCriteria = workingCriteria.filter(c => !isBestPerformerCriterion(c));
+    if (newFormat !== EventFormat.Competition && nonBestPerfCriteria.length === 0) {
+      // Add default criterion at the beginning
+      workingCriteria.unshift(createDefaultCriterion());
     }
 
-    localCriteria.value = updated;
-    emitCriteriaUpdate(); // Emit after initialization/update
-}, { immediate: true, deep: true });
+    // 3. Update local state if different from current
+    // Compare stringified versions to avoid infinite loops from object references
+    if (JSON.stringify(workingCriteria) !== JSON.stringify(localCriteria.value)) {
+      localCriteria.value = workingCriteria;
+      // Emit update in next tick to allow DOM update cycle
+      nextTick(emitCriteriaUpdate);
+    }
+  },
+  { immediate: true, deep: true } // Run immediately and watch deeply
+);
 
 // --- Methods ---
 function getCriterionKey(criterion: EventCriteria, index: number): string | number {
-  // Use constraintIndex if it's a valid number, otherwise use index for temporary key
-  return typeof criterion.constraintIndex === 'number' ? criterion.constraintIndex : `temp-${index}`;
+  // Use constraintIndex if valid, otherwise fallback to label or index
+  return typeof criterion.constraintIndex === 'number' && criterion.constraintIndex !== 0
+    ? criterion.constraintIndex
+    : criterion.constraintLabel || `temp-${index}`;
 }
 
-
 function emitCriteriaUpdate() {
-  // Filter out potentially empty criteria before emitting
-  const validCriteria = localCriteria.value.filter(c => c.constraintLabel || isBestPerformerCriterion(c));
-  emit('update:criteria', JSON.parse(JSON.stringify(validCriteria))); // Emit deep copy
+  // Emit a deep copy of the current local state
+  emit('update:criteria', JSON.parse(JSON.stringify(localCriteria.value)));
 }
 
 function addCriterion() {
   if (!canAddMoreCriteria.value) return;
 
-  const newCriterion: EventCriteria = {
-    constraintIndex: Date.now(), // Unique temporary key
-    constraintLabel: '',
-    points: 1,
-    role: '',
-    criteriaSelections: {}
-  };
+  const newCriterion = createDefaultCriterion(); // Start with default values
+  newCriterion.constraintLabel = ''; // Clear label for user input
+  newCriterion.points = 1; // Start points at 1
 
-  // Insert before Best Performer if it exists
   const bestPerformerIndex = localCriteria.value.findIndex(isBestPerformerCriterion);
-  if (bestPerformerIndex !== -1) {
-      localCriteria.value.splice(bestPerformerIndex, 0, newCriterion);
-  } else {
-      localCriteria.value.push(newCriterion);
-  }
+  const insertIndex = bestPerformerIndex !== -1 ? bestPerformerIndex : localCriteria.value.length;
 
-  emitCriteriaUpdate();
+  // Use splice to insert the new criterion
+  localCriteria.value.splice(insertIndex, 0, newCriterion);
+
+  nextTick(emitCriteriaUpdate);
 }
 
 function removeCriterion(idx: number) {
-    // Prevent removing the last non-best-performer criterion
-   if (userAddedCriteriaCount.value <= 1 && !isBestPerformerCriterion(localCriteria.value[idx])) {
-       return;
-   }
-   localCriteria.value.splice(idx, 1);
-   emitCriteriaUpdate();
+  // Prevent removing the last non-best-performer criterion
+  if (userAddedCriteriaCount.value <= 1 && !isBestPerformerCriterion(localCriteria.value[idx])) {
+    console.warn("Cannot remove the last criterion.");
+    return;
+  }
+  localCriteria.value.splice(idx, 1);
+  nextTick(emitCriteriaUpdate);
 }
 
 function getCriterionMaxPoints(idx: number): number {
-    // Max points is 50 minus sum of other criteria points
-    const sumOthers = localCriteria.value.reduce((sum, c, i) => {
-        // Exclude the current criterion and the fixed Best Performer points
-        if (i === idx || isBestPerformerCriterion(c)) {
-            return sum;
-        }
-        return sum + (Number(c.points) || 0);
-    }, 0);
+  const currentCriterion = localCriteria.value[idx];
+  if (isBestPerformerCriterion(currentCriterion)) return BEST_PERFORMER_POINTS; // Should be readonly, but safeguard
 
-    // Also subtract the fixed 10 points for Best Performer if it exists
-    const bestPerformerPoints = localCriteria.value.some(isBestPerformerCriterion) ? 10 : 0;
+  const sumOtherPoints = localCriteria.value.reduce((sum, c, i) => {
+    // Exclude current criterion and Best Performer (handled separately)
+    if (i === idx || isBestPerformerCriterion(c)) {
+      return sum;
+    }
+    return sum + (Number(c.points) || 0);
+  }, 0);
 
-    return Math.max(1, 50 - sumOthers - bestPerformerPoints); // Ensure max is at least 1
+  // Max total XP allowed (e.g., 50)
+  const MAX_TOTAL_XP = 50;
+  // Subtract fixed points if Best Performer exists
+  const bestPerformerPoints = localCriteria.value.some(isBestPerformerCriterion) ? BEST_PERFORMER_POINTS : 0;
+  const remainingXP = MAX_TOTAL_XP - bestPerformerPoints - sumOtherPoints;
+
+  return Math.max(1, remainingXP); // Ensure max is at least 1
 }
 
 function handlePointsInput(idx: number) {
-    // Ensure points are within valid range [1, max]
-    const criterion = localCriteria.value[idx];
-    const maxPoints = getCriterionMaxPoints(idx);
-    criterion.points = Math.max(1, Math.min(Number(criterion.points) || 1, maxPoints));
-    emitCriteriaUpdate();
+  const criterion = localCriteria.value[idx];
+  if (isBestPerformerCriterion(criterion)) return; // Should not happen via input
+
+  const maxPoints = getCriterionMaxPoints(idx);
+  // Clamp the value between 1 and the calculated max
+  criterion.points = Math.max(1, Math.min(Number(criterion.points) || 1, maxPoints));
+
+  // No need to emit immediately, @input on label/role or @change on select will trigger emit
+  // If only points change, we might need an explicit emit or watch points
+  nextTick(emitCriteriaUpdate); // Emit after value is clamped
 }
 
-function isBestPerformerCriterion(criterion: EventCriteria): boolean {
-    // Check based on the specific label used
-    return criterion.constraintLabel === 'Best Performer';
-}
+// Expose constants used in the template
+defineExpose({
+    MAX_USER_CRITERIA
+});
 
 </script>
 

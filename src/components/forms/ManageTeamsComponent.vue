@@ -124,7 +124,7 @@
             :min="2" :max="maxTeams" :disabled="isSubmitting || teams.length > 0 || students.length < minMembersPerTeam * 2" />
           <label for="simpleNumTeams" class="form-label small mb-0 ms-1 me-2">teams</label>
           <button type="button" class="btn btn-sm btn-outline-info d-inline-flex align-items-center"
-            :disabled="isSubmitting || students.length < minMembersPerTeam * 2 || numberOfTeamsToGenerate < 2 || teams.length > 0"
+            :disabled="isSubmitting || students.length < minMembersPerTeam * 2 || numberOfTeamsToGenerate < 2"
             title="Distribute all students randomly into the specified number of teams (clears existing teams)."
             @click="simpleAutoGenerateTeams">
             <i class="fas fa-random me-1"></i>
@@ -336,7 +336,12 @@ const availableStudentsForTeam = (teamIndex: number): Student[] => {
   );
 
   // Return students who are not assigned to other teams
-  return props.students.filter(student => student?.uid && !assignedToOtherTeams.has(student.uid));
+  return props.students
+    .filter(student => student?.uid && !assignedToOtherTeams.has(student.uid))
+    .map(student => ({
+      uid: student.uid,
+      name: getNameFromCache(student.uid) // Add name from cache
+    }));
 };
 
 // Use deep watcher for initialTeams

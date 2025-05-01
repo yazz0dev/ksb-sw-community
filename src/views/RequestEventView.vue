@@ -102,7 +102,7 @@
             <!-- Rating Criteria Card (Not for Competition Format) -->
             <div v-if="formData.details.format !== EventFormat.Competition" class="card shadow-sm mb-4">
               <div class="card-header bg-light">
-                <h4 class="h5 mb-0 text-dark">{{ criteriaCardNumber }}. Rating Criteria & XP</h4>
+                <h4 class="h5 mb-0 text-dark">{{ criteriaCardNumber }}. Selection Criteria & XP</h4>
               </div>
               <div class="card-body p-4 p-lg-5">
                 <p class="small text-secondary mb-4">Define how participants will be rated and earn XP. Total XP cannot exceed 50. <span v-if="formData.details.format === EventFormat.Team">A fixed 'Best Performer' criterion (10 XP) is added automatically.</span></p>
@@ -272,21 +272,25 @@ const handleSubmitForm = async () => {
 };
 
 const loadInitialData = async () => {
-  loading.value = true;
-  errorMessage.value = '';
-  hasActiveRequest.value = false;
-  initialEventData.value = null;
-  formData.value = createDefaultFormData();
-
   try {
+      // Set loading state first, outside of any reactive effects
+      loading.value = true;
+      errorMessage.value = '';
+      hasActiveRequest.value = false;
+
+      // Create a local variable for temp storage
+      const tempFormData = createDefaultFormData();
+      
+      // Fetch initial data
       await Promise.all([
           store.dispatch('user/fetchAllStudents'),
           store.dispatch('user/fetchAllUsers')
       ]);
 
       if (!isEditing.value) {
-          hasActiveRequest.value = await store.dispatch('events/checkExistingRequests');
-          if (hasActiveRequest.value) {
+          const hasRequest = await store.dispatch('events/checkExistingRequests');
+          hasActiveRequest.value = hasRequest;
+          if (hasRequest) {
               loading.value = false;
               return;
           }
@@ -294,36 +298,36 @@ const loadInitialData = async () => {
 
       if (isEditing.value && eventId.value) {
           await store.dispatch('events/fetchEventDetails', eventId.value);
-          const storeEvent = store.state.events.currentEventDetails as Event | null;
+          const storeEvent = store.state.events.currentEventDetails;
           if (!storeEvent) throw new Error('Event not found or inaccessible.');
 
-          // Authorization Check: Only allow organizers/requester to edit
           const userId = currentUserUid.value;
           const isOrganizer = storeEvent.details.organizers?.includes(userId ?? '') || storeEvent.requestedBy === userId;
           if (!isOrganizer) {
               throw new Error('You do not have permission to edit this event.');
           }
-          // Prevent editing of events in final states
           if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(storeEvent.status as EventStatus)) {
               throw new Error(`Cannot edit an event with status: ${storeEvent.status}`);
           }
 
-          formData.value = mapEventToFormData(storeEvent);
-          initialEventData.value = JSON.parse(JSON.stringify(formData.value)); // Store initial state for comparison if needed
+          // Map to temp data first
+          Object.assign(tempFormData, mapEventToFormData(storeEvent));
       }
+
+      // Finally, update the reactive state in one batch
+      formData.value = tempFormData;
+      initialEventData.value = JSON.parse(JSON.stringify(tempFormData));
 
   } catch (error: any) {
       console.error("Error loading initial data:", error);
       handleFormError(error.message || 'Failed to initialize the event form.');
-      // Optionally redirect if editing fails critically
       if (isEditing.value) {
-          router.push({ name: 'Home' }); // Redirect home on critical edit load failure
+          router.push({ name: 'Home' });
       }
   } finally {
       loading.value = false;
   }
 };
-
 
 const mapEventToFormData = (eventData: Event): EventFormData => {
     const startDate = eventData.details.date.start ? DateTime.fromJSDate(eventData.details.date.start.toDate()).toISODate() : null;
