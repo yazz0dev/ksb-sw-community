@@ -317,8 +317,8 @@ const canSubmitSelection = computed(() => {
 });
 
 const canFindWinner = computed(() => {
-  // Only organizers or admins can find winner
-  return isOrganizer.value ;
+  // Only organizers can find winner
+  return isOrganizer.value;
 });
 
 // Filter out self/team for selection

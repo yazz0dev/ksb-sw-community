@@ -337,7 +337,6 @@ const globalFeedback = ref<FeedbackState>({ message: '', type: 'success' });
 
 const currentUserId = computed<string | null>(() => store.getters['user/userId'] ?? null);
 const currentUserRole = computed<string | null>(() => store.getters['user/userRole'] ?? null);
-const isAdmin = computed<boolean>(() => currentUserRole.value === 'Admin');
 const currentUser = computed<User | null>(() => store.getters['user/getUser'] ?? null);
 
 const isCurrentUserOrganizer = computed<boolean>(() => {
@@ -348,7 +347,7 @@ const isCurrentUserOrganizer = computed<boolean>(() => {
 });
 
 const canManageEvent = computed<boolean>(() => {
-    return isAdmin.value || isCurrentUserOrganizer.value;
+    return isCurrentUserOrganizer.value;
 });
 
 const currentUserCanRate = computed<boolean>(() => {
@@ -422,7 +421,7 @@ const canLeave = computed(() => {
 const canEdit = computed(() => {
   if (!event.value || !currentUserId.value) return false;
   if ([EventStatus.Completed, EventStatus.Cancelled].includes(event.value.status as EventStatus)) return false;
-  return isAdmin.value || isCurrentUserOrganizer.value;
+  return isCurrentUserOrganizer.value;
 });
 
 const isJoining = ref(false);
