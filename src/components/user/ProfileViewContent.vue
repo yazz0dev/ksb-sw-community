@@ -172,10 +172,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, toRefs, nextTick, onMounted, onUnmounted, reactive } from 'vue';
 import { useStore } from 'vuex';
-import { db } from '../firebase';
+import { db } from '@/firebase';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy, DocumentData } from 'firebase/firestore';
 import { formatISTDate } from '@/utils/dateTime';
-import { formatRoleName as formatRoleNameUtil } from '../utils/formatters';
+import { formatRoleName as formatRoleNameUtil } from '@/utils/formatters';
 import { Event, EventStatus } from '@/types/event';
 import { User } from '@/types/user';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';

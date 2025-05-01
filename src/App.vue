@@ -122,9 +122,9 @@ import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
 
-import BottomNav from './components/BottomNav.vue';
-import OfflineStateHandler from './components/OfflineStateHandler.vue';
-import NotificationSystem from './components/NotificationSystem.vue';
+import BottomNav from './components/ui/BottomNav.vue';
+import OfflineStateHandler from './components/shared/OfflineStateHandler.vue';
+import NotificationSystem from './components/shared/NotificationSystem.vue';
 
 import { isSupabaseConfigured } from './notifications';
 

@@ -60,7 +60,6 @@
 import { computed, PropType } from 'vue';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
-import { Timestamp } from 'firebase/firestore'; // <-- Add this import
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { marked } from 'marked';
 

@@ -1,4 +1,4 @@
-// src/store/modules/notification.js
+// src/store/modules/notification.ts
 
 import { Module, ActionContext } from 'vuex';
 import { RootState, Notification } from  '@/types/store'; 

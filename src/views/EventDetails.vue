@@ -260,7 +260,7 @@ import EventSubmissionsSection from '@/components/events/EventSubmissionsSection
 import EventRatingTrigger from '@/components/events/EventRatingTrigger.vue';
 import OrganizerRatingForm from '@/components/events/OrganizerRatingForm.vue';
 import { useRouter, useRoute } from 'vue-router';
-import TeamList from '@/components/TeamList.vue';
+import TeamList from '@/components/events/TeamList.vue';
 import EventManageControls from '@/components/events/EventManageControls.vue';
 import EventDetailsSkeleton from '@/components/skeletons/EventDetailsSkeleton.vue';
 import SkeletonProvider from '@/components/skeletons/SkeletonProvider.vue';

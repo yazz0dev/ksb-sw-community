@@ -35,6 +35,7 @@ export interface UserData extends User {
 
 // --- UserState Interface (for student/community users only) ---
 export interface UserState {
+  currentUser: User | null;
   // Core User Data
   uid: string | null;
   name: string | null;

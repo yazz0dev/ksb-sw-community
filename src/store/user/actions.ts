@@ -1,16 +1,14 @@
 import { ActionTree } from 'vuex';
 import { UserState, UserData, User, NameCacheMap } from '@/types/user';
 import { RootState } from '@/types/store';
-import { db } from '../../../firebase';
+import { db } from '../../firebase';
 import { 
     doc, 
     getDoc, 
     updateDoc, 
     collection, 
     getDocs, 
-    query, 
-    where, 
-    documentId, 
+    query,  
     increment 
 } from 'firebase/firestore';
 

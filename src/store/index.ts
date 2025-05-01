@@ -1,10 +1,10 @@
 import { createStore } from 'vuex';
-import user from './modules/user';
-import events from './modules/events/index';
-import app from './modules/app';
-import notification from './modules/notification';
+import user from './user';
+import events from './events/index';
+import app from './app';
+import notification from './notification';
 
-import { RootState } from './types';
+import { RootState } from '@/types/store';
 
 export default createStore<RootState>({
   modules: {

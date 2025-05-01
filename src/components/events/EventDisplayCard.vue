@@ -67,7 +67,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { formatRoleName } from '../../utils/formatters';
-import { EventStatus, Event } from '@/types/event';
+import { Event } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
 

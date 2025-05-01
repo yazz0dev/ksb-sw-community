@@ -1,7 +1,7 @@
 // src/store/modules/app/actions.js
 import { ActionTree } from 'vuex';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
-import { db } from '../../../firebase';
+import { db } from '../../firebase';
 import { AppState, QueuedAction, Notification, RootState } from '@/types/store';
 import { User } from '@/types/user';
 

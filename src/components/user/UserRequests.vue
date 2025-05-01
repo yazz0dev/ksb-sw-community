@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '@/firebase';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 

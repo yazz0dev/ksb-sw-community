@@ -30,9 +30,6 @@ export async function fetchEventDetails({ commit }: ActionContext<EventState, Ro
         const event = { id: eventSnap.id, ...eventSnap.data() } as Event;
         commit('setCurrentEventDetails', event);
         return event;
-        const eventData = { id: eventId, ...eventSnap.data() } as Event;
-        commit('addOrUpdateEvent', eventData);
-        return eventData;
     } catch (error: any) {
         console.error(`Error fetching event details for ${eventId}:`, error);
         throw error;

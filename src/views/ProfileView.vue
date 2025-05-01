@@ -82,14 +82,14 @@ import { useRoute, useRouter } from 'vue-router';
 import { db } from '../firebase';
 // Import necessary Firestore functions
 import { collection, query, where, getDocs, orderBy, doc, getDoc, DocumentData, collectionGroup,getCountFromServer } from 'firebase/firestore';
-import { generatePortfolioPDF } from '../utils/pdfGenerator'; // Import PDF generator
+import { generatePortfolioPDF } from '@/utils/pdfGenerator'; // Import PDF generator
 
 
 // Import Components
-import ProfileViewContent from '../components/ProfileViewContent.vue';
-import PortfolioGeneratorButton from '../components/PortfolioGeneratorButton.vue';
-import UserRequests from '../components/UserRequests.vue';
-import AuthGuard from '../components/AuthGuard.vue';
+import ProfileViewContent from '@/components/user/ProfileViewContent.vue';
+import PortfolioGeneratorButton from '@/components/user/PortfolioGeneratorButton.vue';
+import UserRequests from '@/components/user/UserRequests.vue';
+import AuthGuard from '@/components/AuthGuard.vue';
 import { Project } from '@/types/project'; // Import the Project type
 
 interface UserData {

@@ -15,7 +15,7 @@ const routes: Array<RouteRecordRaw> = [
   { path: '/', name: 'Landing', component: () => import('@/views/LandingView.vue'), meta: { requiresAuth: false, guestOnly: true } },
   { path: '/home', name: 'Home', component: () => import('@/views/HomeView.vue'), meta: { requiresAuth: true } },
   { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { requiresAuth: false, guestOnly: true } },
-  { path: '/event/:id', name: 'EventDetails', component: () => import('@/views/events/EventDetails.vue'), meta: { requiresAuth: true }, props: true },
+  { path: '/event/:id', name: 'EventDetails', component: () => import('@/views/EventDetails.vue'), meta: { requiresAuth: true }, props: true },
   { path: '/leaderboard', name: 'Leaderboard', component: () => import('@/views/LeaderboardView.vue'), meta: { requiresAuth: false } },
   { path: '/resources', name: 'Resources', component: () => import('@/views/ResourcesView.vue'), meta: { requiresAuth: false } },
   { 
@@ -31,7 +31,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/request-event',
     name: 'RequestEvent',
     meta: { requiresAuth: true, roles: ['Student'] }, // Ensure only students can access
-    component: () => import('@/views//RequestEventView.vue'), 
+    component: () => import('@/views/RequestEventView.vue'), 
   },
   { 
     path: '/edit-event/:eventId', 
@@ -63,10 +63,10 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/events', // General events list route
     name: 'EventsList',
-    component: () => import('@/views/events/EventsListView.vue'),
+    component: () => import('@/views/EventsListView.vue'),
     meta: { requiresAuth: false } // Allow access for logged-out users (they see completed)
   },
-  { path: '/selection/:eventId/:teamId?', name: 'SelectionForm', component: () => import('@/views/events/SelectionForm.vue'), meta: { requiresAuth: true }, props: true },
+  { path: '/selection/:eventId/:teamId?', name: 'SelectionForm', component: () => import('@/views/SelectionForm.vue'), meta: { requiresAuth: true }, props: true },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFoundView.vue'), meta: { requiresAuth: false } },
 ] as RouteRecordRaw[];
 

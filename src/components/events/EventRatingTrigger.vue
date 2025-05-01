@@ -23,8 +23,6 @@
 <script setup lang="ts">
 import type { Event } from '@/types/event';
 import type { User } from '@/types/user';
-import { EventStatus } from '@/types/event';
-import { RouterLink } from 'vue-router';
 
 defineProps<{
   event: Event;

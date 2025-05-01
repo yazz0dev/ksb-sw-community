@@ -163,9 +163,9 @@ import { computed, ref, PropType } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { DateTime } from 'luxon'; // Import DateTime
-import { formatISTDate } from '../../utils/dateTime'; // Corrected path, removed .ts
-import { EventStatus, type Event, EventFormat } from '../../types/event'; // Corrected path, removed .ts
-import { getEventStatusBadgeClass } from '../../utils/eventUtils'; // Corrected path, removed .ts
+import { formatISTDate } from '@/utils/dateTime';
+import { EventStatus, type Event, EventFormat } from '@/types/event';
+import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 
 
 export default {

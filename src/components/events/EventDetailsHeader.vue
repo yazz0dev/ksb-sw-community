@@ -92,10 +92,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, defineAsyncComponent, computed } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import { Timestamp } from 'firebase/firestore';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';

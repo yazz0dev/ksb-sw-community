@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'; // Import computed
-import { generatePortfolioPDF } from '../utils/pdfGenerator';
+import { generatePortfolioPDF } from '@/utils/pdfGenerator';
 
 // Define an interface for the project object
 interface Project {

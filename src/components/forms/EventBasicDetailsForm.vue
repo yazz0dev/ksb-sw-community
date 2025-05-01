@@ -110,5 +110,3 @@ function emitDetailsUpdate() {
 }
 </script>
 
-<style scoped>
-</style>

@@ -158,11 +158,11 @@
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
-import EventBasicDetailsForm from '@/components/events/forms/EventBasicDetailsForm.vue';
-import EventScheduleForm from '@/components/events/forms/EventScheduleForm.vue';
-import EventCriteriaForm from '@/components/events/forms/EventCriteriaForm.vue';
-import EventCoOrganizerForm from '@/components/events/forms/EventCoOrganizerForm.vue';
-import ManageTeamsComponent from '@/components/events/ManageTeamsComponent.vue';
+import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
+import EventScheduleForm from '@/components/forms/EventScheduleForm.vue';
+import EventCriteriaForm from '@/components/forms/EventCriteriaForm.vue';
+import EventCoOrganizerForm from '@/components/forms/EventCoOrganizerForm.vue';
+import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import type { EventFormData } from '@/types/event';
 import { EventStatus } from '@/types/event';
 

@@ -4,7 +4,6 @@ import { EventState } from '@/types/event';
 import { RootState } from '@/types/store';
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Event, EventStatus } from '@/types/event';
 import { User } from '@/types/user';
 
 export async function toggleRatingsOpen({ dispatch }: ActionContext<EventState, RootState>, { eventId, open }: { eventId: string; open: boolean }): Promise<void> {
