@@ -1,4 +1,4 @@
-import { User, UserState } from '@/types/user'; // Import User and UserState type
+import { UserState } from '@/types/user'; // Import User and UserState type
 
 // Define the default XP structure
 const defaultXpStructure: Record<string, number> = {
@@ -45,6 +45,15 @@ const state: UserState = {
   // General Loading/Error Defaults
   loading: false,
   error: null, // Matches Error | null
+
+  // Profile Data
+  profileData: null,
+
+  // User Requests
+  userRequests: [],
+
+  // Leaderboard Users
+  leaderboardUsers: [],
 };
 
 export default state; // Export the typed state object

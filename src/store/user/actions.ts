@@ -1,4 +1,4 @@
-import { ActionTree } from 'vuex';
+import { ActionTree, ActionContext } from 'vuex';
 import { UserState, UserData, User, NameCacheMap } from '@/types/user';
 import { RootState } from '@/types/store';
 import { db } from '../../firebase';
@@ -198,3 +198,19 @@ export const userActions: ActionTree<UserState, RootState> = {
         }
     },
 };
+
+export async function fetchUserProfileData({ commit }: ActionContext<UserState, RootState>, userId: string) {
+  // Firestore query logic here, then commit('setProfileData', data)
+}
+
+export async function fetchUserSubmissions({ commit }: ActionContext<UserState, RootState>, userId: string) {
+  // Firestore query logic here, then commit('setUserSubmissions', data)
+}
+
+export async function fetchUserRequests({ commit }: ActionContext<UserState, RootState>, userId: string) {
+  // Firestore query logic here, then commit('setUserRequests', data)
+}
+
+export async function fetchLeaderboardUsers({ commit }: ActionContext<UserState, RootState>) {
+  // Firestore query logic here, then commit('setLeaderboardUsers', data)
+}

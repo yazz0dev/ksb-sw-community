@@ -67,6 +67,14 @@ export interface UserState {
   // General Loading/Error State
   loading: boolean;
   error: Error | null;
+
+  // Add missing properties
+  photoURL?: string;
+  bio?: string;
+  socialLink?: string;
+  participatedEvent: string[];
+  organizedEvent: string[];
+  profileData: any | null; // Consider creating a specific type for profile data
 }
 
 export interface NameCacheEntry {

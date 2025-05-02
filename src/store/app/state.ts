@@ -1,12 +1,9 @@
 import { AppState } from '@/types/store';
 
 const state: AppState = {
-  isOnline: navigator.onLine,
-  pendingOfflineChanges: [],
   lastSyncTimestamp: null,
   cacheExpiration: 30 * 60 * 1000,
   eventClosed: {},
-  notifications: [],
   offlineQueue: {
     actions: [],
     lastSyncAttempt: null,
@@ -21,6 +18,8 @@ const state: AppState = {
   networkStatus: {
     online: navigator.onLine,
     lastChecked: Date.now(),
+    lastOnline: undefined,
+    lastOffline: undefined,
     reconnectAttempts: 0
   },
   offlineCapabilities: {

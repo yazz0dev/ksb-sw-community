@@ -33,15 +33,6 @@ export interface EventCriteria {
   criteriaSelections: { [userId: string]: string }; // Always present, used for both event types
 }
 
-export interface Team {
-  id?: string;
-  teamName: string;
-  members: string[];
-  teamLead: string; // Required field
-  submissions?: Submission[]; // Add submissions array
-  ratings?: any[]; // Add ratings field
-}
-
 export interface Submission {
   projectName: string;
   link: string;
@@ -49,7 +40,16 @@ export interface Submission {
   submittedAt: Timestamp;
   description?: string | null;
   participantId?: string | null;
-  teamId?: string; // Add teamId to track which team submitted (if team event)
+  teamId?: string;
+}
+
+export interface Team {
+  id?: string;
+  teamName: string;
+  members: string[];
+  teamLead: string; // Required field
+  submissions?: Submission[];
+  ratings?: any[];
 }
 
 export interface WinnerInfo {

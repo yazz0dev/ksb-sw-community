@@ -113,6 +113,7 @@ import { Timestamp } from 'firebase/firestore';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventFormat } from '@/types/event'; // Import EventFormat
+import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
 // Define a more specific Event type for the header props
 interface EventHeaderProps {
@@ -161,18 +162,16 @@ const router = useRouter();
 
 const renderedDescriptionHtml = ref('');
 
+const { renderMarkdown } = useMarkdownRenderer();
+
 async function renderDescription(description: string | undefined) {
   if (!description) {
     renderedDescriptionHtml.value = '<p class="text-muted fst-italic">No description provided.</p>';
     return;
   }
   try {
-    const { marked } = await import('marked');
-    const DOMPurify = (await import('dompurify')).default;
-
-    marked.setOptions({ breaks: true, gfm: true });
-    const rawHtml: string = await marked.parse(description);
-    renderedDescriptionHtml.value = DOMPurify.sanitize(rawHtml);
+    const rawHtml: string = await renderMarkdown(description);
+    renderedDescriptionHtml.value = rawHtml;
   } catch (error) {
     console.error('Error rendering markdown description:', error);
     renderedDescriptionHtml.value = '<p class="text-danger">Error rendering description.</p>';

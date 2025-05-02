@@ -108,13 +108,17 @@ import { ref, watch, computed, nextTick } from 'vue';
 // Remove 'type' from EventFormat import
 import { EventFormat, type EventCriteria } from '@/types/event';
 import { formatRoleName } from '@/utils/formatters';
+// Import constants from centralized location
+import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS, MAX_USER_CRITERIA } from '@/utils/constants';
 
 // --- Constants ---
-const BEST_PERFORMER_LABEL = 'Best Performer';
-const BEST_PERFORMER_POINTS = 10;
+// const BEST_PERFORMER_LABEL = 'Best Performer';
+// const BEST_PERFORMER_POINTS = 10;
+// const DEFAULT_CRITERION_LABEL = 'Overall Performance';
+// const DEFAULT_CRITERION_POINTS = 10;
+// const MAX_USER_CRITERIA = 4; // Max non-Best Performer criteria
 const DEFAULT_CRITERION_LABEL = 'Overall Performance';
 const DEFAULT_CRITERION_POINTS = 10;
-const MAX_USER_CRITERIA = 4; // Max non-Best Performer criteria
 
 // --- Props & Emits ---
 interface Props {
@@ -287,6 +291,9 @@ function handlePointsInput(idx: number) {
 defineExpose({
     MAX_USER_CRITERIA
 });
+
+// Add this line to make MAX_USER_CRITERIA available as maxUserCriteria in the template
+const maxUserCriteria = MAX_USER_CRITERIA;
 
 </script>
 

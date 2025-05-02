@@ -7,10 +7,10 @@ import { EventState } from '@/types/event';
 // --- Notification Interface  ---
 export interface Notification {
   id: string;
-  title?: string;
-  message: string;
   type: 'success' | 'error' | 'info' | 'warning';
-  duration?: number;
+  message: string;
+  createdAt: number;
+  timeout?: number;
 }
 
 // --- QueuedAction, OfflineQueueState, NetworkStatusState ---
@@ -34,7 +34,10 @@ export interface OfflineQueueState {
 
 export interface NetworkStatusState {
   online: boolean;
-  lastChecked?: number;
+  lastChecked: number;  // Add missing property for last check timestamp
+  lastOnline?: number;
+  lastOffline?: number;
+  reconnectAttempts: number;  // Add missing property for tracking reconnection attempts
 }
 
 // --- AppState ---

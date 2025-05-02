@@ -49,7 +49,6 @@
             <TeamMemberSelect
               :selected-members="team.members"
               :available-students="availableStudentsForTeam(index)"
-              :name-cache="nameCache"
               :is-submitting="isSubmitting"
               :min-members="minMembersPerTeam"
               :max-members="maxMembersPerTeam"
@@ -167,10 +166,6 @@ const props = defineProps({
       type: Array as PropType<Student[]>,
       required: true
   },
-  nameCache: {
-      type: Object as PropType<Record<string, string>>,
-      required: true
-  },
   isSubmitting: {
       type: Boolean,
       default: false
@@ -201,8 +196,8 @@ const maxMembersPerTeam = 8;
 // Helper to get name from cache (object)
 function getNameFromCache(uid: string): string {
   if (!uid) return 'Unknown';
-  // Access nameCache from props
-  return props.nameCache[uid] || `UID: ${uid.substring(0, 6)}...`;
+  // Access nameCache from store
+  return store.getters['user/getCachedUserName'](uid) || `UID: ${uid.substring(0, 6)}...`;
 }
 
 // --- Auto-Generate Logic ---

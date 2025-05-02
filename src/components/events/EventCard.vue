@@ -9,7 +9,7 @@
       <!-- Header: Name & Status -->
       <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
         <h5
-          class="card-title h6 fw-bold mb-0 me-2 text-break" 
+          class="card-title h6 fw-bold mb-0 me-2 text-break"
           :class="{
             'text-secondary text-decoration-line-through': isCancelledOrRejected,
             'text-primary': !isCancelledOrRejected
@@ -20,7 +20,7 @@
         <span
           class="badge rounded-pill fs-7 flex-shrink-0"
           :class="getEventStatusBadgeClass(event.status)"
-          style="font-size: 0.7rem;" 
+          style="font-size: 0.7rem;"
         >
           {{ event.status }}
         </span>
@@ -37,7 +37,7 @@
             <i class="fas fa-users fa-fw me-1 text-muted"></i>{{ event.details?.format || 'N/A' }}
         </div>
          <!-- Prize (if Competition) -->
-        <div v-if="event.details?.format === 'Competition' && event.details?.prize" class="d-flex align-items-center" title="Prize">
+        <div v-if="event.details?.format === EventFormat.Competition && event.details?.prize" class="d-flex align-items-center" title="Prize">
             <i class="fas fa-trophy fa-fw me-1 text-warning"></i>
             <span class="text-truncate" style="max-width: 150px;">{{ event.details.prize }}</span>
         </div>
@@ -56,7 +56,7 @@
       </div>
 
       <!-- Description -->
-      <div class="card-text small text-secondary mb-4 flex-grow-1 rendered-markdown" v-html="truncatedDescription"></div>
+      <div class="card-text small text-secondary mb-4 flex-grow-1 rendered-markdown" v-html="renderedDescriptionHtml"></div>
 
       <!-- Footer: Action & Participants -->
       <div class="d-flex justify-content-between align-items-center mt-auto pt-3 border-top">
@@ -80,17 +80,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, PropType } from 'vue';
+import { computed, PropType, ref, watch } from 'vue';
+import { useStore } from 'vuex'; // Import useStore
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
-import { marked } from 'marked';
-
-// Configure marked
-marked.setOptions({
-  breaks: true, // Convert single line breaks to <br>
-  gfm: true,    // Enable GitHub Flavored Markdown
-});
+// Import centralized markdown renderer (assuming it's created)
+import { renderMarkdownSafely } from '@/utils/markdownUtils'; // Assuming markdownUtils.ts
 
 // Define props using defineProps
 const props = defineProps({
@@ -98,16 +94,35 @@ const props = defineProps({
     type: Object as PropType<Event>,
     required: true
   },
-  nameCache: {
-    type: Object as PropType<Record<string, string>>, // Use Record<string, string> for nameCache
-    default: () => ({}) // Default to an empty object
-  }
+  // Removed nameCache prop as per refactoring plan
 });
+
+const store = useStore(); // Initialize useStore
 
 const isCancelledOrRejected = computed(() =>
   props.event.status === EventStatus.Cancelled ||
   props.event.status === EventStatus.Rejected
 );
+
+const renderedDescriptionHtml = ref('');
+
+// Helper to render markdown description
+async function processDescription(description: string | undefined) {
+    let desc = description || '';
+    const maxLen = 80; // Max length for truncated description
+    if (desc.length > maxLen) {
+        desc = desc.substring(0, maxLen).trim() + '…';
+    }
+    desc = desc || 'No description provided.'; // Fallback text
+
+    // Use the centralized markdown renderer
+    renderedDescriptionHtml.value = await renderMarkdownSafely(desc);
+}
+
+// Watch the event description and re-render markdown when it changes
+watch(() => props.event?.details?.description, (newDesc) => {
+     processDescription(newDesc);
+}, { immediate: true }); // Run immediately on component mount
 
 // Helper to format date range
 const formatDateRange = (start: any, end: any): string => {
@@ -122,17 +137,19 @@ const formatDateRange = (start: any, end: any): string => {
   }
 };
 
-// Format organizers names
+// Format organizers names using the store getter
 const formatOrganizers = computed(() => {
   const organizers = props.event?.details?.organizers;
   if (!organizers?.length) {
     return 'N/A';
   }
 
+  // Use the store getter to get cached names
   const getName = (uid: string): string => {
     if (!uid) return 'Unknown';
-    // Use the Record type for nameCache
-    return props.nameCache[uid] || 'Member';
+    // Access the getter via the store instance
+    const cachedName = store.getters['user/getCachedUserName'](uid);
+    return cachedName || 'Member'; // Fallback name if not in cache
   };
 
   // Show only the first organizer if there are many
@@ -141,23 +158,6 @@ const formatOrganizers = computed(() => {
     return `${names[0]}, +${names.length - 1} more`;
   }
   return names[0];
-});
-
-// Truncate description
-const truncatedDescription = computed(() => {
-  const maxLen = 80; // Slightly shorter max length
-  let desc = props.event?.details?.description || '';
-  if (desc.length > maxLen) {
-    desc = desc.substring(0, maxLen).trim() + '…';
-  }
-  desc = desc || 'No description provided.';
-
-  try {
-     return marked.parse(desc); // Assuming internal/safe content for now
-  } catch (e) {
-     console.error("Markdown parsing error:", e);
-     return `<p class="text-danger">Error rendering description.</p>`; // Fallback
-  }
 });
 
 // Participant count
@@ -172,6 +172,9 @@ const participantCount = computed(() => {
   return Array.isArray(props.event.participants) ? props.event.participants.length : 0;
 });
 
+// Expose EventFormat to the template if needed there (though not currently used)
+// defineExpose({ EventFormat });
+
 </script>
 
 <style scoped>
@@ -184,9 +187,9 @@ const participantCount = computed(() => {
   transform: translateY(-4px) scale(1.02); /* Slightly more lift */
   box-shadow: var(--bs-box-shadow-lg) !important; /* Use Bootstrap variable for consistency */
 }
-.fs-7 {
-    font-size: 0.8rem !important; /* Adjusted size */
-}
+/* fs-7 is already defined globally in main.scss and should be used */
+/* .fs-7 { font-size: 0.8rem !important; } */
+
 /* Style for rendered markdown - prevent excessive margins */
 .rendered-markdown :deep(p:last-child) {
     margin-bottom: 0;

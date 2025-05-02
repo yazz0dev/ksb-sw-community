@@ -56,10 +56,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import { db } from '@/firebase';
 
 interface Request {
     id: string;
@@ -93,18 +93,8 @@ const fetchRequests = async (): Promise<void> => {
     try {
         loadingRequests.value = true;
         errorMessage.value = '';
-        const q = query(
-            collection(db, 'events'),
-            where('requestedBy', '==', user.uid),
-            where('status', '==', 'Pending')
-        );
-        const querySnapshot = await getDocs(q);
-        requests.value = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            eventName: doc.data().details?.eventName || doc.data().details?.type || 'Untitled Event',
-            status: doc.data().status,
-            ...doc.data()
-        } as Request));
+        await store.dispatch('user/fetchUserRequests', user.uid);
+        requests.value = store.state.user.userRequests;
     } catch (error) {
         console.error('Error fetching requests:', error);
         errorMessage.value = 'Unable to load requests at this time';

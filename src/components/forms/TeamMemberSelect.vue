@@ -20,7 +20,7 @@
         :value="student.uid"
         :disabled="selectedMembers.includes(student.uid)"
       >
-        {{ nameCache[student.uid] || student.uid }}
+        {{ getCachedUserName(student.uid) }}
       </option>
     </select>
   </div>
@@ -28,11 +28,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
+import { useStore } from 'vuex';
 
 interface Props {
   selectedMembers: string[];
   availableStudents: { uid: string }[];
-  nameCache: Record<string, string>;
   isSubmitting: boolean;
   minMembers?: number;
   maxMembers?: number;
@@ -45,7 +45,13 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits(['update:members']);
 
+const store = useStore();
+
 const selectedMember = ref('');
+
+const getCachedUserName = (uid: string) => {
+  return store.getters['user/getCachedUserName'](uid) || uid;
+};
 
 const addMember = () => {
   if (selectedMember.value && !props.selectedMembers.includes(selectedMember.value)) {

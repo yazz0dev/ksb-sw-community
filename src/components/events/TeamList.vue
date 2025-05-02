@@ -48,7 +48,7 @@
                         class="small text-primary text-truncate"
                         :class="{ 'fw-semibold': memberId === currentUserUid }"
                       >
-                        {{ getUserName(memberId) || memberId }}{{ memberId === currentUserUid ? ' (You)' : '' }}
+                        {{ store.getters['user/getCachedUserName'](memberId) || memberId }}{{ memberId === currentUserUid ? ' (You)' : '' }}
                       </router-link>
                     </div>
                   </div>
@@ -87,7 +87,6 @@ interface Props {
   teams: Team[];
   eventId: string;
   ratingsOpen: boolean;
-  getUserName: (id: string) => string;
   organizerNamesLoading: boolean;
   currentUserUid: string | null;
 }

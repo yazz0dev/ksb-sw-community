@@ -71,8 +71,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { collection, getDocs, query, QueryDocumentSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useStore } from 'vuex';
 import { formatRoleName } from '../utils/formatters';
 
 interface User {
@@ -110,17 +109,13 @@ const selectedRole = ref<string>('Overall');
 const users = ref<User[]>([]);
 const loading = ref<boolean>(true);
 
+const store = useStore();
+
 onMounted(async () => {
     loading.value = true;
     try {
-        const q = query(collection(db, 'users'));
-        const querySnapshot = await getDocs(q);
-        users.value = querySnapshot.docs
-            .map((doc: QueryDocumentSnapshot) => ({
-                uid: doc.id,
-                name: doc.data().name || 'Anonymous User',
-                xpByRole: doc.data().xpByRole || {}
-            }))
+        await store.dispatch('user/fetchLeaderboardUsers');
+        users.value = store.state.user.leaderboardUsers;
     } catch (error) {
         users.value = [];
     } finally {

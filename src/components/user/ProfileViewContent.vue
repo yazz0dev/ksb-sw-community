@@ -172,14 +172,23 @@
 <script setup lang="ts">
 import { ref, computed, watch, toRefs, nextTick, onMounted, onUnmounted, reactive } from 'vue';
 import { useStore } from 'vuex';
-import { db } from '@/firebase';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy, DocumentData } from 'firebase/firestore';
 import { formatISTDate } from '@/utils/dateTime';
 import { formatRoleName as formatRoleNameUtil } from '@/utils/formatters';
 import { Event, EventStatus } from '@/types/event';
 import { User } from '@/types/user';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useRouter } from 'vue-router';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy, 
+  DocumentData,
+  doc, 
+  getDoc
+} from 'firebase/firestore';
+import { db } from '@/firebase';
 
 
 interface Props {
@@ -294,20 +303,16 @@ const fetchProfileData = async () => {
   stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
 
   try {
-    const userDocRef = doc(db, 'users', userId.value);
-    const userDocSnap = await getDoc(userDocRef);
+    await store.dispatch('user/fetchUserProfileData', userId.value);
+    const data = store.state.user.profileData;
 
-    if (!userDocSnap.exists()) {
-      throw new Error('User profile not found.');
-    }
-    const data = userDocSnap.data();
     if (!data) {
         throw new Error('User data is empty.');
     }
     // Safer assignment ensuring core fields exist for the User type
     user.value = {
-        id: userDocSnap.id, // Keep Firestore ID if needed elsewhere, though User type uses uid
-        uid: userDocSnap.id, // Assign Firestore ID to uid
+        id: data.id, // Keep Firestore ID if needed elsewhere, though User type uses uid
+        uid: data.id, // Assign Firestore ID to uid
         name: data.name || 'Unknown User', // Provide default if name is missing
         ...data // Spread the rest of the data
     } as User; // Cast after ensuring core fields
