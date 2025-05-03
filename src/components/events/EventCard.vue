@@ -81,12 +81,11 @@
 
 <script setup lang="ts">
 import { computed, PropType, ref, watch } from 'vue';
-import { useStore } from 'vuex'; // Import useStore
+import { useStore } from 'vuex';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
-// Import centralized markdown renderer (assuming it's created)
-import { renderMarkdownSafely } from '@/utils/markdownUtils'; // Assuming markdownUtils.ts
+import { renderMarkdown } from '@/utils/markdownUtils'; 
 
 // Define props using defineProps
 const props = defineProps({
@@ -94,10 +93,9 @@ const props = defineProps({
     type: Object as PropType<Event>,
     required: true
   },
-  // Removed nameCache prop as per refactoring plan
 });
 
-const store = useStore(); // Initialize useStore
+const store = useStore();
 
 const isCancelledOrRejected = computed(() =>
   props.event.status === EventStatus.Cancelled ||
@@ -115,8 +113,9 @@ async function processDescription(description: string | undefined) {
     }
     desc = desc || 'No description provided.'; // Fallback text
 
-    // Use the centralized markdown renderer
-    renderedDescriptionHtml.value = await renderMarkdownSafely(desc);
+    // Use the centralized markdown renderer (async version)
+    // Call the CORRECT function
+    renderedDescriptionHtml.value = await renderMarkdown(desc); // <--- FIX: Use renderMarkdown
 }
 
 // Watch the event description and re-render markdown when it changes
@@ -172,7 +171,7 @@ const participantCount = computed(() => {
   return Array.isArray(props.event.participants) ? props.event.participants.length : 0;
 });
 
-// Expose EventFormat to the template if needed there (though not currently used)
+// Expose EventFormat (if needed in template, though not currently used)
 // defineExpose({ EventFormat });
 
 </script>
