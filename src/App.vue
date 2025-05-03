@@ -117,16 +117,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'; // Removed nextTick
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
 import { getAuth, signOut } from 'firebase/auth';
 
 import BottomNav from './components/ui/BottomNav.vue';
-import OfflineStateHandler from './components/shared/OfflineStateHandler.vue';
-import NotificationSystem from './components/shared/NotificationSystem.vue';
+// Removed unused imports for OfflineStateHandler and NotificationSystem as they are not used in the template
+// import OfflineStateHandler from './components/shared/OfflineStateHandler.vue';
+// import NotificationSystem from './components/shared/NotificationSystem.vue';
 
 import { isSupabaseConfigured } from './notifications';
+import { getOneSignal, isPushSupported } from './utils/oneSignalUtils'; // Import centralized utils
 
 interface Collapse {
   toggle(): void;
@@ -157,7 +159,7 @@ const showPushPermissionPrompt = ref(false);
 
 const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
 const userName = computed(() => store.getters['user/getUser']?.name || 'User');
-const userId = computed(() => store.getters['user/userId']);
+// const userId = computed(() => store.getters['user/userId']); // Removed unused computed property
 
 
 const logout = async (): Promise<void> => {
@@ -238,13 +240,7 @@ const handleLogout = async (): Promise<void> => {
   await logout();
 };
 
-function getOneSignal(): any {
-  return (window as any).OneSignal;
-}
-
-function isPushSupported() {
-  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-}
+// Removed local getOneSignal and isPushSupported functions
 
 function checkPushPermissionState() {
   if (!isSupabaseConfigured() || !isPushSupported()) {

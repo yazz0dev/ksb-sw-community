@@ -1,13 +1,15 @@
 // src/main.ts
 import { createApp, App as VueApp } from 'vue';
+import { createPinia } from 'pinia'; // Import Pinia
 import App from './App.vue';
 import router from './router';
-import store from './store';
+// import store from './store'; // Remove Vuex store import
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
 import AuthGuard from './components/AuthGuard.vue';
 import { isSupabaseConfigured } from './notifications';
+import { getOneSignal, isPushSupported, isOneSignalConfigured as isOneSignalEnabled } from './utils/oneSignalUtils'; // Import centralized utils
 
 import '@fortawesome/fontawesome-free/css/all.css';
 import './assets/styles/main.scss';
@@ -20,15 +22,17 @@ let isOnline: boolean = navigator.onLine;
 window.addEventListener('online', () => {
     isOnline = true;
     enableNetwork(db).catch(console.error);
-    // FIX: Use commit for mutations
-    store.commit('app/setOnlineStatus', true);
-    store.dispatch('app/syncOfflineChanges');
+    // TODO: Update this logic once app store is migrated to Pinia
+    // store.commit('app/setOnlineStatus', true); // Vuex commit needs update
+    // store.dispatch('app/syncOfflineChanges'); // Vuex dispatch needs update
+    console.log("TODO: Implement online status update and sync with Pinia");
 });
 window.addEventListener('offline', () => {
     isOnline = false;
     disableNetwork(db).catch(console.error);
-    // FIX: Use commit for mutations
-    store.commit('app/setOnlineStatus', false);
+    // TODO: Update this logic once app store is migrated to Pinia
+    // store.commit('app/setOnlineStatus', false); // Vuex commit needs update
+    console.log("TODO: Implement offline status update with Pinia");
 });
 
 if ('serviceWorker' in navigator) {
@@ -40,8 +44,10 @@ if ('serviceWorker' in navigator) {
 }
 
 // --- Supabase Push Notification Registration START ---
+// Note: This function currently only logs, actual registration seems tied to OneSignal logic below.
+// It uses the centralized isPushSupported check now.
 async function registerForPushNotifications() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    if (!isPushSupported()) { // Use centralized check
         console.log('Push notifications not supported by this browser.');
         return;
     }
@@ -54,16 +60,11 @@ async function registerForPushNotifications() {
 // --- Supabase Integration END ---
 
 // --- OneSignal Initialization ---
-const oneSignalAppId = import.meta.env.VITE_ONESIGNAL_APP_ID;
-
-function getOneSignal(): any {
-    // Ensure OneSignal array exists for push queue
-    (window as any).OneSignal = (window as any).OneSignal || [];
-    return (window as any).OneSignal;
-}
+// Removed local getOneSignal function
 
 async function initOneSignal() {
-    if (!oneSignalAppId || window.location.hostname === 'localhost') {
+    // Use centralized check for OneSignal configuration
+    if (!isOneSignalEnabled() || window.location.hostname === 'localhost') {
         console.log('Skipping OneSignal initialization for localhost or missing App ID.');
         return;
     }
@@ -76,6 +77,7 @@ async function initOneSignal() {
         // Use push for initialization as well
         OneSignal.push(() => {
             console.log("Initializing OneSignal SDK via push queue...");
+            const oneSignalAppId = import.meta.env.VITE_ONESIGNAL_APP_ID; // Re-introduce constant definition
             OneSignal.init({
                 appId: oneSignalAppId,
                 allowLocalhostAsSecureOrigin: true,
@@ -95,9 +97,12 @@ async function initOneSignal() {
 }
 
 // Helper function to set external ID safely
+// TODO: Update this function once the user store is migrated to Pinia
 function checkAndSetExternalId() {
-    const OneSignal = getOneSignal();
-    const currentUserId = store.state.user.uid;
+    const OneSignal = getOneSignal(); // Use centralized function
+    // const currentUserId = store.state.user.uid; // Vuex state access needs update
+    // Placeholder - will need to get user ID from Pinia store later
+    const currentUserId = null; // TEMPORARY
     // Check if SDK is ready (sometimes needed even after init promise resolves)
     if (OneSignal && typeof OneSignal.setExternalUserId === 'function' && currentUserId) {
          console.log(`Setting OneSignal external_user_id after init: ${currentUserId}`);
@@ -124,7 +129,7 @@ function setupAuthListener() {
         }
 
         try {
-            const OneSignal = getOneSignal();
+            const OneSignal = getOneSignal(); // Use centralized function
             // Use OneSignal.push to queue operations until SDK is ready
             OneSignal.push(async () => {
                  console.log("OneSignal SDK ready (in auth listener callback).");
@@ -153,14 +158,17 @@ function setupAuthListener() {
                  }
             });
 
-            // Proceed with Vuex/App logic immediately (doesn't need to wait for OneSignal push)
+            // Proceed with Pinia/App logic immediately (doesn't need to wait for OneSignal push)
+            // TODO: Update this logic once user store is migrated to Pinia
             if (user) {
-                if (store.state.user.uid !== user.uid || !store.state.user.hasFetched) {
-                    console.log("Fetching user data for logged-in user:", user.uid);
-                    await store.dispatch('user/fetchUserData', user.uid);
-                } else {
-                    console.log("User data already present or fetched for:", user.uid);
-                }
+                // Placeholder for fetching user data with Pinia
+                // if (store.state.user.uid !== user.uid || !store.state.user.hasFetched) {
+                //     console.log("Fetching user data for logged-in user:", user.uid);
+                //     await store.dispatch('user/fetchUserData', user.uid); // Vuex dispatch needs update
+                // } else {
+                //     console.log("User data already present or fetched for:", user.uid);
+                // }
+                console.log("TODO: Implement user data fetching with Pinia for user:", user.uid);
                 // Call initOneSignal here to ensure it starts initialization
                 // It's okay if it runs multiple times; the push queue handles readiness.
                 await initOneSignal();
@@ -168,8 +176,10 @@ function setupAuthListener() {
 
             } else {
                 console.log("User logged out. Clearing user data.");
-                store.commit('user/clearUserData');
-                store.commit('user/setHasFetched', true);
+                // TODO: Update this logic once user store is migrated to Pinia
+                // store.commit('user/clearUserData'); // Vuex commit needs update
+                // store.commit('user/setHasFetched', true); // Vuex commit needs update
+                console.log("TODO: Implement user data clearing with Pinia");
 
                 const currentRouteMeta = router.currentRoute.value.meta;
                 if (currentRouteMeta.requiresAuth) {
@@ -179,10 +189,12 @@ function setupAuthListener() {
             }
         } catch (error) {
             console.error("Error processing auth state change:", error);
-            if (!user) {
-                store.commit('user/clearUserData');
-            }
-            store.commit('user/setHasFetched', true);
+            // TODO: Update this logic once user store is migrated to Pinia
+            // if (!user) {
+            //     store.commit('user/clearUserData'); // Vuex commit needs update
+            // }
+            // store.commit('user/setHasFetched', true); // Vuex commit needs update
+            console.log("TODO: Implement error handling user data clearing with Pinia");
         } finally {
             if (authInitialized && !appInstance) {
                 mountApp();
@@ -194,9 +206,10 @@ function setupAuthListener() {
 
 function mountApp(): void {
     if (!appInstance && authInitialized) {
+        const pinia = createPinia(); // Create Pinia instance
         appInstance = createApp(App);
         appInstance.use(router);
-        appInstance.use(store);
+        appInstance.use(pinia); // Use Pinia
         appInstance.component('AuthGuard', AuthGuard);
         appInstance.mount('#app');
         console.log("Vue app mounted.");
@@ -208,8 +221,10 @@ function mountApp(): void {
 }
 
 // --- Initial Setup ---
-// FIX: Use commit for mutation
-store.commit('app/setOnlineStatus', isOnline);
+// TODO: Update this logic once app store is migrated to Pinia
+// store.commit('app/setOnlineStatus', isOnline); // Vuex commit needs update
+console.log("TODO: Implement online status setting with Pinia");
 initOneSignal(); // Start OneSignal init early (uses push queue)
 setupAuthListener();
-store.dispatch('app/checkNetworkAndSync'); // Initial check
+// store.dispatch('app/checkNetworkAndSync'); // Vuex dispatch needs update
+console.log("TODO: Implement network check/sync with Pinia");
