@@ -1,86 +1,79 @@
 // src/store/app.ts
 import { defineStore } from 'pinia';
-import { AppState, QueuedAction } from '@/types/store';
+import { AppState, QueuedAction } from '@/types/store'; // Assuming types/store.ts defines AppState and QueuedAction
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
 import { db } from '../firebase'; // Adjusted path
 
-// TODO: Import other Pinia stores once they are created (e.g., useEventStore, useSubmissionStore)
+// Import other Pinia stores needed for dispatching actions during sync
 // import { useEventStore } from './events'; // Example
 // import { useSubmissionStore } from './submissions'; // Example
+import { useNotificationStore } from './notification'; // Import notification store
 
 export const useAppStore = defineStore('app', {
-  // State definition from state.ts
+  // State definition from your previous state.ts
   state: (): AppState => ({
-    // isOnline is now part of networkStatus
     lastSyncTimestamp: null,
     cacheExpiration: 30 * 60 * 1000, // 30 minutes
     eventClosed: {},
-    // pendingOfflineChanges is now offlineQueue.actions
-    // notifications are handled in notification store
     offlineQueue: {
       actions: [],
       lastSyncAttempt: null,
       syncInProgress: false,
       failedActions: [],
-      supportedTypes: [ // Keep supported types definition
-        'submissions/addSubmission', // TODO: Update these to Pinia action names (e.g., 'submission/addSubmission')
-        'events/rateTeam',           // TODO: Update (e.g., 'event/rateTeam')
-        'events/submitFeedback'      // TODO: Update (e.g., 'event/submitFeedback')
+      supportedTypes: [
+        // Update these to Pinia action names (storeId/actionName)
+        'event/submitTeamCriteriaVote', // Example: Team Rating
+        'event/submitIndividualWinnerVote', // Example: Individual Rating
+        'event/submitOrganizationRating', // Example: Organizer Rating
+        'submission/submitProjectToEvent', // Example: Submission
+        // Add other supported actions here
       ],
-      lastError: null, // Added from type definition
+      lastError: null,
     },
     networkStatus: {
-      online: navigator.onLine,
+      online: typeof navigator !== 'undefined' ? navigator.onLine : true, // Handle SSR/Node env
       lastChecked: Date.now(),
-      lastOnline: navigator.onLine ? Date.now() : undefined, // Initialize based on current status
-      lastOffline: !navigator.onLine ? Date.now() : undefined, // Initialize based on current status
+      lastOnline: typeof navigator !== 'undefined' && navigator.onLine ? Date.now() : undefined,
+      lastOffline: typeof navigator !== 'undefined' && !navigator.onLine ? Date.now() : undefined,
       reconnectAttempts: 0,
     },
-    // These seem redundant or specific to Vuex structure, review if needed for Pinia
-    // offlineCapabilities: {
-    //   rating: true,
-    //   submission: true,
-    //   eventRequest: false,
-    // },
-    // supportedOfflineActions: [
-    //   'events/rateTeam',
-    //   'events/submitProjectRating',
-    //   'submissions/addSubmission'
-    // ]
+    // Removed redundant/Vuex specific fields like offlineCapabilities, supportedOfflineActions
+    // 'isOnline' and 'pendingOfflineChanges' are now getters or derived from state.networkStatus/state.offlineQueue
+    // Notifications are handled by the notification store
   }),
 
-  // Getters definition from getters.ts
+  // Getters definition from your previous getters.ts
   getters: {
     isOnline: (state): boolean => state.networkStatus.online,
     hasPendingOfflineChanges: (state): boolean => state.offlineQueue.actions.length > 0,
     pendingOfflineChangesCount: (state): number => state.offlineQueue.actions.length,
+    isSyncing: (state): boolean => state.offlineQueue.syncInProgress, // Added getter for sync status
     isCacheValid: (state): boolean => {
       if (!state.lastSyncTimestamp) return false;
       const now = Date.now();
       return (now - state.lastSyncTimestamp) < state.cacheExpiration;
     },
-    // Getter that returns a function
+    // Getter that returns a function needs slight adjustment for 'this'
     isEventClosed: (state) => {
       return (eventId: string): boolean => !!state.eventClosed[eventId];
     },
-    // Expose supported types if needed elsewhere
     supportedOfflineActionTypes: (state): string[] => state.offlineQueue.supportedTypes,
   },
 
-  // Actions definition from actions.ts (mutations integrated)
+  // Actions integrate mutations from your previous actions.ts and mutations.ts
   actions: {
     // --- Network Status Actions ---
     setOnlineStatus(isOnline: boolean) {
+      // Direct state mutation
       this.networkStatus.online = isOnline;
       this.networkStatus.lastChecked = Date.now();
       if (isOnline) {
         this.networkStatus.lastOnline = Date.now();
-        this.networkStatus.reconnectAttempts = 0; // Reset attempts on reconnect
+        this.networkStatus.reconnectAttempts = 0;
       } else {
         this.networkStatus.lastOffline = Date.now();
       }
-      // Toggle Firebase network connection based on status
-      this.toggleNetworkConnection();
+      this.toggleNetworkConnection(); // Toggle Firebase connection
     },
 
     async toggleNetworkConnection() {
@@ -98,12 +91,14 @@ export const useAppStore = defineStore('app', {
     },
 
     // --- Initialization Actions ---
-    // Note: These add global listeners. Ensure they are called appropriately (e.g., once in main.ts or App.vue)
     initOfflineCapabilities() {
+      // Ensure listeners are only added once
+      if ((window as any).__offlineListenersInitialized) return;
+
       try {
         window.addEventListener('online', () => {
           this.setOnlineStatus(true);
-          this.syncOfflineChanges(); // Trigger sync when coming online
+          this.syncOfflineChanges();
         });
 
         window.addEventListener('offline', () => {
@@ -112,13 +107,12 @@ export const useAppStore = defineStore('app', {
 
         // Set initial status
         this.setOnlineStatus(navigator.onLine);
+        (window as any).__offlineListenersInitialized = true; // Mark as initialized
         console.log('Offline listeners initialized.');
       } catch (error) {
         console.error('Error setting up offline listeners:', error);
       }
     },
-
-    // monitorNetworkStatus() is effectively covered by initOfflineCapabilities now.
 
     // --- Offline Queue Actions ---
     addOfflineChange(change: QueuedAction) {
@@ -131,7 +125,7 @@ export const useAppStore = defineStore('app', {
 
     clearOfflineChanges() {
       this.offlineQueue.actions = [];
-      this.offlineQueue.failedActions = []; // Also clear failed actions
+      this.offlineQueue.failedActions = [];
       this.offlineQueue.lastError = null;
     },
 
@@ -147,36 +141,35 @@ export const useAppStore = defineStore('app', {
       if (!this.offlineQueue.failedActions) {
         this.offlineQueue.failedActions = [];
       }
-      // Avoid adding duplicates if sync is retried
       if (!this.offlineQueue.failedActions.some(fa => fa.id === action.id)) {
          this.offlineQueue.failedActions.push(action);
       }
-      this.offlineQueue.lastError = action.error; // Store the latest error
+      this.offlineQueue.lastError = action.error;
     },
 
     setOfflineQueueLastError(error: string | null) {
       this.offlineQueue.lastError = error;
     },
 
-    /**
-     * Attempts to queue an action if offline, or throws if not supported offline.
-     * @param type The action type (e.g., 'event/rateTeam')
-     * @param payload The action payload
-     * @returns { queued: boolean } indicating if the action was queued.
-     * @throws Error if the action type is not supported offline.
-     */
     async handleOfflineAction({ type, payload }: { type: string; payload: any }): Promise<{ queued: boolean }> {
       if (this.isOnline) {
-        // If online, don't queue, let the original action proceed
-        return { queued: false };
+        return { queued: false }; // Execute immediately if online
       }
 
-      // If offline, check if supported
       const supported = this.offlineQueue.supportedTypes || [];
       if (supported.includes(type)) {
         const id = `queued_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         this.addOfflineChange({ id, type, payload, timestamp: Date.now() });
         console.log(`Action ${type} queued for offline execution.`);
+
+        // Show notification that action is queued
+        const notificationStore = useNotificationStore();
+        notificationStore.showNotification({
+            message: `Action queued (${type}). Will sync when online.`,
+            type: 'info',
+            duration: 3000
+        });
+
         return { queued: true };
       } else {
         console.warn(`Action ${type} cannot be performed offline.`);
@@ -184,94 +177,101 @@ export const useAppStore = defineStore('app', {
       }
     },
 
-    /**
-     * Processes the offline queue, replaying actions if online.
-     */
     async syncOfflineChanges() {
       if (this.offlineQueue.syncInProgress || !this.isOnline || this.offlineQueue.actions.length === 0) {
-        if(this.offlineQueue.syncInProgress) console.log("Sync already in progress.");
-        if(!this.isOnline) console.log("Cannot sync, currently offline.");
-        if(this.offlineQueue.actions.length === 0) console.log("No offline actions to sync.");
         return;
       }
 
-      console.log(`Starting sync for ${this.offlineQueue.actions.length} offline actions.`);
+      console.log(`Starting sync for ${this.pendingOfflineChangesCount} offline actions.`);
       this.setOfflineQueueSyncing(true);
-      this.setOfflineQueueLastError(null); // Clear last error before sync
+      this.setOfflineQueueLastError(null);
 
-      // TODO: Get instances of other stores needed for dispatching
-      // const eventStore = useEventStore();
-      // const submissionStore = useSubmissionStore();
+      const notificationStore = useNotificationStore();
+      notificationStore.showNotification({
+          message: `Syncing ${this.pendingOfflineChangesCount} offline changes...`,
+          type: 'info',
+          duration: 2000
+      });
 
-      // Iterate over a copy
+      // Import stores *inside* the action
+      const { useEventStore } = await import('./events');
+      // Add imports for other stores as needed (e.g., submissions)
+      // const { useSubmissionStore } = await import('./submissions'); // Example
+
+      const eventStore = useEventStore();
+      // const submissionStore = useSubmissionStore(); // Example
+
       const actionsToProcess = [...this.offlineQueue.actions];
+      let successCount = 0;
+      let failCount = 0;
+
       for (const action of actionsToProcess) {
         try {
           console.log(`Attempting to replay action: ${action.type}`);
-          // TODO: Replace this switch with actual calls to actions in other Pinia stores
-          switch (action.type) {
-             case 'events/rateTeam': // Example old name
-             case 'event/rateTeam': // Example new name
-               // await eventStore.rateTeam(action.payload); // Example call
-               console.warn(`TODO: Implement replay logic for ${action.type}`);
+          const [storeId, actionName] = action.type.split('/'); // e.g., 'event/rateTeam'
+
+          // Dispatch based on storeId and actionName
+          switch (storeId) {
+             case 'event':
+               if (actionName in eventStore && typeof (eventStore as any)[actionName] === 'function') {
+                  await (eventStore as any)[actionName](action.payload);
+               } else { throw new Error(`Action ${actionName} not found in event store.`); }
                break;
-             case 'submissions/addSubmission': // Example old name
-             case 'submission/addSubmission': // Example new name
-               // await submissionStore.addSubmission(action.payload); // Example call
-               console.warn(`TODO: Implement replay logic for ${action.type}`);
-               break;
-             case 'events/submitFeedback': // Example old name
-             case 'event/submitFeedback': // Example new name
-                // await eventStore.submitFeedback(action.payload); // Example call
-                console.warn(`TODO: Implement replay logic for ${action.type}`);
-                break;
+            //  case 'submission': // Example for another store
+            //    if (actionName in submissionStore && typeof (submissionStore as any)[actionName] === 'function') {
+            //       await (submissionStore as any)[actionName](action.payload);
+            //    } else { throw new Error(`Action ${actionName} not found in submission store.`); }
+            //    break;
              default:
-               console.warn(`Unknown action type in offline queue: ${action.type}`);
-               // Optionally mark as failed or skip
-               throw new Error(`Unknown action type: ${action.type}`);
+               throw new Error(`Unknown store identifier: ${storeId}`);
           }
+
           console.log(`Successfully replayed action: ${action.type} (${action.id})`);
-          this.removeQueuedAction(action.id); // Remove from queue on success
+          this.removeQueuedAction(action.id);
+          successCount++;
         } catch (error: any) {
           console.error(`Failed to replay action ${action.type} (${action.id}):`, error);
-          // Add to failed actions and remove from main queue
           this.addFailedAction({ ...action, error: error?.message || 'Unknown replay error' });
-          this.removeQueuedAction(action.id);
+          this.removeQueuedAction(action.id); // Remove from main queue even if failed
+          failCount++;
         }
       }
 
       this.setOfflineQueueSyncing(false);
       this.setOfflineQueueLastSync(Date.now());
-      console.log("Offline sync completed.");
-      if(this.offlineQueue.failedActions && this.offlineQueue.failedActions.length > 0) {
-          console.warn(`${this.offlineQueue.failedActions.length} actions failed to sync. Check failedActions state.`);
+      console.log(`Offline sync completed. Success: ${successCount}, Failed: ${failCount}.`);
+
+      if (failCount > 0) {
+          notificationStore.showNotification({
+              message: `Sync complete, but ${failCount} action(s) failed. Check logs.`,
+              type: 'warning',
+              duration: 5000
+          });
+          console.warn("Failed Actions:", this.offlineQueue.failedActions);
+      } else if (successCount > 0) {
+           notificationStore.showNotification({
+              message: `Sync complete. ${successCount} action(s) processed.`,
+              type: 'success',
+              duration: 3000
+           });
       }
     },
 
-    /**
-     * Checks network status and triggers sync if online and queue has items.
-     */
     async checkNetworkAndSync() {
       const online = navigator.onLine;
-      // No need to call setOnlineStatus here as the event listener already does
       if (online !== this.isOnline) {
-         this.setOnlineStatus(online); // Update if status differs from listener
+         this.setOnlineStatus(online);
       }
-
       if (online && this.hasPendingOfflineChanges) {
         console.log("Network check: Online with pending changes, triggering sync.");
         await this.syncOfflineChanges();
-      } else if (online) {
-         console.log("Network check: Online, no pending changes.");
-      } else {
-         console.log("Network check: Offline.");
       }
     },
 
     // --- Event Closed State ---
     setEventClosedState({ eventId, isClosed }: { eventId: string; isClosed: boolean }) {
-      // Direct state mutation
-      this.eventClosed = { ...this.eventClosed, [eventId]: isClosed };
+      // Direct state mutation using Vue 3 reactivity (no spread needed for top-level)
+      this.eventClosed[eventId] = isClosed;
     },
   },
 });

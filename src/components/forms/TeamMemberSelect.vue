@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/store/user';
 
 interface Props {
   selectedMembers: string[];
@@ -45,12 +45,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits(['update:members']);
 
-const store = useStore();
+const userStore = useUserStore();
 
 const selectedMember = ref('');
 
 const getCachedUserName = (uid: string) => {
-  return store.getters['user/getCachedUserName'](uid) || uid;
+  return userStore.getCachedUserName(uid) || uid;
 };
 
 const addMember = () => {

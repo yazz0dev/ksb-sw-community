@@ -160,8 +160,10 @@
 // src/components/events/EventManageControls.vue
 
 import { computed, ref, PropType } from 'vue';
-import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import { useUserStore } from '@/store/user';
+import { useEventStore } from '@/store/events';
+import { useNotificationStore } from '@/store/notification';
 import { DateTime } from 'luxon'; // Import DateTime
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
@@ -177,14 +179,16 @@ export default {
     }
   },
   setup(props, { emit }) { // <-- add emit to setup signature
-    const store = useStore();
     const router = useRouter();
+    const userStore = useUserStore();
+    const eventStore = useEventStore();
+    const notificationStore = useNotificationStore();
     const loadingAction = ref<EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent' | null>(null);
     const isClosingEvent = ref(false); // Specific loading for close action
 
     // --- User Role & Permissions ---
-    const currentUserId = computed<string | null>(() => store.getters['user/getUser']?.uid ?? null);
-    const currentUserRole = computed<string | null>(() => store.getters['user/userRole']); // Assuming this getter exists elsewhere or needs checking too
+    const currentUserId = computed<string | null>(() => userStore.currentUser?.uid ?? null);
+    const currentUserRole = computed<string | null>(() => userStore.userRole); // Assuming this getter exists elsewhere or needs checking too
     const isOrganizer = computed(() => {
       const uid = currentUserId.value;
       const eventData = props.event;
@@ -396,21 +400,21 @@ export default {
       if (loadingAction.value) return;
       loadingAction.value = newStatus;
       try {
-        await store.dispatch('events/updateEventStatus', {
+        await eventStore.updateEventStatus({
           eventId: props.event.id,
           newStatus: newStatus
         });
-        store.dispatch('notification/showNotification', {
+        notificationStore.showNotification({
           message: `Event status updated to ${newStatus}.`,
           type: 'success'
-        }, { root: true });
+        });
         // Emit update event for parent to refresh
         emit('update');
       } catch (error: any) {
-        store.dispatch('notification/showNotification', {
+        notificationStore.showNotification({
           message: error?.message || `Failed to update status to ${newStatus}.`,
           type: 'error'
-        }, { root: true });
+        });
       } finally {
         loadingAction.value = null;
       }
@@ -420,24 +424,24 @@ export default {
         if (loadingAction.value) return;
         loadingAction.value = openState ? 'openRatings' : 'closeRatings';
         try {
-            const result = await store.dispatch('events/toggleRatingsOpen', {
+            const result = await eventStore.toggleRatingsOpen({
                 eventId: props.event.id,
                 open: openState
             });
             if (result?.status === 'success') {
-                store.dispatch('notification/showNotification', {
+                notificationStore.showNotification({
                     message: `Ratings are now ${openState ? 'Open' : 'Closed'}.`,
                     type: 'success'
-                }, { root: true });
+                });
                 emit('update');
             } else {
                  throw new Error(result?.message || 'Failed to toggle ratings.');
             }
         } catch (error: any) {
-            store.dispatch('notification/showNotification', {
+            notificationStore.showNotification({
                 message: error?.message || 'Failed to toggle ratings status.',
                 type: 'error'
-            }, { root: true });
+            });
         } finally {
             loadingAction.value = null;
         }
@@ -467,7 +471,7 @@ export default {
         loadingAction.value = 'closeEvent';
         isClosingEvent.value = true;
         try {
-            const result = await store.dispatch('events/closeEventPermanently', {
+            const result = await eventStore.closeEventPermanently({
                 eventId: props.event.id
             });
             let message = result?.message || 'Event closed permanently.';
@@ -476,18 +480,18 @@ export default {
                 const totalXP = calculateTotalXP(result.xpAwarded);
                 message += ` XP awarded to ${totalUsers} users (Total: ${totalXP} XP).`;
             }
-            store.dispatch('notification/showNotification', {
+            notificationStore.showNotification({
                 message,
                 type: result?.success ? 'success' : 'warning',
                 duration: 6000
-            }, { root: true });
+            });
             emit('update');
         } catch (error: any) {
-            store.dispatch('notification/showNotification', {
+            notificationStore.showNotification({
                 message: error?.message || 'Failed to close the event.',
                 type: 'error',
                 duration: 5000
-            }, { root: true });
+            });
         } finally {
             loadingAction.value = null;
             isClosingEvent.value = false;

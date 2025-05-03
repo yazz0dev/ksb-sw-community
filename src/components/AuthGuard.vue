@@ -32,7 +32,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '../store/user';
 
 interface Props {
   message?: string;
@@ -42,8 +42,8 @@ const props = withDefaults(defineProps<Props>(), {
   message: ''
 });
 
-const store = useStore();
-const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
+const userStore = useUserStore();
+const isAuthenticated = computed<boolean>(() => userStore.isAuthenticated);
 </script>
 
 

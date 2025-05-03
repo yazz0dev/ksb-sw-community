@@ -1,89 +1,102 @@
-// src/store/modules/events/actions.participants.ts
-import { ActionContext } from 'vuex';
-import { EventState } from '@/types/event';
-import { RootState } from '@/types/store';
-import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+// src/store/events/actions.participants.ts
+// Helper functions for participant actions.
+import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Event, EventStatus } from '@/types/event';
-import { User } from '@/types/user';
 
-export async function joinEvent({ rootGetters, dispatch }: ActionContext<EventState, RootState>, eventId: string): Promise<void> {
+/**
+ * Adds a user to an event's participants list in Firestore.
+ * @param eventId - The ID of the event.
+ * @param userId - The UID of the user joining.
+ * @returns Promise<void>
+ * @throws Error if user/event invalid, status wrong, already joined, or Firestore fails.
+ */
+export async function joinEventInFirestore(eventId: string, userId: string): Promise<void> {
     if (!eventId) throw new Error('Event ID required.');
+    if (!userId) throw new Error("User ID required to join.");
+
     const eventRef = doc(db, 'events', eventId);
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
 
-        const currentUser: User | null = rootGetters['user/getUser'];
-        const userId = currentUser?.uid;
-        if (!userId) throw new Error("User not authenticated.");
-        if (eventData.status !== EventStatus.Approved) throw new Error(`Cannot join event with status '${eventData.status}'.`);
-
-        // Check if already a participant or team member
-        const alreadyParticipant = Array.isArray(eventData.participants) && eventData.participants.includes(userId);
-        const alreadyTeamMember = Array.isArray(eventData.teams) && eventData.teams.some(team => team.members?.includes(userId));
+        // Validation
+        if (![EventStatus.Approved, EventStatus.InProgress].includes(eventData.status as EventStatus)) {
+            throw new Error(`Cannot join event with status '${eventData.status}'.`);
+        }
+        const alreadyParticipant = eventData.participants?.includes(userId);
+        const alreadyTeamMember = eventData.teams?.some(team => team.members?.includes(userId));
         if (alreadyParticipant || alreadyTeamMember) throw new Error('Already joined this event.');
+        const isOrganizer = eventData.details?.organizers?.includes(userId);
+        if (isOrganizer) throw new Error('Organizers cannot explicitly join.');
 
-        // Add to participants array
-        const updatedParticipants = Array.isArray(eventData.participants)
-            ? [...eventData.participants, userId]
-            : [userId];
+        await updateDoc(eventRef, {
+            participants: arrayUnion(userId),
+            lastUpdatedAt: Timestamp.now()
+        });
+        console.log(`Firestore: User ${userId} joined event ${eventId}.`);
 
-        await updateDoc(eventRef, { participants: updatedParticipants, lastUpdatedAt: Timestamp.now() });
-        dispatch('updateLocalEvent', { id: eventId, changes: { participants: updatedParticipants } });
-        console.log(`User ${userId} joined event ${eventId}.`);
     } catch (error: any) {
-        console.error(`Error joining event ${eventId}:`, error);
-        throw error;
+        console.error(`Firestore joinEvent error for ${eventId}:`, error);
+        throw new Error(`Failed to join event: ${error.message}`);
     }
 }
 
-
-export async function leaveEvent({ rootGetters, dispatch }: ActionContext<EventState, RootState>, eventId: string): Promise<void> {
+/**
+ * Removes a user from an event's participants list or team in Firestore.
+ * @param eventId - The ID of the event.
+ * @param userId - The UID of the user leaving.
+ * @returns Promise<void>
+ * @throws Error if user/event invalid, status wrong, not part of event, or Firestore fails.
+ */
+export async function leaveEventInFirestore(eventId: string, userId: string): Promise<void> {
     if (!eventId) throw new Error('Event ID required.');
+    if (!userId) throw new Error("User ID required to leave.");
+
     const eventRef = doc(db, 'events', eventId);
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
 
-        const currentUser: User | null = rootGetters['user/getUser'];
-        const userId = currentUser?.uid;
-        if (!userId) throw new Error("User not authenticated.");
-        if (eventData.status !== EventStatus.Approved) throw new Error(`Cannot leave event with status '${eventData.status}'.`);
+        // Validation
+        if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(eventData.status as EventStatus)) {
+            throw new Error(`Cannot leave event with status '${eventData.status}'.`);
+        }
+        const isOrganizer = eventData.details?.organizers?.includes(userId);
+        if (isOrganizer) throw new Error('Organizers cannot leave the event.');
 
-        let updatedEventDataForState: Partial<Event> = { lastUpdatedAt: Timestamp.now() };
+        let updates: Record<string, any> = { lastUpdatedAt: Timestamp.now() };
         let userFound = false;
 
-        if (Array.isArray(eventData.teams)) {
+        // Remove from participants list
+        if (eventData.participants?.includes(userId)) {
+            updates.participants = arrayRemove(userId);
+            userFound = true;
+        }
+
+        // Remove from teams (read-modify-write needed for safety)
+        if (eventData.teams?.some(team => team.members?.includes(userId))) {
             const updatedTeams = eventData.teams.map(team => {
                 if (team.members?.includes(userId)) {
-                    userFound = true;
-                    return {
-                        ...team,
-                        members: team.members.filter((id: string) => id !== userId)
-                    };
+                    return { ...team, members: team.members.filter(m => m !== userId) };
                 }
                 return team;
             });
-            updatedEventDataForState.teams = updatedTeams;
-        }
-
-        if (Array.isArray(eventData.participants) && eventData.participants.includes(userId)) {
+            // Filter out teams that might become empty if needed
+            // const validTeams = updatedTeams.filter(team => team.members.length > 0);
+            updates.teams = updatedTeams;
             userFound = true;
-            updatedEventDataForState.participants = eventData.participants.filter((id: string) => id !== userId);
         }
 
-        if (!userFound) throw new Error('You are not a participant or team member of this event.');
+        if (!userFound) throw new Error('You are not currently part of this event.');
 
-        await updateDoc(eventRef, updatedEventDataForState);
-        dispatch('updateLocalEvent', { id: eventId, changes: updatedEventDataForState });
-        console.log(`User ${userId} left event ${eventId}.`);
+        await updateDoc(eventRef, updates);
+        console.log(`Firestore: User ${userId} left event ${eventId}.`);
+
     } catch (error: any) {
-        console.error(`Error leaving event ${eventId}:`, error);
-        throw error;
+        console.error(`Firestore leaveEvent error for ${eventId}:`, error);
+        throw new Error(`Failed to leave event: ${error.message}`);
     }
 }
-
-// If joinEvent exists, add here as well.

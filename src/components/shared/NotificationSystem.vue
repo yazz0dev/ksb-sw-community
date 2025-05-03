@@ -33,7 +33,8 @@
 
 <script setup lang="ts">
 import { computed, watch } from 'vue';
-import { useStore } from 'vuex';
+import { useNotificationStore } from '@/store/notification';
+import { useAppStore } from '@/store/app';
 
 interface Notification {
   id: string;
@@ -48,20 +49,21 @@ interface QueuedAction {
   payload: any;
   timestamp: number;
 }
-
-const store = useStore();
-const notifications = computed<Notification[]>(() => store.state.notification.notifications);
-const isOnline = computed<boolean>(() => store.state.app.networkStatus.online);
-const queuedActions = computed<QueuedAction[]>(() => store.state.app.offlineQueue.actions);
+ 
+const notificationStore = useNotificationStore();
+const appStore = useAppStore();
+const notifications = computed<Notification[]>(() => notificationStore.allNotifications);
+const isOnline = computed<boolean>(() => appStore.isOnline);
+const queuedActions = computed<QueuedAction[]>(() => appStore.offlineQueue);
 
 const dismissNotification = (id: string): void => {
-  store.dispatch('app/dismissNotification', id);
+  notificationStore.dismissNotification(id);
 };
 
 // Watch for network status changes
 watch(isOnline, (online: boolean) => {
   if (online && queuedActions.value.length > 0) {
-    store.dispatch('notification/showNotification', {
+    notificationStore.showNotification({
       message: `Back online. Syncing ${queuedActions.value.length} pending changes...`,
       type: 'info',
       duration: 3000
@@ -72,7 +74,7 @@ watch(isOnline, (online: boolean) => {
 // Watch queued actions for offline notifications
 watch(() => queuedActions.value.length, (newCount: number, oldCount: number) => {
   if (!isOnline.value && newCount > oldCount) {
-    store.dispatch('notification/showNotification', {
+    notificationStore.showNotification({
       message: 'Action queued. Will sync when back online.',
       type: 'warning',
       duration: 3000

@@ -48,7 +48,7 @@
                         class="small text-primary text-truncate"
                         :class="{ 'fw-semibold': memberId === currentUserUid }"
                       >
-                        {{ store.getters['user/getCachedUserName'](memberId) || memberId }}{{ memberId === currentUserUid ? ' (You)' : '' }}
+                        {{ userStore.getCachedUserName(memberId) || memberId }}{{ memberId === currentUserUid ? ' (You)' : '' }}
                       </router-link>
                     </div>
                   </div>
@@ -72,8 +72,8 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
-import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import { useUserStore } from '@/store/user';
 
 interface Team {
   teamName: string;
@@ -93,7 +93,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const store = useStore();
+const userStore = useUserStore();
 const router = useRouter();
 
 const teamsWithDetails = ref<Team[]>([]);

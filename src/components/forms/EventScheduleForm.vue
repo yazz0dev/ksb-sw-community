@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
 import { ref, watch, toRefs } from 'vue';
-import { useStore } from 'vuex';
+import { useEventStore } from '@/store/events';
 import '@vuepic/vue-datepicker/dist/main.css';
 import DatePicker from '@vuepic/vue-datepicker';
 
@@ -52,7 +52,7 @@ const emit = defineEmits(['update:dates', 'error', 'availability-change']);
 const props = defineProps<Props>();
 const { dates, isSubmitting, eventId } = toRefs(props);
 
-const store = useStore();
+const eventStore = useEventStore();
 const minDate = new Date().toISOString().split('T')[0];
 const localDates = ref({ ...dates.value });
 const isDateAvailable = ref(true);
@@ -64,7 +64,7 @@ watch(dates, (newVal) => {
 
 async function checkDateConflict() {
   try {
-    const available = await store.dispatch('events/checkDateConflict', {
+    const available = await eventStore.checkDateConflict({
       start: localDates.value.start,
       end: localDates.value.end,
       excludeEventId: eventId?.value
@@ -83,7 +83,7 @@ async function checkDateConflict() {
 async function checkNextAvailableDate() {
   // Simulate logic or call store for next available date
   // You may want to implement this more robustly
-  const next = await store.dispatch('events/getNextAvailableDate', {
+  const next = await eventStore.getNextAvailableDate({
     start: localDates.value.start,
     end: localDates.value.end
   });

@@ -139,7 +139,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, PropType } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/store/user';
 // Corrected Import Path/Syntax
 import TeamMemberSelect from './TeamMemberSelect.vue';
 import { Team as EventTeamType } from '@/types/event'; // Import the actual Team type
@@ -186,7 +186,7 @@ const emit = defineEmits<{
   (e: 'error', message: string): void;
 }>();
 
-const store = useStore();
+const userStore = useUserStore();
 const teams = ref<LocalTeam[]>([]); // Use local team structure
 const numberOfTeamsToGenerate = ref(2); // Default number of teams to generate
 const maxTeams = 8; // Overall maximum teams allowed for the event
@@ -197,7 +197,7 @@ const maxMembersPerTeam = 8;
 function getNameFromCache(uid: string): string {
   if (!uid) return 'Unknown';
   // Access nameCache from store
-  return store.getters['user/getCachedUserName'](uid) || `UID: ${uid.substring(0, 6)}...`;
+  return userStore.getCachedUserName(uid) || `UID: ${uid.substring(0, 6)}...`;
 }
 
 // --- Auto-Generate Logic ---

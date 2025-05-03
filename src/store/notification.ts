@@ -12,42 +12,44 @@ export const useNotificationStore = defineStore('notification', {
   // Getters definition
   getters: {
     allNotifications: (state): Notification[] => state.notifications,
+    // You can add more getters if needed, e.g., getNotificationById
   },
 
-  // Actions definition
+  // Actions definition (mutations are integrated)
   actions: {
     /**
      * Shows a notification message.
-     * @param notification - The notification object (message is required).
+     * @param notification - The notification object (message & type required).
+     *                     Duration is optional (defaults to 5000ms).
+     *                     Use duration: 0 for non-auto-dismissing notifications.
      * @returns The ID of the created notification.
      */
-    showNotification(notification: Omit<Notification, 'id' | 'createdAt'> & { duration?: number; timeout?: number }): string {
+    showNotification(notification: Omit<Notification, 'id' | 'createdAt'> & { duration?: number }): string {
       // Validate required fields
-      if (!notification.message) {
-        console.error('Notification message is required');
-        // Consider throwing an error or returning a specific value for failure
-        return '';
+      if (!notification.message || !notification.type) {
+        console.error('Notification message and type are required');
+        return ''; // Indicate failure
       }
 
       // Generate a unique ID and add createdAt timestamp
       const id = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const notificationWithId: Notification = {
+      const newNotification: Notification = {
         ...notification,
         id,
         createdAt: Date.now(), // Add creation timestamp
       };
 
       // Add notification to state (direct mutation)
-      this.notifications.push(notificationWithId);
+      // Push to the start so newest appear on top (adjust if needed)
+      this.notifications.unshift(newNotification);
 
-      // Auto-dismiss after duration/timeout if specified
-      // Prefer 'duration' if present, fallback to 'timeout', default 5000ms
-      const duration = notification.duration ?? notification.timeout;
-      if (duration !== 0) { // 0 means don't auto-dismiss
+      // Auto-dismiss after duration if specified and not 0
+      const duration = notification.duration ?? 5000; // Default to 5 seconds
+      if (duration > 0) {
         setTimeout(() => {
-          // Call another action within the store
+          // Call dismiss action using 'this'
           this.dismissNotification(id);
-        }, duration || 5000);
+        }, duration);
       }
 
       return id; // Return ID for potential manual dismissal

@@ -171,7 +171,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, toRefs, nextTick, onMounted, onUnmounted, reactive } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/store/user';
+import { useEventStore } from '@/store/events';
 import { formatISTDate } from '@/utils/dateTime';
 import { formatRoleName as formatRoleNameUtil } from '@/utils/formatters';
 import { Event, EventStatus } from '@/types/event';
@@ -209,7 +210,8 @@ console.log('[ProfileViewContent] userId prop:', userId.value);
 
 const defaultAvatarUrl: string = new URL('../assets/default-avatar.png', import.meta.url).href;
 
-const store = useStore();
+const userStore = useUserStore();
+const eventStore = useEventStore();
 
 const user = ref<DocumentData | null>(null);
 const loading = ref<boolean>(true);
@@ -303,8 +305,8 @@ const fetchProfileData = async () => {
   stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
 
   try {
-    await store.dispatch('user/fetchUserProfileData', userId.value);
-    const data = store.state.user.profileData;
+    await userStore.fetchUserProfileData(userId.value);
+    const data = userStore.profileData;
 
     if (!data) {
         throw new Error('User data is empty.');
@@ -363,8 +365,8 @@ const fetchUserProjects = async (targetUserId: string) => {
 
 // Fetch user's events (participated and organized) from the store
 const fetchUserEventsFromStore = async () => {
-  await store.dispatch('events/fetchEvents');
-  const getEventsByIds = store.getters['events/getEventsByIds'] as (ids: string[]) => Event[];
+  await eventStore.fetchEvents();
+  const getEventsByIds = eventStore.getEventsByIds as (ids: string[]) => Event[];
   const allIds = Array.from(new Set([
     ...participatedEventIds.value,
     ...organizedEventIds.value

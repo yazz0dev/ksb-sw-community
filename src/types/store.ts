@@ -1,68 +1,55 @@
-import { Store } from 'vuex';
-
-// --- UserState and EventState imports (define or import as needed) ---
+// --- Import specific state types ---
 import { UserState } from '@/types/user';
 import { EventState } from '@/types/event';
 
-// --- Notification Interface  ---
+// --- Notification Interface (Keep as is) ---
 export interface Notification {
   id: string;
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
-  createdAt: number;
-  timeout?: number;
+  createdAt: number; // Added creation timestamp
+  // timeout is handled by duration in Pinia store
 }
 
-// --- QueuedAction, OfflineQueueState, NetworkStatusState ---
+// --- QueuedAction, OfflineQueueState, NetworkStatusState (Keep as is) ---
 export interface QueuedAction {
-  id: string;
-  type: string;
-  payload: any;
-  timestamp: number;
-  retries?: number;
-  error?: string;
+  id: string; // Unique ID for the queued action
+  type: string; // Identifier for the action (e.g., 'event/rateTeam')
+  payload: any; // Data needed for the action
+  timestamp: number; // When the action was queued
+  retries?: number; // Optional: Track retry attempts
+  error?: string; // Optional: Store error message if failed
 }
 
 export interface OfflineQueueState {
   actions: QueuedAction[];
   syncInProgress: boolean;
-  supportedTypes: string[];
+  supportedTypes: string[]; // Action types supported for offline queuing
   lastSyncAttempt?: number | null;
   lastError?: string | null;
-  failedActions?: QueuedAction[];
+  failedActions?: QueuedAction[]; // Store actions that failed during sync
 }
 
 export interface NetworkStatusState {
   online: boolean;
-  lastChecked: number;  // Add missing property for last check timestamp
-  lastOnline?: number;
-  lastOffline?: number;
-  reconnectAttempts: number;  // Add missing property for tracking reconnection attempts
+  lastChecked: number;
+  lastOnline?: number; // Timestamp when last online
+  lastOffline?: number; // Timestamp when last offline
+  reconnectAttempts: number;
 }
 
-// --- AppState ---
+// --- AppState (Revised for Pinia) ---
+// Combines state fields from the previous Vuex app module
 export interface AppState {
-  isOnline: boolean;
-  lastSyncTimestamp: number | null;
-  cacheExpiration: number;
-  eventClosed: Record<string, boolean>;
-  pendingOfflineChanges: QueuedAction[];
-  notifications: Notification[];
-  offlineQueue: OfflineQueueState;
-  networkStatus: NetworkStatusState;
+  lastSyncTimestamp: number | null; // Timestamp of the last successful sync
+  cacheExpiration: number; // How long caches are considered valid (e.g., 30 mins)
+  eventClosed: Record<string, boolean>; // Map of eventId -> isClosed status
+  offlineQueue: OfflineQueueState; // Manages actions queued while offline
+  networkStatus: NetworkStatusState; // Tracks online/offline status
+  // Remove Vuex specific or redundant fields: isOnline, pendingOfflineChanges, notifications, offlineCapabilities, supportedOfflineActions
 }
 
-// --- RootState (merged from root-state.ts) ---
-export interface RootState {
-  user: UserState;
-  events: EventState;
-  app: AppState;
-}
-
-// --- NotificationState (if needed for notification module) ---
+// --- NotificationState (Keep as is - for notification store) ---
 export interface NotificationState {
   notifications: Notification[];
 }
-
-// --- TypedStore ---
-export type TypedStore = Store<RootState>;

@@ -81,7 +81,7 @@
 
 <script setup lang="ts">
 import { computed, PropType, ref, watch } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/store/user';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
@@ -95,7 +95,7 @@ const props = defineProps({
   },
 });
 
-const store = useStore();
+const userStore = useUserStore();
 
 const isCancelledOrRejected = computed(() =>
   props.event.status === EventStatus.Cancelled ||
@@ -147,7 +147,7 @@ const formatOrganizers = computed(() => {
   const getName = (uid: string): string => {
     if (!uid) return 'Unknown';
     // Access the getter via the store instance
-    const cachedName = store.getters['user/getCachedUserName'](uid);
+    const cachedName = userStore.getCachedUserName(uid);
     return cachedName || 'Member'; // Fallback name if not in cache
   };
 

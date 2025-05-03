@@ -107,7 +107,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useStore } from 'vuex';
+import { useEventStore } from '@/store/events';
+import { useUserStore } from '@/store/user';
 
 interface EventCriterion {
   constraintIndex: number;
@@ -149,7 +150,8 @@ const emit = defineEmits<{
   (e: 'submitted', data: { message: string; type: string }): void;
 }>();
 
-const store = useStore();
+const eventStore = useEventStore();
+const userStore = useUserStore();
 const loading = ref(true);
 const error = ref<string>('');
 const submissionError = ref<string>('');
@@ -164,17 +166,17 @@ const teamMemberMap = ref<Record<string, string>>({});
 const teamSelections = ref<TeamSelections>({});
 const bestPerformerSelection = ref<string>('');
 
-const currentUserId = computed(() => store.getters['user/userId']);
+const currentUserId = computed(() => userStore.uid);
 
 // Fetch necessary data on mount
 onMounted(async () => {
   loading.value = true;
   error.value = '';
   try {
-    const currentEvent = store.state.events.currentEventDetails;
+    const currentEvent = eventStore.currentEventDetails;
     if (!currentEvent || currentEvent.id !== props.eventId) {
-      await store.dispatch('events/fetchEventDetails', props.eventId);
-      eventDetails.value = store.state.events.currentEventDetails;
+      await eventStore.fetchEventDetails(props.eventId);
+      eventDetails.value = eventStore.currentEventDetails;
     } else {
       eventDetails.value = currentEvent;
     }
@@ -211,7 +213,7 @@ onMounted(async () => {
     teamMemberMap.value = tempMemberMap;
 
     if (memberIds.size > 0) {
-      const userNames = await store.dispatch('user/fetchUserNamesBatch', Array.from(memberIds));
+      const userNames = await userStore.fetchUserNamesBatch(Array.from(memberIds));
       allTeamMembers.value = Array.from(memberIds)
         .map(uid => ({ uid, name: userNames[uid] || uid }))
         .sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Sort alphabetically, handle potential undefined names
@@ -259,7 +261,7 @@ const submitTeamRatings = async (): Promise<void> => {
     });
 
     // Use submitTeamCriteriaVote, which updates only criteriaSelections and bestPerformerSelections
-    await store.dispatch('events/submitTeamCriteriaVote', {
+    await eventStore.submitTeamCriteriaVote({
       eventId: props.eventId,
       selections: {
         criteria: criteriaSelections,

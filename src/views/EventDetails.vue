@@ -230,8 +230,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
-import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
+import { useUserStore } from '@/store/user';
+import { useEventStore } from '@/store/events';
+import { useNotificationStore } from '@/store/notification';
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
@@ -297,7 +299,9 @@ interface Props {
 const props = defineProps<Props>();
 
 // --- Composables ---
-const store = useStore();
+const userStore = useUserStore();
+const eventStore = useEventStore();
+const notificationStore = useNotificationStore();
 const router = useRouter();
 const route = useRoute();
 
@@ -320,8 +324,8 @@ const isLeaving = ref(false);
 const globalFeedback = ref<FeedbackState>({ message: '', type: 'success' });
 
 // --- Computed Properties ---
-const currentUserId = computed<string | null>(() => store.getters['user/userId']);
-const currentUser = computed<User | null>(() => store.getters['user/getUser']);
+const currentUserId = computed<string | null>(() => userStore.uid);
+const currentUser = computed<User | null>(() => userStore.currentUser);
 
 // Transforms the nameCache Map into a plain object for props compatibility
 const nameCacheRecord = computed(() => Object.fromEntries(nameCache.value));
@@ -583,7 +587,7 @@ const submitProject = async (): Promise<void> => {
     actionInProgress.value = true;
 
     try {
-        await store.dispatch('events/submitProjectToEvent', {
+        await eventStore.submitProjectToEvent({
             eventId: props.id,
             submissionData: {
                 projectName: submissionForm.value.projectName.trim(),
@@ -609,7 +613,7 @@ const handleJoin = async (): Promise<void> => {
     isJoining.value = true;
     actionInProgress.value = true;
     try {
-        await store.dispatch('events/joinEvent', props.id);
+        await eventStore.joinEvent(props.id);
         setGlobalFeedback('Successfully joined the event!', 'success');
         await fetchData(); // Refresh data
     } catch (error: any) {
@@ -628,7 +632,7 @@ const handleLeave = async (): Promise<void> => {
     isLeaving.value = true;
     actionInProgress.value = true;
     try {
-        await store.dispatch('events/leaveEvent', props.id);
+        await eventStore.leaveEvent(props.id);
         setGlobalFeedback('Successfully left the event.', 'success');
         await fetchData(); // Refresh data
     } catch (error: any) {

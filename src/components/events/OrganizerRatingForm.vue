@@ -38,7 +38,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useStore } from 'vuex';
+import { useEventStore } from '@/store/events';
 import type { OrganizerRating } from '@/types/event';
 
 interface Props {
@@ -47,7 +47,7 @@ interface Props {
   currentUserId: string;
 }
 const props = defineProps<Props>();
-const store = useStore();
+const eventStore = useEventStore();
 
 const rating = ref<number>(0);
 const feedback = ref<string>('');
@@ -79,7 +79,7 @@ async function submitRating() {
   isSubmitting.value = true;
   errorMessage.value = '';
   try {
-    await store.dispatch('events/submitOrganizationRating', {
+    await eventStore.submitOrganizationRating({
       eventId: props.eventId,
       score: rating.value,
       feedback: feedback.value

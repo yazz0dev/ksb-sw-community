@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/store/user';
 
 interface Props {
   userId: string;
@@ -29,12 +29,12 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const store = useStore();
+const userStore = useUserStore();
 const averageRating = ref<number | null>(null);
 const name = ref<string | null>(null);
 
 const fetchUserName = (): void => {
-  const cachedName = store.getters['user/getCachedUserName'](props.userId);
+  const cachedName = userStore.getCachedUserName(props.userId);
   if (cachedName) {
     name.value = cachedName;
   }
@@ -43,7 +43,7 @@ const fetchUserName = (): void => {
 onMounted(async () => {
   fetchUserName();
   try {
-    const ratingResult = await store.dispatch('user/calculateWeightedAverageRating', {
+    const ratingResult = await userStore.calculateWeightedAverageRating({
       eventId: props.eventId,
       userId: props.userId
     });

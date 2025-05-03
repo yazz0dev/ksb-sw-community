@@ -1,0 +1,579 @@
+// src/store/events.ts
+import { defineStore } from 'pinia';
+import { Timestamp, doc, getDoc } from 'firebase/firestore'; // Import Firestore types if needed directly
+import { db } from '../firebase'; // Adjusted path
+
+// --- Import Types ---
+import {
+    EventState, Event, EventStatus, EventFormat,
+    EventCriteria, Team, Submission, OrganizerRating
+} from '@/types/event';
+
+// --- Import Stores ---
+import { useUserStore } from './user';
+import { useNotificationStore } from './notification';
+import { useAppStore } from './app';
+
+// --- Import Action Helpers ---
+import { fetchAllEventsFromFirestore, fetchSingleEventFromFirestore } from './events/actions.fetching';
+import {
+    createEventRequestInFirestore, updateEventDetailsInFirestore,
+    updateEventStatusInFirestore, closeEventDocumentInFirestore
+} from './events/actions.lifecycle';
+import { joinEventInFirestore, leaveEventInFirestore } from './events/actions.participants';
+import {
+    toggleRatingsOpenInFirestore, submitTeamCriteriaVoteInFirestore,
+    submitIndividualWinnerVoteInFirestore, submitOrganizationRatingInFirestore,
+    calculateWinnersFromVotes, saveWinnersToFirestore
+} from './events/actions.ratings';
+import { submitProjectToEventInFirestore } from './events/actions.submissions';
+import { addTeamToEventInFirestore, updateEventTeamsInFirestore } from './events/actions.teams';
+import { checkExistingRequestsForUser, checkDateConflictInFirestore } from './events/actions.validation';
+import { calculateEventXP, handleFirestoreError } from './events/actions.utils';
+
+// --- Helper for Sorting ---
+function compareEvents(a: Event, b: Event): number {
+    const statusOrder: Record<string, number> = {
+        [EventStatus.Pending]: 0, [EventStatus.Approved]: 1, [EventStatus.InProgress]: 2,
+        [EventStatus.Completed]: 3, [EventStatus.Cancelled]: 4, [EventStatus.Rejected]: 5,
+        [EventStatus.Closed]: 6,
+    };
+    const orderA = statusOrder[a.status as EventStatus] ?? 9;
+    const orderB = statusOrder[b.status as EventStatus] ?? 9;
+    if (orderA !== orderB) return orderA - orderB;
+    let dateA = a.createdAt?.toMillis() ?? 0;
+    let dateB = b.createdAt?.toMillis() ?? 0;
+    if ([EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status as EventStatus)) {
+        dateA = a.details?.date?.start?.toMillis() ?? dateA;
+        dateB = b.details?.date?.start?.toMillis() ?? dateB;
+    } else {
+        dateA = a.completedAt?.toMillis() ?? a.details?.date?.end?.toMillis() ?? dateA;
+        dateB = b.completedAt?.toMillis() ?? b.details?.date?.end?.toMillis() ?? dateB;
+    }
+    return [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status as EventStatus)
+        ? dateA - dateB
+        : dateB - dateA;
+}
+
+// --- Store Definition ---
+export const useEventStore = defineStore('events', {
+    state: (): EventState => ({
+        events: [],
+        currentEventDetails: null,
+    }),
+
+    getters: {
+        allEvents: (state): Event[] => state.events,
+        getEventById: (state) => (eventId: string): Event | undefined => {
+            if (state.currentEventDetails?.id === eventId) return state.currentEventDetails;
+            return state.events.find((event: Event) => event.id === eventId);
+        },
+        getEventsByIds: (state) => (ids: string[]): Event[] => {
+            if (!Array.isArray(ids) || ids.length === 0) return [];
+            const idSet = new Set(ids);
+            return state.events.filter((e: Event) => idSet.has(e.id));
+        },
+        userRequests: (state): Event[] => {
+            const userStore = useUserStore();
+            const userId = userStore.uid;
+            if (!userId) return [];
+            return state.events
+                .filter(e => e.requestedBy === userId && [EventStatus.Pending, EventStatus.Rejected].includes(e.status as EventStatus))
+                .sort(compareEvents);
+        },
+        getEventCriteria: (state) => (eventId: string): EventCriteria[] => {
+            const event = state.events.find(e => e.id === eventId);
+            if (!event?.criteria || !Array.isArray(event.criteria)) return [];
+            return [...event.criteria]
+                .filter(alloc => typeof alloc.constraintIndex === 'number')
+                .sort((a, b) => a.constraintIndex - b.constraintIndex);
+        },
+    },
+
+    actions: {
+        /** Internal action to update local state consistently */
+        _updateLocalEvent(eventData: Event) {
+            if (!eventData?.id) return;
+            const index = this.events.findIndex((e: Event) => e.id === eventData.id);
+            const eventWithDefaults = { // Ensure defaults for safety
+                ...eventData,
+                ratingsOpen: typeof eventData.ratingsOpen === 'boolean' ? eventData.ratingsOpen : false,
+                details: eventData.details || {},
+            };
+            if (index !== -1) {
+                this.events[index] = eventWithDefaults;
+            } else {
+                this.events.push(eventWithDefaults);
+            }
+            this.events.sort(compareEvents);
+            if (this.currentEventDetails?.id === eventData.id) {
+                this.currentEventDetails = { ...eventWithDefaults };
+            }
+        },
+
+        // --- Fetching Actions ---
+        async fetchEvents() {
+            const notificationStore = useNotificationStore();
+            try {
+                const events = await fetchAllEventsFromFirestore();
+                this.events = events; // Direct state update
+                this.events.sort(compareEvents);
+            } catch (error) {
+                notificationStore.showNotification({ message: handleFirestoreError(error), type: 'error' });
+                // Decide if the component needs the error re-thrown
+            }
+        },
+
+        async fetchEventDetails(eventId: string): Promise<Event | null> {
+            const notificationStore = useNotificationStore();
+            this.currentEventDetails = null; // Clear previous
+            try {
+                const event = await fetchSingleEventFromFirestore(eventId);
+                this.currentEventDetails = event; // Set current details
+                if (event) {
+                    this._updateLocalEvent(event); // Ensure it's in the main list
+                } else {
+                     notificationStore.showNotification({ message: `Event (ID: ${eventId}) not found.`, type: 'warning' });
+                }
+                return event;
+            } catch (error) {
+                this.currentEventDetails = null;
+                notificationStore.showNotification({ message: `Failed to load event details: ${handleFirestoreError(error)}`, type: 'error' });
+                throw error; // Re-throw for component handling
+            }
+        },
+
+        // --- Lifecycle Actions ---
+        async requestEvent(initialData: Partial<Event>): Promise<string> {
+            const userStore = useUserStore();
+            const notificationStore = useNotificationStore();
+            const appStore = useAppStore(); // Needed for offline check
+
+            if (!userStore.uid) {
+                 notificationStore.showNotification({ message: "You must be logged in.", type: 'error' });
+                 throw new Error('User not logged in');
+             }
+
+            // Check for existing requests first
+             const hasPending = await this.checkExistingRequests();
+             if (hasPending) {
+                 const msg = 'You already have a pending event request.';
+                  notificationStore.showNotification({ message: msg, type: 'warning' });
+                  throw new Error(msg);
+             }
+
+            // Offline check
+            const offlineResult = await appStore.handleOfflineAction({ type: 'events/requestEvent', payload: initialData });
+            if (offlineResult.queued) return ''; // Indicate queued
+
+            try {
+                const newEventId = await createEventRequestInFirestore(initialData, userStore.uid);
+                // Fetch the newly created event to update state correctly
+                await this.fetchEventDetails(newEventId); // This updates local state via _updateLocalEvent
+                notificationStore.showNotification({ message: "Event requested successfully!", type: 'success' });
+                return newEventId;
+            } catch (error) {
+                notificationStore.showNotification({ message: `Event request failed: ${handleFirestoreError(error)}`, type: 'error' });
+                throw error;
+            }
+        },
+
+        async updateEventDetails({ eventId, updates }: { eventId: string; updates: Partial<Event> }) {
+            const userStore = useUserStore();
+            const notificationStore = useNotificationStore();
+            const appStore = useAppStore();
+
+            // Offline check
+            const offlineResult = await appStore.handleOfflineAction({ type: 'events/updateEventDetails', payload: { eventId, updates } });
+            if (offlineResult.queued) return;
+
+            try {
+                await updateEventDetailsInFirestore(eventId, updates, userStore.currentUser);
+                // Fetch fresh data to ensure consistency
+                await this.fetchEventDetails(eventId);
+                notificationStore.showNotification({ message: "Event updated successfully.", type: 'success' });
+            } catch (error) {
+                notificationStore.showNotification({ message: `Event update failed: ${handleFirestoreError(error)}`, type: 'error' });
+                throw error;
+            }
+        },
+
+        async updateEventStatus({ eventId, newStatus }: { eventId: string; newStatus: EventStatus }) {
+             const notificationStore = useNotificationStore();
+             const appStore = useAppStore();
+
+             // Offline check (might be unsuitable for some status changes)
+             // const offlineResult = await appStore.handleOfflineAction({ type: 'events/updateEventStatus', payload: { eventId, newStatus } });
+             // if (offlineResult.queued) return;
+
+             try {
+                 const appliedUpdates = await updateEventStatusInFirestore(eventId, newStatus);
+                 // Fetch fresh details to get the fully updated object
+                 await this.fetchEventDetails(eventId);
+                 notificationStore.showNotification({ message: `Event status updated to ${newStatus}.`, type: 'success' });
+             } catch (error) {
+                 notificationStore.showNotification({ message: `Status update failed: ${handleFirestoreError(error)}`, type: 'error' });
+                 throw error;
+             }
+         },
+
+        async cancelEvent(eventId: string) {
+            await this.updateEventStatus({ eventId, newStatus: EventStatus.Cancelled });
+        },
+
+        // --- Participants Actions ---
+        async joinEvent(eventId: string) {
+             const userStore = useUserStore();
+             const notificationStore = useNotificationStore();
+             const appStore = useAppStore();
+
+             // Offline check
+             const offlineResult = await appStore.handleOfflineAction({ type: 'events/joinEvent', payload: { eventId } });
+             if (offlineResult.queued) return;
+
+             try {
+                 if (!userStore.uid) throw new Error("User not authenticated.");
+                 await joinEventInFirestore(eventId, userStore.uid);
+                 await this.fetchEventDetails(eventId); // Refresh local state
+                 notificationStore.showNotification({ message: "Successfully joined event!", type: 'success' });
+             } catch (error) {
+                 notificationStore.showNotification({ message: `Failed to join: ${handleFirestoreError(error)}`, type: 'error' });
+                 throw error;
+             }
+         },
+
+        async leaveEvent(eventId: string) {
+             const userStore = useUserStore();
+             const notificationStore = useNotificationStore();
+             const appStore = useAppStore();
+
+              // Offline check
+              const offlineResult = await appStore.handleOfflineAction({ type: 'events/leaveEvent', payload: { eventId } });
+              if (offlineResult.queued) return;
+
+             try {
+                 if (!userStore.uid) throw new Error("User not authenticated.");
+                 await leaveEventInFirestore(eventId, userStore.uid);
+                 await this.fetchEventDetails(eventId); // Refresh local state
+                 notificationStore.showNotification({ message: "Successfully left event.", type: 'success' });
+             } catch (error) {
+                 notificationStore.showNotification({ message: `Failed to leave: ${handleFirestoreError(error)}`, type: 'error' });
+                 throw error;
+             }
+         },
+
+         // --- Ratings Actions ---
+         async toggleRatingsOpen({ eventId, open }: { eventId: string; open: boolean }) {
+              const notificationStore = useNotificationStore();
+              // Offline check? Maybe not suitable.
+
+              try {
+                  await toggleRatingsOpenInFirestore(eventId, open);
+                  await this.fetchEventDetails(eventId); // Refresh local state
+                  notificationStore.showNotification({ message: `Ratings are now ${open ? 'Open' : 'Closed'}.`, type: 'success' });
+              } catch (error) {
+                  notificationStore.showNotification({ message: `Failed to toggle ratings: ${handleFirestoreError(error)}`, type: 'error' });
+                  throw error;
+              }
+          },
+
+        async submitTeamCriteriaVote({ eventId, selections }: { eventId: string; selections: { criteria: Record<string, string>, bestPerformer?: string } }) {
+             const userStore = useUserStore();
+             const notificationStore = useNotificationStore();
+             const appStore = useAppStore();
+
+             // Offline check
+             const offlineResult = await appStore.handleOfflineAction({ type: 'events/submitTeamCriteriaVote', payload: { eventId, selections } });
+             if (offlineResult.queued) return;
+
+             try {
+                 if (!userStore.uid) throw new Error("User not authenticated.");
+                 await submitTeamCriteriaVoteInFirestore(eventId, userStore.uid, selections);
+                 await this.fetchEventDetails(eventId); // Refresh local state
+                 notificationStore.showNotification({ message: "Team selections submitted.", type: 'success' });
+             } catch (error) {
+                 notificationStore.showNotification({ message: `Failed to submit selections: ${handleFirestoreError(error)}`, type: 'error' });
+                 throw error;
+             }
+         },
+
+         async submitIndividualWinnerVote({ eventId, winnerSelections }: { eventId: string; winnerSelections: Record<string, string> }) {
+              const userStore = useUserStore();
+              const notificationStore = useNotificationStore();
+              const appStore = useAppStore();
+
+              // Offline check
+              const offlineResult = await appStore.handleOfflineAction({ type: 'events/submitIndividualWinnerVote', payload: { eventId, winnerSelections } });
+              if (offlineResult.queued) return;
+
+              try {
+                  if (!userStore.uid) throw new Error("User not authenticated.");
+                  await submitIndividualWinnerVoteInFirestore(eventId, userStore.uid, winnerSelections);
+                  await this.fetchEventDetails(eventId); // Refresh local state
+                  notificationStore.showNotification({ message: "Winner selections submitted.", type: 'success' });
+              } catch (error) {
+                  notificationStore.showNotification({ message: `Failed to submit selections: ${handleFirestoreError(error)}`, type: 'error' });
+                  throw error;
+              }
+          },
+
+          async submitOrganizationRating({ eventId, score, feedback }: { eventId: string; score: number; feedback?: string }) {
+               const userStore = useUserStore();
+               const notificationStore = useNotificationStore();
+               const appStore = useAppStore();
+
+               // Offline check
+               const payload = { eventId, score, feedback };
+               const offlineResult = await appStore.handleOfflineAction({ type: 'events/submitOrganizationRating', payload });
+               if (offlineResult.queued) return;
+
+
+               try {
+                   if (!userStore.uid) throw new Error("User not authenticated.");
+                   await submitOrganizationRatingInFirestore(eventId, userStore.uid, score, feedback);
+                   await this.fetchEventDetails(eventId); // Refresh local state
+                   notificationStore.showNotification({ message: "Organizer rating submitted.", type: 'success' });
+               } catch (error) {
+                   notificationStore.showNotification({ message: `Failed to submit rating: ${handleFirestoreError(error)}`, type: 'error' });
+                   throw error;
+               }
+           },
+
+          async findWinner(eventId: string) {
+                const notificationStore = useNotificationStore();
+                // Offline check - Not suitable.
+
+                try {
+                    const event = this.getEventById(eventId); // Use getter
+                    if (!event) throw new Error("Event data not loaded locally.");
+
+                    // Permission check happens within calculate/save helpers implicitly if needed, or add here.
+
+                    const calculatedWinners = await calculateWinnersFromVotes(event); // Use helper
+
+                    if (Object.keys(calculatedWinners).length === 0) {
+                         notificationStore.showNotification({ message: "No winners could be determined based on selections.", type: 'info' });
+                         return;
+                    }
+
+                    await saveWinnersToFirestore(eventId, calculatedWinners); // Use helper
+                    await this.fetchEventDetails(eventId); // Refresh local state
+                    notificationStore.showNotification({ message: "Winner(s) determined and saved.", type: 'success' });
+
+                } catch (error) {
+                    notificationStore.showNotification({ message: `Failed to find winners: ${handleFirestoreError(error)}`, type: 'error' });
+                    throw error;
+                }
+            },
+
+        // --- Submissions Actions ---
+        async submitProjectToEvent({ eventId, submissionData }: { eventId: string; submissionData: Partial<Submission> }) {
+             const userStore = useUserStore();
+             const notificationStore = useNotificationStore();
+             const appStore = useAppStore();
+
+              // Offline check
+              const payload = { eventId, submissionData };
+              const offlineResult = await appStore.handleOfflineAction({ type: 'submission/submitProjectToEvent', payload }); // Use distinct type
+              if (offlineResult.queued) return;
+
+             try {
+                 if (!userStore.uid) throw new Error("User not authenticated.");
+                 await submitProjectToEventInFirestore(eventId, userStore.uid, submissionData);
+                 await this.fetchEventDetails(eventId); // Refresh local state
+                 notificationStore.showNotification({ message: "Project submitted successfully!", type: 'success' });
+             } catch (error) {
+                 notificationStore.showNotification({ message: `Failed to submit project: ${handleFirestoreError(error)}`, type: 'error' });
+                 throw error;
+             }
+         },
+
+        // --- Teams Actions ---
+        async addTeamToEvent({ eventId, teamName, members }: { eventId: string; teamName: string; members: string[] }) {
+            const notificationStore = useNotificationStore();
+             // Offline check - complex?
+
+             try {
+                 await addTeamToEventInFirestore(eventId, teamName, members);
+                 await this.fetchEventDetails(eventId); // Refresh local state
+                 notificationStore.showNotification({ message: `Team "${teamName}" added.`, type: 'success' });
+             } catch (error) {
+                 notificationStore.showNotification({ message: `Failed to add team: ${handleFirestoreError(error)}`, type: 'error' });
+                 throw error;
+             }
+         },
+
+         async updateTeams({ eventId, teams }: { eventId: string; teams: Team[] }) {
+              const notificationStore = useNotificationStore();
+              // Offline check - complex?
+
+              try {
+                  await updateEventTeamsInFirestore(eventId, teams);
+                  await this.fetchEventDetails(eventId); // Refresh local state
+                  notificationStore.showNotification({ message: `Teams updated successfully.`, type: 'success' });
+              } catch (error) {
+                  notificationStore.showNotification({ message: `Failed to update teams: ${handleFirestoreError(error)}`, type: 'error' });
+                  throw error;
+              }
+          },
+
+         // Auto-generate now calls updateTeams internally after calculation
+         async autoGenerateTeams({ eventId, numberOfTeams, minMembersPerTeam = 2, maxMembersPerTeam = 8 }: { eventId: string; numberOfTeams: number; minMembersPerTeam?: number; maxMembersPerTeam?: number; }) {
+            const notificationStore = useNotificationStore();
+            const userStore = useUserStore(); // Need user store for student list
+
+            if (!eventId) throw new Error('Event ID required.');
+            if (typeof numberOfTeams !== 'number' || numberOfTeams < 2) throw new Error("Must generate at least 2 teams.");
+
+            try {
+                const event = this.getEventById(eventId); // Get current local data
+                if (!event) throw new Error('Event data not loaded locally.');
+                if (event.details.format !== EventFormat.Team) throw new Error("Auto-generation only for 'Team' events.");
+
+                // Ensure student list is loaded
+                if (userStore.studentList.length === 0 && !userStore.studentListLoading) {
+                    await userStore.fetchAllStudents();
+                }
+                const students = userStore.getStudentList; // Use getter
+                if (students.length < numberOfTeams * minMembersPerTeam) {
+                    throw new Error(`Not enough students (${students.length}) available.`);
+                }
+
+                // --- Generation Logic (moved from helper/Vuex action) ---
+                const shuffledStudents = [...students].sort(() => 0.5 - Math.random());
+                const generatedTeamsBase: Omit<Team, 'teamLead'>[] = Array.from({ length: numberOfTeams }, (_, i) => ({
+                    teamName: `Team ${i + 1}`, members: [], submissions: [], ratings: []
+                }));
+
+                shuffledStudents.forEach((student, idx) => {
+                    generatedTeamsBase[idx % numberOfTeams].members.push(student.uid);
+                });
+
+                const finalTeams = generatedTeamsBase
+                    .filter(team => team.members.length >= minMembersPerTeam)
+                    .map(team => ({
+                        ...team,
+                        members: team.members.slice(0, maxMembersPerTeam),
+                        teamLead: team.members[0] || '' // Assign lead
+                    }));
+
+                if (finalTeams.length < 2) throw new Error("Could not generate at least 2 valid teams.");
+                // --- End Generation Logic ---
+
+                // Use the updateTeams action to save the result
+                await this.updateTeams({ eventId, teams: finalTeams });
+                // Notification is handled by updateTeams
+
+            } catch (error) {
+                notificationStore.showNotification({ message: `Failed to generate teams: ${handleFirestoreError(error)}`, type: 'error' });
+                throw error;
+            }
+        },
+
+
+        // --- Validation Actions ---
+        async checkExistingRequests(): Promise<boolean> {
+            const userStore = useUserStore();
+            if (!userStore.uid) return false;
+            try {
+                return await checkExistingRequestsForUser(userStore.uid);
+            } catch (error) {
+                 console.error("checkExistingRequests failed:", error);
+                 return false; // Assume no request on error
+            }
+        },
+
+        async checkDateConflict(payload: { startDate: string | Date | Timestamp | null; endDate: string | Date | Timestamp | null; excludeEventId?: string | null }): Promise<{ hasConflict: boolean; nextAvailableDate: string | null; conflictingEvent: Event | null }> {
+             // Directly call the helper function
+             try {
+                  return await checkDateConflictInFirestore(payload.startDate, payload.endDate, payload.excludeEventId);
+             } catch (error) {
+                  const notificationStore = useNotificationStore();
+                  notificationStore.showNotification({ message: `Date check failed: ${handleFirestoreError(error)}`, type: 'error' });
+                  // Return a default conflicting state on error?
+                  return { hasConflict: true, nextAvailableDate: null, conflictingEvent: null };
+             }
+        },
+
+        clearDateCheck() {
+            // No state to clear in Pinia for this specifically
+            console.log("Pinia: clearDateCheck called.");
+        },
+
+        // --- Closing Event Action ---
+        async closeEventPermanently({ eventId }: { eventId: string }): Promise<{ success: boolean; message: string; xpAwarded?: Record<string, Record<string, number>> }> {
+            const userStore = useUserStore();
+            const notificationStore = useNotificationStore();
+            const appStore = useAppStore(); // For setting closed state cache
+
+            try {
+                // 1. Fetch latest event data locally first
+                const event = this.getEventById(eventId);
+                if (!event) {
+                     // Attempt fetch if not found locally
+                     await this.fetchEventDetails(eventId);
+                     const freshEvent = this.currentEventDetails;
+                     if (!freshEvent) throw new Error("Event not found.");
+                     // Use freshEvent for checks below
+                }
+                const eventData = this.getEventById(eventId)!; // Should exist now
+
+                // 2. Perform Checks (using local/fresh data)
+                 const currentUserUid = userStore.uid;
+                 const isOrganizer = eventData.details?.organizers?.includes(currentUserUid ?? '') || eventData.requestedBy === currentUserUid;
+                 if (!isOrganizer) throw new Error("Unauthorized: Only organizers can close events.");
+                 if (eventData.status !== EventStatus.Completed) throw new Error("Event must be 'Completed' to be closed.");
+                 if (eventData.ratingsOpen) throw new Error("Ratings must be closed before closing the event.");
+                 if (!eventData.winners || Object.keys(eventData.winners).length === 0) throw new Error("Winners must be determined before closing.");
+
+                // 3. Calculate XP (using helper)
+                const xpMap = await calculateEventXP(eventData);
+
+                // 4. Award XP (batch write to Firestore)
+                const batch = writeBatch(db);
+                let totalXpAwarded = 0;
+                let usersAwarded = 0;
+                for (const [userId, roles] of Object.entries(xpMap)) {
+                    const userRef = doc(db, 'users', userId);
+                    let userTotal = 0;
+                    for (const [role, xp] of Object.entries(roles)) {
+                        if (xp > 0) {
+                            batch.update(userRef, { [`xpByRole.${role}`]: increment(xp) });
+                            userTotal += xp;
+                        }
+                    }
+                     if (userTotal > 0) { totalXpAwarded += userTotal; usersAwarded++; }
+                }
+
+                // 5. Update Event Status in Firestore within the same batch
+                const eventRef = doc(db, 'events', eventId);
+                batch.update(eventRef, {
+                    status: EventStatus.Closed,
+                    closedAt: Timestamp.now(),
+                    lastUpdatedAt: Timestamp.now()
+                });
+
+                // 6. Commit Batch
+                await batch.commit();
+
+                // 7. Update Local State
+                await this.fetchEventDetails(eventId); // Fetch final state
+                appStore.setEventClosedState({ eventId, isClosed: true }); // Update app cache
+
+                // 8. Refresh current user's data if they earned XP
+                if (currentUserUid && xpMap[currentUserUid]) {
+                   await userStore.fetchUserData(currentUserUid); // Refresh local user data
+                }
+
+                const successMessage = `Event closed. ${totalXpAwarded} XP awarded to ${usersAwarded} users.`;
+                notificationStore.showNotification({ message: successMessage, type: 'success' });
+                return { success: true, message: successMessage, xpAwarded: xpMap };
+
+            } catch (error) {
+                notificationStore.showNotification({ message: `Failed to close event: ${handleFirestoreError(error)}`, type: 'error' });
+                throw error;
+            }
+        },
+
+    },
+});

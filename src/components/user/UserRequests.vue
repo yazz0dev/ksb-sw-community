@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { doc, deleteDoc } from 'firebase/firestore';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/store/user';
 import { useRouter } from 'vue-router';
 import { db } from '@/firebase';
 
@@ -67,8 +67,8 @@ interface Request {
     status: 'Pending' | 'Approved' | 'Rejected';
     [key: string]: any;
 }
-
-const store = useStore();
+ 
+const userStore = useUserStore();
 const requests = ref<Request[]>([]);
 const loadingRequests = ref<boolean>(true);
 const errorMessage = ref<string>('');
@@ -83,7 +83,7 @@ const getStatusClass = (status: Request['status']): string => {
 };
 
 const fetchRequests = async (): Promise<void> => {
-    const user = store.getters['user/getUser'];
+    const user = userStore.currentUser;
     if (!user?.uid) {
         errorMessage.value = 'User not logged in.';
         loadingRequests.value = false;
@@ -93,8 +93,8 @@ const fetchRequests = async (): Promise<void> => {
     try {
         loadingRequests.value = true;
         errorMessage.value = '';
-        await store.dispatch('user/fetchUserRequests', user.uid);
-        requests.value = store.state.user.userRequests;
+        await userStore.fetchUserRequests(user.uid);
+        requests.value = userStore.userRequests;
     } catch (error) {
         console.error('Error fetching requests:', error);
         errorMessage.value = 'Unable to load requests at this time';

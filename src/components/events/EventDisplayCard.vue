@@ -9,7 +9,7 @@
      <div class="row g-1 fs-7 text-secondary mb-2"> <!-- Use fs-7 and mb-2 -->
          <div class="col-md-6 col-12 py-1 d-flex align-items-center">
              <i class="fas fa-user-edit fa-fw me-2 text-muted"></i>
-             <strong class="fw-medium text-dark me-1">Requested by:</strong> {{ store.getters['user/getCachedUserName'](event.requestedBy) || '(Name unavailable)' }}
+             <strong class="fw-medium text-dark me-1">Requested by:</strong> {{ userStore.getCachedUserName(event.requestedBy) || '(Name unavailable)' }}
          </div>
          <div class="col-md-6 col-12 py-1 d-flex align-items-center">
               <i class="fas fa-calendar-alt fa-fw me-2 text-muted"></i>
@@ -38,9 +38,9 @@
          <div>
               <strong class="fw-medium text-dark">Co-Organizers:</strong>
               <span v-for="(orgId, idx) in event.details.organizers" :key="orgId">
-                  {{ store.getters['user/getCachedUserName'](orgId) || '(Name unavailable)' }}{{ idx < event.details.organizers.length - 1 ? ', ' : '' }}
+                  {{ userStore.getCachedUserName(orgId) || '(Name unavailable)' }}{{ idx < event.details.organizers.length - 1 ? ', ' : '' }}
               </span>
-         </div>
+          </div>
      </p>
 
      <!-- Rejection Reason -->
@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import { computed, PropType } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/store/user';
 import { formatRoleName } from '../../utils/formatters';
 import { Event, EventFormat } from '@/types/event'; // Import EventFormat
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
@@ -95,7 +95,7 @@ showStatus: {
 },
 });
 
-const store = useStore();
+const userStore = useUserStore();
 
 interface ColorScheme {
 class: string;

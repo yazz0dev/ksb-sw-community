@@ -22,7 +22,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore } from 'vuex';
+import { useAppStore } from '@/store/app';
 
 interface QueuedAction {
   type: string;
@@ -41,17 +41,17 @@ interface AppState {
     };
   };
 }
-
-const store = useStore<AppState>();
-
-const isOnline = computed<boolean>(() => store.state.app.networkStatus.online);
-const hasQueuedActions = computed<boolean>(() => store.state.app.offlineQueue.actions.length > 0);
-const isSyncing = computed<boolean>(() => store.state.app.offlineQueue.syncInProgress);
+ 
+const appStore = useAppStore();
+ 
+const isOnline = computed<boolean>(() => appStore.isOnline);
+const hasQueuedActions = computed<boolean>(() => appStore.offlineQueue.length > 0);
+const isSyncing = computed<boolean>(() => appStore.isSyncing);
 
 const statusMessage = computed<string>(() => {
   if (!isOnline.value) return 'You are currently offline';
   if (hasQueuedActions.value) {
-    return `${store.state.app.offlineQueue.actions.length} action(s) pending sync`;
+    return `${appStore.offlineQueue.length} action(s) pending sync`;
   }
   return '';
 });
@@ -59,7 +59,7 @@ const statusMessage = computed<string>(() => {
 const canSync = computed<boolean>(() => isOnline.value && hasQueuedActions.value && !isSyncing.value);
 
 const syncNow = (): void => {
-  store.dispatch('app/syncOfflineChanges');
+  appStore.syncOfflineChanges();
 };
 </script>
 
