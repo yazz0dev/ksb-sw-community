@@ -3,7 +3,6 @@ import { createApp, App as VueApp } from 'vue';
 import { createPinia } from 'pinia'; // Import Pinia
 import App from './App.vue';
 import router from './router';
-// No longer import the Vuex store: import store from './store';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
@@ -12,8 +11,8 @@ import { isSupabaseConfigured } from './notifications';
 import { getOneSignal, isPushSupported, isOneSignalConfigured as isOneSignalEnabled } from './utils/oneSignalUtils';
 
 // Import Pinia stores - we'll need them for the auth listener
-import { useAppStore } from './store/app';
-import { useUserStore } from './store/user';
+import { useAppStore } from '@/store/app';
+import { useUserStore } from '@/store/user';
 import { useNotificationStore } from './store/notification'; // Import notification store
 
 import '@fortawesome/fontawesome-free/css/all.css';

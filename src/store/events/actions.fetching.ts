@@ -1,5 +1,5 @@
 // src/store/events/actions.fetching.ts
-// These are now helper functions, not Vuex actions.
+// These are now helper functions
 // They operate on data and interact with Firestore directly.
 // They might need the Pinia store instance passed if they need to commit mutations (modify state directly in Pinia actions).
 

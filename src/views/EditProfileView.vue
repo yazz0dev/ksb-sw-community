@@ -88,13 +88,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useStore } from 'vuex';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const router = useRouter();
 const route = useRoute();
-const store = useStore();
 
 const loading = ref(false);
 const error = ref('');

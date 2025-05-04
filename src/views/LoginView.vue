@@ -81,22 +81,22 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { getAuth, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/store/user';
 
 const email = ref<string>('');
 const password = ref<string>('');
 const errorMessage = ref<string>('');
 const isLoading = ref<boolean>(false);
 const router = useRouter();
-const store = useStore();
+const userStore = useUserStore();
 
 const processLoginSuccess = async (user: UserCredential['user']): Promise<void> => {
     try {
         // Fetch Firebase user data first
-        await store.dispatch('user/fetchUserData', user.uid);
+        await userStore.fetchUserData(user.uid);
 
-        // Check if user data exists in Vuex after fetch
-        const userData = store.getters['user/getUser'];
+        // Check if user data exists after fetch
+        const userData = userStore.currentUser;
         if (!userData || !userData.uid) {
             errorMessage.value = 'Your account exists in authentication, but no user profile was found. Please contact support or try registering again.';
             return; // Do not navigate

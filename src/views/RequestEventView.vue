@@ -154,8 +154,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
+import { useUserStore } from '@/store/user';
+import { useEventStore } from '@/store/events';
+import { useNotificationStore } from '@/store/notification';
 import { DateTime } from 'luxon';
 // Form Components
 import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
@@ -169,7 +171,9 @@ import { EventFormData, EventFormat, Event, Team, EventStatus, EventCriteria } f
 import { User } from '@/types/user';
 
 // --- Composables ---
-const store = useStore();
+const userStore = useUserStore();
+const eventStore = useEventStore();
+const notificationStore = useNotificationStore();
 const router = useRouter();
 const route = useRoute();
 
@@ -197,14 +201,14 @@ const formData = ref<EventFormData>(createDefaultFormData());
 // --- Computed Properties ---
 const eventId = computed(() => route.params.eventId as string | undefined);
 const isEditing = computed(() => !!eventId.value);
-const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-const currentUserUid = computed<string | null>(() => store.getters['user/userId']);
+const isAuthenticated = computed(() => userStore.isAuthenticated);
+const currentUserUid = computed<string | null>(() => userStore.uid);
 
 // Removed loading checks from inside computed properties
-const allUsers = computed<User[]>(() => store.state.user.allUsers || []);
-const availableStudents = computed<User[]>(() => store.state.user.studentList || []);
+const allUsers = computed<User[]>(() => userStore.allUsers || []);
+const availableStudents = computed<User[]>(() => userStore.studentList || []);
 const nameCache = computed(() => {
-    const cache = store.state.user.nameCache;
+    const cache = userStore.nameCache;
     const obj: Record<string, string> = {};
     if (cache instanceof Map) { cache.forEach((entry, uid) => { obj[uid] = entry.name; }); }
     return obj;
@@ -257,12 +261,12 @@ const handleSubmitForm = async () => {
     }
 
     if (isEditing.value && eventId.value) {
-      await store.dispatch('events/updateEventDetails', { eventId: eventId.value, updates: dataToSubmit });
-      store.dispatch('notification/showNotification', { message: 'Event updated successfully!', type: 'success' });
+      await eventStore.updateEventDetails({ eventId: eventId.value, updates: dataToSubmit });
+      notificationStore.showNotification({ message: 'Event updated successfully!', type: 'success' });
       router.push({ name: 'EventDetails', params: { id: eventId.value } });
     } else {
-      const newEventId = await store.dispatch('events/requestEvent', dataToSubmit);
-      store.dispatch('notification/showNotification', { message: 'Event request submitted successfully!', type: 'success' });
+      const newEventId = await eventStore.requestEvent(dataToSubmit);
+      notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
       // Optionally redirect to the new event details page or home
       router.push({ name: 'Home' });
       // router.push({ name: 'EventDetails', params: { id: newEventId } });
@@ -283,12 +287,12 @@ const loadInitialData = async () => {
       
       // Fetch initial data
       await Promise.all([
-          store.dispatch('user/fetchAllStudents'),
-          store.dispatch('user/fetchAllUsers')
+          userStore.fetchAllStudents(),
+          userStore.fetchAllUsers()
       ]);
 
       if (!isEditing.value) {
-          const hasRequest = await store.dispatch('events/checkExistingRequests');
+          const hasRequest = await eventStore.checkExistingRequests();
           hasActiveRequest.value = hasRequest;
           if (hasRequest) {
               loading.value = false;
@@ -297,8 +301,8 @@ const loadInitialData = async () => {
       }
 
       if (isEditing.value && eventId.value) {
-          await store.dispatch('events/fetchEventDetails', eventId.value);
-          const storeEvent = store.state.events.currentEventDetails;
+          await eventStore.fetchEventDetails(eventId.value);
+          const storeEvent = eventStore.currentEventDetails;
           if (!storeEvent) throw new Error('Event not found or inaccessible.');
 
           const userId = currentUserUid.value;

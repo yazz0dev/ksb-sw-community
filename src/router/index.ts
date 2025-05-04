@@ -1,6 +1,5 @@
 // src/router/index.ts
 import { createRouter, createWebHistory, RouteRecordRaw, NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
-// No longer import Vuex store: import store from '../store';
 import EditProfileView from '../views/EditProfileView.vue';
 
 // Import Pinia stores needed in the guard

@@ -1,20 +1,6 @@
 // src/store/modules/events/actions.utils.ts
-import { ActionContext } from 'vuex';
-import { EventFormat, EventState } from '@/types/event';
-import { RootState } from '@/types/store';
+import { EventFormat } from '@/types/event';
 import { Event } from '@/types/event';
-
-export function updateLocalEvent({ commit, state }: ActionContext<EventState, RootState>, { id, changes }: { id: string; changes: Partial<Event> }) {
-    // Find the existing event and merge changes for addOrUpdateEvent
-    const existing = state.events.find((e: Event) => e.id === id);
-    if (existing) {
-        commit('addOrUpdateEvent', { ...existing, ...changes, id });
-    } else {
-        commit('addOrUpdateEvent', { id, ...changes });
-    }
-    // Also update current details if it's the one being viewed
-    commit('updateCurrentEventDetails', { id, changes });
-}
 
 // --- Utility: Calculate XP earned for event participation ---
 export async function calculateEventXP(eventData: Event): Promise<Record<string, Record<string, number>>> {

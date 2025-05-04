@@ -5,7 +5,7 @@ import { disableNetwork, enableNetwork } from 'firebase/firestore';
 import { db } from '../firebase'; // Adjusted path
 
 // Import other Pinia stores needed for dispatching actions during sync
-// import { useEventStore } from './events'; // Example
+import { useEventStore } from './events'; // Import event store
 // import { useSubmissionStore } from './submissions'; // Example
 import { useNotificationStore } from './notification'; // Import notification store
 
@@ -21,11 +21,15 @@ export const useAppStore = defineStore('app', {
       syncInProgress: false,
       failedActions: [],
       supportedTypes: [
-        // Update these to Pinia action names (storeId/actionName)
-        'event/submitTeamCriteriaVote', // Example: Team Rating
-        'event/submitIndividualWinnerVote', // Example: Individual Rating
-        'event/submitOrganizationRating', // Example: Organizer Rating
-        'submission/submitProjectToEvent', // Example: Submission
+        // These are Pinia action names (storeId/actionName)
+        'events/submitTeamCriteriaVote', // Example: Team Rating
+        'events/submitIndividualWinnerVote', // Example: Individual Rating
+        'events/submitOrganizationRating', // Example: Organizer Rating
+        'submissions/submitProjectToEvent', // Example: Submission (assuming a submissions store)
+        'events/requestEvent', // Added requestEvent
+        'events/updateEventDetails', // Added updateEventDetails
+        'events/joinEvent', // Added joinEvent
+        'events/leaveEvent', // Added leaveEvent
         // Add other supported actions here
       ],
       lastError: null,
@@ -37,9 +41,6 @@ export const useAppStore = defineStore('app', {
       lastOffline: typeof navigator !== 'undefined' && !navigator.onLine ? Date.now() : undefined,
       reconnectAttempts: 0,
     },
-    // Removed redundant/Vuex specific fields like offlineCapabilities, supportedOfflineActions
-    // 'isOnline' and 'pendingOfflineChanges' are now getters or derived from state.networkStatus/state.offlineQueue
-    // Notifications are handled by the notification store
   }),
 
   // Getters definition from your previous getters.ts
@@ -194,11 +195,8 @@ export const useAppStore = defineStore('app', {
       });
 
       // Import stores *inside* the action
-      const { useEventStore } = await import('./events');
-      // Add imports for other stores as needed (e.g., submissions)
-      // const { useSubmissionStore } = await import('./submissions'); // Example
-
       const eventStore = useEventStore();
+      // Add imports for other stores as needed (e.g., submissions)
       // const submissionStore = useSubmissionStore(); // Example
 
       const actionsToProcess = [...this.offlineQueue.actions];
@@ -208,23 +206,27 @@ export const useAppStore = defineStore('app', {
       for (const action of actionsToProcess) {
         try {
           console.log(`Attempting to replay action: ${action.type}`);
-          const [storeId, actionName] = action.type.split('/'); // e.g., 'event/rateTeam'
+          const [storeId, actionName] = action.type.split('/'); // e.g., 'events/submitTeamCriteriaVote'
 
-          // Dispatch based on storeId and actionName
+          // Directly call the action method on the store instance
+          let store: any;
           switch (storeId) {
-             case 'event':
-               if (actionName in eventStore && typeof (eventStore as any)[actionName] === 'function') {
-                  await (eventStore as any)[actionName](action.payload);
-               } else { throw new Error(`Action ${actionName} not found in event store.`); }
-               break;
-            //  case 'submission': // Example for another store
-            //    if (actionName in submissionStore && typeof (submissionStore as any)[actionName] === 'function') {
-            //       await (submissionStore as any)[actionName](action.payload);
-            //    } else { throw new Error(`Action ${actionName} not found in submission store.`); }
-            //    break;
-             default:
-               throw new Error(`Unknown store identifier: ${storeId}`);
+            case 'events':
+              store = eventStore;
+              break;
+            // case 'submissions': // Example for another store
+            //   store = submissionStore;
+            //   break;
+            default:
+              throw new Error(`Unknown store identifier: ${storeId}`);
           }
+
+          if (store && typeof store[actionName] === 'function') {
+            await store[actionName](action.payload);
+          } else {
+            throw new Error(`Action ${actionName} not found in ${storeId} store.`);
+          }
+
 
           console.log(`Successfully replayed action: ${action.type} (${action.id})`);
           this.removeQueuedAction(action.id);

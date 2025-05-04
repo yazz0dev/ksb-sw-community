@@ -123,12 +123,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import { useUserStore } from '@/store/user';
+import { useEventStore } from '@/store/events';
 import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
 
-const store = useStore();
+const userStore = useUserStore();
+const eventStore = useEventStore();
 const router = useRouter(); // Although not used directly, good practice to have if needed later
 
 // --- State ---
@@ -140,8 +142,8 @@ const showCancelled = ref<boolean>(false);
 const maxEventsPerSection = 6; // Max events to show per category on dashboard
 
 // --- Computed Properties ---
-const allEvents = computed<Event[]>(() => store.getters['events/allEvents'] || []);
-const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
+const allEvents = computed<Event[]>(() => eventStore.events || []);
+const isAuthenticated = computed<boolean>(() => userStore.isAuthenticated);
 const canRequestEvent = computed<boolean>(() => isAuthenticated.value); // Simple check for now
 
 // Filter and sort events for display
@@ -183,9 +185,9 @@ const totalCompletedCount = computed<number>(() =>
     allEvents.value.filter(e => e.status === EventStatus.Completed).length
 );
 
-// Convert Vuex nameCache Map to a plain object for props
+// nameCache Map to a plain object for props
 const nameCache = computed(() => {
-  const cache = store.state.user.nameCache;
+  const cache = userStore.nameCache;
   const obj: Record<string, string> = {};
   if (cache instanceof Map) {
     cache.forEach((entry, uid) => {
@@ -202,7 +204,7 @@ onMounted(async () => {
   error.value = null; // Reset error on mount
   try {
     // Fetch all events first
-    await store.dispatch('events/fetchEvents');
+    await eventStore.fetchEvents();
 
     // Gather all unique organizer UIDs from the fetched events
     const allOrganizerUids = Array.from(
@@ -213,7 +215,7 @@ onMounted(async () => {
 
     // Fetch names only if there are organizers to fetch for
     if (allOrganizerUids.length > 0) {
-      await store.dispatch('user/fetchUserNamesBatch', allOrganizerUids);
+      await userStore.fetchUserNamesBatch(allOrganizerUids);
     }
   } catch (err) {
     console.error("Failed to load events or user names:", err);

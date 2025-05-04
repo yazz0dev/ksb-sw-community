@@ -117,15 +117,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'; // Removed nextTick
-import { useStore } from 'vuex';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useUserStore } from './store/user';
+import { useNotificationStore } from './store/notification';
+import { useAppStore } from './store/app';
 import { getAuth, signOut } from 'firebase/auth';
 
 import BottomNav from './components/ui/BottomNav.vue';
-// Removed unused imports for OfflineStateHandler and NotificationSystem as they are not used in the template
-// import OfflineStateHandler from './components/shared/OfflineStateHandler.vue';
-// import NotificationSystem from './components/shared/NotificationSystem.vue';
 
 import { isSupabaseConfigured } from './notifications';
 import { getOneSignal, isPushSupported } from './utils/oneSignalUtils'; // Import centralized utils
@@ -136,19 +135,10 @@ interface Collapse {
   show(): void;
   dispose(): void;
 }
-declare global {
-  interface Window {
-    bootstrap?: {
-      Modal?: any;
-      Collapse?: {
-        new(element: Element | string, options?: any): Collapse;
-        getInstance(element: Element | string): Collapse | null;
-      };
-    };
-  }
-}
 
-const store = useStore();
+const userStore = useUserStore();
+const notificationStore = useNotificationStore();
+const appStore = useAppStore();
 const router = useRouter();
 const route = useRoute();
 
@@ -157,25 +147,25 @@ const lastScrollPosition = ref(0);
 const scrollThreshold = 50;
 const showPushPermissionPrompt = ref(false);
 
-const isAuthenticated = computed(() => store.getters['user/isAuthenticated']);
-const userName = computed(() => store.getters['user/getUser']?.name || 'User');
-// const userId = computed(() => store.getters['user/userId']); // Removed unused computed property
+const isAuthenticated = computed(() => userStore.isAuthenticated);
+const userName = computed(() => userStore.currentUser?.name || 'User');
+// const userId = computed(() => userStore.uid); // Removed unused computed property
 
 
 const logout = async (): Promise<void> => {
   const auth = getAuth();
   try {
-    await store.commit('user/clearUserData');
-    await store.commit('user/setHasFetched', true);
+    await userStore.clearUserData();
+    await userStore.setHasFetched(true);
 
     await signOut(auth);
 
     await router.replace({ name: 'Landing' });
   } catch (error) {
-    store.dispatch('notification/showNotification', {
+    notificationStore.showNotification({
       message: 'Logout failed. Please try again.',
       type: 'error'
-    }, { root: true });
+    });
   }
 };
 
@@ -264,13 +254,13 @@ async function requestPushPermission() {
   sessionStorage.setItem('pushPromptDismissed', 'true');
 
   if (!isSupabaseConfigured() || !isPushSupported()) {
-    store.dispatch('notification/showNotification', { message: 'Push notifications not supported on this browser.', type: 'warning' }, { root: true });
+    notificationStore.showNotification({ message: 'Push notifications not supported on this browser.', type: 'warning' });
     return;
   }
 
   const OneSignal = getOneSignal();
   if (!OneSignal || typeof OneSignal.registerForPushNotifications !== 'function') {
-    store.dispatch('notification/showNotification', { message: 'Push notification SDK not loaded.', type: 'error' }, { root: true });
+    notificationStore.showNotification({ message: 'Push notification SDK not loaded.', type: 'error' });
     return;
   }
 
@@ -281,9 +271,9 @@ async function requestPushPermission() {
       const permission = await OneSignal.getNotificationPermission();
 
       if (permission === 'granted') {
-          store.dispatch('notification/showNotification', { message: 'Push notifications enabled!', type: 'success' }, { root: true });
+          notificationStore.showNotification({ message: 'Push notifications enabled!', type: 'success' });
 
-          const currentUserId = store.state.user.uid;
+          const currentUserId = userStore.uid;
           if (currentUserId && typeof OneSignal.setExternalUserId === 'function') {
               await OneSignal.setExternalUserId(currentUserId);
           } else {
@@ -291,13 +281,13 @@ async function requestPushPermission() {
           }
 
       } else if (permission === 'denied') {
-           store.dispatch('notification/showNotification', { message: 'Push permission was denied. You can enable it in browser settings.', type: 'warning' }, { root: true });
-      } else {
-          // Prompt dismissed without granting
-      }
+           notificationStore.showNotification({ message: 'Push permission was denied. You can enable it in browser settings.', type: 'warning' });
+       } else {
+           // Prompt dismissed without granting
+       }
     }
   } catch (err) {
-    store.dispatch('notification/showNotification', { message: 'Failed to enable push notifications.', type: 'error' }, { root: true });
+    notificationStore.showNotification({ message: 'Failed to enable push notifications.', type: 'error' });
   }
 }
 
@@ -324,13 +314,13 @@ const handleScroll = () => {
 };
 
 onMounted(() => {
-  store.dispatch('app/initOfflineCapabilities');
+  appStore.initOfflineCapabilities();
   window.addEventListener('scroll', handleScroll, { passive: true });
   if (isAuthenticated.value) {
        setTimeout(checkPushPermissionState, 1500);
   }
   try {
-    store.commit('user/clearStaleCache');
+    userStore.clearStaleCache();
   } catch (error) {
     // Optionally handle or log the error differently if needed
   }

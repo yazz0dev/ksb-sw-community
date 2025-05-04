@@ -97,7 +97,7 @@ npm run type-check:watch
 src/
 ├── assets/          # Static assets
 ├── components/      # Vue components
-├── store/          # Vuex store modules
+├── store/          # pinia store modules
 ├── types/          # TypeScript type definitions
 ├── utils/          # Utility functions
 ├── views/          # Vue route components

@@ -141,7 +141,7 @@ const config: UserConfig = {
           'firebase-essentials': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
           'ui-components': ['@vuepic/vue-datepicker', 'luxon'],
           'pdf-lib': ['jspdf', 'jspdf-autotable'],
-          vendor: ['vue', 'vue-router', 'vuex', 'dompurify', 'marked']
+          vendor: ['vue', 'vue-router', 'dompurify', 'marked'] 
         }
       }
     },

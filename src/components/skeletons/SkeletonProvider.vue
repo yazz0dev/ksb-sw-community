@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore } from 'vuex';
+import { useAppStore } from '@/store/app';
 
 interface Props {
   loading: boolean;
@@ -33,11 +33,11 @@ const props = withDefaults(defineProps<Props>(), {
   skeletonProps: () => ({})
 });
 
-const store = useStore();
+const appStore = useAppStore();
 
-const isOnline = computed(() => store.state.app.networkStatus.online);
-const hasQueuedActions = computed(() => store.state.app.offlineQueue.actions.length > 0);
-const queueCount = computed(() => store.state.app.offlineQueue.actions.length);
+const isOnline = computed(() => appStore.isOnline);
+const hasQueuedActions = computed(() => appStore.offlineQueue.actions.length > 0);
+const queueCount = computed(() => appStore.offlineQueue.actions.length);
 
 const statusClass = computed(() => ({
   'bg-warning text-dark': !isOnline.value,

@@ -55,7 +55,6 @@
 
 <script setup lang="ts">
 import { ref, computed, toRefs, watch, onMounted, PropType } from 'vue'; // Added PropType
-import { useStore } from 'vuex';
 
 // Local User interface definition - make email optional
 interface User {
@@ -93,7 +92,6 @@ const emit = defineEmits(['update:organizers']);
 // Removed toRefs as props are accessed directly via props.variable
 // const { organizers, isSubmitting, nameCache, currentUserUid, allUsers } = toRefs(props);
 
-const store = useStore();
 const localOrganizers = ref<string[]>([...props.organizers]);
 const coOrganizerSearch = ref('');
 const showCoOrganizerDropdown = ref(false);

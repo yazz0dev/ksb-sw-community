@@ -12,12 +12,6 @@ export enum EventStatus {
   Closed = 'Closed'
 }
 
-// --- EventState Interface for Vuex ---
-export interface EventState {
-  events: Event[];
-  currentEventDetails: Event | null;
-}
-
 // --- Supporting Types ---
 export interface EventCriteria {
   constraintIndex: number;

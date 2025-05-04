@@ -39,14 +39,12 @@ export interface NetworkStatusState {
 }
 
 // --- AppState (Revised for Pinia) ---
-// Combines state fields from the previous Vuex app module
 export interface AppState {
   lastSyncTimestamp: number | null; // Timestamp of the last successful sync
   cacheExpiration: number; // How long caches are considered valid (e.g., 30 mins)
   eventClosed: Record<string, boolean>; // Map of eventId -> isClosed status
   offlineQueue: OfflineQueueState; // Manages actions queued while offline
   networkStatus: NetworkStatusState; // Tracks online/offline status
-  // Remove Vuex specific or redundant fields: isOnline, pendingOfflineChanges, notifications, offlineCapabilities, supportedOfflineActions
 }
 
 // --- NotificationState (Keep as is - for notification store) ---

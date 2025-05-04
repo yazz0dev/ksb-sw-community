@@ -94,13 +94,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
+import { useUserStore } from '@/store/user';
+import { useEventStore } from '@/store/events';
 import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
 import { Event, EventStatus } from '@/types/event';
 
-const store = useStore();
+const userStore = useUserStore();
+const eventStore = useEventStore();
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
@@ -124,7 +126,7 @@ const getDefaultFilter = () => {
 
 const activeFilter = ref<FilterValue>(getDefaultFilter());
 
-const isAuthenticated = computed<boolean>(() => store.getters['user/isAuthenticated']);
+const isAuthenticated = computed<boolean>(() => userStore.isAuthenticated);
 
 const viewTitle = computed(() => {
   if (!isAuthenticated.value) return 'Completed Events';
@@ -155,7 +157,7 @@ const now = DateTime.now();
 
 const upcomingEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
-    return store.getters['events/allEvents'].filter((event: Event) => 
+    return eventStore.events.filter((event: Event) =>
         event.details.date.start && DateTime.fromJSDate(event.details.date.start.toDate()) > now
     ).sort((a: Event, b: Event) => {
         const dateA = a.details.date.start ? DateTime.fromJSDate(a.details.date.start.toDate()) : null;
@@ -167,7 +169,7 @@ const upcomingEvents = computed<Event[]>(() => {
 
 const activeEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
-    return store.getters['events/allEvents'].filter((event: Event) => {
+    return eventStore.events.filter((event: Event) => {
         const start = event.details.date.start ? DateTime.fromJSDate(event.details.date.start.toDate()) : null;
         const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
         return event.status === EventStatus.InProgress || 
@@ -183,11 +185,11 @@ const activeEvents = computed<Event[]>(() => {
 });
 
 const completedEvents = computed<Event[]>(() => {
-    return store.getters['events/allEvents'].filter((event: Event) => {
+    return eventStore.events.filter((event: Event) => {
         const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
-        return event.status === EventStatus.Completed || 
+        return event.status === EventStatus.Completed ||
                (event.status === EventStatus.Approved && end?.isValid && end < now);
-    }).sort((a: Event, b: Event) => { 
+    }).sort((a: Event, b: Event) => {
         const dateA = a.details.date.end || a.details.date.start;
         const dateB = b.details.date.end || b.details.date.start;
         const dtA = dateA ? DateTime.fromJSDate(dateA.toDate()) : null;
@@ -198,7 +200,7 @@ const completedEvents = computed<Event[]>(() => {
 });
 
 const nameCache = computed(() => {
-  const cache = store.state.user.nameCache;
+  const cache = userStore.nameCache; // Assuming nameCache is a state property
   if (cache instanceof Map) {
     const obj: Record<string, string> = {};
     cache.forEach((entry, uid) => {
@@ -213,15 +215,15 @@ onMounted(async () => {
   loading.value = true;
   error.value = null;
   try {
-    await store.dispatch('events/fetchEvents');
-    const allEventsArr = store.getters['events/allEvents'];
+    await eventStore.fetchEvents();
+    const allEventsArr = eventStore.events;
     const allOrganizerUids = Array.from(
       new Set(
         allEventsArr.flatMap((e: any) => Array.isArray(e.details.organizers) ? e.details.organizers : [])
       )
     ).filter(Boolean);
     if (allOrganizerUids.length > 0) {
-      await store.dispatch('user/fetchUserNamesBatch', allOrganizerUids);
+      await userStore.fetchUserNamesBatch(allOrganizerUids);
     }
   } catch (err: any) {
     error.value = err.message || 'Failed to load events.';

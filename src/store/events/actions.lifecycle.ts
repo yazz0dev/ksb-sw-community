@@ -138,7 +138,7 @@ export async function updateEventStatusInFirestore(eventId: string, newStatus: E
         let notificationType = '';
         let targetUserIds: string[] = [];
 
-        // Logic based on newStatus (similar to Vuex action)
+        // Logic based on newStatus 
         switch (newStatus) {
             case EventStatus.Approved:
                 notificationType = 'event_approved';

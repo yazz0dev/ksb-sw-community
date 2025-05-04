@@ -71,7 +71,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/store/user';
 import { formatRoleName } from '../utils/formatters';
 
 interface User {
@@ -109,13 +109,13 @@ const selectedRole = ref<string>('Overall');
 const users = ref<User[]>([]);
 const loading = ref<boolean>(true);
 
-const store = useStore();
+const userStore = useUserStore();
 
 onMounted(async () => {
     loading.value = true;
     try {
-        await store.dispatch('user/fetchLeaderboardUsers');
-        users.value = store.state.user.leaderboardUsers;
+        await userStore.fetchLeaderboardUsers();
+        users.value = userStore.leaderboardUsers;
     } catch (error) {
         users.value = [];
     } finally {

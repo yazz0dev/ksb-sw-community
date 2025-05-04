@@ -77,8 +77,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
+import { useUserStore } from '@/store/user';
 import { db } from '../firebase';
 // Import necessary Firestore functions
 import { collection, query, where, getDocs, orderBy, doc, getDoc, DocumentData, collectionGroup,getCountFromServer } from 'firebase/firestore';
@@ -107,9 +107,9 @@ interface UserProject extends DocumentData {
   eventType: string;
 }
 
-const store = useStore();
 const route = useRoute();
 const router = useRouter();
+const userStore = useUserStore();
 
 // --- State ---
 const targetUserId = ref<string | null>(null);
@@ -128,13 +128,13 @@ const error = ref<string>('');
 const profileContentRef = ref();
 
 // --- Computed Properties ---
-const loggedInUserId = computed<string | null>(() => store.state.user.uid);
+const loggedInUserId = computed<string | null>(() => userStore.uid);
 
 const userForPortfolio = computed<UserData>(() => {
     if (!isCurrentUser.value) return {} as UserData;
-    const currentUserData = store.getters['user/getUser'];
+    const currentUserData = userStore.currentUser;
     if (!currentUserData || !currentUserData.uid) return {} as UserData;
-    const totalXp = store.getters['user/currentUserTotalXp'];
+    const totalXp = userStore.currentUserTotalXp;
     return {
         name: currentUserData.name,
         uid: currentUserData.uid,
