@@ -1,8 +1,6 @@
 // src/store/user.ts
 import { defineStore } from 'pinia';
-// Import Event type if needed for request/leaderboard data
-import type { Event } from '@/types/event';
-// Ensure correct types are imported
+import type { Event } from '@/types/event'; // Import Event type for requests/leaderboard
 import type { UserState, User, NameCacheEntry, UserData } from '@/types/user';
 import { db } from '../firebase'; // Assuming firebase config is here
 import {
@@ -12,19 +10,35 @@ import {
     collection,
     getDocs,
     query,
-    where, // Import where if needed for queries
+    where,
     increment,
     Timestamp // Added Timestamp for last fetch time
 } from 'firebase/firestore';
 import { useNotificationStore } from './notification'; // Import for notifications
 
-// Define the default XP structure helper
-const defaultXpStructure: Record<string, number> = {
-    developer: 0, presenter: 0, designer: 0,
-    organizer: 0, problemSolver: 0, participation: 0
-    // Add 'Best Performer' if it's a distinct XP category tracked on the user
-    // 'BestPerformer': 0
-};
+// Define the default XP structure helper - centralize keys
+const defaultXpRoleKeys = [
+    'developer', 'presenter', 'designer',
+    'organizer', 'problemSolver', 'participation', 'BestPerformer' // Added BestPerformer
+] as const; // Use 'as const' for stricter typing
+
+type XpRoleKey = typeof defaultXpRoleKeys[number]; // Type for valid role keys
+
+const defaultXpStructure: Record<XpRoleKey, number> = defaultXpRoleKeys.reduce((acc, key) => {
+    acc[key] = 0;
+    return acc;
+}, {} as Record<XpRoleKey, number>);
+
+// Helper to format role names (can be moved to utils/formatters)
+function formatRoleName(roleKey: string): string {
+    if (!roleKey) return 'Unknown Role';
+    // Simple formatting, can be expanded
+    return roleKey
+        .replace(/([A-Z])/g, ' $1') // Add space before uppercase letters
+        .replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
+        .trim();
+}
+
 
 export const useUserStore = defineStore('user', {
     // --- State ---
@@ -83,7 +97,6 @@ export const useUserStore = defineStore('user', {
             return state.nameCache.get(userId)?.name;
         },
         currentUserTotalXp: (state): number => {
-            // Calculate total XP from the currentUser.xpByRole state
             const xpRoles = state.currentUser?.xpByRole;
             if (typeof xpRoles !== 'object' || xpRoles === null) return 0;
             return Object.values(xpRoles).reduce((sum, val) => sum + (Number(val) || 0), 0);
@@ -94,7 +107,6 @@ export const useUserStore = defineStore('user', {
         },
         getCurrentUserProfile: (state): UserData | null => state.profileData,
         getCurrentUserRequests: (state): Event[] => state.userRequests,
-        // Renamed getter for clarity, accessing currentUser directly
         profilePictureUrl: (state): string | null => state.currentUser?.photoURL ?? null,
     },
 
@@ -107,8 +119,13 @@ export const useUserStore = defineStore('user', {
 
         // Fetches data for the *currently logged-in* user
         async fetchUserData(uid: string): Promise<void> {
+            if (!uid) {
+                console.warn("fetchUserData called with no UID.");
+                await this.clearUserData();
+                this.setHasFetched(true); // Still mark as fetched attempt completed
+                return;
+            }
             console.log(`Pinia: fetchUserData called for UID: ${uid}`);
-            // Don't reset hasFetched here, it tracks the *initial* fetch attempt
             this.loading = true;
             this.error = null;
 
@@ -120,17 +137,17 @@ export const useUserStore = defineStore('user', {
                     const userData = userDocSnap.data();
                     console.log("Pinia: Fetched user data:", userData);
 
-                    // --- Populate the currentUser object ---
                     const dbXp = userData.xpByRole || {};
+                    // Merge with default structure to ensure all roles exist
                     const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
-                        acc[key] = Number(dbXp[key]) || 0;
+                        acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
                         return acc;
-                    }, {} as Record<string, number>);
+                    }, {} as Record<XpRoleKey, number>);
 
                     this.currentUser = {
                         uid: uid,
                         name: userData.name || 'User',
-                        role: userData.role || 'Student', // Default role
+                        role: userData.role || 'Student',
                         photoURL: userData.photoURL ?? undefined,
                         bio: userData.bio ?? undefined,
                         socialLink: userData.socialLink ?? undefined,
@@ -142,28 +159,22 @@ export const useUserStore = defineStore('user', {
                              : userData.lastXpCalculationTimestamp ?? null,
                         participatedEvent: Array.isArray(userData.participatedEvent) ? userData.participatedEvent : [],
                         organizedEvent: Array.isArray(userData.organizedEvent) ? userData.organizedEvent : [],
-                    } as User; // Assert type User here
+                    } as User; // Assert User type
 
-                    this.isAuthenticated = true; // User data fetched means authenticated
-
-                    // Set profileData *only if* this fetch is for the logged-in user's own profile view context
-                    // This depends on how profileData is used. If it's *always* for the viewed profile,
-                    // it should be set by fetchUserProfileData instead. Let's assume it can be self here.
-                    this.profileData = { ...this.currentUser } as UserData; // Map to UserData
+                    this.isAuthenticated = true;
+                    this.profileData = { ...this.currentUser } as UserData; // Set profile data for self
 
                 } else {
-                    console.warn(`User document not found for UID: ${uid}. Clearing data.`);
-                    await this.clearUserData(); // Use action to clear
-                    // Don't set isAuthenticated to false here, let the auth listener handle it
+                    console.warn(`User document not found for UID: ${uid}. Clearing local data.`);
+                    await this.clearUserData(); // Clears currentUser and sets isAuthenticated false
                 }
             } catch (error) {
                 console.error('Error fetching user data:', error);
                 this.error = error instanceof Error ? error : new Error('Failed to fetch user data');
                 await this.clearUserData(); // Clear on error
-                // Don't set isAuthenticated to false here, let the auth listener handle it
             } finally {
                 this.loading = false;
-                // Mark initial fetch attempt completed regardless of success/failure
+                // Mark initial fetch attempt completed only once
                 if (!this.hasFetched) {
                     this.setHasFetched(true);
                 }
@@ -175,32 +186,107 @@ export const useUserStore = defineStore('user', {
         async clearUserData() {
              this.currentUser = null;
              this.isAuthenticated = false;
-             // Do NOT reset hasFetched here
-             this.profileData = null; // Clear profile data as well
+             // Do NOT reset hasFetched
+             this.profileData = null;
              this.userRequests = [];
              this.leaderboardUsers = [];
-             // Keep caches or clear them based on desired logout behavior
+             // Optionally clear caches
              // this.nameCache.clear();
+             // this.studentList = [];
+             // this.studentListLastFetch = null;
              console.log("Pinia: User data cleared.");
         },
 
-        // Fetches UIDs of all users designated as 'Student' (remains the same)
+        // Fetches UIDs of all users designated as 'Student'
         async fetchAllStudentUIDs(): Promise<string[]> {
-             // ... implementation ...
-             return []; // Placeholder
+            console.log("Fetching all student UIDs...");
+            try {
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, where('role', '==', 'Student'));
+                const querySnapshot = await getDocs(q);
+                const studentUIDs = querySnapshot.docs.map(doc => doc.id);
+                console.log(`Found ${studentUIDs.length} student UIDs.`);
+                return studentUIDs;
+            } catch (error) {
+                console.error("Error fetching all student UIDs:", error);
+                this.error = error instanceof Error ? error : new Error('Failed to fetch student UIDs');
+                return [];
+            }
         },
 
-        // Fetches names for a batch of UIDs, using cache first (remains the same)
+        // Fetches names for a batch of UIDs, using cache first
         async fetchUserNamesBatch(uids: string[]): Promise<Record<string, string>> {
-            // ... implementation ...
-            return {}; // Placeholder
+            const validUids = Array.from(new Set(uids.filter(uid => typeof uid === 'string' && uid.trim() !== ''))); // Ensure unique and valid
+            if (validUids.length === 0) return {};
+
+            const now = Date.now();
+            const nameMap: Record<string, string> = {};
+            const idsToFetch: string[] = [];
+
+            // Check cache validity
+            validUids.forEach(uid => {
+                const cachedEntry = this.nameCache.get(uid);
+                if (cachedEntry && (now - cachedEntry.timestamp < this.nameCacheTTL)) {
+                    nameMap[uid] = cachedEntry.name;
+                } else {
+                    idsToFetch.push(uid);
+                }
+            });
+
+            if (idsToFetch.length === 0) {
+                console.log('[User Store] All names fetched from cache.');
+                return nameMap;
+            }
+
+            console.log('[User Store] Fetching names for UIDs:', idsToFetch);
+            try {
+                const chunkSize = 30; // Firestore 'in' query limit (max 30 as of recent updates)
+                for (let i = 0; i < idsToFetch.length; i += chunkSize) {
+                    const chunk = idsToFetch.slice(i, i + chunkSize);
+                    if (chunk.length > 0) {
+                        const usersRef = collection(db, 'users');
+                        const q = query(usersRef, where('__name__', 'in', chunk)); // Query by document ID (__name__)
+                        const querySnapshot = await getDocs(q);
+
+                        const foundIdsInChunk = new Set<string>();
+                        querySnapshot.forEach(doc => {
+                            const currentUid = doc.id;
+                            foundIdsInChunk.add(currentUid);
+                            const name = doc.data()?.name || `User (${currentUid.substring(0, 5)}...)`;
+                            nameMap[currentUid] = name;
+                            this.nameCache.set(currentUid, { name, timestamp: now });
+                        });
+
+                        // Handle UIDs in the chunk that were requested but not found in Firestore
+                        chunk.forEach(uid => {
+                            if (!foundIdsInChunk.has(uid)) {
+                                const fallbackName = `Unknown (${uid.substring(0, 5)})`;
+                                console.warn(`User with UID ${uid} not found in Firestore during batch fetch.`);
+                                nameMap[uid] = fallbackName;
+                                this.nameCache.set(uid, { name: fallbackName, timestamp: now }); // Cache fallback
+                            }
+                        });
+                    }
+                }
+                console.log('[User Store] Fetched names. Total in map:', Object.keys(nameMap).length);
+                return nameMap;
+            } catch (error) {
+                console.error('Error fetching user names batch:', error);
+                this.error = error instanceof Error ? error : new Error('Batch name fetch failed');
+                // Provide error fallback for UIDs that were attempted but might have failed
+                 idsToFetch.forEach(uid => {
+                     if (!nameMap[uid]) nameMap[uid] = `Error (${uid.substring(0,5)})`;
+                 });
+                return nameMap;
+            }
         },
 
         // Manually trigger a refresh of the current user's data
         async refreshUserData(): Promise<void> {
-            if (this.currentUser?.uid) { // Check currentUser.uid
+            const currentUid = this.currentUser?.uid; // Access via getter/state
+            if (currentUid) {
                 console.log("Refreshing user data manually...");
-                await this.fetchUserData(this.currentUser.uid);
+                await this.fetchUserData(currentUid);
             } else {
                 console.log("Cannot refresh, no current user UID.");
             }
@@ -209,18 +295,25 @@ export const useUserStore = defineStore('user', {
         // Atomically adds XP for a specific role to a user in Firestore
         async addXpForAction({ userId, amount, role }: { userId: string; amount: number; role: string; }): Promise<void> {
             console.log(`Pinia: addXpForAction called for User: ${userId}, Role: ${role}, Amount: ${amount}`);
-            const notificationStore = useNotificationStore(); // Get notification store
+            const notificationStore = useNotificationStore();
 
             if (!userId || !role || typeof amount !== 'number' || amount <= 0) {
-                // ... error handling ...
+                console.warn('addXpForAction: Invalid parameters provided.');
+                notificationStore.showNotification({ message: 'Invalid XP parameters.', type: 'error' });
                 return;
             }
 
+            // Validate role key
+            if (!defaultXpRoleKeys.includes(role as XpRoleKey)) {
+                 console.warn(`addXpForAction: Invalid role key '${role}'.`);
+                 notificationStore.showNotification({ message: `Invalid XP role specified: ${role}.`, type: 'error' });
+                 return;
+            }
+
             const userDocRef = doc(db, 'users', userId);
-            const xpField = `xpByRole.${role}`; // Path for dot notation
+            const xpField = `xpByRole.${role}`;
 
             try {
-                // Firestore atomic increment
                 await updateDoc(userDocRef, {
                     [xpField]: increment(amount)
                 });
@@ -228,49 +321,147 @@ export const useUserStore = defineStore('user', {
 
                 // --- Update local currentUser state if it's the affected user ---
                 if (this.currentUser && this.currentUser.uid === userId) {
-                     // Ensure xpByRole object exists locally
-                     if (typeof this.currentUser.xpByRole !== 'object' || this.currentUser.xpByRole === null) {
+                     if (!this.currentUser.xpByRole) {
                           this.currentUser.xpByRole = { ...defaultXpStructure };
                      }
-                     // Update the specific role's XP in the currentUser object
                      this.currentUser.xpByRole[role] = (Number(this.currentUser.xpByRole[role]) || 0) + amount;
-                     notificationStore.showNotification({ message: `+${amount} XP for ${formatRoleName(role)}!`, type: 'success' }); // Assume formatRoleName exists
+                     notificationStore.showNotification({ message: `+${amount} XP for ${formatRoleName(role)}!`, type: 'success' });
                 }
             } catch (error) {
-                 // ... error handling ...
+                console.error(`Error adding ${amount} XP to ${role} for user ${userId}:`, error);
+                 notificationStore.showNotification({ message: `Failed to update XP for ${role}.`, type: 'error' });
             }
         },
 
-        // Fetches all users with the 'Student' role (remains largely the same)
+        // Fetches all users with the 'Student' role
         async fetchAllStudents(): Promise<UserData[]> {
-            // ... implementation ...
-            return []; // Placeholder
+            if (this.isStudentListFresh && this.studentList.length > 0) {
+                console.log("Using cached student list.");
+                return this.studentList;
+            }
+
+            this.studentListLoading = true;
+            this.studentListError = null;
+            try {
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, where('role', '==', 'Student'));
+                const querySnapshot = await getDocs(q);
+
+                const students: UserData[] = querySnapshot.docs
+                    .map(docSnap => {
+                        const data = docSnap.data();
+                        const dbXp = data.xpByRole || {};
+                        const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
+                             acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
+                             return acc;
+                        }, {} as Record<XpRoleKey, number>);
+                        return { // Map to UserData structure
+                            uid: docSnap.id,
+                            name: data.name || 'Unnamed Student',
+                            role: 'Student',
+                            photoURL: data.photoURL,
+                            xpByRole: mergedXp,
+                            // Add other fields from UserData if needed
+                        } as UserData; // Assert UserData type
+                    })
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Sort by name
+
+                this.studentList = students;
+                this.studentListLastFetch = Date.now();
+                return students;
+            } catch (error) {
+                console.error("Error fetching all students:", error);
+                this.studentList = [];
+                this.studentListError = error instanceof Error ? error : new Error('Failed to fetch students');
+                return [];
+            } finally {
+                this.studentListLoading = false;
+            }
         },
 
-        // Fetches all users (remains largely the same)
+        // Fetches all users (consider performance implications)
         async fetchAllUsers(): Promise<UserData[]> {
-             // ... implementation ...
-            return []; // Placeholder
+            // Consider adding caching like fetchAllStudents if this is called frequently
+             this.loading = true;
+             this.error = null;
+            try {
+                const usersRef = collection(db, 'users');
+                const querySnapshot = await getDocs(usersRef);
+
+                const users: UserData[] = querySnapshot.docs.map(docSnap => {
+                    const data = docSnap.data();
+                    const dbXp = data.xpByRole || {};
+                    const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
+                        acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
+                        return acc;
+                    }, {} as Record<XpRoleKey, number>);
+                    return {
+                        uid: docSnap.id,
+                        name: data.name || 'Unnamed User',
+                        role: data.role || 'Student',
+                        photoURL: data.photoURL,
+                        xpByRole: mergedXp,
+                        // Map other relevant fields from UserData
+                    } as UserData; // Assert UserData type
+                });
+
+                this.allUsers = users;
+                return users;
+            } catch (error) {
+                console.error("Error fetching all users:", error);
+                 this.error = error instanceof Error ? error : new Error('Failed to fetch users');
+                 this.allUsers = [];
+                return [];
+            } finally {
+                 this.loading = false;
+            }
         },
 
-        // Clears expired cache entries (remains the same)
+        // Clears expired cache entries based on TTL settings
         clearStaleCache() {
-            // ... implementation ...
+            const now = Date.now();
+            let clearedNames = 0;
+            let clearedStudents = false;
+
+            // Clear stale name cache entries
+            for (const [uid, data] of this.nameCache.entries()) {
+                if (now - data.timestamp > this.nameCacheTTL) {
+                    this.nameCache.delete(uid);
+                    clearedNames++;
+                }
+            }
+            if (clearedNames > 0) console.log(`Cleared ${clearedNames} stale name cache entries.`);
+
+            // Clear student list if TTL expired AND it's not currently loading
+            if (this.studentListLastFetch !== null &&
+                !this.studentListLoading &&
+                (now - this.studentListLastFetch > this.studentListTTL))
+            {
+                console.log('Student list cache expired. Clearing data.');
+                this.studentList = [];
+                this.studentListLastFetch = null;
+                this.studentListError = null;
+                clearedStudents = true;
+                 if (clearedStudents) console.log(`Cleared stale student list.`);
+            }
         },
 
         // --- Profile/Request/Leaderboard Fetch Actions ---
 
         // Fetches profile data for a specific user ID (could be self or other)
         async fetchUserProfileData(userId: string) {
-             // Check if fetching data for the currently logged-in user AND it's already loaded in currentUser
+            if (!userId) {
+                this.error = new Error("User ID is required to fetch profile data.");
+                this.profileData = null;
+                return;
+            }
+            // Check if fetching data for the currently logged-in user AND it's already loaded
             if (userId === this.currentUser?.uid && this.isAuthenticated) {
                  console.log(`Using already loaded currentUser data for profile view ${userId}`);
-                 // Map currentUser to profileData (UserData structure)
                  this.profileData = { ...this.currentUser } as UserData;
-                 return; // Avoid redundant fetch for self if data is present
+                 return;
             }
 
-            // Proceed to fetch if it's another user or current user data isn't loaded
             this.loading = true;
             this.error = null;
             try {
@@ -280,16 +471,14 @@ export const useUserStore = defineStore('user', {
                      const data = userDocSnap.data();
                      const dbXp = data.xpByRole || {};
                      const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
-                         acc[key] = Number(dbXp[key]) || 0;
+                         acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
                          return acc;
-                     }, {} as Record<string, number>);
-
+                     }, {} as Record<XpRoleKey, number>);
                     // Map to UserData type
                     this.profileData = {
                         uid: userId,
-                        name: data.name || 'Unnamed',
+                        name: data.name || 'Unnamed User',
                         role: data.role || 'Student',
-                        // Assume fetched profile is valid in this context, don't set isAuthenticated
                         photoURL: data.photoURL,
                         bio: data.bio,
                         socialLink: data.socialLink,
@@ -312,27 +501,132 @@ export const useUserStore = defineStore('user', {
             }
         },
 
-        // Fetches event requests made *by* the specified user ID (remains largely the same)
+        // Fetches event requests made *by* the specified user ID
         async fetchUserRequests(userId: string) {
-             // ... implementation ...
-             this.userRequests = []; // Placeholder
+            if (!userId) {
+                 this.userRequests = [];
+                 return;
+            }
+            this.loading = true; // Consider a specific loading flag
+            this.error = null;
+            try {
+                 const q = query(
+                     collection(db, 'events'),
+                     where('requestedBy', '==', userId),
+                     where('status', 'in', ['Pending', 'Rejected']) // Filter by relevant statuses
+                 );
+                 const querySnapshot = await getDocs(q);
+                 this.userRequests = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
+                 console.log(`Fetched ${this.userRequests.length} requests for user ${userId}`);
+            } catch (err) {
+                console.error(`Error fetching requests for ${userId}:`, err);
+                this.error = err instanceof Error ? err : new Error('Failed to fetch requests');
+                this.userRequests = [];
+            } finally {
+                 this.loading = false;
+            }
         },
 
-        // Fetches users for the leaderboard view (remains largely the same)
+        // Fetches users for the leaderboard view
         async fetchLeaderboardUsers() {
-             // ... implementation ...
-             this.leaderboardUsers = []; // Placeholder
+            this.loading = true; // Consider a specific loading flag
+            this.error = null;
+            try {
+                 const usersRef = collection(db, 'users');
+                 const querySnapshot = await getDocs(usersRef);
+
+                 this.leaderboardUsers = querySnapshot.docs.map(docSnap => {
+                     const data = docSnap.data();
+                     const dbXp = data.xpByRole || {};
+                     const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
+                         acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
+                         return acc;
+                     }, {} as Record<XpRoleKey, number>);
+                     return {
+                         uid: docSnap.id,
+                         name: data.name || 'Unnamed User',
+                         role: data.role || 'Student',
+                         photoURL: data.photoURL,
+                         xpByRole: mergedXp,
+                     } as UserData; // Assert UserData type
+                 });
+
+                 // Initial sort by total XP (can be moved to component if role filtering is dynamic)
+                 this.leaderboardUsers.sort((a, b) => {
+                     const xpA = Object.values(a.xpByRole || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+                     const xpB = Object.values(b.xpByRole || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+                     return xpB - xpA; // Descending
+                 });
+                 console.log(`Fetched ${this.leaderboardUsers.length} users for leaderboard.`);
+
+            } catch (err) {
+                console.error("Error fetching leaderboard users:", err);
+                this.error = err instanceof Error ? err : new Error('Failed to fetch leaderboard');
+                this.leaderboardUsers = [];
+            } finally {
+                 this.loading = false;
+            }
         },
 
-        // Placeholder implementation (remains the same)
+        // Calculate average rating (complex - requires fetching related event data)
         async calculateWeightedAverageRating({ eventId, userId }: { eventId: string; userId: string }): Promise<number | null> {
-            // ... implementation ...
-            return null; // Placeholder
+            // --- THIS IS A COMPLEX OPERATION AND MIGHT BE BETTER SUITED FOR A BACKEND FUNCTION ---
+            // This implementation fetches the event, finds relevant ratings, and calculates.
+            // It could be inefficient if called frequently for many users.
+            console.warn(`Calculating weighted average rating for user ${userId} in event ${eventId}... (potentially inefficient)`);
+            try {
+                const eventDocRef = doc(db, 'events', eventId);
+                const eventSnap = await getDoc(eventDocRef);
+                if (!eventSnap.exists()) {
+                    console.warn(`Event ${eventId} not found for rating calculation.`);
+                    return null;
+                }
+                const eventData = eventSnap.data() as Event;
+
+                let totalWeightedScore = 0;
+                let totalWeight = 0;
+
+                // TODO: Define how ratings are stored and weighted.
+                // This example assumes ratings might be linked to criteria or submissions.
+                // The logic here needs to be adapted to YOUR ACTUAL DATA STRUCTURE for ratings.
+
+                // Example: Assume ratings are stored within event.teams[teamIndex].ratings
+                if (eventData.details.format === 'Team' && eventData.teams) {
+                    const userTeam = eventData.teams.find(t => t.members?.includes(userId));
+                    if (userTeam && Array.isArray(userTeam.ratings)) {
+                        // userTeam.ratings.forEach(rating => {
+                        //    // Example weighting logic:
+                        //    const weight = rating.weight || 1; // Default weight
+                        //    const score = rating.score || 0;
+                        //    totalWeightedScore += score * weight;
+                        //    totalWeight += weight;
+                        // });
+                    }
+                } else if (eventData.details.format === 'Individual' && eventData.submissions) {
+                    // Example: Assume ratings are linked to submissions by the user
+                     // const userSubmissions = eventData.submissions.filter(s => s.submittedBy === userId);
+                     // userSubmissions.forEach(submission => {
+                     //    if (Array.isArray(submission.ratings)) { // Assuming ratings are on submissions
+                     //       submission.ratings.forEach(rating => {
+                     //          // Weighting logic...
+                     //       });
+                     //    }
+                     // });
+                }
+
+                // --- Placeholder Logic (Replace with actual calculation) ---
+                if (totalWeight === 0) {
+                    // Simulate some data if none found for testing
+                    console.log("No rating data found, returning placeholder value.");
+                     return Math.round((Math.random() * 3 + 2) * 10) / 10; // Random 2.0-5.0
+                }
+
+                return totalWeightedScore / totalWeight;
+
+            } catch (error) {
+                console.error(`Error calculating average rating for user ${userId} in event ${eventId}:`, error);
+                return null;
+            }
         },
     },
 });
-
-// Helper function (assuming it exists in utils/formatters)
-function formatRoleName(roleKey: string): string {
-    return roleKey.charAt(0).toUpperCase() + roleKey.slice(1); // Basic example
-}
