@@ -29,7 +29,7 @@ const defaultXpStructure: Record<XpRoleKey, number> = defaultXpRoleKeys.reduce((
     return acc;
 }, {} as Record<XpRoleKey, number>);
 
-// Helper to format role names (can be moved to utils/formatters)
+// Helper to format role names (consider moving to utils/formatters)
 function formatRoleName(roleKey: string): string {
     if (!roleKey) return 'Unknown Role';
     // Simple formatting, can be expanded
@@ -38,7 +38,6 @@ function formatRoleName(roleKey: string): string {
         .replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
         .trim();
 }
-
 
 export const useUserStore = defineStore('user', {
     // --- State ---
@@ -362,6 +361,11 @@ export const useUserStore = defineStore('user', {
                             photoURL: data.photoURL,
                             xpByRole: mergedXp,
                             // Add other fields from UserData if needed
+                            // Ensure all required fields of UserData (extending User) are present
+                            skills: data.skills || [],
+                            preferredRoles: data.preferredRoles || [],
+                            participatedEvent: data.participatedEvent || [],
+                            organizedEvent: data.organizedEvent || [],
                         } as UserData; // Assert UserData type
                     })
                     .sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Sort by name
@@ -402,6 +406,12 @@ export const useUserStore = defineStore('user', {
                         photoURL: data.photoURL,
                         xpByRole: mergedXp,
                         // Map other relevant fields from UserData
+                        bio: data.bio,
+                        socialLink: data.socialLink,
+                        skills: data.skills || [],
+                        preferredRoles: data.preferredRoles || [],
+                        participatedEvent: data.participatedEvent || [],
+                        organizedEvent: data.organizedEvent || [],
                     } as UserData; // Assert UserData type
                 });
 
@@ -455,7 +465,7 @@ export const useUserStore = defineStore('user', {
                 this.profileData = null;
                 return;
             }
-            // Check if fetching data for the currently logged-in user AND it's already loaded
+            // Check if fetching data for the currently logged-in user AND it's already loaded in currentUser
             if (userId === this.currentUser?.uid && this.isAuthenticated) {
                  console.log(`Using already loaded currentUser data for profile view ${userId}`);
                  this.profileData = { ...this.currentUser } as UserData;
@@ -513,7 +523,8 @@ export const useUserStore = defineStore('user', {
                  const q = query(
                      collection(db, 'events'),
                      where('requestedBy', '==', userId),
-                     where('status', 'in', ['Pending', 'Rejected']) // Filter by relevant statuses
+                     // Fetch Pending and Rejected to show in "My Requests"
+                     where('status', 'in', ['Pending', 'Rejected'])
                  );
                  const querySnapshot = await getDocs(q);
                  this.userRequests = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
@@ -548,6 +559,7 @@ export const useUserStore = defineStore('user', {
                          role: data.role || 'Student',
                          photoURL: data.photoURL,
                          xpByRole: mergedXp,
+                         // Include other UserData fields if needed by the leaderboard component
                      } as UserData; // Assert UserData type
                  });
 
@@ -568,65 +580,5 @@ export const useUserStore = defineStore('user', {
             }
         },
 
-        // Calculate average rating (complex - requires fetching related event data)
-        async calculateWeightedAverageRating({ eventId, userId }: { eventId: string; userId: string }): Promise<number | null> {
-            // --- THIS IS A COMPLEX OPERATION AND MIGHT BE BETTER SUITED FOR A BACKEND FUNCTION ---
-            // This implementation fetches the event, finds relevant ratings, and calculates.
-            // It could be inefficient if called frequently for many users.
-            console.warn(`Calculating weighted average rating for user ${userId} in event ${eventId}... (potentially inefficient)`);
-            try {
-                const eventDocRef = doc(db, 'events', eventId);
-                const eventSnap = await getDoc(eventDocRef);
-                if (!eventSnap.exists()) {
-                    console.warn(`Event ${eventId} not found for rating calculation.`);
-                    return null;
-                }
-                const eventData = eventSnap.data() as Event;
-
-                let totalWeightedScore = 0;
-                let totalWeight = 0;
-
-                // TODO: Define how ratings are stored and weighted.
-                // This example assumes ratings might be linked to criteria or submissions.
-                // The logic here needs to be adapted to YOUR ACTUAL DATA STRUCTURE for ratings.
-
-                // Example: Assume ratings are stored within event.teams[teamIndex].ratings
-                if (eventData.details.format === 'Team' && eventData.teams) {
-                    const userTeam = eventData.teams.find(t => t.members?.includes(userId));
-                    if (userTeam && Array.isArray(userTeam.ratings)) {
-                        // userTeam.ratings.forEach(rating => {
-                        //    // Example weighting logic:
-                        //    const weight = rating.weight || 1; // Default weight
-                        //    const score = rating.score || 0;
-                        //    totalWeightedScore += score * weight;
-                        //    totalWeight += weight;
-                        // });
-                    }
-                } else if (eventData.details.format === 'Individual' && eventData.submissions) {
-                    // Example: Assume ratings are linked to submissions by the user
-                     // const userSubmissions = eventData.submissions.filter(s => s.submittedBy === userId);
-                     // userSubmissions.forEach(submission => {
-                     //    if (Array.isArray(submission.ratings)) { // Assuming ratings are on submissions
-                     //       submission.ratings.forEach(rating => {
-                     //          // Weighting logic...
-                     //       });
-                     //    }
-                     // });
-                }
-
-                // --- Placeholder Logic (Replace with actual calculation) ---
-                if (totalWeight === 0) {
-                    // Simulate some data if none found for testing
-                    console.log("No rating data found, returning placeholder value.");
-                     return Math.round((Math.random() * 3 + 2) * 10) / 10; // Random 2.0-5.0
-                }
-
-                return totalWeightedScore / totalWeight;
-
-            } catch (error) {
-                console.error(`Error calculating average rating for user ${userId} in event ${eventId}:`, error);
-                return null;
-            }
-        },
     },
 });
