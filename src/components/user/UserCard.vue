@@ -1,19 +1,16 @@
 // /src/components/UserCard.vue
 <template>
-  <div class="d-flex align-items-center p-3" style="background-color: var(--bs-light); border-bottom: 1px solid var(--bs-border-color);">
-    <p class="fs-7 fw-medium text-primary me-2 mb-0">{{ name || userId }}</p> 
-    <div v-if="averageRating !== null" class="d-flex align-items-center">
-      <span class="fs-7 text-secondary me-1">-</span>
-      <vue3-star-ratings
-        v-model:rating="averageRating" 
-        :star-size="14" 
-        :read-only="true"
-        :show-rating="false"
-        inactive-color="var(--bs-gray-300)"  
-        active-color="var(--bs-warning)" 
-        :star-spacing="1"
-      />
-    </div>
+  <!-- Simplified User Card - Removed Rating Display -->
+  <div class="d-flex align-items-center p-3 user-card-simple">
+    <!-- Display User Name -->
+    <p class="fs-7 fw-medium text-primary mb-0 username-text">
+      <i class="fas fa-user me-1 text-secondary fa-xs"></i> <!-- Optional icon -->
+      {{ name || `User (${userId.substring(0, 5)}...)` }}
+    </p>
+    <!-- Potential future addition: Display total XP -->
+    <!-- <span v-if="totalXp !== null" class="ms-2 badge bg-light text-dark border">
+      {{ totalXp }} XP
+    </span> -->
   </div>
 </template>
 
@@ -23,46 +20,63 @@ import { useUserStore } from '@/store/user';
 
 interface Props {
   userId: string;
-  eventId: string;
-  teamId?: string;
+  // eventId prop is no longer needed for rating, keep if used elsewhere
+  // eventId: string;
+  // teamId?: string; // Keep if used elsewhere
 }
 
 const props = defineProps<Props>();
 
 const userStore = useUserStore();
-const averageRating = ref<number | null>(null);
 const name = ref<string | null>(null);
+// const totalXp = ref<number | null>(null); // Optional: If you want to display total XP
 
-const fetchUserName = (): void => {
+const fetchUserData = async (): Promise<void> => {
+  // Fetch name from cache or store
   const cachedName = userStore.getCachedUserName(props.userId);
   if (cachedName) {
     name.value = cachedName;
+  } else {
+    // Optionally fetch if not in cache (might be less efficient if called many times)
+    // const names = await userStore.fetchUserNamesBatch([props.userId]);
+    // name.value = names[props.userId] || `User (${props.userId.substring(0, 5)}...)`;
+    name.value = `User (${props.userId.substring(0, 5)}...)`; // Fallback if not fetching here
   }
+
+  // Optional: Fetch total XP if needed
+  // This requires ensuring the user's full data (including xpByRole) is loaded
+  // const userProfile = await userStore.fetchUserProfileData(props.userId); // This might be too heavy here
+  // const userProfile = userStore.getUserById(props.userId) // If you have such a getter
+  // if (userProfile?.xpByRole) {
+  //   totalXp.value = Object.values(userProfile.xpByRole).reduce((sum, val) => sum + (Number(val) || 0), 0);
+  // }
 };
 
-onMounted(async () => {
-  fetchUserName();
-  try {
-    const ratingResult = await userStore.calculateWeightedAverageRating({
-      eventId: props.eventId,
-      userId: props.userId
-    });
-    averageRating.value = ratingResult;
-  } catch (error) {
-    console.error(`Error fetching rating for user ${props.userId} in event ${props.eventId}:`, error);
-    averageRating.value = null;
-  }
-});
+onMounted(fetchUserData);
+
 </script>
 
 <style scoped>
-/* Style adjustments for vue3-star-ratings if needed */
-:deep(.vue-star-rating-star) {
-  margin-bottom: 0 !important; /* Override potential default margins */
-}
-
 /* Define fs-7 if not already defined globally */
 .fs-7 {
-    font-size: 0.8rem !important; /* Adjust size as needed */
+    font-size: 0.875rem !important; /* Adjust size as needed */
+}
+.user-card-simple {
+    background-color: var(--bs-light);
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    transition: background-color 0.2s ease-in-out;
+}
+.user-card-simple:hover {
+    background-color: var(--bs-tertiary-bg);
+}
+.username-text {
+    /* Prevent long names from breaking layout */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fa-xs {
+  font-size: 0.75em; /* Smaller icon */
+  vertical-align: baseline; /* Align icon nicely with text */
 }
 </style>
