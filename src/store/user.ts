@@ -1,6 +1,9 @@
 // src/store/user.ts
 import { defineStore } from 'pinia';
-import { UserState, User, NameCacheEntry, UserData } from '@/types/user'; // Import User/UserData if needed for lists
+// Import Event type if needed for request/leaderboard data
+import { Event } from '@/types/event';
+// Ensure UserData is imported if used for lists
+import { UserState, User, NameCacheEntry, UserData } from '@/types/user';
 import { db } from '../firebase'; // Assuming firebase config is here
 import {
     doc,
@@ -23,48 +26,56 @@ const defaultXpStructure: Record<string, number> = {
 export const useUserStore = defineStore('user', {
     // --- State ---
     state: (): UserState => ({
-        currentUser: null, // Initialize currentUser
+        currentUser: null, // Holds the full User object
+        // Individual properties for easier access/reactivity if needed
         uid: null,
         name: null,
+        photoURL: undefined,
+        bio: undefined,
+        socialLink: undefined,
         isAuthenticated: false,
-        hasFetched: false,
+        hasFetched: false, // Tracks if initial auth check/fetch attempt completed
         xpByRole: { ...defaultXpStructure },
         skills: [],
         preferredRoles: [],
         lastXpCalculationTimestamp: null,
-        studentList: [],
-        studentListLastFetch: null,
-        studentListTTL: 1000 * 60 * 60, // 1 hour
-        studentListLoading: false,
-        studentListError: null,
-        allUsers: [],
-        nameCache: new Map(),
-        nameCacheTTL: 1000 * 60 * 30, // 30 minutes
-        loading: false,
-        error: null,
-        photoURL: undefined,
-        bio: undefined,
-        socialLink: undefined,
         participatedEvent: [],
         organizedEvent: [],
-        profileData: null,
-        userRequests: [], // Add missing state properties
-        leaderboardUsers: [], // Add missing state properties
+        profileData: null, // Holds profile data for viewed user (can be self or other)
+        // Student/User Lists
+        studentList: [],
+        studentListLastFetch: null,
+        studentListTTL: 1000 * 60 * 60, // 1 hour TTL for student list
+        studentListLoading: false,
+        studentListError: null,
+        allUsers: [], // Potentially used for admin views or broader lookups
+        // Name Caching
+        nameCache: new Map(),
+        nameCacheTTL: 1000 * 60 * 30, // 30 minutes TTL for names
+        // General Loading/Error
+        loading: false,
+        error: null,
+        // ADDED: Missing state properties (typed)
+        userRequests: [] as Event[], // Holds the current user's event requests
+        leaderboardUsers: [] as UserData[], // Holds users fetched for the leaderboard
     }),
 
     // --- Getters ---
     getters: {
-        // isAuthenticated: (state) => state.isAuthenticated, // Direct access usually preferred
-        // getUser: (state): User | null => state.currentUser, // Direct access usually preferred
-        // userId: (state) => state.uid, // Direct access usually preferred
-        // hasFetchedUserData: (state) => state.hasFetched, // Direct access usually preferred
-        // --- Getters that provide computed values or complex lookups ---
-        getAllUsers: (state): User[] => state.allUsers || [],
-        getStudentList: (state): User[] => state.studentList || [],
+        // Direct state access is often fine, but getters can provide computed logic
+        // isAuthenticated: (state) => state.isAuthenticated,
+        // currentUser: (state): User | null => state.currentUser,
+        // uid: (state) => state.uid, // Direct access via store.uid
+        // hasFetched: (state) => state.hasFetched, // Direct access via store.hasFetched
+
+        // Getters for computed or derived state
+        getAllUsers: (state): UserData[] => state.allUsers || [], // Ensure array
+        getStudentList: (state): UserData[] => state.studentList || [], // Ensure array
         getCachedUserName: (state) => (userId: string): string | undefined => {
             return state.nameCache.get(userId)?.name;
         },
         currentUserTotalXp: (state): number => {
+            // Calculate total XP from the reactive xpByRole state
             if (typeof state.xpByRole !== 'object' || state.xpByRole === null) return 0;
             return Object.values(state.xpByRole).reduce((sum, val) => sum + (Number(val) || 0), 0);
         },
@@ -72,20 +83,25 @@ export const useUserStore = defineStore('user', {
             if (!state.studentListLastFetch) return false;
             return (Date.now() - state.studentListLastFetch) < state.studentListTTL;
         },
-        // Expose profile data if needed
-        getCurrentUserProfile: (state) => state.profileData,
-        getCurrentUserRequests: (state) => state.userRequests,
+        // Getter for profile data (might be self or other user)
+        getCurrentUserProfile: (state): UserData | null => state.profileData,
+        // Getter for the logged-in user's event requests
+        getCurrentUserRequests: (state): Event[] => state.userRequests,
+        // Getter for profile picture URL
+        profilePictureUrl: (state): string | null => state.photoURL ?? null, // Use nullish coalescing
     },
 
     // --- Actions (incorporating mutations) ---
     actions: {
+        // Internal helper to mark fetch status
         setHasFetched(fetched: boolean) {
             this.hasFetched = !!fetched;
         },
 
+        // Fetches data for the *currently logged-in* user
         async fetchUserData(uid: string): Promise<void> {
             console.log(`Pinia: fetchUserData called for UID: ${uid}`);
-            this.setHasFetched(false); // Use action to set flag
+            this.setHasFetched(false); // Mark as fetching
             this.loading = true;
             this.error = null;
 
@@ -97,13 +113,14 @@ export const useUserStore = defineStore('user', {
                     const userData = userDocSnap.data();
                     console.log("Pinia: Fetched user data:", userData);
 
-                    // --- Direct State Updates (Mutation Logic) ---
+                    // --- Update State Directly ---
                     this.uid = uid;
                     this.name = userData.name || 'User'; // Default name
                     this.photoURL = userData.photoURL ?? undefined;
                     this.bio = userData.bio ?? undefined;
                     this.socialLink = userData.socialLink ?? undefined;
 
+                    // Safely map xpByRole, ensuring all default keys exist
                     const dbXp = userData.xpByRole || {};
                     this.xpByRole = Object.keys(defaultXpStructure).reduce((acc, key) => {
                         acc[key] = Number(dbXp[key]) || 0;
@@ -115,17 +132,33 @@ export const useUserStore = defineStore('user', {
                     this.lastXpCalculationTimestamp = userData.lastXpCalculationTimestamp || null;
                     this.participatedEvent = Array.isArray(userData.participatedEvent) ? userData.participatedEvent : [];
                     this.organizedEvent = Array.isArray(userData.organizedEvent) ? userData.organizedEvent : [];
-                    this.isAuthenticated = true; // Set authenticated state
-                    // --- End State Updates ---
+                    this.isAuthenticated = true; // User data fetched means authenticated
 
-                     // Update profile data state as well
-                     this.profileData = { uid, ...userData };
+                    // Update currentUser object
+                    this.currentUser = {
+                        uid: uid,
+                        name: this.name,
+                        photoURL: this.photoURL,
+                        bio: this.bio,
+                        socialLink: this.socialLink,
+                        xpByRole: this.xpByRole,
+                        skills: this.skills,
+                        preferredRoles: this.preferredRoles,
+                        lastXpCalculationTimestamp: this.lastXpCalculationTimestamp,
+                        participatedEvent: this.participatedEvent,
+                        organizedEvent: this.organizedEvent,
+                        isAuthenticated: this.isAuthenticated,
+                        role: userData.role || 'Student', // Add role if present
+                    } as User;
+
+                    // Set profileData if fetching own data
+                    this.profileData = this.currentUser;
+
 
                 } else {
                     console.warn(`User document not found for UID: ${uid}. Clearing data.`);
                     this.clearUserData(); // Use action to clear
-                    // Keep hasFetched false if user not found, but set isAuthenticated false
-                    this.isAuthenticated = false;
+                    this.isAuthenticated = false; // No user found, not authenticated
                 }
             } catch (error) {
                 console.error('Error fetching user data:', error);
@@ -134,14 +167,13 @@ export const useUserStore = defineStore('user', {
                 this.isAuthenticated = false;
             } finally {
                 this.loading = false;
-                this.setHasFetched(true); // Mark as fetched regardless of outcome
+                this.setHasFetched(true); // Mark fetch attempt completed
                 console.log("Pinia: fetchUserData completed.");
             }
         },
 
-        // Action to clear user data
+        // Clears all user-related state, typically on logout
         async clearUserData() {
-             // Direct state mutation
              this.currentUser = null;
              this.uid = null;
              this.name = null;
@@ -152,34 +184,27 @@ export const useUserStore = defineStore('user', {
              this.skills = [];
              this.preferredRoles = [];
              this.isAuthenticated = false;
-             // Do NOT reset hasFetched here, as it indicates the *attempt* was made
+             // Do NOT reset hasFetched here, as it indicates the *initial* auth check attempt
              this.lastXpCalculationTimestamp = null;
              this.participatedEvent = [];
              this.organizedEvent = [];
-             this.profileData = null;
+             this.profileData = null; // Clear profile data as well
              this.userRequests = [];
              this.leaderboardUsers = [];
-             // Don't clear allUsers or studentList here unless intended
-             // Clear name cache explicitly if needed
-             this.nameCache.clear();
+             // Optionally clear cache on logout, or keep it for faster subsequent logins
+             // this.nameCache.clear();
              console.log("Pinia: User data cleared.");
-             // No need to await basic state resets
         },
 
+        // Fetches UIDs of all users designated as 'Student'
         async fetchAllStudentUIDs(): Promise<string[]> {
             console.log("Fetching all student UIDs...");
             try {
                 const usersRef = collection(db, 'users');
-                // Assuming 'Student' role exists. Adjust if needed.
-                // Firestore doesn't efficiently support OR queries on different fields.
-                // Fetch all and filter, or ensure a 'isStudent' boolean field exists.
-                const q = query(usersRef); // Simplest: fetch all
+                // Query for users where the 'role' field is 'Student'
+                const q = query(usersRef, where('role', '==', 'Student'));
                 const querySnapshot = await getDocs(q);
-
-                const studentUIDs = querySnapshot.docs
-                    .filter(doc => (doc.data().role || 'Student') === 'Student') // Filter client-side
-                    .map(doc => doc.id);
-
+                const studentUIDs = querySnapshot.docs.map(doc => doc.id);
                 console.log(`Found ${studentUIDs.length} student UIDs.`);
                 return studentUIDs;
             } catch (error) {
@@ -188,48 +213,65 @@ export const useUserStore = defineStore('user', {
             }
         },
 
+        // Fetches names for a batch of UIDs, using cache first
         async fetchUserNamesBatch(uids: string[]): Promise<Record<string, string>> {
-            // Optimization: Filter out already cached UIDs
-            const idsToFetch = uids.filter(uid => uid && !this.nameCache.has(uid));
-            const nameMap: Record<string, string> = {};
+            // Ensure input is a valid array of strings
+            const validUids = uids.filter(uid => typeof uid === 'string' && uid.trim() !== '');
+            if (validUids.length === 0) return {};
 
-            // Populate map with already cached names
-            uids.forEach(uid => {
-                if (this.nameCache.has(uid)) {
-                    nameMap[uid] = this.nameCache.get(uid)!.name;
+            const now = Date.now();
+            const nameMap: Record<string, string> = {};
+            const idsToFetch: string[] = [];
+
+            // Check cache validity
+            validUids.forEach(uid => {
+                const cachedEntry = this.nameCache.get(uid);
+                if (cachedEntry && (now - cachedEntry.timestamp < this.nameCacheTTL)) {
+                    nameMap[uid] = cachedEntry.name;
+                } else {
+                    idsToFetch.push(uid); // Add to fetch list if not cached or expired
                 }
             });
 
             if (idsToFetch.length === 0) {
-                return nameMap; // Return immediately if all names are cached
+                return nameMap; // All names were cached and fresh
             }
 
             console.log('[User Store] Fetching names for UIDs:', idsToFetch);
             try {
-                const usersRef = collection(db, 'users');
-                const userDocs = await Promise.all(
-                    idsToFetch.map(uid => getDoc(doc(usersRef, uid)))
-                );
+                // Use Firestore 'in' query for efficiency, chunking if necessary
+                const chunkSize = 30; // Firestore 'in' query limit
+                for (let i = 0; i < idsToFetch.length; i += chunkSize) {
+                    const chunk = idsToFetch.slice(i, i + chunkSize);
+                    if (chunk.length > 0) {
+                        const usersRef = collection(db, 'users');
+                        const q = query(usersRef, where('__name__', 'in', chunk)); // Query by document ID
+                        const querySnapshot = await getDocs(q);
 
-                userDocs.forEach((doc, idx) => {
-                    const currentUid = idsToFetch[idx];
-                    if (doc.exists()) {
-                        const name = doc.data().name || `User ${currentUid.substring(0, 5)}`;
-                        nameMap[currentUid] = name;
-                        // Add to cache directly
-                        this.nameCache.set(currentUid, { name, timestamp: Date.now() });
-                    } else {
-                        // Cache a fallback for non-existent UIDs to prevent refetching
-                        const fallbackName = `Unknown (${currentUid.substring(0,5)})`;
-                        nameMap[currentUid] = fallbackName;
-                         this.nameCache.set(currentUid, { name: fallbackName, timestamp: Date.now() });
+                        const foundIds = new Set<string>();
+                        querySnapshot.forEach(doc => {
+                            const currentUid = doc.id;
+                            foundIds.add(currentUid);
+                            const name = doc.data().name || `User ${currentUid.substring(0, 5)}`;
+                            nameMap[currentUid] = name;
+                            this.nameCache.set(currentUid, { name, timestamp: now });
+                        });
+
+                        // Handle UIDs in the chunk that were requested but not found in Firestore
+                        chunk.forEach(uid => {
+                            if (!foundIds.has(uid)) {
+                                const fallbackName = `Unknown (${uid.substring(0, 5)})`;
+                                nameMap[uid] = fallbackName;
+                                this.nameCache.set(uid, { name: fallbackName, timestamp: now });
+                            }
+                        });
                     }
-                });
+                }
                 console.log('[User Store] Fetched names. Total in map:', Object.keys(nameMap).length);
                 return nameMap;
             } catch (error) {
                 console.error('Error fetching user names batch:', error);
-                // Return map with cached names + fallbacks for errored fetches
+                // Provide error fallback for UIDs that failed to fetch
                  idsToFetch.forEach(uid => {
                      if (!nameMap[uid]) nameMap[uid] = `Error (${uid.substring(0,5)})`;
                  });
@@ -237,6 +279,7 @@ export const useUserStore = defineStore('user', {
             }
         },
 
+        // Manually trigger a refresh of the current user's data
         async refreshUserData(): Promise<void> {
             if (this.uid) {
                 console.log("Refreshing user data manually...");
@@ -246,6 +289,7 @@ export const useUserStore = defineStore('user', {
             }
         },
 
+        // Atomically adds XP for a specific role to a user in Firestore
         async addXpForAction({ userId, amount, role }: { userId: string; amount: number; role: string; }): Promise<void> {
             console.log(`Pinia: addXpForAction called for User: ${userId}, Role: ${role}, Amount: ${amount}`);
             const notificationStore = useNotificationStore(); // Get notification store
@@ -257,58 +301,68 @@ export const useUserStore = defineStore('user', {
             }
 
             const userDocRef = doc(db, 'users', userId);
-            const xpField = `xpByRole.${role}`;
+            const xpField = `xpByRole.${role}`; // Path for dot notation
 
             try {
+                // Use Firestore atomic increment operation
                 await updateDoc(userDocRef, {
                     [xpField]: increment(amount)
                 });
                 console.log(`Successfully added ${amount} XP to ${role} for user ${userId}`);
 
-                // If this is the current user, update local state directly
-                if (this.uid === userId) {
-                     // Ensure xpByRole exists
-                     if (typeof this.xpByRole !== 'object' || this.xpByRole === null) {
-                          this.xpByRole = { ...defaultXpStructure };
+                // If this is the currently logged-in user, update local state for immediate UI feedback
+                if (this.uid === userId && this.currentUser) {
+                     // Ensure xpByRole object exists locally
+                     if (typeof this.currentUser.xpByRole !== 'object' || this.currentUser.xpByRole === null) {
+                          this.currentUser.xpByRole = { ...defaultXpStructure };
                      }
-                     this.xpByRole[role] = (Number(this.xpByRole[role]) || 0) + amount;
+                     // Update the specific role's XP
+                     this.currentUser.xpByRole[role] = (Number(this.currentUser.xpByRole[role]) || 0) + amount;
+                     // Also update the top-level xpByRole state if components rely on it directly
+                     this.xpByRole[role] = this.currentUser.xpByRole[role];
                      notificationStore.showNotification({ message: `+${amount} XP for ${role}!`, type: 'success' });
                 }
             } catch (error) {
                 console.error(`Error adding ${amount} XP to ${role} for user ${userId}:`, error);
                  notificationStore.showNotification({ message: `Failed to update XP for ${role}.`, type: 'error' });
-                 // Decide if re-throwing is needed
+                 // Optionally re-throw error if calling component needs to handle it
+                 // throw error;
             }
         },
 
+        // Fetches all users with the 'Student' role
         async fetchAllStudents(): Promise<UserData[]> {
+            // Check cache first
+            if (this.isStudentListFresh && this.studentList.length > 0) {
+                console.log("Using cached student list.");
+                return this.studentList;
+            }
+
             this.studentListLoading = true;
             this.studentListError = null;
             try {
                 const usersRef = collection(db, 'users');
-                const q = query(usersRef); // Fetch all
+                const q = query(usersRef, where('role', '==', 'Student'));
                 const querySnapshot = await getDocs(q);
 
                 const students = querySnapshot.docs
-                    .map(doc => ({ // Map to UserData structure
-                        uid: doc.id,
-                        name: doc.data().name || 'Unnamed',
-                        role: doc.data().role || 'Student', // Default role
-                        isAuthenticated: true, // Assume fetched users are valid
-                        photoURL: doc.data().photoURL,
-                        xpByRole: doc.data().xpByRole,
-                        // Add other fields if needed
-                    }))
-                    .filter(user => user.role === 'Student') // Filter for students
+                    .map(docSnap => ({ // Map to UserData structure
+                        uid: docSnap.id,
+                        name: docSnap.data().name || 'Unnamed',
+                        role: docSnap.data().role || 'Student',
+                        isAuthenticated: true, // Assuming fetched users are valid in this context
+                        photoURL: docSnap.data().photoURL,
+                        xpByRole: docSnap.data().xpByRole || {},
+                        // Add other fields from UserData if needed
+                    } as UserData))
                     .sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Sort by name
 
-                // Direct state update
                 this.studentList = students;
                 this.studentListLastFetch = Date.now();
                 return students;
             } catch (error) {
                 console.error("Error fetching all students:", error);
-                this.studentList = [];
+                this.studentList = []; // Clear list on error
                 this.studentListError = error instanceof Error ? error : new Error('Failed to fetch students');
                 return [];
             } finally {
@@ -316,6 +370,7 @@ export const useUserStore = defineStore('user', {
             }
         },
 
+        // Fetches all users (consider performance implications for large user bases)
         async fetchAllUsers(): Promise<UserData[]> {
              this.loading = true; // Use general loading flag
              this.error = null;
@@ -323,17 +378,16 @@ export const useUserStore = defineStore('user', {
                 const usersRef = collection(db, 'users');
                 const querySnapshot = await getDocs(usersRef);
 
-                const users = querySnapshot.docs.map(doc => ({
-                    uid: doc.id,
-                    name: doc.data().name || 'Unnamed',
-                    isAuthenticated: true, // Assume valid
-                    photoURL: doc.data().photoURL,
-                    xpByRole: doc.data().xpByRole,
-                    role: doc.data().role,
+                const users = querySnapshot.docs.map(docSnap => ({
+                    uid: docSnap.id,
+                    name: docSnap.data().name || 'Unnamed',
+                    isAuthenticated: true, // Assumption for this context
+                    photoURL: docSnap.data().photoURL,
+                    xpByRole: docSnap.data().xpByRole || {},
+                    role: docSnap.data().role || 'Student', // Default role if missing
                     // Map other relevant fields from UserData
                 } as UserData)); // Cast to UserData
 
-                // Direct state update
                 this.allUsers = users;
                 return users;
             } catch (error) {
@@ -345,7 +399,7 @@ export const useUserStore = defineStore('user', {
             }
         },
 
-        // Action to clear stale cache entries
+        // Clears expired cache entries based on TTL settings
         clearStaleCache() {
             const now = Date.now();
             let clearedNames = 0;
@@ -375,14 +429,36 @@ export const useUserStore = defineStore('user', {
         },
 
         // --- Profile/Request/Leaderboard Fetch Actions ---
+
+        // Fetches profile data for a specific user ID (could be self or other)
         async fetchUserProfileData(userId: string) {
-            this.loading = true;
+            // Check if fetching data for the currently logged-in user and if it's already loaded
+            if (userId === this.uid && this.profileData?.uid === userId && this.loading === false) {
+                 console.log(`Using already loaded profile data for ${userId}`);
+                 return; // Avoid redundant fetch for self if data is present
+            }
+
+            this.loading = true; // Set loading specific to this action? or use general?
             this.error = null;
             try {
                 const userDocRef = doc(db, 'users', userId);
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
-                    this.profileData = { uid: userId, ...userDocSnap.data() };
+                    // Map to UserData type
+                    this.profileData = {
+                        uid: userId,
+                        name: userDocSnap.data().name || 'Unnamed',
+                        role: userDocSnap.data().role || 'Student',
+                        isAuthenticated: true,
+                        photoURL: userDocSnap.data().photoURL,
+                        bio: userDocSnap.data().bio,
+                        socialLink: userDocSnap.data().socialLink,
+                        xpByRole: userDocSnap.data().xpByRole || {},
+                        skills: userDocSnap.data().skills || [],
+                        preferredRoles: userDocSnap.data().preferredRoles || [],
+                        participatedEvent: userDocSnap.data().participatedEvent || [],
+                        organizedEvent: userDocSnap.data().organizedEvent || [],
+                    } as UserData;
                 } else {
                     this.profileData = null;
                     throw new Error("User profile not found.");
@@ -396,18 +472,19 @@ export const useUserStore = defineStore('user', {
             }
         },
 
+        // Fetches event requests made *by* the specified user ID
         async fetchUserRequests(userId: string) {
-            // Example implementation - adjust query as needed
-            this.loading = true; // You might want a specific loading flag
+            this.loading = true; // Consider a specific loading flag like `requestsLoading`
             this.error = null;
             try {
                  const q = query(
-                     collection(db, 'events'), // Assuming requests are stored as events with status Pending/Rejected
+                     collection(db, 'events'),
                      where('requestedBy', '==', userId),
-                     where('status', 'in', ['Pending', 'Rejected'])
+                     where('status', 'in', ['Pending', 'Rejected']) // Filter by relevant statuses
                  );
                  const querySnapshot = await getDocs(q);
-                 this.userRequests = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                 // Map Firestore data to the Event type
+                 this.userRequests = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
             } catch (err) {
                 console.error(`Error fetching requests for ${userId}:`, err);
                 this.error = err instanceof Error ? err : new Error('Failed to fetch requests');
@@ -417,15 +494,33 @@ export const useUserStore = defineStore('user', {
             }
         },
 
+        // Fetches users for the leaderboard view
         async fetchLeaderboardUsers() {
-            this.loading = true; // You might want a specific loading flag
+            this.loading = true; // Consider a specific loading flag like `leaderboardLoading`
             this.error = null;
             try {
                  const usersRef = collection(db, 'users');
-                 // Add sorting/filtering logic if needed, e.g., only students, sort by total XP
+                 // Fetch all users initially. Sorting happens client-side based on selected role.
                  const querySnapshot = await getDocs(usersRef);
-                 this.leaderboardUsers = querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
-                 // Add sorting logic here based on XP if required
+
+                 // Map Firestore data to the UserData type
+                 this.leaderboardUsers = querySnapshot.docs.map(docSnap => ({
+                     uid: docSnap.id,
+                     name: docSnap.data().name || 'Unnamed',
+                     role: docSnap.data().role || 'Student',
+                     isAuthenticated: true,
+                     photoURL: docSnap.data().photoURL,
+                     xpByRole: docSnap.data().xpByRole || {},
+                     // Map other UserData fields as needed
+                 } as UserData));
+
+                 // Initial sort by total XP (or could be done in component)
+                 this.leaderboardUsers.sort((a, b) => {
+                     const xpA = Object.values(a.xpByRole || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+                     const xpB = Object.values(b.xpByRole || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+                     return xpB - xpA; // Descending
+                 });
+
             } catch (err) {
                 console.error("Error fetching leaderboard users:", err);
                 this.error = err instanceof Error ? err : new Error('Failed to fetch leaderboard');
@@ -434,11 +529,20 @@ export const useUserStore = defineStore('user', {
                  this.loading = false;
             }
         },
-        // Add calculateWeightedAverageRating if it was part of user actions
+
+        // ADDED: Placeholder implementation for calculateWeightedAverageRating
         async calculateWeightedAverageRating({ eventId, userId }: { eventId: string; userId: string }): Promise<number | null> {
-            // Placeholder: Implement the actual logic to calculate rating based on event criteria and votes/ratings
-            console.warn(`calculateWeightedAverageRating for event ${eventId}, user ${userId} not implemented yet.`);
-            return Math.random() * 5; // Replace with actual calculation
+            // NOTE: Placeholder - Needs real implementation based on your rating data structure.
+            console.warn(`calculateWeightedAverageRating for event ${eventId}, user ${userId} is a placeholder and returns a random value.`);
+            try {
+                // Simulate async work if needed
+                // await new Promise(resolve => setTimeout(resolve, 50));
+                const randomRating = Math.round((Math.random() * 4 + 1) * 10) / 10; // Random 1.0-5.0
+                return randomRating;
+            } catch (error) {
+                console.error("Error in calculateWeightedAverageRating placeholder:", error);
+                return null;
+            }
         },
     },
 });
