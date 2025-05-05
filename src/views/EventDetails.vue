@@ -235,6 +235,11 @@ import { useUserStore } from '@/store/user';
 import { useEventStore } from '@/store/events';
 import { useNotificationStore } from '@/store/notification';
 
+// Store Instances
+const userStore = useUserStore();
+const eventStore = useEventStore();
+const notificationStore = useNotificationStore();
+
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
 import EventParticipantList from '@/components/events/EventParticipantList.vue';
@@ -524,8 +529,8 @@ async function fetchData(): Promise<void> {
 
   try {
     // Fetch event details from the store
-    await store.dispatch('events/fetchEventDetails', props.id);
-    const storeEvent = store.state.events.currentEventDetails as Event | null;
+    await eventStore.fetchEventDetails(props.id);
+    const storeEvent = eventStore.currentEventDetails as Event | null;
 
     if (!storeEvent || storeEvent.id !== props.id) {
       throw new Error('Event not found or you do not have permission to view it.');
