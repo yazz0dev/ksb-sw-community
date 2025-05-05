@@ -197,6 +197,4 @@ Please read `CONTRIBUTING.md` for details on our code of conduct, and the proces
 
 ## License
 
-*(Optional: Specify the license)*
 This project is licensed under the MIT License.
-```
