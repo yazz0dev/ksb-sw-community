@@ -1,64 +1,109 @@
-// src/store/modules/events/actions.utils.ts
-import { EventFormat } from '@/types/event';
-import { Event } from '@/types/event';
+// src/store/events/actions.utils.ts
+import { EventFormat, Event, Team, EventCriteria } from '@/types/event';
+import { BEST_PERFORMER_LABEL } from '@/utils/constants'; // Import constant
 
 // --- Utility: Calculate XP earned for event participation ---
 export async function calculateEventXP(eventData: Event): Promise<Record<string, Record<string, number>>> {
     const xpAwardMap: Record<string, Record<string, number>> = {};
-    const baseParticipationXP = 10;
-    const submittedParticipationXP = 30;
-    const organizerXP = 50;
-    const winnerBonusXP = 100;
-    const bestPerformerBonusXP = 10;
 
+    // --- Configuration ---
+    // Base XP values (adjust as needed)
+    const baseParticipationXP = 10;
+    // const submittedParticipationXP = 30; // Requires checking submission status per participant/team
+    const organizerXP = 50;
+    const bestPerformerBonusXP = BEST_PERFORMER_POINTS; // Use constant
+
+    // Helper function to add XP safely
+    const addXP = (userId: string, role: string, amount: number) => {
+        if (!userId || amount <= 0) return;
+        if (!xpAwardMap[userId]) xpAwardMap[userId] = {};
+        xpAwardMap[userId][role] = (xpAwardMap[userId][role] || 0) + amount;
+    };
+
+    // --- 1. Organizer XP ---
     (eventData.details.organizers || []).filter(Boolean).forEach(uid => {
-        if (!xpAwardMap[uid]) xpAwardMap[uid] = {};
-        xpAwardMap[uid]['Organizer'] = (xpAwardMap[uid]['Organizer'] || 0) + organizerXP;
+        addXP(uid, 'organizer', organizerXP); // Use 'organizer' role key
     });
 
-    const winners = eventData.winners || {};
-    const allocations = eventData.criteria || [];
-
-    if (eventData.details.format === EventFormat.Team && eventData.teams && Array.isArray(eventData.teams)) {
+    // --- 2. Participation XP ---
+    if (eventData.details.format === EventFormat.Team && Array.isArray(eventData.teams)) {
         eventData.teams.forEach(team => {
-            const teamMembers = (team.members || []).filter(Boolean);
-            const hasSubmission = Array.isArray(team.submissions) && team.submissions.length > 0;
-            teamMembers.forEach(uid => {
-                if (!xpAwardMap[uid]) xpAwardMap[uid] = {};
-                xpAwardMap[uid]['Participation'] = (xpAwardMap[uid]['Participation'] || 0) + (hasSubmission ? submittedParticipationXP : baseParticipationXP);
+            // TODO: Consider adding submission-based XP if needed
+            // const hasSubmission = Array.isArray(team.submissions) && team.submissions.length > 0;
+            // const participationAmount = hasSubmission ? submittedParticipationXP : baseParticipationXP;
+            const participationAmount = baseParticipationXP;
+            (team.members || []).filter(Boolean).forEach(uid => {
+                addXP(uid, 'participation', participationAmount);
             });
         });
-        // XP for criteriaSelections (per cirea)
-        (eventData.criteria || []).forEach(criterion => {
-            if (criterion.criteriaSelections) {
-                Object.entries(criterion.criteriaSelections).forEach(([userId, teamName]) => {
-                    if (userId && teamName) {
-                        if (!xpAwardMap[userId]) xpAwardMap[userId] = {};
-                        xpAwardMap[userId][`Criterion:${criterion.constraintLabel}`] = (xpAwardMap[userId][`Criterion:${criterion.constraintLabel}`] || 0) + (criterion.points || 0);
-                    }
-                });
-            }
-        });
-        // XP for best performer (team only)
-        if (eventData.bestPerformerSelections) {
-            Object.values(eventData.bestPerformerSelections).forEach(uid => {
-                if (uid) {
-                    if (!xpAwardMap[uid]) xpAwardMap[uid] = {};
-                    xpAwardMap[uid]['BestPerformer'] = (xpAwardMap[uid]['BestPerformer'] || 0) + bestPerformerBonusXP;
-                }
-            });
-        }
-    } else if (eventData.details.format === EventFormat.Individual && Array.isArray(eventData.participants)) {
+    } else if (Array.isArray(eventData.participants)) { // Individual or Competition
+        // TODO: Consider adding submission-based XP if needed
+        // Check eventData.submissions perhaps?
+        const participationAmount = baseParticipationXP;
         eventData.participants.filter(Boolean).forEach(uid => {
-            if (!xpAwardMap[uid]) xpAwardMap[uid] = {};
-            xpAwardMap[uid]['Participation'] = (xpAwardMap[uid]['Participation'] || 0) + baseParticipationXP;
+            addXP(uid, 'participation', participationAmount);
         });
     }
-    // Additional XP logic for winners, best performers, etc.
+
+    // --- 3. Winner XP (Based on calculated winners) ---
+    const winners = eventData.winners || {};
+    const criteriaMap = new Map<string, EventCriteria>();
+    if (Array.isArray(eventData.criteria)) {
+        eventData.criteria.forEach(c => {
+             // Use constraintLabel as the key for easier lookup from winners map
+            if (c.constraintLabel) criteriaMap.set(c.constraintLabel, c);
+        });
+    }
+
+    for (const [criterionLabel, winnerIds] of Object.entries(winners)) {
+        // Skip Best Performer here, handle separately
+        if (criterionLabel === BEST_PERFORMER_LABEL) continue;
+
+        const criterion = criteriaMap.get(criterionLabel);
+        if (!criterion || !criterion.points || !criterion.role) {
+            console.warn(`Skipping XP for criterion "${criterionLabel}": Missing points or role.`);
+            continue;
+        }
+
+        const points = criterion.points;
+        const role = criterion.role;
+
+        winnerIds.forEach(winnerId => {
+            if (eventData.details.format === EventFormat.Team) {
+                // winnerId could be a teamName
+                const winningTeam = eventData.teams?.find(t => t.teamName === winnerId);
+                if (winningTeam) {
+                    (winningTeam.members || []).filter(Boolean).forEach(memberId => {
+                        addXP(memberId, role, points);
+                    });
+                } else {
+                    // It might be an individual winner even in team event (less likely for criteria)
+                    addXP(winnerId, role, points);
+                }
+            } else {
+                // Individual or Competition: winnerId is a participant UID
+                addXP(winnerId, role, points);
+            }
+        });
+    }
+
+    // --- 4. Best Performer XP (Team events only) ---
+    const bestPerformers = winners[BEST_PERFORMER_LABEL];
+    if (eventData.details.format === EventFormat.Team && Array.isArray(bestPerformers)) {
+        bestPerformers.forEach(uid => {
+            // Best Performer XP might not have a specific role, or you might assign one
+            // Using a generic 'BestPerformer' key for XP map
+            addXP(uid, 'BestPerformer', bestPerformerBonusXP);
+        });
+    }
+
+    console.log("Calculated XP Map:", JSON.parse(JSON.stringify(xpAwardMap))); // Log deep copy
     return xpAwardMap;
 }
 
+// handleFirestoreError remains the same
 export function handleFirestoreError(error: any): string {
+    // ... (implementation as before) ...
     if (error?.code === 'permission-denied') return 'You do not have permission to perform this action.';
     if (error?.code === 'not-found') return 'The requested resource was not found.';
     if (error?.code === 'unavailable') return 'The service is temporarily unavailable.';
