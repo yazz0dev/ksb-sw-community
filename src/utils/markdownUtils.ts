@@ -1,16 +1,20 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
-// This async function was likely correct already
-export async function renderMarkdown(content: string): Promise<string> {
-  const rendered = await marked(content || ''); // marked() is inherently async
-  return DOMPurify.sanitize(rendered);
-}
 
-// FIX: Make this function async as well to handle potential Promise from marked.parse
-export async function renderMarkdownPotentialSync(content: string): Promise<string> {
-  // Await the result of marked.parse, just in case it returns a Promise
-  const parsedContent = await marked.parse(content || '');
-  // Now parsedContent is guaranteed to be a string before sanitizing
-  return DOMPurify.sanitize(parsedContent);
+// FIX: Simplified to one async function, removed renderMarkdownPotentialSync
+export async function renderMarkdown(content: string): Promise<string> {
+  if (!content) {
+    return ''; // Return empty string for empty input
+  }
+  try {
+    // FIX: Always await marked() as it can return a Promise
+    const rawHtml: string = await marked(content);
+    // Sanitize the HTML to prevent XSS attacks
+    return DOMPurify.sanitize(rawHtml);
+  } catch (error) {
+    console.error("Markdown rendering failed:", error);
+    // Return an error message or safe fallback HTML
+    return '<p class="text-danger">Error rendering content.</p>';
+  }
 }
