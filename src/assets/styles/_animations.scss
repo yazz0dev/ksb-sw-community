@@ -1,12 +1,12 @@
 // Fade In
 @keyframes fadeIn {
-  from { 
-    opacity: 0; 
-    transform: translateY(10px); 
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -94,21 +94,4 @@
 }
 .animate-pop {
   animation: fadeIn 0.7s cubic-bezier(.23,1.01,.32,1) both;
-}
-
-// Event List Item Responsive Styles
-@media (max-width: 576px) {
-  .list-group-item {
-    .d-flex.flex-wrap {
-      margin-bottom: 0.75rem !important;
-    }
-    
-    .ms-4 {
-      margin-left: 1rem !important;
-    }
-    
-    .badge {
-      font-size: 0.75rem;
-    }
-  }
 }
