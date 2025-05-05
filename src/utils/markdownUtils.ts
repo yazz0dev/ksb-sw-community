@@ -1,6 +1,8 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
+// Configure marked (optional, outside function)
+// marked.setOptions({ ... });
 
 // FIX: Simplified to one async function, removed renderMarkdownPotentialSync
 export async function renderMarkdown(content: string): Promise<string> {
