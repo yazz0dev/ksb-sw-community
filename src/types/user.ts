@@ -1,85 +1,73 @@
 // src/types/user.ts
+import type { Event } from './event'; // Import Event type if needed for requests
 
+/**
+ * Represents the core user data structure, often mirroring Firestore document.
+ */
 export interface User {
-  uid: string;
-  name: string;
-  photoURL?: string;
-  bio?: string;
-  socialLink?: string;
-  xpByRole?: Record<string, number>;
-  skills?: string[];
-  preferredRoles?: string[];
-  isAuthenticated?: boolean;
-  lastXpCalculationTimestamp?: number | null;
-  /**
-   * Array of event IDs the user has participated in
-   */
-  participatedEvent?: string[];
-  /**
-   * Array of event IDs the user has organized
-   */
-  organizedEvent?: string[];
+    uid: string;
+    name: string;
+    role?: 'Student' | 'Admin' | string; // Define roles more explicitly if possible
+    photoURL?: string;
+    bio?: string;
+    socialLink?: string;
+    xpByRole?: Record<string, number>; // e.g., { developer: 150, presenter: 50 }
+    skills?: string[];
+    preferredRoles?: string[];
+    lastXpCalculationTimestamp?: number | null;
+    participatedEvent?: string[]; // Array of event IDs
+    organizedEvent?: string[]; // Array of event IDs
 }
 
+/**
+ * Represents user data potentially enriched for display purposes (e.g., in lists or profiles).
+ * Often includes calculated fields or application state relevant to the user.
+ */
 export interface UserData extends User {
-  isAuthenticated: boolean;
-  /**
-   * Array of event IDs the user has participated in
-   */
-  participatedEvent?: string[];
-  /**
-   * Array of event IDs the user has organized
-   */
-  organizedEvent?: string[];
+    // Could add calculated fields like totalXp here if needed frequently
+    // isAuthenticated might be better tracked purely in store state,
+    // but keeping it here can be convenient for components if needed.
+    // Consider if it truly belongs to the *user data* concept.
+    // isAuthenticated: boolean;
 }
 
-// --- UserState Interface (for student/community users only) ---
-export interface UserState {
-  currentUser: User | null;
-  // Core User Data
-  uid: string | null;
-  name: string | null;
-  isAuthenticated: boolean;
-  hasFetched: boolean;
-
-  // Student Data
-  xpByRole: Record<string, number>;
-  skills: string[];
-  preferredRoles: string[];
-
-  // XP Calculation Timestamp
-  lastXpCalculationTimestamp: number | null;
-
-  // Student List Management
-  studentList: User[];
-  studentListLastFetch: number | null;
-  studentListTTL: number;
-  studentListLoading: boolean;
-  studentListError: Error | null;
-
-  // General User List
-  allUsers: User[];
-
-  // Name Caching (Using Map structure)
-  nameCache: Map<string, { name: string; timestamp: number }>;
-  nameCacheTTL: number;
-
-  // General Loading/Error State
-  loading: boolean;
-  error: Error | null;
-
-  // Add missing properties
-  photoURL?: string;
-  bio?: string;
-  socialLink?: string;
-  participatedEvent: string[];
-  organizedEvent: string[];
-  profileData: any | null; // Consider creating a specific type for profile data
-}
-
+/**
+ * Structure for entries in the name cache Map.
+ */
 export interface NameCacheEntry {
-  name: string;
-  timestamp: number;
+    name: string;
+    timestamp: number; // When the name was fetched/cached
 }
 
-export type NameCacheMap = Map<string, NameCacheEntry>;
+// --- UserState Interface (for Pinia Store State) ---
+// This defines the shape of the state managed by the user store.
+// It avoids duplicating fields already present within `currentUser`.
+export interface UserState {
+    // --- Core Authentication & Current User ---
+    currentUser: User | null; // Holds the complete data object for the logged-in user
+    isAuthenticated: boolean; // Tracks if a user is currently logged in
+    hasFetched: boolean; // Tracks if the initial authentication check has completed
+
+    // --- Data for Specific Views/Features ---
+    profileData: UserData | null; // Data for the profile currently being viewed (could be self or another user)
+    userRequests: Event[]; // Event requests made by the logged-in user
+    leaderboardUsers: UserData[]; // Users fetched for the leaderboard view
+
+    // --- Fetched Lists & Management ---
+    studentList: UserData[]; // Cache of users with the 'Student' role
+    studentListLastFetch: number | null; // Timestamp of the last fetch
+    studentListTTL: number; // Time-to-live for the student list cache
+    studentListLoading: boolean; // Loading state specifically for the student list
+    studentListError: Error | null; // Error state specifically for the student list
+
+    allUsers: UserData[]; // Cache of all users (use with caution for large user bases)
+    // Add metadata for allUsers if needed (lastFetch, TTL, loading, error)
+
+    // --- Caching ---
+    nameCache: Map<string, NameCacheEntry>; // Cache for user names (UID -> Name + Timestamp)
+    nameCacheTTL: number; // Time-to-live for name cache entries
+
+    // --- General Store Status ---
+    loading: boolean; // General loading indicator for user store actions
+    error: Error | null; // General error state for user store actions
+}
