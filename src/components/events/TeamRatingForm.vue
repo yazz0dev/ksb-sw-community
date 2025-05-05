@@ -29,9 +29,11 @@
                 <!-- Team Selection Section -->
                 <div>
                   <h3 class="h5 mb-3">Best Team per Criterion</h3>
+                  <!-- FIX: Use eventCriteria.value.length -->
                   <p v-if="!eventCriteria?.length" class="small fst-italic text-secondary">
                     No rating criteria defined for this event.
                   </p>
+                  <!-- FIX: Iterate over eventCriteria -->
                   <div v-else class="d-flex flex-column" style="gap: 1rem;">
                     <div v-for="criterion in eventCriteria" :key="criterion.constraintIndex" class="mb-3">
                       <label :for="`team-select-${criterion.constraintIndex}`" class="form-label small fw-bold">{{ criterion.constraintLabel }} ({{ criterion.points }} XP)</label>
@@ -109,17 +111,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useEventStore } from '@/store/events';
 import { useUserStore } from '@/store/user';
-
-interface EventCriterion {
-  constraintIndex: number;
-  constraintLabel: string;
-  points: number;
-}
-
-interface Team {
-  teamName: string;
-  members: string[];
-}
+import { EventCriteria, Team as EventTeam } from '@/types/event'; // Use aliases if needed
 
 interface TeamMember {
   uid: string;
@@ -127,23 +119,14 @@ interface TeamMember {
 }
 
 interface TeamSelections {
-  [key: number]: string;
+  [key: number]: string; // constraintIndex -> teamName
 }
 
-interface RatingPayload {
+// Use specific types from event.ts
+interface Props {
   eventId: string;
-  ratingType: string;
-  ratedBy: string;
-  ratedAt: Date;
-  selections: {
-    criteria: TeamSelections;
-    bestPerformer: string;
-  };
 }
-
-const props = defineProps<{
-  eventId: string;
-}>();
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
   (e: 'close'): void;
@@ -157,11 +140,11 @@ const error = ref<string>('');
 const submissionError = ref<string>('');
 const isSubmitting = ref(false);
 
-const eventDetails = ref<any>(null);
-const eventCriteria = ref<EventCriterion[]>([]);
-const eventTeams = ref<Team[]>([]);
+const eventDetails = ref<any>(null); // Keep as any for flexibility or define specific type
+const eventCriteria = ref<EventCriteria[]>([]); // Use EventCriteria type
+const eventTeams = ref<EventTeam[]>([]); // Use EventTeam type
 const allTeamMembers = ref<TeamMember[]>([]);
-const teamMemberMap = ref<Record<string, string>>({});
+const teamMemberMap = ref<Record<string, string>>({}); // uid -> teamName
 
 const teamSelections = ref<TeamSelections>({});
 const bestPerformerSelection = ref<string>('');
@@ -173,6 +156,7 @@ onMounted(async () => {
   loading.value = true;
   error.value = '';
   try {
+    // Fetch event details from store or directly
     const currentEvent = eventStore.currentEventDetails;
     if (!currentEvent || currentEvent.id !== props.eventId) {
       await eventStore.fetchEventDetails(props.eventId);
@@ -188,16 +172,19 @@ onMounted(async () => {
         throw new Error('This rating form is only for team events.');
     }
 
-    eventCriteria.value = eventDetails.value.xpAllocation || [];
+    // FIX: Use eventDetails.value.criteria
+    eventCriteria.value = eventDetails.value.criteria || [];
     eventTeams.value = eventDetails.value.teams || [];
 
-    // Initialize selections
+    // Initialize selections based on criteria
+    teamSelections.value = {}; // Reset selections
     eventCriteria.value.forEach(c => {
       // Ensure constraintIndex is valid before using it as a key
-      if (typeof c.constraintIndex === 'number') { 
+      if (typeof c.constraintIndex === 'number') {
           teamSelections.value[c.constraintIndex] = '';
       }
     });
+    bestPerformerSelection.value = ''; // Reset best performer
 
     // Prepare list of all members for best performer dropdown
     const memberIds = new Set<string>();
@@ -212,11 +199,12 @@ onMounted(async () => {
     });
     teamMemberMap.value = tempMemberMap;
 
+    allTeamMembers.value = []; // Reset member list
     if (memberIds.size > 0) {
       const userNames = await userStore.fetchUserNamesBatch(Array.from(memberIds));
       allTeamMembers.value = Array.from(memberIds)
         .map(uid => ({ uid, name: userNames[uid] || uid }))
-        .sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Sort alphabetically, handle potential undefined names
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }
 
   } catch (err) {
@@ -232,19 +220,18 @@ const getTeamNameForMember = (memberId: string): string => {
 };
 
 const isFormValid = computed(() => {
-  if (!eventCriteria.value || eventCriteria.value.length === 0) {
-      // If no criteria, only need best performer
-      return bestPerformerSelection.value !== '';
-  }
-  // Check if all criteria have a team selected
-  const allCriteriaSelected = eventCriteria.value.every(
-    c => typeof c.constraintIndex === 'number' && teamSelections.value[c.constraintIndex] && teamSelections.value[c.constraintIndex] !== ''
-  );
-  // Check if best performer is selected
-  const bestPerformerSelected = bestPerformerSelection.value !== '';
+  if (!eventCriteria.value) return false; // Check if criteria exist
 
-  return allCriteriaSelected && bestPerformerSelected;
+  const criteriaFilled = eventCriteria.value.every(c =>
+    typeof c.constraintIndex === 'number' &&
+    teamSelections.value[c.constraintIndex] &&
+    teamSelections.value[c.constraintIndex] !== ''
+  );
+  const bestPerformerFilled = bestPerformerSelection.value !== '';
+
+  return criteriaFilled && bestPerformerFilled;
 });
+
 
 const submitTeamRatings = async (): Promise<void> => {
   if (!isFormValid.value || isSubmitting.value) return;
@@ -253,18 +240,19 @@ const submitTeamRatings = async (): Promise<void> => {
   submissionError.value = '';
 
   try {
-    const criteriaSelections: TeamSelections = {};
+    const criteriaPayload: Record<string, string> = {};
     eventCriteria.value.forEach(c => {
-        if (typeof c.constraintIndex === 'number') { 
-            criteriaSelections[c.constraintIndex] = teamSelections.value[c.constraintIndex];
-        }
+      if (typeof c.constraintIndex === 'number') {
+          // Use the actual constraintIndex from the criteria object as the key
+          criteriaPayload[String(c.constraintIndex)] = teamSelections.value[c.constraintIndex];
+      }
     });
 
-    // Use submitTeamCriteriaVote, which updates only criteriaSelections and bestPerformerSelections
+    // Use submitTeamCriteriaVote action from Pinia store
     await eventStore.submitTeamCriteriaVote({
       eventId: props.eventId,
       selections: {
-        criteria: criteriaSelections,
+        criteria: criteriaPayload, // Pass the correctly structured criteria object
         bestPerformer: bestPerformerSelection.value
       }
     });
