@@ -21,17 +21,17 @@
         <div class="card shadow-sm">
           <div class="card-body text-center p-4">
             <div class="mb-4">
-              <img 
-                :src="user.photoURL || defaultAvatarUrl" 
+              <img
+                :src="user.photoURL || defaultAvatarUrl"
                 :alt="user.name || 'Profile Photo'"
                 class="img-fluid rounded-circle border border-3 border-primary shadow-sm"
-                style="width: 110px; height: 110px; object-fit: cover;" 
+                style="width: 110px; height: 110px; object-fit: cover;"
                 @error="handleImageError"
               />
             </div>
             <h1 class="h4 mb-2">{{ user.name || 'User Profile' }}</h1>
-            
-            <!-- Remove Edit Profile Button from here -->
+
+            <!-- REMOVED: Edit Profile Button from here. Parent view should handle this. -->
 
             <!-- Social Link -->
             <div v-if="user.socialLink" class="mb-3">
@@ -79,8 +79,8 @@
       <!-- Right Column -->
       <div class="col-lg-8">
         <div class="d-flex flex-column gap-4">
-          <!-- XP Breakdown -->
-          <div v-if="hasXpData" class="card shadow-sm">
+           <!-- XP Breakdown -->
+           <div v-if="hasXpData" class="card shadow-sm">
              <div class="card-header">
                <h5 class="card-title mb-0">XP Breakdown by Role</h5>
              </div>
@@ -100,6 +100,7 @@
            </div>
 
            <!-- Event History -->
+           <!-- NOTE: Consider fetching events from store state/getters instead of direct Firestore query here for efficiency -->
            <div v-if="sortedEventsHistory.length > 0" class="card shadow-sm">
              <div class="card-header">
                <h5 class="card-title mb-0">Event History</h5>
@@ -107,7 +108,7 @@
              <ul class="list-group list-group-flush">
                <li
                  v-for="event in sortedEventsHistory"
-                 :key="event.id" 
+                 :key="event.id"
                  class="list-group-item px-3 py-3"
                >
                  <!-- Row 1: Event Name & Format with Organizer Badge -->
@@ -174,22 +175,22 @@ import { ref, computed, watch, toRefs, nextTick, onMounted, onUnmounted, reactiv
 import { useUserStore } from '@/store/user';
 import { useEventStore } from '@/store/events';
 import { formatISTDate } from '@/utils/dateTime';
-import { formatRoleName as formatRoleNameUtil } from '@/utils/formatters';
-import { Event, EventStatus } from '@/types/event';
-import { User } from '@/types/user';
+import { formatRoleName as formatRoleNameUtil } from '@/utils/formatters'; // Renamed import
+import { Event, EventStatus, EventFormat } from '@/types/event';
+import { User } from '@/types/user'; // Import User type
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useRouter } from 'vue-router';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  orderBy, 
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
   DocumentData,
-  doc, 
+  doc,
   getDoc
 } from 'firebase/firestore';
-import { db } from '@/firebase';
+import { db } from '@/firebase'; // Ensure db is imported if used directly
 
 
 interface Props {
@@ -206,82 +207,71 @@ interface Stats {
 const props = defineProps<Props>();
 const { userId } = toRefs(props);
 
-console.log('[ProfileViewContent] userId prop:', userId.value);
-
-const defaultAvatarUrl: string = new URL('../assets/default-avatar.png', import.meta.url).href;
-
 const userStore = useUserStore();
 const eventStore = useEventStore();
+const router = useRouter();
 
-const user = ref<DocumentData | null>(null);
+// --- State Refs ---
+const user = ref<User | null>(null); // Use User type
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
-const userProjects = ref<DocumentData[]>([]);
-const participatedEvents = ref<Event[]>([]); // All events relevant to the user (participated or organized)
+const userProjects = ref<DocumentData[]>([]); // Or a more specific Project type
+const participatedEvents = ref<Event[]>([]);
 const loadingEventsOrProjects = ref<boolean>(true);
-
-const organizedEvents = ref<Event[]>([]); // For possible future use or filtering
+const stats = ref<Stats>({ participatedCount: 0, organizedCount: 0, wonCount: 0 });
 const participatedEventIds = ref<string[]>([]);
 const organizedEventIds = ref<string[]>([]);
+const defaultAvatarUrl: string = new URL('../assets/default-avatar.png', import.meta.url).href;
 
-const stats = ref<Stats>({
-    participatedCount: 0,
-    organizedCount: 0,
-    wonCount: 0
-});
 
-const totalXp = computed((): number => { // Add return type
+// --- Computed Properties ---
+const totalXp = computed((): number => {
   if (!user.value?.xpByRole) return 0;
-  // Ensure values are numbers before reducing
   return Object.values(user.value.xpByRole).reduce((sum: number, val: unknown) => sum + (Number(val) || 0), 0);
 });
 
-const hasXpData = computed((): boolean => { // Add return type
-    const xp = totalXp.value; // Use the computed value which is already a number
+const hasXpData = computed((): boolean => {
+    const xp = totalXp.value;
     return xp > 0 && user.value?.xpByRole && Object.values(user.value.xpByRole).some((xpVal: unknown) => Number(xpVal) > 0);
 });
 
 const filteredXpByRole = computed(() => {
   if (!user.value?.xpByRole) return {};
   return Object.entries(user.value.xpByRole)
-    .filter(([role, xp]: [string, unknown]) => Number(xp) > 0) // Type entry and check Number(xp)
-    .reduce((acc: Record<string, number>, [role, xp]: [string, unknown]) => { // Type accumulator and entry
-      acc[role] = Number(xp); // Assign Number(xp)
+    .filter(([role, xp]: [string, unknown]) => Number(xp) > 0)
+    .reduce((acc: Record<string, number>, [role, xp]: [string, unknown]) => {
+      acc[role] = Number(xp);
       return acc;
     }, {});
 });
 
-// Computed property to sort events by date (most recent first)
 const sortedEventsHistory = computed(() => {
   return [...participatedEvents.value].sort((a, b) => {
-    // Access the Timestamp object and convert to milliseconds
-    const timeA = a.details?.date?.start ? a.details.date.start.toMillis() : 0;
-    const timeB = b.details?.date?.start ? b.details.date.start.toMillis() : 0;
-    // Sort descending (newest first)
-    return timeB - timeA;
+    const timeA = a.details?.date?.start?.toMillis() ?? 0; // Use Optional Chaining and Nullish Coalescing
+    const timeB = b.details?.date?.start?.toMillis() ?? 0;
+    return timeB - timeA; // Sort descending
   });
 });
 
-const handleImageError = (e: any) => {
-  // Accept any event, fallback to any for Vue template compatibility
-  if (e && e.target && 'src' in e.target) {
-    (e.target as HTMLImageElement).src = defaultAvatarUrl;
+// --- Methods ---
+const handleImageError = (e: Event) => { // Use standard Event type
+  const target = e.target as HTMLImageElement;
+  if (target) {
+    target.src = defaultAvatarUrl;
   }
 };
 
 const formatRoleName = (roleKey: string) => {
-  return formatRoleNameUtil(roleKey);
+  return formatRoleNameUtil(roleKey); // Use imported util
 };
 
-const xpPercentage = (xp: number): number => { // Add return type
-  const total = totalXp.value; // total is already a number
+const xpPercentage = (xp: number): number => {
+  const total = totalXp.value;
   return total > 0 ? Math.min(100, Math.round((xp / total) * 100)) : 0;
 };
 
-// Helper to check if the current user organized an event
 const isOrganizer = (event: Event): boolean => {
-    // Ensure user.value and userId.value are available and event.details.organizers is an array
-    if (!user.value || !userId.value || !Array.isArray(event.details?.organizers)) {
+    if (!userId.value || !Array.isArray(event.details?.organizers)) { // Check userId prop directly
         return false;
     }
     return event.details.organizers.includes(userId.value);
@@ -294,67 +284,69 @@ const formatEventFormat = (format: string | undefined): string => {
   return format;
 };
 
+// --- Data Fetching ---
+// NOTE: Consider moving event/project fetching logic to the parent view (ProfileView.vue)
+//       or refactoring to use Pinia store getters for better separation of concerns and efficiency.
 const fetchProfileData = async () => {
-  loading.value = true;
-  loadingEventsOrProjects.value = true;
-  errorMessage.value = '';
-  user.value = null;
-  userProjects.value = [];
-  participatedEvents.value = [];
-  organizedEvents.value = [];
-  stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
+    loading.value = true;
+    loadingEventsOrProjects.value = true;
+    errorMessage.value = '';
+    user.value = null;
+    userProjects.value = [];
+    participatedEvents.value = [];
+    stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
 
-  try {
-    await userStore.fetchUserProfileData(userId.value);
-    const data = userStore.profileData;
+    try {
+        // 1. Fetch User Profile from Store (or directly if store logic is complex)
+        const userDocRef = doc(db, 'users', userId.value); // Use prop value
+        const userDocSnap = await getDoc(userDocRef);
 
-    if (!data) {
-        throw new Error('User data is empty.');
+        if (!userDocSnap.exists()) {
+            throw new Error('User data not found.');
+        }
+        const data = userDocSnap.data();
+        // Map to User type
+        user.value = {
+            uid: userDocSnap.id,
+            name: data.name || 'Unknown User',
+            photoURL: data.photoURL,
+            bio: data.bio,
+            socialLink: data.socialLink,
+            xpByRole: data.xpByRole || {},
+            skills: data.skills || [],
+            preferredRoles: data.preferredRoles || [],
+            participatedEvent: data.participatedEvent || [],
+            organizedEvent: data.organizedEvent || [],
+            // Ensure isAuthenticated is handled correctly if needed here
+        } as User;
+
+        participatedEventIds.value = user.value.participatedEvent || [];
+        organizedEventIds.value = user.value.organizedEvent || [];
+
+        // 2. Fetch Events and Projects (consider using store getters if possible)
+        await fetchUserEventsFromStore(); // This now uses the IDs from the fetched user data
+        await fetchUserProjects(userId.value); // Use prop value
+
+    } catch (error: any) {
+        console.error('Error fetching profile data:', error);
+        errorMessage.value = error?.message || 'Failed to load profile.';
+    } finally {
+        loading.value = false;
+        loadingEventsOrProjects.value = false;
     }
-    // Safer assignment ensuring core fields exist for the User type
-    user.value = {
-        id: data.id, // Keep Firestore ID if needed elsewhere, though User type uses uid
-        uid: data.id, // Assign Firestore ID to uid
-        name: data.name || 'Unknown User', // Provide default if name is missing
-        ...data // Spread the rest of the data
-    } as User; // Cast after ensuring core fields
-
-    // Extract participated/organized event IDs directly from user doc fields
-    participatedEventIds.value = Array.isArray(data.participatedEvent) ? data.participatedEvent : [];
-    organizedEventIds.value = Array.isArray(data.organizedEvent) ? data.organizedEvent : [];
-
-    // Fetch event objects from the store using the new getter (events themselves are loaded from store, ids from user doc)
-    await fetchUserEventsFromStore();
-    await fetchUserProjects(userId.value);
-
-  } catch (error: any) { // Type error
-    console.error('Error fetching profile data:', error);
-    errorMessage.value = error?.message || 'Failed to load profile.';
-  } finally {
-    loading.value = false;
-    loadingEventsOrProjects.value = false;
-  }
 };
 
 const fetchUserProjects = async (targetUserId: string) => {
   loadingEventsOrProjects.value = true;
   try {
+    // NOTE: If projects are needed elsewhere, consider moving this to the store
     const submissionsQuery = query(
       collection(db, 'submissions'),
       where('userId', '==', targetUserId),
       orderBy('submittedAt', 'desc')
     );
     const snapshot = await getDocs(submissionsQuery);
-
-    userProjects.value = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        eventName: data.eventName || `Event (${data.eventId.substring(0, 5)}...)`,
-        eventType: data.eventType || 'Unknown'
-      };
-    });
+    userProjects.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     console.error("Error fetching user projects:", error);
     userProjects.value = [];
@@ -363,78 +355,90 @@ const fetchUserProjects = async (targetUserId: string) => {
   }
 };
 
-// Fetch user's events (participated and organized) from the store
 const fetchUserEventsFromStore = async () => {
-  await eventStore.fetchEvents();
-  const getEventsByIds = eventStore.getEventsByIds as (ids: string[]) => Event[];
+  // NOTE: Ideally, fetch all events once globally (e.g., in App.vue or a route guard)
+  //       and then use store getters here for filtering.
+  //       This avoids redundant fetches if the store already has the data.
+
   const allIds = Array.from(new Set([
     ...participatedEventIds.value,
     ...organizedEventIds.value
   ]));
 
-  let allEvents = getEventsByIds(allIds);
+  if (allIds.length === 0) {
+      participatedEvents.value = [];
+      stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
+      return;
+  }
 
-  // Filter events based on whether it's the user's own profile or public view
-  allEvents = allEvents.filter((event: Event) => {
-    const excludedStatuses = [EventStatus.Pending, EventStatus.Cancelled];
+  // Ensure store events are loaded (this might be redundant if loaded globally)
+  // await eventStore.fetchEvents();
+
+  const getEventsByIds = eventStore.getEventsByIds; // Use getter
+  let allUserEvents = getEventsByIds(allIds);
+
+  // Filter based on profile view context
+  allUserEvents = allUserEvents.filter((event: Event) => {
+    const excludedStatuses: EventStatus[] = [EventStatus.Pending, EventStatus.Cancelled, EventStatus.Rejected];
     if (props.isCurrentUser) {
-      // For own profile: show all except pending and cancelled
+      // Show most statuses for own profile
       return !excludedStatuses.includes(event.status as EventStatus);
     } else {
-      // For public profile: only show completed and closed
-      return event.status === EventStatus.Completed || event.status === EventStatus.Closed;
+      // Show only completed/relevant statuses for public view
+      return [EventStatus.Completed, EventStatus.Closed, EventStatus.InProgress, EventStatus.Approved].includes(event.status as EventStatus);
     }
   });
 
-  // Sort by most recent
-  allEvents.sort((a, b) => {
-    const timeA = a.details?.date?.start ? a.details.date.start.toMillis() : 0;
-    const timeB = b.details?.date?.start ? b.details.date.start.toMillis() : 0;
-    return timeB - timeA;
-  });
-  participatedEvents.value = allEvents;
+  participatedEvents.value = allUserEvents; // Store filtered events
 
-  // Stats
+  // Calculate stats based on filtered events
   let participated = 0, organized = 0, won = 0;
-  allEvents.forEach((event: Event) => {
-    const isOrganizer = Array.isArray(event.details?.organizers) && event.details.organizers.includes(userId.value);
-    const isParticipant = Array.isArray(event.participants) && event.participants.includes(userId.value);
-    // Team events
-    let isWinnerFlag = false;
-    if (event.details?.format === 'Team' && Array.isArray(event.teams)) {
-      const userTeam = event.teams.find(team => Array.isArray(team.members) && team.members.includes(userId.value));
-      if (userTeam) {
-        if (event.winners && Object.values(event.winners).flat().includes(userTeam.teamName)) {
-          isWinnerFlag = true;
-        }
+  allUserEvents.forEach((event: Event) => {
+      const isOrg = Array.isArray(event.details?.organizers) && event.details.organizers.includes(userId.value);
+      const isPart = Array.isArray(event.participants) && event.participants.includes(userId.value);
+      let isTeamMember = false;
+      if (event.details?.format === EventFormat.Team && Array.isArray(event.teams)) {
+          isTeamMember = event.teams.some(team => Array.isArray(team.members) && team.members.includes(userId.value));
       }
-    } else if (event.winners && Object.values(event.winners).flat().includes(userId.value)) {
-      isWinnerFlag = true;
-    }
-    if (isParticipant) participated++;
-    if (isOrganizer) organized++;
-    if (isWinnerFlag) won++;
+
+      let isWinnerFlag = false;
+       // Check if user ID is directly listed as a winner
+       if (event.winners && Object.values(event.winners).some(winnerList => winnerList.includes(userId.value))) {
+           isWinnerFlag = true;
+       }
+       // If it's a team event and the user is a member of a winning team
+       else if (event.details?.format === EventFormat.Team && isTeamMember && event.winners) {
+           const userTeam = event.teams?.find(team => team.members?.includes(userId.value));
+           if (userTeam && Object.values(event.winners).some(winnerList => winnerList.includes(userTeam.teamName))) {
+               isWinnerFlag = true;
+           }
+       }
+
+
+      if (isPart || isTeamMember) participated++; // Count if direct participant or team member
+      if (isOrg) organized++;
+      if (isWinnerFlag) won++;
   });
   stats.value = { participatedCount: participated, organizedCount: organized, wonCount: won };
 };
 
-// Watch for userId changes to refetch data
+
+// --- Watcher ---
 watch(userId, (newUserId) => {
-  if (newUserId) {
+  if (newUserId && typeof newUserId === 'string') { // Ensure it's a string
     fetchProfileData();
+  } else {
+      // Handle case where userId becomes invalid or null
+      loading.value = false;
+      errorMessage.value = "Invalid User ID.";
+      user.value = null;
   }
 }, { immediate: true });
 
-// Add router
-const router = useRouter();
+// REMOVED: defineExpose for openEditProfile. Navigation should be handled by parent.
 
-// Replace openEditModal with navigation
-const openEditProfile = () => {
-  router.push({ name: 'EditProfile', params: { id: userId.value } });
-};
-
-// Update expose
-defineExpose({
-  openEditProfile
-});
 </script>
+
+<style scoped>
+/* Style adjustments can go here */
+</style>
