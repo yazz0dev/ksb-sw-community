@@ -56,6 +56,7 @@
       </div>
 
       <!-- Description -->
+      <!-- FIX: Ensure renderedDescriptionHtml uses the centrally rendered markdown -->
       <div class="card-text small text-secondary mb-4 flex-grow-1 rendered-markdown" v-html="renderedDescriptionHtml"></div>
 
       <!-- Footer: Action & Participants -->
@@ -85,7 +86,8 @@ import { useUserStore } from '@/store/user';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
-import { renderMarkdown } from '@/utils/markdownUtils'; 
+// FIX: Import the composable, not the util directly here
+import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
 // Define props using defineProps
 const props = defineProps({
@@ -96,6 +98,8 @@ const props = defineProps({
 });
 
 const userStore = useUserStore();
+// FIX: Use the composable
+const { renderMarkdown } = useMarkdownRenderer();
 
 const isCancelledOrRejected = computed(() =>
   props.event.status === EventStatus.Cancelled ||
@@ -114,8 +118,8 @@ async function processDescription(description: string | undefined) {
     desc = desc || 'No description provided.'; // Fallback text
 
     // Use the centralized markdown renderer (async version)
-    // Call the CORRECT function
-    renderedDescriptionHtml.value = await renderMarkdown(desc); // <--- FIX: Use renderMarkdown
+    // FIX: Call the composable's function
+    renderedDescriptionHtml.value = await renderMarkdown(desc);
 }
 
 // Watch the event description and re-render markdown when it changes
@@ -186,7 +190,7 @@ const participantCount = computed(() => {
   transform: translateY(-4px) scale(1.02); /* Slightly more lift */
   box-shadow: var(--bs-box-shadow-lg) !important; /* Use Bootstrap variable for consistency */
 }
-/* fs-7 is already defined globally in main.scss and should be used */
+/* REMOVED: Local fs-7 definition */
 /* .fs-7 { font-size: 0.8rem !important; } */
 
 /* Style for rendered markdown - prevent excessive margins */
