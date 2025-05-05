@@ -40,13 +40,13 @@
       >
         <!-- Profile Pic or Icon -->
         <figure v-if="userProfilePicUrl && !imgError" class="mb-1 profile-pic-figure">
-          <img 
-            class="rounded-circle border" 
-            :src="userProfilePicUrl" 
-            :alt="userName || 'Profile'" 
+          <img
+            class="rounded-circle border"
+            :src="userProfilePicUrl"
+            :alt="userName || 'Profile'"
             width="28"
             height="28"
-            @error="handleImageError" 
+            @error="handleImageError"
           />
         </figure>
         <span v-else class="fs-4 mb-1"><i class="fas fa-user-circle"></i></span>
@@ -73,15 +73,7 @@ const handleImageError = (): void => {
   console.warn('Failed to load profile image:', userProfilePicUrl.value);
 };
 
-const handleNavClick = (): void => {
-  const navbar = document.getElementById('navbarNav');
-  if (navbar?.classList.contains('show')) {
-    if (window.bootstrap && window.bootstrap.Collapse) {
-      const collapse = window.bootstrap.Collapse.getInstance(navbar);
-      if (collapse) collapse.hide();
-    }
-  }
-};
+// REMOVED: handleNavClick method as it targeted the top navbar collapse
 </script>
 
 <style scoped>
