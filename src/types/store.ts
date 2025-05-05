@@ -1,17 +1,15 @@
-// --- Import specific state types ---
-import { UserState } from '@/types/user';
-import { EventState } from '@/types/event';
+// src/types/store.ts
 
-// --- Notification Interface (Keep as is) ---
+// --- Notification Interface ---
 export interface Notification {
   id: string;
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
+  title?: string; 
   createdAt: number; // Added creation timestamp
-  // timeout is handled by duration in Pinia store
 }
 
-// --- QueuedAction, OfflineQueueState, NetworkStatusState (Keep as is) ---
+// --- QueuedAction, OfflineQueueState, NetworkStatusState ---
 export interface QueuedAction {
   id: string; // Unique ID for the queued action
   type: string; // Identifier for the action (e.g., 'event/rateTeam')
@@ -38,7 +36,8 @@ export interface NetworkStatusState {
   reconnectAttempts: number;
 }
 
-// --- AppState (Revised for Pinia) ---
+
+// --- AppState ---
 export interface AppState {
   lastSyncTimestamp: number | null; // Timestamp of the last successful sync
   cacheExpiration: number; // How long caches are considered valid (e.g., 30 mins)
@@ -47,7 +46,8 @@ export interface AppState {
   networkStatus: NetworkStatusState; // Tracks online/offline status
 }
 
-// --- NotificationState (Keep as is - for notification store) ---
+
+// --- NotificationState ---
 export interface NotificationState {
   notifications: Notification[];
 }

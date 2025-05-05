@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watchEffect } from 'vue'; // Import ref, computed, watchEffect
+import { ref, watchEffect } from 'vue'; // Import ref, watchEffect (remove computed)
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 

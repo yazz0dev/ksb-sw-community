@@ -46,8 +46,7 @@
         ref="profileContentRef"
         v-if="targetUserId"
         :user-id="targetUserId"
-        :is-current-user="isCurrentUser"
-        @hook:mounted="() => {}"
+        :is-current-user-prop="isCurrentUser"
       >
         <!-- Slot for Additional Content (e.g., User Requests) -->
         <template #additional-content v-if="isCurrentUser">
@@ -81,16 +80,14 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import { db } from '../firebase';
 // Import necessary Firestore functions
-import { collection, query, where, getDocs, orderBy, doc, getDoc, DocumentData, collectionGroup,getCountFromServer } from 'firebase/firestore';
-import { generatePortfolioPDF } from '@/utils/pdfGenerator'; // Import PDF generator
-
+import { collection, query, where, getDocs, orderBy, doc, getDoc, DocumentData } from 'firebase/firestore';
 
 // Import Components
 import ProfileViewContent from '@/components/user/ProfileViewContent.vue';
 import PortfolioGeneratorButton from '@/components/user/PortfolioGeneratorButton.vue';
 import UserRequests from '@/components/user/UserRequests.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
-import { Project } from '@/types/project'; // Import the Project type
+import { Project } from '@/types/project'; 
 
 interface UserData {
   name: string;

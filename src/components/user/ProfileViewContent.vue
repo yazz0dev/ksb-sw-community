@@ -21,6 +21,7 @@
         <div class="card shadow-sm">
           <div class="card-body text-center p-4">
             <div class="mb-4">
+              <!-- FIX: Use global Event type for @error -->
               <img
                 :src="user.photoURL || defaultAvatarUrl"
                 :alt="user.name || 'Profile Photo'"
@@ -107,8 +108,8 @@
              </div>
              <ul class="list-group list-group-flush">
                <li
-                 v-for="event in sortedEventsHistory"
-                 :key="event.id"
+                 v-for="eventItem in sortedEventsHistory"
+                 :key="eventItem.id"
                  class="list-group-item px-3 py-3"
                >
                  <!-- Row 1: Event Name & Format with Organizer Badge -->
@@ -116,17 +117,17 @@
                    <div class="d-flex align-items-center">
                      <i class="fas fa-calendar-alt text-primary me-2"></i>
                      <router-link
-                       :to="{ name: 'EventDetails', params: { id: event.id } }"
+                       :to="{ name: 'EventDetails', params: { id: eventItem.id } }"
                        class="fw-semibold text-primary text-decoration-none me-2"
                      >
-                       {{ event.details?.eventName || 'Unnamed Event' }}
+                       {{ eventItem.details?.eventName || 'Unnamed Event' }}
                      </router-link>
-                     <span v-if="event.details?.format" class="badge bg-secondary-subtle text-secondary-emphasis small ms-2">
-                       <i class="fas fa-users me-1"></i>{{ formatEventFormat(event.details.format) }}
+                     <span v-if="eventItem.details?.format" class="badge bg-secondary-subtle text-secondary-emphasis small ms-2">
+                       <i class="fas fa-users me-1"></i>{{ formatEventFormat(eventItem.details.format) }}
                      </span>
                    </div>
                    <span
-                     v-if="isOrganizer(event)"
+                     v-if="isOrganizer(eventItem)"
                      class="badge bg-success-subtle text-success-emphasis rounded-pill"
                    >
                      <i class="fas fa-crown me-1"></i> Organizer
@@ -135,18 +136,18 @@
 
                  <!-- Row 2: Type, Status and Date -->
                  <div class="d-flex justify-content-between align-items-center">
-                   <span v-if="event.details?.type" class="badge bg-info-subtle text-info-emphasis small">
-                     <i class="fas fa-tag me-1"></i>{{ event.details.type }}
+                   <span v-if="eventItem.details?.type" class="badge bg-info-subtle text-info-emphasis small">
+                     <i class="fas fa-tag me-1"></i>{{ eventItem.details.type }}
                    </span>
                    <div class="d-flex align-items-center gap-2">
                      <span
                        class="badge rounded-pill"
-                       :class="getEventStatusBadgeClass(event.status)"
+                       :class="getEventStatusBadgeClass(eventItem.status)"
                      >
-                       {{ event.status }}
+                       {{ eventItem.status }}
                      </span>
                      <span class="badge bg-light text-secondary border border-1 fw-normal">
-                       {{ formatISTDate(event.details?.date?.start) }}
+                       {{ formatISTDate(eventItem.details?.date?.start) }}
                      </span>
                    </div>
                  </div>
@@ -171,15 +172,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, toRefs, nextTick, onMounted, onUnmounted, reactive } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useUserStore } from '@/store/user';
 import { useEventStore } from '@/store/events';
 import { formatISTDate } from '@/utils/dateTime';
 import { formatRoleName as formatRoleNameUtil } from '@/utils/formatters'; // Renamed import
-import { Event, EventStatus, EventFormat } from '@/types/event';
+// FIX: Rename imported Event type to avoid clash
+import { Event as AppEvent, EventStatus, EventFormat } from '@/types/event';
 import { User } from '@/types/user'; // Import User type
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
-import { useRouter } from 'vue-router';
+import { useRouter } from 'vue-router'; // Keep useRouter if needed for navigation later
 import {
   collection,
   query,
@@ -195,7 +197,7 @@ import { db } from '@/firebase'; // Ensure db is imported if used directly
 
 interface Props {
     userId: string;
-    isCurrentUser: boolean;
+    isCurrentUserProp: boolean; // Renamed prop to avoid conflict with local ref
 }
 
 interface Stats {
@@ -205,7 +207,8 @@ interface Stats {
 }
 
 const props = defineProps<Props>();
-const { userId } = toRefs(props);
+// FIX: Initialize local ref from prop
+const isCurrentUser = ref<boolean>(props.isCurrentUserProp);
 
 const userStore = useUserStore();
 const eventStore = useEventStore();
@@ -216,7 +219,8 @@ const user = ref<User | null>(null); // Use User type
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const userProjects = ref<DocumentData[]>([]); // Or a more specific Project type
-const participatedEvents = ref<Event[]>([]);
+// FIX: Use aliased AppEvent type
+const participatedEvents = ref<AppEvent[]>([]);
 const loadingEventsOrProjects = ref<boolean>(true);
 const stats = ref<Stats>({ participatedCount: 0, organizedCount: 0, wonCount: 0 });
 const participatedEventIds = ref<string[]>([]);
@@ -232,7 +236,7 @@ const totalXp = computed((): number => {
 
 const hasXpData = computed((): boolean => {
     const xp = totalXp.value;
-    return xp > 0 && user.value?.xpByRole && Object.values(user.value.xpByRole).some((xpVal: unknown) => Number(xpVal) > 0);
+    return !!(xp > 0 && user.value?.xpByRole && Object.values(user.value.xpByRole).some((xpVal: unknown) => Number(xpVal) > 0));
 });
 
 const filteredXpByRole = computed(() => {
@@ -245,8 +249,9 @@ const filteredXpByRole = computed(() => {
     }, {});
 });
 
+// FIX: Use aliased AppEvent type
 const sortedEventsHistory = computed(() => {
-  return [...participatedEvents.value].sort((a, b) => {
+  return [...participatedEvents.value].sort((a: AppEvent, b: AppEvent) => {
     const timeA = a.details?.date?.start?.toMillis() ?? 0; // Use Optional Chaining and Nullish Coalescing
     const timeB = b.details?.date?.start?.toMillis() ?? 0;
     return timeB - timeA; // Sort descending
@@ -254,8 +259,10 @@ const sortedEventsHistory = computed(() => {
 });
 
 // --- Methods ---
-const handleImageError = (e: Event) => { // Use standard Event type
-  const target = e.target as HTMLImageElement;
+// FIX: Change parameter type from imported Event to global Event or any
+const handleImageError = (e: Event) => { // Use standard DOM Event type
+  // FIX: Check if target exists before accessing src
+  const target = e.target as HTMLImageElement | null;
   if (target) {
     target.src = defaultAvatarUrl;
   }
@@ -270,11 +277,12 @@ const xpPercentage = (xp: number): number => {
   return total > 0 ? Math.min(100, Math.round((xp / total) * 100)) : 0;
 };
 
-const isOrganizer = (event: Event): boolean => {
-    if (!userId.value || !Array.isArray(event.details?.organizers)) { // Check userId prop directly
+// FIX: Use aliased AppEvent type
+const isOrganizer = (eventItem: AppEvent): boolean => {
+    if (!props.userId || !Array.isArray(eventItem.details?.organizers)) { // Use props.userId
         return false;
     }
-    return event.details.organizers.includes(userId.value);
+    return eventItem.details.organizers.includes(props.userId);
 };
 
 const formatEventFormat = (format: string | undefined): string => {
@@ -285,8 +293,6 @@ const formatEventFormat = (format: string | undefined): string => {
 };
 
 // --- Data Fetching ---
-// NOTE: Consider moving event/project fetching logic to the parent view (ProfileView.vue)
-//       or refactoring to use Pinia store getters for better separation of concerns and efficiency.
 const fetchProfileData = async () => {
     loading.value = true;
     loadingEventsOrProjects.value = true;
@@ -297,8 +303,14 @@ const fetchProfileData = async () => {
     stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
 
     try {
+        // Ensure userId is a string
+        const userIdToFetch = props.userId;
+        if (typeof userIdToFetch !== 'string' || !userIdToFetch) {
+             throw new Error('Invalid User ID provided.');
+        }
+
         // 1. Fetch User Profile from Store (or directly if store logic is complex)
-        const userDocRef = doc(db, 'users', userId.value); // Use prop value
+        const userDocRef = doc(db, 'users', userIdToFetch); // Use string userId
         const userDocSnap = await getDoc(userDocRef);
 
         if (!userDocSnap.exists()) {
@@ -325,7 +337,7 @@ const fetchProfileData = async () => {
 
         // 2. Fetch Events and Projects (consider using store getters if possible)
         await fetchUserEventsFromStore(); // This now uses the IDs from the fetched user data
-        await fetchUserProjects(userId.value); // Use prop value
+        await fetchUserProjects(userIdToFetch); // Use string userId
 
     } catch (error: any) {
         console.error('Error fetching profile data:', error);
@@ -339,7 +351,6 @@ const fetchProfileData = async () => {
 const fetchUserProjects = async (targetUserId: string) => {
   loadingEventsOrProjects.value = true;
   try {
-    // NOTE: If projects are needed elsewhere, consider moving this to the store
     const submissionsQuery = query(
       collection(db, 'submissions'),
       where('userId', '==', targetUserId),
@@ -356,10 +367,6 @@ const fetchUserProjects = async (targetUserId: string) => {
 };
 
 const fetchUserEventsFromStore = async () => {
-  // NOTE: Ideally, fetch all events once globally (e.g., in App.vue or a route guard)
-  //       and then use store getters here for filtering.
-  //       This avoids redundant fetches if the store already has the data.
-
   const allIds = Array.from(new Set([
     ...participatedEventIds.value,
     ...organizedEventIds.value
@@ -371,21 +378,21 @@ const fetchUserEventsFromStore = async () => {
       return;
   }
 
-  // Ensure store events are loaded (this might be redundant if loaded globally)
-  // await eventStore.fetchEvents();
-
-  const getEventsByIds = eventStore.getEventsByIds; // Use getter
-  let allUserEvents = getEventsByIds(allIds);
+  // Fetch events using store getter
+  const getEventsByIds = eventStore.getEventsByIds;
+  // FIX: Use aliased AppEvent type
+  let allUserEvents: AppEvent[] = getEventsByIds(allIds);
 
   // Filter based on profile view context
-  allUserEvents = allUserEvents.filter((event: Event) => {
+  allUserEvents = allUserEvents.filter((eventItem: AppEvent) => {
     const excludedStatuses: EventStatus[] = [EventStatus.Pending, EventStatus.Cancelled, EventStatus.Rejected];
-    if (props.isCurrentUser) {
+    // FIX: Use local isCurrentUser ref
+    if (isCurrentUser.value) {
       // Show most statuses for own profile
-      return !excludedStatuses.includes(event.status as EventStatus);
+      return !excludedStatuses.includes(eventItem.status as EventStatus);
     } else {
       // Show only completed/relevant statuses for public view
-      return [EventStatus.Completed, EventStatus.Closed, EventStatus.InProgress, EventStatus.Approved].includes(event.status as EventStatus);
+      return [EventStatus.Completed, EventStatus.Closed, EventStatus.InProgress, EventStatus.Approved].includes(eventItem.status as EventStatus);
     }
   });
 
@@ -393,27 +400,27 @@ const fetchUserEventsFromStore = async () => {
 
   // Calculate stats based on filtered events
   let participated = 0, organized = 0, won = 0;
-  allUserEvents.forEach((event: Event) => {
-      const isOrg = Array.isArray(event.details?.organizers) && event.details.organizers.includes(userId.value);
-      const isPart = Array.isArray(event.participants) && event.participants.includes(userId.value);
+  allUserEvents.forEach((eventItem: AppEvent) => {
+      // FIX: Use props.userId for comparison
+      const isOrg = Array.isArray(eventItem.details?.organizers) && eventItem.details.organizers.includes(props.userId);
+      const isPart = Array.isArray(eventItem.participants) && eventItem.participants.includes(props.userId);
       let isTeamMember = false;
-      if (event.details?.format === EventFormat.Team && Array.isArray(event.teams)) {
-          isTeamMember = event.teams.some(team => Array.isArray(team.members) && team.members.includes(userId.value));
+      if (eventItem.details?.format === EventFormat.Team && Array.isArray(eventItem.teams)) {
+          isTeamMember = eventItem.teams.some(team => Array.isArray(team.members) && team.members.includes(props.userId));
       }
 
       let isWinnerFlag = false;
        // Check if user ID is directly listed as a winner
-       if (event.winners && Object.values(event.winners).some(winnerList => winnerList.includes(userId.value))) {
+       if (eventItem.winners && Object.values(eventItem.winners).some(winnerList => winnerList.includes(props.userId))) {
            isWinnerFlag = true;
        }
        // If it's a team event and the user is a member of a winning team
-       else if (event.details?.format === EventFormat.Team && isTeamMember && event.winners) {
-           const userTeam = event.teams?.find(team => team.members?.includes(userId.value));
-           if (userTeam && Object.values(event.winners).some(winnerList => winnerList.includes(userTeam.teamName))) {
+       else if (eventItem.details?.format === EventFormat.Team && isTeamMember && eventItem.winners) {
+           const userTeam = eventItem.teams?.find(team => team.members?.includes(props.userId));
+           if (userTeam && Object.values(eventItem.winners).some(winnerList => winnerList.includes(userTeam.teamName))) {
                isWinnerFlag = true;
            }
        }
-
 
       if (isPart || isTeamMember) participated++; // Count if direct participant or team member
       if (isOrg) organized++;
@@ -424,18 +431,35 @@ const fetchUserEventsFromStore = async () => {
 
 
 // --- Watcher ---
-watch(userId, (newUserId) => {
+watch(() => props.userId, (newUserId) => {
   if (newUserId && typeof newUserId === 'string') { // Ensure it's a string
     fetchProfileData();
+    // FIX: Update local isCurrentUser ref when userId prop changes
+    isCurrentUser.value = newUserId === userStore.uid;
   } else {
-      // Handle case where userId becomes invalid or null
       loading.value = false;
       errorMessage.value = "Invalid User ID.";
       user.value = null;
   }
 }, { immediate: true });
 
-// REMOVED: defineExpose for openEditProfile. Navigation should be handled by parent.
+// Watch the prop and update the local ref
+watch(() => props.isCurrentUserProp, (newVal) => {
+    isCurrentUser.value = newVal;
+});
+
+// Define openEditProfile function (to be called by parent)
+const openEditProfile = () => {
+  if (props.userId) {
+    router.push({ name: 'EditProfile', params: { id: props.userId } });
+  } else {
+    console.error("Cannot open edit profile: User ID is missing.");
+    // Optionally show a notification
+  }
+};
+
+// Expose openEditProfile
+defineExpose({ openEditProfile });
 
 </script>
 

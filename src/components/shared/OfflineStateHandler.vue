@@ -29,29 +29,17 @@ interface QueuedAction {
   payload: any;
   timestamp: number;
 }
-
-interface AppState {
-  app: {
-    networkStatus: {
-      online: boolean;
-    };
-    offlineQueue: {
-      actions: QueuedAction[];
-      syncInProgress: boolean;
-    };
-  };
-}
  
 const appStore = useAppStore();
  
 const isOnline = computed<boolean>(() => appStore.isOnline);
-const hasQueuedActions = computed<boolean>(() => appStore.offlineQueue.length > 0);
+const hasQueuedActions = computed<boolean>(() => appStore.offlineQueue.actions.length > 0);
 const isSyncing = computed<boolean>(() => appStore.isSyncing);
 
 const statusMessage = computed<string>(() => {
   if (!isOnline.value) return 'You are currently offline';
   if (hasQueuedActions.value) {
-    return `${appStore.offlineQueue.length} action(s) pending sync`;
+    return `${appStore.offlineQueue.actions.length} action(s) pending sync`;
   }
   return '';
 });

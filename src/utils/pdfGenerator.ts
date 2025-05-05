@@ -10,7 +10,10 @@ import { formatRoleName } from './formatters';
 interface UserData {
   name: string;
   xpByRole?: Record<string, number>;
-  [key: string]: any; // Allow other properties
+  // Add other known properties explicitly if needed, e.g.,
+  // uid?: string;
+  // bio?: string;
+  // skills?: string[];
 }
 
 interface ProjectData {

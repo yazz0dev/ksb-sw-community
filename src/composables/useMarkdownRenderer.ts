@@ -2,12 +2,6 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
-// Optional: Configure marked globally once if needed, e.g., in main.ts or here
-// marked.setOptions({
-//   breaks: true, // Convert single line breaks to <br>
-//   gfm: true,    // Use GitHub Flavored Markdown
-//   // ... other options
-// });
 
 export function useMarkdownRenderer() {
 

@@ -7,8 +7,11 @@
           v-model="localDates.start"
           :disabled="isSubmitting"
           :min-date="minDate"
-          @change="onDateChange"
+          @update:model-value="onDateChange"  
           :enable-time-picker="false"
+          format="yyyy-MM-dd"
+          auto-apply
+          :clearable="false"
         />
       </div>
       <div class="col-md-6">
@@ -17,95 +20,155 @@
           v-model="localDates.end"
           :disabled="isSubmitting"
           :min-date="localDates.start || minDate"
-          @change="onDateChange"
+          @update:model-value="onDateChange" 
           :enable-time-picker="false"
+          format="yyyy-MM-dd"
+          auto-apply
+          :clearable="false"
         />
       </div>
     </div>
     <div v-if="!isDateAvailable" class="alert alert-danger mt-3">
       The selected dates conflict with another event. <span v-if="nextAvailableDate">Next available: {{ formatDate(nextAvailableDate) }}</span>
     </div>
-    <div v-else-if="nextAvailableDate && (localDates.start !== formatDate(nextAvailableDate))" class="alert alert-info mt-3">
+    <div v-else-if="nextAvailableDate && (formatDate(localDates.start) !== formatDate(nextAvailableDate))" class="alert alert-info mt-3">
       Next available date: {{ formatDate(nextAvailableDate) }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, toRefs } from 'vue';
-import { useEventStore } from '@/store/events';
-import '@vuepic/vue-datepicker/dist/main.css';
+import { ref, watch, onMounted } from 'vue'; // Remove 'computed'
 import DatePicker from '@vuepic/vue-datepicker';
+import '@vuepic/vue-datepicker/dist/main.css';
+import { useEventStore } from '@/store/events';
+import { DateTime } from 'luxon'; // Import DateTime
 
-interface Dates {
+// --- Props & Emits ---
+interface DateRange {
   start: string | null;
   end: string | null;
 }
-
-interface Props {
-  dates: Dates;
+const props = defineProps<{
+  dates: DateRange;
   isSubmitting: boolean;
-  eventId?: string;
-}
+  eventId?: string; // Optional: used to exclude current event during availability check
+}>();
 
-const emit = defineEmits(['update:dates', 'error', 'availability-change']);
-const props = defineProps<Props>();
-const { dates, isSubmitting, eventId } = toRefs(props);
+const emit = defineEmits<{
+  (e: 'update:dates', value: DateRange): void;
+  (e: 'error', message: string): void;
+  (e: 'availability-change', isAvailable: boolean): void;
+}>();
 
-const eventStore = useEventStore();
-const minDate = new Date().toISOString().split('T')[0];
-const localDates = ref({ ...dates.value });
+// --- State ---
+// Convert incoming ISO strings to Date objects for the DatePicker
+const parseDateString = (dateString: string | null): Date | null => {
+    return dateString ? DateTime.fromISO(dateString).toJSDate() : null;
+};
+
+const localDates = ref<{ start: Date | null; end: Date | null }>({
+    start: parseDateString(props.dates.start),
+    end: parseDateString(props.dates.end)
+});
 const isDateAvailable = ref(true);
-const nextAvailableDate = ref<string | null>(null);
+// Store next available date as DateTime or null
+const nextAvailableDate = ref<DateTime | null>(null); // Changed type
+const minDate = ref(new Date()); // Minimum date is today
 
-watch(dates, (newVal) => {
-  localDates.value = { ...newVal };
-});
-
-async function checkDateConflict() {
-  try {
-    const available = await eventStore.checkDateConflict({
-      start: localDates.value.start,
-      end: localDates.value.end,
-      excludeEventId: eventId?.value
-    });
-    isDateAvailable.value = available;
-    emit('availability-change', available);
-    if (!available) {
-      emit('error', 'Date conflict detected.');
-      await checkNextAvailableDate();
-    }
-  } catch (e) {
-    emit('error', 'Error checking date availability.');
+// --- Methods ---
+// formatDate now accepts DateTime | null
+const formatDate = (date: DateTime | Date | null): string => {
+  if (!date) return 'N/A';
+  if (date instanceof Date) {
+      return DateTime.fromJSDate(date).toFormat('yyyy-MM-dd');
   }
-}
+  // Assume DateTime if not Date
+  return date.isValid ? date.toFormat('yyyy-MM-dd') : 'Invalid Date';
+};
 
-async function checkNextAvailableDate() {
-  // Simulate logic or call store for next available date
-  // You may want to implement this more robustly
-  const next = await eventStore.getNextAvailableDate({
-    start: localDates.value.start,
-    end: localDates.value.end
-  });
-  nextAvailableDate.value = next;
-}
+const checkAvailability = async () => {
+  if (!localDates.value.start || !localDates.value.end) {
+    isDateAvailable.value = true; // Cannot check if dates are incomplete
+    nextAvailableDate.value = null; // Reset next available date
+    emit('availability-change', isDateAvailable.value);
+    return;
+  }
+  try {
+    const eventStore = useEventStore();
+    // Uncomment the call to the Pinia action
+    const result = await eventStore.checkEventDateAvailability(
+      localDates.value.start, // Pass Date objects directly
+      localDates.value.end,
+      props.eventId // Pass eventId if editing
+    );
 
-function formatDate(date: string | Date | null): string {
-  if (!date) return '';
-  if (typeof date === 'string') return date;
-  return date.toISOString().split('T')[0];
-}
+    isDateAvailable.value = result.isAvailable;
+    // Store the DateTime object returned by the action
+    nextAvailableDate.value = result.nextAvailableDate;
+    emit('availability-change', isDateAvailable.value);
 
-function onDateChange() {
-  emit('update:dates', { ...localDates.value });
-  checkDateConflict();
-}
+    if (!isDateAvailable.value && nextAvailableDate.value) {
+        // Use the formatted date in the error message
+        emit('error', `Selected dates conflict. Next available: ${formatDate(nextAvailableDate.value)}`);
+    } else if (!isDateAvailable.value) {
+         emit('error', `Selected dates conflict with an existing event.`);
+    }
 
-// Initial check
-watch(localDates, () => {
-  checkDateConflict();
+  } catch (error: any) { // Catch errors propagated from the store action
+    console.error("Error checking date availability (component):", error);
+    // Use the error message from the store if available
+    emit('error', error.message || 'Failed to check date availability.');
+    isDateAvailable.value = false; // Assume unavailable on error
+    nextAvailableDate.value = null; // Reset on error
+    emit('availability-change', isDateAvailable.value);
+  }
+};
+
+const onDateChange = async () => {
+  // Ensure end date is not before start date
+  if (localDates.value.start && localDates.value.end && localDates.value.end < localDates.value.start) {
+    localDates.value.end = localDates.value.start; // Set end date to start date if invalid
+  }
+
+  // Convert Date objects back to ISO strings before emitting
+  const datesToEmit: DateRange = {
+      start: localDates.value.start ? DateTime.fromJSDate(localDates.value.start).toISODate() : null,
+      end: localDates.value.end ? DateTime.fromJSDate(localDates.value.end).toISODate() : null
+  };
+  console.log('[EventScheduleForm] Emitting update:dates', datesToEmit); // Log emitted value
+  emit('update:dates', datesToEmit);
+
+  // Re-check availability after dates change
+  await checkAvailability();
+};
+
+// --- Watchers ---
+watch(() => props.dates, (newDates) => {
+    // Update localDates if the prop changes externally
+    localDates.value.start = parseDateString(newDates.start);
+    localDates.value.end = parseDateString(newDates.end);
+}, { deep: true });
+
+// --- Lifecycle Hooks ---
+onMounted(() => {
+  // Initial check on mount if dates are pre-filled (e.g., during edit)
+  if (localDates.value.start && localDates.value.end) {
+    checkAvailability();
+  } else {
+      // Ensure availability is true initially if no dates are set
+      isDateAvailable.value = true;
+      emit('availability-change', isDateAvailable.value);
+  }
 });
+
 </script>
 
-<style scoped>
+<style>
+/* Optional: Style the date picker */
+.dp__input {
+  border-radius: var(--bs-border-radius-sm);
+  font-size: 0.875rem; /* Match form-control-sm */
+  padding: 0.25rem 0.5rem; /* Match form-control-sm */
+}
 </style>

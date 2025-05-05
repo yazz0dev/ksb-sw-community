@@ -20,14 +20,18 @@
 
     <transition name="fade">
       <div v-if="!loadingRequests && requests.length > 0">
+        <!-- FIX: Use :key="request.id" which is guaranteed unique -->
         <div v-for="(request, index) in requests" :key="request.id" class="py-3 request-item">
           <h6 class="h6 text-primary mb-1">
+            <!-- Link should still work as request.id maps correctly -->
             <router-link :to="{ name: 'EventDetails', params: { id: request.id } }" class="text-decoration-none">
+              <!-- Use request.eventName from the mapped structure -->
               {{ request.eventName }}
             </router-link>
           </h6>
           <div class="d-flex align-items-center mb-2">
             <small class="text-secondary me-2">Status:</small>
+            <!-- Use request.status from the mapped structure -->
             <span :class="['badge rounded-pill', getStatusClass(request.status)]">
               {{ request.status }}
             </span>
@@ -58,25 +62,30 @@
 import { ref, onMounted } from 'vue';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { useUserStore } from '@/store/user';
-import { useRouter } from 'vue-router';
+import { useRouter } from 'vue-router'; // Import if needed for routing
 import { db } from '@/firebase';
+// Import the Event type from the store's perspective
+import type { Event as StoreEvent, EventStatus } from '@/types/event';
 
+// Local interface for the component's needs
 interface Request {
     id: string;
-    eventName: string;
+    eventName: string; // Needs eventName directly
     status: 'Pending' | 'Approved' | 'Rejected';
+    _deleting?: boolean; // Keep temporary state property
+    // Allow other properties if needed for flexibility, but try to be specific
     [key: string]: any;
 }
- 
+
 const userStore = useUserStore();
-const requests = ref<Request[]>([]);
+const requests = ref<Request[]>([]); // Use the local Request interface
 const loadingRequests = ref<boolean>(true);
 const errorMessage = ref<string>('');
 
 const getStatusClass = (status: Request['status']): string => {
     switch (status) {
         case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
-        case 'Approved': return 'bg-success-subtle text-success-emphasis';
+        case 'Approved': return 'bg-success-subtle text-success-emphasis'; // Although not fetched, good to have
         case 'Rejected': return 'bg-danger-subtle text-danger-emphasis';
         default: return 'bg-secondary-subtle text-secondary-emphasis';
     }
@@ -93,8 +102,24 @@ const fetchRequests = async (): Promise<void> => {
     try {
         loadingRequests.value = true;
         errorMessage.value = '';
+        // Fetch user requests (returns StoreEvent[])
         await userStore.fetchUserRequests(user.uid);
-        requests.value = userStore.userRequests;
+        const storeRequests: StoreEvent[] = userStore.userRequests; // Type as StoreEvent[]
+
+        // --- FIX: Map StoreEvent[] to Request[] ---
+        requests.value = storeRequests.map((event: StoreEvent): Request => ({
+            id: event.id,
+            // Extract eventName from details, provide fallback
+            eventName: event.details?.eventName || 'Unnamed Request',
+            // Cast status to match the local Request type's status enum
+            status: event.status as Request['status'],
+            // Optionally copy other needed fields if the component uses them
+            // Be careful not to overwrite the required fields (id, eventName, status)
+            // For example, if you needed requestedBy:
+            // requestedBy: event.requestedBy
+        }));
+        // --- End FIX ---
+
     } catch (error) {
         console.error('Error fetching requests:', error);
         errorMessage.value = 'Unable to load requests at this time';
@@ -105,15 +130,21 @@ const fetchRequests = async (): Promise<void> => {
 };
 
 const deleteRequest = async (request: Request, index: number) => {
+  // Ensure _deleting doesn't cause type issues
+  if (request._deleting) return;
   if (!confirm('Are you sure you want to delete this pending event request?')) return;
-  request._deleting = true;
+  request._deleting = true; // Add temporary state
   try {
     await deleteDoc(doc(db, 'events', request.id));
-    requests.value.splice(index, 1);
+    requests.value.splice(index, 1); // Remove from local array
   } catch (error) {
     errorMessage.value = 'Failed to delete the request.';
-    request._deleting = false;
+    // Reset temporary state on error
+    if (requests.value[index]) { // Check if element still exists
+        requests.value[index]._deleting = false;
+    }
   }
+  // No finally needed here as _deleting is removed with splice on success
 };
 
 onMounted(fetchRequests);

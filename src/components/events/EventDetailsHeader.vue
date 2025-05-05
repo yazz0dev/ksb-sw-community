@@ -89,19 +89,9 @@
               <i v-else class="fas fa-times me-2"></i>
               <span>Leave Event</span>
             </button>
-
-             <!-- Edit Event -->
-            <button
-              v-if="canEdit && event?.id"
-              class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center"
-              @click="$router.push({ name: 'EditEvent', params: { eventId: event.id } })"
-            >
-               <i class="fas fa-edit me-2"></i>
-              <span>Edit Event</span>
-            </button>
-          </div>
-        </div>
-      </div>
+           </div>
+         </div>
+       </div>
     </div>
   </div>
 </template>
@@ -144,7 +134,6 @@ const props = defineProps({
   },
   canJoin: Boolean,
   canLeave: Boolean,
-  canEdit: Boolean,
   isJoining: Boolean,
   isLeaving: Boolean,
   nameCache: {

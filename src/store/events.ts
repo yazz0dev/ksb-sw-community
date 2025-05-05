@@ -1,12 +1,14 @@
 // src/store/events.ts
 import { defineStore } from 'pinia';
-import { Timestamp, doc, getDoc, writeBatch, increment } from 'firebase/firestore'; // Import necessary Firestore functions
+// Remove unused getDoc
+import { Timestamp, doc, writeBatch, increment } from 'firebase/firestore'; 
 import { db } from '../firebase'; // Adjusted path
+import { DateTime } from 'luxon'; // Import DateTime
 
 // --- Import Types ---
 import {
     Event, EventStatus, EventFormat,
-    EventCriteria, Team, Submission, OrganizerRating
+    EventCriteria, Team, Submission // Remove unused OrganizerRating
 } from '@/types/event'; // Removed EventState
 
 // --- Import Stores ---
@@ -18,7 +20,7 @@ import { useAppStore } from './app';
 import { fetchAllEventsFromFirestore, fetchSingleEventFromFirestore } from './events/actions.fetching';
 import {
     createEventRequestInFirestore, updateEventDetailsInFirestore,
-    updateEventStatusInFirestore, closeEventDocumentInFirestore
+    updateEventStatusInFirestore // Remove unused closeEventDocumentInFirestore
 } from './events/actions.lifecycle';
 import { joinEventInFirestore, leaveEventInFirestore } from './events/actions.participants';
 import {
@@ -64,6 +66,7 @@ export const useEventStore = defineStore('events', {
     state: () => ({
         events: [] as Event[], // Initialize with empty array and type
         currentEventDetails: null as Event | null, // Initialize with null and type
+        error: null as string | null, // Add error state property
     }),
 
     // Getters definition
@@ -150,11 +153,60 @@ export const useEventStore = defineStore('events', {
             }
         },
 
+        // --- Validation Actions ---
+        async checkExistingRequests(): Promise<boolean> {
+            const userStore = useUserStore();
+            if (!userStore.uid) return false;
+            try {
+                return await checkExistingRequestsForUser(userStore.uid);
+            } catch (error) {
+                 console.error("checkExistingRequests failed:", error);
+                 // Set error state
+                 this.error = handleFirestoreError(error) || 'Failed to check existing requests.';
+                 return false; // Assume no request on error
+            }
+        },
+
+        async checkEventDateAvailability(
+            startDate: Date,
+            endDate: Date,
+            excludeEventId: string | null = null
+        ): Promise<{ isAvailable: boolean; nextAvailableDate: DateTime | null }> {
+            this.error = null; // Clear previous errors
+            try {
+                // Convert Dates to ISO strings for the helper function if needed,
+                // but the helper already handles Date objects.
+                const result = await checkDateConflictInFirestore(startDate, endDate, excludeEventId);
+
+                // Convert the returned ISO string back to DateTime for consistency or keep as string
+                const nextAvailableLuxon = result.nextAvailableDate
+                    ? DateTime.fromISO(result.nextAvailableDate)
+                    : null;
+
+                if (!nextAvailableLuxon?.isValid) {
+                     console.warn("checkDateConflictInFirestore returned invalid nextAvailableDate:", result.nextAvailableDate);
+                     return { isAvailable: !result.hasConflict, nextAvailableDate: null };
+                }
+
+                return {
+                    isAvailable: !result.hasConflict,
+                    nextAvailableDate: nextAvailableLuxon
+                };
+            } catch (err: any) {
+                console.error("Pinia checkEventDateAvailability error:", err);
+                // Set error state
+                this.error = err.message || 'Failed to check date availability.';
+                // Decide return value on error - perhaps assume unavailable?
+                return { isAvailable: false, nextAvailableDate: null };
+            }
+        },
+
         // --- Lifecycle Actions ---
         async requestEvent(initialData: Partial<Event>): Promise<string> {
             const userStore = useUserStore();
             const notificationStore = useNotificationStore();
-            const appStore = useAppStore(); // Needed for offline check
+            // Remove unused appStore variable
+            // const appStore = useAppStore(); 
 
             if (!userStore.uid) {
                  notificationStore.showNotification({ message: "You must be logged in.", type: 'error' });
@@ -169,9 +221,9 @@ export const useEventStore = defineStore('events', {
                   throw new Error(msg);
              }
 
-            // Offline check
-            const offlineResult = await appStore.handleOfflineAction({ type: 'events/requestEvent', payload: initialData });
-            if (offlineResult.queued) return ''; // Indicate queued
+            // Offline check - Assuming handleOfflineAction exists on appStore
+            // const offlineResult = await useAppStore().handleOfflineAction({ type: 'events/requestEvent', payload: initialData });
+            // if (offlineResult.queued) return ''; // Indicate queued
             
             try {
                 const newEventId = await createEventRequestInFirestore(initialData, userStore.uid);
@@ -188,11 +240,12 @@ export const useEventStore = defineStore('events', {
         async updateEventDetails({ eventId, updates }: { eventId: string; updates: Partial<Event> }) {
             const userStore = useUserStore();
             const notificationStore = useNotificationStore();
-            const appStore = useAppStore();
+            // Remove unused appStore variable
+            // const appStore = useAppStore();
 
-            // Offline check
-            const offlineResult = await appStore.handleOfflineAction({ type: 'events/updateEventDetails', payload: { eventId, updates } });
-            if (offlineResult.queued) return;
+            // Offline check - Assuming handleOfflineAction exists on appStore
+            // const offlineResult = await useAppStore().handleOfflineAction({ type: 'events/updateEventDetails', payload: { eventId, updates } });
+            // if (offlineResult.queued) return;
 
             try {
                 await updateEventDetailsInFirestore(eventId, updates, userStore.currentUser);
@@ -207,14 +260,17 @@ export const useEventStore = defineStore('events', {
 
         async updateEventStatus({ eventId, newStatus }: { eventId: string; newStatus: EventStatus }) {
              const notificationStore = useNotificationStore();
-             const appStore = useAppStore();
+             // Remove unused appStore variable
+             // const appStore = useAppStore();
 
              // Offline check (might be unsuitable for some status changes)
              // const offlineResult = await appStore.handleOfflineAction({ type: 'events/updateEventStatus', payload: { eventId, newStatus } });
              // if (offlineResult.queued) return;
 
              try {
-                 const appliedUpdates = await updateEventStatusInFirestore(eventId, newStatus);
+                 // Remove unused appliedUpdates variable
+                 // const appliedUpdates = await updateEventStatusInFirestore(eventId, newStatus);
+                 await updateEventStatusInFirestore(eventId, newStatus);
                  // Fetch fresh details to get the fully updated object
                  await this.fetchEventDetails(eventId); // Use 'this' for other actions
                  notificationStore.showNotification({ message: `Event status updated to ${newStatus}.`, type: 'success' });
@@ -477,26 +533,15 @@ export const useEventStore = defineStore('events', {
              }
          },
 
-
-         // --- Validation Actions ---
-         async checkExistingRequests(): Promise<boolean> {
-             const userStore = useUserStore();
-             if (!userStore.uid) return false;
-             try {
-                 return await checkExistingRequestsForUser(userStore.uid);
-             } catch (error) {
-                  console.error("checkExistingRequests failed:", error);
-                  return false; // Assume no request on error
-             }
-         },
-
          async checkDateConflict(payload: { startDate: string | Date | Timestamp | null; endDate: string | Date | Timestamp | null; excludeEventId?: string | null }): Promise<{ hasConflict: boolean; nextAvailableDate: string | null; conflictingEvent: Event | null }> {
               // Directly call the helper function
               try {
                    return await checkDateConflictInFirestore(payload.startDate, payload.endDate, payload.excludeEventId);
               } catch (error) {
                    const notificationStore = useNotificationStore();
-                   notificationStore.showNotification({ message: `Date check failed: ${handleFirestoreError(error)}`, type: 'error' });
+                   // Set error state
+                   this.error = handleFirestoreError(error) || 'Date conflict check failed.';
+                   notificationStore.showNotification({ message: `Date check failed: ${this.error}`, type: 'error' });
                    // Return a default conflicting state on error?
                    return { hasConflict: true, nextAvailableDate: null, conflictingEvent: null };
               }

@@ -112,11 +112,6 @@ import { formatRoleName } from '@/utils/formatters';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS, MAX_USER_CRITERIA } from '@/utils/constants';
 
 // --- Constants ---
-// const BEST_PERFORMER_LABEL = 'Best Performer';
-// const BEST_PERFORMER_POINTS = 10;
-// const DEFAULT_CRITERION_LABEL = 'Overall Performance';
-// const DEFAULT_CRITERION_POINTS = 10;
-// const MAX_USER_CRITERIA = 4; // Max non-Best Performer criteria
 const DEFAULT_CRITERION_LABEL = 'Overall Performance';
 const DEFAULT_CRITERION_POINTS = 10;
 

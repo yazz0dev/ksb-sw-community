@@ -166,17 +166,17 @@ const formatOrganizers = computed(() => {
 // Participant count
 const participantCount = computed(() => {
   if (!props.event) return 0;
-  // Handle Team format
+  // Team Format: Count unique members across all teams
   if (props.event.details.format === EventFormat.Team) {
-    return props.event.teams?.reduce((total, team) =>
-      total + (Array.isArray(team.members) ? team.members.length : 0), 0) || 0;
+    const memberSet = new Set<string>();
+    (props.event.teams || []).forEach(team => {
+      (team.members || []).forEach(m => m && memberSet.add(m));
+    });
+    return memberSet.size;
   }
   // Handle Individual and Competition formats (using participants array)
   return Array.isArray(props.event.participants) ? props.event.participants.length : 0;
 });
-
-// Expose EventFormat (if needed in template, though not currently used)
-// defineExpose({ EventFormat });
 
 </script>
 
@@ -190,8 +190,6 @@ const participantCount = computed(() => {
   transform: translateY(-4px) scale(1.02); /* Slightly more lift */
   box-shadow: var(--bs-box-shadow-lg) !important; /* Use Bootstrap variable for consistency */
 }
-/* REMOVED: Local fs-7 definition */
-/* .fs-7 { font-size: 0.8rem !important; } */
 
 /* Style for rendered markdown - prevent excessive margins */
 .rendered-markdown :deep(p:last-child) {

@@ -162,9 +162,6 @@ watch(details, (newVal) => {
   }
 }, { deep: true });
 
-// Ensure EventFormat enum is available in the template scope
-defineExpose({ EventFormat });
-
 function emitDetailsUpdate() {
   // Reset type if format changes and current type is not valid
   if (!eventTypesForFormat.value.includes(localDetails.value.type ?? '')) {
@@ -176,11 +173,4 @@ function emitDetailsUpdate() {
   }
   emit('update:details', { ...localDetails.value });
 }
-
-// Watch format changes specifically to handle type reset and emit
-watch(() => localDetails.value.format, (newFormat, oldFormat) => {
-    if (newFormat !== oldFormat) {
-        emitDetailsUpdate(); // This will reset type if needed and emit
-    }
-});
 </script>

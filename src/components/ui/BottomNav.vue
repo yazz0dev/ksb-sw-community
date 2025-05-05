@@ -65,8 +65,8 @@ const imgError = ref<boolean>(false);
 
 // Computed properties with type annotations
 const isAuthenticated = computed<boolean>(() => userStore.isAuthenticated);
-const userProfilePicUrl = computed<string | null>(() => userStore.profilePictureUrl);
-const userName = computed<string | null>(() => userStore.currentUser?.name);
+const userProfilePicUrl = computed<string | null>(() => userStore.profilePictureUrl ?? null);
+const userName = computed<string | null>(() => userStore.currentUser?.name ?? null);
 
 const handleImageError = (): void => {
   imgError.value = true;

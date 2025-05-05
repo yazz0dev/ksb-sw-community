@@ -159,7 +159,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/components/events/EventManageControls.vue
 
-import { computed, ref, PropType } from 'vue';
+import { computed, ref, PropType, defineEmits } from 'vue'; // Import defineEmits
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import { useEventStore } from '@/store/events'; // Ensure EventStore is imported
@@ -178,7 +178,8 @@ export default {
       required: true
     }
   },
-  setup(props, { emit }) { // <-- add emit to setup signature
+  emits: ['update'], // Define the emits
+  setup(props, { emit }) { // <-- emit is now correctly typed
     const router = useRouter();
     const userStore = useUserStore();
     const eventStore = useEventStore(); // Use Pinia store
@@ -188,7 +189,8 @@ export default {
 
     // --- User Role & Permissions ---
     const currentUserId = computed<string | null>(() => userStore.currentUser?.uid ?? null);
-    const currentUserRole = computed<string | null>(() => userStore.currentUser?.role); // Assuming role exists on currentUser
+    // FIX: Remove unused variable
+    // const currentUserRole = computed<string | null>(() => userStore.currentUser?.role); // Assuming role exists on currentUser
     const isOrganizer = computed(() => {
       const uid = currentUserId.value;
       const eventData = props.event;
@@ -414,20 +416,13 @@ export default {
       }
     };
 
-    const calculateTotalXP = (xpMap: Record<string, Record<string, number>> | null | undefined): number => {
-      if (!xpMap) return 0;
-      return Object.values(xpMap).reduce((userSum, roles) =>
-        userSum + Object.values(roles).reduce((roleSum, xp) => roleSum + (Number(xp) || 0), 0)
-      , 0);
-    };
-
     const closeEventAction = async () => {
         if (loadingAction.value || isClosingEvent.value) return;
         loadingAction.value = 'closeEvent';
         isClosingEvent.value = true;
         try {
             // Use Pinia action
-            const result = await eventStore.closeEventPermanently({
+            await eventStore.closeEventPermanently({
                 eventId: props.event.id
             });
             // Notification handled within Pinia action

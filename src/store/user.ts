@@ -332,56 +332,66 @@ export const useUserStore = defineStore('user', {
             }
         },
 
-        // Fetches all users with the 'Student' role
-        async fetchAllStudents(): Promise<UserData[]> {
-            if (this.isStudentListFresh && this.studentList.length > 0) {
-                console.log("Using cached student list.");
-                return this.studentList;
-            }
+        
 
-            this.studentListLoading = true;
-            this.studentListError = null;
-            try {
-                const usersRef = collection(db, 'users');
-                const q = query(usersRef, where('role', '==', 'Student'));
-                const querySnapshot = await getDocs(q);
+async fetchAllStudents(): Promise<UserData[]> {
+    console.log("[UserStore fetchAllStudents] Starting fetch...");
+    // Keep cache check if desired, but ensure it fetches if empty
+    if (this.isStudentListFresh && this.studentList.length > 0) {
+        console.log("[UserStore fetchAllStudents] Using cached student list.");
+        return this.studentList;
+    }
 
-                const students: UserData[] = querySnapshot.docs
-                    .map(docSnap => {
-                        const data = docSnap.data();
-                        const dbXp = data.xpByRole || {};
-                        const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
-                             acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
-                             return acc;
-                        }, {} as Record<XpRoleKey, number>);
-                        return { // Map to UserData structure
-                            uid: docSnap.id,
-                            name: data.name || 'Unnamed Student',
-                            role: 'Student',
-                            photoURL: data.photoURL,
-                            xpByRole: mergedXp,
-                            // Add other fields from UserData if needed
-                            // Ensure all required fields of UserData (extending User) are present
-                            skills: data.skills || [],
-                            preferredRoles: data.preferredRoles || [],
-                            participatedEvent: data.participatedEvent || [],
-                            organizedEvent: data.organizedEvent || [],
-                        } as UserData; // Assert UserData type
-                    })
-                    .sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Sort by name
+    this.studentListLoading = true;
+    this.studentListError = null;
+    try {
+        const usersRef = collection(db, 'users');
+        // --- CHANGE IS HERE ---
+        // Remove the 'where' clause since all users in this collection are students
+        // const q = query(usersRef, where('role', '==', 'Student')); // REMOVE
+        const querySnapshot = await getDocs(usersRef); // FETCH ALL USERS
+        // --- END CHANGE ---
 
-                this.studentList = students;
-                this.studentListLastFetch = Date.now();
-                return students;
-            } catch (error) {
-                console.error("Error fetching all students:", error);
-                this.studentList = [];
-                this.studentListError = error instanceof Error ? error : new Error('Failed to fetch students');
-                return [];
-            } finally {
-                this.studentListLoading = false;
-            }
-        },
+        console.log(`[UserStore fetchAllStudents] Firestore query returned ${querySnapshot.size} documents (all users).`);
+
+        const students: UserData[] = querySnapshot.docs
+            .map(docSnap => {
+                // ... (keep mapping logic, ensuring role is set if needed)
+                 const data = docSnap.data();
+                 const dbXp = data.xpByRole || {};
+                 const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
+                      acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
+                      return acc;
+                 }, {} as Record<XpRoleKey, number>);
+                 return {
+                     uid: docSnap.id,
+                     name: data.name || 'Unnamed Student',
+                     role: 'Student', // Add role here if needed elsewhere in the app
+                     photoURL: data.photoURL,
+                     xpByRole: mergedXp,
+                     skills: data.skills || [],
+                     preferredRoles: data.preferredRoles || [],
+                     participatedEvent: data.participatedEvent || [],
+                     organizedEvent: data.organizedEvent || [],
+                 } as UserData;
+            })
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        console.log(`[UserStore fetchAllStudents] Mapped ${students.length} students.`);
+
+        this.studentList = students;
+        this.studentListLastFetch = Date.now();
+        return students;
+    } catch (error) {
+        console.error("[UserStore fetchAllStudents] Error fetching students:", error);
+        this.studentList = [];
+        this.studentListError = error instanceof Error ? error : new Error('Failed to fetch students');
+        return [];
+    } finally {
+        this.studentListLoading = false;
+        console.log("[UserStore fetchAllStudents] Fetch finished.");
+    }
+},
 
         // Fetches all users (consider performance implications)
         async fetchAllUsers(): Promise<UserData[]> {

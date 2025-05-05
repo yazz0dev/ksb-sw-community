@@ -19,7 +19,6 @@
           :event="mapEventToHeaderProps(event)"
           :canJoin="canJoin"
           :canLeave="canLeave"
-          :canEdit="canEdit"
           :isJoining="isJoining"
           :isLeaving="isLeaving"
           :name-cache="nameCacheRecord"
@@ -97,7 +96,7 @@
               <EventParticipantList
                 v-else
                 :participants="event.participants ?? []"
-                :loading="loading" 
+                :loading="loading"
                 :getUserName="getUserNameFromCache"
                 :currentUserId="currentUserId"
                 class="mb-4"
@@ -235,11 +234,6 @@ import { useUserStore } from '@/store/user';
 import { useEventStore } from '@/store/events';
 import { useNotificationStore } from '@/store/notification';
 
-// Store Instances
-const userStore = useUserStore();
-const eventStore = useEventStore();
-const notificationStore = useNotificationStore();
-
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
 import EventParticipantList from '@/components/events/EventParticipantList.vue';
@@ -257,9 +251,9 @@ import { EventStatus, type Event, type Team, type Submission, EventFormat, type 
 import { User } from '@/types/user';
 
 // Utility Imports (Ensure these are correctly implemented)
-import { formatRoleName } from '@/utils/formatters';
-import { getEventStatusBadgeClass } from '@/utils/eventUtils';
-import { formatISTDate } from '@/utils/dateTime';
+// import { formatRoleName } from '@/utils/formatters'; // Not used directly here
+// import { getEventStatusBadgeClass } from '@/utils/eventUtils'; // Not used directly here
+// import { formatISTDate } from '@/utils/dateTime'; // Not used directly here
 
 // --- Local Types & Interfaces ---
 interface SubmissionFormData {
@@ -304,6 +298,7 @@ interface Props {
 const props = defineProps<Props>();
 
 // --- Composables ---
+// FIX: Initialize stores only ONCE at the top level of <script setup>
 const userStore = useUserStore();
 const eventStore = useEventStore();
 const notificationStore = useNotificationStore();
@@ -387,15 +382,6 @@ const canLeave = computed(() => {
   } else {
      return event.value.participants?.includes(currentUserId.value) ?? false;
   }
-});
-
-// Logic for enabling the "Edit Event" button
-const canEdit = computed(() => {
-  if (!event.value || !currentUserId.value || actionInProgress.value) return false;
-  // Cannot edit Completed, Cancelled, or Closed events
-  if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(event.value.status as EventStatus)) return false;
-  // Only organizers/requesters can edit
-  return isCurrentUserOrganizer.value;
 });
 
 // Determines if the user can submit a project
@@ -503,7 +489,8 @@ async function fetchUserNames(userIds: string[]): Promise<void> {
 
     organizerNamesLoading.value = true;
     try {
-        const names: Record<string, string | null> = await store.dispatch('user/fetchUserNamesBatch', uniqueIdsToFetch);
+        // FIX: Use userStore action directly
+        const names: Record<string, string> = await userStore.fetchUserNamesBatch(uniqueIdsToFetch);
         uniqueIdsToFetch.forEach(id => {
             nameCache.value.set(id, names[id] || `User (${id.substring(0, 5)}...)`);
         });

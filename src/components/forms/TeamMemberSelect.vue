@@ -4,23 +4,24 @@
       Add Team Members
       <span class="text-danger">*</span>
       <span class="text-muted ms-1">
-        ({{ selectedMembers.length }}/{{ maxMembers }} members)
+        ({{ selectedMembers.length }}/{{ maxMembers }} selected)
       </span>
     </label>
     <select
-      class="form-select"
-      v-model="selectedMember"
+      class="form-select form-select-sm" 
+      v-model="selectedMemberToAdd"
       :disabled="isSubmitting || selectedMembers.length >= maxMembers"
       @change="addMember"
     >
-      <option value="" disabled selected>Select a member to add...</option>
+      <option value="" disabled selected>Select a student to add...</option>
+      <!-- FIX: Iterate over availableStudents which now includes name -->
       <option
-        v-for="student in availableStudents"
+        v-for="student in availableStudentsForDropdown"
         :key="student.uid"
         :value="student.uid"
-        :disabled="selectedMembers.includes(student.uid)"
       >
-        {{ getCachedUserName(student.uid) }}
+        <!-- Display name directly from student object -->
+        {{ student.name || `UID: ${student.uid.substring(0,6)}...` }}
       </option>
     </select>
   </div>
@@ -29,10 +30,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useUserStore } from '@/store/user';
+// FIX: Import UserData type
+import { UserData } from '@/types/user';
 
 interface Props {
   selectedMembers: string[];
-  availableStudents: { uid: string }[];
+  // FIX: Expect UserData array
+  availableStudents: UserData[];
   isSubmitting: boolean;
   minMembers?: number;
   maxMembers?: number;
@@ -40,37 +44,63 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   minMembers: 2,
-  maxMembers: 10
+  maxMembers: 8,
+  selectedMembers: () => [], // Ensure default is a new array instance
+  availableStudents: () => [], // Ensure default is a new array instance
 });
 
 const emit = defineEmits(['update:members']);
 
 const userStore = useUserStore();
 
-const selectedMember = ref('');
+const selectedMemberToAdd = ref(''); // Renamed to avoid confusion
 
-const getCachedUserName = (uid: string) => {
-  return userStore.getCachedUserName(uid) || uid;
-};
+// Filter available students for the dropdown (exclude already selected)
+const availableStudentsForDropdown = computed(() => {
+    const selectedSet = new Set(props.selectedMembers);
+    return props.availableStudents.filter(student => !selectedSet.has(student.uid));
+});
 
 const addMember = () => {
-  if (selectedMember.value && !props.selectedMembers.includes(selectedMember.value)) {
-    const newMembers = [...props.selectedMembers, selectedMember.value];
+  if (selectedMemberToAdd.value && !props.selectedMembers.includes(selectedMemberToAdd.value)) {
+    const newMembers = [...props.selectedMembers, selectedMemberToAdd.value];
     if (newMembers.length <= props.maxMembers) {
       emit('update:members', newMembers);
+    } else {
+        // Optionally notify user they reached the max limit
+        console.warn(`Maximum team members (${props.maxMembers}) reached.`);
     }
   }
-  selectedMember.value = ''; // Reset selection
+  selectedMemberToAdd.value = ''; // Reset selection
 };
 
-// Enforce max members limit
+// Enforce max members limit (e.g., if prop changes externally)
 watch(() => props.selectedMembers, (newMembers) => {
   if (newMembers.length > props.maxMembers) {
+    // If somehow the list exceeds max, truncate it
     emit('update:members', newMembers.slice(0, props.maxMembers));
   }
 }, { deep: true });
 
+// Reset selection on mount or when available students change significantly
+watch(() => props.availableStudents, () => {
+    selectedMemberToAdd.value = '';
+}, { deep: true });
+
 onMounted(() => {
-  selectedMember.value = ''; // Reset selection on mount
+  selectedMemberToAdd.value = ''; // Reset selection on mount
 });
 </script>
+
+<style scoped>
+/* Add styles if needed, e.g., for the optional selected members display */
+.badge .btn-close-sm {
+  padding: 0.2em 0.35em;
+  width: 0.7em;
+  height: 0.7em;
+  filter: brightness(0) saturate(100%) invert(68%) sepia(11%) saturate(538%) hue-rotate(176deg) brightness(90%) contrast(89%);
+}
+.badge .btn-close-sm:hover {
+   filter: brightness(0) saturate(100%) invert(18%) sepia(88%) saturate(4792%) hue-rotate(348deg) brightness(96%) contrast(95%);
+}
+</style>

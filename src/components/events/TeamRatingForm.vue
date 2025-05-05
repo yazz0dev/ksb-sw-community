@@ -111,7 +111,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useEventStore } from '@/store/events';
 import { useUserStore } from '@/store/user';
-import { EventCriteria, Team as EventTeam } from '@/types/event'; // Use aliases if needed
+import { EventCriteria, Team as EventTeam, Event } from '@/types/event'; // Use aliases if needed
 
 interface TeamMember {
   uid: string;
@@ -140,7 +140,7 @@ const error = ref<string>('');
 const submissionError = ref<string>('');
 const isSubmitting = ref(false);
 
-const eventDetails = ref<any>(null); // Keep as any for flexibility or define specific type
+const eventDetails = ref<Event | null>(null); // Use specific Event type or null
 const eventCriteria = ref<EventCriteria[]>([]); // Use EventCriteria type
 const eventTeams = ref<EventTeam[]>([]); // Use EventTeam type
 const allTeamMembers = ref<TeamMember[]>([]);
@@ -168,7 +168,8 @@ onMounted(async () => {
     if (!eventDetails.value) {
       throw new Error('Event details could not be loaded.');
     }
-    if (!eventDetails.value.details?.format || eventDetails.value.details.format !== 'Team') {
+    // Type assertion might be needed if format is optional in Event type
+    if (!(eventDetails.value.details as any)?.format || (eventDetails.value.details as any).format !== 'Team') {
         throw new Error('This rating form is only for team events.');
     }
 

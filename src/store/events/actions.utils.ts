@@ -1,9 +1,9 @@
 // src/store/events/actions.utils.ts
 import { EventFormat, Event, Team, EventCriteria } from '@/types/event';
-import { BEST_PERFORMER_LABEL } from '@/utils/constants'; // Import constant
+import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants'; // Import constant
 
 // --- Utility: Calculate XP earned for event participation ---
-export async function calculateEventXP(eventData: Event): Promise<Record<string, Record<string, number>>> {
+export function calculateEventXP(eventData: Event): Record<string, Record<string, number>> { // Remove async
     const xpAwardMap: Record<string, Record<string, number>> = {};
 
     // --- Configuration ---
