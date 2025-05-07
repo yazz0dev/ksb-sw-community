@@ -167,8 +167,44 @@ onMounted(() => {
 <style>
 /* Optional: Style the date picker */
 .dp__input {
-  border-radius: var(--bs-border-radius-sm);
+  display: block;
+  width: 100%;
+  /* Adjusted padding: top, right, bottom, left. Increased right padding for icon. */
+  padding: 0.25rem 2.25rem 0.25rem 0.5rem; 
   font-size: 0.875rem; /* Match form-control-sm */
-  padding: 0.25rem 0.5rem; /* Match form-control-sm */
+  font-weight: 400; /* Bootstrap default $input-font-weight */
+  line-height: 1.5; /* Bootstrap default $input-line-height */
+  color: var(--bs-body-color); /* Uses body color for input text */
+  background-color: var(--bs-input-bg);
+  background-clip: padding-box;
+  border: 1px solid var(--bs-input-border-color);
+  appearance: none; /* Modern reset */
+  border-radius: var(--bs-border-radius-sm); /* Use Bootstrap's small border radius */
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
+
+.dp__input::placeholder {
+  color: var(--bs-secondary-color); /* Placeholder text color */
+  opacity: 1; /* Override Firefox's lower opacity */
+}
+
+.dp__input:focus {
+  color: var(--bs-body-color);
+  background-color: var(--bs-input-bg);
+  border-color: var(--bs-input-focus-border-color); /* Bootstrap's focus border color */
+  outline: 0;
+  box-shadow: var(--bs-input-focus-box-shadow); /* Bootstrap's focus shadow */
+}
+
+
+.dp__input_icon {
+  right: 0.5rem; 
+  left: auto;
+}
+
+.dp__clear_icon {
+  right: 0.5rem;  
+  left: auto;
+}
+
 </style>

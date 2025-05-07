@@ -17,14 +17,11 @@
       <!-- Header for Current User -->
       <div v-if="isCurrentUser" class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5 pb-4 border-bottom">
         <div>
-          <h2 class="h2 text-primary mb-2">My Profile</h2>
-          <button 
-            v-if="isCurrentUser"
-            @click="profileContentRef?.openEditProfile()"
-            class="btn btn-outline-primary"
-          >
-            <i class="fas fa-edit me-1"></i> Edit Profile
-          </button>
+          <h2 class="h2 text-primary mb-2 d-inline-flex align-items-center">
+            My Profile
+            <i v-if="userForPortfolio.hasLaptop" class="fas fa-laptop ms-2 text-success" title="Has Laptop"></i>
+          </h2>
+          <!-- Edit Profile Button Removed From Here -->
         </div>
         <!-- Portfolio Button Area -->
         <div class="d-flex align-items-center">
@@ -92,10 +89,12 @@ import { Project } from '@/types/project';
 interface UserData {
   name: string;
   uid: string;
+  photoURL?: string; // Added
   skills: string[];
   preferredRoles: string[];
   xpByRole: Record<string, number>;
   totalXp: number;
+  hasLaptop?: boolean;
 }
 
 interface UserProject extends DocumentData {
@@ -135,10 +134,12 @@ const userForPortfolio = computed<UserData>(() => {
     return {
         name: currentUserData.name,
         uid: currentUserData.uid,
+        photoURL: currentUserData.photoURL, // Added
         skills: currentUserData.skills || [],
         preferredRoles: currentUserData.preferredRoles || [],
         xpByRole: currentUserData.xpByRole || {},
-        totalXp
+        totalXp,
+        hasLaptop: currentUserData.hasLaptop || false,
     };
 });
 
@@ -255,13 +256,6 @@ const fetchUserProfile = async (userIdToFetch: string) => {
     } finally {
         loading.value = false;
     }
-};
-
-// Update openEditProfile method
-const openEditProfile = () => {
-  if (profileContentRef.value) {
-    profileContentRef.value.openEditModal();
-  }
 };
 
 // --- Watchers ---

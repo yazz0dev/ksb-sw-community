@@ -6,9 +6,10 @@ import type { Event } from './event'; // Import Event type if needed for request
  */
 export interface User {
     uid: string;
+    email: string | null;
     name: string;
     role?: 'Student' | 'Admin' | string; // Define roles more explicitly if possible
-    photoURL?: string;
+    photoURL?: string; // Added
     bio?: string;
     socialLink?: string;
     xpByRole?: Record<string, number>; // e.g., { developer: 150, presenter: 50 }
@@ -17,6 +18,8 @@ export interface User {
     lastXpCalculationTimestamp?: number | null;
     participatedEvent?: string[]; // Array of event IDs
     organizedEvent?: string[]; // Array of event IDs
+    hasLaptop?: boolean;
+    // ... any other fields from your Firestore user document
 }
 
 /**
@@ -71,3 +74,13 @@ export interface UserState {
     loading: boolean; // General loading indicator for user store actions
     error: Error | null; // General error state for user store actions
 }
+
+// Default structure for XP to ensure all roles are present
+export const defaultXpStructure: Record<string, number> = {
+    developer: 0,
+    designer: 0,
+    presenter: 0,
+    problemSolver: 0, // If you have this role
+    organizer: 0,
+    // ... other roles
+};

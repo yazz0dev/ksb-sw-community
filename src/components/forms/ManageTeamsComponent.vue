@@ -142,19 +142,18 @@
 
       <!-- Simplified Auto-Generate Section -->
       <div class="d-flex flex-wrap align-items-center gap-2 my-2">
-          <label for="simpleNumTeams" class="form-label small mb-0 me-1">Auto-generate</label>
-          <input id="simpleNumTeams" class="form-control form-control-sm" type="number" v-model.number="numberOfTeamsToGenerate" style="width: 5em;"
-            :min="2" :max="maxTeams" :disabled="props.isSubmitting || props.students.length < minMembersPerTeam * 2" /> <!-- FIX HERE -->
-          <label for="simpleNumTeams" class="form-label small mb-0 ms-1 me-2">teams</label>
+          <label for="simpleNumTeams" class="form-label small mb-0 me-1">Auto-generate members for current teams</label>
+          <!-- Removed input for numberOfTeamsToGenerate -->
           <button type="button" class="btn btn-sm btn-outline-info d-inline-flex align-items-center"
-            :disabled="props.isSubmitting || props.students.length < minMembersPerTeam * 2 || numberOfTeamsToGenerate < 2" 
-            title="Distribute all students randomly into the specified number of teams (clears existing teams)."
+            :disabled="props.isSubmitting || teams.length < 2 || props.students.length < minMembersPerTeam * teams.length" 
+            title="Distribute all students randomly into the currently configured teams (clears existing members)."
             @click="simpleAutoGenerateTeams">
             <i class="fas fa-random me-1"></i>
             <span>Generate</span>
           </button>
-           <small v-if="props.students.length < minMembersPerTeam * 2 && teams.length === 0" class="text-danger form-text ms-2">(Need at least {{ minMembersPerTeam * 2 }} students)</small>
-           <small v-else-if="teams.length > 0" class="text-warning form-text ms-2">(Will clear existing teams)</small>
+           <small v-if="teams.length < 2" class="text-danger form-text ms-2">(Need at least 2 teams configured)</small>
+           <small v-else-if="props.students.length < minMembersPerTeam * teams.length" class="text-danger form-text ms-2">(Need at least {{ minMembersPerTeam * teams.length }} students for {{teams.length}} teams)</small>
+           <small v-else-if="teams.some(t => t.members.length > 0)" class="text-warning form-text ms-2">(Will clear existing members)</small> <!-- Simplified condition -->
       </div>
     </div>
 
@@ -165,6 +164,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, PropType, nextTick } from 'vue';
 import { useUserStore } from '@/store/user';
+// Import useEventStore
+import { useEventStore } from '@/store/events';
 import TeamMemberSelect from './TeamMemberSelect.vue';
 import { Team as EventTeamType } from '@/types/event';
 import { UserData } from '@/types/user';
@@ -199,8 +200,9 @@ const emit = defineEmits<{
 }>();
 
 const userStore = useUserStore();
+const eventStore = useEventStore(); // Add eventStore
 const teams = ref<LocalTeam[]>([]);
-const numberOfTeamsToGenerate = ref(2);
+// Removed numberOfTeamsToGenerate ref
 const maxTeams = 8;
 const minMembersPerTeam = 2;
 const maxMembersPerTeam = 8;
@@ -375,53 +377,89 @@ const availableStudentsForTeam = (teamIndex: number): UserData[] => {
 
 
 // Auto-Generate Teams Function
-function simpleAutoGenerateTeams() {
-  // Check if students prop is valid before proceeding
+async function simpleAutoGenerateTeams() {
+  // Common validations
   if (!Array.isArray(props.students) || props.students.length === 0) {
       emit('error', 'Student list is not available for auto-generation.');
       console.error("[ManageTeamsComponent] Auto-generate called with empty/invalid students prop.");
       return;
   }
-  if (props.students.length < minMembersPerTeam * 2) {
-    emit('error', `At least ${minMembersPerTeam * 2} students required to auto-generate teams.`);
+  if (teams.value.length < 2) {
+    emit('error', `At least 2 teams must be configured before auto-generating members.`);
     return;
   }
-  if (teams.value.length > 0) {
-    if (!confirm('This will clear any manually added teams and generate new ones. Proceed?')) {
+  if (props.students.length < minMembersPerTeam * teams.value.length) {
+    emit('error', `At least ${minMembersPerTeam * teams.value.length} students required to populate ${teams.value.length} teams with a minimum of ${minMembersPerTeam} members each.`);
+    return;
+  }
+
+  if (teams.value.some(t => t.members.length > 0)) {
+    if (!confirm('This will clear existing members from all current teams and distribute students. Proceed?')) {
         return;
     }
   }
 
-  let nTeams = Math.max(2, Math.min(numberOfTeamsToGenerate.value || 2, maxTeams));
-  if (nTeams > Math.floor(props.students.length / minMembersPerTeam)) {
-    nTeams = Math.floor(props.students.length / minMembersPerTeam);
-     emit('error', `Cannot create ${numberOfTeamsToGenerate.value} teams with ${minMembersPerTeam} members each. Generating ${nTeams} teams instead.`);
-     numberOfTeamsToGenerate.value = nTeams;
-  }
-  if (nTeams < 2) {
-      emit('error', `Cannot generate at least 2 valid teams with the available students.`);
-      return;
-  }
+  if (props.eventId) { // Existing event: Use store action
+    try {
+      // Ensure the current team structure (names, number of teams) is saved if it has changed.
+      emitTeamsUpdate(); 
+      await nextTick();
 
-  const studentUIDs = props.students.map(s => s?.uid).filter(Boolean) as string[];
-  if (studentUIDs.length < nTeams * minMembersPerTeam) {
-       emit('error', `Not enough valid student UIDs (${studentUIDs.length}) available.`);
-       return;
-  }
+      await eventStore.autoGenerateTeams({
+          eventId: props.eventId,
+          minMembersPerTeam: minMembersPerTeam,
+          maxMembersPerTeam: maxMembersPerTeam,
+      });
+      // Parent component should react to store changes and update `initialTeams` prop,
+      // which will trigger re-initialization in this component.
+    } catch (error: any) {
+      console.error('[ManageTeamsComponent] Error during store-based simpleAutoGenerateTeams:', error);
+      emit('error', error.message || 'Failed to auto-generate teams via store.');
+    }
+  } else { // New event: Generate locally
+    try {
+      const studentsToDistribute = [...props.students]; // Mutable copy
+      const localTeams = teams.value; // Direct reference to the reactive array
+      const numberOfLocalTeams = localTeams.length;
 
-  const shuffled = [...studentUIDs].sort(() => Math.random() - 0.5);
-  const newTeams: LocalTeam[] = Array.from({ length: nTeams }, (_, i) => ({
-    name: `Team ${i + 1}`, members: [], teamLead: '',
-  }));
-  shuffled.forEach((uid, idx) => {
-    newTeams[idx % nTeams].members.push(uid);
-  });
-  newTeams.forEach(team => {
-    // Ensure team lead is assigned only if members exist
-    team.teamLead = team.members.length > 0 ? team.members[0] : '';
-  });
-  teams.value = newTeams; // This assignment will trigger the watcher to fetch names
-  emitTeamsUpdate();
+      // 1. Clear existing members and leads from local teams but preserve names
+      const tempTeamsToPopulate = localTeams.map(t => ({
+          name: t.name, // Preserve original name
+          members: [] as string[],
+          teamLead: '' as string,
+      }));
+
+      // 2. Shuffle students
+      const shuffledStudents = studentsToDistribute.sort(() => 0.5 - Math.random());
+
+      // 3. Distribute students (round-robin)
+      shuffledStudents.forEach((student, idx) => {
+          const teamIndexToAddTo = idx % numberOfLocalTeams;
+          if (tempTeamsToPopulate[teamIndexToAddTo].members.length < maxMembersPerTeam) {
+              tempTeamsToPopulate[teamIndexToAddTo].members.push(student.uid);
+          }
+      });
+      
+      // 4. Update the actual reactive `teams.value` with populated members and new leads
+      localTeams.forEach((originalTeam, index) => {
+          const populatedTeamData = tempTeamsToPopulate[index];
+          originalTeam.members = populatedTeamData.members;
+          originalTeam.teamLead = populatedTeamData.members.length > 0 ? populatedTeamData.members[0] : '';
+      });
+      
+      // Ensure names are fetched for any new UIDs if necessary (though props.students should have names)
+      // await ensureMemberNamesAreFetched(localTeams); // Watcher on `teams` should handle this if structure changes enough
+
+      emitTeamsUpdate(); // Emit the locally updated teams to the parent
+      console.log("[ManageTeamsComponent] Teams generated locally and emitted.");
+      // Optionally, emit a success message or rely on UI update.
+      // emit('error', 'Teams generated locally. Save the event to persist them.'); // Example notification
+
+    } catch (error: any) {
+      console.error('[ManageTeamsComponent] Error during local team generation:', error);
+      emit('error', error.message || 'Failed to auto-generate teams locally.');
+    }
+  }
 }
 
 // --- Computed Button Titles ---

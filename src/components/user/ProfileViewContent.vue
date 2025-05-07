@@ -32,18 +32,54 @@
             </div>
             <h1 class="h4 mb-2">{{ user.name || 'User Profile' }}</h1>
 
-            <!-- REMOVED: Edit Profile Button from here. Parent view should handle this. -->
+            <!-- Edit Profile Button Added Here -->
+            <button
+              v-if="isCurrentUserProp"
+              @click="openEditProfile"
+              class="btn btn-sm btn-outline-primary mb-3"
+            >
+              <i class="fas fa-edit me-1"></i> Edit Profile
+            </button>
 
             <!-- Social Link -->
             <div v-if="user.socialLink" class="mb-3">
-              <a :href="user.socialLink" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info">
-                <i class="fas fa-link me-1"></i> Social Profile
+              <a :href="user.socialLink" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info d-inline-flex align-items-center">
+                <i :class="['fab', socialLinkDetails.icon, 'me-2']" v-if="socialLinkDetails.isFontAwesomeBrand"></i>
+                <i :class="['fas', socialLinkDetails.icon, 'me-2']" v-else></i>
+                {{ socialLinkDetails.name }}
               </a>
             </div>
 
             <!-- Bio -->
             <p v-if="user.bio" class="text-muted small mb-4">{{ user.bio }}</p>
             <p v-else class="text-muted small fst-italic mb-4">No bio provided.</p>
+
+            <!-- Skills Section -->
+            <div v-if="user.skills && user.skills.length > 0" class="mb-4">
+              <h6 class="text-secondary small fw-semibold mb-2"><i class="fas fa-code me-1"></i> Skills</h6>
+              <div>
+                <span v-for="skill in user.skills" :key="skill" class="badge bg-light text-dark border me-1 mb-1">{{ skill }}</span>
+              </div>
+            </div>
+
+            <!-- Preferred Roles Section -->
+            <div v-if="user.preferredRoles && user.preferredRoles.length > 0" class="mb-4">
+              <h6 class="text-secondary small fw-semibold mb-2"><i class="fas fa-user-tag me-1"></i> Preferred Roles</h6>
+              <div>
+                <span v-for="role in user.preferredRoles" :key="role" class="badge bg-light text-dark border me-1 mb-1">{{ formatRoleName(role) }}</span>
+              </div>
+            </div>
+
+            <!-- Has Laptop Section -->
+            <div class="mb-4">
+              <h6 class="text-secondary small fw-semibold mb-2"><i class="fas fa-laptop me-1"></i> Equipment</h6>
+              <div>
+                <span class="badge border me-1 mb-1" :class="user.hasLaptop ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'">
+                  <i :class="['fas', user.hasLaptop ? 'fa-check-circle' : 'fa-times-circle', 'me-1']"></i>
+                  {{ user.hasLaptop ? 'Has Laptop' : 'No Laptop' }}
+                </span>
+              </div>
+            </div>
 
             <!-- Stats Section -->
             <div class="d-flex justify-content-around mb-5">
@@ -163,6 +199,41 @@
               </div>
            </div>
 
+           <!-- User Projects Section -->
+            <div v-if="userProjects.length > 0" class="card shadow-sm mt-4">
+              <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-folder-open text-primary me-2"></i>My Projects</h5>
+              </div>
+              <ul class="list-group list-group-flush">
+                <li v-for="project in userProjects" :key="project.id" class="list-group-item px-3 py-3">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <h6 class="mb-1">{{ project.projectName || 'Unnamed Project' }}</h6>
+                      <small v-if="project.eventName" class="text-muted d-block mb-1">
+                        <i class="fas fa-calendar-alt me-1"></i> Event: {{ project.eventName }}
+                      </small>
+                      <small v-else-if="project.eventId" class="text-muted d-block mb-1">
+                        <i class="fas fa-calendar-alt me-1"></i> Event ID: {{ project.eventId }}
+                      </small>
+                    </div>
+                    <a :href="project.link" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-1" v-if="project.link">
+                      <i class="fas fa-external-link-alt me-1"></i> View Project
+                    </a>
+                  </div>
+                  <p v-if="project.description" class="small text-muted mt-2 mb-0">{{ project.description }}</p>
+                </li>
+              </ul>
+              <div v-if="loadingEventsOrProjects" class="card-footer text-center text-muted small">
+                 Loading project details...
+              </div>
+            </div>
+            <div v-else-if="!loadingEventsOrProjects && initialDataLoaded" class="card shadow-sm mt-4"> <!-- Added initialDataLoaded check -->
+              <div class="card-body text-center text-muted">
+                No projects submitted yet.
+              </div>
+            </div>
+
+
            <!-- Additional Content Slot -->
            <slot name="additional-content"></slot>
         </div>
@@ -179,7 +250,7 @@ import { formatISTDate } from '@/utils/dateTime';
 import { formatRoleName as formatRoleNameUtil } from '@/utils/formatters'; // Renamed import
 // FIX: Rename imported Event type to avoid clash
 import { Event as AppEvent, EventStatus, EventFormat } from '@/types/event';
-import { User } from '@/types/user'; // Import User type
+import { User, UserData } from '@/types/user'; // Import UserData
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useRouter } from 'vue-router'; // Keep useRouter if needed for navigation later
 import {
@@ -206,6 +277,16 @@ interface Stats {
     wonCount: number;
 }
 
+interface UserProjectDisplay {
+  id: string;
+  projectName: string;
+  link: string;
+  description?: string;
+  eventId?: string;
+  eventName?: string;
+  submittedAt?: any; // Firestore Timestamp or string
+}
+
 const props = defineProps<Props>();
 // FIX: Initialize local ref from prop
 const isCurrentUser = ref<boolean>(props.isCurrentUserProp);
@@ -215,10 +296,10 @@ const eventStore = useEventStore();
 const router = useRouter();
 
 // --- State Refs ---
-const user = ref<User | null>(null); // Use User type
+const user = ref<UserData | null>(null); // Use UserData type for more fields
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
-const userProjects = ref<DocumentData[]>([]); // Or a more specific Project type
+const userProjects = ref<UserProjectDisplay[]>([]); // Use UserProjectDisplay type
 // FIX: Use aliased AppEvent type
 const participatedEvents = ref<AppEvent[]>([]);
 const loadingEventsOrProjects = ref<boolean>(true);
@@ -226,6 +307,7 @@ const stats = ref<Stats>({ participatedCount: 0, organizedCount: 0, wonCount: 0 
 const participatedEventIds = ref<string[]>([]);
 const organizedEventIds = ref<string[]>([]);
 const defaultAvatarUrl: string = new URL('../assets/default-avatar.png', import.meta.url).href;
+const initialDataLoaded = ref<boolean>(false); // New ref to track initial load completion
 
 
 // --- Computed Properties ---
@@ -247,6 +329,30 @@ const filteredXpByRole = computed(() => {
       acc[role] = Number(xp);
       return acc;
     }, {});
+});
+
+const socialLinkDetails = computed(() => {
+  if (!user.value?.socialLink) {
+    return { name: 'Social Profile', icon: 'fa-link', isFontAwesomeBrand: false };
+  }
+  const link = user.value.socialLink.toLowerCase();
+  if (link.includes('github.com')) {
+    return { name: 'GitHub Profile', icon: 'fa-github', isFontAwesomeBrand: true };
+  } else if (link.includes('linkedin.com')) {
+    return { name: 'LinkedIn Profile', icon: 'fa-linkedin', isFontAwesomeBrand: true };
+  } else if (link.includes('twitter.com') || link.includes('x.com')) {
+    return { name: 'Twitter Profile', icon: 'fa-twitter', isFontAwesomeBrand: true };
+  } else if (link.includes('facebook.com')) {
+    return { name: 'Facebook Profile', icon: 'fa-facebook', isFontAwesomeBrand: true };
+  } else if (link.includes('instagram.com')) {
+    return { name: 'Instagram Profile', icon: 'fa-instagram', isFontAwesomeBrand: true };
+  } else if (link.includes('behance.net')) {
+    return { name: 'Behance Profile', icon: 'fa-behance', isFontAwesomeBrand: true };
+  } else if (link.includes('dribbble.com')) {
+    return { name: 'Dribbble Profile', icon: 'fa-dribbble', isFontAwesomeBrand: true };
+  }
+  // Default for other links
+  return { name: 'Website', icon: 'fa-link', isFontAwesomeBrand: false };
 });
 
 // FIX: Use aliased AppEvent type
@@ -301,6 +407,7 @@ const fetchProfileData = async () => {
     userProjects.value = [];
     participatedEvents.value = [];
     stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
+    initialDataLoaded.value = false; // Reset on new fetch
 
     try {
         // Ensure userId is a string
@@ -317,7 +424,7 @@ const fetchProfileData = async () => {
             throw new Error('User data not found.');
         }
         const data = userDocSnap.data();
-        // Map to User type
+        // Map to UserData type
         user.value = {
             uid: userDocSnap.id,
             name: data.name || 'Unknown User',
@@ -329,8 +436,9 @@ const fetchProfileData = async () => {
             preferredRoles: data.preferredRoles || [],
             participatedEvent: data.participatedEvent || [],
             organizedEvent: data.organizedEvent || [],
-            // Ensure isAuthenticated is handled correctly if needed here
-        } as User;
+            role: data.role, // Ensure role is mapped if needed by formatRoleName
+            hasLaptop: data.hasLaptop === undefined ? false : data.hasLaptop,
+        } as UserData;
 
         participatedEventIds.value = user.value.participatedEvent || [];
         organizedEventIds.value = user.value.organizedEvent || [];
@@ -345,6 +453,7 @@ const fetchProfileData = async () => {
     } finally {
         loading.value = false;
         loadingEventsOrProjects.value = false;
+        initialDataLoaded.value = true; // Mark initial load complete
     }
 };
 
@@ -357,7 +466,24 @@ const fetchUserProjects = async (targetUserId: string) => {
       orderBy('submittedAt', 'desc')
     );
     const snapshot = await getDocs(submissionsQuery);
-    userProjects.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    userProjects.value = snapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      const eventId = data.eventId;
+      let eventName;
+      if (eventId) {
+        const eventDetails = eventStore.getEventById(eventId);
+        eventName = eventDetails?.details?.eventName;
+      }
+      return {
+        id: docSnap.id,
+        projectName: data.projectName,
+        link: data.link,
+        description: data.description,
+        eventId: eventId,
+        eventName: eventName,
+        submittedAt: data.submittedAt,
+      } as UserProjectDisplay;
+    });
   } catch (error) {
     console.error("Error fetching user projects:", error);
     userProjects.value = [];
@@ -465,4 +591,7 @@ defineExpose({ openEditProfile });
 
 <style scoped>
 /* Style adjustments can go here */
+.badge.bg-light {
+  border: 1px solid var(--bs-border-color-translucent);
+}
 </style>

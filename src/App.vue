@@ -86,6 +86,15 @@
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
                   <li>
+                    <router-link
+                      class="dropdown-item"
+                      to="/profile"
+                      @click="closeNavbar"
+                    >
+                      <i class="fas fa-user fa-fw me-2"></i> View Profile
+                    </router-link>
+                  </li>
+                  <li>
                     <button
                       class="dropdown-item"
                       @click="() => { closeNavbar(); handleLogout(); }"
@@ -146,10 +155,11 @@ const showNavbar = ref(true);
 const lastScrollPosition = ref(0);
 const scrollThreshold = 50;
 const showPushPermissionPrompt = ref(false);
+const imgError = ref<boolean>(false); // For profile picture error
 
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const userName = computed(() => userStore.currentUser?.name || 'User');
-// const userId = computed(() => userStore.uid); // Removed unused computed property
+const userProfilePicUrl = computed<string | null>(() => userStore.profilePictureUrl ?? null);
 
 
 const logout = async (): Promise<void> => {
@@ -228,6 +238,10 @@ onMounted(() => {
 const handleLogout = async (): Promise<void> => {
   closeNavbar();
   await logout();
+};
+
+const handleImageError = (): void => {
+  imgError.value = true;
 };
 
 // Removed local getOneSignal and isPushSupported functions
@@ -418,6 +432,13 @@ onUnmounted(() => {
 }
 .dropdown-item i {
     color: var(--bs-secondary);
+}
+
+.navbar-profile-pic {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border: 1px solid var(--bs-border-color);
 }
 
 .nav-link, .dropdown-item, .navbar-brand {

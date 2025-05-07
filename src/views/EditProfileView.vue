@@ -59,6 +59,11 @@
                 <input v-model="form.preferredRoles" type="text" class="form-control" placeholder="e.g. developer, designer" />
               </div>
 
+              <div class="mb-4 form-check">
+                <input v-model="form.hasLaptop" type="checkbox" class="form-check-input" id="hasLaptopCheck" :disabled="loading">
+                <label class="form-check-label" for="hasLaptopCheck">Has Laptop</label>
+              </div>
+
               <div class="d-flex justify-content-end gap-2">
                 <button 
                   type="button" 
@@ -102,7 +107,8 @@ const form = ref({
   bio: '',
   socialLink: '',
   skills: '',
-  preferredRoles: ''
+  preferredRoles: '',
+  hasLaptop: false
 });
 
 const formErrors = ref({
@@ -133,7 +139,8 @@ async function loadUserData() {
       bio: userData.bio || '',
       socialLink: userData.socialLink || '',
       skills: Array.isArray(userData.skills) ? userData.skills.join(', ') : '',
-      preferredRoles: Array.isArray(userData.preferredRoles) ? userData.preferredRoles.join(', ') : ''
+      preferredRoles: Array.isArray(userData.preferredRoles) ? userData.preferredRoles.join(', ') : '',
+      hasLaptop: userData.hasLaptop || false
     };
   } catch (err: any) {
     error.value = err?.message || 'Failed to load profile data';
@@ -157,7 +164,8 @@ async function saveProfileEdits() {
       bio: form.value.bio.trim(),
       socialLink: form.value.socialLink.trim(),
       skills: form.value.skills.split(',').map(s => s.trim()).filter(Boolean),
-      preferredRoles: form.value.preferredRoles.split(',').map(r => r.trim()).filter(Boolean)
+      preferredRoles: form.value.preferredRoles.split(',').map(r => r.trim()).filter(Boolean),
+      hasLaptop: form.value.hasLaptop
     };
 
     await updateDoc(userDocRef, updatePayload);

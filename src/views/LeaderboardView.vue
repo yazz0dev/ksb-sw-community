@@ -51,7 +51,13 @@
                   </div>
                   <span v-else class="rank-number">{{ index + 1 }}</span>
                 </td>
-                <td>
+                <td class="d-flex align-items-center">
+                  <img
+                    :src="user.photoURL || defaultAvatarUrl"
+                    alt="User Avatar"
+                    class="leaderboard-avatar me-2"
+                    @error="handleImageError"
+                  />
                   <router-link :to="`/user/${user.uid}`" class="user-link">
                      {{ user.name }}
                   </router-link>
@@ -73,12 +79,23 @@
 import { ref, computed, onMounted } from 'vue';
 import { useUserStore } from '@/store/user';
 import { formatRoleName } from '../utils/formatters';
+import defaultAvatar from '@/assets/default-avatar.png'; // Import default avatar
 
 interface User {
     uid: string;
     name: string;
+    photoURL?: string; // Added
     xpByRole?: Record<string, number>;
 }
+
+const defaultAvatarUrl = ref(defaultAvatar);
+
+const handleImageError = (event: Event) => {
+  const imgElement = event.target as HTMLImageElement;
+  if (imgElement) {
+    imgElement.src = defaultAvatarUrl.value;
+  }
+};
 
 // Function to convert display role name to xpByRole key
 const getRoleKey = (roleName: string): string => {
@@ -259,6 +276,14 @@ const selectRoleFilter = (role: string): void => {
   background: white; /* Keep white background */
   border-radius: 1rem;
   color: var(--bs-secondary);
+}
+
+.leaderboard-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--bs-border-color-translucent);
 }
 
 @media (max-width: 768px) {

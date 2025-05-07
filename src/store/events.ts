@@ -174,19 +174,20 @@ export const useEventStore = defineStore('events', {
         ): Promise<{ isAvailable: boolean; nextAvailableDate: DateTime | null }> {
             this.error = null; // Clear previous errors
             try {
-                // Convert Dates to ISO strings for the helper function if needed,
-                // but the helper already handles Date objects.
                 const result = await checkDateConflictInFirestore(startDate, endDate, excludeEventId);
 
-                // Convert the returned ISO string back to DateTime for consistency or keep as string
-                const nextAvailableLuxon = result.nextAvailableDate
-                    ? DateTime.fromISO(result.nextAvailableDate)
-                    : null;
-
-                if (!nextAvailableLuxon?.isValid) {
-                     console.warn("checkDateConflictInFirestore returned invalid nextAvailableDate:", result.nextAvailableDate);
-                     return { isAvailable: !result.hasConflict, nextAvailableDate: null };
+                let nextAvailableLuxon: DateTime | null = null;
+                if (result.nextAvailableDate) { // Only process if there's a date string
+                    nextAvailableLuxon = DateTime.fromISO(result.nextAvailableDate);
+                    if (!nextAvailableLuxon.isValid) {
+                        console.warn(
+                            "checkDateConflictInFirestore returned an unparsable string for nextAvailableDate:",
+                            result.nextAvailableDate
+                        );
+                        nextAvailableLuxon = null; // Treat as no specific next date if unparsable
+                    }
                 }
+                // If result.nextAvailableDate was null, nextAvailableLuxon remains null, which is correct.
 
                 return {
                     isAvailable: !result.hasConflict,
@@ -196,7 +197,6 @@ export const useEventStore = defineStore('events', {
                 console.error("Pinia checkEventDateAvailability error:", err);
                 // Set error state
                 this.error = err.message || 'Failed to check date availability.';
-                // Decide return value on error - perhaps assume unavailable?
                 return { isAvailable: false, nextAvailableDate: null };
             }
         },
@@ -481,17 +481,21 @@ export const useEventStore = defineStore('events', {
            },
 
           // Auto-generate now calls updateTeams internally after calculation
-          async autoGenerateTeams({ eventId, numberOfTeams, minMembersPerTeam = 2, maxMembersPerTeam = 8 }: { eventId: string; numberOfTeams: number; minMembersPerTeam?: number; maxMembersPerTeam?: number; }) {
+          async autoGenerateTeams({ eventId, minMembersPerTeam = 2, maxMembersPerTeam = 8 }: { eventId: string; minMembersPerTeam?: number; maxMembersPerTeam?: number; }) {
              const notificationStore = useNotificationStore();
              const userStore = useUserStore(); // Need user store for student list
 
              if (!eventId) throw new Error('Event ID required.');
-             if (typeof numberOfTeams !== 'number' || numberOfTeams < 2) throw new Error("Must generate at least 2 teams.");
+             // Removed numberOfTeams parameter and its validation
 
              try {
                  const event = this.getEventById(eventId); // Get current local data
-                 if (!event) throw new Error('Event data not loaded locally.');
+                 if (!event) throw new Error('Event data not loaded locally. Cannot auto-generate teams.');
                  if (event.details.format !== EventFormat.Team) throw new Error("Auto-generation only for 'Team' events.");
+                 if (!event.teams || event.teams.length < 2) {
+                    throw new Error("Auto-generation requires at least 2 teams to be pre-defined for the event.");
+                 }
+                 const numberOfTeams = event.teams.length; // Use existing number of teams
 
                  // Ensure student list is loaded
                  if (userStore.studentList.length === 0 && !userStore.studentListLoading) {
@@ -499,33 +503,48 @@ export const useEventStore = defineStore('events', {
                  }
                  const students = userStore.getStudentList; // Use getter
                  if (students.length < numberOfTeams * minMembersPerTeam) {
-                     throw new Error(`Not enough students (${students.length}) available.`);
+                     throw new Error(`Not enough students (${students.length}) available to populate ${numberOfTeams} teams with at least ${minMembersPerTeam} members each.`);
                  }
 
                  // --- Generation Logic  ---
-                 const shuffledStudents = [...students].sort(() => 0.5 - Math.random());
-                 const generatedTeamsBase: Omit<Team, 'teamLead'>[] = Array.from({ length: numberOfTeams }, (_, i) => ({
-                     teamName: `Team ${i + 1}`, members: [], submissions: [], ratings: []
+                 // Start with copies of existing teams, but clear their members for redistribution
+                 const teamsToPopulate: Team[] = event.teams.map(team => ({
+                     ...team, // Preserve name, lead (though lead might become invalid and need reset)
+                     members: [], // Clear members for redistribution
                  }));
 
+                 const shuffledStudents = [...students].sort(() => 0.5 - Math.random());
+
                  shuffledStudents.forEach((student, idx) => {
-                     generatedTeamsBase[idx % numberOfTeams].members.push(student.uid);
+                     teamsToPopulate[idx % numberOfTeams].members.push(student.uid);
                  });
 
-                 const finalTeams = generatedTeamsBase
-                     .filter(team => team.members.length >= minMembersPerTeam)
-                     .map(team => ({
-                         ...team,
-                         members: team.members.slice(0, maxMembersPerTeam),
-                         teamLead: team.members[0] || '' // Assign lead
-                     }));
+                 const finalTeams = teamsToPopulate
+                     .filter(team => team.members.length >= minMembersPerTeam) // Should always pass if initial student check is correct
+                     .map(team => {
+                         const currentMembers = team.members.slice(0, maxMembersPerTeam);
+                         // Ensure team lead is one of the new members, or clear/default it
+                         const newTeamLead = currentMembers.includes(team.teamLead) ? team.teamLead : (currentMembers[0] || '');
+                         return {
+                             ...team,
+                             members: currentMembers,
+                             teamLead: newTeamLead
+                         };
+                     });
 
-                 if (finalTeams.length < 2) throw new Error("Could not generate at least 2 valid teams.");
+                 if (finalTeams.length !== numberOfTeams) {
+                    // This case should ideally not be hit if student count and team structure are validated properly
+                    console.warn(`Team generation resulted in ${finalTeams.length} teams, expected ${numberOfTeams}. This might indicate an issue with member distribution or filtering.`);
+                    // Decide if to throw error or proceed with what was generated
+                    if (finalTeams.length < 2) throw new Error("Could not generate at least 2 valid teams after distribution.");
+                 }
                  // --- End Generation Logic ---
 
                  // Use the updateTeams action to save the result
-                 await this.updateTeams({ eventId, teams: finalTeams }); // Use 'this' for other actions
-                 // Notification is handled by updateTeams
+                 await this.updateTeams({ eventId, teams: finalTeams });
+                 notificationStore.showNotification({ message: `Teams auto-generated successfully for ${finalTeams.length} teams.`, type: 'success' });
+                 // The notification from updateTeams might be redundant or could be combined.
+                 // For now, this specific message for generation is kept.
 
              } catch (error) {
                  notificationStore.showNotification({ message: `Failed to generate teams: ${handleFirestoreError(error)}`, type: 'error' });

@@ -76,7 +76,7 @@ export const useUserStore = defineStore('user', {
         // --- Accessing currentUser data ---
         uid: (state): string | null => state.currentUser?.uid ?? null,
         userName: (state): string | null => state.currentUser?.name ?? null,
-        userPhotoURL: (state): string | undefined => state.currentUser?.photoURL,
+        userPhotoURL: (state): string | undefined | null => state.currentUser?.photoURL, // Ensure it can be null
         userBio: (state): string | undefined => state.currentUser?.bio,
         userSocialLink: (state): string | undefined => state.currentUser?.socialLink,
         userXpByRole: (state): Record<string, number> => state.currentUser?.xpByRole ?? { ...defaultXpStructure },
