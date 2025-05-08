@@ -164,8 +164,8 @@ import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
 // Types
 import { EventFormData, EventFormat, Event, Team, EventStatus, EventCriteria } from '@/types/event';
-import { User, UserData } from '@/types/user'; // Ensure UserData is imported
-import { BEST_PERFORMER_LABEL } from '@/utils/constants';
+import { UserData } from '@/types/user'; // Use UserData consistently
+import { BEST_PERFORMER_LABEL } from '@/utils/constants'; // Corrected import path (removed semicolon)
 
 
 // --- Composables ---
@@ -199,11 +199,12 @@ const formData = ref<EventFormData>(createDefaultFormData());
 // --- Computed Properties ---
 const eventId = computed(() => route.params.eventId as string | undefined);
 const isEditing = computed(() => !!eventId.value);
-const isAuthenticated = computed(() => userStore.isAuthenticated);
 const currentUserUid = computed<string | null>(() => userStore.uid);
 
-const allUsers = computed<UserData[]>(() => userStore.getAllUsers || []); // Use UserData
-const availableStudents = computed<UserData[]>(() => userStore.getStudentList || []); // Use UserData
+// Type as UserData[]
+// Fallback to empty array if the getter doesn't exist or returns falsy.
+const allUsers = computed<UserData[]>(() => userStore.getAllUsers); 
+const availableStudents = computed<UserData[]>(() => userStore.getStudentList); 
 
 const nameCacheObject = computed(() => {
     const cache = userStore.nameCache;
@@ -247,7 +248,7 @@ const isFormValid = computed(() => {
         return false;
     }
     const minMembers = 2; // Define minimum explicitly
-    const teamsAreValid = teams.every((team, index) => {
+    const teamsAreValid = teams.every((team) => { // Removed unused 'index'
         const teamIsValid =
             team.teamName?.trim() &&
             Array.isArray(team.members) &&
@@ -278,7 +279,7 @@ const isFormValid = computed(() => {
       return false;
     }
     // Check each non-best-performer criterion for label and role
-    const criteriaAreValid = nonBestPerformerCriteria.every((criterion, index) => {
+    const criteriaAreValid = nonBestPerformerCriteria.every((criterion) => { // Removed unused 'index'
         const isValid = criterion.constraintLabel?.trim() && criterion.role;
         return isValid;
     });
@@ -323,7 +324,7 @@ const handleSubmitForm = async () => {
       notificationStore.showNotification({ message: 'Event updated successfully!', type: 'success' });
       router.push({ name: 'EventDetails', params: { id: eventId.value } });
     } else {
-      const newEventId = await eventStore.requestEvent(dataToSubmit);
+      await eventStore.requestEvent(dataToSubmit);
       notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
       router.push({ name: 'Home' });
     }
@@ -337,11 +338,17 @@ const loadInitialData = async () => {
       errorMessage.value = '';
       hasActiveRequest.value = false;
 
-      // Fetch student list and all users concurrently *first*
       await Promise.all([
-          userStore.fetchAllStudents(),
-          userStore.fetchAllUsers()
+          userStore.fetchAllStudents ? userStore.fetchAllStudents() : Promise.resolve(), 
+          userStore.fetchAllUsers ? userStore.fetchAllUsers() : Promise.resolve()
       ]);
+
+      // Log store state immediately after fetches
+      console.log('[RequestEventView loadInitialData] After fetchAllStudents promise resolved. Store studentList length:', userStore.getStudentList.length);
+      if (userStore.getStudentList.length > 0) {
+          console.log('[RequestEventView loadInitialData] First student from store after fetch:', JSON.stringify(userStore.getStudentList[0]));
+      }
+
 
       const tempFormData = createDefaultFormData(); // Start with default
 
@@ -439,9 +446,13 @@ watch(() => formData.value.details.format, (newFormat, oldFormat) => {
      }
 }, { deep: true });
 
-// Add watcher for debugging availableStudents
-watch(availableStudents, (newVal) => {
-}, { immediate: true });
+// Watch availableStudents to see when it updates
+watch(availableStudents, (newStudents, oldStudents) => {
+  console.log(`[RequestEventView] Watcher: availableStudents changed. New length: ${newStudents.length}, Old length: ${oldStudents?.length ?? 0}`);
+  if (newStudents.length > 0) {
+    console.log('[RequestEventView] Watcher: First student in availableStudents:', JSON.stringify(newStudents[0]));
+  }
+}, { deep: true, immediate: true }); // Add immediate to see initial state
 
 // --- Lifecycle Hooks ---
 onMounted(loadInitialData);

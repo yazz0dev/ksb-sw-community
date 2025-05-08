@@ -19,7 +19,6 @@
         <div>
           <h2 class="h2 text-primary mb-2 d-inline-flex align-items-center">
             My Profile
-            <i v-if="userForPortfolio.hasLaptop" class="fas fa-laptop ms-2 text-success" title="Has Laptop"></i>
           </h2>
           <!-- Edit Profile Button Removed From Here -->
         </div>
@@ -75,9 +74,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { db } from '../firebase';
-// Import necessary Firestore functions
-import { collection, query, where, getDocs, orderBy, doc, getDoc, DocumentData } from 'firebase/firestore';
+import { DocumentData } from 'firebase/firestore';
 
 // Import Components
 import ProfileViewContent from '@/components/user/ProfileViewContent.vue';
@@ -144,134 +141,75 @@ const userForPortfolio = computed<UserData>(() => {
 });
 
 const userProjectsForPortfolio = computed(() => {
-    return userProjectsForPortfolioButton.value;
+    // Use store getter for current user's projects
+    return userStore.currentUserProjectsForPortfolio || [];
 });
 
-
-const fetchUserProjectsForPortfolio = async () => {
-    if (!loggedInUserId.value) return;
-    loadingProjectsForPortfolio.value = true;
-    try {
-        const submissionsQuery = query(
-            collection(db, 'submissions'),
-            where('userId', '==', loggedInUserId.value),
-            orderBy('submittedAt', 'desc')
-        );
-        const snapshot = await getDocs(submissionsQuery);
-        userProjectsForPortfolioButton.value = snapshot.docs.map(doc => {
-             const data = doc.data();
-             // Ensure all required fields are present
-             const project: Project = {
-                id: doc.id,
-                projectName: data.projectName || data.details.eventName || `Project (${doc.id.substring(0, 5)}...)`,
-                eventName: data.details.eventName || `Event (${data.eventId?.substring(0, 5) || doc.id.substring(0, 5)}...)`,
-                eventType: data.details.type || 'Unknown',
-                description: data.details?.description || '',
-                link: data.link || '#', // Required field with fallback
-                submittedAt: data.submittedAt
-             };
-             return project;
-         });
-    } catch (error) {
+// --- Fetch portfolio data for current user ---
+const fetchPortfolioRelatedDataForCurrentUser = async () => {
+    if (!loggedInUserId.value || !isCurrentUser.value) {
         userProjectsForPortfolioButton.value = [];
+        eventParticipationCount.value = 0;
+        return;
+    }
+    
+    loadingProjectsForPortfolio.value = true;
+    loadingEventCount.value = true;
+    
+    try {
+        // Fetch portfolio data from store
+        await userStore.fetchCurrentUserPortfolioData();
+        
+        // Get data from store
+        userProjectsForPortfolioButton.value = userStore.currentUserProjectsForPortfolio;
+        eventParticipationCount.value = userStore.currentUserEventParticipationCount;
+    } catch (err) {
+        console.error("Error fetching portfolio data:", err);
+        userProjectsForPortfolioButton.value = [];
+        eventParticipationCount.value = 0;
     } finally {
         loadingProjectsForPortfolio.value = false;
-    }
-};
-
-const fetchEventParticipationCount = async (userId: string) => {
-    if (!userId) return 0;
-    loadingEventCount.value = true;
-    let participatedCount = 0;
-    let organizedCount = 0;
-    try {
-        // Fetch user doc and count participated/organized events from user fields
-        const userDocRef = doc(db, 'users', userId);
-        const userDocSnap = await getDoc(userDocRef);
-        if (!userDocSnap.exists()) throw new Error('User profile not found.');
-        const data = userDocSnap.data();
-        participatedCount = Array.isArray(data.participatedEvent) ? data.participatedEvent.length : 0;
-        organizedCount = Array.isArray(data.organizedEvent) ? data.organizedEvent.length : 0;
-        eventParticipationCount.value = participatedCount + organizedCount;
-    } catch (err) {
-        eventParticipationCount.value = 0; // Reset on error
-    } finally {
         loadingEventCount.value = false;
     }
-    return eventParticipationCount.value;
 };
-
 
 const determineProfileContext = async () => {
     const routeUserId = route.params.userId;
     const loggedInUid = loggedInUserId.value;
-
-    // Handle potential array from route params
     const targetUid = Array.isArray(routeUserId) ? routeUserId[0] : routeUserId;
 
     if (targetUid) {
-        // Viewing someone else's profile (or own via /user/:userId)
         isCurrentUser.value = targetUid === loggedInUid;
-        targetUserId.value = targetUid; // Assign the string value
-        await fetchUserProfile(targetUid); // Fetch specific user profile
+        targetUserId.value = targetUid;
     } else if (loggedInUid && route.name === 'Profile') {
-        // Viewing own profile via /profile
         isCurrentUser.value = true;
         targetUserId.value = loggedInUid;
-        await fetchUserProfile(loggedInUid);
     } else {
-        // No target user and not logged in or invalid route
-        // Optionally redirect to login or show an error
-        // if (!loggedInUid) {
-        //    router.push({ name: 'Login' });
-        // }
+        isCurrentUser.value = false;
+        targetUserId.value = null;
     }
-};
 
-const fetchUserProfile = async (userIdToFetch: string) => {
-    if (!userIdToFetch) return;
-    loading.value = true;
-    error.value = '';
-    try {
-        // Ensure userIdToFetch is a string before calling doc
-        if (typeof userIdToFetch !== 'string') {
-            throw new Error("Invalid User ID provided.");
-        }
-        const userDocRef = doc(db, 'users', userIdToFetch);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-            profileUser.value = { uid: userDocSnap.id, ...userDocSnap.data() } as UserData;
-            // Fetch projects and participation count for all users now
-            await Promise.all([
-                fetchUserProjectsForPortfolio(),
-                fetchEventParticipationCount(userIdToFetch)
-            ]);
-        } else {
-            error.value = 'User profile not found.';
-            profileUser.value = null;
-        }
-    } catch (err: any) {
-        error.value = err.message || 'Failed to load profile.';
-        profileUser.value = null;
-    } finally {
-        loading.value = false;
+    if (isCurrentUser.value && loggedInUid) {
+        await fetchPortfolioRelatedDataForCurrentUser();
+    } else {
+        userProjectsForPortfolioButton.value = [];
+        eventParticipationCount.value = 0;
     }
 };
 
 // --- Watchers ---
 watch(() => route.params.userId, determineProfileContext, { immediate: true });
 watch(loggedInUserId, (newUid, oldUid) => {
-    if ((!oldUid && newUid) || (oldUid && !newUid)) {
-        determineProfileContext();
-    } else if (newUid && route.params.userId === newUid) {
+    if (newUid !== oldUid) {
         determineProfileContext();
     }
 });
 
 // --- Lifecycle Hooks ---
 onMounted(() => {
-    // Initial determination is handled by the immediate watcher
-    // determineProfileContext(); 
+    if (isCurrentUser.value) {
+        fetchPortfolioRelatedDataForCurrentUser();
+    }
 });
 
 </script>

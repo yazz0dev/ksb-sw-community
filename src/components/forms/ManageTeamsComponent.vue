@@ -75,7 +75,8 @@
                 class="badge rounded-pill bg-primary-subtle text-primary-emphasis d-inline-flex align-items-center p-1 ps-2"
               >
                 <i class="fas fa-user fa-xs me-1"></i>
-                <span class="me-1 small">{{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}</span>
+                <!-- Log memberId and cached name -->
+                <span class="me-1 small">{{ console.log(`[MTC Display Member] ID: ${memberId}, Cached Name: ${userStore.getCachedUserName(memberId)}`), '' }} {{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}</span>
                 <!-- Remove Member Button -->
                 <button
                   type="button"
@@ -107,14 +108,16 @@
                <option v-for="memberId in team.members"
                        :key="memberId"
                        :value="memberId">
-                 {{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}
+                 <!-- Log memberId and cached name for team lead options -->
+                 {{ console.log(`[MTC Display Lead Option] ID: ${memberId}, Cached Name: ${userStore.getCachedUserName(memberId)}`), '' }} {{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}
                </option>
              </select>
               <div class="invalid-feedback">Team lead selection is required.</div>
               <!-- Show Selected Team Lead Name -->
               <div v-if="team.teamLead" class="mt-1">
                   <span class="small text-muted">Selected Lead: </span>
-                  <span class="small fw-medium text-success">{{ userStore.getCachedUserName(team.teamLead) || `UID: ${team.teamLead.substring(0,6)}...` }}</span>
+                  <!-- Log teamLead and cached name -->
+                  <span class="small fw-medium text-success">{{ console.log(`[MTC Display Selected Lead] ID: ${team.teamLead}, Cached Name: ${userStore.getCachedUserName(team.teamLead)}`), '' }} {{ userStore.getCachedUserName(team.teamLead) || `UID: ${team.teamLead.substring(0,6)}...` }}</span>
               </div>
           </div>
         </div>
@@ -122,11 +125,7 @@
     </div>
     <!-- Message shown if teams array is empty but students are loaded -->
      <p v-else-if="props.students.length > 0" class="text-secondary small mb-4 fst-italic">No teams added yet. Add teams manually or use auto-generate.</p>
-     <!-- Fallback if students prop is somehow still empty -->
-     <div v-else class="text-center text-muted small py-3">
-        <p class="small text-danger">(Debug: Rendering fallback 'loading/empty'. Prop length: {{ props.students?.length ?? 'undefined' }})</p>
-        Student list is loading or empty...
-     </div>
+
 
     <!-- Actions: Add Team / Auto-Generate -->
     <div v-if="props.students.length > 0" class="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-4 pt-3 border-top">
@@ -202,7 +201,6 @@ const emit = defineEmits<{
 const userStore = useUserStore();
 const eventStore = useEventStore(); // Add eventStore
 const teams = ref<LocalTeam[]>([]);
-// Removed numberOfTeamsToGenerate ref
 const maxTeams = 8;
 const minMembersPerTeam = 2;
 const maxMembersPerTeam = 8;
@@ -217,7 +215,7 @@ interface LocalTeam {
 watch(() => props.students, (newVal, oldVal) => {
     console.log(`[ManageTeamsComponent] WATCHER: students prop changed. New length: ${newVal?.length ?? 0}, Old length: ${oldVal?.length ?? 0}`);
     if (newVal && newVal.length > 0) {
-        console.log(`[ManageTeamsComponent] WATCHER: First student prop:`, JSON.stringify(newVal[0]));
+        console.log(`[ManageTeamsComponent] WATCHER: First student prop (props.students[0]):`, JSON.stringify(newVal[0]));
     }
 }, { immediate: true, deep: true });
 
@@ -365,14 +363,27 @@ const emitTeamsUpdate = () => {
 
 // Available Students for a Specific Team Function
 const availableStudentsForTeam = (teamIndex: number): UserData[] => {
-  if (!Array.isArray(props.students)) return [];
+  if (!Array.isArray(props.students)) {
+    console.log('[MTC availableStudentsForTeam] props.students is not an array. Returning [].');
+    return [];
+  }
   const assignedToOtherTeams = new Set<string>(
     teams.value.filter((_, i) => i !== teamIndex).flatMap(t => t.members || []).filter(Boolean)
   );
-  // Return only students not assigned to OTHER teams
-  return props.students
-    .filter(student => student?.uid && !assignedToOtherTeams.has(student.uid))
+  
+  const filteredStudents = props.students
+    .filter(student => {
+      const isAssignedElsewhere = student?.uid && assignedToOtherTeams.has(student.uid);
+      // Log each student being considered for the dropdown for a specific team
+      // console.log(`[MTC availableStudentsForTeam - Team ${teamIndex}] Student: ${student?.name} (UID: ${student?.uid}), Assigned Elsewhere: ${isAssignedElsewhere}`);
+      return student?.uid && !isAssignedElsewhere;
+    })
     .map(student => ({ ...student })); // Return shallow copy
+
+  if (teamIndex === 0 && filteredStudents.length > 0) { // Log for the first team's dropdown as an example
+    console.log(`[MTC availableStudentsForTeam - Team ${teamIndex}] First student in filtered list for dropdown:`, JSON.stringify(filteredStudents[0]));
+  }
+  return filteredStudents;
 };
 
 

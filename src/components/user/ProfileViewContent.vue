@@ -253,18 +253,6 @@ import { Event as AppEvent, EventStatus, EventFormat } from '@/types/event';
 import { User, UserData } from '@/types/user'; // Import UserData
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useRouter } from 'vue-router'; // Keep useRouter if needed for navigation later
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  DocumentData,
-  doc,
-  getDoc
-} from 'firebase/firestore';
-import { db } from '@/firebase'; // Ensure db is imported if used directly
-
 
 interface Props {
     userId: string;
@@ -416,36 +404,24 @@ const fetchProfileData = async () => {
              throw new Error('Invalid User ID provided.');
         }
 
-        // 1. Fetch User Profile from Store (or directly if store logic is complex)
-        const userDocRef = doc(db, 'users', userIdToFetch); // Use string userId
-        const userDocSnap = await getDoc(userDocRef);
+        // Use store action to fetch all profile data
+        await userStore.fetchFullUserProfileForView(userIdToFetch);
 
-        if (!userDocSnap.exists()) {
-            throw new Error('User data not found.');
+        // Get data from store
+        const profileData = userStore.getViewedUserProfile;
+        if (!profileData) {
+            throw new Error('User data not found in store after fetch.');
         }
-        const data = userDocSnap.data();
-        // Map to UserData type
-        user.value = {
-            uid: userDocSnap.id,
-            name: data.name || 'Unknown User',
-            photoURL: data.photoURL,
-            bio: data.bio,
-            socialLink: data.socialLink,
-            xpByRole: data.xpByRole || {},
-            skills: data.skills || [],
-            preferredRoles: data.preferredRoles || [],
-            participatedEvent: data.participatedEvent || [],
-            organizedEvent: data.organizedEvent || [],
-            role: data.role, // Ensure role is mapped if needed by formatRoleName
-            hasLaptop: data.hasLaptop === undefined ? false : data.hasLaptop,
-        } as UserData;
+        
+        // Assign values from store
+        user.value = profileData;
+        participatedEventIds.value = profileData.participatedEvent || [];
+        organizedEventIds.value = profileData.organizedEvent || [];
+        userProjects.value = userStore.getViewedUserProjects;
+        participatedEvents.value = userStore.getViewedUserEvents;
 
-        participatedEventIds.value = user.value.participatedEvent || [];
-        organizedEventIds.value = user.value.organizedEvent || [];
-
-        // 2. Fetch Events and Projects (consider using store getters if possible)
-        await fetchUserEventsFromStore(); // This now uses the IDs from the fetched user data
-        await fetchUserProjects(userIdToFetch); // Use string userId
+        // Calculate stats from events
+        calculateStatsFromEvents(participatedEvents.value);
 
     } catch (error: any) {
         console.error('Error fetching profile data:', error);
@@ -457,104 +433,34 @@ const fetchProfileData = async () => {
     }
 };
 
-const fetchUserProjects = async (targetUserId: string) => {
-  loadingEventsOrProjects.value = true;
-  try {
-    const submissionsQuery = query(
-      collection(db, 'submissions'),
-      where('userId', '==', targetUserId),
-      orderBy('submittedAt', 'desc')
-    );
-    const snapshot = await getDocs(submissionsQuery);
-    userProjects.value = snapshot.docs.map(docSnap => {
-      const data = docSnap.data();
-      const eventId = data.eventId;
-      let eventName;
-      if (eventId) {
-        const eventDetails = eventStore.getEventById(eventId);
-        eventName = eventDetails?.details?.eventName;
-      }
-      return {
-        id: docSnap.id,
-        projectName: data.projectName,
-        link: data.link,
-        description: data.description,
-        eventId: eventId,
-        eventName: eventName,
-        submittedAt: data.submittedAt,
-      } as UserProjectDisplay;
+const calculateStatsFromEvents = (events: AppEvent[]) => {
+    let participated = 0, organized = 0, won = 0;
+    const userId = props.userId;
+
+    events.forEach((eventItem: AppEvent) => {
+        const isOrg = Array.isArray(eventItem.details?.organizers) && eventItem.details.organizers.includes(userId);
+        const isPart = Array.isArray(eventItem.participants) && eventItem.participants.includes(userId);
+        let isTeamMember = false;
+        if (eventItem.details?.format === EventFormat.Team && Array.isArray(eventItem.teams)) {
+            isTeamMember = eventItem.teams.some(team => Array.isArray(team.members) && team.members.includes(userId));
+        }
+
+        let isWinnerFlag = false;
+        if (eventItem.winners && Object.values(eventItem.winners).some(winnerList => winnerList.includes(userId))) {
+            isWinnerFlag = true;
+        } else if (eventItem.details?.format === EventFormat.Team && isTeamMember && eventItem.winners) {
+            const userTeam = eventItem.teams?.find(team => team.members?.includes(userId));
+            if (userTeam && Object.values(eventItem.winners).some(winnerList => winnerList.includes(userTeam.teamName))) {
+                isWinnerFlag = true;
+            }
+        }
+
+        if (isPart || isTeamMember) participated++;
+        if (isOrg) organized++;
+        if (isWinnerFlag) won++;
     });
-  } catch (error) {
-    console.error("Error fetching user projects:", error);
-    userProjects.value = [];
-  } finally {
-    loadingEventsOrProjects.value = false;
-  }
+    stats.value = { participatedCount: participated, organizedCount: organized, wonCount: won };
 };
-
-const fetchUserEventsFromStore = async () => {
-  const allIds = Array.from(new Set([
-    ...participatedEventIds.value,
-    ...organizedEventIds.value
-  ]));
-
-  if (allIds.length === 0) {
-      participatedEvents.value = [];
-      stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
-      return;
-  }
-
-  // Fetch events using store getter
-  const getEventsByIds = eventStore.getEventsByIds;
-  // FIX: Use aliased AppEvent type
-  let allUserEvents: AppEvent[] = getEventsByIds(allIds);
-
-  // Filter based on profile view context
-  allUserEvents = allUserEvents.filter((eventItem: AppEvent) => {
-    const excludedStatuses: EventStatus[] = [EventStatus.Pending, EventStatus.Cancelled, EventStatus.Rejected];
-    // FIX: Use local isCurrentUser ref
-    if (isCurrentUser.value) {
-      // Show most statuses for own profile
-      return !excludedStatuses.includes(eventItem.status as EventStatus);
-    } else {
-      // Show only completed/relevant statuses for public view
-      return [EventStatus.Completed, EventStatus.Closed, EventStatus.InProgress, EventStatus.Approved].includes(eventItem.status as EventStatus);
-    }
-  });
-
-  participatedEvents.value = allUserEvents; // Store filtered events
-
-  // Calculate stats based on filtered events
-  let participated = 0, organized = 0, won = 0;
-  allUserEvents.forEach((eventItem: AppEvent) => {
-      // FIX: Use props.userId for comparison
-      const isOrg = Array.isArray(eventItem.details?.organizers) && eventItem.details.organizers.includes(props.userId);
-      const isPart = Array.isArray(eventItem.participants) && eventItem.participants.includes(props.userId);
-      let isTeamMember = false;
-      if (eventItem.details?.format === EventFormat.Team && Array.isArray(eventItem.teams)) {
-          isTeamMember = eventItem.teams.some(team => Array.isArray(team.members) && team.members.includes(props.userId));
-      }
-
-      let isWinnerFlag = false;
-       // Check if user ID is directly listed as a winner
-       if (eventItem.winners && Object.values(eventItem.winners).some(winnerList => winnerList.includes(props.userId))) {
-           isWinnerFlag = true;
-       }
-       // If it's a team event and the user is a member of a winning team
-       else if (eventItem.details?.format === EventFormat.Team && isTeamMember && eventItem.winners) {
-           const userTeam = eventItem.teams?.find(team => team.members?.includes(props.userId));
-           if (userTeam && Object.values(eventItem.winners).some(winnerList => winnerList.includes(userTeam.teamName))) {
-               isWinnerFlag = true;
-           }
-       }
-
-      if (isPart || isTeamMember) participated++; // Count if direct participant or team member
-      if (isOrg) organized++;
-      if (isWinnerFlag) won++;
-  });
-  stats.value = { participatedCount: participated, organizedCount: organized, wonCount: won };
-};
-
 
 // --- Watcher ---
 watch(() => props.userId, (newUserId) => {

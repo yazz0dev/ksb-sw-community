@@ -242,18 +242,13 @@ import EventRatingTrigger from '@/components/events/EventRatingTrigger.vue';
 import OrganizerRatingForm from '@/components/events/OrganizerRatingForm.vue';
 import TeamList from '@/components/events/TeamList.vue';
 import EventManageControls from '@/components/events/EventManageControls.vue';
-import EventDetailsSkeleton from '@/components/skeletons/EventDetailsSkeleton.vue';
-import SkeletonProvider from '@/components/skeletons/SkeletonProvider.vue';
+import EventDetailsSkeleton from '@/skeletons/EventDetailsSkeleton.vue';
+import SkeletonProvider from '@/skeletons/SkeletonProvider.vue';
 import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
 
 // Type Imports
 import { EventStatus, type Event, type Team, type Submission, EventFormat, type EventCriteria } from '@/types/event';
 import { User } from '@/types/user';
-
-// Utility Imports (Ensure these are correctly implemented)
-// import { formatRoleName } from '@/utils/formatters'; // Not used directly here
-// import { getEventStatusBadgeClass } from '@/utils/eventUtils'; // Not used directly here
-// import { formatISTDate } from '@/utils/dateTime'; // Not used directly here
 
 // --- Local Types & Interfaces ---
 interface SubmissionFormData {

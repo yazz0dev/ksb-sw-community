@@ -21,7 +21,7 @@
         :value="student.uid"
       >
         <!-- Display name directly from student object -->
-        {{ student.name || `UID: ${student.uid.substring(0,6)}...` }}
+        {{ console.log('[TMS Dropdown] Student:', JSON.stringify(student)), '' }} {{ student.name || `UID: ${student.uid.substring(0,6)}...` }}
       </option>
     </select>
   </div>
@@ -57,6 +57,12 @@ const selectedMemberToAdd = ref(''); // Renamed to avoid confusion
 
 // Filter available students for the dropdown (exclude already selected)
 const availableStudentsForDropdown = computed(() => {
+    // Log the raw props.availableStudents received by TeamMemberSelect
+    if (props.availableStudents.length > 0) {
+        console.log('[TMS availableStudentsForDropdown] props.availableStudents[0]:', JSON.stringify(props.availableStudents[0]));
+    } else {
+        console.log('[TMS availableStudentsForDropdown] props.availableStudents is empty.');
+    }
     const selectedSet = new Set(props.selectedMembers);
     return props.availableStudents.filter(student => !selectedSet.has(student.uid));
 });
@@ -83,9 +89,13 @@ watch(() => props.selectedMembers, (newMembers) => {
 }, { deep: true });
 
 // Reset selection on mount or when available students change significantly
-watch(() => props.availableStudents, () => {
+watch(() => props.availableStudents, (newVal) => {
+    console.log('[TMS Watcher] props.availableStudents changed. Length:', newVal?.length ?? 0);
+    if (newVal && newVal.length > 0) {
+        console.log('[TMS Watcher] First student in new props.availableStudents:', JSON.stringify(newVal[0]));
+    }
     selectedMemberToAdd.value = '';
-}, { deep: true });
+}, { deep: true, immediate: true });
 
 onMounted(() => {
   selectedMemberToAdd.value = ''; // Reset selection on mount

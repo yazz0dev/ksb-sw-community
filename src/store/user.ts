@@ -1,20 +1,18 @@
 // src/store/user.ts
 import { defineStore } from 'pinia';
-import type { Event } from '@/types/event'; // Import Event type for requests/leaderboard
-import type { UserState, User, NameCacheEntry, UserData } from '@/types/user';
-import { db } from '../firebase'; // Assuming firebase config is here
-import {
-    doc,
-    getDoc,
-    updateDoc,
-    collection,
-    getDocs,
-    query,
-    where,
-    increment,
-    Timestamp // Added Timestamp for last fetch time
+import { 
+  doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy 
 } from 'firebase/firestore';
-import { useNotificationStore } from './notification'; // Import for notifications
+import { db } from '@/firebase';
+import { Event as AppEvent, EventStatus } from '@/types/event';
+import { Project } from '@/types/project';
+import { 
+  UserState, 
+  UserProfileUpdatePayload,
+  ViewedUserProfile,
+  UserProject,
+  UserData
+} from '@/types/user';
 
 // Define the default XP structure helper - centralize keys
 const defaultXpRoleKeys = [
@@ -39,556 +37,529 @@ function formatRoleName(roleKey: string): string {
         .trim();
 }
 
+// Define the user store
 export const useUserStore = defineStore('user', {
-    // --- State ---
-    // Aligned with the simplified UserState interface
-    state: (): UserState => ({
-        // Core Authentication & Current User
-        currentUser: null,
-        isAuthenticated: false,
-        hasFetched: false,
-
-        // Data for Specific Views/Features
-        profileData: null,
-        userRequests: [],
-        leaderboardUsers: [],
-
-        // Fetched Lists & Management
-        studentList: [],
-        studentListLastFetch: null,
-        studentListTTL: 1000 * 60 * 60, // 1 hour TTL
-        studentListLoading: false,
-        studentListError: null,
-
-        allUsers: [], // Cache of all users
-
-        // Caching
-        nameCache: new Map(),
-        nameCacheTTL: 1000 * 60 * 30, // 30 minutes TTL
-
-        // General Store Status
-        loading: false,
-        error: null,
-    }),
-
-    // --- Getters ---
-    getters: {
-        // --- Accessing currentUser data ---
-        uid: (state): string | null => state.currentUser?.uid ?? null,
-        userName: (state): string | null => state.currentUser?.name ?? null,
-        userPhotoURL: (state): string | undefined | null => state.currentUser?.photoURL, // Ensure it can be null
-        userBio: (state): string | undefined => state.currentUser?.bio,
-        userSocialLink: (state): string | undefined => state.currentUser?.socialLink,
-        userXpByRole: (state): Record<string, number> => state.currentUser?.xpByRole ?? { ...defaultXpStructure },
-        userSkills: (state): string[] => state.currentUser?.skills ?? [],
-        userPreferredRoles: (state): string[] => state.currentUser?.preferredRoles ?? [],
-        userParticipatedEvents: (state): string[] => state.currentUser?.participatedEvent ?? [],
-        userOrganizedEvents: (state): string[] => state.currentUser?.organizedEvent ?? [],
-
-        // --- Direct state access ---
-        // isAuthenticated: (state) => state.isAuthenticated, // Direct access is fine: userStore.isAuthenticated
-        // hasFetched: (state) => state.hasFetched, // Direct access is fine: userStore.hasFetched
-
-        // --- Computed/Derived state ---
-        getAllUsers: (state): UserData[] => state.allUsers || [], // Ensure array
-        getStudentList: (state): UserData[] => state.studentList || [], // Ensure array
-        getCachedUserName: (state) => (userId: string): string | undefined => {
-            return state.nameCache.get(userId)?.name;
-        },
-        currentUserTotalXp: (state): number => {
-            const xpRoles = state.currentUser?.xpByRole;
-            if (typeof xpRoles !== 'object' || xpRoles === null) return 0;
-            return Object.values(xpRoles).reduce((sum, val) => sum + (Number(val) || 0), 0);
-        },
-        isStudentListFresh: (state): boolean => {
-            if (!state.studentListLastFetch) return false;
-            return (Date.now() - state.studentListLastFetch) < state.studentListTTL;
-        },
-        getCurrentUserProfile: (state): UserData | null => state.profileData,
-        getCurrentUserRequests: (state): Event[] => state.userRequests,
-        profilePictureUrl: (state): string | null => state.currentUser?.photoURL ?? null,
+  // State
+  state: (): UserState => ({
+    currentUser: null,
+    isAuthenticated: false,
+    nameCache: new Map(),
+    hasFetched: false,
+    viewedUserProfile: null,
+    viewedUserProjects: [],
+    viewedUserEvents: [],
+    userRequests: [],
+    currentUserPortfolioData: {
+      projects: [],
+      eventParticipationCount: 0
     },
+    allUsers: [], // Added
+    studentList: [], // Added
+    leaderboardUsers: [], // Added for leaderboard
+    loading: false,
+    error: null
+  }),
 
-    // --- Actions (incorporating mutations) ---
-    actions: {
-        // Internal helper to mark fetch status
-        setHasFetched(fetched: boolean) {
-            this.hasFetched = !!fetched;
-        },
+  // Getters
+  getters: {
+    uid: (state) => state.currentUser?.uid || null,
+    currentUserTotalXp: (state) => {
+      if (!state.currentUser?.xpByRole) return 0;
+      return Object.values(state.currentUser.xpByRole).reduce(
+        (sum, val) => sum + (Number(val) || 0), 0
+      );
+    },
+    // Add getters for viewed user profile data
+    getViewedUserProfile: (state): ViewedUserProfile | null => state.viewedUserProfile,
+    getViewedUserProjects: (state): UserProject[] => state.viewedUserProjects,
+    getViewedUserEvents: (state): AppEvent[] => state.viewedUserEvents,
+    currentUserProjectsForPortfolio: (state): Project[] => state.currentUserPortfolioData.projects,
+    currentUserEventParticipationCount: (state): number => state.currentUserPortfolioData.eventParticipationCount,
+    
+    // Helper getter for cached user names
+    getCachedUserName: (state) => {
+      return (userId: string): string | null => {
+        const cachedEntry = state.nameCache.get(userId);
+        return cachedEntry?.name || null;
+      };
+    },
+    // Getter for all users
+    getAllUsers: (state): UserData[] => state.allUsers,
+    // Getter for student list
+    getStudentList: (state): UserData[] => state.studentList,
+    // Getter for leaderboard users (optional, component can access state directly)
+    // getLeaderboardUsers: (state): UserData[] => state.leaderboardUsers,
+  },
 
-        // Fetches data for the *currently logged-in* user
-        async fetchUserData(uid: string): Promise<void> {
-            if (!uid) {
-                console.warn("fetchUserData called with no UID.");
-                await this.clearUserData();
-                this.setHasFetched(true); // Still mark as fetched attempt completed
-                return;
-            }
-            console.log(`Pinia: fetchUserData called for UID: ${uid}`);
-            this.loading = true;
-            this.error = null;
+  // Actions
+  actions: {
+    /**
+     * Fetch user data by ID
+     * @param userId - The user ID to fetch data for
+     * @returns The user data or null if not found
+     */
+    async fetchUserData(userId: string): Promise<UserData | null> {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        if (!userId) {
+          throw new Error("User ID is required");
+        }
 
-            try {
-                const userDocRef = doc(db, 'users', uid);
-                const userDocSnap = await getDoc(userDocRef);
-
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data();
-                    console.log("Pinia: Fetched user data:", userData);
-
-                    const dbXp = userData.xpByRole || {};
-                    // Merge with default structure to ensure all roles exist
-                    const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
-                        acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
-                        return acc;
-                    }, {} as Record<XpRoleKey, number>);
-
-                    this.currentUser = {
-                        uid: uid,
-                        name: userData.name || 'User',
-                        role: userData.role || 'Student',
-                        photoURL: userData.photoURL ?? undefined,
-                        bio: userData.bio ?? undefined,
-                        socialLink: userData.socialLink ?? undefined,
-                        xpByRole: mergedXp,
-                        skills: Array.isArray(userData.skills) ? userData.skills : [],
-                        preferredRoles: Array.isArray(userData.preferredRoles) ? userData.preferredRoles : [],
-                        lastXpCalculationTimestamp: userData.lastXpCalculationTimestamp instanceof Timestamp
-                             ? userData.lastXpCalculationTimestamp.toMillis()
-                             : userData.lastXpCalculationTimestamp ?? null,
-                        participatedEvent: Array.isArray(userData.participatedEvent) ? userData.participatedEvent : [],
-                        organizedEvent: Array.isArray(userData.organizedEvent) ? userData.organizedEvent : [],
-                    } as User; // Assert User type
-
-                    this.isAuthenticated = true;
-                    this.profileData = { ...this.currentUser } as UserData; // Set profile data for self
-
-                } else {
-                    console.warn(`User document not found for UID: ${uid}. Clearing local data.`);
-                    await this.clearUserData(); // Clears currentUser and sets isAuthenticated false
-                }
-            } catch (error) {
-                console.error('Error fetching user data:', error);
-                this.error = error instanceof Error ? error : new Error('Failed to fetch user data');
-                await this.clearUserData(); // Clear on error
-            } finally {
-                this.loading = false;
-                // Mark initial fetch attempt completed only once
-                if (!this.hasFetched) {
-                    this.setHasFetched(true);
-                }
-                console.log("Pinia: fetchUserData completed.");
-            }
-        },
-
-        // Clears all user-related state, typically on logout
-        async clearUserData() {
-             this.currentUser = null;
-             this.isAuthenticated = false;
-             // Do NOT reset hasFetched
-             this.profileData = null;
-             this.userRequests = [];
-             this.leaderboardUsers = [];
-             // Optionally clear caches
-             // this.nameCache.clear();
-             // this.studentList = [];
-             // this.studentListLastFetch = null;
-             console.log("Pinia: User data cleared.");
-        },
-
-        // Fetches UIDs of all users designated as 'Student'
-        async fetchAllStudentUIDs(): Promise<string[]> {
-            console.log("Fetching all student UIDs...");
-            try {
-                const usersRef = collection(db, 'users');
-                const q = query(usersRef, where('role', '==', 'Student'));
-                const querySnapshot = await getDocs(q);
-                const studentUIDs = querySnapshot.docs.map(doc => doc.id);
-                console.log(`Found ${studentUIDs.length} student UIDs.`);
-                return studentUIDs;
-            } catch (error) {
-                console.error("Error fetching all student UIDs:", error);
-                this.error = error instanceof Error ? error : new Error('Failed to fetch student UIDs');
-                return [];
-            }
-        },
-
-        // Fetches names for a batch of UIDs, using cache first
-        async fetchUserNamesBatch(uids: string[]): Promise<Record<string, string>> {
-            const validUids = Array.from(new Set(uids.filter(uid => typeof uid === 'string' && uid.trim() !== ''))); // Ensure unique and valid
-            if (validUids.length === 0) return {};
-
-            const now = Date.now();
-            const nameMap: Record<string, string> = {};
-            const idsToFetch: string[] = [];
-
-            // Check cache validity
-            validUids.forEach(uid => {
-                const cachedEntry = this.nameCache.get(uid);
-                if (cachedEntry && (now - cachedEntry.timestamp < this.nameCacheTTL)) {
-                    nameMap[uid] = cachedEntry.name;
-                } else {
-                    idsToFetch.push(uid);
-                }
-            });
-
-            if (idsToFetch.length === 0) {
-                console.log('[User Store] All names fetched from cache.');
-                return nameMap;
-            }
-
-            console.log('[User Store] Fetching names for UIDs:', idsToFetch);
-            try {
-                const chunkSize = 30; // Firestore 'in' query limit (max 30 as of recent updates)
-                for (let i = 0; i < idsToFetch.length; i += chunkSize) {
-                    const chunk = idsToFetch.slice(i, i + chunkSize);
-                    if (chunk.length > 0) {
-                        const usersRef = collection(db, 'users');
-                        const q = query(usersRef, where('__name__', 'in', chunk)); // Query by document ID (__name__)
-                        const querySnapshot = await getDocs(q);
-
-                        const foundIdsInChunk = new Set<string>();
-                        querySnapshot.forEach(doc => {
-                            const currentUid = doc.id;
-                            foundIdsInChunk.add(currentUid);
-                            const name = doc.data()?.name || `User (${currentUid.substring(0, 5)}...)`;
-                            nameMap[currentUid] = name;
-                            this.nameCache.set(currentUid, { name, timestamp: now });
-                        });
-
-                        // Handle UIDs in the chunk that were requested but not found in Firestore
-                        chunk.forEach(uid => {
-                            if (!foundIdsInChunk.has(uid)) {
-                                const fallbackName = `Unknown (${uid.substring(0, 5)})`;
-                                console.warn(`User with UID ${uid} not found in Firestore during batch fetch.`);
-                                nameMap[uid] = fallbackName;
-                                this.nameCache.set(uid, { name: fallbackName, timestamp: now }); // Cache fallback
-                            }
-                        });
-                    }
-                }
-                console.log('[User Store] Fetched names. Total in map:', Object.keys(nameMap).length);
-                return nameMap;
-            } catch (error) {
-                console.error('Error fetching user names batch:', error);
-                this.error = error instanceof Error ? error : new Error('Batch name fetch failed');
-                // Provide error fallback for UIDs that were attempted but might have failed
-                 idsToFetch.forEach(uid => {
-                     if (!nameMap[uid]) nameMap[uid] = `Error (${uid.substring(0,5)})`;
-                 });
-                return nameMap;
-            }
-        },
-
-        // Manually trigger a refresh of the current user's data
-        async refreshUserData(): Promise<void> {
-            const currentUid = this.currentUser?.uid; // Access via getter/state
-            if (currentUid) {
-                console.log("Refreshing user data manually...");
-                await this.fetchUserData(currentUid);
-            } else {
-                console.log("Cannot refresh, no current user UID.");
-            }
-        },
-
-        // Atomically adds XP for a specific role to a user in Firestore
-        async addXpForAction({ userId, amount, role }: { userId: string; amount: number; role: string; }): Promise<void> {
-            console.log(`Pinia: addXpForAction called for User: ${userId}, Role: ${role}, Amount: ${amount}`);
-            const notificationStore = useNotificationStore();
-
-            if (!userId || !role || typeof amount !== 'number' || amount <= 0) {
-                console.warn('addXpForAction: Invalid parameters provided.');
-                notificationStore.showNotification({ message: 'Invalid XP parameters.', type: 'error' });
-                return;
-            }
-
-            // Validate role key
-            if (!defaultXpRoleKeys.includes(role as XpRoleKey)) {
-                 console.warn(`addXpForAction: Invalid role key '${role}'.`);
-                 notificationStore.showNotification({ message: `Invalid XP role specified: ${role}.`, type: 'error' });
-                 return;
-            }
-
-            const userDocRef = doc(db, 'users', userId);
-            const xpField = `xpByRole.${role}`;
-
-            try {
-                await updateDoc(userDocRef, {
-                    [xpField]: increment(amount)
-                });
-                console.log(`Successfully added ${amount} XP to ${role} for user ${userId}`);
-
-                // --- Update local currentUser state if it's the affected user ---
-                if (this.currentUser && this.currentUser.uid === userId) {
-                     if (!this.currentUser.xpByRole) {
-                          this.currentUser.xpByRole = { ...defaultXpStructure };
-                     }
-                     this.currentUser.xpByRole[role] = (Number(this.currentUser.xpByRole[role]) || 0) + amount;
-                     notificationStore.showNotification({ message: `+${amount} XP for ${formatRoleName(role)}!`, type: 'success' });
-                }
-            } catch (error) {
-                console.error(`Error adding ${amount} XP to ${role} for user ${userId}:`, error);
-                 notificationStore.showNotification({ message: `Failed to update XP for ${role}.`, type: 'error' });
-            }
-        },
-
+        const userDocRef = doc(db, 'users', userId);
+        const userDocSnap = await getDoc(userDocRef);
         
-
-async fetchAllStudents(): Promise<UserData[]> {
-    console.log("[UserStore fetchAllStudents] Starting fetch...");
-    // Keep cache check if desired, but ensure it fetches if empty
-    if (this.isStudentListFresh && this.studentList.length > 0) {
-        console.log("[UserStore fetchAllStudents] Using cached student list.");
-        return this.studentList;
-    }
-
-    this.studentListLoading = true;
-    this.studentListError = null;
-    try {
-        const usersRef = collection(db, 'users');
-        // --- CHANGE IS HERE ---
-        // Remove the 'where' clause since all users in this collection are students
-        // const q = query(usersRef, where('role', '==', 'Student')); // REMOVE
-        const querySnapshot = await getDocs(usersRef); // FETCH ALL USERS
-        // --- END CHANGE ---
-
-        console.log(`[UserStore fetchAllStudents] Firestore query returned ${querySnapshot.size} documents (all users).`);
-
-        const students: UserData[] = querySnapshot.docs
-            .map(docSnap => {
-                // ... (keep mapping logic, ensuring role is set if needed)
-                 const data = docSnap.data();
-                 const dbXp = data.xpByRole || {};
-                 const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
-                      acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
-                      return acc;
-                 }, {} as Record<XpRoleKey, number>);
-                 return {
-                     uid: docSnap.id,
-                     name: data.name || 'Unnamed Student',
-                     role: 'Student', // Add role here if needed elsewhere in the app
-                     photoURL: data.photoURL,
-                     xpByRole: mergedXp,
-                     skills: data.skills || [],
-                     preferredRoles: data.preferredRoles || [],
-                     participatedEvent: data.participatedEvent || [],
-                     organizedEvent: data.organizedEvent || [],
-                 } as UserData;
-            })
-            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-        console.log(`[UserStore fetchAllStudents] Mapped ${students.length} students.`);
-
-        this.studentList = students;
-        this.studentListLastFetch = Date.now();
-        return students;
-    } catch (error) {
-        console.error("[UserStore fetchAllStudents] Error fetching students:", error);
-        this.studentList = [];
-        this.studentListError = error instanceof Error ? error : new Error('Failed to fetch students');
-        return [];
-    } finally {
-        this.studentListLoading = false;
-        console.log("[UserStore fetchAllStudents] Fetch finished.");
-    }
-},
-
-        // Fetches all users (consider performance implications)
-        async fetchAllUsers(): Promise<UserData[]> {
-            // Consider adding caching like fetchAllStudents if this is called frequently
-             this.loading = true;
-             this.error = null;
-            try {
-                const usersRef = collection(db, 'users');
-                const querySnapshot = await getDocs(usersRef);
-
-                const users: UserData[] = querySnapshot.docs.map(docSnap => {
-                    const data = docSnap.data();
-                    const dbXp = data.xpByRole || {};
-                    const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
-                        acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
-                        return acc;
-                    }, {} as Record<XpRoleKey, number>);
-                    return {
-                        uid: docSnap.id,
-                        name: data.name || 'Unnamed User',
-                        role: data.role || 'Student',
-                        photoURL: data.photoURL,
-                        xpByRole: mergedXp,
-                        // Map other relevant fields from UserData
-                        bio: data.bio,
-                        socialLink: data.socialLink,
-                        skills: data.skills || [],
-                        preferredRoles: data.preferredRoles || [],
-                        participatedEvent: data.participatedEvent || [],
-                        organizedEvent: data.organizedEvent || [],
-                    } as UserData; // Assert UserData type
-                });
-
-                this.allUsers = users;
-                return users;
-            } catch (error) {
-                console.error("Error fetching all users:", error);
-                 this.error = error instanceof Error ? error : new Error('Failed to fetch users');
-                 this.allUsers = [];
-                return [];
-            } finally {
-                 this.loading = false;
-            }
-        },
-
-        // Clears expired cache entries based on TTL settings
-        clearStaleCache() {
-            const now = Date.now();
-            let clearedNames = 0;
-            let clearedStudents = false;
-
-            // Clear stale name cache entries
-            for (const [uid, data] of this.nameCache.entries()) {
-                if (now - data.timestamp > this.nameCacheTTL) {
-                    this.nameCache.delete(uid);
-                    clearedNames++;
-                }
-            }
-            if (clearedNames > 0) console.log(`Cleared ${clearedNames} stale name cache entries.`);
-
-            // Clear student list if TTL expired AND it's not currently loading
-            if (this.studentListLastFetch !== null &&
-                !this.studentListLoading &&
-                (now - this.studentListLastFetch > this.studentListTTL))
-            {
-                console.log('Student list cache expired. Clearing data.');
-                this.studentList = [];
-                this.studentListLastFetch = null;
-                this.studentListError = null;
-                clearedStudents = true;
-                 if (clearedStudents) console.log(`Cleared stale student list.`);
-            }
-        },
-
-        // --- Profile/Request/Leaderboard Fetch Actions ---
-
-        // Fetches profile data for a specific user ID (could be self or other)
-        async fetchUserProfileData(userId: string) {
-            if (!userId) {
-                this.error = new Error("User ID is required to fetch profile data.");
-                this.profileData = null;
-                return;
-            }
-            // Check if fetching data for the currently logged-in user AND it's already loaded in currentUser
-            if (userId === this.currentUser?.uid && this.isAuthenticated) {
-                 console.log(`Using already loaded currentUser data for profile view ${userId}`);
-                 this.profileData = { ...this.currentUser } as UserData;
-                 return;
-            }
-
-            this.loading = true;
-            this.error = null;
-            try {
-                const userDocRef = doc(db, 'users', userId);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                     const data = userDocSnap.data();
-                     const dbXp = data.xpByRole || {};
-                     const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
-                         acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
-                         return acc;
-                     }, {} as Record<XpRoleKey, number>);
-                    // Map to UserData type
-                    this.profileData = {
-                        uid: userId,
-                        name: data.name || 'Unnamed User',
-                        role: data.role || 'Student',
-                        photoURL: data.photoURL,
-                        bio: data.bio,
-                        socialLink: data.socialLink,
-                        xpByRole: mergedXp,
-                        skills: data.skills || [],
-                        preferredRoles: data.preferredRoles || [],
-                        participatedEvent: data.participatedEvent || [],
-                        organizedEvent: data.organizedEvent || [],
-                    } as UserData;
-                } else {
-                    this.profileData = null;
-                    throw new Error("User profile not found.");
-                }
-            } catch (err) {
-                 console.error(`Error fetching profile data for ${userId}:`, err);
-                 this.error = err instanceof Error ? err : new Error('Failed to fetch profile');
-                 this.profileData = null;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        // Fetches event requests made *by* the specified user ID
-        async fetchUserRequests(userId: string) {
-            if (!userId) {
-                 this.userRequests = [];
-                 return;
-            }
-            this.loading = true; // Consider a specific loading flag
-            this.error = null;
-            try {
-                 const q = query(
-                     collection(db, 'events'),
-                     where('requestedBy', '==', userId),
-                     // Fetch Pending and Rejected to show in "My Requests"
-                     where('status', 'in', ['Pending', 'Rejected'])
-                 );
-                 const querySnapshot = await getDocs(q);
-                 this.userRequests = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
-                 console.log(`Fetched ${this.userRequests.length} requests for user ${userId}`);
-            } catch (err) {
-                console.error(`Error fetching requests for ${userId}:`, err);
-                this.error = err instanceof Error ? err : new Error('Failed to fetch requests');
-                this.userRequests = [];
-            } finally {
-                 this.loading = false;
-            }
-        },
-
-        // Fetches users for the leaderboard view
-        async fetchLeaderboardUsers() {
-            this.loading = true; // Consider a specific loading flag
-            this.error = null;
-            try {
-                 const usersRef = collection(db, 'users');
-                 const querySnapshot = await getDocs(usersRef);
-
-                 this.leaderboardUsers = querySnapshot.docs.map(docSnap => {
-                     const data = docSnap.data();
-                     const dbXp = data.xpByRole || {};
-                     const mergedXp = Object.keys(defaultXpStructure).reduce((acc, key) => {
-                         acc[key as XpRoleKey] = Number(dbXp[key]) || 0;
-                         return acc;
-                     }, {} as Record<XpRoleKey, number>);
-                     return {
-                         uid: docSnap.id,
-                         name: data.name || 'Unnamed User',
-                         role: data.role || 'Student',
-                         photoURL: data.photoURL,
-                         xpByRole: mergedXp,
-                         // Include other UserData fields if needed by the leaderboard component
-                     } as UserData; // Assert UserData type
-                 });
-
-                 // Initial sort by total XP (can be moved to component if role filtering is dynamic)
-                 this.leaderboardUsers.sort((a, b) => {
-                     const xpA = Object.values(a.xpByRole || {}).reduce((s, v) => s + (Number(v) || 0), 0);
-                     const xpB = Object.values(b.xpByRole || {}).reduce((s, v) => s + (Number(v) || 0), 0);
-                     return xpB - xpA; // Descending
-                 });
-                 console.log(`Fetched ${this.leaderboardUsers.length} users for leaderboard.`);
-
-            } catch (err) {
-                console.error("Error fetching leaderboard users:", err);
-                this.error = err instanceof Error ? err : new Error('Failed to fetch leaderboard');
-                this.leaderboardUsers = [];
-            } finally {
-                 this.loading = false;
-            }
-        },
-
+        if (!userDocSnap.exists()) {
+          console.log(`No user profile found in Firestore for Firebase user ${userId}`);
+          this.currentUser = null;
+          this.isAuthenticated = false;
+          return null;
+        }
+        
+        const userData = userDocSnap.data() as UserData;
+        const userWithId = { ...userData, uid: userDocSnap.id };
+        
+        // Update the store state with the fetched user data
+        this.currentUser = userWithId;
+        this.isAuthenticated = true;
+        
+        return userWithId;
+      } catch (error: any) {
+        this.error = error;
+        console.error('Error fetching user data:', error);
+        // Make sure authentication state is set to false on error
+        this.currentUser = null;
+        this.isAuthenticated = false;
+        return null;
+      } finally {
+        this.loading = false;
+      }
     },
+
+    /**
+     * Update a user's profile
+     * @param payload - Object containing userId and profile data
+     */
+    async updateUserProfile(payload: UserProfileUpdatePayload): Promise<void> {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const { userId, profileData } = payload;
+        if (!userId) {
+          throw new Error("User ID is required");
+        }
+
+        const userDocRef = doc(db, 'users', userId);
+        await updateDoc(userDocRef, profileData);
+        
+        // Update the current user if this was the current user's profile
+        if (this.currentUser?.uid === userId) {
+          this.currentUser = { ...this.currentUser, ...profileData };
+        }
+      } catch (error: any) {
+        this.error = error;
+        console.error('Error updating user profile:', error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /**
+     * Fetch complete user profile data for viewing a profile
+     * @param userId - The user ID to fetch the profile for
+     */
+    async fetchFullUserProfileForView(userId: string): Promise<void> {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        // Clear previous data
+        this.viewedUserProfile = null;
+        this.viewedUserProjects = [];
+        this.viewedUserEvents = [];
+        
+        // 1. Fetch basic profile data
+        const userDocRef = doc(db, 'users', userId);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (!userDocSnap.exists()) {
+          throw new Error("User profile not found");
+        }
+        
+        const userData = userDocSnap.data();
+        this.viewedUserProfile = {
+          uid: userDocSnap.id,
+          name: userData.name || 'Unknown User',
+          photoURL: userData.photoURL,
+          bio: userData.bio,
+          socialLink: userData.socialLink,
+          xpByRole: userData.xpByRole || {},
+          skills: userData.skills || [],
+          preferredRoles: userData.preferredRoles || [],
+          participatedEvent: userData.participatedEvent || [],
+          organizedEvent: userData.organizedEvent || [],
+          role: userData.role,
+          hasLaptop: userData.hasLaptop === undefined ? false : userData.hasLaptop,
+          email: null, // Required field from UserData
+        };
+        
+        // 2. Fetch user events
+        await this.fetchUserEvents(userId);
+        
+        // 3. Fetch user projects
+        await this.fetchUserProjects(userId);
+        
+      } catch (error: any) {
+        this.error = error;
+        console.error('Error fetching user profile for view:', error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /**
+     * Fetch user events for profile view
+     */
+    async fetchUserEvents(userId: string): Promise<void> {
+      if (!this.viewedUserProfile) return;
+      
+      try {
+        const allIds = Array.from(new Set([
+          ...(this.viewedUserProfile.participatedEvent || []),
+          ...(this.viewedUserProfile.organizedEvent || [])
+        ]));
+        
+        if (allIds.length === 0) {
+          this.viewedUserEvents = [];
+          return;
+        }
+        
+        // Fetch events using Firestore
+        const events: AppEvent[] = [];
+        const batch = allIds.length > 10 ? Math.ceil(allIds.length / 10) : 1;
+        
+        for (let i = 0; i < batch; i++) {
+          const batchIds = allIds.slice(i * 10, (i + 1) * 10);
+          const eventsRef = collection(db, 'events');
+          const q = query(eventsRef, where('__name__', 'in', batchIds));
+          const snapshot = await getDocs(q);
+          
+          snapshot.forEach(doc => {
+            events.push({ id: doc.id, ...doc.data() } as AppEvent);
+          });
+        }
+        
+        // Filter and store events
+        const excludedStatuses = [EventStatus.Pending, EventStatus.Cancelled, EventStatus.Rejected];
+        const isCurrentUser = userId === this.currentUser?.uid;
+        
+        this.viewedUserEvents = events.filter(event => {
+          if (isCurrentUser) {
+            // Show most statuses for own profile
+            return !excludedStatuses.includes(event.status as EventStatus);
+          } else {
+            // Show only completed/relevant statuses for public view
+            return [EventStatus.Completed, EventStatus.Closed, EventStatus.InProgress, EventStatus.Approved]
+              .includes(event.status as EventStatus);
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error fetching user events:', error);
+        this.viewedUserEvents = [];
+      }
+    },
+
+    /**
+     * Fetch user projects
+     */
+    async fetchUserProjects(userId: string): Promise<void> {
+      try {
+        const submissionsQuery = query(
+          collection(db, 'submissions'),
+          where('userId', '==', userId),
+          orderBy('submittedAt', 'desc')
+        );
+        
+        const snapshot = await getDocs(submissionsQuery);
+        const projects: UserProject[] = [];
+        
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+          let eventName;
+          
+          // Try to get event name if we have eventId
+          if (data.eventId) {
+            const eventRef = doc(db, 'events', data.eventId);
+            const eventSnap = await getDoc(eventRef);
+            if (eventSnap.exists()) {
+              eventName = eventSnap.data()?.details?.eventName;
+            }
+          }
+          
+          projects.push({
+            id: docSnap.id,
+            projectName: data.projectName,
+            link: data.link,
+            description: data.description,
+            eventId: data.eventId,
+            eventName: eventName,
+            submittedAt: data.submittedAt,
+          });
+        }
+        
+        this.viewedUserProjects = projects;
+        
+      } catch (error) {
+        console.error('Error fetching user projects:', error);
+        this.viewedUserProjects = [];
+      }
+    },
+
+    /**
+     * Fetch data for portfolio generation for the current user
+     */
+    async fetchCurrentUserPortfolioData(): Promise<void> {
+      if (!this.currentUser?.uid) {
+        throw new Error('User must be logged in to fetch portfolio data');
+      }
+      
+      try {
+        // Fetch the user's projects
+        const submissionsQuery = query(
+          collection(db, 'submissions'),
+          where('userId', '==', this.currentUser.uid),
+          orderBy('submittedAt', 'desc')
+        );
+        
+        const snapshot = await getDocs(submissionsQuery);
+        const projects: Project[] = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            projectName: data.projectName || data.details?.eventName || `Project (${doc.id.substring(0, 5)}...)`,
+            eventName: data.details?.eventName || `Event (${data.eventId?.substring(0, 5) || doc.id.substring(0, 5)}...)`,
+            eventType: data.details?.type || 'Unknown',
+            description: data.details?.description || '',
+            link: data.link || '#',
+            submittedAt: data.submittedAt
+          };
+        });
+        
+        // Get the user document to count participated and organized events
+        const userDocRef = doc(db, 'users', this.currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        let participatedCount = 0;
+        let organizedCount = 0;
+        
+        if (userDocSnap.exists()) {
+          const data = userDocSnap.data();
+          participatedCount = Array.isArray(data.participatedEvent) ? data.participatedEvent.length : 0;
+          organizedCount = Array.isArray(data.organizedEvent) ? data.organizedEvent.length : 0;
+        }
+        
+        // Update the state
+        this.currentUserPortfolioData = {
+          projects,
+          eventParticipationCount: participatedCount + organizedCount
+        };
+        
+      } catch (error) {
+        console.error('Error fetching portfolio data:', error);
+        this.currentUserPortfolioData = {
+          projects: [],
+          eventParticipationCount: 0
+        };
+      }
+    },
+
+    /**
+     * Fetch user requests
+     */
+    async fetchUserRequests(userId: string): Promise<void> {
+      try {
+        const eventsRef = collection(db, 'events');
+        const q = query(eventsRef, where('requestedBy', '==', userId));
+        const snapshot = await getDocs(q);
+        
+        const requests: AppEvent[] = [];
+        snapshot.forEach(doc => {
+          requests.push({ id: doc.id, ...doc.data() } as AppEvent);
+        });
+        
+        this.userRequests = requests;
+      } catch (error) {
+        console.error('Error fetching user requests:', error);
+        this.userRequests = [];
+      }
+    },
+
+    /**
+     * Fetch user names in batch
+     */
+    async fetchUserNamesBatch(userIds: string[]): Promise<Record<string, string>> {
+      const uniqueIds = [...new Set(userIds)].filter(Boolean);
+      if (uniqueIds.length === 0) return {};
+      
+      const result: Record<string, string> = {};
+      const idsToFetch = uniqueIds.filter(id => !this.nameCache.has(id));
+      
+      if (idsToFetch.length === 0) {
+        // Return from cache only
+        uniqueIds.forEach(id => {
+          const cached = this.nameCache.get(id);
+          if (cached) result[id] = cached.name;
+        });
+        return result;
+      }
+      
+      try {
+        // We need to fetch some names
+        const usersRef = collection(db, 'users');
+        const batchSize = 10; // Firestore limits "in" queries
+        
+        for (let i = 0; i < idsToFetch.length; i += batchSize) {
+          const batchIds = idsToFetch.slice(i, i + batchSize);
+          const q = query(usersRef, where('__name__', 'in', batchIds));
+          const snapshot = await getDocs(q);
+          
+          snapshot.forEach(doc => {
+            const name = doc.data()?.name || `User (${doc.id.substring(0, 5)}...)`;
+            result[doc.id] = name;
+            
+            // Update cache
+            this.nameCache.set(doc.id, {
+              name,
+              timestamp: Date.now()
+            });
+          });
+        }
+        
+        // Add any cached names we didn't need to fetch
+        uniqueIds.filter(id => !idsToFetch.includes(id)).forEach(id => {
+          const cached = this.nameCache.get(id);
+          if (cached) result[id] = cached.name;
+        });
+        
+        return result;
+      } catch (error) {
+        console.error('Error fetching user names batch:', error);
+        return {};
+      }
+    },
+
+    /**
+     * Fetch all users and cache their names.
+     */
+    async fetchAllUsers(): Promise<void> {
+      this.loading = true;
+      this.error = null;
+      try {
+        const usersRef = collection(db, 'users');
+        const snapshot = await getDocs(usersRef);
+        const users: UserData[] = [];
+        snapshot.forEach(doc => {
+          const userData = doc.data() as Omit<UserData, 'uid'>; // Firestore data doesn't include uid directly
+          const userWithId = { ...userData, uid: doc.id };
+          users.push(userWithId);
+          // Update cache
+          if (userWithId.name) {
+            this.nameCache.set(doc.id, {
+              name: userWithId.name,
+              timestamp: Date.now()
+            });
+          }
+        });
+        this.allUsers = users;
+      } catch (error: any) {
+        this.error = error;
+        console.error('Error fetching all users:', error);
+        this.allUsers = [];
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /**
+     * Fetch all students (users with role 'Student') and cache their names.
+     * MODIFIED: Now fetches all users from the 'users' collection as students,
+     * as per the clarification that there's no 'role' field and all users are students.
+     */
+    async fetchAllStudents(): Promise<void> {
+      this.loading = true;
+      this.error = null;
+      try {
+        const usersRef = collection(db, 'users');
+        // REMOVED: const q = query(usersRef, where('role', '==', 'Student'));
+        // NOW: Fetch all documents from the 'users' collection
+        const snapshot = await getDocs(usersRef);
+
+        // Log the number of documents returned by the query
+        console.log(`[UserStore fetchAllStudents] Firestore query for students snapshot.docs.length: ${snapshot.docs.length}`);
+
+        const students: UserData[] = [];
+        snapshot.forEach(doc => {
+          const userData = doc.data() as Omit<UserData, 'uid'>;
+          // Ensure xpByRole is an object, even if undefined in Firestore
+          const studentWithId = { ...userData, uid: doc.id, xpByRole: userData.xpByRole || {} };
+          students.push(studentWithId);
+          // Update cache
+          if (studentWithId.name) {
+            this.nameCache.set(doc.id, {
+              name: studentWithId.name,
+              timestamp: Date.now()
+            });
+          }
+        });
+        this.studentList = students;
+        // Log the fetched students
+        console.log('[UserStore fetchAllStudents] Successfully fetched and set students. Count:', this.studentList.length);
+        if (this.studentList.length > 0) {
+          console.log('[UserStore fetchAllStudents] First fetched student:', JSON.stringify(this.studentList[0]));
+        }
+      } catch (error: any) {
+        this.error = error;
+        console.error('Error fetching students:', error);
+        this.studentList = [];
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /**
+     * Fetch users for the leaderboard.
+     * Leverages fetchAllUsers if data isn't already present.
+     */
+    async fetchLeaderboardUsers(): Promise<void> {
+      // This store's loading flag can be used if needed, but LeaderboardView has its own.
+      // this.loading = true; 
+      this.error = null;
+      try {
+        // Fetch all users if not already populated.
+        // fetchAllUsers ensures xpByRole defaults to {} if undefined.
+        if (this.allUsers.length === 0) {
+          await this.fetchAllUsers(); // fetchAllUsers updates this.allUsers
+        }
+        // Assign the fetched users to leaderboardUsers.
+        // Ensure xpByRole is correctly handled in UserData objects within allUsers.
+        // The fetchAllUsers action should already ensure xpByRole defaults to {}
+        this.leaderboardUsers = this.allUsers.map(user => ({
+          ...user,
+          xpByRole: user.xpByRole || {} // Defensive default
+        }));
+        
+      } catch (error: any) {
+        this.error = error;
+        console.error('Error fetching leaderboard users:', error);
+        this.leaderboardUsers = []; // Reset on error
+      } finally {
+        // this.loading = false;
+      }
+    },
+  }
 });

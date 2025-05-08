@@ -54,14 +54,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, toRefs, watch, onMounted, PropType } from 'vue'; // Added PropType
-
-// Local User interface definition - make email optional
-interface User {
-  uid: string;
-  name: string;
-  email?: string; // Make email optional
-}
+import { ref, computed, watch, PropType } from 'vue';
+import { UserData } from '@/types/user'; // Import UserData
 
 // Correctly define props using PropType for complex types
 const props = defineProps({
@@ -82,7 +76,7 @@ const props = defineProps({
       default: null
   },
   allUsers: {
-      type: Array as PropType<User[]>, // Use the local User interface
+      type: Array as PropType<UserData[]>, // Use UserData[] from @/types/user
       required: true
   }
 });
@@ -105,7 +99,7 @@ const filteredUsers = computed(() => {
   const searchLower = coOrganizerSearch.value.toLowerCase().trim();
   if (searchLower.length < 2) return [];
 
-  return (props.allUsers || []).filter(user => {
+  return (props.allUsers || []).filter(user => { // props.allUsers is now UserData[]
     if (!user?.uid || !user.name) return false;
     if (user.uid === props.currentUserUid || localOrganizers.value.includes(user.uid)) return false;
     return user.name.toLowerCase().includes(searchLower);

@@ -93,11 +93,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useUserStore } from '@/store/user';
 
 const router = useRouter();
 const route = useRoute();
+const userStore = useUserStore();
 
 const loading = ref(false);
 const error = ref('');
@@ -125,14 +125,15 @@ async function loadUserData() {
     error.value = 'User ID not found';
     return;
   }
+  loading.value = true;
 
   try {
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (!userDoc.exists()) {
+    const userData = await userStore.fetchUserData(userId);
+
+    if (!userData) {
       throw new Error('User not found');
     }
 
-    const userData = userDoc.data();
     form.value = {
       name: userData.name || '',
       photoURL: userData.photoURL || '',
@@ -145,6 +146,8 @@ async function loadUserData() {
   } catch (err: any) {
     error.value = err?.message || 'Failed to load profile data';
     router.back();
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -156,7 +159,6 @@ async function saveProfileEdits() {
   
   try {
     const userId = route.params.id as string;
-    const userDocRef = doc(db, 'users', userId);
     
     const updatePayload = {
       name: form.value.name.trim(),
@@ -168,7 +170,7 @@ async function saveProfileEdits() {
       hasLaptop: form.value.hasLaptop
     };
 
-    await updateDoc(userDocRef, updatePayload);
+    await userStore.updateUserProfile({ userId, profileData: updatePayload });
     router.back();
   } catch (err: any) {
     error.value = err?.message || 'Failed to update profile';

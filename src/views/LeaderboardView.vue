@@ -32,7 +32,7 @@
       <div v-else>
          <div v-if="filteredUsers.length === 0" class="empty-state">
             <i class="bi bi-emoji-neutral fs-1 mb-3"></i>
-            <p>No users found for this role.</p>
+            <p>No participants found for this role. Try selecting another filter.</p>
         </div>
         <div v-else class="leaderboard-table">
           <table class="table">
@@ -132,8 +132,9 @@ onMounted(async () => {
     loading.value = true;
     try {
         await userStore.fetchLeaderboardUsers();
-        users.value = userStore.leaderboardUsers;
+        users.value = userStore.leaderboardUsers; 
     } catch (error) {
+        console.error("Error fetching leaderboard data:", error);
         users.value = [];
     } finally {
         loading.value = false;

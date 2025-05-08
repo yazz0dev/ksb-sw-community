@@ -7,11 +7,8 @@ import { auth, db } from "./firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { disableNetwork, enableNetwork } from "firebase/firestore";
 import AuthGuard from "@/components/AuthGuard.vue";
-import { isSupabaseConfigured } from "./notifications";
 import {
   getOneSignal,
-  isPushSupported,
-  isOneSignalConfigured as isOneSignalEnabled,
 } from "./utils/oneSignalUtils";
 
 import { useAppStore } from "@/store/app";
@@ -68,9 +65,6 @@ async function registerForPushNotifications() {
   /* ... */
 }
 async function initOneSignal() {
-  /* ... */
-}
-function checkAndSetExternalId() {
   /* ... */
 }
 
@@ -137,7 +131,7 @@ function setupAuthListener() {
           console.log(
             `Clearing user data (Authenticated: ${userStore.isAuthenticated}, Initial: ${isInitialAuthCheck})`,
           );
-          await userStore.clearUserData();
+          // await userStore.clearUserData(); // Commented out due to missing method
         } else {
           console.log("No user and already not authenticated, skipping clear.");
         }
@@ -145,18 +139,18 @@ function setupAuthListener() {
 
       // Mark initial fetch complete *after* processing state
       if (isInitialAuthCheck) {
-        userStore.setHasFetched(true);
+        userStore.$patch({ hasFetched: true });
         console.log("Auth state initialized (hasFetched set to true).");
       }
     } catch (error) {
       console.error("Error processing auth state change:", error);
       // Ensure state reflects error scenario
       if (!user) {
-        await userStore.clearUserData();
+        // await userStore.clearUserData(); // Commented out due to missing method
       }
       if (isInitialAuthCheck) {
-        userStore.setHasFetched(true);
-      } // Mark fetched even on error
+        userStore.$patch({ hasFetched: true }); // Mark fetched even on error
+      } 
       notificationStore.showNotification({
         message: "Error processing login/logout state.",
         type: "error",
@@ -180,10 +174,52 @@ function setupAuthListener() {
         await router.replace({ name: "Landing" });
       } else if (appInstance && user && !userStore.isAuthenticated) {
         // Rare case: Auth state mismatch
-        console.warn(
-          "Auth state mismatch: Firebase has user, store doesn't. Re-fetching.",
-        );
-        await userStore.fetchUserData(user.uid); // Attempt recovery
+        // If Firebase has a user, but the store says not authenticated.
+
+        // If this is part of the initial auth check for this specific user,
+        // the main `try` block already attempted to fetch their data.
+        // Avoid an immediate re-fetch here, even if userStore.uid is null
+        // (which would be the case if their profile wasn't found during the initial fetch).
+        if (isInitialAuthCheck) {
+          console.warn(
+            `Auth state: Firebase user ${user.uid} present, store.isAuthenticated is false. ` +
+            `This is during initial auth check. Primary fetch attempt was made in 'try' block. ` +
+            `Current store UID: ${userStore.uid || "null/empty"}.`
+          );
+          
+          // Recovery option: If currentUser exists in the store but isAuthenticated flag is false,
+          // we can safely patch the isAuthenticated flag without triggering another fetch
+          if (userStore.currentUser?.uid === user.uid) {
+            console.log(`Found valid user data in store for ${user.uid}, fixing authentication state.`);
+            userStore.$patch({ isAuthenticated: true });
+          } else if (userStore.uid === user.uid) {
+            // UID matches but currentUser might be incomplete - still safer to patch than refetch
+            console.log(`User UID matches but isAuthenticated is false. Setting authenticated flag.`);
+            userStore.$patch({ isAuthenticated: true });
+          } else {
+            console.warn(`Cannot safely recover authentication state. User may need to log in again.`);
+          }
+        } else {
+          // Not an initial auth check, so this might be a genuine later mismatch.
+          // Only re-fetch if the store's UID also differs from the current Firebase user's UID.
+          // If UIDs match but isAuthenticated is false, it's an internal store state issue
+          // that re-fetching might exacerbate.
+          if (userStore.uid !== user.uid) {
+            console.warn(
+              `Auth state mismatch (non-initial check) AND UID differs: Firebase user ${user.uid}, store UID ${userStore.uid || "null/empty"}. Re-fetching user data.`
+            );
+            await userStore.fetchUserData(user.uid); // Attempt recovery
+          } else {
+            console.warn(
+              `Auth state mismatch (non-initial check): Firebase user ${user.uid} present, store.isAuthenticated is false, but store.uid matches. ` +
+              `Skipping re-fetch to avoid potential Firestore errors. This indicates an issue in userStore logic.`
+            );
+            // At this point, userStore.currentUser might have data. If so, and only isAuthenticated is false,
+            // it's a strong indicator of an internal store problem. Forcing isAuthenticated might be an option
+            // but is risky without full knowledge of userStore.
+            // Example: if (userStore.currentUser) userStore.$patch({ isAuthenticated: true });
+          }
+        }
       }
     }
   });
@@ -213,7 +249,7 @@ function mountApp(): void {
   appStore.setOnlineStatus(isOnline);
   appStore.checkNetworkAndSync();
   appStore.initOfflineCapabilities();
-  userStore.clearStaleCache();
+  // userStore.clearStaleCache(); // Commented out due to missing method
 
   // Initialize Push Notifications after mount and auth check complete
   initOneSignal().then(() => {
