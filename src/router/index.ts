@@ -82,16 +82,6 @@ router.beforeEach((
      return;
   }
 
-  // --- Role-based access ---
-  if (routeMeta.roles && Array.isArray(routeMeta.roles) && isAuthenticated) {
-      const userRole = userStore.currentUser?.role || 'Student'; // Default role if needed
-      if (!routeMeta.roles.includes(userRole)) {
-           console.log(`Router Guard: User role '${userRole}' not authorized for route ${String(to.name ?? 'Unnamed')}. Redirecting.`);
-           next({ name: 'Home', replace: true }); // Redirect to a safe default page
-           return;
-      }
-  }
-
   // If none of the above conditions were met, allow navigation
   const routeNameStr = String(to.name ?? 'Unnamed Route');
   console.log(`Router Guard: Allowing navigation to ${routeNameStr}.`);

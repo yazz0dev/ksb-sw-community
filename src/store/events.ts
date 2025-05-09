@@ -26,7 +26,7 @@ import { joinEventInFirestore, leaveEventInFirestore } from './events/actions.pa
 import {
     toggleRatingsOpenInFirestore, submitTeamCriteriaVoteInFirestore,
     submitIndividualWinnerVoteInFirestore, submitOrganizationRatingInFirestore,
-    calculateWinnersFromVotes, saveWinnersToFirestore
+    calculateWinnersFromVotes, saveWinnersToFirestore, submitManualWinnerSelectionInFirestore
 } from './events/actions.ratings';
 import { submitProjectToEventInFirestore } from './events/actions.submissions';
 import { addTeamToEventInFirestore, updateEventTeamsInFirestore } from './events/actions.teams';
@@ -327,15 +327,23 @@ export const useEventStore = defineStore('events', {
 
          // --- Ratings Actions ---
          async toggleRatingsOpen({ eventId, open }: { eventId: string; open: boolean }) {
+              const userStore = useUserStore();
               const notificationStore = useNotificationStore();
-              // Offline check? Maybe not suitable.
 
               try {
-                  await toggleRatingsOpenInFirestore(eventId, open);
-                  await this.fetchEventDetails(eventId); // Use 'this' for other actions
-                  notificationStore.showNotification({ message: `Ratings are now ${open ? 'Open' : 'Closed'}.`, type: 'success' });
+                  if (!userStore.uid) throw new Error("Authentication required to modify ratings.");
+                  
+                  await toggleRatingsOpenInFirestore(eventId, open, userStore.uid);
+                  await this.fetchEventDetails(eventId);
+                  notificationStore.showNotification({ 
+                      message: `Ratings are now ${open ? 'Open' : 'Closed'}.`, 
+                      type: 'success' 
+                  });
               } catch (error) {
-                  notificationStore.showNotification({ message: `Failed to toggle ratings: ${handleFirestoreError(error)}`, type: 'error' });
+                  notificationStore.showNotification({ 
+                      message: `Failed to toggle ratings: ${handleFirestoreError(error)}`, 
+                      type: 'error' 
+                  });
                   throw error;
               }
           },
@@ -380,27 +388,42 @@ export const useEventStore = defineStore('events', {
               }
           },
 
+          async submitManualWinnerSelection({ eventId, winnerSelections }: { eventId: string; winnerSelections: Record<string, string[]> }) {
+              const userStore = useUserStore();
+              const notificationStore = useNotificationStore();
+              
+              try {
+                  if (!userStore.uid) throw new Error("User not authenticated.");
+                  await submitManualWinnerSelectionInFirestore(eventId, userStore.uid, winnerSelections);
+                  await this.fetchEventDetails(eventId);
+                  notificationStore.showNotification({ message: "Manual winner selection successfully saved.", type: 'success' });
+              } catch (error) {
+                  notificationStore.showNotification({ message: `Failed to save manual winner selection: ${handleFirestoreError(error)}`, type: 'error' });
+                  throw error;
+              }
+          },
+
           async submitOrganizationRating({ eventId, score, feedback }: { eventId: string; score: number; feedback?: string }) {
-               const userStore = useUserStore();
-               const notificationStore = useNotificationStore();
-               const appStore = useAppStore();
+              const userStore = useUserStore();
+              const notificationStore = useNotificationStore();
+              const appStore = useAppStore();
 
-               // Offline check
-               const payload = { eventId, score, feedback };
-               const offlineResult = await appStore.handleOfflineAction({ type: 'events/submitOrganizationRating', payload });
-               if (offlineResult.queued) return;
+              // Offline check
+              const payload = { eventId, score, feedback };
+              const offlineResult = await appStore.handleOfflineAction({ type: 'events/submitOrganizationRating', payload });
+              if (offlineResult.queued) return;
 
 
-               try {
-                   if (!userStore.uid) throw new Error("User not authenticated.");
-                   await submitOrganizationRatingInFirestore(eventId, userStore.uid, score, feedback);
-                   await this.fetchEventDetails(eventId); // Use 'this' for other actions
-                   notificationStore.showNotification({ message: "Organizer rating submitted.", type: 'success' });
-               } catch (error) {
-                   notificationStore.showNotification({ message: `Failed to submit rating: ${handleFirestoreError(error)}`, type: 'error' });
-                   throw error;
-               }
-           },
+              try {
+                  if (!userStore.uid) throw new Error("User not authenticated.");
+                  await submitOrganizationRatingInFirestore(eventId, userStore.uid, score, feedback);
+                  await this.fetchEventDetails(eventId); // Use 'this' for other actions
+                  notificationStore.showNotification({ message: "Organizer rating submitted.", type: 'success' });
+              } catch (error) {
+                  notificationStore.showNotification({ message: `Failed to submit rating: ${handleFirestoreError(error)}`, type: 'error' });
+                  throw error;
+              }
+          },
 
            async findWinner(eventId: string) {
                  const notificationStore = useNotificationStore();
@@ -498,7 +521,7 @@ export const useEventStore = defineStore('events', {
                  const numberOfTeams = event.teams.length; // Use existing number of teams
 
                  // Ensure student list is loaded
-                 if (userStore.studentList.length === 0 && !userStore.studentListLoading) {
+                 if (userStore.studentList.length === 0) {
                      await userStore.fetchAllStudents();
                  }
                  const students = userStore.getStudentList; // Use getter

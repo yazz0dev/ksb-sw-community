@@ -29,11 +29,11 @@
                 <!-- Team Selection Section -->
                 <div>
                   <h3 class="h5 mb-3">Best Team per Criterion</h3>
-                  <!-- FIX: Use eventCriteria.value.length -->
+                  <!-- Use .value for reactive refs in template -->
                   <p v-if="!eventCriteria?.length" class="small fst-italic text-secondary">
                     No rating criteria defined for this event.
                   </p>
-                  <!-- FIX: Iterate over eventCriteria -->
+                  <!-- Use .value for reactive refs in template -->
                   <div v-else class="d-flex flex-column" style="gap: 1rem;">
                     <div v-for="criterion in eventCriteria" :key="criterion.constraintIndex" class="mb-3">
                       <label :for="`team-select-${criterion.constraintIndex}`" class="form-label small fw-bold">{{ criterion.constraintLabel }} ({{ criterion.points }} XP)</label>
@@ -56,6 +56,7 @@
                 <!-- Best Performer Section -->
                 <div class="pt-4 border-top">
                   <h3 class="h5 mb-3">Overall Best Performer</h3>
+                  <!-- Use .value for reactive refs in template -->
                   <p v-if="!allTeamMembers?.length" class="small fst-italic text-secondary">
                     No participants found in teams.
                   </p>
@@ -69,6 +70,7 @@
                       :disabled="isSubmitting"
                     >
                        <option value="" disabled>Select Participant...</option>
+                       <!-- Use .value for reactive refs in template -->
                        <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
                          {{ member.name }} ({{ getTeamNameForMember(member.uid) }})
                        </option>
@@ -112,6 +114,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useEventStore } from '@/store/events';
 import { useUserStore } from '@/store/user';
 import { EventCriteria, Team as EventTeam, Event } from '@/types/event'; // Use aliases if needed
+import { BEST_PERFORMER_LABEL } from '@/utils/constants'; // Ensure this is imported
 
 interface TeamMember {
   uid: string;
@@ -173,11 +176,17 @@ onMounted(async () => {
         throw new Error('This rating form is only for team events.');
     }
 
-    // FIX: Use eventDetails.value.criteria
-    eventCriteria.value = eventDetails.value.criteria || [];
+    // FIX: Use eventDetails.value.criteria and filter out BEST_PERFORMER_LABEL
+    if (eventDetails.value && Array.isArray(eventDetails.value.criteria)) {
+      eventCriteria.value = eventDetails.value.criteria.filter(
+        c => c.constraintLabel !== BEST_PERFORMER_LABEL && c.constraintLabel && (typeof c.points === 'number' && c.points > 0)
+      );
+    } else {
+      eventCriteria.value = [];
+    }
     eventTeams.value = eventDetails.value.teams || [];
 
-    // Initialize selections based on criteria
+    // Initialize selections based on filtered criteria
     teamSelections.value = {}; // Reset selections
     eventCriteria.value.forEach(c => {
       // Ensure constraintIndex is valid before using it as a key
@@ -221,7 +230,10 @@ const getTeamNameForMember = (memberId: string): string => {
 };
 
 const isFormValid = computed(() => {
-  if (!eventCriteria.value) return false; // Check if criteria exist
+  // Access eventCriteria directly as it's unwrapped in the template/computed context
+  if (!eventCriteria.value || eventCriteria.value.length === 0) { 
+    // ... (rest of the logic for when no votable criteria)
+  }
 
   const criteriaFilled = eventCriteria.value.every(c =>
     typeof c.constraintIndex === 'number' &&
@@ -229,6 +241,11 @@ const isFormValid = computed(() => {
     teamSelections.value[c.constraintIndex] !== ''
   );
   const bestPerformerFilled = bestPerformerSelection.value !== '';
+
+  // If there are no votable criteria, only bestPerformer matters for validity.
+  if (eventCriteria.value.length === 0) {
+    return bestPerformerFilled;
+  }
 
   return criteriaFilled && bestPerformerFilled;
 });

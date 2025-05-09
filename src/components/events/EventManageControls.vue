@@ -113,6 +113,19 @@
         <span v-if="showFindWinnerButton && submissionCount < 10" class="small text-danger ms-2">
           At least 10 ratings/submissions are required to find winners (currently {{ submissionCount }}).
         </span>
+        <!-- Manually Select Winners Button (Organizer) -->
+        <button
+          v-if="showManualSelectWinnerButton"
+          type="button"
+          class="btn btn-sm btn-info d-inline-flex align-items-center"
+          :disabled="isActionLoading('manualSelectWinner')"
+          @click="goToManualSelectWinner"
+          title="Manually set or override winners"
+        >
+          <span v-if="isActionLoading('manualSelectWinner')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-edit me-1"></i>
+          <span>Manually Select Winners</span>
+        </button>
         <!-- Close Event Button (Organizer) -->
         <button
           v-if="showCloseEventButton"
@@ -137,6 +150,9 @@
       <p v-if="showFindWinnerButton" class="small text-secondary mt-2">
         Requires ratings to be closed and at least 10 submissions (currently {{ submissionCount }}) to find winners.
       </p>
+      <p v-if="showManualSelectWinnerButton" class="small text-secondary mt-2">
+        Manually set or override the winners for each criterion. This is useful if vote-based calculation is not desired or needs adjustment.
+      </p>
       <p v-if="showCloseEventButton" class="small text-secondary mt-2">
         Ratings must be closed and winners selected before you can permanently close the event and award XP.
       </p>
@@ -154,340 +170,314 @@
    </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/components/events/EventManageControls.vue
-
-import { computed, ref, PropType, defineEmits } from 'vue'; // Import defineEmits
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { useEventStore } from '@/store/events'; // Ensure EventStore is imported
-import { useNotificationStore } from '@/store/notification'; // Ensure NotificationStore is imported
-import { DateTime } from 'luxon'; // Import DateTime
+import { useEventStore } from '@/store/events';
+import { useNotificationStore } from '@/store/notification';
+import { DateTime } from 'luxon';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 
+// Define props and emits
+const props = defineProps<{
+  event: Event;
+}>();
 
-export default {
-  name: 'EventManageControls',
-  props: {
-    event: {
-      type: Object as PropType<Event>,
-      required: true
-    }
-  },
-  emits: ['update'], // Define the emits
-  setup(props, { emit }) { // <-- emit is now correctly typed
-    const router = useRouter();
-    const userStore = useUserStore();
-    const eventStore = useEventStore(); // Use Pinia store
-    const notificationStore = useNotificationStore(); // Use Pinia store
-    const loadingAction = ref<EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent' | null>(null);
-    const isClosingEvent = ref(false); // Specific loading for close action
+const emit = defineEmits(['update']);
 
-    // --- User Role & Permissions ---
-    const currentUserId = computed<string | null>(() => userStore.currentUser?.uid ?? null);
-    // FIX: Remove unused variable
-    // const currentUserRole = computed<string | null>(() => userStore.currentUser?.role); // Assuming role exists on currentUser
-    const isOrganizer = computed(() => {
-      const uid = currentUserId.value;
-      const eventData = props.event;
-      const organizers = eventData?.details?.organizers;
-      const requestedBy = eventData?.requestedBy;
+// Setup state
+const router = useRouter();
+const userStore = useUserStore();
+const eventStore = useEventStore();
+const notificationStore = useNotificationStore();
+const loadingAction = ref<EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent' | null>(null);
+const isClosingEvent = ref(false);
 
-      if (!uid || !eventData) {
-        return false;
-      }
+// --- User Role & Permissions ---
+const currentUserId = computed<string | null>(() => userStore.currentUser?.uid ?? null);
 
-      const isListedOrganizer = Array.isArray(organizers) && organizers.includes(uid);
-      const isRequestingUser = requestedBy === uid;
-      return isListedOrganizer || isRequestingUser; // Simplified
-    });
+const isOrganizer = computed(() => {
+  const uid = currentUserId.value;
+  const eventData = props.event;
+  const organizers = eventData?.details?.organizers;
+  const requestedBy = eventData?.requestedBy;
 
-    const isParticipant = computed(() => {
-      if (!currentUserId.value || !props.event) return false;
-      if (props.event.details.format === EventFormat.Team) {
-        return props.event.teams?.some(team => Array.isArray(team.members) && team.members.includes(currentUserId.value!));
-      }
-      // Use participants array for Individual/Competition
-      return Array.isArray(props.event.participants) && props.event.participants.includes(currentUserId.value);
-    });
-    const canManageEvent = computed(() => isOrganizer.value);
+  if (!uid || !eventData) {
+    return false;
+  }
 
-    // --- Event State Checks ---
-    const isWithinEventDates = computed(() => {
-      if (!props.event?.details?.date?.start || !props.event?.details?.date?.end) return false;
-      try {
-        const toIST = (date: any): DateTime | null => {
-           if (!date) return null;
-           let dt: DateTime;
-           if (date.toDate && typeof date.toDate === 'function') dt = DateTime.fromJSDate(date.toDate());
-           else if (date instanceof Date) dt = DateTime.fromJSDate(date);
-           else dt = DateTime.fromISO(date);
-           return dt.isValid ? dt.setZone('Asia/Kolkata') : null;
-        };
+  const isListedOrganizer = Array.isArray(organizers) && organizers.includes(uid);
+  const isRequestingUser = requestedBy === uid;
+  return isListedOrganizer || isRequestingUser;
+});
 
-        const nowIST = DateTime.now().setZone('Asia/Kolkata').startOf('day');
-        const startIST = toIST(props.event.details.date.start)?.startOf('day');
-        const endIST = toIST(props.event.details.date.end)?.startOf('day');
+const isParticipant = computed(() => {
+  if (!currentUserId.value || !props.event) return false;
+  if (props.event.details.format === EventFormat.Team) {
+    return props.event.teams?.some(team => Array.isArray(team.members) && team.members.includes(currentUserId.value!));
+  }
+  // Use participants array for Individual/Competition
+  return Array.isArray(props.event.participants) && props.event.participants.includes(currentUserId.value);
+});
 
-        if (!nowIST.isValid || !startIST?.isValid || !endIST?.isValid) {
-          console.warn("Invalid dates for isWithinEventDates check:", nowIST, startIST, endIST);
-          return false;
-        }
-        return nowIST >= startIST && nowIST <= endIST;
-      } catch (e) {
-        console.error("Error in isWithinEventDates:", e);
-        return false;
-      }
-    });
-    const formattedStartDate = computed(() => formatISTDate(props.event?.details?.date?.start));
-    const formattedEndDate = computed(() => formatISTDate(props.event?.details?.date?.end));
-    const statusBadgeClass = computed(() => getEventStatusBadgeClass(props.event?.status));
-    const ratingsAreClosed = computed(() => !props.event?.ratingsOpen);
+const canManageEvent = computed(() => isOrganizer.value);
 
-    // --- Submission/Winner State ---
-    const submissionCount = computed(() => {
-      if (!props.event) return 0;
-      const userIds = new Set<string>();
-      const criteria = Array.isArray(props.event.criteria) ? props.event.criteria : [];
-
-      criteria.forEach(criterion => {
-        if (criterion.criteriaSelections) {
-          Object.keys(criterion.criteriaSelections).forEach(uid => {
-            if (criterion.criteriaSelections[uid]) userIds.add(uid);
-          });
-        }
-      });
-
-      // Also count best performer selections for Team events
-      if (props.event.details.format === EventFormat.Team && props.event.bestPerformerSelections) {
-        Object.keys(props.event.bestPerformerSelections).forEach(uid => {
-            if (props.event.bestPerformerSelections && props.event.bestPerformerSelections[uid]) userIds.add(uid);
-        });
-      }
-
-      return userIds.size;
-    });
-    const hasWinners = computed(() => !!props.event?.winners && Object.keys(props.event.winners).length > 0);
-
-    // --- Button Visibility Logic ---
-    const showStartButton = computed(() =>
-      canManageEvent.value &&
-      props.event?.status === EventStatus.Approved &&
-      isWithinEventDates.value &&
-      !props.event?.closedAt
-    );
-    const showMarkCompleteButton = computed(() =>
-      canManageEvent.value &&
-      props.event?.status === EventStatus.InProgress &&
-      !props.event?.closedAt
-    );
-    const showOpenRatingsButton = computed(() =>
-      canManageEvent.value &&
-      props.event?.status === EventStatus.Completed &&
-      ratingsAreClosed.value &&
-      !props.event?.closedAt
-    );
-    const showCloseRatingsButton = computed(() =>
-        canManageEvent.value &&
-        props.event?.status === EventStatus.Completed &&
-        props.event?.ratingsOpen === true &&
-        !props.event?.closedAt
-    );
-    const canFindWinner = computed(() =>
-      canManageEvent.value &&
-      props.event?.status === EventStatus.Completed &&
-      ratingsAreClosed.value &&
-      !props.event?.closedAt
-    );
-    const showFindWinnerButton = canFindWinner;
-    const showParticipantOrganizerRating = computed(() =>
-      !canManageEvent.value &&
-      isParticipant.value &&
-      props.event?.status === EventStatus.Completed &&
-      !props.event?.closedAt
-    );
-    const showParticipantWinnerSelection = computed(() =>
-      isParticipant.value &&
-      props.event?.status === EventStatus.Completed &&
-      !props.event?.closedAt &&
-      props.event?.ratingsOpen === true
-    );
-    const showCloseEventButton = computed(() =>
-      canManageEvent.value &&
-      props.event?.status === EventStatus.Completed &&
-      ratingsAreClosed.value &&
-      hasWinners.value &&
-      !props.event?.closedAt
-    );
-    const showCancelButton = computed(() =>
-      canManageEvent.value &&
-      [EventStatus.Approved, EventStatus.InProgress].includes(props.event?.status as EventStatus) &&
-      !props.event?.closedAt
-    );
-    const showEditButton = computed(() =>
-      canManageEvent.value &&
-      ![EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(props.event?.status as EventStatus) &&
-      !props.event?.closedAt
-    );
-
-    const goToEditEvent = () => {
-      router.push({ name: 'EditEvent', params: { eventId: props.event.id } });
+// --- Event State Checks ---
+const isWithinEventDates = computed(() => {
+  if (!props.event?.details?.date?.start || !props.event?.details?.date?.end) return false;
+  try {
+    const toIST = (date: any): DateTime | null => {
+       if (!date) return null;
+       let dt: DateTime;
+       if (date.toDate && typeof date.toDate === 'function') dt = DateTime.fromJSDate(date.toDate());
+       else if (date instanceof Date) dt = DateTime.fromJSDate(date);
+       else dt = DateTime.fromISO(date);
+       return dt.isValid ? dt.setZone('Asia/Kolkata') : null;
     };
 
-    // --- Overall Visibility ---
-    const shouldShowControls = computed(() =>
-        canManageEvent.value ||
-        showParticipantOrganizerRating.value ||
-        showParticipantWinnerSelection.value
-    );
+    const nowIST = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+    const startIST = toIST(props.event.details.date.start)?.startOf('day');
+    const endIST = toIST(props.event.details.date.end)?.startOf('day');
 
-    // --- Section Visibility ---
-     const showStatusManagementSection = computed(() =>
-        canManageEvent.value &&
-        (showStartButton.value || showMarkCompleteButton.value || showCancelButton.value || showEditButton.value)
-     );
-     const showRatingsClosingSection = computed(() =>
-        (canManageEvent.value && (showOpenRatingsButton.value || showCloseRatingsButton.value || showFindWinnerButton.value || showCloseEventButton.value)) ||
-        showParticipantWinnerSelection.value ||
-        showParticipantOrganizerRating.value
-     );
+    if (!nowIST.isValid || !startIST?.isValid || !endIST?.isValid) {
+      console.warn("Invalid dates for isWithinEventDates check:", nowIST, startIST, endIST);
+      return false;
+    }
+    return nowIST >= startIST && nowIST <= endIST;
+  } catch (e) {
+    console.error("Error in isWithinEventDates:", e);
+    return false;
+  }
+});
 
-    // --- Actions ---
-    const isActionLoading = (action: EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent') => loadingAction.value === action;
+const formattedStartDate = computed(() => formatISTDate(props.event?.details?.date?.start));
+const formattedEndDate = computed(() => formatISTDate(props.event?.details?.date?.end));
+const statusBadgeClass = computed(() => getEventStatusBadgeClass(props.event?.status));
+const ratingsAreClosed = computed(() => !props.event?.ratingsOpen);
 
-    const updateStatus = async (newStatus: EventStatus) => {
-      if (loadingAction.value) return;
-      loadingAction.value = newStatus;
-      try {
-        // Use Pinia action
-        await eventStore.updateEventStatus({
-          eventId: props.event.id,
-          newStatus: newStatus
-        });
-        notificationStore.showNotification({
-          message: `Event status updated to ${newStatus}.`,
-          type: 'success'
+// --- Submission/Winner State ---
+const submissionCount = computed(() => {
+  if (!props.event) return 0;
+  const userIds = new Set<string>();
+  const criteria = Array.isArray(props.event.criteria) ? props.event.criteria : [];
+
+  criteria.forEach(criterion => {
+    if (criterion.criteriaSelections) {
+      Object.keys(criterion.criteriaSelections).forEach(uid => {
+        if (criterion.criteriaSelections[uid]) userIds.add(uid);
+      });
+    }
+  });
+
+  // Also count best performer selections for Team events
+  if (props.event.details.format === EventFormat.Team && props.event.bestPerformerSelections) {
+    Object.keys(props.event.bestPerformerSelections).forEach(uid => {
+        if (props.event.bestPerformerSelections && props.event.bestPerformerSelections[uid]) userIds.add(uid);
+    });
+  }
+
+  return userIds.size;
+});
+
+const hasWinners = computed(() => !!props.event?.winners && Object.keys(props.event.winners).length > 0);
+
+// --- Button Visibility Logic ---
+const showStartButton = computed(() =>
+  canManageEvent.value &&
+  props.event?.status === EventStatus.Approved &&
+  isWithinEventDates.value &&
+  !props.event?.closedAt
+);
+
+const showMarkCompleteButton = computed(() =>
+  canManageEvent.value &&
+  props.event?.status === EventStatus.InProgress &&
+  !props.event?.closedAt
+);
+
+const showOpenRatingsButton = computed(() =>
+  canManageEvent.value &&
+  props.event?.status === EventStatus.Completed &&
+  ratingsAreClosed.value &&
+  !props.event?.closedAt
+);
+
+const showCloseRatingsButton = computed(() =>
+    canManageEvent.value &&
+    props.event?.status === EventStatus.Completed &&
+    props.event?.ratingsOpen === true &&
+    !props.event?.closedAt
+);
+
+const canFindWinner = computed(() =>
+  canManageEvent.value &&
+  props.event?.status === EventStatus.Completed &&
+  ratingsAreClosed.value &&
+  !props.event?.closedAt
+);
+
+const showFindWinnerButton = canFindWinner;
+
+const showManualSelectWinnerButton = computed(() =>
+  canManageEvent.value &&
+  props.event?.status === EventStatus.Completed &&
+  ratingsAreClosed.value && // Typically, manual selection is done after voting period
+  !props.event?.closedAt
+);
+
+const showParticipantOrganizerRating = computed(() =>
+  !canManageEvent.value &&
+  isParticipant.value &&
+  props.event?.status === EventStatus.Completed &&
+  !props.event?.closedAt
+);
+
+const showParticipantWinnerSelection = computed(() =>
+  isParticipant.value &&
+  props.event?.status === EventStatus.Completed &&
+  !props.event?.closedAt &&
+  props.event?.ratingsOpen === true
+);
+
+const showCloseEventButton = computed(() =>
+  canManageEvent.value &&
+  props.event?.status === EventStatus.Completed &&
+  ratingsAreClosed.value &&
+  hasWinners.value &&
+  !props.event?.closedAt
+);
+
+const showCancelButton = computed(() =>
+  canManageEvent.value &&
+  [EventStatus.Approved, EventStatus.InProgress].includes(props.event?.status as EventStatus) &&
+  !props.event?.closedAt
+);
+
+const showEditButton = computed(() =>
+  canManageEvent.value &&
+  ![EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(props.event?.status as EventStatus) &&
+  !props.event?.closedAt
+);
+
+// --- Overall Visibility ---
+const shouldShowControls = computed(() =>
+    canManageEvent.value ||
+    showParticipantOrganizerRating.value ||
+    showParticipantWinnerSelection.value
+);
+
+// --- Section Visibility ---
+const showStatusManagementSection = computed(() =>
+    canManageEvent.value &&
+    (showStartButton.value || showMarkCompleteButton.value || showCancelButton.value || showEditButton.value)
+);
+
+const showRatingsClosingSection = computed(() =>
+    (canManageEvent.value && (showOpenRatingsButton.value || showCloseRatingsButton.value || showFindWinnerButton.value || showCloseEventButton.value || showManualSelectWinnerButton.value)) ||
+    showParticipantWinnerSelection.value ||
+    showParticipantOrganizerRating.value
+);
+
+// --- Actions ---
+const isActionLoading = (action: EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent' | 'manualSelectWinner'): boolean => 
+  loadingAction.value === action;
+
+const updateStatus = async (newStatus: EventStatus): Promise<void> => {
+  if (loadingAction.value) return;
+  loadingAction.value = newStatus;
+  try {
+    // Use Pinia action
+    await eventStore.updateEventStatus({
+      eventId: props.event.id,
+      newStatus: newStatus
+    });
+    notificationStore.showNotification({
+      message: `Event status updated to ${newStatus}.`,
+      type: 'success'
+    });
+    emit('update');
+  } catch (error: any) {
+    notificationStore.showNotification({
+      message: error?.message || `Failed to update status to ${newStatus}.`,
+      type: 'error'
+    });
+  } finally {
+    loadingAction.value = null;
+  }
+};
+
+const toggleRatings = async (openState: boolean): Promise<void> => {
+    if (loadingAction.value) return;
+    loadingAction.value = openState ? 'openRatings' : 'closeRatings';
+    try {
+        await eventStore.toggleRatingsOpen({
+            eventId: props.event.id,
+            open: openState
         });
         emit('update');
-      } catch (error: any) {
-        notificationStore.showNotification({
-          message: error?.message || `Failed to update status to ${newStatus}.`,
-          type: 'error'
-        });
-      } finally {
+    } catch (error: any) {
+         notificationStore.showNotification({
+             message: error?.message || 'Failed to toggle ratings status.',
+             type: 'error'
+         });
+    } finally {
         loadingAction.value = null;
-      }
-    };
+    }
+};
 
-    const toggleRatings = async (openState: boolean) => {
-        if (loadingAction.value) return;
-        loadingAction.value = openState ? 'openRatings' : 'closeRatings';
-        try {
-            // Use Pinia action
-            await eventStore.toggleRatingsOpen({
-                eventId: props.event.id,
-                open: openState
-            });
-            // Success notification is handled within the Pinia action now
-            emit('update');
-        } catch (error: any) {
-             notificationStore.showNotification({
-                 message: error?.message || 'Failed to toggle ratings status.',
-                 type: 'error'
-             });
-        } finally {
-            loadingAction.value = null;
-        }
-    };
+const confirmCancel = async (): Promise<void> => {
+  if (window.confirm('Are you sure you want to cancel this event? This action cannot be undone.')) {
+    await updateStatus(EventStatus.Cancelled);
+  }
+};
 
-    const confirmCancel = async () => {
-      if (window.confirm('Are you sure you want to cancel this event? This action cannot be undone.')) {
-        await updateStatus(EventStatus.Cancelled);
-      }
-    };
+const confirmCloseEvent = (): void => {
+  if (window.confirm('Are you sure you want to permanently close this event and award XP? This action cannot be reopened.')) {
+    closeEventAction();
+  }
+};
 
-    const confirmCloseEvent = () => {
-      if (window.confirm('Are you sure you want to permanently close this event and award XP? This action cannot be reopened.')) {
-        closeEventAction();
-      }
-    };
+const closeEventAction = async (): Promise<void> => {
+    if (loadingAction.value || isClosingEvent.value) return;
+    loadingAction.value = 'closeEvent';
+    isClosingEvent.value = true;
+    try {
+        await eventStore.closeEventPermanently({
+            eventId: props.event.id
+        });
+        emit('update');
+    } catch (error: any) {
+        // Error notification handled within Pinia action
+    } finally {
+        loadingAction.value = null;
+        isClosingEvent.value = false;
+    }
+};
 
-    const closeEventAction = async () => {
-        if (loadingAction.value || isClosingEvent.value) return;
-        loadingAction.value = 'closeEvent';
-        isClosingEvent.value = true;
-        try {
-            // Use Pinia action
-            await eventStore.closeEventPermanently({
-                eventId: props.event.id
-            });
-            // Notification handled within Pinia action
-            emit('update');
-        } catch (error: any) {
-            // Error notification handled within Pinia action
-        } finally {
-            loadingAction.value = null;
-            isClosingEvent.value = false;
-        }
-    };
+const findWinnerAction = async (): Promise<void> => {
+    if (loadingAction.value) return;
+    loadingAction.value = 'findWinner';
+    try {
+        await eventStore.findWinner(props.event.id);
+        emit('update');
+    } catch (error: any) {
+        // Error notification handled within Pinia action
+    } finally {
+        loadingAction.value = null;
+    }
+};
 
-    const findWinnerAction = async () => {
-        if (loadingAction.value) return;
-        loadingAction.value = 'findWinner';
-        try {
-            // FIX: Use Pinia store action
-            await eventStore.findWinner(props.event.id);
-            // Success notification handled within Pinia action
-            emit('update');
-        } catch (error: any) {
-            // Error notification handled within Pinia action
-        } finally {
-            loadingAction.value = null;
-        }
-    };
+const goToEditEvent = (): void => {
+  router.push({ name: 'EditEvent', params: { eventId: props.event.id } });
+};
 
-    return {
-      // Computed Visibility Flags
-      shouldShowControls,
-      showStatusManagementSection,
-      showRatingsClosingSection,
-      showStartButton,
-      showMarkCompleteButton,
-      showCancelButton,
-      showOpenRatingsButton,
-      showCloseRatingsButton,
-      showFindWinnerButton,
-      canFindWinner,
-      showCloseEventButton,
-      showParticipantWinnerSelection,
-      showParticipantOrganizerRating,
-      showEditButton,
-
-      // State & Data
-      loadingAction,
-      isClosingEvent,
-      isWithinEventDates,
-      formattedStartDate,
-      formattedEndDate,
-      statusBadgeClass,
-      canManageEvent,
-      submissionCount,
-
-      // Methods
-      isActionLoading,
-      updateStatus,
-      toggleRatings,
-      confirmCancel,
-      confirmCloseEvent,
-      findWinnerAction, // Return the corrected function
-      goToEditEvent,
-      EventStatus // <-- Add this line to expose EventStatus to the template
-    };
-  },
+const goToManualSelectWinner = (): void => {
+  router.push({ name: 'SelectionForm', params: { eventId: props.event.id }, query: { manualMode: 'true' } });
 };
 </script>
 

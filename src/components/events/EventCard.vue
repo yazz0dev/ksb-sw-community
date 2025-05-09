@@ -86,7 +86,7 @@ import { useUserStore } from '@/store/user';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
-// FIX: Import the composable, not the util directly here
+// Import the composable instead of direct utility
 import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
 // Define props using defineProps
@@ -98,7 +98,7 @@ const props = defineProps({
 });
 
 const userStore = useUserStore();
-// FIX: Use the composable
+// Use the composable
 const { renderMarkdown } = useMarkdownRenderer();
 
 const isCancelledOrRejected = computed(() =>
@@ -182,13 +182,13 @@ const participantCount = computed(() => {
 
 <style scoped>
 .event-card {
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  border-width: 1px;
-  border-color: var(--bs-border-color-translucent); /* Softer border */
+  /* Remove duplicated transitions and border properties that are in global styles */
+  border-color: var(--bs-border-color-translucent);
 }
+/* Keep specific hover behavior if it differs from global card hover */
 .event-card:hover {
-  transform: translateY(-4px) scale(1.02); /* Slightly more lift */
-  box-shadow: var(--bs-box-shadow-lg) !important; /* Use Bootstrap variable for consistency */
+  transform: translateY(-4px) scale(1.02); /* Different from global hover effect */
+  box-shadow: var(--bs-box-shadow-lg);
 }
 
 /* Style for rendered markdown - prevent excessive margins */

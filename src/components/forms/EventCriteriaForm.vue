@@ -109,7 +109,12 @@ import { ref, watch, computed, nextTick } from 'vue';
 import { EventFormat, type EventCriteria } from '@/types/event';
 import { formatRoleName } from '@/utils/formatters';
 // Import constants from centralized location
-import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS, MAX_USER_CRITERIA } from '@/utils/constants';
+import { 
+  BEST_PERFORMER_LABEL, 
+  BEST_PERFORMER_POINTS, 
+  MAX_USER_CRITERIA,
+  MAX_TOTAL_XP 
+} from '@/utils/constants';
 
 // --- Constants ---
 const DEFAULT_CRITERION_LABEL = 'Overall Performance';
@@ -142,13 +147,18 @@ const createBestPerformerCriterion = (): EventCriteria => ({
   criteriaSelections: {}
 });
 
-const createDefaultCriterion = (): EventCriteria => ({
-  constraintIndex: Date.now(), // Unique index
-  constraintLabel: DEFAULT_CRITERION_LABEL,
-  points: DEFAULT_CRITERION_POINTS,
-  role: props.assignableXpRoles[0] || '', // Default to first role
-  criteriaSelections: {}
-});
+function createDefaultCriterion(): EventCriteria {
+  // Use a more unique ID rather than just Date.now()
+  // A combination of timestamp and a random component would be more robust
+  const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
+  return {
+    constraintIndex: uniqueId,
+    constraintLabel: DEFAULT_CRITERION_LABEL,
+    points: DEFAULT_CRITERION_POINTS,
+    role: props.assignableXpRoles[0] || '',
+    criteriaSelections: {}
+  };
+}
 
 // --- Computed Properties ---
 const userAddedCriteriaCount = computed(() => {
@@ -211,10 +221,12 @@ watch(
 
 // --- Methods ---
 function getCriterionKey(criterion: EventCriteria, index: number): string | number {
-  // Use constraintIndex if valid, otherwise fallback to label or index
-  return typeof criterion.constraintIndex === 'number' && criterion.constraintIndex !== 0
-    ? criterion.constraintIndex
-    : criterion.constraintLabel || `temp-${index}`;
+  // Use constraintIndex if valid, otherwise use a more stable temporary key
+  if (typeof criterion.constraintIndex === 'number' && criterion.constraintIndex !== 0) {
+    return criterion.constraintIndex;
+  }
+  // Use a temporary prefix for new criteria that don't have a stable index yet
+  return criterion.constraintLabel || `temp-${index}`;
 }
 
 function emitCriteriaUpdate() {
@@ -260,9 +272,7 @@ function getCriterionMaxPoints(idx: number): number {
     return sum + (Number(c.points) || 0);
   }, 0);
 
-  // Max total XP allowed (e.g., 50)
-  const MAX_TOTAL_XP = 50;
-  // Subtract fixed points if Best Performer exists
+  // Use MAX_TOTAL_XP from constants
   const bestPerformerPoints = localCriteria.value.some(isBestPerformerCriterion) ? BEST_PERFORMER_POINTS : 0;
   const remainingXP = MAX_TOTAL_XP - bestPerformerPoints - sumOtherPoints;
 

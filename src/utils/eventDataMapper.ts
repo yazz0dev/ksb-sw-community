@@ -24,26 +24,13 @@ export type MappedEventData = Partial<Event> & {
 };
 
 // Function to map frontend event data (like FormData) to Firestore-compatible structure
-export function mapEventDataToFirestore(eventData: Partial<Event>): MappedEventData {
-    const mappedData: any = { ...eventData }; // Use any for flexibility or MappedEventData
-
-    // Update nested fields
-    if (mappedData.details && mappedData.details.date) {
-        if (mappedData.details.date) {
-            if (mappedData.details.date.start)
-                mappedData.details.date.start = getISTTimestamp(mappedData.details.date.start);
-            if (mappedData.details.date.end)
-                mappedData.details.date.end = getISTTimestamp(mappedData.details.date.end);
-        }
-    }
-    if (mappedData.createdAt)
-        mappedData.createdAt = getISTTimestamp(mappedData.createdAt);
-    if (mappedData.lastUpdatedAt)
-        mappedData.lastUpdatedAt = getISTTimestamp(mappedData.lastUpdatedAt);
-
-    // Ensure teams structure is correct (example: filter empty members)
+export function mapEventDataToFirestore(eventData: Partial<Event>): Record<string, any> {
+    // Create a deep copy to avoid modifying the original
+    const mappedData: Record<string, any> = JSON.parse(JSON.stringify(eventData));
+    
+    // Handle teams properly
     if (mappedData.teams && Array.isArray(mappedData.teams)) {
-        mappedData.teams = mappedData.teams.map((t: Team) => ({ // Add type Team
+        mappedData.teams = mappedData.teams.map((t: Team) => ({
             ...t,
             members: Array.isArray(t.members) ? t.members.filter(Boolean) : [],
             // Ensure other team sub-properties are handled if needed
@@ -68,5 +55,5 @@ export function mapEventDataToFirestore(eventData: Partial<Event>): MappedEventD
         }
     });
 
-    return mappedData as MappedEventData; // Assert final type
+    return mappedData;
 }

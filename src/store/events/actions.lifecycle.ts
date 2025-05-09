@@ -76,13 +76,19 @@ export async function updateEventDetailsInFirestore(eventId: string, updates: Pa
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
 
-        // Permission Check
+        // Enhanced Permission Check
         const isOrganizer = eventData.details?.organizers?.includes(currentUser.uid) || eventData.requestedBy === currentUser.uid;
+ 
+    
+        if (!isOrganizer ) {
+            throw new Error(`Permission denied: Only organizers  can modify this event.`);
+        }
+        
         const currentStatus = eventData.status as EventStatus;
         const editableStatuses: EventStatus[] = [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress];
 
-        if (!isOrganizer || !editableStatuses.includes(currentStatus)) {
-            throw new Error(`Permission denied or cannot edit event in status '${currentStatus}'.`);
+        if (!editableStatuses.includes(currentStatus)) {
+            throw new Error(`Cannot edit event in status '${currentStatus}'.`);
         }
 
         // Prepare payload using mapper, ensuring lastUpdatedAt is set
@@ -108,8 +114,19 @@ export async function updateEventDetailsInFirestore(eventId: string, updates: Pa
         console.log(`Firestore: Event ${eventId} details updated.`);
 
     } catch (error: any) {
+        // Enhanced error handling
         console.error(`Firestore updateEventDetails error for ${eventId}:`, error);
-        throw new Error(`Failed to update event details: ${error.message}`);
+        
+        // Categorize errors for better user feedback
+        if (error.code === 'permission-denied') {
+            throw new Error(`Permission denied: You don't have access to update this event.`);
+        } else if (error.code === 'not-found') {
+            throw new Error(`Event not found. It may have been deleted.`);
+        } else if (error.code === 'unavailable') {
+            throw new Error(`Service temporarily unavailable. Please try again later.`);
+        } else {
+            throw new Error(`Failed to update event details: ${error.message || 'Unknown error'}`);
+        }
     }
 }
 

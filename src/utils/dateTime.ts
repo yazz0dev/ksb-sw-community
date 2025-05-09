@@ -1,59 +1,69 @@
-import { Timestamp } from 'firebase/firestore';
 import { DateTime } from 'luxon';
+import { Timestamp } from 'firebase/firestore';
 
-export const toIST = (date: Date | string | Timestamp | null): DateTime | null => {
+/**
+ * Type for acceptable date inputs
+ */
+export type DateInput = Date | Timestamp | string | null | undefined;
+
+/**
+ * Converts various date formats to IST DateTime
+ * @param date Date input (Date, Timestamp, ISO string)
+ * @returns DateTime object in Asia/Kolkata timezone or null if invalid
+ */
+export function convertToISTDateTime(date: DateInput): DateTime | null {
   if (!date) return null;
-  try {
-    let dt: DateTime;
-    if (date instanceof Timestamp) {
-      dt = DateTime.fromJSDate(date.toDate());
-    } else if (date instanceof Date) {
-      dt = DateTime.fromJSDate(date);
-    } else {
-      dt = DateTime.fromISO(date);
-    }
-    return dt.setZone('Asia/Kolkata');
-  } catch (e) {
-    console.error('DateTime conversion error:', e);
+  
+  let dt: DateTime;
+  if (date instanceof Timestamp) {
+    dt = DateTime.fromJSDate(date.toDate());
+  } else if (date instanceof Date) {
+    dt = DateTime.fromJSDate(date);
+  } else if (typeof date === 'string') {
+    dt = DateTime.fromISO(date);
+  } else {
     return null;
   }
-};
+  
+  return dt.isValid ? dt.setZone('Asia/Kolkata') : null;
+}
 
-export const formatISTDate = (date: Date | string | Timestamp | null, format: string = 'dd MMM yyyy'): string => {
-  const dt = toIST(date);
-  return dt ? dt.toFormat(format) : '';
-};
+/**
+ * Formats a date to IST date string
+ * @param date Date input
+ * @param format Optional format string (default: 'ccc, dd LLL yyyy')
+ * @returns Formatted date string or empty string if invalid
+ */
+export function formatISTDate(date: DateInput, format: string = 'ccc, dd LLL yyyy'): string {
+  const dt = convertToISTDateTime(date);
+  return dt?.toFormat(format) || '';
+}
 
-export const getISTTimestamp = (date: Date | string | null): Timestamp | null => {
-  const dt = toIST(date);
-  return dt ? Timestamp.fromDate(dt.toJSDate()) : null;
-};
+/**
+ * Checks if the current date is within the given event date range
+ * @param startDate The event start date
+ * @param endDate The event end date
+ * @returns boolean True if current date is within range
+ */
+export function isDateWithinEventRange(startDate: DateInput, endDate: DateInput): boolean {
+  try {
+    // Convert both dates to IST DateTime objects
+    const nowIST = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+    const startIST = convertToISTDateTime(startDate)?.startOf('day');
+    const endIST = convertToISTDateTime(endDate)?.startOf('day');
+    
+    if (!startIST?.isValid || !endIST?.isValid) {
+      console.warn("Invalid dates for date range check:", startIST, endIST);
+      return false;
+    }
+    
+    return nowIST >= startIST && nowIST <= endIST;
+  } catch (e) {
+    console.error("Error checking date range:", e);
+    return false;
+  }
+}
 
-export const validateEventDates = (
-  startDate: Timestamp | Date | string | null,
-  endDate: Timestamp | Date | string | null
-): boolean => {
-  const start = toIST(startDate)?.startOf('day');
-  const end = toIST(endDate)?.startOf('day');
-  if (!start || !end) return false;
-  const now = DateTime.now().setZone('Asia/Kolkata').startOf('day');
-  return start >= now && end >= start;
-};
-
-// Returns true if today (IST, date only) is between startDate and endDate (inclusive)
-export const isEventInProgress = (event: { startDate: any; endDate: any; }): boolean => {
-  const today = DateTime.now().setZone('Asia/Kolkata').startOf('day');
-  const start = toIST(event.startDate)?.startOf('day');
-  const end = toIST(event.endDate)?.startOf('day');
-  if (!start || !end) return false;
-  return today >= start && today <= end;
-};
-
-// Returns true if today (IST, date only) is between startDate and endDate (inclusive)
-export const canStartEvent = (event: { startDate: any; endDate: any; }): boolean => {
-  const today = DateTime.now().setZone('Asia/Kolkata').startOf('day');
-  const start = toIST(event.startDate)?.startOf('day');
-  const end = toIST(event.endDate)?.startOf('day');
-  if (!start || !end) return false;
-  return today >= start && today <= end;
-};
+// Use the consolidated function for both checks
+export const isEventInProgress = isDateWithinEventRange;
+export const canStartEvent = isDateWithinEventRange;

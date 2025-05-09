@@ -93,6 +93,21 @@
        <div class="invalid-feedback">Description is required.</div>
     </div>
 
+    <!-- Rules -->
+    <div class="mb-3">
+      <label for="eventRules" class="form-label fw-medium">Rules (Optional)</label>
+      <textarea
+        id="eventRules"
+        class="form-control"
+        rows="4"
+        v-model="localDetails.rules"
+        :disabled="isSubmitting"
+        placeholder="Enter specific event rules, guidelines, or judging criteria. Markdown is supported."
+        @input="emitDetailsUpdate"
+      ></textarea>
+      <small class="form-text text-muted">Use Markdown for formatting (e.g., **bold**, *italic*, lists).</small>
+    </div>
+
     <!-- Allow Project Submission Toggle -->
     <div class="mb-3">
       <div class="form-check form-switch">

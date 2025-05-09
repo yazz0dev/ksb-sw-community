@@ -9,7 +9,6 @@ export interface User {
     uid: string;
     email?: string | null;
     name: string;
-    role?: 'Student' | 'Admin' | string; // Define roles more explicitly if possible
     photoURL?: string;
     bio?: string;
     socialLink?: string;

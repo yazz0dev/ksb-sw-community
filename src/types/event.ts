@@ -84,6 +84,7 @@ export interface EventFormData {
     organizers: string[];
     allowProjectSubmission?: boolean;
     prize?: string; // Add prize field
+    rules?: string; // Added rules field
     [key: string]: any;
   };
   criteria: EventCriteria[]; // Keep criteria
@@ -113,6 +114,7 @@ export interface Event {
     description: string;
     allowProjectSubmission?: boolean;
     prize?: string; // Add prize field
+    rules?: string; // Added rules field
   };
 
   // --- Criteria Definition ---

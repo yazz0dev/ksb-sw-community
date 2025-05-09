@@ -1,5 +1,10 @@
 // --- src/assets/styles/main.scss ---
 
+// Layout variables for consistent spacing
+$navbar-height-mobile: 4rem;
+$navbar-height-desktop: 4.5rem;
+$bottom-nav-height: 4rem;
+
 // 1. Import custom variables first using @use
 @use 'variables' as v;
 // 8. Import your custom animations using @use
@@ -34,8 +39,7 @@ $font-weight-bold: v.$font-weight-bold;
 $border-radius: v.$border-radius;
 $border-radius-sm: v.$border-radius-sm;
 $border-radius-lg: v.$border-radius-lg;
-// NOTE: Check if $border-radius-xl is used anywhere. If yes, define it here:
-// $border-radius-xl: v.$border-radius-xl;
+$border-radius-xl: v.$border-radius-xl; // Uncommented for use
 
 $box-shadow-sm: v.$box-shadow-sm;
 $box-shadow: v.$box-shadow;
@@ -97,31 +101,31 @@ body {
   font-family: $font-family-sans-serif;
 }
 
-// Custom spacing classes for navbar spacing
+// Custom spacing classes for navbar spacing - using variables
 .app-main-content {
-  padding-top: 4rem; // Default for mobile (adjust if navbar height differs)
-  padding-bottom: 4rem; // Default for mobile (adjust if bottom nav height differs)
+  padding-top: $navbar-height-mobile; // Using variable instead of hardcoded value
+  padding-bottom: $bottom-nav-height; // Using variable instead of hardcoded value
 
   @include media-breakpoint-up(lg) {
-    padding-top: 4.5rem; // Adjust if navbar height differs
+    padding-top: $navbar-height-desktop; // Using variable instead of hardcoded value
     padding-bottom: 0;
   }
 }
 
-// Custom viewport height classes
+// Custom viewport height classes - using variables
 .min-vh-100-subtract-nav {
-  min-height: calc(100vh - 8rem); // Adjust based on navbar/bottom nav heights
+  min-height: calc(100vh - #{$navbar-height-mobile} - #{$bottom-nav-height}); // Using variables
   @include media-breakpoint-up(lg) {
-    min-height: calc(100vh - 4.5rem); // Adjust based on navbar height
+    min-height: calc(100vh - #{$navbar-height-desktop}); // Using variable
   }
 }
 
-// Apply hover styles using Bootstrap variables
+// Apply hover styles using Bootstrap variables - removed !important
 .card {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   &:hover {
     transform: translateY(-2px);
-    box-shadow: $box-shadow-lg !important;
+    box-shadow: var(--bs-box-shadow-lg); // Using CSS variable instead of !important
   }
 }
 
@@ -136,37 +140,35 @@ body {
 }
 
 // Your custom utility classes (if needed beyond Bootstrap)
-// REMOVED: .fs-7 { font-size: 0.875rem !important; } // Use Bootstrap's .fs-sm or adjust BS $font-sizes map
+// Removed custom .fs-7 class - use Bootstrap's utilities instead
 .text-decoration-underline-hover:hover {
   text-decoration: underline !important;
 }
-// REMOVED: gap-* classes - Use Bootstrap's gap utilities
+// Removed custom gap-* classes - use Bootstrap's gap utilities
 
 .shadow-hover {
   transition: box-shadow 0.2s ease-in-out;
   &:hover {
-    box-shadow: $box-shadow-lg !important;
+    box-shadow: var(--bs-box-shadow-lg); // Using CSS variable instead of !important
   }
 }
 
-// Vibrant blue for attention-grabbing text
+// Using defined variables for custom text classes
 .text-vibrant {
   color: v.$primary !important; // Use variable
 }
 
-// Muted gray for less prominent text
 .text-muted {
   color: v.$secondary !important; // Use variable
 }
 
-// Accent teal for highlights or links
+// Using the new variables for accent colors
 .text-accent {
-  color: #14b8a6 !important; // Teal accent
+  color: v.$teal-accent !important; // Using variable instead of hardcoded color
 }
 
-// Soft neutral for subtle UI elements
 .text-soft {
-  color: #94a3b8 !important; // Soft blue-gray
+  color: v.$slate-soft !important; // Using variable instead of hardcoded color
 }
 
 // Custom small alert (consider using Bootstrap's default alert with utility classes)

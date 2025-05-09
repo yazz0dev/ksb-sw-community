@@ -19,7 +19,7 @@ dist-ssr
 *.cache
 firebase.json
 firebase-debug.log
-firestore.rules
+*.rules
 firestore.indexes.json
 
 

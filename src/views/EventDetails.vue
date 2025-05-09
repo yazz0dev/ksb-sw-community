@@ -691,6 +691,12 @@ watch(() => props.id, (newId, oldId) => {
 // Expose methods if needed by parent (though unlikely here)
 defineExpose({ handleJoin, handleLeave });
 
+const isOrganizer = computed(() => {
+  if (!event.value || !currentUser.value?.uid) return false;
+  const organizerIds = event.value.details?.organizers || [];
+  return organizerIds.includes(currentUser.value.uid) || event.value.requestedBy === currentUser.value.uid;
+});
+
 </script>
 
 <style scoped>

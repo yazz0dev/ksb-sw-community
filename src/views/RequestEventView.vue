@@ -181,8 +181,19 @@ const assignableXpRoles = ['developer', 'presenter', 'designer', 'problemSolver'
 // --- Helper Functions ---
 function createDefaultFormData(): EventFormData {
     return {
-        details: { eventName: '', format: EventFormat.Individual, type: '', description: '', date: { start: null, end: null }, organizers: [], allowProjectSubmission: true, prize: '', },
-        status: EventStatus.Pending, teams: [],
+        details: { 
+            eventName: '', 
+            format: EventFormat.Individual, 
+            type: '', 
+            description: '',
+            rules: '', // Added rules field
+            date: { start: null, end: null }, 
+            organizers: [], 
+            allowProjectSubmission: true, 
+            prize: '' 
+        },
+        status: EventStatus.Pending, 
+        teams: [],
         criteria: [{ constraintIndex: Date.now(), constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], criteriaSelections: {} }]
     };
 }
@@ -410,6 +421,7 @@ const mapEventToFormData = (eventData: Event): EventFormData => {
              allowProjectSubmission: typeof eventData.details.allowProjectSubmission === 'boolean' ? eventData.details.allowProjectSubmission : true,
              prize: eventData.details.prize || '',
              date: { start: startDate, end: endDate },
+             rules: eventData.details.rules || '', // Added rules
          },
         criteria: criteria,
         teams: Array.isArray(eventData.teams) ? eventData.teams : [],

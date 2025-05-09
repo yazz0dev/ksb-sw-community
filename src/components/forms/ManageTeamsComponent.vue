@@ -75,8 +75,7 @@
                 class="badge rounded-pill bg-primary-subtle text-primary-emphasis d-inline-flex align-items-center p-1 ps-2"
               >
                 <i class="fas fa-user fa-xs me-1"></i>
-                <!-- Log memberId and cached name -->
-                <span class="me-1 small">{{ console.log(`[MTC Display Member] ID: ${memberId}, Cached Name: ${userStore.getCachedUserName(memberId)}`), '' }} {{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}</span>
+                <span class="me-1 small">{{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}</span>
                 <!-- Remove Member Button -->
                 <button
                   type="button"
@@ -108,51 +107,68 @@
                <option v-for="memberId in team.members"
                        :key="memberId"
                        :value="memberId">
-                 <!-- Log memberId and cached name for team lead options -->
-                 {{ console.log(`[MTC Display Lead Option] ID: ${memberId}, Cached Name: ${userStore.getCachedUserName(memberId)}`), '' }} {{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}
+                 {{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}
                </option>
              </select>
               <div class="invalid-feedback">Team lead selection is required.</div>
               <!-- Show Selected Team Lead Name -->
               <div v-if="team.teamLead" class="mt-1">
                   <span class="small text-muted">Selected Lead: </span>
-                  <!-- Log teamLead and cached name -->
-                  <span class="small fw-medium text-success">{{ console.log(`[MTC Display Selected Lead] ID: ${team.teamLead}, Cached Name: ${userStore.getCachedUserName(team.teamLead)}`), '' }} {{ userStore.getCachedUserName(team.teamLead) || `UID: ${team.teamLead.substring(0,6)}...` }}</span>
+                  <span class="small fw-medium text-success">{{ userStore.getCachedUserName(team.teamLead) || `UID: ${team.teamLead.substring(0,6)}...` }}</span>
               </div>
           </div>
         </div>
       </transition-group>
     </div>
-    <!-- Message shown if teams array is empty but students are loaded -->
-     <p v-else-if="props.students.length > 0" class="text-secondary small mb-4 fst-italic">No teams added yet. Add teams manually or use auto-generate.</p>
+    <!-- Message shown if teams array is empty, with context about student list -->
+    <div v-else class="mb-4">
+        <p v-if="props.students.length > 0" class="text-secondary small fst-italic">
+            No teams added yet. You can add teams manually or use the auto-generate feature below.
+        </p>
+        <p v-else class="text-warning small fst-italic">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            No teams have been added yet. The student list is currently empty, so features like auto-generating team members are unavailable. You can still add team structures manually.
+        </p>
+    </div>
 
 
-    <!-- Actions: Add Team / Auto-Generate -->
-    <div v-if="props.students.length > 0" class="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-4 pt-3 border-top">
+    <!-- Actions Section: Add Team always available (respecting limits), Auto-Generate conditional -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-4 pt-3 border-top">
       <!-- Add Team Button -->
       <div>
         <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center"
-          :disabled="props.isSubmitting || teams.length >= maxTeams" @click="addTeam" :title="addTeamButtonTitle"> <!-- FIX HERE -->
+          :disabled="props.isSubmitting || teams.length >= maxTeams" @click="addTeam" :title="addTeamButtonTitle">
           <i class="fas fa-plus me-1"></i>
           <span>Add Team</span>
         </button>
          <p v-if="teams.length >= maxTeams" class="form-text text-warning mt-1">Maximum teams reached.</p>
       </div>
 
-      <!-- Simplified Auto-Generate Section -->
-      <div class="d-flex flex-wrap align-items-center gap-2 my-2">
-          <label for="simpleNumTeams" class="form-label small mb-0 me-1">Auto-generate members for current teams</label>
-          <!-- Removed input for numberOfTeamsToGenerate -->
-          <button type="button" class="btn btn-sm btn-outline-info d-inline-flex align-items-center"
-            :disabled="props.isSubmitting || teams.length < 2 || props.students.length < minMembersPerTeam * teams.length" 
-            title="Distribute all students randomly into the currently configured teams (clears existing members)."
-            @click="simpleAutoGenerateTeams">
-            <i class="fas fa-random me-1"></i>
-            <span>Generate</span>
-          </button>
-           <small v-if="teams.length < 2" class="text-danger form-text ms-2">(Need at least 2 teams configured)</small>
-           <small v-else-if="props.students.length < minMembersPerTeam * teams.length" class="text-danger form-text ms-2">(Need at least {{ minMembersPerTeam * teams.length }} students for {{teams.length}} teams)</small>
-           <small v-else-if="teams.some(t => t.members.length > 0)" class="text-warning form-text ms-2">(Will clear existing members)</small> <!-- Simplified condition -->
+      <!-- Auto-Generate Section -->
+      <div v-if="props.canAutoGenerate" class="my-2">
+          <div v-if="props.students.length > 0" class="d-flex flex-wrap align-items-center gap-2">
+              <label for="simpleNumTeams" class="form-label small mb-0 me-1">Auto-generate members for current teams</label>
+              <button type="button" class="btn btn-sm btn-outline-info d-inline-flex align-items-center"
+                :disabled="props.isSubmitting || teams.length < 2 || props.students.length < minMembersPerTeam * teams.length" 
+                title="Distribute all students randomly into the currently configured teams (clears existing members)."
+                @click="simpleAutoGenerateTeams">
+                <i class="fas fa-random me-1"></i>
+                <span>Generate</span>
+              </button>
+               <small v-if="teams.length < 2" class="text-danger form-text ms-2">(Need at least 2 teams configured)</small>
+               <small v-else-if="props.students.length < minMembersPerTeam * teams.length" class="text-danger form-text ms-2">(Need at least {{ minMembersPerTeam * teams.length }} students for {{teams.length}} teams)</small>
+               <small v-else-if="teams.some(t => t.members.length > 0)" class="text-warning form-text ms-2">(Will clear existing members)</small>
+          </div>
+          <p v-else class="text-muted small">
+            <i class="fas fa-info-circle me-1"></i>
+            Auto-generation of team members is unavailable as the student list is empty.
+          </p>
+      </div>
+      <div v-else class="my-2">
+          <p class="text-muted small">
+              <i class="fas fa-ban me-1"></i>
+              Auto-generation of teams is not enabled for this event configuration.
+          </p>
       </div>
     </div>
 
@@ -213,9 +229,11 @@ interface LocalTeam {
 
 // Debug log for students prop changes
 watch(() => props.students, (newVal, oldVal) => {
-    console.log(`[ManageTeamsComponent] WATCHER: students prop changed. New length: ${newVal?.length ?? 0}, Old length: ${oldVal?.length ?? 0}`);
+    console.log('[ManageTeamsComponent] Students prop changed:', newVal); // Added console.log
     if (newVal && newVal.length > 0) {
-        console.log(`[ManageTeamsComponent] WATCHER: First student prop (props.students[0]):`, JSON.stringify(newVal[0]));
+        console.log(`[ManageTeamsComponent] Received ${newVal.length} students.`);
+    } else {
+        console.log('[ManageTeamsComponent] Students prop is empty or not yet loaded.');
     }
 }, { immediate: true, deep: true });
 
@@ -256,15 +274,12 @@ const ensureMemberNamesAreFetched = async (currentTeams: LocalTeam[]) => {
     const idsToFetch = Array.from(allMemberIds).filter(id => !userStore.getCachedUserName(id));
 
     if (idsToFetch.length > 0) {
-        console.log('[ManageTeams] Fetching names for members:', idsToFetch);
         try {
             await userStore.fetchUserNamesBatch(idsToFetch);
             // Re-render might be needed if reactivity doesn't pick up cached name change immediately.
             // Forcing an update is generally discouraged, but could be a workaround if needed:
             // teams.value = [...teams.value]; // This creates a new array reference
         } catch (error) {
-            console.error('[ManageTeams] Failed to fetch member names:', error);
-            // Optionally emit error
             emit('error', 'Failed to load some member names.');
         }
     }
@@ -272,7 +287,6 @@ const ensureMemberNamesAreFetched = async (currentTeams: LocalTeam[]) => {
 
 // Initialize Teams Function
 const initializeTeams = () => {
-  console.log("[ManageTeamsComponent] Initializing teams from props:", props.initialTeams);
   teams.value = (props.initialTeams || []).map(team => ({
     name: team.teamName || '',
     members: Array.isArray(team.members) ? [...team.members] : [],
@@ -281,7 +295,6 @@ const initializeTeams = () => {
 
   // Add default teams if creating new event and no initial teams provided
   if (!props.eventId && teams.value.length === 0) {
-     console.log("[ManageTeamsComponent] Initializing with 2 default teams.");
      teams.value.push({ name: `Team 1`, members: [], teamLead: '' });
      teams.value.push({ name: `Team 2`, members: [], teamLead: '' });
   }
@@ -292,7 +305,6 @@ const initializeTeams = () => {
 // --- Watchers ---
 // Watch initialTeams prop for changes (e.g., when editing)
 watch(() => props.initialTeams, (newInitialTeams) => {
-    console.log("[ManageTeamsComponent] initialTeams prop changed, re-initializing and fetching names.");
     initializeTeams(); // This now maps initialTeams to local `teams` ref
     // Names fetching is handled within initializeTeams
 }, { deep: true }); // Removed immediate: true as onMounted will call initializeTeams
@@ -364,7 +376,6 @@ const emitTeamsUpdate = () => {
 // Available Students for a Specific Team Function
 const availableStudentsForTeam = (teamIndex: number): UserData[] => {
   if (!Array.isArray(props.students)) {
-    console.log('[MTC availableStudentsForTeam] props.students is not an array. Returning [].');
     return [];
   }
   const assignedToOtherTeams = new Set<string>(
@@ -374,15 +385,10 @@ const availableStudentsForTeam = (teamIndex: number): UserData[] => {
   const filteredStudents = props.students
     .filter(student => {
       const isAssignedElsewhere = student?.uid && assignedToOtherTeams.has(student.uid);
-      // Log each student being considered for the dropdown for a specific team
-      // console.log(`[MTC availableStudentsForTeam - Team ${teamIndex}] Student: ${student?.name} (UID: ${student?.uid}), Assigned Elsewhere: ${isAssignedElsewhere}`);
       return student?.uid && !isAssignedElsewhere;
     })
     .map(student => ({ ...student })); // Return shallow copy
 
-  if (teamIndex === 0 && filteredStudents.length > 0) { // Log for the first team's dropdown as an example
-    console.log(`[MTC availableStudentsForTeam - Team ${teamIndex}] First student in filtered list for dropdown:`, JSON.stringify(filteredStudents[0]));
-  }
   return filteredStudents;
 };
 
@@ -392,7 +398,6 @@ async function simpleAutoGenerateTeams() {
   // Common validations
   if (!Array.isArray(props.students) || props.students.length === 0) {
       emit('error', 'Student list is not available for auto-generation.');
-      console.error("[ManageTeamsComponent] Auto-generate called with empty/invalid students prop.");
       return;
   }
   if (teams.value.length < 2) {
@@ -424,7 +429,6 @@ async function simpleAutoGenerateTeams() {
       // Parent component should react to store changes and update `initialTeams` prop,
       // which will trigger re-initialization in this component.
     } catch (error: any) {
-      console.error('[ManageTeamsComponent] Error during store-based simpleAutoGenerateTeams:', error);
       emit('error', error.message || 'Failed to auto-generate teams via store.');
     }
   } else { // New event: Generate locally
@@ -462,12 +466,10 @@ async function simpleAutoGenerateTeams() {
       // await ensureMemberNamesAreFetched(localTeams); // Watcher on `teams` should handle this if structure changes enough
 
       emitTeamsUpdate(); // Emit the locally updated teams to the parent
-      console.log("[ManageTeamsComponent] Teams generated locally and emitted.");
       // Optionally, emit a success message or rely on UI update.
       // emit('error', 'Teams generated locally. Save the event to persist them.'); // Example notification
 
     } catch (error: any) {
-      console.error('[ManageTeamsComponent] Error during local team generation:', error);
       emit('error', error.message || 'Failed to auto-generate teams locally.');
     }
   }

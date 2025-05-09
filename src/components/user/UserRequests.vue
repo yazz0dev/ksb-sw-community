@@ -20,8 +20,8 @@
 
     <transition name="fade">
       <div v-if="!loadingRequests && requests.length > 0">
-        <!-- FIX: Use :key="request.id" which is guaranteed unique -->
-        <div v-for="(request, index) in requests" :key="request.id" class="py-3 request-item">
+        <!-- Use request.id for key which is guaranteed unique -->
+        <div v-for="request in requests" :key="request.id" class="py-3 request-item">
           <h6 class="h6 text-primary mb-1">
             <!-- Link should still work as request.id maps correctly -->
             <router-link :to="{ name: 'EventDetails', params: { id: request.id } }" class="text-decoration-none">
@@ -106,7 +106,7 @@ const fetchRequests = async (): Promise<void> => {
         await userStore.fetchUserRequests(user.uid);
         const storeRequests: StoreEvent[] = userStore.userRequests; // Type as StoreEvent[]
 
-        // --- FIX: Map StoreEvent[] to Request[] ---
+        // Map StoreEvent[] to Request[] for the component's needs
         requests.value = storeRequests.map((event: StoreEvent): Request => ({
             id: event.id,
             // Extract eventName from details, provide fallback
@@ -114,11 +114,9 @@ const fetchRequests = async (): Promise<void> => {
             // Cast status to match the local Request type's status enum
             status: event.status as Request['status'],
             // Optionally copy other needed fields if the component uses them
-            // Be careful not to overwrite the required fields (id, eventName, status)
             // For example, if you needed requestedBy:
-            // requestedBy: event.requestedBy
+            requestedBy: event.requestedBy
         }));
-        // --- End FIX ---
 
     } catch (error) {
         console.error('Error fetching requests:', error);

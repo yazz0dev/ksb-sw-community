@@ -10,7 +10,7 @@
         <span class="fs-7">Home</span>
       </router-link>
 
-      <!-- Event Request Link (Non-Admin Only) -->
+      <!-- Event Request Link  -->
       <router-link
         v-if="isAuthenticated"
         to="/request-event"
@@ -65,7 +65,7 @@ const imgError = ref<boolean>(false);
 
 // Computed properties with type annotations
 const isAuthenticated = computed<boolean>(() => userStore.isAuthenticated);
-const userProfilePicUrl = computed<string | null>(() => userStore.profilePictureUrl ?? null);
+const userProfilePicUrl = computed<string | null>(() => userStore.currentUser?.photoURL ?? null);
 const userName = computed<string | null>(() => userStore.currentUser?.name ?? null);
 
 const handleImageError = (): void => {
@@ -73,7 +73,6 @@ const handleImageError = (): void => {
   console.warn('Failed to load profile image:', userProfilePicUrl.value);
 };
 
-// REMOVED: handleNavClick method as it targeted the top navbar collapse
 </script>
 
 <style scoped>

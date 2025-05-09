@@ -60,7 +60,12 @@
 
           <!-- Rendered Description -->
           <div class="rendered-description small border-top pt-4 mt-4" v-html="renderedDescriptionHtml"></div> <!-- Added border-top -->
-
+          
+          <!-- Rendered Rules -->
+          <div v-if="renderedRulesHtml" class="rendered-rules small mt-4 pt-4 border-top">
+            <h5 class="h6 text-secondary mb-3"><i class="fas fa-gavel me-2"></i>Event Rules & Guidelines</h5>
+            <div v-html="renderedRulesHtml"></div>
+          </div>
         </div>
 
         <!-- Right Column: Action Buttons -->
@@ -121,6 +126,7 @@ interface EventHeaderProps {
     description: string;
     organizers?: string[];
     prize?: string; // Added prize
+    rules?: string; // Added rules field
   };
   closed?: boolean;
   teams?: { members: string[] }[];
@@ -150,6 +156,7 @@ const emit = defineEmits<{
 const router = useRouter();
 
 const renderedDescriptionHtml = ref('');
+const renderedRulesHtml = ref(''); // Added ref for rules HTML
 
 const { renderMarkdown } = useMarkdownRenderer();
 
@@ -167,8 +174,28 @@ async function renderDescription(description: string | undefined) {
   }
 }
 
+// New function to render rules as markdown
+async function renderRules(rulesContent: string | undefined) {
+  if (!rulesContent) {
+    renderedRulesHtml.value = '';
+    return;
+  }
+  try {
+    const rawHtml: string = await renderMarkdown(rulesContent);
+    renderedRulesHtml.value = rawHtml;
+  } catch (error) {
+    console.error('Error rendering markdown rules:', error);
+    renderedRulesHtml.value = '<p class="text-danger">Error rendering rules.</p>';
+  }
+}
+
 watch(() => props.event?.details?.description, (newDesc) => {
      renderDescription(newDesc);
+}, { immediate: true });
+
+// Watch for changes to rules and render them
+watch(() => props.event?.details?.rules, (newRules) => {
+     renderRules(newRules);
 }, { immediate: true });
 
 const statusTagClass = computed((): string => getEventStatusBadgeClass(props.event?.status));
@@ -182,18 +209,16 @@ const totalParticipants = computed(() => {
       (team.members || []).forEach(m => m && memberSet.add(m));
     });
     return memberSet.size;
-  }
-  // Individual or Competition Format (use participants array)
-  else if (Array.isArray(props.event.participants)) {
+  // Competition Format (use participants array)
+  } else if (Array.isArray(props.event.participants)) {
     return props.event.participants.length;
   }
   return 0;
 });
 
-// Name formatting helper using Record
+// Utility function to format organizer names
 const formatOrganizerName = (uid: string): string => {
-  if (!uid) return 'Unknown';
-  return props.nameCache[uid] || 'Member'; // Access directly
+  return props.nameCache?.[uid] || 'Unknown Organizer';
 };
 </script>
 
@@ -201,12 +226,14 @@ const formatOrganizerName = (uid: string): string => {
 .rendered-description :deep(p:last-child) {
   margin-bottom: 0;
 }
+
 .rendered-description :deep(ul),
 .rendered-description :deep(ol) {
   padding-left: 1.5rem;
   margin-top: 0.75rem; /* Added margin */
   margin-bottom: 0;
 }
+
 .rendered-description :deep(h1),
 .rendered-description :deep(h2),
 .rendered-description :deep(h3),
@@ -217,12 +244,14 @@ const formatOrganizerName = (uid: string): string => {
     margin-bottom: 0.5rem;
     font-weight: 600; /* Make headings slightly bolder */
 }
+
 .rendered-description :deep(code) {
     background-color: var(--bs-secondary-bg);
     padding: 0.2em 0.4em;
     border-radius: 0.25rem;
     font-size: 0.9em;
 }
+
 .rendered-description :deep(pre) {
     background-color: var(--bs-dark);
     color: var(--bs-light);
@@ -230,7 +259,52 @@ const formatOrganizerName = (uid: string): string => {
     border-radius: 0.5rem;
     overflow-x: auto;
 }
+
 .rendered-description :deep(pre code) {
+    background-color: transparent;
+    padding: 0;
+    color: inherit;
+}
+
+/* Add styles for the rendered rules, similar to rendered description */
+.rendered-rules :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.rendered-rules :deep(ul),
+.rendered-rules :deep(ol) {
+  padding-left: 1.5rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+.rendered-rules :deep(h1),
+.rendered-rules :deep(h2),
+.rendered-rules :deep(h3),
+.rendered-rules :deep(h4),
+.rendered-rules :deep(h5),
+.rendered-rules :deep(h6) {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.rendered-rules :deep(code) {
+    background-color: var(--bs-secondary-bg);
+    padding: 0.2em 0.4em;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+}
+
+.rendered-rules :deep(pre) {
+    background-color: var(--bs-dark);
+    color: var(--bs-light);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+}
+
+.rendered-rules :deep(pre code) {
     background-color: transparent;
     padding: 0;
     color: inherit;

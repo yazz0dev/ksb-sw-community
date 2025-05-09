@@ -11,14 +11,35 @@ import { BEST_PERFORMER_LABEL } from '@/utils/constants';
  * Updates the ratingsOpen status for an event in Firestore.
  * @param eventId - The ID of the event.
  * @param open - Boolean indicating whether ratings should be open.
+ * @param currentUserId - The UID of the user performing the action.
  * @returns Promise<void>
  * @throws Error if Firestore update fails or permissions invalid.
  */
-export async function toggleRatingsOpenInFirestore(eventId: string, open: boolean): Promise<void> {
+export async function toggleRatingsOpenInFirestore(eventId: string, open: boolean, currentUserId?: string): Promise<void> {
     if (!eventId) throw new Error('Event ID required.');
+    
     const eventRef = doc(db, 'events', eventId);
     try {
-        // TODO: Add permission checks (organizer only?) based on who calls this action
+        // Fetch event to verify permissions
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        const eventData = eventSnap.data() as Event;
+        
+        // Permission check
+        if (currentUserId) {
+            const isOrganizer = eventData.details?.organizers?.includes(currentUserId) || 
+                              eventData.requestedBy === currentUserId;
+                              
+            if (!isOrganizer) {
+                throw new Error('Permission denied: Only event organizers can modify ratings status.');
+            }
+        }
+        
+        // Status check
+        if (![EventStatus.Completed, EventStatus.InProgress].includes(eventData.status as EventStatus)) {
+            throw new Error(`Cannot modify ratings for event with status: ${eventData.status}`);
+        }
+
         await updateDoc(eventRef, {
             ratingsOpen: open,
             lastUpdatedAt: Timestamp.now()
@@ -26,7 +47,12 @@ export async function toggleRatingsOpenInFirestore(eventId: string, open: boolea
         console.log(`Firestore: Event ${eventId} ratings set to ${open ? 'Open' : 'Closed'}.`);
     } catch (error: any) {
         console.error(`Firestore toggleRatingsOpen error for ${eventId}:`, error);
-        throw new Error(`Failed to toggle ratings status: ${error.message}`);
+        // Enhanced categorized error handling
+        if (error.code === 'permission-denied') {
+            throw new Error('Permission denied: You cannot modify ratings for this event.');
+        } else {
+            throw new Error(`Failed to toggle ratings status: ${error.message || 'Unknown error'}`);
+        }
     }
 }
 
@@ -125,9 +151,16 @@ export async function submitIndividualWinnerVoteInFirestore(eventId: string, use
              eventData.criteria.forEach((criterion, index) => {
                  const indexStr = String(criterion.constraintIndex);
                  if (winnerSelections[indexStr] !== undefined) {
-                      // Path to update the specific user's selection within the criteria array element
+                     const selectedWinnerId = winnerSelections[indexStr];
+                     
+                     // Prevent voting for oneself
+                     if (selectedWinnerId === userId) {
+                         throw new Error("You cannot vote for yourself.");
+                     }
+                     
+                     // Path to update the specific user's selection within the criteria array element
                      const path = `criteria.${index}.criteriaSelections.${userId}`;
-                     updates[path] = winnerSelections[indexStr] || null; // Set null to clear vote
+                     updates[path] = selectedWinnerId || null; // Set null to clear vote
                  }
              });
          }
@@ -146,6 +179,42 @@ export async function submitIndividualWinnerVoteInFirestore(eventId: string, use
          console.error(`Firestore submitIndividualWinnerVote error for ${eventId}:`, error);
          throw new Error(`Failed to submit individual selections: ${error.message}`);
      }
+}
+
+// Add a new function for manual winner selection by organizers
+export async function submitManualWinnerSelectionInFirestore(eventId: string, organizerId: string, winnerSelections: Record<string, string[]>): Promise<void> {
+    if (!eventId || !organizerId || typeof winnerSelections !== 'object') {
+        throw new Error('Missing required parameters for manual winner selection.');
+    }
+    
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        // Fetch event to validate status and permissions
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        const eventData = eventSnap.data() as Event;
+        
+        // Only allow for completed events with closed ratings
+        if (eventData.status !== EventStatus.Completed) {
+            throw new Error("Manual winner selection only available for completed events.");
+        }
+        
+        // Check if user is an organizer
+        const isOrganizer = eventData.details?.organizers?.includes(organizerId) || eventData.requestedBy === organizerId;
+        if (!isOrganizer) throw new Error("Only event organizers can manually select winners.");
+        
+        // Update winners directly
+        await updateDoc(eventRef, { 
+            winners: winnerSelections,
+            lastUpdatedAt: Timestamp.now(),
+            manuallySelectedBy: organizerId
+        });
+        
+        console.log(`Firestore: Manual winner selection submitted by organizer ${organizerId} for event ${eventId}.`);
+    } catch (error: any) {
+        console.error(`Firestore submitManualWinnerSelection error for ${eventId}:`, error);
+        throw new Error(`Failed to submit manual winner selection: ${error.message}`);
+    }
 }
 
 /**
