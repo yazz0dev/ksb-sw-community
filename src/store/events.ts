@@ -44,20 +44,29 @@ function compareEvents(a: Event, b: Event): number {
     const orderB = statusOrder[b.status as EventStatus] ?? 9;
     if (orderA !== orderB) return orderA - orderB;
 
-    // Use toDate() and getTime() for comparison
-    let dateA = a.createdAt?.toDate().getTime() ?? 0;
-    let dateB = b.createdAt?.toDate().getTime() ?? 0;
+    // Safely handle toDate with null checks
+    let dateA = a.createdAt ? a.createdAt.toDate?.() : null;
+    let dateB = b.createdAt ? b.createdAt.toDate?.() : null;
+    
+    // Convert to milliseconds or use 0 as fallback
+    let dateATime = dateA ? dateA.getTime() : 0;
+    let dateBTime = dateB ? dateB.getTime() : 0;
 
     if ([EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status as EventStatus)) {
-        dateA = a.details?.date?.start?.toDate().getTime() ?? dateA;
-        dateB = b.details?.date?.start?.toDate().getTime() ?? dateB;
+        const startA = a.details?.date?.start;
+        const startB = b.details?.date?.start;
+        dateATime = startA?.toDate ? startA.toDate().getTime() : dateATime;
+        dateBTime = startB?.toDate ? startB.toDate().getTime() : dateBTime;
     } else {
-        dateA = a.completedAt?.toDate().getTime() ?? a.details?.date?.end?.toDate().getTime() ?? dateA;
-        dateB = b.closedAt?.toDate().getTime() ?? b.details?.date?.end?.toDate().getTime() ?? dateB; // Corrected dateB for closedAt
+        const endA = a.completedAt || a.details?.date?.end;
+        const endB = b.closedAt || b.details?.date?.end;
+        dateATime = endA?.toDate ? endA.toDate().getTime() : dateATime;
+        dateBTime = endB?.toDate ? endB.toDate().getTime() : dateBTime;
     }
+    
     return [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status as EventStatus)
-        ? dateA - dateB
-        : dateB - dateA;
+        ? dateATime - dateBTime
+        : dateBTime - dateATime;
 }
 
 // --- Store Definition ---
@@ -103,9 +112,21 @@ export const useEventStore = defineStore('events', {
         /** Internal action to update local state consistently */
         _updateLocalEvent(eventData: Event) {
             if (!eventData?.id) return;
+
+            let normalizedCriteria = eventData.criteria;
+            // Check if criteria exists, is an object, and not already an array
+            if (eventData.criteria && typeof eventData.criteria === 'object' && !Array.isArray(eventData.criteria)) {
+                // Convert object (e.g., {0: critA, 1: critB}) to array [critA, critB]
+                normalizedCriteria = Object.values(eventData.criteria);
+            } else if (!eventData.criteria) {
+                // Ensure it's at least an empty array if undefined or null
+                normalizedCriteria = [];
+            }
+
             const index = this.events.findIndex((e: Event) => e.id === eventData.id);
             const eventWithDefaults = { // Ensure defaults for safety
                 ...eventData,
+                criteria: normalizedCriteria, // Use the normalized criteria
                 ratingsOpen: typeof eventData.ratingsOpen === 'boolean' ? eventData.ratingsOpen : false,
                 details: eventData.details || {},
             };

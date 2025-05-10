@@ -79,7 +79,7 @@
                     <div class="d-flex flex-column mb-4 gap-3">
                       <!-- Iterate over actual criteria -->
                       <div
-                        v-for="allocation in sortedXpAllocation.filter(c => c.constraintLabel !== 'Best Performer')"
+                        v-for="allocation in sortedXpAllocation.filter(c => c.constraintLabel !== BEST_PERFORMER_LABEL)"
                         :key="`team-crit-${allocation.constraintIndex}`"
                         class="mb-2"
                       >
@@ -385,10 +385,67 @@ const sortedXpAllocation = computed<EventCriteria[]>(() => {
 });
 
 const hasValidRatingCriteria = computed<boolean>(() => {
-  if (isManualModeActive.value) return sortedXpAllocation.value.length > 0; // For manual mode, just need criteria
-  return sortedXpAllocation.value.length > 0 &&
-         event.value?.status === EventStatus.Completed &&
-         event.value?.ratingsOpen === true;
+  console.log('[SelectionForm] Checking hasValidRatingCriteria...');
+  if (!event.value) {
+    console.log('[SelectionForm] Event data is not loaded.');
+    return false;
+  }
+  if (!Array.isArray(event.value.criteria)) {
+    console.log('[SelectionForm] Event criteria is not an array or is missing:', event.value.criteria);
+    return false;
+  }
+  console.log('[SelectionForm] Event raw criteria:', JSON.parse(JSON.stringify(event.value.criteria)));
+  console.log('[SelectionForm] Is Manual Mode Active:', isManualModeActive.value);
+
+  // For manual mode, the organizer should be able to see the form if any criteria exist,
+  // even if points are 0 or labels are being finalized.
+  if (isManualModeActive.value) {
+    const manualModeResult = event.value.criteria.length > 0;
+    console.log('[SelectionForm] Manual Mode: Criteria length > 0:', manualModeResult);
+    return manualModeResult;
+  }
+
+  // Voting Mode Checks:
+  console.log('[SelectionForm] Voting Mode: Event Status:', event.value.status, 'Ratings Open:', event.value.ratingsOpen);
+  if (event.value.status !== EventStatus.Completed || event.value.ratingsOpen !== true) {
+    console.log('[SelectionForm] Voting Mode: Event not completed or ratings not open.');
+    return false;
+  }
+
+  // Filter for criteria that are generally "valid" for display or processing.
+  // A criterion is considered for voting if it has a label, positive points, and a constraintIndex.
+  const votableCriteria = event.value.criteria.filter((c, index) => {
+    console.log(`[SelectionForm] Voting Mode: Evaluating criterion at index ${index}:`, JSON.parse(JSON.stringify(c)));
+    const hasLabel = !!c.constraintLabel;
+    const hasValidPoints = typeof c.points === 'number' && c.points > 0;
+    const hasValidIndex = typeof c.constraintIndex === 'number';
+    
+    console.log(`[SelectionForm] Criterion ${index} - Has Label: ${hasLabel} (Value: "${c.constraintLabel}")`);
+    console.log(`[SelectionForm] Criterion ${index} - Has Valid Points: ${hasValidPoints} (Value: ${c.points}, Type: ${typeof c.points})`);
+    console.log(`[SelectionForm] Criterion ${index} - Has Valid constraintIndex: ${hasValidIndex} (Value: ${c.constraintIndex}, Type: ${typeof c.constraintIndex})`);
+    
+    const isValidCriterion = hasLabel && hasValidPoints && hasValidIndex;
+    console.log(`[SelectionForm] Criterion ${index} - Is Valid for Voting: ${isValidCriterion}`);
+    return isValidCriterion;
+  });
+  console.log('[SelectionForm] Voting Mode: Filtered Votable Criteria (label, points > 0, index):', JSON.parse(JSON.stringify(votableCriteria)));
+
+  if (isTeamEvent.value) {
+    console.log('[SelectionForm] Voting Mode: Is Team Event. BEST_PERFORMER_LABEL:', BEST_PERFORMER_LABEL);
+    // For team events, "Best Performer" is handled separately or is an overall award.
+    // We need at least one *other* specific criterion to vote on.
+    const teamSpecificVotableCriteria = votableCriteria.filter(c => c.constraintLabel !== BEST_PERFORMER_LABEL);
+    const teamResult = teamSpecificVotableCriteria.length > 0;
+    console.log('[SelectionForm] Voting Mode: Team Specific Votable Criteria (excluding Best Performer):', JSON.parse(JSON.stringify(teamSpecificVotableCriteria)));
+    console.log('[SelectionForm] Voting Mode: Team Event Result (teamSpecificVotableCriteria.length > 0):', teamResult);
+    return teamResult;
+  } else {
+    // For individual/competition events, any valid criterion (with label and points > 0) is votable.
+    const individualResult = votableCriteria.length > 0;
+    console.log('[SelectionForm] Voting Mode: Individual/Competition Event. Votable Criteria:', JSON.parse(JSON.stringify(votableCriteria)));
+    console.log('[SelectionForm] Voting Mode: Individual/Competition Event Result (votableCriteria.length > 0):', individualResult);
+    return individualResult;
+  }
 });
 
 // Improved isValid computed property to prevent self-voting

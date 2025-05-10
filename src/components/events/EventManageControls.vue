@@ -473,6 +473,18 @@ const findWinnerAction = async (): Promise<void> => {
 };
 
 const goToEditEvent = (): void => {
+  // Check if event is in an editable state before navigating
+  const editableStatuses = [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress];
+  
+  if (!props.event || !editableStatuses.includes(props.event.status as EventStatus)) {
+    notificationStore.showNotification({ 
+      message: `Cannot edit event with status: ${props.event?.status || 'Unknown'}`, 
+      type: 'warning',
+      duration: 5000 
+    });
+    return;
+  }
+  
   router.push({ name: 'EditEvent', params: { eventId: props.event.id } });
 };
 

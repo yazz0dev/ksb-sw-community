@@ -280,6 +280,7 @@ interface EventHeaderProps {
     prize?: string;
     eventName?: string;
     type?: string;
+    rules?: string; // Add rules field
   };
   closed?: boolean;
   teams?: Team[];
@@ -653,6 +654,7 @@ const mapEventToHeaderProps = (evt: Event): EventHeaderProps => ({
         description: evt.details.description, // Header might show truncated description or none
         organizers: evt.details.organizers,
         prize: evt.details.prize,
+        rules: evt.details.rules, // Add rules from event details
     }
 });
 

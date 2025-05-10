@@ -157,9 +157,12 @@ const now = DateTime.now();
 
 const upcomingEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
-    return eventStore.events.filter((event: Event) =>
-        event.details.date.start && DateTime.fromJSDate(event.details.date.start.toDate()) > now
-    ).sort((a: Event, b: Event) => {
+    return eventStore.events.filter((event: Event) => {
+        const start = event.details.date.start ? DateTime.fromJSDate(event.details.date.start.toDate()) : null;
+        const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
+        return event.status === EventStatus.Approved && 
+               start?.isValid && start > now;
+    }).sort((a: Event, b: Event) => {
         const dateA = a.details.date.start ? DateTime.fromJSDate(a.details.date.start.toDate()) : null;
         const dateB = b.details.date.start ? DateTime.fromJSDate(b.details.date.start.toDate()) : null;
         if (!dateA?.isValid || !dateB?.isValid) return 0;

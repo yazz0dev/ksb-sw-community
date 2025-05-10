@@ -10,7 +10,26 @@
         <p class="text-muted mt-2">Loading initial data...</p>
       </div>
 
-      <!-- Auth Guard - Render only AFTER loading is false -->
+      <!-- Error state for editing - NEW COMPONENT -->
+      <div v-else-if="editError" class="alert alert-danger p-4 shadow-sm border-danger-subtle mb-5">
+        <div class="d-flex align-items-start">
+          <i class="fas fa-exclamation-circle text-danger me-3 fs-4 mt-1"></i>
+          <div>
+            <h5 class="alert-heading mb-2">Cannot Edit Event</h5>
+            <p>{{ editError }}</p>
+            <div class="mt-3">
+              <button type="button" class="btn btn-primary me-2" @click="$router.push({ name: 'Home' })">
+                <i class="fas fa-home me-1"></i> Go to Home
+              </button>
+              <button type="button" class="btn btn-outline-secondary" @click="$router.back()">
+                <i class="fas fa-arrow-left me-1"></i> Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auth Guard - Render only AFTER loading is false and no edit error -->
       <AuthGuard v-else :key="'auth-guard'" message="You must be logged in to request or edit events.">
 
         <!-- Active Request Warning (Show after loading, only when creating) -->
@@ -202,6 +221,7 @@ function createDefaultFormData(): EventFormData {
 const loading = ref(true); // Single loading flag
 const isSubmitting = ref(false);
 const errorMessage = ref('');
+const editError = ref(''); // NEW: Specific error for editing issues
 const hasActiveRequest = ref(false);
 const initialEventData = ref<EventFormData | null>(null);
 const isDateAvailable = ref(true);
@@ -347,6 +367,7 @@ const loadInitialData = async () => {
   try {
       loading.value = true;
       errorMessage.value = '';
+      editError.value = ''; // Reset edit error
       hasActiveRequest.value = false;
 
       await Promise.all([
@@ -392,9 +413,20 @@ const loadInitialData = async () => {
       initialEventData.value = JSON.parse(JSON.stringify(tempFormData));
 
   } catch (error: any) {
-      handleFormError(error.message || 'Failed to initialize the event form.');
+      // Handle editing errors without auto-redirect
       if (isEditing.value) {
-          router.push({ name: 'Home' });
+          // Set the edit error message that will trigger the error UI
+          editError.value = error.message || 'Access denied or invalid status';
+          
+          // Show notification but don't auto-redirect
+          notificationStore.showNotification({ 
+              message: `Cannot edit event: ${editError.value}`, 
+              type: 'warning',
+              duration: 8000 // Longer duration since we're not redirecting
+          });
+      } else {
+          // Only handle errors locally if we're not editing (new event creation)
+          handleFormError(error.message || 'Failed to initialize the event form.');
       }
   } finally {
       loading.value = false; // Set loading false *after* all async ops are done
@@ -403,11 +435,50 @@ const loadInitialData = async () => {
 
 
 const mapEventToFormData = (eventData: Event): EventFormData => {
-    const startDate = eventData.details.date.start ? DateTime.fromJSDate(eventData.details.date.start.toDate()).toISODate() : null;
-    const endDate = eventData.details.date.end ? DateTime.fromJSDate(eventData.details.date.end.toDate()).toISODate() : null;
-    let criteria = Array.isArray(eventData.criteria) ? eventData.criteria : [];
-    if (criteria.length === 0 && eventData.details.format !== EventFormat.Competition) {
-         criteria = [{ constraintIndex: Date.now(), constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], criteriaSelections: {} }];
+    // Helper function to safely convert various date formats to ISO date string
+    const convertDateToISOString = (date: any): string | null => {
+        if (!date) return null;
+        
+        try {
+            // Handle Firestore Timestamp objects
+            if (date.toDate && typeof date.toDate === 'function') {
+                return DateTime.fromJSDate(date.toDate()).toISODate();
+            } 
+            // Handle regular Date objects
+            else if (date instanceof Date) {
+                return DateTime.fromJSDate(date).toISODate();
+            } 
+            // Handle ISO strings
+            else if (typeof date === 'string') {
+                return DateTime.fromISO(date).toISODate();
+            }
+            // Unknown format
+            console.warn("Unknown date format:", date);
+            return null;
+        } catch (error) {
+            console.error("Error converting date:", error);
+            return null;
+        }
+    };
+
+    const startDate = convertDateToISOString(eventData.details.date.start);
+    const endDate = convertDateToISOString(eventData.details.date.end);
+    
+    let mappedCriteria: EventCriteria[] = [];
+    const criteriaSource = eventData.criteria;
+
+    if (criteriaSource) {
+        if (Array.isArray(criteriaSource)) {
+            mappedCriteria = criteriaSource;
+        } else if (typeof criteriaSource === 'object' && criteriaSource !== null) {
+            // Handles cases where Firestore might return an object like {0: {...}, 1: {...}}
+            mappedCriteria = Object.values(criteriaSource);
+        }
+    }
+    
+    // If after processing, criteria is empty and it's not a competition, add default
+    if (mappedCriteria.length === 0 && eventData.details.format !== EventFormat.Competition) {
+         mappedCriteria = [{ constraintIndex: Date.now(), constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], criteriaSelections: {} }];
     }
 
     return {
@@ -423,7 +494,7 @@ const mapEventToFormData = (eventData: Event): EventFormData => {
              date: { start: startDate, end: endDate },
              rules: eventData.details.rules || '', // Added rules
          },
-        criteria: criteria,
+        criteria: mappedCriteria, // Use the processed mappedCriteria
         teams: Array.isArray(eventData.teams) ? eventData.teams : [],
         status: eventData.status || EventStatus.Pending,
     };

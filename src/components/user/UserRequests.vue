@@ -21,7 +21,7 @@
     <transition name="fade">
       <div v-if="!loadingRequests && requests.length > 0">
         <!-- Use request.id for key which is guaranteed unique -->
-        <div v-for="request in requests" :key="request.id" class="py-3 request-item">
+        <div v-for="(request, index) in requests" :key="request.id" class="py-3 request-item">
           <h6 class="h6 text-primary mb-1">
             <!-- Link should still work as request.id maps correctly -->
             <router-link :to="{ name: 'EventDetails', params: { id: request.id } }" class="text-decoration-none">
@@ -37,6 +37,13 @@
             </span>
           </div>
           <div v-if="request.status === 'Pending'" class="d-flex gap-2">
+            <button
+              class="btn btn-sm btn-outline-primary"
+              @click="editRequest(request)"
+            >
+              <i class="fas fa-edit me-1"></i>
+              Edit Request
+            </button>
             <button
               class="btn btn-sm btn-outline-danger"
               :disabled="request._deleting"
@@ -78,6 +85,7 @@ interface Request {
 }
 
 const userStore = useUserStore();
+const router = useRouter(); // Initialize router from the imported useRouter
 const requests = ref<Request[]>([]); // Use the local Request interface
 const loadingRequests = ref<boolean>(true);
 const errorMessage = ref<string>('');
@@ -92,16 +100,18 @@ const getStatusClass = (status: Request['status']): string => {
 };
 
 const fetchRequests = async (): Promise<void> => {
-    const user = userStore.currentUser;
-    if (!user?.uid) {
-        errorMessage.value = 'User not logged in.';
-        loadingRequests.value = false;
-        return;
-    }
+    // Set loading state and clear previous errors at the beginning of the function
+    loadingRequests.value = true;
+    errorMessage.value = '';
 
     try {
-        loadingRequests.value = true;
-        errorMessage.value = '';
+        const user = userStore.currentUser;
+        if (!user?.uid) {
+            errorMessage.value = 'User not logged in.';
+            // loadingRequests.value = false; // This line is removed; finally block will handle it.
+            return;
+        }
+
         // Fetch user requests (returns StoreEvent[])
         await userStore.fetchUserRequests(user.uid);
         const storeRequests: StoreEvent[] = userStore.userRequests; // Type as StoreEvent[]
@@ -143,6 +153,10 @@ const deleteRequest = async (request: Request, index: number) => {
     }
   }
   // No finally needed here as _deleting is removed with splice on success
+};
+
+const editRequest = (request: Request): void => {
+  router.push({ name: 'EditEvent', params: { eventId: request.id } });
 };
 
 onMounted(fetchRequests);
