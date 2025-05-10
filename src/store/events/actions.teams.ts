@@ -42,7 +42,6 @@ export async function addTeamToEventInFirestore(
             teamName: trimmedTeamName,
             members: validMembers,
             teamLead: validMembers[0] || '',
-            // submissions and ratings are removed from Team type
         };
 
         const updatedTeams = [...currentTeams, newTeam];
@@ -81,7 +80,6 @@ export async function updateEventTeamsInFirestore(eventId: string, teams: Team[]
             throw new Error(`Team "${team.teamName}" must have a valid team lead selected from its members.`);
         }
         team.members = team.members.filter(m => typeof m === 'string');
-        // submissions and ratings are removed from Team type
     }
 
     const newTeamMembersFlat = Array.from(new Set(teams.flatMap(team => team.members || []).filter(Boolean)));

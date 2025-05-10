@@ -65,38 +65,38 @@
       </p>
     </div>
 
-    <!-- Ratings & Closing Section (For Organizers AND Participants) -->
-    <div v-if="showRatingsClosingSection" :class="{ 'pt-5 border-top': showStatusManagementSection }"> <!-- Add border-top only if status section was shown -->
+    <!-- Voting & Closing Section (For Organizers AND Participants) -->
+    <div v-if="showVotingClosingSection" :class="{ 'pt-5 border-top': showStatusManagementSection }"> <!-- Add border-top only if status section was shown -->
       <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="h4 text-primary mb-0">Ratings & Closing</h3>
-        <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill fs-6" :class="event.ratingsOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
-          Ratings: {{ event.ratingsOpen ? 'Open' : 'Closed' }}
+        <h3 class="h4 text-primary mb-0">Voting & Closing</h3>
+        <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill fs-6" :class="event.votingOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
+          Voting: {{ event.votingOpen ? 'Open' : 'Closed' }}
         </span>
       </div>
       <div class="d-flex flex-wrap gap-2">
-        <!-- Open Ratings Button (Organizer) -->
+        <!-- Open Voting Button (Organizer) -->
         <button
-          v-if="showOpenRatingsButton"
+          v-if="showOpenVotingButton"
           type="button"
           class="btn btn-sm btn-success d-inline-flex align-items-center"
-          :disabled="isActionLoading('openRatings')"
-          @click="toggleRatings(true)"
+          :disabled="isActionLoading('openVoting')"
+          @click="toggleVoting(true)"
         >
-          <span v-if="isActionLoading('openRatings')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <span v-if="isActionLoading('openVoting')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
           <i v-else class="fas fa-lock-open me-1"></i>
-          <span>Open Ratings</span>
+          <span>Open Voting</span>
         </button>
-         <!-- Close Ratings Button (Organizer) -->
+         <!-- Close Voting Button (Organizer) -->
         <button
-          v-if="showCloseRatingsButton"
+          v-if="showCloseVotingButton"
           type="button"
           class="btn btn-sm btn-warning d-inline-flex align-items-center"
-          :disabled="isActionLoading('closeRatings')"
-          @click="toggleRatings(false)"
+          :disabled="isActionLoading('closeVoting')"
+          @click="toggleVoting(false)"
         >
-          <span v-if="isActionLoading('closeRatings')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <span v-if="isActionLoading('closeVoting')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
           <i v-else class="fas fa-lock me-1"></i>
-          <span>Close Ratings</span>
+          <span>Close Voting</span>
         </button>
         <!-- Find Winner Button (Organizer) -->
         <button
@@ -111,7 +111,7 @@
           <span>Find Winner</span>
         </button>
         <span v-if="showFindWinnerButton && submissionCount < 10" class="small text-danger ms-2">
-          At least 10 ratings/submissions are required to find winners (currently {{ submissionCount }}).
+          At least 10 votes are required to find winners (currently {{ submissionCount }}).
         </span>
         <!-- Manually Select Winners Button (Organizer) -->
         <button
@@ -141,23 +141,23 @@
         </button>
       </div>
        <!-- Info Texts -->
-      <p v-if="showOpenRatingsButton" class="small text-secondary mt-2">
-        Open ratings to allow participants to rate projects/teams and select winners.
+      <p v-if="showOpenVotingButton" class="small text-secondary mt-2">
+        Open Voting to allow participants to vote for projects/teams and select winners.
       </p>
-      <p v-if="showCloseRatingsButton" class="small text-secondary mt-2">
-        Close ratings once all selections/feedback are submitted. Required before permanently closing event.
+      <p v-if="showCloseVotingButton" class="small text-secondary mt-2">
+        Close Voting once all selections/feedback are submitted. Required before permanently closing event.
       </p>
       <p v-if="showFindWinnerButton" class="small text-secondary mt-2">
-        Requires ratings to be closed and at least 10 submissions (currently {{ submissionCount }}) to find winners.
+        Requires Voting to be closed and at least 10 submissions (currently {{ submissionCount }}) to find winners.
       </p>
       <p v-if="showManualSelectWinnerButton" class="small text-secondary mt-2">
         Manually set or override the winners for each criterion. This is useful if vote-based calculation is not desired or needs adjustment.
       </p>
       <p v-if="showCloseEventButton" class="small text-secondary mt-2">
-        Ratings must be closed and winners selected before you can permanently close the event and award XP.
+        Voting must be closed and winners selected before you can permanently close the event and award XP.
       </p>
        <p v-if="showParticipantWinnerSelection" class="small text-secondary mt-2">
-         Ratings are open! Participants can now submit their selections.
+         Voting is open! Cast your votes for the best projects/teams.
        </p>
        <p v-if="showParticipantOrganizerRating" class="small text-secondary mt-2">
          The event is complete. Please rate the organizers.
@@ -195,7 +195,7 @@ const router = useRouter();
 const userStore = useUserStore();
 const eventStore = useEventStore();
 const notificationStore = useNotificationStore();
-const loadingAction = ref<EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent' | null>(null);
+const loadingAction = ref<EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | null>(null);
 const isClosingEvent = ref(false);
 
 // --- User Role & Permissions ---
@@ -209,17 +209,11 @@ const isOrganizer = computed(() => {
   const requestedBy = eventData?.requestedBy;
 
   if (!uid || !eventData) {
-    console.log('Not an organizer: No user ID or event data');
     return false;
   }
 
   const isListedOrganizer = Array.isArray(organizers) && organizers.includes(uid);
   const isRequestingUser = requestedBy === uid;
-  
-  // Add debug log to help identify permission issues
-  if (!isListedOrganizer && !isRequestingUser) {
-    console.log(`User ${uid} is not an organizer for event ${eventData.id}. Organizers:`, organizers, 'Requested by:', requestedBy);
-  }
   
   return isListedOrganizer || isRequestingUser;
 });
@@ -253,12 +247,10 @@ const isWithinEventDates = computed(() => {
     const endIST = toIST(props.event.details.date.end)?.startOf('day');
 
     if (!nowIST.isValid || !startIST?.isValid || !endIST?.isValid) {
-      console.warn("Invalid dates for isWithinEventDates check:", nowIST, startIST, endIST);
       return false;
     }
     return nowIST >= startIST && nowIST <= endIST;
   } catch (e) {
-    console.error("Error in isWithinEventDates:", e);
     return false;
   }
 });
@@ -266,7 +258,7 @@ const isWithinEventDates = computed(() => {
 const formattedStartDate = computed(() => formatISTDate(props.event?.details?.date?.start));
 const formattedEndDate = computed(() => formatISTDate(props.event?.details?.date?.end));
 const statusBadgeClass = computed(() => getEventStatusBadgeClass(props.event?.status));
-const ratingsAreClosed = computed(() => !props.event?.ratingsOpen);
+const votingIsClosed = computed(() => !props.event?.votingOpen);
 
 // --- Submission/Winner State ---
 const submissionCount = computed(() => {
@@ -308,24 +300,24 @@ const showMarkCompleteButton = computed(() =>
   !props.event?.closedAt
 );
 
-const showOpenRatingsButton = computed(() =>
+const showOpenVotingButton = computed(() =>
   canManageEvent.value &&
   props.event?.status === EventStatus.Completed &&
-  ratingsAreClosed.value &&
+  votingIsClosed.value &&
   !props.event?.closedAt
 );
 
-const showCloseRatingsButton = computed(() =>
+const showCloseVotingButton = computed(() =>
     canManageEvent.value &&
     props.event?.status === EventStatus.Completed &&
-    props.event?.ratingsOpen === true &&
+    props.event?.votingOpen === true &&
     !props.event?.closedAt
 );
 
 const canFindWinner = computed(() =>
   canManageEvent.value &&
   props.event?.status === EventStatus.Completed &&
-  ratingsAreClosed.value &&
+  votingIsClosed.value &&
   !props.event?.closedAt
 );
 
@@ -334,7 +326,7 @@ const showFindWinnerButton = canFindWinner;
 const showManualSelectWinnerButton = computed(() =>
   canManageEvent.value &&
   props.event?.status === EventStatus.Completed &&
-  ratingsAreClosed.value && // Typically, manual selection is done after voting period
+  votingIsClosed.value && // Typically, manual selection is done after voting period
   !props.event?.closedAt
 );
 
@@ -349,13 +341,13 @@ const showParticipantWinnerSelection = computed(() =>
   isParticipant.value &&
   props.event?.status === EventStatus.Completed &&
   !props.event?.closedAt &&
-  props.event?.ratingsOpen === true
+  props.event?.votingOpen === true
 );
 
 const showCloseEventButton = computed(() =>
   canManageEvent.value &&
   props.event?.status === EventStatus.Completed &&
-  ratingsAreClosed.value &&
+  votingIsClosed.value &&
   hasWinners.value &&
   !props.event?.closedAt
 );
@@ -385,14 +377,14 @@ const showStatusManagementSection = computed(() =>
     (showStartButton.value || showMarkCompleteButton.value || showCancelButton.value || showEditButton.value)
 );
 
-const showRatingsClosingSection = computed(() =>
-    (canManageEvent.value && (showOpenRatingsButton.value || showCloseRatingsButton.value || showFindWinnerButton.value || showCloseEventButton.value || showManualSelectWinnerButton.value)) ||
+const showVotingClosingSection = computed(() =>
+    (canManageEvent.value && (showOpenVotingButton.value || showCloseVotingButton.value || showFindWinnerButton.value || showCloseEventButton.value || showManualSelectWinnerButton.value)) ||
     showParticipantWinnerSelection.value ||
     showParticipantOrganizerRating.value
 );
 
 // --- Actions ---
-const isActionLoading = (action: EventStatus | 'openRatings' | 'closeRatings' | 'findWinner' | 'closeEvent' | 'manualSelectWinner'): boolean => 
+const isActionLoading = (action: EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner'): boolean => 
   loadingAction.value === action;
 
 const updateStatus = async (newStatus: EventStatus): Promise<void> => {
@@ -419,23 +411,23 @@ const updateStatus = async (newStatus: EventStatus): Promise<void> => {
   }
 };
 
-const toggleRatings = async (openState: boolean): Promise<void> => {
+const toggleVoting = async (openState: boolean): Promise<void> => {
     if (loadingAction.value) return;
-    loadingAction.value = openState ? 'openRatings' : 'closeRatings';
+    loadingAction.value = openState ? 'openVoting' : 'closeVoting';
     try {
         // Double-check permissions before even trying
         if (!isOrganizer.value) {
-            throw new Error('Only event organizers can modify ratings status.');
+            throw new Error('Only event organizers can modify voting status.');
         }
         
-        await eventStore.toggleRatingsOpen({
+        await eventStore.toggleVotingOpen({
             eventId: props.event.id,
             open: openState
         });
         emit('update');
     } catch (error: any) {
          notificationStore.showNotification({
-             message: error?.message || 'Failed to toggle ratings status.',
+             message: error?.message || 'Failed to toggle voting status.',
              type: 'error'
          });
     } finally {

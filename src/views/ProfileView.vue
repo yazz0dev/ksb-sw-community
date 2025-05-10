@@ -50,8 +50,7 @@
             <div class="card mt-5">
               <div class="card-header requests-card-header">
                 <h6 class="mb-0 d-flex align-items-center">
-                  <i class="fas fa-paper-plane text-primary me-2"></i>
-                  My Event Requests
+                  <i class="fas fa-bell text-primary me-2"></i>Notifications
                 </h6>
               </div>
               <div class="card-body p-0"> <!-- Bootstrap uses card-body -->

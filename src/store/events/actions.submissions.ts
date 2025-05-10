@@ -43,7 +43,7 @@ export async function submitProjectToEventInFirestore(eventId: string, userId: s
             const userTeam = eventData.teams?.find(t => t.members?.includes(userId));
             if (!userTeam) throw new Error("Submitter is not part of any team in this event.");
             // Optional: Enforce only team lead can submit
-            // if (userTeam.teamLead !== userId) throw new Error("Only the team lead can submit for the team.");
+             if (userTeam.teamLead !== userId) throw new Error("Only the team lead can submit for the team.");
             submissionEntry.teamId = userTeam.teamName; // Store teamName as teamId
         } else { // Individual or Competition
             if (!eventData.participants?.includes(userId)) throw new Error("Submitter is not a participant in this event.");

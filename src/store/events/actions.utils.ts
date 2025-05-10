@@ -28,17 +28,12 @@ export function calculateEventXP(eventData: Event): Record<string, Record<string
     // --- 2. Participation XP ---
     if (eventData.details.format === EventFormat.Team && Array.isArray(eventData.teams)) {
         eventData.teams.forEach(team => {
-            // TODO: Consider adding submission-based XP if needed
-            // const hasSubmission = Array.isArray(team.submissions) && team.submissions.length > 0;
-            // const participationAmount = hasSubmission ? submittedParticipationXP : baseParticipationXP;
             const participationAmount = baseParticipationXP;
             (team.members || []).filter(Boolean).forEach(uid => {
                 addXP(uid, 'participation', participationAmount);
             });
         });
     } else if (Array.isArray(eventData.participants)) { // Individual or Competition
-        // TODO: Consider adding submission-based XP if needed
-        // Check eventData.submissions perhaps?
         const participationAmount = baseParticipationXP;
         eventData.participants.filter(Boolean).forEach(uid => {
             addXP(uid, 'participation', participationAmount);

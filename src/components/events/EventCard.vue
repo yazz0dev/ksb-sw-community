@@ -67,9 +67,7 @@
         >
           View Details
         </router-link>
-        <div class="d-flex align-items-center small text-secondary" title="Participant Count">
-          <i class="fas fa-users fa-fw me-1 text-muted"></i> {{ participantCount }}
-        </div>
+        <!-- Removed participant count display -->
       </div>
     </div>
   </div>
@@ -95,6 +93,10 @@ const props = defineProps({
     type: Object as PropType<Event>,
     required: true
   },
+  nameCache: {
+    type: Object as PropType<Record<string, string>>,
+    default: () => ({})
+  }
 });
 
 const userStore = useUserStore();
@@ -163,20 +165,7 @@ const formatOrganizers = computed(() => {
   return names[0];
 });
 
-// Participant count
-const participantCount = computed(() => {
-  if (!props.event) return 0;
-  // Team Format: Count unique members across all teams
-  if (props.event.details.format === EventFormat.Team) {
-    const memberSet = new Set<string>();
-    (props.event.teams || []).forEach(team => {
-      (team.members || []).forEach(m => m && memberSet.add(m));
-    });
-    return memberSet.size;
-  }
-  // Handle Individual and Competition formats (using participants array)
-  return Array.isArray(props.event.participants) ? props.event.participants.length : 0;
-});
+// Removed participantCount computed property
 
 </script>
 

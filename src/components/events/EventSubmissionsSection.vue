@@ -60,7 +60,7 @@ import { computed } from 'vue'; // Import computed
 
 const props = defineProps<{ // props are already defined
   event: Event;
-  teams: Team[]; // Still needed to list teams, even if submissions are top-level
+  teams: Team[]; 
   loading: boolean;
   getUserName: (uid: string) => string;
   canSubmitProject: boolean;

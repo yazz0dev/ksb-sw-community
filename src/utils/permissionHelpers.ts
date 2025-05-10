@@ -1,4 +1,4 @@
-import { Event, EventStatus } from '@/types/event';
+import { Event, EventStatus, EventFormat } from '@/types/event';
 import { UserData } from '@/types/user';
 import {  EVENT_MANAGER_ROLES } from './constants';
 import { useUserStore } from '@/store/user'; // Import the user store
@@ -86,14 +86,62 @@ export function canModifyEvent(event: Event | null, user: UserData | null): bool
 
 /**
  * Check if user can rate/vote in the event
+ * Comprehensive implementation that checks:
+ * - Event status (must be Completed)
+ * - Voting status (must be open)
+ * - User participation status
+ * 
+ * @param event The event object
+ * @param userId The user's ID (optional, but required for actual validation)
+ * @returns boolean indicating if the user can vote
+ */
+export function canVoteInEvent(event: Event | null, userId?: string | null): boolean {
+  if (!event || !userId) return false;
+  
+  // Event must be completed and voting must be open
+  if (event.status !== EventStatus.Completed || event.votingOpen !== true) {
+    return false;
+  }
+  
+  // Use existing helper to check participant status
+  return isEventParticipant(event, userId);
+}
+
+/**
+ * Check if user can manually select winners (organizers only)
  * @param event The event object
  * @param userId The user's ID
  * @returns boolean
  */
-export function canVoteInEvent(event: Event | null, userId?: string | null): boolean {
-  if (!event || !userId || !event.ratingsOpen) return false;
+export function canManuallySelectWinners(event: Event | null, userId?: string | null): boolean {
+  if (!event || !userId) return false;
   
+  // Only completed events
   if (event.status !== EventStatus.Completed) return false;
   
-  return isEventParticipant(event, userId);
+  // Only organizers
+  return isEventOrganizer(event, userId);
+}
+
+/**
+ * Check if voting results can be calculated for an event
+ * 
+ * @param event The event to check
+ * @param userId The user ID of the potential calculator (organizer)
+ * @returns boolean indicating if winners can be calculated
+ */
+export function canCalculateWinners(event: Event | null, userId: string | null): boolean {
+  if (!event || !userId) return false;
+  
+  // Event must be completed with voting closed
+  if (event.status !== EventStatus.Completed || event.votingOpen === true) {
+    return false;
+  }
+  
+  // User must be an organizer
+  const isOrganizer = 
+    (Array.isArray(event.details?.organizers) && event.details.organizers.includes(userId)) ||
+    event.requestedBy === userId;
+    
+  return isOrganizer;
 }

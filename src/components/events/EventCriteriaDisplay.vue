@@ -6,7 +6,9 @@
         <li v-for="(alloc, idx) in criteria" :key="alloc.constraintIndex ?? idx" class="mb-2">
           <span class="text-warning me-2"><i class="fas fa-star"></i></span>
           <span class="fw-semibold">{{ alloc.constraintLabel || 'Unnamed Criteria' }}</span>
-          <span class="text-secondary ms-2">({{ alloc.points }} XP, {{ alloc.targetRole || alloc.role || 'No Role' }})</span>
+          <span class="text-secondary ms-2">
+            ({{ alloc.points }} XP, {{ getRoleDisplay(alloc) }})
+          </span>
         </li>
       </ul>
     </div>
@@ -15,8 +17,15 @@
 
 <script setup lang="ts">
 import type { EventCriteria } from '@/types/event';
+import { formatRoleName } from '@/utils/formatters';
 
 defineProps<{ criteria: EventCriteria[] }>();
+
+// Handle both role and targetRole properties consistently
+function getRoleDisplay(criterion: EventCriteria): string {
+  const role = criterion.targetRole || criterion.role;
+  return role ? formatRoleName(role) : 'No Role';
+}
 </script>
 
 <style scoped>

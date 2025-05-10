@@ -28,7 +28,7 @@ export async function createEventRequestInFirestore(initialData: Partial<Event>,
              status: EventStatus.Pending,
              createdAt: Timestamp.now(),
              lastUpdatedAt: Timestamp.now(),
-             ratingsOpen: false, // Default value
+             votingOpen: false, // Default value
         });
 
         // Remove fields that shouldn't be set on creation explicitly
@@ -162,23 +162,23 @@ export async function updateEventStatusInFirestore(eventId: string, newStatus: E
                 targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : [];
                 break;
             case EventStatus.InProgress:
-                updates.ratingsOpen = true; // Open ratings when starting
+                updates.votingOpen = true; // Open voting when starting
                 notificationType = 'event_in_progress';
                 targetUserIds = currentEvent.details?.organizers || [];
                 break;
             case EventStatus.Completed:
                 updates.completedAt = Timestamp.now();
-                updates.ratingsOpen = true; // Ensure ratings are open initially on completion
+                updates.votingOpen = true; // Ensure voting are open initially on completion
                 notificationType = 'event_completed';
                 targetUserIds = currentEvent.details?.organizers || [];
                 break;
             case EventStatus.Cancelled:
-                updates.ratingsOpen = false; // Close ratings on cancellation
+                updates.votingOpen = false; // Close voting on cancellation
                 notificationType = 'event_cancelled';
                 targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : [];
                 break;
             case EventStatus.Rejected:
-                updates.ratingsOpen = false;
+                updates.votingOpen = false;
                 notificationType = 'event_rejected'; // Assuming a type exists
                 targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : [];
                 break;
@@ -229,7 +229,7 @@ export async function closeEventDocumentInFirestore(eventId: string, currentUser
 
          // State Check
          if (eventData.status !== EventStatus.Completed) throw new Error("Event must be 'Completed' to be closed.");
-         if (eventData.ratingsOpen) throw new Error("Ratings must be closed before closing the event.");
+         if (eventData.votingOpen) throw new Error("Voting must be closed before closing the event.");
          if (!eventData.winners || Object.keys(eventData.winners).length === 0) throw new Error("Winners must be determined before closing.");
 
          // Update Firestore status and timestamp

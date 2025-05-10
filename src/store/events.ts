@@ -24,10 +24,10 @@ import {
 } from './events/actions.lifecycle';
 import { joinEventInFirestore, leaveEventInFirestore } from './events/actions.participants';
 import {
-    toggleRatingsOpenInFirestore, submitTeamCriteriaVoteInFirestore,
+    togglevotingOpenInFirestore, submitTeamCriteriaVoteInFirestore, // Fixed capitalization
     submitIndividualWinnerVoteInFirestore, submitOrganizationRatingInFirestore,
     calculateWinnersFromVotes, saveWinnersToFirestore, submitManualWinnerSelectionInFirestore
-} from './events/actions.ratings';
+} from './events/actions.voting'; // Changed import path
 import { submitProjectToEventInFirestore } from './events/actions.submissions';
 import { addTeamToEventInFirestore, updateEventTeamsInFirestore } from './events/actions.teams';
 import { checkExistingRequestsForUser, checkDateConflictInFirestore } from './events/actions.validation';
@@ -127,7 +127,7 @@ export const useEventStore = defineStore('events', {
             const eventWithDefaults = { // Ensure defaults for safety
                 ...eventData,
                 criteria: normalizedCriteria, // Use the normalized criteria
-                ratingsOpen: typeof eventData.ratingsOpen === 'boolean' ? eventData.ratingsOpen : false,
+                votingOpen: typeof eventData.votingOpen === 'boolean' ? eventData.votingOpen : false, // Changed from votingOpen
                 details: eventData.details || {},
             };
             if (index !== -1) {
@@ -325,23 +325,23 @@ export const useEventStore = defineStore('events', {
              }
          },
 
-         // --- Ratings Actions ---
-         async toggleRatingsOpen({ eventId, open }: { eventId: string; open: boolean }) {
+         // ---  Voting Actions ---
+         async toggleVotingOpen({ eventId, open }: { eventId: string; open: boolean }) { // Fixed method name (capitalized V)
               const userStore = useUserStore();
               const notificationStore = useNotificationStore();
 
               try {
-                  if (!userStore.uid) throw new Error("Authentication required to modify ratings.");
+                  if (!userStore.uid) throw new Error("Authentication required to modify voting status."); 
                   
-                  await toggleRatingsOpenInFirestore(eventId, open, userStore.uid);
+                  await togglevotingOpenInFirestore(eventId, open, userStore.uid); // Fixed function call (capitalized V)
                   await this.fetchEventDetails(eventId);
                   notificationStore.showNotification({ 
-                      message: `Ratings are now ${open ? 'Open' : 'Closed'}.`, 
+                      message: `Voting is now ${open ? 'open' : 'closed'}.`,
                       type: 'success' 
                   });
               } catch (error) {
                   notificationStore.showNotification({ 
-                      message: `Failed to toggle ratings: ${handleFirestoreError(error)}`, 
+                      message: `Failed to toggle voting status: ${handleFirestoreError(error)}`,
                       type: 'error' 
                   });
                   throw error;
@@ -606,7 +606,7 @@ export const useEventStore = defineStore('events', {
                   const isOrganizer = eventData.details?.organizers?.includes(currentUserUid ?? '') || eventData.requestedBy === currentUserUid;
                   if (!isOrganizer) throw new Error("Unauthorized: Only organizers can close events.");
                   if (eventData.status !== EventStatus.Completed) throw new Error("Event must be 'Completed' to be closed.");
-                  if (eventData.ratingsOpen) throw new Error("Ratings must be closed before closing the event.");
+                  if (eventData.votingOpen) throw new Error("Voting must be closed before closing the event."); // Changed from votingOpen
                   if (!eventData.winners || Object.keys(eventData.winners).length === 0) throw new Error("Winners must be determined before closing.");
 
                  // 3. Calculate XP (using helper)

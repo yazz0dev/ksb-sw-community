@@ -80,9 +80,6 @@ export const useUserStore = defineStore('user', {
         const userDocRef = doc(db, 'users', userId);
         const userDocSnap = await getDoc(userDocRef);
         if (!userDocSnap.exists()) {
-          console.warn(`No user profile found in Firestore for Firebase user ${userId}. Current user will be null.`);
-          // If this is the current user, ensure they are marked as not authenticated
-          // and their data is cleared.
           if (this.currentUser?.uid === userId || !this.currentUser) { // also handle case where currentUser was null
             this.currentUser = null;
             this.isAuthenticated = false;
@@ -100,9 +97,6 @@ export const useUserStore = defineStore('user', {
         if (this.uid === userId || !this.isAuthenticated) { // Check if current user or if no user is currently authenticated
             this.currentUser = userWithId;
             this.isAuthenticated = true; // Mark as authenticated since profile exists
-            console.log(`User data for ${userId} fetched and set as currentUser.`);
-        } else {
-            console.log(`User data for ${userId} fetched, but not set as currentUser (current is ${this.uid}).`);
         }
 
         // Update name cache
@@ -125,7 +119,6 @@ export const useUserStore = defineStore('user', {
     },
 
     async clearUserData(): Promise<void> {
-      console.log("Clearing user data...");
       this.currentUser = null;
       this.isAuthenticated = false;
       // this.hasFetched = false; // Controversial: depends on if you want to re-trigger initial auth logic
@@ -149,7 +142,6 @@ export const useUserStore = defineStore('user', {
       // this.studentList = [];
       // this.leaderboardUsers = [];
       this.error = null; // Clear any previous errors
-      console.log('User data cleared from store.');
     },
 
     // Add setHasFetched action
@@ -209,24 +201,22 @@ export const useUserStore = defineStore('user', {
           participatedEvent: userDataFromDb.participatedEvent || [],
           organizedEvent: userDataFromDb.organizedEvent || [],
           hasLaptop: userDataFromDb.hasLaptop === undefined ? false : userDataFromDb.hasLaptop,
-          email: userDataFromDb.email || null, // Ensure email is handled
+          email: userDataFromDb.email || null,        
         };
 
-        await this.fetchUserEvents(userId); // This fetches events based on participatedEvent/organizedEvent
-        await this.fetchUserProjects(userId, this.viewedUserEvents); // Pass fetched events
-
+        await this.fetchUserEvents(userId);        
+        await this.fetchUserProjects(userId, this.viewedUserEvents);
       } catch (error: any) {
         this.error = error;
         console.error('Error fetching user profile for view:', error);
-        // Don't throw here, let ProfileViewContent handle the error display via errorMessage ref
       } finally {
         this.loading = false;
+        // Additional logic if needed
       }
     },
 
     async fetchUserEvents(userId: string): Promise<void> {
       if (!this.viewedUserProfile && this.currentUser?.uid !== userId) {
-          console.warn(`fetchUserEvents: No profile data available to fetch events for ${userId}`);
           this.viewedUserEvents = [];
           return;
       }
@@ -298,7 +288,6 @@ export const useUserStore = defineStore('user', {
       const userProjects: UserProject[] = [];
       try {
         if (!userId) {
-          console.warn("User ID missing for fetchUserProjects");
           this.viewedUserProjects = [];
           return;
         }
@@ -337,7 +326,6 @@ export const useUserStore = defineStore('user', {
 
 
         if (!Array.isArray(eventsData) || eventsData.length === 0) {
-          console.log(`No events to scan for projects for user ${userId}`);
           this.viewedUserProjects = [];
           return;
         }
@@ -378,7 +366,6 @@ export const useUserStore = defineStore('user', {
     async fetchCurrentUserPortfolioData(): Promise<void> {
       if (!this.currentUser?.uid) {
         this.currentUserPortfolioData = { projects: [], eventParticipationCount: 0 };
-        console.warn('User not logged in for fetchCurrentUserPortfolioData, returning empty portfolio.');
         return;
       }
       const userId = this.currentUser.uid;
@@ -538,7 +525,6 @@ export const useUserStore = defineStore('user', {
     async fetchAllUsers(): Promise<void> {
       if (this.allUsers.length > 0 && this.hasFetched) { // Basic caching: if already fetched, don't refetch
           // This check is basic. For more robust caching, consider timestamps.
-          // console.log("fetchAllUsers: Using cached data.");
           // return;
       }
       this.loading = true;
@@ -571,12 +557,6 @@ export const useUserStore = defineStore('user', {
     },
 
     async fetchAllStudents(): Promise<void> {
-      // Basic caching: if already fetched, don't refetch unless forced
-      // if (this.studentList.length > 0 && !forceFetch) {
-      //   console.log("[UserStore fetchAllStudents] Using cached student list.");
-      //   return;
-      // }
-
       this.loading = true;
       this.error = null;
       try {
@@ -585,8 +565,6 @@ export const useUserStore = defineStore('user', {
         // Example: const q = query(usersRef, where('role', '==', 'student'), orderBy('name', 'asc'));
         const q = query(usersRef, orderBy('name', 'asc'));
         const snapshot = await getDocs(q);
-
-        console.log(`[UserStore fetchAllStudents] Firestore query returned ${snapshot.docs.length} documents.`);
 
         const students: UserData[] = [];
         snapshot.forEach(docSnap => {
@@ -602,10 +580,6 @@ export const useUserStore = defineStore('user', {
           }
         });
         this.studentList = students;
-        console.log('[UserStore fetchAllStudents] Successfully fetched and set students. Count:', this.studentList.length);
-        if (this.studentList.length > 0) {
-          // console.log('[UserStore fetchAllStudents] First fetched student:', JSON.stringify(this.studentList[0]));
-        }
       } catch (error: any) {
         this.error = error;
         console.error('Error fetching students:', error);
@@ -644,7 +618,6 @@ export const useUserStore = defineStore('user', {
                 this.nameCache.delete(key);
             }
         });
-        console.log("Stale name cache entries cleared.");
     },
 
   }

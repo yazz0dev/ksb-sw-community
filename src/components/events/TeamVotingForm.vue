@@ -24,7 +24,7 @@
             </div>
 
             <!-- Form Content -->
-            <form v-else @submit.prevent="submitTeamRatings">
+            <form v-else @submit.prevent="submitTeamVoting">
               <div class="d-flex flex-column" style="gap: 1.5rem;">
                 <!-- Team Selection Section -->
                 <div>
@@ -95,10 +95,10 @@
               type="button"
               class="btn btn-primary"
               :disabled="!isFormValid || isSubmitting"
-              @click="submitTeamRatings"
+              @click="submitTeamVoting"
             >
               <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-              {{ isSubmitting ? 'Submitting...' : 'Submit Ratings' }}
+              {{ isSubmitting ? 'Submitting...' : 'Submit Voting' }}
             </button>
           </div>
         </div>
@@ -256,7 +256,7 @@ const isFormValid = computed(() => {
 });
 
 
-const submitTeamRatings = async (): Promise<void> => {
+const submitTeamVoting = async (): Promise<void> => {
   if (!isFormValid.value || isSubmitting.value) return;
 
   isSubmitting.value = true;
@@ -265,7 +265,7 @@ const submitTeamRatings = async (): Promise<void> => {
   try {
     // Add a check to ensure current user is a participant in this team event
     if (!currentUserId.value) {
-      throw new Error('You must be logged in to submit ratings.');
+      throw new Error('You must be logged in to submit Voting.');
     }
     
     // Make sure user is a participant in at least one team
@@ -274,7 +274,7 @@ const submitTeamRatings = async (): Promise<void> => {
     );
     
     if (!userTeam) {
-      throw new Error('Only team participants can submit ratings.');
+      throw new Error('Only team participants can submit Voting.');
     }
 
     const criteriaPayload: Record<string, string> = {};
@@ -294,12 +294,12 @@ const submitTeamRatings = async (): Promise<void> => {
       }
     });
 
-    emit('submitted', { message: 'Team ratings submitted successfully!', type: 'success' });
+    emit('submitted', { message: 'Team Voting submitted successfully!', type: 'success' });
     emit('close');
 
   } catch (err) {
-    console.error('Error submitting team ratings:', err);
-    submissionError.value = (err as Error).message || 'Failed to submit ratings.';
+    console.error('Error submitting team Voting:', err);
+    submissionError.value = (err as Error).message || 'Failed to submit Voting.';
   } finally {
     isSubmitting.value = false;
   }

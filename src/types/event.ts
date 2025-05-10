@@ -120,7 +120,10 @@ export interface Event {
   winners?: WinnerInfo;
 
   gallery?: GalleryItem[];
-  ratingsOpen: boolean;
+  
+  // Controls if participants can submit votes
+  votingOpen: boolean;
+  
   bestPerformerSelections?: Record<string, string>;
 
   createdAt: Timestamp;

@@ -57,7 +57,6 @@ router.beforeEach((
     // it's safer to wait or redirect to a loading/landing page.
     // However, since main.ts delays mounting, hasFetched SHOULD be true here.
     // We'll log a warning if this unexpected state occurs.
-    console.warn("Router Guard: Navigating before initial auth state fetched. State:", userStore.hasFetched);
      // Let's allow navigation for now, assuming main.ts fixed the core issue.
      // If problems persist, we might need a dedicated loading route or better waiting here.
      // next({ name: 'Loading' }); // Example: Redirect to a loading route
@@ -69,7 +68,6 @@ router.beforeEach((
 
   // --- Guest Only routes ---
   if (routeMeta.guestOnly && isAuthenticated) {
-    console.log("Router Guard: Redirecting authenticated user from guest-only route to Home.");
     next({ name: 'Home', replace: true });
     return;
   }
@@ -77,14 +75,12 @@ router.beforeEach((
   // --- Requires Auth routes ---
   // Now that mounting is delayed, hasFetched should be true here.
   if (routeMeta.requiresAuth && !isAuthenticated) {
-     console.log("Router Guard: Redirecting unauthenticated user to Login.");
      next({ name: 'Login', query: { redirect: to.fullPath } });
      return;
   }
 
   // If none of the above conditions were met, allow navigation
   const routeNameStr = String(to.name ?? 'Unnamed Route');
-  console.log(`Router Guard: Allowing navigation to ${routeNameStr}.`);
   next();
 });
 

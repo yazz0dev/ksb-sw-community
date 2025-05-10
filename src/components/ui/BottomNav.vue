@@ -70,7 +70,6 @@ const userName = computed<string | null>(() => userStore.currentUser?.name ?? nu
 
 const handleImageError = (): void => {
   imgError.value = true;
-  console.warn('Failed to load profile image:', userProfilePicUrl.value);
 };
 
 </script>

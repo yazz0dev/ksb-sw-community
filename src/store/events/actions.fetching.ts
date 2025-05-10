@@ -27,7 +27,7 @@ export async function fetchAllEventsFromFirestore(): Promise<Event[]> {
                 details: data.details || {}, // Ensure details exists
                 createdAt: data.createdAt,
                 lastUpdatedAt: data.lastUpdatedAt,
-                ratingsOpen: typeof data.ratingsOpen === 'boolean' ? data.ratingsOpen : false, // Default
+                votingOpen: typeof data.votingOpen === 'boolean' ? data.votingOpen : false, // Default
                 // Add other necessary fields with defaults if needed
             } as Event); // Cast carefully
         });

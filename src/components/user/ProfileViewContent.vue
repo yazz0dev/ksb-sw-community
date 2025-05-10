@@ -363,11 +363,9 @@ const sortedEventsHistory = computed(() => {
 const handleImageError = (e: Event) => { // Use standard DOM Event type
   const target = e.target as HTMLImageElement | null;
   if (target) {
-    console.log('Image failed to load, using default avatar');
     target.src = defaultAvatarUrl;
     // Add fallback in case the default avatar also fails
     target.onerror = () => {
-      console.error('Default avatar also failed to load');
       target.onerror = null; // Prevent infinite loop
       target.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23ddd%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%23666%22%20font-family%3D%22sans-serif%22%20font-size%3D%2240%22%20dy%3D%22.3em%22%20text-anchor%3D%22middle%22%20x%3D%22100%22%20y%3D%22100%22%3EUser%3C%2Ftext%3E%3C%2Fsvg%3E';
     };
@@ -497,7 +495,6 @@ const openEditProfile = () => {
   if (props.userId) {
     router.push({ name: 'EditProfile', params: { id: props.userId } });
   } else {
-    console.error("Cannot open edit profile: User ID is missing.");
     // Optionally show a notification
   }
 };

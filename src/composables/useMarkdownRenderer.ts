@@ -28,6 +28,7 @@ export function useMarkdownRenderer() {
       // 3. Return the safe HTML.
       return cleanHtml;
     } catch (error) {
+      // Keep console.error for critical error logging
       console.error("Markdown rendering failed:", error);
       // Provide a user-friendly error message within safe HTML
       return '<p class="text-danger">Error rendering content.</p>';

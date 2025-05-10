@@ -58,12 +58,48 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-// --- Push Notification Setup (Keep existing functions) ---
+// --- Push Notification Setup ---
 async function registerForPushNotifications() {
-  /* ... */
+  try {
+    const OneSignal = getOneSignal();
+    if (!OneSignal || typeof OneSignal.registerForPushNotifications !== 'function') {
+      console.warn("OneSignal not available for push registration");
+      return;
+    }
+    
+    await OneSignal.registerForPushNotifications();
+    
+    const userStore = useUserStore(pinia);
+    if (userStore.uid && typeof OneSignal.setExternalUserId === 'function') {
+      await OneSignal.setExternalUserId(userStore.uid);
+      console.log("Push notifications registered for user:", userStore.uid);
+    }
+  } catch (error) {
+    console.error("Failed to register for push notifications:", error);
+  }
 }
+
 async function initOneSignal() {
-  /* ... */
+  try {
+    const OneSignal = getOneSignal();
+    if (!OneSignal) {
+      console.warn("OneSignal not available for initialization");
+      return;
+    }
+    
+    await OneSignal.init({
+      appId: import.meta.env.VITE_ONESIGNAL_APP_ID || '',
+      allowLocalhostAsSecureOrigin: true,
+      serviceWorkerPath: '/OneSignalSDKWorker.js',
+      notifyButton: { enable: false },
+    });
+    
+    console.log("OneSignal initialized successfully");
+    return OneSignal;
+  } catch (error) {
+    console.error("Failed to initialize OneSignal:", error);
+    return null;
+  }
 }
 
 // --- Firebase Auth State Listener ---

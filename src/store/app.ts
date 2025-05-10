@@ -6,7 +6,6 @@ import { db } from '../firebase'; // Adjusted path
 
 // Import other Pinia stores needed for dispatching actions during sync
 import { useEventStore } from './events'; // Import event store
-// import { useSubmissionStore } from './submissions'; // Example
 import { useNotificationStore } from './notification'; // Import notification store
 
 export const useAppStore = defineStore('app', {
@@ -81,10 +80,8 @@ export const useAppStore = defineStore('app', {
       try {
         if (this.networkStatus.online) {
           await enableNetwork(db);
-          console.log('Firebase network connection enabled');
         } else {
           await disableNetwork(db);
-          console.log('Firebase network connection disabled');
         }
       } catch (error) {
          console.error('Error toggling Firebase network connection:', error);
@@ -109,7 +106,6 @@ export const useAppStore = defineStore('app', {
         // Set initial status
         this.setOnlineStatus(navigator.onLine);
         (window as any).__offlineListenersInitialized = true; // Mark as initialized
-        console.log('Offline listeners initialized.');
       } catch (error) {
         console.error('Error setting up offline listeners:', error);
       }
@@ -161,7 +157,6 @@ export const useAppStore = defineStore('app', {
       if (supported.includes(type)) {
         const id = `queued_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         this.addOfflineChange({ id, type, payload, timestamp: Date.now() });
-        console.log(`Action ${type} queued for offline execution.`);
 
         // Show notification that action is queued
         const notificationStore = useNotificationStore();
@@ -173,7 +168,6 @@ export const useAppStore = defineStore('app', {
 
         return { queued: true };
       } else {
-        console.warn(`Action ${type} cannot be performed offline.`);
         throw new Error(`Action ${type} cannot be performed offline`);
       }
     },
@@ -183,7 +177,6 @@ export const useAppStore = defineStore('app', {
         return;
       }
 
-      console.log(`Starting sync for ${this.pendingOfflineChangesCount} offline actions.`);
       this.setOfflineQueueSyncing(true);
       this.setOfflineQueueLastError(null);
 
@@ -196,8 +189,6 @@ export const useAppStore = defineStore('app', {
 
       // Import stores *inside* the action
       const eventStore = useEventStore();
-      // Add imports for other stores as needed (e.g., submissions)
-      // const submissionStore = useSubmissionStore(); // Example
 
       const actionsToProcess = [...this.offlineQueue.actions];
       let successCount = 0;
@@ -205,7 +196,6 @@ export const useAppStore = defineStore('app', {
 
       for (const action of actionsToProcess) {
         try {
-          console.log(`Attempting to replay action: ${action.type}`);
           const [storeId, actionName] = action.type.split('/'); // e.g., 'events/submitTeamCriteriaVote'
 
           // Directly call the action method on the store instance
@@ -214,9 +204,6 @@ export const useAppStore = defineStore('app', {
             case 'events':
               store = eventStore;
               break;
-            // case 'submissions': // Example for another store
-            //   store = submissionStore;
-            //   break;
             default:
               throw new Error(`Unknown store identifier: ${storeId}`);
           }
@@ -227,8 +214,6 @@ export const useAppStore = defineStore('app', {
             throw new Error(`Action ${actionName} not found in ${storeId} store.`);
           }
 
-
-          console.log(`Successfully replayed action: ${action.type} (${action.id})`);
           this.removeQueuedAction(action.id);
           successCount++;
         } catch (error: any) {
@@ -241,7 +226,6 @@ export const useAppStore = defineStore('app', {
 
       this.setOfflineQueueSyncing(false);
       this.setOfflineQueueLastSync(Date.now());
-      console.log(`Offline sync completed. Success: ${successCount}, Failed: ${failCount}.`);
 
       if (failCount > 0) {
           notificationStore.showNotification({
@@ -249,7 +233,6 @@ export const useAppStore = defineStore('app', {
               type: 'warning',
               duration: 5000
           });
-          console.warn("Failed Actions:", this.offlineQueue.failedActions);
       } else if (successCount > 0) {
            notificationStore.showNotification({
               message: `Sync complete. ${successCount} action(s) processed.`,
@@ -265,7 +248,6 @@ export const useAppStore = defineStore('app', {
          this.setOnlineStatus(online);
       }
       if (online && this.hasPendingOfflineChanges) {
-        console.log("Network check: Online with pending changes, triggering sync.");
         await this.syncOfflineChanges();
       }
     },

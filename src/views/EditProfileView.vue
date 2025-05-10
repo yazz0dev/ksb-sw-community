@@ -94,10 +94,12 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/store/user';
+import { useNotificationStore } from '@/store/notification';
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+const notificationStore = useNotificationStore();
 
 const loading = ref(false);
 const error = ref('');
@@ -165,15 +167,17 @@ async function saveProfileEdits() {
       photoURL: form.value.photoURL.trim(),
       bio: form.value.bio.trim(),
       socialLink: form.value.socialLink.trim(),
-      skills: form.value.skills.split(',').map(s => s.trim()).filter(Boolean),
-      preferredRoles: form.value.preferredRoles.split(',').map(r => r.trim()).filter(Boolean),
-      hasLaptop: form.value.hasLaptop
+      hasLaptop: form.value.hasLaptop,
+      skills: form.value.skills ? form.value.skills.split(',').map(skill => skill.trim()).filter(Boolean) : [],
+      preferredRoles: form.value.preferredRoles ? form.value.preferredRoles.split(',').map(role => role.trim()).filter(Boolean) : []
     };
-
+    
     await userStore.updateUserProfile({ userId, profileData: updatePayload });
+    notificationStore.showNotification({ message: 'Profile updated successfully', type: 'success' });
     router.back();
   } catch (err: any) {
     error.value = err?.message || 'Failed to update profile';
+    notificationStore.showNotification({ message: error.value, type: 'error' });
   } finally {
     loading.value = false;
   }

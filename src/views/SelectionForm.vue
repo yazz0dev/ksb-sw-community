@@ -29,11 +29,11 @@
       </div>
 
       <div v-else-if="!event" class="alert alert-warning" role="alert">
-         Event not found or ratings are not open.
+         Event not found or voting is not open.
       </div>
 
-      <div v-else-if="!isManualModeActive && !hasValidRatingCriteria" class="alert alert-warning" role="alert">
-         This event has no valid rating criteria defined for voting. Please contact an event organizer.
+      <div v-else-if="!isManualModeActive && !hasValidVotingCriteria" class="alert alert-warning" role="alert">
+         This event has no valid voting criteria defined. Please contact an event organizer.
       </div>
       
       <div v-else-if="isManualModeActive && !isOrganizer" class="alert alert-danger" role="alert">
@@ -109,7 +109,7 @@
                           v-else
                           :id="`team-select-vote-${allocation.constraintIndex}`"
                           class="form-select form-select-sm"
-                          v-model="teamRatings[`constraint${allocation.constraintIndex}`]"
+                          v-model="teamVoting[`constraint${allocation.constraintIndex}`]"
                           required
                           :disabled="isSubmitting"
                         >
@@ -155,7 +155,7 @@
                           v-else
                           id="team-select-best-performer-vote"
                           class="form-select form-select-sm"
-                          v-model="teamRatings['bestPerformer']"
+                          v-model="teamVoting['bestPerformer']"
                           required
                           :disabled="isSubmitting"
                         >
@@ -216,7 +216,7 @@
                             v-else
                             :id="`winner-select-vote-${allocation.constraintIndex}`"
                             class="form-select form-select-sm"
-                            v-model="individualRatings[`constraint${allocation.constraintIndex}`]"
+                            v-model="individualVoting[`constraint${allocation.constraintIndex}`]"
                             required
                             :disabled="isSubmitting"
                           >
@@ -230,7 +230,7 @@
                               <span v-if="participantId === currentUser?.uid">(You - Cannot Select)</span>
                             </option>
                           </select>
-                          <small class="text-danger" v-if="!isManualModeActive && individualRatings[`constraint${allocation.constraintIndex}`] === currentUser?.uid">
+                          <small class="text-danger" v-if="!isManualModeActive && individualVoting[`constraint${allocation.constraintIndex}`] === currentUser?.uid">
                             You cannot vote for yourself
                           </small>
                         </div>
@@ -282,11 +282,14 @@ import { Event, EventFormat, EventStatus, Team, EventCriteria } from '@/types/ev
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 import { formatRoleName } from '@/utils/formatters';
 
-// --- Types for ratings ---
-interface TeamRatings {
+// Import the utility functions
+import { createTeamVotePayload, createIndividualVotePayload, createManualWinnerPayload, getValidCriteria } from '@/utils/eventDataUtils';
+
+// --- Types for Voting ---
+interface TeamVoting {
   [constraintKey: string]: string;
 }
-interface IndividualRatings {
+interface IndividualVoting {
   [constraintKey: string]: string;
 }
 // For manual selection by organizer
@@ -294,9 +297,9 @@ interface ManualSelections {
   [constraintKey: string]: string; // Stores selected team name or participant UID
 }
 
-// --- Reactive state for ratings ---
-const teamRatings = reactive<TeamRatings>({});
-const individualRatings = reactive<IndividualRatings>({});
+// --- Reactive state for Voting ---
+const teamVoting = reactive<TeamVoting>({});
+const individualVoting = reactive<IndividualVoting>({});
 const manualSelections = reactive<ManualSelections>({}); // For manual mode
 const manualBestPerformerSelection = ref<string>(''); // For manual mode (team events)
 const isFindingWinner = ref(false);
@@ -384,65 +387,43 @@ const sortedXpAllocation = computed<EventCriteria[]>(() => {
     .sort((a, b) => (a.constraintIndex ?? Infinity) - (b.constraintIndex ?? Infinity));
 });
 
-const hasValidRatingCriteria = computed<boolean>(() => {
+const hasValidVotingCriteria = computed<boolean>(() => {
   console.log('[SelectionForm] Checking hasValidRatingCriteria...');
   if (!event.value) {
     console.log('[SelectionForm] Event data is not loaded.');
     return false;
   }
-  if (!Array.isArray(event.value.criteria)) {
-    console.log('[SelectionForm] Event criteria is not an array or is missing:', event.value.criteria);
-    return false;
-  }
-  console.log('[SelectionForm] Event raw criteria:', JSON.parse(JSON.stringify(event.value.criteria)));
+  
   console.log('[SelectionForm] Is Manual Mode Active:', isManualModeActive.value);
 
   // For manual mode, the organizer should be able to see the form if any criteria exist,
   // even if points are 0 or labels are being finalized.
   if (isManualModeActive.value) {
-    const manualModeResult = event.value.criteria.length > 0;
+    const manualModeResult = !!(event.value.criteria && event.value.criteria.length > 0);
     console.log('[SelectionForm] Manual Mode: Criteria length > 0:', manualModeResult);
     return manualModeResult;
   }
 
   // Voting Mode Checks:
-  console.log('[SelectionForm] Voting Mode: Event Status:', event.value.status, 'Ratings Open:', event.value.ratingsOpen);
-  if (event.value.status !== EventStatus.Completed || event.value.ratingsOpen !== true) {
-    console.log('[SelectionForm] Voting Mode: Event not completed or ratings not open.');
+  console.log('[SelectionForm] Voting Mode: Event Status:', event.value.status, 'Voting Open:', event.value.votingOpen);
+  if (event.value.status !== EventStatus.Completed || event.value.votingOpen !== true) {
+    console.log('[SelectionForm] Voting Mode: Event not completed or Voting not open.');
     return false;
   }
 
-  // Filter for criteria that are generally "valid" for display or processing.
-  // A criterion is considered for voting if it has a label, positive points, and a constraintIndex.
-  const votableCriteria = event.value.criteria.filter((c, index) => {
-    console.log(`[SelectionForm] Voting Mode: Evaluating criterion at index ${index}:`, JSON.parse(JSON.stringify(c)));
-    const hasLabel = !!c.constraintLabel;
-    const hasValidPoints = typeof c.points === 'number' && c.points > 0;
-    const hasValidIndex = typeof c.constraintIndex === 'number';
-    
-    console.log(`[SelectionForm] Criterion ${index} - Has Label: ${hasLabel} (Value: "${c.constraintLabel}")`);
-    console.log(`[SelectionForm] Criterion ${index} - Has Valid Points: ${hasValidPoints} (Value: ${c.points}, Type: ${typeof c.points})`);
-    console.log(`[SelectionForm] Criterion ${index} - Has Valid constraintIndex: ${hasValidIndex} (Value: ${c.constraintIndex}, Type: ${typeof c.constraintIndex})`);
-    
-    const isValidCriterion = hasLabel && hasValidPoints && hasValidIndex;
-    console.log(`[SelectionForm] Criterion ${index} - Is Valid for Voting: ${isValidCriterion}`);
-    return isValidCriterion;
-  });
-  console.log('[SelectionForm] Voting Mode: Filtered Votable Criteria (label, points > 0, index):', JSON.parse(JSON.stringify(votableCriteria)));
-
+  const votableCriteria = getValidCriteria(event.value);
+  console.log('[SelectionForm] Voting Mode: Votable Criteria:', JSON.parse(JSON.stringify(votableCriteria)));
+  
   if (isTeamEvent.value) {
     console.log('[SelectionForm] Voting Mode: Is Team Event. BEST_PERFORMER_LABEL:', BEST_PERFORMER_LABEL);
-    // For team events, "Best Performer" is handled separately or is an overall award.
-    // We need at least one *other* specific criterion to vote on.
-    const teamSpecificVotableCriteria = votableCriteria.filter(c => c.constraintLabel !== BEST_PERFORMER_LABEL);
+    // For team events, we need at least one criterion other than Best Performer
+    const teamSpecificVotableCriteria = getValidCriteria(event.value, true); // exclude Best Performer
     const teamResult = teamSpecificVotableCriteria.length > 0;
-    console.log('[SelectionForm] Voting Mode: Team Specific Votable Criteria (excluding Best Performer):', JSON.parse(JSON.stringify(teamSpecificVotableCriteria)));
     console.log('[SelectionForm] Voting Mode: Team Event Result (teamSpecificVotableCriteria.length > 0):', teamResult);
     return teamResult;
   } else {
-    // For individual/competition events, any valid criterion (with label and points > 0) is votable.
+    // For individual/competition events, any valid criterion is enough
     const individualResult = votableCriteria.length > 0;
-    console.log('[SelectionForm] Voting Mode: Individual/Competition Event. Votable Criteria:', JSON.parse(JSON.stringify(votableCriteria)));
     console.log('[SelectionForm] Voting Mode: Individual/Competition Event Result (votableCriteria.length > 0):', individualResult);
     return individualResult;
   }
@@ -451,7 +432,7 @@ const hasValidRatingCriteria = computed<boolean>(() => {
 // Improved isValid computed property to prevent self-voting
 const isValid = computed<boolean>(() => {
   if (isManualModeActive.value) return true; // Validation for manual mode is separate
-  if (!hasValidRatingCriteria.value) return false;
+  if (!hasValidVotingCriteria.value) return false;
 
   const relevantCriteria = sortedXpAllocation.value.filter(allocation =>
     isTeamEvent.value ? allocation.constraintLabel !== BEST_PERFORMER_LABEL : true
@@ -459,7 +440,7 @@ const isValid = computed<boolean>(() => {
 
   // For individual events, ensure no self-voting
   if (!isTeamEvent.value && currentUser.value?.uid) {
-    const selfVote = Object.values(individualRatings).some(
+    const selfVote = Object.values(individualVoting).some(
       selection => selection === currentUser.value?.uid
     );
     if (selfVote) return false;
@@ -468,11 +449,11 @@ const isValid = computed<boolean>(() => {
   const allCriteriaSelected = relevantCriteria.every(allocation => {
     const ratingKey = `constraint${allocation.constraintIndex}`;
     return isTeamEvent.value
-      ? !!teamRatings[ratingKey] && teamRatings[ratingKey] !== ''
-      : !!individualRatings[ratingKey] && individualRatings[ratingKey] !== '';
+      ? !!teamVoting[ratingKey] && teamVoting[ratingKey] !== ''
+      : !!individualVoting[ratingKey] && individualVoting[ratingKey] !== '';
   });
 
-  const bestPerformerSelected = isTeamEvent.value ? (!!teamRatings['bestPerformer'] && teamRatings['bestPerformer'] !== '') : true;
+  const bestPerformerSelected = isTeamEvent.value ? (!!teamVoting['bestPerformer'] && teamVoting['bestPerformer'] !== '') : true;
 
   return allCriteriaSelected && bestPerformerSelected;
 });
@@ -533,14 +514,14 @@ const canSubmitSelection = computed(() => {
   if (isManualModeActive.value) return false; // This is for voting mode
   return isParticipant.value &&
          event.value?.status === EventStatus.Completed &&
-         event.value?.ratingsOpen === true;
+         event.value?.votingOpen === true;
 });
 
 const canFindWinner = computed(() => {
   if (isManualModeActive.value) return false; // Not shown in manual mode
   return isOrganizer.value &&
          event.value?.status === EventStatus.Completed &&
-         event.value?.ratingsOpen === false;
+         event.value?.votingOpen === false;
 });
 
 const selectableBestPerformers = computed(() => {
@@ -568,13 +549,13 @@ const getTeamNameForMember = (memberId: string): string => {
 
 // --- Watchers ---
 watch([sortedXpAllocation, isTeamEvent, isManualModeActive], ([allocations, teamEventStatus, manualMode]) => {
-  Object.keys(teamRatings).forEach(key => delete teamRatings[key]);
-  Object.keys(individualRatings).forEach(key => delete individualRatings[key]);
+  Object.keys(teamVoting).forEach(key => delete teamVoting[key]);
+  Object.keys(individualVoting).forEach(key => delete individualVoting[key]);
   Object.keys(manualSelections).forEach(key => delete manualSelections[key]);
   manualBestPerformerSelection.value = '';
 
   if (teamEventStatus) {
-    if (!manualMode) teamRatings['bestPerformer'] = '';
+    if (!manualMode) teamVoting['bestPerformer'] = '';
     else manualBestPerformerSelection.value = '';
   }
 
@@ -586,19 +567,15 @@ watch([sortedXpAllocation, isTeamEvent, isManualModeActive], ([allocations, team
             manualSelections[allocationKey] = '';
           } else {
             if (teamEventStatus && allocation.constraintLabel !== BEST_PERFORMER_LABEL) {
-                teamRatings[allocationKey] = '';
+                teamVoting[allocationKey] = '';
             } else if (!teamEventStatus) {
-                individualRatings[allocationKey] = '';
+                individualVoting[allocationKey] = '';
             }
           }
       }
     });
   }
-  // If entering manual mode, try to load existing winners
-  if (manualMode && event.value) {
-    loadExistingWinnersForManualMode();
-  }
-}, { immediate: true, deep: true });
+});
 
 watch([availableParticipants, event], async ([participants]) => {
   if (!isTeamEvent.value && Array.isArray(participants) && participants.length > 0) {
@@ -660,9 +637,9 @@ const fetchEventDetails = async (): Promise<void> => {
       }
       await initializeFormForManualMode(eventData);
     } else {
-      // Allow loading even if ratings aren't open, control form display later
-      // if (eventData.status !== EventStatus.Completed || eventData.ratingsOpen !== true) {
-      //    throw new Error('Event ratings are not currently open.');
+      // Allow loading even if Voting aren't open, control form display later
+      // if (eventData.status !== EventStatus.Completed || eventData.votingOpen !== true) {
+      //    throw new Error('Event Voting are not currently open.');
       // }
       if (isTeamEvent.value) {
         await initializeTeamEventForm(eventData, currentUid);
@@ -729,8 +706,8 @@ const initializeTeamEventForm = async (eventDetails: Event, currentUserId: strin
       if (typeof alloc.constraintIndex === 'number') {
         const key = `constraint${alloc.constraintIndex}`;
         // Check if the key exists in our reactive object before assigning
-        if (userSelection !== undefined && teamRatings.hasOwnProperty(key)) {
-          teamRatings[key] = userSelection; // Restore vote
+        if (userSelection !== undefined && teamVoting.hasOwnProperty(key)) {
+          teamVoting[key] = userSelection; // Restore vote
           loadedFromCriteria = true;
         }
       }
@@ -741,19 +718,19 @@ const initializeTeamEventForm = async (eventDetails: Event, currentUserId: strin
   // Restore best performer selection
   const bestPerformerSelection = eventDetails.bestPerformerSelections?.[currentUserId];
   // Ensure 'bestPerformer' key exists before assigning
-  if (teamRatings.hasOwnProperty('bestPerformer')) {
+  if (teamVoting.hasOwnProperty('bestPerformer')) {
       if (bestPerformerSelection) {
           const currentUserTeamName = teamMemberMap.value[currentUserId];
           const bestPerformerTeamName = teamMemberMap.value[bestPerformerSelection];
           if (bestPerformerTeamName !== currentUserTeamName) {
-              teamRatings['bestPerformer'] = bestPerformerSelection;
+              teamVoting['bestPerformer'] = bestPerformerSelection;
               didLoadExistingRating.value = true;
           } else {
               console.warn("Stored best performer selection is invalid (same team). Resetting.");
-              teamRatings['bestPerformer'] = ''; // Reset if invalid
+              teamVoting['bestPerformer'] = ''; // Reset if invalid
           }
       } else {
-          teamRatings['bestPerformer'] = ''; // Ensure it's reset if not found
+          teamVoting['bestPerformer'] = ''; // Ensure it's reset if not found
       }
   }
 };
@@ -772,8 +749,8 @@ const initializeIndividualEventForm = async (eventDetails: Event, currentUserId:
         if (typeof alloc.constraintIndex === 'number') {
           const key = `constraint${alloc.constraintIndex}`;
           // Check if the key exists in our reactive object before assigning
-          if (winnerId !== undefined && individualRatings.hasOwnProperty(key)) {
-            individualRatings[key] = winnerId;
+          if (winnerId !== undefined && individualVoting.hasOwnProperty(key)) {
+            individualVoting[key] = winnerId;
             loaded = true;
           }
         }
@@ -850,38 +827,21 @@ const submitSelection = async (): Promise<void> => {
 
   try {
     if (isTeamEvent.value) {
-        const criteriaPayload: Record<string, string> = {};
-        sortedXpAllocation.value
-          .filter(alloc => alloc.constraintLabel !== BEST_PERFORMER_LABEL && typeof alloc.constraintIndex === 'number')
-          .forEach(allocation => {
-            const key = `constraint${allocation.constraintIndex}`;
-            // FIX: Use || '' to ensure string type for payload
-            criteriaPayload[String(allocation.constraintIndex)] = teamRatings[key] || '';
-          });
-
-        const payload = {
-            eventId: props.eventId,
-            selections: {
-                criteria: criteriaPayload,
-                // FIX: Use fallback || undefined for bestPerformer to match expected type string | undefined
-                bestPerformer: teamRatings['bestPerformer'] || undefined
-            }
-        };
+        // Use the utility function to create a consistent payload
+        const payload = createTeamVotePayload(
+          props.eventId, 
+          teamVoting, 
+          teamVoting['bestPerformer']
+        );
+        
         await eventStore.submitTeamCriteriaVote(payload);
     } else {
-         const winnerSelections: Record<string, string> = {};
-         sortedXpAllocation.value
-             .filter(alloc => typeof alloc.constraintIndex === 'number')
-             .forEach(allocation => {
-                const key = `constraint${allocation.constraintIndex}`;
-                // FIX: Use || '' to ensure string type for payload
-                winnerSelections[String(allocation.constraintIndex)] = individualRatings[key] || '';
-             });
+        // Use the utility function to create a consistent payload
+        const payload = createIndividualVotePayload(
+          props.eventId,
+          individualVoting
+        );
 
-        const payload = {
-            eventId: props.eventId,
-            winnerSelections: winnerSelections
-        };
         await eventStore.submitIndividualWinnerVote(payload);
     }
 
@@ -917,23 +877,14 @@ const submitManualSelection = async (): Promise<void> => {
   errorMessage.value = '';
 
   try {
-    const finalWinnerSelections: Record<string, string[]> = {};
-    Object.entries(manualSelections).forEach(([key, value]) => {
-      // key is like "constraint0", "constraint1". We need to extract the index.
-      const criterionIndex = key.replace('constraint', '');
-      if (value) { // Only include if a selection was made
-        finalWinnerSelections[criterionIndex] = [value];
-      }
-    });
-
-    if (isTeamEvent.value && manualBestPerformerSelection.value) {
-      finalWinnerSelections['bestPerformer'] = [manualBestPerformerSelection.value];
-    }
+    // Use the utility function to create a consistent payload
+    const payload = createManualWinnerPayload(
+      props.eventId,
+      manualSelections,
+      isTeamEvent.value ? manualBestPerformerSelection.value : undefined
+    );
     
-    await eventStore.submitManualWinnerSelection({
-      eventId: props.eventId,
-      winnerSelections: finalWinnerSelections,
-    });
+    await eventStore.submitManualWinnerSelection(payload);
 
     notificationStore.showNotification({
       message: 'Winners saved successfully!',
@@ -1070,7 +1021,7 @@ const getStatusMessage = (): string => {
     if (event.value?.status !== EventStatus.Completed) {
         return "Selections can only be submitted after the event is marked as 'Completed'.";
     }
-    if (event.value?.ratingsOpen !== true) {
+    if (event.value?.votingOpen !== true) {
         return "The selection period for this event is currently closed.";
     }
     return "You are not currently eligible to submit selections for this event.";

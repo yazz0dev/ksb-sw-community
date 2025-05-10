@@ -41,7 +41,6 @@ export function mapEventDataToFirestore(eventData: Partial<Event>): Record<strin
             teamName: t.teamName || '',
             members: Array.isArray(t.members) ? t.members.filter(Boolean) : [],
             teamLead: t.teamLead || (Array.isArray(t.members) && t.members.length > 0 ? t.members[0] : ''),
-            // Submissions and ratings are no longer part of Team type for Firestore storage
         }));
         // Calculate teamMembersFlat if teams are present
         mappedData.teamMembersFlat = Array.from(new Set(mappedData.teams.flatMap((team: Team) => team.members || []).filter(Boolean)));

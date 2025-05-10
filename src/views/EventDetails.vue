@@ -85,7 +85,7 @@
                 <TeamList
                   :teams="teams"
                   :event-id="props.id"
-                  :ratingsOpen="event.ratingsOpen"
+                  :votingOpen="event.votingOpen"
                   :getUserName="getUserNameFromCache"
                   :organizerNamesLoading="organizerNamesLoading"
                   :currentUserUid="currentUserId"
@@ -104,7 +104,7 @@
             </div>
           </div>
 
-          <!-- Sidebar Column: Submissions & Ratings -->
+          <!-- Sidebar Column: Submissions & Voting -->
           <div class="col-12 col-lg-4">
             <div class="sticky-lg-top" style="top: 80px;">
               <!-- Submission Section -->
@@ -118,8 +118,8 @@
                 @open-submission-modal="triggerSubmitModalOpen"
                 class="mb-4"
               />
-              <!-- Rating Section -->
-              <EventRatingTrigger
+              <!-- Voting Section -->
+              <EventVotingTrigger
                 :event="event"
                 :currentUser="currentUser"
                 :isCurrentUserParticipant="isCurrentUserParticipant"
@@ -138,28 +138,28 @@
                     <p class="small text-secondary fst-italic">Please log in to participate.</p>
                  </template>
                  <template v-else-if="event.status !== EventStatus.Completed">
-                    <p class="small text-secondary fst-italic">Selection/Rating available once event is completed.</p>
+                    <p class="small text-secondary fst-italic">Voting available once event is completed.</p>
                  </template>
-                 <template v-else-if="event.ratingsOpen !== true">
-                    <p class="small text-secondary fst-italic">Selection/Rating is currently closed.</p>
+                 <template v-else-if="event.votingOpen !== true">
+                    <p class="small text-secondary fst-italic">Voting is currently closed.</p>
                  </template>
                  <template v-else-if="!isCurrentUserParticipant">
-                    <p class="small text-secondary fst-italic">Must be a participant to select/rate.</p>
+                    <p class="small text-secondary fst-italic">Must be a participant to vote.</p>
                  </template>
-                 <template v-else-if="hasUserRated">
+                 <template v-else-if="hasUserVoted">
                      <p class="alert alert-success alert-sm py-2 d-flex align-items-center mb-2">
-                         <i class="fas fa-check-circle me-2"></i> You have submitted selections/ratings.
+                         <i class="fas fa-check-circle me-2"></i> You have submitted your vote.
                      </p>
-                     <button v-if="canEditSubmission" @click="openRatingForm" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center">
-                         <i class="fas fa-edit me-1"></i> Edit Selection
+                     <button v-if="canEditSubmission" @click="openVotingForm" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center">
+                         <i class="fas fa-edit me-1"></i> Edit Vote
                      </button>
                  </template>
                  <template v-else>
-                    <button @click="openRatingForm" class="btn btn-sm btn-primary d-inline-flex align-items-center mt-2">
-                      <i class="fas fa-trophy me-1"></i> Select/Rate Now
+                    <button @click="openVotingForm" class="btn btn-sm btn-primary d-inline-flex align-items-center mt-2">
+                      <i class="fas fa-vote-yea me-1"></i> Vote Now
                     </button>
                  </template>
-              </EventRatingTrigger>
+              </EventVotingTrigger>
 
               <!-- Organizer Rating Form -->
               <OrganizerRatingForm
@@ -239,7 +239,7 @@ import { useNotificationStore } from '@/store/notification';
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
 import EventParticipantList from '@/components/events/EventParticipantList.vue';
 import EventSubmissionsSection from '@/components/events/EventSubmissionsSection.vue';
-import EventRatingTrigger from '@/components/events/EventRatingTrigger.vue';
+import EventVotingTrigger from '@/components/events/EventVotingTrigger.vue';
 import OrganizerRatingForm from '@/components/events/OrganizerRatingForm.vue';
 import TeamList from '@/components/events/TeamList.vue';
 import EventManageControls from '@/components/events/EventManageControls.vue';
@@ -250,6 +250,10 @@ import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
 // Type Imports
 import { EventStatus, type Event, type Team, type Submission, EventFormat, type EventCriteria } from '@/types/event';
 import { User } from '@/types/user';
+
+// Import utility functions
+import { hasUserSubmittedVotes } from '@/utils/eventDataUtils';
+import { canVoteInEvent } from '@/utils/permissionHelpers';
 
 // --- Local Types & Interfaces ---
 interface SubmissionFormData {
@@ -402,25 +406,15 @@ const canSubmitProject = computed(() => {
   }
 });
 
-// Checks if the user has already submitted ratings/selections
-const hasUserRated = computed(() => {
-    if (!event.value || !currentUser.value?.uid) return false;
-    const uid = currentUser.value.uid;
-    const criteriaArray = Array.isArray(event.value.criteria) ? event.value.criteria : [];
-
-    if (isTeamEvent.value) {
-        const criteriaRated = criteriaArray.some((c: EventCriteria) => c.criteriaSelections?.[uid]);
-        const bestPerformerRated = !!event.value.bestPerformerSelections?.[uid];
-        return criteriaRated || bestPerformerRated;
-    } else {
-        return criteriaArray.some((c: EventCriteria) => c.criteriaSelections?.[uid]);
-    }
+// Checks if the user has already submitted Voting
+const hasUserVoted = computed(() => {
+  return hasUserSubmittedVotes(event.value, currentUser.value?.uid || null);
 });
 
 // Determines if the user can edit their previous submission/rating
 const canEditSubmission = computed(() => {
-    // Can edit if they have rated AND ratings are currently open
-    return hasUserRated.value && event.value?.ratingsOpen === true;
+    // Can edit if they have rated AND Voting are currently open
+    return hasUserVoted.value && event.value?.votingOpen === true;
 });
 
 // Determines if the current user can rate the organizer
@@ -633,7 +627,7 @@ const handleLeave = async (): Promise<void> => {
 };
 
 // Navigates to the rating/selection form
-const openRatingForm = (): void => {
+const openVotingForm = (): void => {
   if (!event.value) return;
   router.push({ name: 'SelectionForm', params: { eventId: props.id } });
 };

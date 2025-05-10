@@ -79,14 +79,12 @@ interface Team {
   teamName: string;
   members: string[];
   showDetails?: boolean;
-  ratings?: any[];
-  submissions?: any[];
 }
 
 interface Props {
   teams: Team[];
   eventId: string;
-  ratingsOpen: boolean;
+  votingOpen: boolean;
   organizerNamesLoading: boolean;
   currentUserUid: string | null;
 }
@@ -129,9 +127,7 @@ function updateLocalTeams(teamsFromProps: Team[]): void {
   teamsWithDetails.value = teamsFromProps.map(team => ({
     ...team,
     showDetails: existingStates[team.teamName] ?? false, // Provide default false
-    members: Array.isArray(team.members) ? [...team.members] : [],
-    ratings: Array.isArray(team.ratings) ? [...team.ratings] : [],
-    submissions: Array.isArray(team.submissions) ? [...team.submissions] : []
+    members: Array.isArray(team.members) ? [...team.members] : []
   }));
 }
 

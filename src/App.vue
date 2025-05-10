@@ -161,7 +161,6 @@ const isAuthenticated = computed(() => userStore.isAuthenticated);
 const userName = computed(() => userStore.currentUser?.name || 'User');
 const userProfilePicUrl = computed<string | null>(() => userStore.profilePictureUrl ?? null);
 
-
 const logout = async (): Promise<void> => {
   const auth = getAuth();
   try {
@@ -243,8 +242,6 @@ const handleLogout = async (): Promise<void> => {
 const handleImageError = (): void => {
   imgError.value = true;
 };
-
-// Removed local getOneSignal and isPushSupported functions
 
 function checkPushPermissionState() {
   if (!isSupabaseConfigured() || !isPushSupported()) {
@@ -334,9 +331,14 @@ onMounted(() => {
        setTimeout(checkPushPermissionState, 1500);
   }
   try {
-    userStore.clearStaleCache();
+    // Check if clearStaleCache method exists before calling it
+    if (typeof userStore.clearStaleCache === 'function') {
+      userStore.clearStaleCache();
+    } else {
+      console.log("clearStaleCache method not implemented in userStore");
+    }
   } catch (error) {
-    // Optionally handle or log the error differently if needed
+    console.error("Error when calling clearStaleCache:", error);
   }
 });
 

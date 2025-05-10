@@ -1,4 +1,4 @@
-// src/store/events/actions.ratings.ts
+// src/store/events/actions.voting.ts
 // Helper functions for rating actions.
 import { doc, getDoc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore'; // Removed arrayUnion/Remove, added writeBatch
 import { db } from '@/firebase';
@@ -8,52 +8,29 @@ import { User } from '@/types/user'; // Assuming User type exists
 import { BEST_PERFORMER_LABEL } from '@/utils/constants';
 
 /**
- * Updates the ratingsOpen status for an event in Firestore.
- * @param eventId - The ID of the event.
- * @param open - Boolean indicating whether ratings should be open.
- * @param currentUserId - The UID of the user performing the action.
- * @returns Promise<void>
- * @throws Error if Firestore update fails or permissions invalid.
+ * Toggle the voting open status of an event
  */
-export async function toggleRatingsOpenInFirestore(eventId: string, open: boolean, currentUserId?: string): Promise<void> {
-    if (!eventId) throw new Error('Event ID required.');
-    if (!currentUserId) throw new Error('User authentication required.');
-    
-    const eventRef = doc(db, 'events', eventId);
+export async function togglevotingOpenInFirestore(
+    eventId: string,
+    open: boolean,
+    userId: string
+): Promise<void> {
     try {
-        // Fetch event to verify permissions
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        console.log(`Toggling voting status for ${eventId} to ${open ? 'open' : 'closed'}`);
         
-        // Permission check - more explicit and informative
-        const isOrganizer = eventData.details?.organizers?.includes(currentUserId) || 
-                          eventData.requestedBy === currentUserId;
-                          
-        if (!isOrganizer) {
-            console.warn(`Permission denied: User ${currentUserId} is not an organizer for event ${eventId}`);
-            throw new Error('Permission denied: Only event organizers can modify ratings status.');
-        }
+        const eventRef = doc(db, 'events', eventId);
         
-        // Status check
-        if (![EventStatus.Completed, EventStatus.InProgress].includes(eventData.status as EventStatus)) {
-            throw new Error(`Cannot modify ratings for event with status: ${eventData.status}`);
-        }
-
+        // Update MUST include lastUpdatedAt to comply with Firestore rules
         await updateDoc(eventRef, {
-            ratingsOpen: open,
-            lastUpdatedAt: Timestamp.now()
+            votingOpen: open,
+            lastUpdatedAt: Timestamp.now() // This is crucial - security rules require this field
         });
-        console.log(`Firestore: Event ${eventId} ratings set to ${open ? 'Open' : 'Closed'}.`);
-    } catch (error: any) {
-        console.error(`Firestore toggleRatingsOpen error for ${eventId}:`, error);
-        // Enhanced categorized error handling
-        if (error.code === 'permission-denied') {
-            console.error('Firebase permission denied. Check Firestore rules and user authentication.');
-            throw new Error('Permission denied: You cannot modify ratings for this event.');
-        } else {
-            throw new Error(`Failed to toggle ratings status: ${error.message || 'Unknown error'}`);
-        }
+        
+        console.log(`Successfully set voting status for ${eventId} to ${open ? 'open' : 'closed'}`);
+    } catch (error) {
+        console.error(`Firestore togglevotingOpen error for ${eventId}:`, error);
+        console.log("Firebase permission denied. Check Firestore rules and user authentication.");
+        throw error;
     }
 }
 
@@ -76,8 +53,8 @@ export async function submitTeamCriteriaVoteInFirestore(eventId: string, userId:
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
-        if (eventData.status !== EventStatus.Completed || !eventData.ratingsOpen) {
-            throw new Error("Selections can only be submitted for completed events with open ratings.");
+        if (eventData.status !== EventStatus.Completed || !eventData.votingOpen) {
+            throw new Error("Selections can only be submitted for completed events with open voting.");
         }
         // Additional checks: is user a participant?
         const isParticipant = eventData.teams?.some(team => team.members?.includes(userId));
@@ -137,8 +114,8 @@ export async function submitIndividualWinnerVoteInFirestore(eventId: string, use
          const eventSnap = await getDoc(eventRef);
          if (!eventSnap.exists()) throw new Error('Event not found.');
          const eventData = eventSnap.data() as Event;
-         if (eventData.status !== EventStatus.Completed || !eventData.ratingsOpen) {
-             throw new Error("Winner selection only available for completed events with open ratings.");
+         if (eventData.status !== EventStatus.Completed || !eventData.votingOpen) {
+             throw new Error("Winner selection only available for completed events with open voting.");
          }
           // Additional checks: is user a participant?
          const isParticipant = eventData.participants?.includes(userId);
@@ -195,7 +172,7 @@ export async function submitManualWinnerSelectionInFirestore(eventId: string, or
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
         
-        // Only allow for completed events with closed ratings
+        // Only allow for completed events with closed voting
         if (eventData.status !== EventStatus.Completed) {
             throw new Error("Manual winner selection only available for completed events.");
         }
@@ -234,7 +211,7 @@ export async function submitOrganizationRatingInFirestore(eventId: string, userI
 
     const eventRef = doc(db, 'events', eventId);
     try {
-        // Fetch event for validation and current ratings
+        // Fetch event for validation and current voting
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
@@ -250,8 +227,8 @@ export async function submitOrganizationRatingInFirestore(eventId: string, userI
         const newRating: OrganizerRating = { userId, rating: score };
         if (feedback?.trim()) newRating.feedback = feedback.trim(); // Add trimmed feedback if provided
 
-        // Read-Modify-Write approach for the organizerRating array
-        let currentRatings = Array.isArray(eventData.organizerRating) ? [...eventData.organizerRating] : [];
+        // Ensure organizerRating is always an array, even if it doesn't exist in Firestore yet
+        const currentRatings = Array.isArray(eventData.organizerRating) ? [...eventData.organizerRating] : [];
 
         // Find index of existing rating by this user
         const existingRatingIndex = currentRatings.findIndex(r => r.userId === userId);

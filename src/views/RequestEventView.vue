@@ -252,7 +252,6 @@ const nameCacheObject = computed(() => {
 const totalXP = computed(() => formData.value.criteria?.reduce((sum, c) => (c.constraintLabel === BEST_PERFORMER_LABEL ? sum : sum + (Number(c.points) || 0)), 0) || 0);
 
 const isFormValid = computed(() => {
-
   if (loading.value) {
     return false;
   }

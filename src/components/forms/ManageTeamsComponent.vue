@@ -361,9 +361,6 @@ const emitTeamsUpdate = () => {
           teamName: localTeam.name,
           members: localTeam.members,
           teamLead: localTeam.teamLead,
-          // Include other default fields if required by EventTeamType
-          submissions: [],
-          ratings: []
       };
   });
   // Optionally: emit an error if validation fails, or let parent handle it via `isFormValid`

@@ -17,16 +17,16 @@
                         <div class="content" v-html="eventLifecycleHtml"></div>
                     </div>
                 </div>
-                <!-- Rating & XP System Section -->
+                <!-- Voting & XP System Section -->
                 <div class="card mb-4 shadow-sm">
                     <div class="card-header bg-primary-subtle">
                         <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
                             <i class="fas fa-star me-3"></i>
-                            Rating & XP System
+                            Voting & XP System
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="content" v-html="ratingHtml"></div>
+                        <div class="content" v-html="votingHtml"></div>
                         <hr class="my-4">
                         <div class="content" v-html="xpHtml"></div>
                     </div>
@@ -84,9 +84,9 @@ The KSB Tech Community is a student-driven platform for collaborative learning, 
 - 🎉 Participants submit their completed projects before the deadline.
 - 📝 Submissions are reviewed for completeness and adherence to guidelines.
 
-### 5️⃣ Peer Rating & XP Distribution
-- ⭐ Participants (not involved in the event) rate projects based on defined criteria.
-- ✨ XP is awarded for participation, project quality, teamwork, and ratings.
+### 5️⃣ Peer Voting & XP Distribution
+- ⭐ Participants (not involved in the event) vote on projects based on defined criteria.
+- ✨ XP is awarded for participation, project quality, teamwork, and votes.
 - 🏆 Winners and top performers are recognized on the leaderboard.
 
 ### 6️⃣ Portfolio & Recognition
@@ -94,25 +94,25 @@ The KSB Tech Community is a student-driven platform for collaborative learning, 
 - 🏅 Achievements and badges are displayed on user profiles.
 `;
 
-const ratingContent = `
-## Rating System
+const votingContent = `
+## Voting System
 
-### ⭐ What Gets Rated?
+### ⭐ What Gets Voted On?
 - 💻 Technical implementation
 - 🎤 Project presentation
 - ✨ Code quality
 - 📄 Documentation
 - 🤝 Team collaboration
 
-### 📝 How Ratings Work
-- Peer evaluations are conducted after event completion.
-- Ratings use one student/team across multiple categories.
+### 📝 How Voting Works
+- Peer voting is conducted after event completion.
+- Voting uses one student/team across multiple categories.
 - Feedback is anonymous and constructive.
 
-### 👍 Rating Guidelines
+### 👍 Voting Guidelines
 - Be objective and fair.
 - Provide actionable feedback.
-- Rate based on the published criteria.
+- Vote based on the published criteria.
 - Consider both effort and outcome.
 `;
 
@@ -164,7 +164,7 @@ const generalContent = `
 
 // --- Reactive HTML Content ---
 const eventLifecycleHtml = ref('');
-const ratingHtml = ref('');
+const votingHtml = ref('');
 const xpHtml = ref('');
 const generalHtml = ref('');
 
@@ -184,7 +184,7 @@ watchEffect(async () => {
     eventLifecycleHtml.value = await renderSection(eventLifecycleContent);
 });
 watchEffect(async () => {
-    ratingHtml.value = await renderSection(ratingContent);
+    votingHtml.value = await renderSection(votingContent);
 });
 watchEffect(async () => {
     xpHtml.value = await renderSection(xpContent);
