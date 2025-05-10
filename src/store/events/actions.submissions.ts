@@ -2,10 +2,11 @@
 // Helper functions for submission actions.
 import { doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Event, Submission, EventStatus, EventFormat } from '@/types/event'; // Add EventFormat
+import { Event, Submission, EventStatus, EventFormat } from '@/types/event';
 
 /**
  * Adds a project submission to an event document in Firestore.
+ * Submissions are added to the top-level `event.submissions` array.
  * @param eventId - The ID of the event.
  * @param userId - The UID of the user submitting.
  * @param submissionData - The submission details (projectName, link, description).
@@ -43,13 +44,13 @@ export async function submitProjectToEventInFirestore(eventId: string, userId: s
             if (!userTeam) throw new Error("Submitter is not part of any team in this event.");
             // Optional: Enforce only team lead can submit
             // if (userTeam.teamLead !== userId) throw new Error("Only the team lead can submit for the team.");
-            submissionEntry.teamId = userTeam.teamName;
+            submissionEntry.teamId = userTeam.teamName; // Store teamName as teamId
         } else { // Individual or Competition
             if (!eventData.participants?.includes(userId)) throw new Error("Submitter is not a participant in this event.");
             submissionEntry.participantId = userId;
         }
 
-        // Add submission using arrayUnion
+        // Add submission using arrayUnion to the top-level submissions array
         await updateDoc(eventRef, {
             submissions: arrayUnion(submissionEntry),
             lastUpdatedAt: Timestamp.now()

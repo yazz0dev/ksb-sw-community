@@ -19,12 +19,7 @@ export interface EventCriteria {
   points: number;
   role?: string; // e.g., 'developer', 'designer', etc.
   targetRole?: string; // Add targetRole as optional
-  /**
-   * For team events: userId -> selected teamName
-   * For individual events: userId -> selected participantId
-   * Note: Team events should always include a "Best Performer" criteria with 10 XP
-   */
-  criteriaSelections: { [userId: string]: string }; // Always present, used for both event types
+  criteriaSelections: { [userId: string]: string };
 }
 
 export interface Submission {
@@ -33,17 +28,15 @@ export interface Submission {
   submittedBy: string;
   submittedAt: Timestamp;
   description?: string | null;
-  participantId?: string | null;
-  teamId?: string;
+  participantId?: string | null; // For individual/competition submissions
+  teamId?: string; // For team submissions (stores teamName)
 }
 
 export interface Team {
-  id?: string;
+  id?: string; // Optional, if you use a unique ID for teams separate from name
   teamName: string;
   members: string[];
   teamLead: string; // Required field
-  submissions?: Submission[];
-  ratings?: any[];
 }
 
 export interface WinnerInfo {
@@ -56,14 +49,12 @@ export interface GalleryItem {
   description?: string;
 }
 
-// Add EventFormat enum for better type safety
 export enum EventFormat {
   Individual = 'Individual',
   Team = 'Team',
-  Competition = 'Competition' // Added Competition format
+  Competition = 'Competition'
 }
 
-// Add OrganizerRating interface
 export interface OrganizerRating {
   userId: string;
   rating: number;
@@ -75,7 +66,7 @@ export interface EventFormData {
   details: {
     eventName: string;
     description: string;
-    format: EventFormat; // Use enum
+    format: EventFormat;
     type?: string;
     date: {
       start: string | null;
@@ -83,11 +74,11 @@ export interface EventFormData {
     };
     organizers: string[];
     allowProjectSubmission?: boolean;
-    prize?: string; // Add prize field
-    rules?: string; // Added rules field
+    prize?: string;
+    rules?: string;
     [key: string]: any;
   };
-  criteria: EventCriteria[]; // Keep criteria
+  criteria: EventCriteria[];
   teams?: Team[];
   status?: EventStatus;
   [key: string]: any;
@@ -95,15 +86,12 @@ export interface EventFormData {
 
 // --- Main Event Interface ---
 export interface Event {
-  id: string; // Firestore document ID
-
-  // Top-level status and requestor
+  id: string;
   status: EventStatus;
   requestedBy: string;
 
-  // --- Details ---
   details: {
-    format: EventFormat; // Use enum
+    format: EventFormat;
     type: string;
     eventName: string;
     organizers: string[];
@@ -113,45 +101,32 @@ export interface Event {
     };
     description: string;
     allowProjectSubmission?: boolean;
-    prize?: string; // Add prize field
-    rules?: string; // Added rules field
+    prize?: string;
+    rules?: string;
   };
 
-  // --- Criteria Definition ---
   criteria?: EventCriteria[];
+  participants?: string[];
+  teams?: Team[];
+  teamMembersFlat?: string[]; // ADDED: For Team format, a flat list of all member UIDs
 
-  // --- Participants/Teams ---
-  participants?: string[]; // Used for Individual and Competition
-  teams?: Team[]; // Used for Team format
+  // CONSOLIDATED SUBMISSIONS
+  submissions?: Submission[]; // Single list for all submissions
 
-  // --- Submissions ---
-  submissions?: Submission[];
+  // ORGANIZER RATING - Keep top-level
+  organizerRating?: OrganizerRating[];
 
-  // --- Organizer Rating ---
-  organizerRating?: OrganizerRating[]; // Keep array structure
-
-  // --- Winners ---
+  
   winners?: WinnerInfo;
 
-  // --- Gallery ---
   gallery?: GalleryItem[];
+  ratingsOpen: boolean;
+  bestPerformerSelections?: Record<string, string>;
 
-  // --- Additional Fields ---
-  ratingsOpen: boolean; // Ensure always present
-  winnersPerRole?: Record<string, string[]>;
-
-  // Updated ratings structure
-  ratings?: {
-    organizer?: OrganizerRating[]; // Use array
-  };
-
-  bestPerformerSelections?: Record<string, string>; // userId -> selectedParticipantId (Team only)
-
-  // --- System fields ---
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
   completedAt?: Timestamp | null;
   closedAt?: Timestamp | null;
-
   rejectionReason?: string | null;
+  manuallySelectedBy?: string; // ADDED: To track if winners were manually set
 }

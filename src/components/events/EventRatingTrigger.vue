@@ -30,6 +30,7 @@ defineProps<{
   isCurrentUserParticipant: boolean;
   canRateOrganizer: boolean;
   loading: boolean;
+  isCurrentUserOrganizer?: boolean;
 }>();
 </script>
 

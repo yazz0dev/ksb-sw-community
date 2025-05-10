@@ -29,13 +29,13 @@
                 <!-- Team Selection Section -->
                 <div>
                   <h3 class="h5 mb-3">Best Team per Criterion</h3>
-                  <!-- Use .value for reactive refs in template -->
-                  <p v-if="!eventCriteria.value?.length" class="small fst-italic text-secondary">
+                  <!-- Remove .value in template - refs auto-unwrap -->
+                  <p v-if="!eventCriteria?.length" class="small fst-italic text-secondary">
                     No rating criteria defined for this event.
                   </p>
-                  <!-- Use .value for reactive refs in template -->
+                  <!-- Remove .value in template -->
                   <div v-else class="d-flex flex-column" style="gap: 1rem;">
-                    <div v-for="criterion in eventCriteria.value" :key="criterion.constraintIndex" class="mb-3">
+                    <div v-for="criterion in eventCriteria" :key="criterion.constraintIndex" class="mb-3">
                       <label :for="`team-select-${criterion.constraintIndex}`" class="form-label small fw-bold">{{ criterion.constraintLabel }} ({{ criterion.points }} XP)</label>
                       <select
                         :id="`team-select-${criterion.constraintIndex}`"
@@ -56,8 +56,8 @@
                 <!-- Best Performer Section -->
                 <div class="pt-4 border-top">
                   <h3 class="h5 mb-3">Overall Best Performer</h3>
-                  <!-- Use .value for reactive refs in template -->
-                  <p v-if="!allTeamMembers.value?.length" class="small fst-italic text-secondary">
+                  <!-- Remove .value in template -->
+                  <p v-if="!allTeamMembers?.length" class="small fst-italic text-secondary">
                     No participants found in teams.
                   </p>
                   <div v-else class="mb-3">
@@ -70,8 +70,8 @@
                       :disabled="isSubmitting"
                     >
                        <option value="" disabled>Select Participant...</option>
-                       <!-- Use .value for reactive refs in template -->
-                       <option v-for="member in allTeamMembers.value" :key="member.uid" :value="member.uid">
+                       <!-- Remove .value in template -->
+                       <option v-for="member in allTeamMembers" :key="member.uid" :value="member.uid">
                          {{ member.name }} ({{ getTeamNameForMember(member.uid) }})
                        </option>
                     </select>
@@ -263,6 +263,20 @@ const submitTeamRatings = async (): Promise<void> => {
   submissionError.value = '';
 
   try {
+    // Add a check to ensure current user is a participant in this team event
+    if (!currentUserId.value) {
+      throw new Error('You must be logged in to submit ratings.');
+    }
+    
+    // Make sure user is a participant in at least one team
+    const userTeam = eventTeams.value.find(team => 
+      Array.isArray(team.members) && team.members.includes(currentUserId.value!)
+    );
+    
+    if (!userTeam) {
+      throw new Error('Only team participants can submit ratings.');
+    }
+
     const criteriaPayload: Record<string, string> = {};
     eventCriteria.value.forEach(c => {
       if (typeof c.constraintIndex === 'number') {

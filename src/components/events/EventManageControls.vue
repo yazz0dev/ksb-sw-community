@@ -201,6 +201,7 @@ const isClosingEvent = ref(false);
 // --- User Role & Permissions ---
 const currentUserId = computed<string | null>(() => userStore.currentUser?.uid ?? null);
 
+// Add more explicit debug information for permission checks
 const isOrganizer = computed(() => {
   const uid = currentUserId.value;
   const eventData = props.event;
@@ -208,11 +209,18 @@ const isOrganizer = computed(() => {
   const requestedBy = eventData?.requestedBy;
 
   if (!uid || !eventData) {
+    console.log('Not an organizer: No user ID or event data');
     return false;
   }
 
   const isListedOrganizer = Array.isArray(organizers) && organizers.includes(uid);
   const isRequestingUser = requestedBy === uid;
+  
+  // Add debug log to help identify permission issues
+  if (!isListedOrganizer && !isRequestingUser) {
+    console.log(`User ${uid} is not an organizer for event ${eventData.id}. Organizers:`, organizers, 'Requested by:', requestedBy);
+  }
+  
   return isListedOrganizer || isRequestingUser;
 });
 
@@ -415,6 +423,11 @@ const toggleRatings = async (openState: boolean): Promise<void> => {
     if (loadingAction.value) return;
     loadingAction.value = openState ? 'openRatings' : 'closeRatings';
     try {
+        // Double-check permissions before even trying
+        if (!isOrganizer.value) {
+            throw new Error('Only event organizers can modify ratings status.');
+        }
+        
         await eventStore.toggleRatingsOpen({
             eventId: props.event.id,
             open: openState

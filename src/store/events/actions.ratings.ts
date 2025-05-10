@@ -17,6 +17,7 @@ import { BEST_PERFORMER_LABEL } from '@/utils/constants';
  */
 export async function toggleRatingsOpenInFirestore(eventId: string, open: boolean, currentUserId?: string): Promise<void> {
     if (!eventId) throw new Error('Event ID required.');
+    if (!currentUserId) throw new Error('User authentication required.');
     
     const eventRef = doc(db, 'events', eventId);
     try {
@@ -25,14 +26,13 @@ export async function toggleRatingsOpenInFirestore(eventId: string, open: boolea
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
         
-        // Permission check
-        if (currentUserId) {
-            const isOrganizer = eventData.details?.organizers?.includes(currentUserId) || 
-                              eventData.requestedBy === currentUserId;
-                              
-            if (!isOrganizer) {
-                throw new Error('Permission denied: Only event organizers can modify ratings status.');
-            }
+        // Permission check - more explicit and informative
+        const isOrganizer = eventData.details?.organizers?.includes(currentUserId) || 
+                          eventData.requestedBy === currentUserId;
+                          
+        if (!isOrganizer) {
+            console.warn(`Permission denied: User ${currentUserId} is not an organizer for event ${eventId}`);
+            throw new Error('Permission denied: Only event organizers can modify ratings status.');
         }
         
         // Status check
@@ -49,6 +49,7 @@ export async function toggleRatingsOpenInFirestore(eventId: string, open: boolea
         console.error(`Firestore toggleRatingsOpen error for ${eventId}:`, error);
         // Enhanced categorized error handling
         if (error.code === 'permission-denied') {
+            console.error('Firebase permission denied. Check Firestore rules and user authentication.');
             throw new Error('Permission denied: You cannot modify ratings for this event.');
         } else {
             throw new Error(`Failed to toggle ratings status: ${error.message || 'Unknown error'}`);

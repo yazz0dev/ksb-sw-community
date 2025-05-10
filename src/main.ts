@@ -5,7 +5,6 @@ import App from "@/App.vue";
 import router from "./router";
 import { auth, db } from "./firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { disableNetwork, enableNetwork } from "firebase/firestore";
 import AuthGuard from "@/components/AuthGuard.vue";
 import {
   getOneSignal,
@@ -28,12 +27,12 @@ const pinia = createPinia();
 // --- Network Listeners ---
 window.addEventListener("online", () => {
   isOnline = true;
-  enableNetwork(db).catch(console.error);
+  
   // Ensure stores are available before using them in listeners
   if (appInstance) {
     // Check if app is mounted
     const appStore = useAppStore(pinia);
-    appStore.setOnlineStatus(true);
+    appStore.setOnlineStatus(true); // This will trigger toggleNetworkConnection in appStore
     appStore.syncOfflineChanges();
   } else {
     console.warn("Network listener fired before app mount.");
@@ -41,17 +40,16 @@ window.addEventListener("online", () => {
 });
 window.addEventListener("offline", () => {
   isOnline = false;
-  disableNetwork(db).catch(console.error);
+  
   if (appInstance) {
     const appStore = useAppStore(pinia);
-    appStore.setOnlineStatus(false);
+    appStore.setOnlineStatus(false); // This will trigger toggleNetworkConnection in appStore
   } else {
     console.warn("Network listener fired before app mount.");
   }
 });
 
 // --- Service Worker Update Prompt ---
-// (Keep existing code)
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (confirm("A new version of the app is available. Reload now?")) {

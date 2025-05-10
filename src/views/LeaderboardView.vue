@@ -79,7 +79,6 @@
 import { ref, computed, onMounted } from 'vue';
 import { useUserStore } from '@/store/user';
 import { formatRoleName } from '../utils/formatters';
-import defaultAvatar from '@/assets/default-avatar.png'; // Import default avatar
 
 interface User {
     uid: string;
@@ -88,12 +87,12 @@ interface User {
     xpByRole?: Record<string, number>;
 }
 
-const defaultAvatarUrl = ref(defaultAvatar);
+const defaultAvatarUrl: string = '/default-avatar.png';
 
 const handleImageError = (event: Event) => {
   const imgElement = event.target as HTMLImageElement;
   if (imgElement) {
-    imgElement.src = defaultAvatarUrl.value;
+    imgElement.src = defaultAvatarUrl;
   }
 };
 

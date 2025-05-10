@@ -4,7 +4,7 @@
   <div class="d-flex align-items-center p-3 user-card-simple">
     <!-- Display User Name -->
     <p class="fs-7 fw-medium text-primary mb-0 username-text">
-      <i class="fas fa-user me-1 text-secondary fa-xs"></i> <!-- Optional icon -->
+      <i class="fas fa-user me-1 text-secondary fa-xs"></i> 
       {{ name || `User (${userId.substring(0, 5)}...)` }}
     </p>
     <!-- Potential future addition: Display total XP -->
@@ -20,9 +20,6 @@ import { useUserStore } from '@/store/user';
 
 interface Props {
   userId: string;
-  // eventId prop is no longer needed for rating, keep if used elsewhere
-  // eventId: string;
-  // teamId?: string; // Keep if used elsewhere
 }
 
 const props = defineProps<Props>();

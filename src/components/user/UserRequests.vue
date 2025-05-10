@@ -22,7 +22,8 @@
       <div v-if="!loadingRequests && requests.length > 0">
         <!-- Use request.id for key which is guaranteed unique -->
         <div v-for="(request, index) in requests" :key="request.id" class="py-3 request-item">
-          <h6 class="h6 text-primary mb-1">
+          <h6 class="h6 text-primary mb-1 d-flex align-items-center">
+            <i class="fas fa-clipboard-list text-muted me-2"></i>
             <!-- Link should still work as request.id maps correctly -->
             <router-link :to="{ name: 'EventDetails', params: { id: request.id } }" class="text-decoration-none">
               <!-- Use request.eventName from the mapped structure -->

@@ -18,7 +18,7 @@
       <div v-if="isCurrentUser" class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5 pb-4 border-bottom">
         <div>
           <h2 class="h2 text-primary mb-2 d-inline-flex align-items-center">
-            My Profile
+            <i class="fas fa-user-circle me-2"></i>My Profile
           </h2>
           <!-- Edit Profile Button Removed From Here -->
         </div>

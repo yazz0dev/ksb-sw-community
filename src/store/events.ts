@@ -208,7 +208,6 @@ export const useEventStore = defineStore('events', {
                         nextAvailableLuxon = null; // Treat as no specific next date if unparsable
                     }
                 }
-                // If result.nextAvailableDate was null, nextAvailableLuxon remains null, which is correct.
 
                 return {
                     isAvailable: !result.hasConflict,
@@ -226,8 +225,6 @@ export const useEventStore = defineStore('events', {
         async requestEvent(initialData: Partial<Event>): Promise<string> {
             const userStore = useUserStore();
             const notificationStore = useNotificationStore();
-            // Remove unused appStore variable
-            // const appStore = useAppStore(); 
 
             if (!userStore.uid) {
                  notificationStore.showNotification({ message: "You must be logged in.", type: 'error' });
@@ -241,10 +238,6 @@ export const useEventStore = defineStore('events', {
                   notificationStore.showNotification({ message: msg, type: 'warning' });
                   throw new Error(msg);
              }
-
-            // Offline check - Assuming handleOfflineAction exists on appStore
-            // const offlineResult = await useAppStore().handleOfflineAction({ type: 'events/requestEvent', payload: initialData });
-            // if (offlineResult.queued) return ''; // Indicate queued
             
             try {
                 const newEventId = await createEventRequestInFirestore(initialData, userStore.uid);
@@ -261,12 +254,6 @@ export const useEventStore = defineStore('events', {
         async updateEventDetails({ eventId, updates }: { eventId: string; updates: Partial<Event> }) {
             const userStore = useUserStore();
             const notificationStore = useNotificationStore();
-            // Remove unused appStore variable
-            // const appStore = useAppStore();
-
-            // Offline check - Assuming handleOfflineAction exists on appStore
-            // const offlineResult = await useAppStore().handleOfflineAction({ type: 'events/updateEventDetails', payload: { eventId, updates } });
-            // if (offlineResult.queued) return;
 
             try {
                 await updateEventDetailsInFirestore(eventId, updates, userStore.currentUser);
@@ -281,16 +268,8 @@ export const useEventStore = defineStore('events', {
 
         async updateEventStatus({ eventId, newStatus }: { eventId: string; newStatus: EventStatus }) {
              const notificationStore = useNotificationStore();
-             // Remove unused appStore variable
-             // const appStore = useAppStore();
-
-             // Offline check (might be unsuitable for some status changes)
-             // const offlineResult = await appStore.handleOfflineAction({ type: 'events/updateEventStatus', payload: { eventId, newStatus } });
-             // if (offlineResult.queued) return;
 
              try {
-                 // Remove unused appliedUpdates variable
-                 // const appliedUpdates = await updateEventStatusInFirestore(eventId, newStatus);
                  await updateEventStatusInFirestore(eventId, newStatus);
                  // Fetch fresh details to get the fully updated object
                  await this.fetchEventDetails(eventId); // Use 'this' for other actions
@@ -498,11 +477,13 @@ export const useEventStore = defineStore('events', {
          // --- Teams Actions ---
          async addTeamToEvent({ eventId, teamName, members }: { eventId: string; teamName: string; members: string[] }) {
              const notificationStore = useNotificationStore();
-              // Offline check - complex?
-
               try {
-                  await addTeamToEventInFirestore(eventId, teamName, members);
-                  await this.fetchEventDetails(eventId); // Use 'this' for other actions
+                  // Fetch current event data to pass existing teams for teamMembersFlat calculation
+                  const currentEvent = this.getEventById(eventId) || await this.fetchEventDetails(eventId);
+                  if (!currentEvent) throw new Error("Event not found for adding team.");
+
+                  await addTeamToEventInFirestore(eventId, teamName, members, currentEvent.teams || []);
+                  await this.fetchEventDetails(eventId);
                   notificationStore.showNotification({ message: `Team "${teamName}" added.`, type: 'success' });
               } catch (error) {
                   notificationStore.showNotification({ message: `Failed to add team: ${handleFirestoreError(error)}`, type: 'error' });
@@ -512,11 +493,9 @@ export const useEventStore = defineStore('events', {
 
           async updateTeams({ eventId, teams }: { eventId: string; teams: Team[] }) {
                const notificationStore = useNotificationStore();
-               // Offline check - complex?
-
                try {
                    await updateEventTeamsInFirestore(eventId, teams);
-                   await this.fetchEventDetails(eventId); // Use 'this' for other actions
+                   await this.fetchEventDetails(eventId);
                    notificationStore.showNotification({ message: `Teams updated successfully.`, type: 'success' });
                } catch (error) {
                    notificationStore.showNotification({ message: `Failed to update teams: ${handleFirestoreError(error)}`, type: 'error' });
@@ -524,37 +503,33 @@ export const useEventStore = defineStore('events', {
                }
            },
 
-          // Auto-generate now calls updateTeams internally after calculation
           async autoGenerateTeams({ eventId, minMembersPerTeam = 2, maxMembersPerTeam = 8 }: { eventId: string; minMembersPerTeam?: number; maxMembersPerTeam?: number; }) {
              const notificationStore = useNotificationStore();
-             const userStore = useUserStore(); // Need user store for student list
+             const userStore = useUserStore();
 
              if (!eventId) throw new Error('Event ID required.');
-             // Removed numberOfTeams parameter and its validation
 
              try {
-                 const event = this.getEventById(eventId); // Get current local data
+                 const event = this.getEventById(eventId);
                  if (!event) throw new Error('Event data not loaded locally. Cannot auto-generate teams.');
                  if (event.details.format !== EventFormat.Team) throw new Error("Auto-generation only for 'Team' events.");
                  if (!event.teams || event.teams.length < 2) {
                     throw new Error("Auto-generation requires at least 2 teams to be pre-defined for the event.");
                  }
-                 const numberOfTeams = event.teams.length; // Use existing number of teams
+                 const numberOfTeams = event.teams.length;
 
-                 // Ensure student list is loaded
                  if (userStore.studentList.length === 0) {
                      await userStore.fetchAllStudents();
                  }
-                 const students = userStore.getStudentList; // Use getter
+                 const students = userStore.getStudentList;
                  if (students.length < numberOfTeams * minMembersPerTeam) {
                      throw new Error(`Not enough students (${students.length}) available to populate ${numberOfTeams} teams with at least ${minMembersPerTeam} members each.`);
                  }
 
-                 // --- Generation Logic  ---
-                 // Start with copies of existing teams, but clear their members for redistribution
                  const teamsToPopulate: Team[] = event.teams.map(team => ({
-                     ...team, // Preserve name, lead (though lead might become invalid and need reset)
+                     teamName: team.teamName, // Preserve existing team names
                      members: [], // Clear members for redistribution
+                     teamLead: '', // Will be set after member assignment
                  }));
 
                  const shuffledStudents = [...students].sort(() => 0.5 - Math.random());
@@ -564,11 +539,10 @@ export const useEventStore = defineStore('events', {
                  });
 
                  const finalTeams = teamsToPopulate
-                     .filter(team => team.members.length >= minMembersPerTeam) // Should always pass if initial student check is correct
+                     .filter(team => team.members.length >= minMembersPerTeam)
                      .map(team => {
                          const currentMembers = team.members.slice(0, maxMembersPerTeam);
-                         // Ensure team lead is one of the new members, or clear/default it
-                         const newTeamLead = currentMembers.includes(team.teamLead) ? team.teamLead : (currentMembers[0] || '');
+                         const newTeamLead = currentMembers[0] || ''; // Default to first member
                          return {
                              ...team,
                              members: currentMembers,
@@ -577,18 +551,12 @@ export const useEventStore = defineStore('events', {
                      });
 
                  if (finalTeams.length !== numberOfTeams) {
-                    // This case should ideally not be hit if student count and team structure are validated properly
-                    console.warn(`Team generation resulted in ${finalTeams.length} teams, expected ${numberOfTeams}. This might indicate an issue with member distribution or filtering.`);
-                    // Decide if to throw error or proceed with what was generated
                     if (finalTeams.length < 2) throw new Error("Could not generate at least 2 valid teams after distribution.");
                  }
-                 // --- End Generation Logic ---
 
-                 // Use the updateTeams action to save the result
+                 // updateEventTeamsInFirestore will handle teamMembersFlat
                  await this.updateTeams({ eventId, teams: finalTeams });
                  notificationStore.showNotification({ message: `Teams auto-generated successfully for ${finalTeams.length} teams.`, type: 'success' });
-                 // The notification from updateTeams might be redundant or could be combined.
-                 // For now, this specific message for generation is kept.
 
              } catch (error) {
                  notificationStore.showNotification({ message: `Failed to generate teams: ${handleFirestoreError(error)}`, type: 'error' });

@@ -1,32 +1,20 @@
 // src/store/user.ts
 import { defineStore } from 'pinia';
-import { 
-  doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy 
+import {
+  doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy, Timestamp
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Event as AppEvent, EventStatus } from '@/types/event';
+import { Event as AppEvent, EventStatus, Submission } from '@/types/event'; // Added Submission
 import { Project } from '@/types/project';
-import { 
-  UserState, 
+import {
+  UserState,
   UserProfileUpdatePayload,
   ViewedUserProfile,
   UserProject,
-  UserData
+  UserData,
+  XpRoleKey,
+  defaultXpStructure
 } from '@/types/user';
-
-// Define the default XP structure helper - centralize keys
-const defaultXpRoleKeys = [
-    'developer', 'presenter', 'designer',
-    'organizer', 'problemSolver', 'participation', 'BestPerformer' // Added BestPerformer
-] as const; // Use 'as const' for stricter typing
-
-type XpRoleKey = typeof defaultXpRoleKeys[number]; // Type for valid role keys
-
-const defaultXpStructure: Record<XpRoleKey, number> = defaultXpRoleKeys.reduce((acc, key) => {
-    acc[key] = 0;
-    return acc;
-}, {} as Record<XpRoleKey, number>);
-
 
 // Define the user store
 export const useUserStore = defineStore('user', {
@@ -73,6 +61,11 @@ export const useUserStore = defineStore('user', {
     },
     getAllUsers: (state): UserData[] => state.allUsers,
     getStudentList: (state): UserData[] => state.studentList,
+    profilePictureUrl: (state): string | null => state.currentUser?.photoURL ?? null, // Getter for profile picture
+    
+    // Added getter, though not strictly necessary with state reset in clearUserData
+    // Might be useful if other parts of the app want to react to this directly.
+    getHasFetched: (state): boolean => state.hasFetched,
   },
 
   // Actions
@@ -80,59 +73,108 @@ export const useUserStore = defineStore('user', {
     async fetchUserData(userId: string): Promise<UserData | null> {
       this.loading = true;
       this.error = null;
-      
       try {
         if (!userId) {
           throw new Error("User ID is required");
         }
-
         const userDocRef = doc(db, 'users', userId);
         const userDocSnap = await getDoc(userDocRef);
-        
         if (!userDocSnap.exists()) {
-          console.log(`No user profile found in Firestore for Firebase user ${userId}`);
-          this.currentUser = null;
-          this.isAuthenticated = false;
+          console.warn(`No user profile found in Firestore for Firebase user ${userId}. Current user will be null.`);
+          // If this is the current user, ensure they are marked as not authenticated
+          // and their data is cleared.
+          if (this.currentUser?.uid === userId || !this.currentUser) { // also handle case where currentUser was null
+            this.currentUser = null;
+            this.isAuthenticated = false;
+          }
           return null;
         }
-        
-        const userData = userDocSnap.data() as Omit<UserData, 'uid' | 'xpByRole'> & { xpByRole?: Partial<Record<XpRoleKey, number>> }; // More specific type
+        const userDataFromDb = userDocSnap.data() as Omit<UserData, 'uid' | 'xpByRole'> & { xpByRole?: Partial<Record<XpRoleKey, number>> };
         const userWithId: UserData = {
-             ...userData, 
-             uid: userDocSnap.id, 
-             xpByRole: { ...defaultXpStructure, ...(userData.xpByRole || {}) } 
+             ...userDataFromDb,
+             uid: userDocSnap.id,
+             xpByRole: { ...defaultXpStructure, ...(userDataFromDb.xpByRole || {}) }
         };
-        
-        this.currentUser = userWithId;
-        this.isAuthenticated = true;
-        
+        // Only set as currentUser if the fetched userId matches the intended current user context
+        // This avoids overwriting currentUser if fetchUserData is called for a different profile view
+        if (this.uid === userId || !this.isAuthenticated) { // Check if current user or if no user is currently authenticated
+            this.currentUser = userWithId;
+            this.isAuthenticated = true; // Mark as authenticated since profile exists
+            console.log(`User data for ${userId} fetched and set as currentUser.`);
+        } else {
+            console.log(`User data for ${userId} fetched, but not set as currentUser (current is ${this.uid}).`);
+        }
+
+        // Update name cache
+        if (userWithId.name) {
+            this.nameCache.set(userWithId.uid, { name: userWithId.name, timestamp: Date.now() });
+        }
+
         return userWithId;
       } catch (error: any) {
         this.error = error;
         console.error('Error fetching user data:', error);
-        this.currentUser = null;
-        this.isAuthenticated = false;
+        if (this.currentUser?.uid === userId || !this.currentUser) {
+            this.currentUser = null;
+            this.isAuthenticated = false;
+        }
         return null;
       } finally {
         this.loading = false;
       }
     },
 
+    async clearUserData(): Promise<void> {
+      console.log("Clearing user data...");
+      this.currentUser = null;
+      this.isAuthenticated = false;
+      // this.hasFetched = false; // Controversial: depends on if you want to re-trigger initial auth logic
+                                // For logout, keeping hasFetched=true is fine. For full app reset, false.
+                                // Let's assume for logout, we keep hasFetched as true.
+
+      // Resetting fields related to a viewed profile or current user's specific data
+      this.viewedUserProfile = null;
+      this.viewedUserProjects = [];
+      this.viewedUserEvents = [];
+      this.userRequests = [];
+      this.currentUserPortfolioData = {
+        projects: [],
+        eventParticipationCount: 0
+      };
+      // Name cache, allUsers, studentList, leaderboardUsers are typically kept
+      // as they represent global app data, not specific to the logged-in user.
+      // If you want a full reset, clear them too:
+      // this.nameCache.clear();
+      // this.allUsers = [];
+      // this.studentList = [];
+      // this.leaderboardUsers = [];
+      this.error = null; // Clear any previous errors
+      console.log('User data cleared from store.');
+    },
+
+    // Add setHasFetched action
+    setHasFetched(status: boolean): void {
+      this.hasFetched = status;
+    },
+
+
     async updateUserProfile(payload: UserProfileUpdatePayload): Promise<void> {
       this.loading = true;
       this.error = null;
-      
       try {
         const { userId, profileData } = payload;
         if (!userId) {
           throw new Error("User ID is required");
         }
-
         const userDocRef = doc(db, 'users', userId);
         await updateDoc(userDocRef, profileData);
-        
         if (this.currentUser?.uid === userId) {
+          // Create a new object for currentUser to ensure reactivity
           this.currentUser = { ...this.currentUser, ...profileData };
+          // Update name cache if name changed
+          if (profileData.name && this.nameCache.get(userId)?.name !== profileData.name) {
+            this.nameCache.set(userId, { name: profileData.name, timestamp: Date.now() });
+          }
         }
       } catch (error: any) {
         this.error = error;
@@ -146,275 +188,379 @@ export const useUserStore = defineStore('user', {
     async fetchFullUserProfileForView(userId: string): Promise<void> {
       this.loading = true;
       this.error = null;
-      
       try {
         this.viewedUserProfile = null;
         this.viewedUserProjects = [];
         this.viewedUserEvents = [];
-        
+
         const userDocRef = doc(db, 'users', userId);
         const userDocSnap = await getDoc(userDocRef);
-        
         if (!userDocSnap.exists()) {
           throw new Error("User profile not found");
         }
-        
-        const userData = userDocSnap.data() as any; // Use 'any' or a more specific type if available
+        const userDataFromDb = userDocSnap.data() as Omit<UserData, 'uid' | 'xpByRole' | 'email'> & { xpByRole?: Partial<Record<XpRoleKey, number>>, email?: string | null };
         this.viewedUserProfile = {
+          ...userDataFromDb,
           uid: userDocSnap.id,
-          name: userData.name || 'Unknown User',
-          photoURL: userData.photoURL,
-          bio: userData.bio,
-          socialLink: userData.socialLink,
-          xpByRole: { ...defaultXpStructure, ...(userData.xpByRole || {}) },
-          skills: userData.skills || [],
-          preferredRoles: userData.preferredRoles || [],
-          participatedEvent: userData.participatedEvent || [],
-          organizedEvent: userData.organizedEvent || [],
-          hasLaptop: userData.hasLaptop === undefined ? false : userData.hasLaptop,
-          email: null,
+          name: userDataFromDb.name || 'Unknown User',
+          xpByRole: { ...defaultXpStructure, ...(userDataFromDb.xpByRole || {}) },
+          skills: userDataFromDb.skills || [],
+          preferredRoles: userDataFromDb.preferredRoles || [],
+          participatedEvent: userDataFromDb.participatedEvent || [],
+          organizedEvent: userDataFromDb.organizedEvent || [],
+          hasLaptop: userDataFromDb.hasLaptop === undefined ? false : userDataFromDb.hasLaptop,
+          email: userDataFromDb.email || null, // Ensure email is handled
         };
-        
-        await this.fetchUserEvents(userId);
-        await this.fetchUserProjects(userId);
-        
+
+        await this.fetchUserEvents(userId); // This fetches events based on participatedEvent/organizedEvent
+        await this.fetchUserProjects(userId, this.viewedUserEvents); // Pass fetched events
+
       } catch (error: any) {
         this.error = error;
         console.error('Error fetching user profile for view:', error);
-        throw error;
+        // Don't throw here, let ProfileViewContent handle the error display via errorMessage ref
       } finally {
         this.loading = false;
       }
     },
 
     async fetchUserEvents(userId: string): Promise<void> {
-      if (!this.viewedUserProfile) return;
-      
+      if (!this.viewedUserProfile && this.currentUser?.uid !== userId) {
+          console.warn(`fetchUserEvents: No profile data available to fetch events for ${userId}`);
+          this.viewedUserEvents = [];
+          return;
+      }
+      this.error = null;
       try {
-        const allIds = Array.from(new Set([
-          ...(this.viewedUserProfile.participatedEvent || []),
-          ...(this.viewedUserProfile.organizedEvent || [])
-        ]));
-        
+        // Use viewedUserProfile if available, otherwise fallback to currentUser if it's for the current user
+        const profileToUse = this.viewedUserProfile?.uid === userId ? this.viewedUserProfile : (this.currentUser?.uid === userId ? this.currentUser : null);
+
+        if (!profileToUse) {
+            this.viewedUserEvents = [];
+            return;
+        }
+
+        const participatedIds = profileToUse.participatedEvent || [];
+        const organizedIds = profileToUse.organizedEvent || [];
+        const allIds = Array.from(new Set([...participatedIds, ...organizedIds])).filter(Boolean);
+
         if (allIds.length === 0) {
           this.viewedUserEvents = [];
           return;
         }
-        
+
         const events: AppEvent[] = [];
-        const batch = allIds.length > 10 ? Math.ceil(allIds.length / 10) : 1;
-        
-        for (let i = 0; i < batch; i++) {
-          const batchIds = allIds.slice(i * 10, (i + 1) * 10);
+        // Firestore 'in' query supports up to 30 elements per query
+        const batchSize = 30;
+
+        for (let i = 0; i < allIds.length; i += batchSize) {
+          const batchIds = allIds.slice(i, i + batchSize);
+          if (batchIds.length === 0) continue;
+
           const eventsRef = collection(db, 'events');
           const q = query(eventsRef, where('__name__', 'in', batchIds));
           const snapshot = await getDocs(q);
-          
-          snapshot.forEach(doc => {
-            events.push({ id: doc.id, ...doc.data() } as AppEvent);
+          snapshot.forEach(docSnap => {
+            events.push({ id: docSnap.id, ...docSnap.data() } as AppEvent);
           });
         }
-        
+
         const excludedStatuses = [EventStatus.Pending, EventStatus.Cancelled, EventStatus.Rejected];
-        const isCurrentUser = userId === this.currentUser?.uid;
-        
-        this.viewedUserEvents = events.filter(event => {
-          if (isCurrentUser) {
+        const isTargetCurrentUser = userId === this.currentUser?.uid;
+
+        const filteredEvents = events.filter(event => {
+          if (isTargetCurrentUser) {
             return !excludedStatuses.includes(event.status as EventStatus);
           } else {
             return [EventStatus.Completed, EventStatus.Closed, EventStatus.InProgress, EventStatus.Approved]
               .includes(event.status as EventStatus);
           }
         });
-        
-      } catch (error) {
-        console.error('Error fetching user events:', error);
-        this.viewedUserEvents = [];
+
+        if(this.viewedUserProfile?.uid === userId) {
+            this.viewedUserEvents = filteredEvents;
+        } else if (this.currentUser?.uid === userId) {
+            // If fetching for current user and no specific viewedUserProfile is set (e.g., direct call)
+            // This path might be less common now with fetchFullUserProfileForView
+            this.viewedUserEvents = filteredEvents; // Or decide if this should populate a different state property
+        }
+
+
+      } catch (error: any) {
+        console.error(`Error fetching user events for ${userId}:`, error);
+        this.error = error.message || 'Failed to fetch user events.';
+        if(this.viewedUserProfile?.uid === userId) this.viewedUserEvents = [];
       }
     },
 
-    async fetchUserProjects(userId: string): Promise<void> {
+    async fetchUserProjects(userId: string, eventsToScan?: AppEvent[]): Promise<void> {
+      this.error = null;
+      const userProjects: UserProject[] = [];
       try {
-        const submissionsQuery = query(
-          collection(db, 'submissions'),
-          where('userId', '==', userId),
-          orderBy('submittedAt', 'desc')
-        );
-        
-        const snapshot = await getDocs(submissionsQuery);
-        const projects: UserProject[] = [];
-        
-        for (const docSnap of snapshot.docs) {
-          const data = docSnap.data();
-          let eventName;
-          
-          if (data.eventId) {
-            const eventRef = doc(db, 'events', data.eventId);
-            const eventSnap = await getDoc(eventRef);
-            if (eventSnap.exists()) {
-              eventName = eventSnap.data()?.details?.eventName;
-            }
-          }
-          
-          projects.push({
-            id: docSnap.id,
-            projectName: data.projectName,
-            link: data.link,
-            description: data.description,
-            eventId: data.eventId,
-            eventName: eventName,
-            submittedAt: data.submittedAt,
-          });
+        if (!userId) {
+          console.warn("User ID missing for fetchUserProjects");
+          this.viewedUserProjects = [];
+          return;
         }
-        
-        this.viewedUserProjects = projects;
-        
-      } catch (error) {
-        console.error('Error fetching user projects:', error);
+
+        let eventsData = eventsToScan;
+        if (!eventsData) {
+            // If eventsToScan is not provided, fetch them based on the user's profile
+            // This assumes viewedUserProfile or currentUser has participated/organized event IDs
+            const profileToUse = this.viewedUserProfile?.uid === userId ? this.viewedUserProfile : (this.currentUser?.uid === userId ? this.currentUser : null);
+            if (profileToUse) {
+                const participatedIds = profileToUse.participatedEvent || [];
+                const organizedIds = profileToUse.organizedEvent || [];
+                const allEventIds = Array.from(new Set([...participatedIds, ...organizedIds])).filter(Boolean);
+
+                if (allEventIds.length > 0) {
+                    const tempEvents: AppEvent[] = [];
+                    const batchSize = 30;
+                    for (let i = 0; i < allEventIds.length; i += batchSize) {
+                        const batchIds = allEventIds.slice(i, i + batchSize);
+                        if (batchIds.length === 0) continue;
+                        const eventsRef = collection(db, 'events');
+                        const q = query(eventsRef, where('__name__', 'in', batchIds));
+                        const snapshot = await getDocs(q);
+                        snapshot.forEach(docSnap => {
+                            tempEvents.push({ id: docSnap.id, ...docSnap.data() } as AppEvent);
+                        });
+                    }
+                    eventsData = tempEvents;
+                } else {
+                    eventsData = [];
+                }
+            } else {
+                eventsData = [];
+            }
+        }
+
+
+        if (!Array.isArray(eventsData) || eventsData.length === 0) {
+          console.log(`No events to scan for projects for user ${userId}`);
+          this.viewedUserProjects = [];
+          return;
+        }
+
+        for (const eventData of eventsData) {
+          if (eventData.submissions && Array.isArray(eventData.submissions)) {
+            eventData.submissions.forEach((submission: Submission) => {
+              if (submission.submittedBy === userId) {
+                userProjects.push({
+                  id: `${eventData.id}-${submission.projectName.replace(/\s+/g, '-')}-${submission.submittedBy}`, // More robust unique ID
+                  projectName: submission.projectName,
+                  link: submission.link,
+                  description: submission.description || '', // Ensure description is string
+                  eventId: eventData.id,
+                  eventName: eventData.details?.eventName || 'Unknown Event',
+                  submittedAt: submission.submittedAt,
+                });
+              }
+            });
+          }
+        }
+
+        userProjects.sort((a, b) => {
+            const timeA = a.submittedAt instanceof Timestamp ? a.submittedAt.toMillis() : (typeof a.submittedAt === 'number' ? a.submittedAt : 0);
+            const timeB = b.submittedAt instanceof Timestamp ? b.submittedAt.toMillis() : (typeof b.submittedAt === 'number' ? b.submittedAt : 0);
+            return timeB - timeA;
+        });
+
+        this.viewedUserProjects = userProjects;
+
+      } catch (error: any) {
+        console.error(`Error fetching user projects for ${userId}:`, error);
+        this.error = error.message || 'Failed to fetch user projects.';
         this.viewedUserProjects = [];
       }
     },
 
     async fetchCurrentUserPortfolioData(): Promise<void> {
       if (!this.currentUser?.uid) {
-        throw new Error('User must be logged in to fetch portfolio data');
+        this.currentUserPortfolioData = { projects: [], eventParticipationCount: 0 };
+        console.warn('User not logged in for fetchCurrentUserPortfolioData, returning empty portfolio.');
+        return;
       }
-      
+      const userId = this.currentUser.uid;
+      this.error = null;
+      this.loading = true; // Indicate loading state for portfolio data
+
       try {
-        const submissionsQuery = query(
-          collection(db, 'submissions'),
-          where('userId', '==', this.currentUser.uid),
-          orderBy('submittedAt', 'desc')
-        );
-        
-        const snapshot = await getDocs(submissionsQuery);
-        const projects: Project[] = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            projectName: data.projectName || data.details?.eventName || `Project (${doc.id.substring(0, 5)}...)`,
-            eventName: data.details?.eventName || `Event (${data.eventId?.substring(0, 5) || doc.id.substring(0, 5)}...)`,
-            eventType: data.details?.type || 'Unknown',
-            description: data.details?.description || '',
-            link: data.link || '#',
-            submittedAt: data.submittedAt
-          };
-        });
-        
-        const userDocRef = doc(db, 'users', this.currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        
-        let participatedCount = 0;
-        let organizedCount = 0;
-        
-        if (userDocSnap.exists()) {
-          const data = userDocSnap.data();
-          participatedCount = Array.isArray(data.participatedEvent) ? data.participatedEvent.length : 0;
-          organizedCount = Array.isArray(data.organizedEvent) ? data.organizedEvent.length : 0;
+        const projectsForPortfolio: Project[] = [];
+        let eventCount = 0;
+
+        const participatedEventIds = this.currentUser.participatedEvent || [];
+        const organizedEventIds = this.currentUser.organizedEvent || [];
+        const relevantEventIds = Array.from(new Set([...participatedEventIds, ...organizedEventIds])).filter(Boolean);
+        eventCount = relevantEventIds.length;
+
+        if (relevantEventIds.length > 0) {
+          const eventPromises: Promise<AppEvent | null>[] = relevantEventIds.map(eventId => {
+            const eventRef = doc(db, 'events', eventId);
+            return getDoc(eventRef).then(eventSnap =>
+              eventSnap.exists() ? ({ id: eventSnap.id, ...eventSnap.data() } as AppEvent) : null
+            );
+          });
+          const fetchedEvents = (await Promise.all(eventPromises)).filter(Boolean) as AppEvent[];
+
+          for (const eventData of fetchedEvents) {
+            // Filter out events that are Pending, Cancelled, or Rejected for portfolio
+            if ([EventStatus.Pending, EventStatus.Cancelled, EventStatus.Rejected].includes(eventData.status as EventStatus)) {
+                eventCount = Math.max(0, eventCount -1); // Decrement count for these events
+                continue;
+            }
+
+            if (eventData.submissions && Array.isArray(eventData.submissions)) {
+              eventData.submissions.forEach((submission: Submission) => {
+                if (submission.submittedBy === userId) {
+                  projectsForPortfolio.push({
+                    id: `${eventData.id}-${submission.projectName.replace(/\s+/g, '-')}`,
+                    projectName: submission.projectName,
+                    eventName: eventData.details?.eventName || `Event (${eventData.id.substring(0,5)})`,
+                    eventType: eventData.details?.type || 'Unknown',
+                    description: submission.description || '',
+                    link: submission.link,
+                    submittedAt: submission.submittedAt,
+                  });
+                }
+              });
+            }
+          }
         }
-        
+
+        projectsForPortfolio.sort((a, b) => {
+            const timeA = a.submittedAt instanceof Timestamp ? a.submittedAt.toMillis() : (typeof a.submittedAt === 'number' ? a.submittedAt : 0);
+            const timeB = b.submittedAt instanceof Timestamp ? b.submittedAt.toMillis() : (typeof b.submittedAt === 'number' ? b.submittedAt : 0);
+            return timeB - timeA;
+        });
+
         this.currentUserPortfolioData = {
-          projects,
-          eventParticipationCount: participatedCount + organizedCount
+          projects: projectsForPortfolio,
+          eventParticipationCount: eventCount, // Use the adjusted event count
         };
-        
-      } catch (error) {
-        console.error('Error fetching portfolio data:', error);
+
+      } catch (error: any) {
+        console.error('Error fetching current user portfolio data:', error);
+        this.error = error.message || 'Failed to fetch portfolio data.';
         this.currentUserPortfolioData = {
           projects: [],
-          eventParticipationCount: 0
+          eventParticipationCount: 0,
         };
+      } finally {
+        this.loading = false;
       }
     },
 
     async fetchUserRequests(userId: string): Promise<void> {
+      this.error = null;
       try {
+        if (!userId) {
+          this.userRequests = [];
+          return;
+        }
         const eventsRef = collection(db, 'events');
-        const q = query(eventsRef, where('requestedBy', '==', userId));
+        // Fetch only Pending and Rejected requests for the "My Requests" section
+        const q = query(
+            eventsRef,
+            where('requestedBy', '==', userId),
+            where('status', 'in', [EventStatus.Pending, EventStatus.Rejected])
+        );
         const snapshot = await getDocs(q);
-        
         const requests: AppEvent[] = [];
-        snapshot.forEach(doc => {
-          requests.push({ id: doc.id, ...doc.data() } as AppEvent);
+        snapshot.forEach(docSnap => {
+          requests.push({ id: docSnap.id, ...docSnap.data() } as AppEvent);
         });
-        
+        // Sort by creation date, newest first
+        requests.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
         this.userRequests = requests;
-      } catch (error) {
-        console.error('Error fetching user requests:', error);
+      } catch (error: any) {
+        console.error(`Error fetching user requests for ${userId}:`, error);
+        this.error = error.message || 'Failed to fetch user requests.';
         this.userRequests = [];
       }
     },
 
     async fetchUserNamesBatch(userIds: string[]): Promise<Record<string, string>> {
-      const uniqueIds = [...new Set(userIds)].filter(Boolean);
+      const uniqueIds = [...new Set(userIds)].filter(id => typeof id === 'string' && id.trim() !== '');
       if (uniqueIds.length === 0) return {};
-      
+
       const result: Record<string, string> = {};
-      const idsToFetch = uniqueIds.filter(id => !this.nameCache.has(id));
-      
-      if (idsToFetch.length === 0) {
-        uniqueIds.forEach(id => {
-          const cached = this.nameCache.get(id);
-          if (cached) result[id] = cached.name;
-        });
-        return result;
+      const idsToFetchFromFirestore: string[] = [];
+
+      // Populate from cache first
+      uniqueIds.forEach(id => {
+        const cachedEntry = this.nameCache.get(id);
+        if (cachedEntry) {
+          // Optional: Check cache entry timestamp for staleness if needed
+          // const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+          // if (Date.now() - cachedEntry.timestamp < CACHE_TTL) {
+          result[id] = cachedEntry.name;
+          // } else {
+          //   idsToFetchFromFirestore.push(id); // Stale, refetch
+          // }
+        } else {
+          idsToFetchFromFirestore.push(id);
+        }
+      });
+
+      if (idsToFetchFromFirestore.length === 0) {
+        return result; // All names were cached and fresh
       }
-      
+
       try {
         const usersRef = collection(db, 'users');
-        const batchSize = 10;
-        
-        for (let i = 0; i < idsToFetch.length; i += batchSize) {
-          const batchIds = idsToFetch.slice(i, i + batchSize);
+        // Firestore 'in' query supports up to 30 elements.
+        const batchSize = 30;
+
+        for (let i = 0; i < idsToFetchFromFirestore.length; i += batchSize) {
+          const batchIds = idsToFetchFromFirestore.slice(i, i + batchSize);
+          if (batchIds.length === 0) continue;
+
           const q = query(usersRef, where('__name__', 'in', batchIds));
           const snapshot = await getDocs(q);
-          
-          snapshot.forEach(doc => {
-            const name = doc.data()?.name || `User (${doc.id.substring(0, 5)}...)`;
-            result[doc.id] = name;
-            
-            this.nameCache.set(doc.id, {
-              name,
-              timestamp: Date.now()
-            });
+          snapshot.forEach(docSnap => {
+            const name = docSnap.data()?.name || `User (${docSnap.id.substring(0, 5)}...)`;
+            result[docSnap.id] = name;
+            this.nameCache.set(docSnap.id, { name, timestamp: Date.now() });
           });
         }
-        
-        uniqueIds.filter(id => !idsToFetch.includes(id)).forEach(id => {
-          const cached = this.nameCache.get(id);
-          if (cached) result[id] = cached.name;
-        });
-        
         return result;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching user names batch:', error);
-        return {};
+        // For IDs that failed to fetch, provide a fallback if they were requested
+        idsToFetchFromFirestore.forEach(id => {
+            if (!result[id]) result[id] = `User (${id.substring(0,5)}...)`;
+        });
+        return result; // Return partial results or fallbacks
       }
     },
 
     async fetchAllUsers(): Promise<void> {
+      if (this.allUsers.length > 0 && this.hasFetched) { // Basic caching: if already fetched, don't refetch
+          // This check is basic. For more robust caching, consider timestamps.
+          // console.log("fetchAllUsers: Using cached data.");
+          // return;
+      }
       this.loading = true;
       this.error = null;
       try {
         const usersRef = collection(db, 'users');
         const snapshot = await getDocs(usersRef);
         const users: UserData[] = [];
-        snapshot.forEach(doc => {
-          const userData = doc.data() as Omit<UserData, 'uid' | 'xpByRole'> & { xpByRole?: Partial<Record<XpRoleKey, number>> };
-          const userWithId: UserData = { 
-            ...userData, 
-            uid: doc.id,
-            xpByRole: { ...defaultXpStructure, ...(userData.xpByRole || {}) } 
+        snapshot.forEach(docSnap => {
+          const userDataFromDb = docSnap.data() as Omit<UserData, 'uid' | 'xpByRole'> & { xpByRole?: Partial<Record<XpRoleKey, number>> };
+          const userWithId: UserData = {
+            ...userDataFromDb,
+            uid: docSnap.id,
+            xpByRole: { ...defaultXpStructure, ...(userDataFromDb.xpByRole || {}) }
           };
           users.push(userWithId);
           if (userWithId.name) {
-            this.nameCache.set(doc.id, {
-              name: userWithId.name,
-              timestamp: Date.now()
-            });
+            this.nameCache.set(docSnap.id, { name: userWithId.name, timestamp: Date.now() });
           }
         });
         this.allUsers = users;
+        // this.hasFetched = true; // Mark that all users have been fetched (if this flag is for allUsers)
       } catch (error: any) {
         this.error = error;
         console.error('Error fetching all users:', error);
@@ -425,39 +571,40 @@ export const useUserStore = defineStore('user', {
     },
 
     async fetchAllStudents(): Promise<void> {
+      // Basic caching: if already fetched, don't refetch unless forced
+      // if (this.studentList.length > 0 && !forceFetch) {
+      //   console.log("[UserStore fetchAllStudents] Using cached student list.");
+      //   return;
+      // }
+
       this.loading = true;
       this.error = null;
       try {
         const usersRef = collection(db, 'users');
-        // Remove the role filter, since all users are students
-        const q = query(
-          usersRef,
-          orderBy('name', 'asc')
-        );
+        // Assuming all users are students. If there's a 'role' field, filter by it.
+        // Example: const q = query(usersRef, where('role', '==', 'student'), orderBy('name', 'asc'));
+        const q = query(usersRef, orderBy('name', 'asc'));
         const snapshot = await getDocs(q);
 
-        console.log(`[UserStore fetchAllStudents] Firestore query for students snapshot.docs.length: ${snapshot.docs.length}`);
+        console.log(`[UserStore fetchAllStudents] Firestore query returned ${snapshot.docs.length} documents.`);
 
         const students: UserData[] = [];
-        snapshot.forEach(doc => {
-          const userData = doc.data() as Omit<UserData, 'uid' | 'xpByRole'> & { xpByRole?: Partial<Record<XpRoleKey, number>> };
-          const studentWithId: UserData = { 
-            ...userData, 
-            uid: doc.id, 
-            xpByRole: { ...defaultXpStructure, ...(userData.xpByRole || {}) } 
+        snapshot.forEach(docSnap => {
+          const userDataFromDb = docSnap.data() as Omit<UserData, 'uid' | 'xpByRole'> & { xpByRole?: Partial<Record<XpRoleKey, number>> };
+          const studentWithId: UserData = {
+            ...userDataFromDb,
+            uid: docSnap.id,
+            xpByRole: { ...defaultXpStructure, ...(userDataFromDb.xpByRole || {}) }
           };
           students.push(studentWithId);
           if (studentWithId.name) {
-            this.nameCache.set(doc.id, {
-              name: studentWithId.name,
-              timestamp: Date.now()
-            });
+            this.nameCache.set(docSnap.id, { name: studentWithId.name, timestamp: Date.now() });
           }
         });
         this.studentList = students;
         console.log('[UserStore fetchAllStudents] Successfully fetched and set students. Count:', this.studentList.length);
         if (this.studentList.length > 0) {
-          console.log('[UserStore fetchAllStudents] First fetched student:', JSON.stringify(this.studentList[0]));
+          // console.log('[UserStore fetchAllStudents] First fetched student:', JSON.stringify(this.studentList[0]));
         }
       } catch (error: any) {
         this.error = error;
@@ -469,23 +616,36 @@ export const useUserStore = defineStore('user', {
     },
 
     async fetchLeaderboardUsers(): Promise<void> {
+      this.loading = true;
       this.error = null;
       try {
         if (this.allUsers.length === 0) {
-          await this.fetchAllUsers(); // fetchAllUsers now ensures xpByRole is structured
+          await this.fetchAllUsers();
         }
-        // allUsers already have xpByRole structured by fetchAllUsers
+        // Ensure xpByRole is properly structured for all users in allUsers
         this.leaderboardUsers = this.allUsers.map(user => ({
-          ...user 
-          // No need to restructure xpByRole here if fetchAllUsers does it
+          ...user,
+          xpByRole: { ...defaultXpStructure, ...(user.xpByRole || {}) }
         }));
-        
       } catch (error: any) {
         this.error = error;
-        console.error('Error fetching leaderboard users:', error);
+        console.error('Error fetching/preparing leaderboard users:', error);
         this.leaderboardUsers = [];
       } finally {
+        this.loading = false;
       }
     },
+
+    clearStaleCache(): void {
+        const now = Date.now();
+        const CACHE_TTL = 30 * 60 * 1000; // 30 minutes, adjust as needed
+        this.nameCache.forEach((entry, key) => {
+            if (now - entry.timestamp > CACHE_TTL) {
+                this.nameCache.delete(key);
+            }
+        });
+        console.log("Stale name cache entries cleared.");
+    },
+
   }
 });

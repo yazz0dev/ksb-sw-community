@@ -21,13 +21,14 @@
         <div class="card shadow-sm">
           <div class="card-body text-center p-4">
             <div class="mb-4">
-              <!-- FIX: Use global Event type for @error -->
+              <!-- Updated image handling to better handle missing photoURL -->
               <img
                 :src="user.photoURL || defaultAvatarUrl"
                 :alt="user.name || 'Profile Photo'"
                 class="img-fluid rounded-circle border border-3 border-primary shadow-sm"
                 style="width: 110px; height: 110px; object-fit: cover;"
                 @error="handleImageError"
+                ref="profileImageRef"
               />
             </div>
             <h1 class="h4 mb-2">{{ user.name || 'User Profile' }}</h1>
@@ -51,11 +52,11 @@
             </div>
 
             <!-- Bio -->
-            <p v-if="user.bio" class="text-muted small mb-4">{{ user.bio }}</p>
-            <p v-else class="text-muted small fst-italic mb-4">No bio provided.</p>
+            <p v-if="user.bio" class="text-muted small mb-3">{{ user.bio }}</p>
+            <p v-else class="text-muted small fst-italic mb-3">No bio provided.</p>
 
             <!-- Skills Section -->
-            <div v-if="user.skills && user.skills.length > 0" class="mb-4">
+            <div v-if="user.skills && user.skills.length > 0" class="mb-3">
               <h6 class="text-secondary small fw-semibold mb-2"><i class="fas fa-code me-1"></i> Skills</h6>
               <div>
                 <span v-for="skill in user.skills" :key="skill" class="badge bg-light text-dark border me-1 mb-1">{{ skill }}</span>
@@ -63,7 +64,7 @@
             </div>
 
             <!-- Preferred Roles Section -->
-            <div v-if="user.preferredRoles && user.preferredRoles.length > 0" class="mb-4">
+            <div v-if="user.preferredRoles && user.preferredRoles.length > 0" class="mb-3">
               <h6 class="text-secondary small fw-semibold mb-2"><i class="fas fa-user-tag me-1"></i> Preferred Roles</h6>
               <div>
                 <span v-for="role in user.preferredRoles" :key="role" class="badge bg-light text-dark border me-1 mb-1">{{ formatRoleName(role) }}</span>
@@ -71,7 +72,7 @@
             </div>
 
             <!-- Has Laptop Section -->
-            <div class="mb-4">
+            <div class="mb-3">
               <h6 class="text-secondary small fw-semibold mb-2"><i class="fas fa-laptop me-1"></i> Equipment</h6>
               <div>
                 <span class="badge border me-1 mb-1" :class="user.hasLaptop ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'">
@@ -82,7 +83,7 @@
             </div>
 
             <!-- Stats Section -->
-            <div class="d-flex justify-content-around mb-5">
+            <div class="d-flex justify-content-around mb-4">
               <div class="text-center">
                 <div class="bg-primary-subtle text-primary-emphasis p-2 rounded mb-1">
                   <h5 class="h5 mb-0">{{ stats.participatedCount }}</h5> <!-- h4 to h5 -->
@@ -103,7 +104,7 @@
               </div>
             </div>
             <!-- Total XP Section -->
-            <div class="mb-4">
+            <div class="mb-3">
               <p class="small fw-semibold text-secondary mb-1">
                 <i class="fas fa-star text-warning me-1"></i> Total XP Earned
               </p>
@@ -115,11 +116,13 @@
 
       <!-- Right Column -->
       <div class="col-lg-8">
-        <div class="d-flex flex-column gap-4">
+        <div class="d-flex flex-column gap-3">
            <!-- XP Breakdown -->
            <div v-if="hasXpData" class="card shadow-sm">
              <div class="card-header">
-               <h5 class="card-title mb-0">XP Breakdown by Role</h5>
+               <h5 class="card-title mb-0 d-flex align-items-center">
+                 <i class="fas fa-medal text-primary me-2"></i>XP Breakdown by Role
+               </h5>
              </div>
              <div class="card-body">
                <div class="row g-4">
@@ -140,7 +143,9 @@
            <!-- NOTE: Consider fetching events from store state/getters instead of direct Firestore query here for efficiency -->
            <div v-if="sortedEventsHistory.length > 0" class="card shadow-sm">
              <div class="card-header">
-               <h5 class="card-title mb-0">Event History</h5>
+               <h5 class="card-title mb-0 d-flex align-items-center">
+                 <i class="fas fa-history text-primary me-2"></i>Event History
+               </h5>
              </div>
              <ul class="list-group list-group-flush">
                <li
@@ -294,8 +299,9 @@ const loadingEventsOrProjects = ref<boolean>(true);
 const stats = ref<Stats>({ participatedCount: 0, organizedCount: 0, wonCount: 0 });
 const participatedEventIds = ref<string[]>([]);
 const organizedEventIds = ref<string[]>([]);
-const defaultAvatarUrl: string = new URL('../assets/default-avatar.png', import.meta.url).href;
+const defaultAvatarUrl: string = '/default-avatar.png';
 const initialDataLoaded = ref<boolean>(false); // New ref to track initial load completion
+const profileImageRef = ref<HTMLImageElement | null>(null);
 
 
 // --- Computed Properties ---
@@ -355,10 +361,16 @@ const sortedEventsHistory = computed(() => {
 // --- Methods ---
 // FIX: Change parameter type from imported Event to global Event or any
 const handleImageError = (e: Event) => { // Use standard DOM Event type
-  // FIX: Check if target exists before accessing src
   const target = e.target as HTMLImageElement | null;
   if (target) {
+    console.log('Image failed to load, using default avatar');
     target.src = defaultAvatarUrl;
+    // Add fallback in case the default avatar also fails
+    target.onerror = () => {
+      console.error('Default avatar also failed to load');
+      target.onerror = null; // Prevent infinite loop
+      target.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23ddd%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%23666%22%20font-family%3D%22sans-serif%22%20font-size%3D%2240%22%20dy%3D%22.3em%22%20text-anchor%3D%22middle%22%20x%3D%22100%22%20y%3D%22100%22%3EUser%3C%2Ftext%3E%3C%2Fsvg%3E';
+    };
   }
 };
 
@@ -492,6 +504,14 @@ const openEditProfile = () => {
 
 // Expose openEditProfile
 defineExpose({ openEditProfile });
+
+// Check image on component mount
+onMounted(() => {
+  // If user exists but photoURL is empty, set default avatar immediately
+  if (user.value && !user.value.photoURL && profileImageRef.value) {
+    profileImageRef.value.src = defaultAvatarUrl;
+  }
+});
 
 </script>
 

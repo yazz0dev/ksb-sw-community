@@ -125,6 +125,7 @@
                 :isCurrentUserParticipant="isCurrentUserParticipant"
                 :canRateOrganizer="canRateOrganizer"
                 :loading="loading"
+                :isCurrentUserOrganizer="isCurrentUserOrganizer"
                 class="mb-4"
               >
                  <template v-if="loading">
@@ -165,7 +166,7 @@
                 v-if="canRateOrganizer"
                 :event-id="event.id"
                 :current-user-id="currentUser?.uid ?? ''"
-                :existing-ratings="event.ratings?.organizer || []"
+                :existing-ratings="event.organizerRating || []"
                 class="mt-3"
               />
             </div>
@@ -454,7 +455,7 @@ const allAssociatedUserIds = computed<string[]>(() => {
     // Add submitters if submissions exist
     (event.value.submissions || []).forEach(sub => { if (sub.submittedBy) userIds.add(sub.submittedBy); });
     // Add raters if ratings exist (example structure)
-    (event.value.ratings?.organizer || []).forEach(rating => { if (rating.userId) userIds.add(rating.userId); });
+    (event.value.organizerRating || []).forEach(rating => { if (rating.userId) userIds.add(rating.userId); });
 
     return Array.from(userIds).filter(Boolean); // Ensure no falsy IDs
 });
