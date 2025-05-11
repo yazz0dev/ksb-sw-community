@@ -1,3 +1,4 @@
+ <!-- .\views\LeaderboardView.vue-->
 <template>
   <section class="leaderboard-section">
     <div class="container-lg py-5">
@@ -28,55 +29,45 @@
          <p class="text-secondary mt-3">Loading leaderboard...</p>
       </div>
 
+      <!-- Error State -->
+      <div v-else-if="error" class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Error loading leaderboard:</strong> {{ error }}
+        <button @click="retryLoading" class="btn btn-sm btn-outline-danger ms-3">
+          <i class="fas fa-sync-alt me-1"></i> Retry
+        </button>
+      </div>
+
       <!-- Leaderboard Content -->
       <div v-else>
-         <div v-if="filteredUsers.length === 0" class="empty-state">
-            <i class="bi bi-emoji-neutral fs-1 mb-3"></i>
-            <p>No participants found for this role. Try selecting another filter.</p>
+        <!-- Placeholder for actual leaderboard data -->
+        <div v-if="!filteredUsers || filteredUsers.length === 0" class="alert alert-info">
+          <i class="fas fa-info-circle me-2"></i>
+          <span v-if="isFirstLoad">
+            No users found for the leaderboard. This might be normal for a new application.
+          </span>
+          <span v-else>
+            No users found for the selected role or leaderboard is empty.
+          </span>
+          <button @click="retryLoading" class="btn btn-sm btn-outline-primary ms-3">
+            <i class="fas fa-sync-alt me-1"></i> Refresh
+          </button>
         </div>
-        <div v-else class="leaderboard-table">
-          <table class="table">
-            <thead>
-              <tr>
-                <th class="text-center">Rank</th>
-                <th>Name</th>
-                <th class="text-end">Experience Points</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(user, index) in filteredUsers" :key="user.uid">
-                <td class="text-center">
-                  <div v-if="index < 3" :class="['rank-badge', `rank-${index + 1}`]">
-                    {{ index + 1 }}
-                  </div>
-                  <span v-else class="rank-number">{{ index + 1 }}</span>
-                </td>
-                <td class="d-flex align-items-center">
-                  <img
-                    :src="user.photoURL || defaultAvatarUrl"
-                    alt="User Avatar"
-                    class="leaderboard-avatar me-2"
-                    @error="handleImageError"
-                  />
-                  <router-link :to="`/user/${user.uid}`" class="user-link">
-                     {{ user.name }}
-                  </router-link>
-                </td>
-                <td class="text-end">
-                  <span class="xp-value">{{ user.displayXp }}</span>
-                  <small class="text-secondary ms-1">XP</small>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Actual leaderboard rendering would go here -->
+        <!-- Example:
+        <div v-for="user in filteredUsers" :key="user.id" class="card mb-2">
+          <div class="card-body">
+            {{ user.name }} - {{ user.xp }} XP
+          </div>
         </div>
+        -->
       </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '@/store/user';
 import { formatRoleName } from '../utils/formatters';
 
@@ -123,20 +114,136 @@ const availableRoles = ref<string[]>([
 
 const selectedRole = ref<string>('Overall');
 const users = ref<User[]>([]);
-const loading = ref<boolean>(true);
+const loading = ref<boolean>(true); // Start with loading true
+const error = ref<string | null>(null);
+const retryCount = ref<number>(0);
+const MAX_RETRIES = 3;
+const isFirstLoad = ref<boolean>(true);
 
 const userStore = useUserStore();
 
+// Watch the store's loading state and update local loading state accordingly
+watch(() => userStore.loading, (storeLoading) => {
+  // If the store is loading, ensure our component shows loading
+  // This might be too simplistic if multiple operations can set userStore.loading
+  loading.value = storeLoading;
+});
+
+// Watch for errors in the store
+watch(() => userStore.error, (storeError) => {
+  // This will react to any error set in the userStore.
+  // We need to be careful if an "error" is just an informational message (e.g. "collection empty")
+  if (storeError) {
+    const errorMessage = typeof storeError === 'string' ? storeError : 
+                (storeError instanceof Error ? storeError.message : 'Unknown error occurred');
+    
+    // Avoid overwriting a more specific error from retryLoading or onMounted
+    if (error.value && error.value.startsWith("Failed after")) return;
+
+    // Filter out messages that are not actual errors for the leaderboard view
+    if (errorMessage.includes('No users found in the database') ||
+        errorMessage.includes('collection might be empty')) {
+        // This is an informational "error" from fetchAllUsers if the collection is empty.
+        // LeaderboardView handles this by showing "No users found..."
+        // So, we don't set the component's `error.value` for this case.
+        // `users.value` will be empty, and the template will show the correct message.
+        if(users.value.length === 0 && !loading.value){ // ensure users is also empty
+             // error.value = null; // Let the template handle empty state
+        }
+    } else {
+        error.value = errorMessage;
+    }
+  } else {
+    // If store error is cleared, clear local error too, unless it's a retry error
+     if (!(error.value && error.value.startsWith("Failed after"))) {
+        error.value = null;
+     }
+  }
+});
+
+const retryLoading = async () => {
+  if (retryCount.value >= MAX_RETRIES) {
+    error.value = `Failed after ${MAX_RETRIES} attempts. Please refresh the page or try again later.`;
+    loading.value = false; // Stop loading on max retries
+    return;
+  }
+  
+  error.value = null;
+  loading.value = true;
+  retryCount.value++;
+  isFirstLoad.value = false; // It's no longer the first load attempt
+  
+  try {
+    // Clear any existing users in the store to force a fresh fetch by fetchLeaderboardUsers
+    // userStore.leaderboardUsers = []; // fetchLeaderboardUsers will populate this
+    // userStore.allUsers = []; // fetchAllUsers (called by fetchLeaderboardUsers) will populate this
+                             // Clearing allUsers here ensures fetchAllUsers doesn't use its cache.
+    
+    await userStore.fetchLeaderboardUsers(); // This action now has more logging
+    
+    // After the fetch, update local state based on the store
+    users.value = userStore.leaderboardUsers;
+    
+    // Handle error state from the store specifically after this operation
+    if (userStore.error) {
+        const storeErrorMessage = userStore.error instanceof Error ? userStore.error.message : String(userStore.error);
+        // Only set local error if it's a "real" error, not an "empty collection" message
+        if (!storeErrorMessage.includes('No users found in the database') && !storeErrorMessage.includes('collection might be empty')) {
+            error.value = storeErrorMessage;
+        } else {
+            error.value = null; // Clear local error if it's just an info/empty message from store
+        }
+    } else {
+        error.value = null; // Clear local error if store has no error
+    }
+
+  } catch (err: any) { // Catch errors from the action call itself, though store actions usually handle their own errors
+    console.error("LeaderboardView: Error during retryLoading's call to fetchLeaderboardUsers:", err);
+    error.value = err.message || 'Failed to fetch leaderboard data on retry';
+    users.value = []; // Ensure users are empty on error
+  } finally {
+    loading.value = userStore.loading; // Reflect store's loading state
+  }
+};
+
 onMounted(async () => {
-    loading.value = true;
+    console.log("LeaderboardView: onMounted started.");
+    loading.value = true; 
+    error.value = null;
+    isFirstLoad.value = true;
+    retryCount.value = 0; // Reset retry count on new mount
+    
     try {
+        // No need to check for cached leaderboardUsers here, let fetchLeaderboardUsers handle logic
+        // including its call to fetchAllUsers which has its own caching.
+        console.log("LeaderboardView: Calling fetchLeaderboardUsers from onMounted.");
         await userStore.fetchLeaderboardUsers();
-        users.value = userStore.leaderboardUsers; 
-    } catch (error) {
-        console.error("Error fetching leaderboard data:", error);
+        
+        // After the fetch, update local state based on the store
+        users.value = userStore.leaderboardUsers;
+        console.log(`LeaderboardView: onMounted fetch complete. Users count: ${users.value.length}, Store error: ${userStore.error}`);
+        
+        // Handle error state from the store specifically after this operation
+        if (userStore.error) {
+            const storeErrorMessage = userStore.error instanceof Error ? userStore.error.message : String(userStore.error);
+            // Only set local error if it's a "real" error
+            if (!storeErrorMessage.includes('No users found in the database') && !storeErrorMessage.includes('collection might be empty')) {
+                error.value = storeErrorMessage;
+            } else {
+                 error.value = null; // It's an "empty" message, not an error for the view itself
+            }
+        } else {
+            error.value = null; // Clear local error if store has no error
+        }
+
+    } catch (err: any) { // Catch errors from the action call itself
+        console.error("LeaderboardView: Critical error during onMounted's call to fetchLeaderboardUsers:", err);
+        error.value = err.message || "An unexpected error occurred while loading the leaderboard.";
         users.value = [];
     } finally {
-        loading.value = false;
+        loading.value = userStore.loading; // Reflect store's loading state
+        isFirstLoad.value = false; // Initial load attempt is complete
+        console.log(`LeaderboardView: onMounted finished. Loading: ${loading.value}, Error: ${error.value}`);
     }
 });
 
@@ -301,4 +408,3 @@ const selectRoleFilter = (role: string): void => {
   }
 }
 </style>
-

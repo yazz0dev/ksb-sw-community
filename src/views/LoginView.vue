@@ -1,5 +1,5 @@
 <template>
-  <div class="login-bg d-flex align-items-center justify-content-center py-5">
+  <div class="login-bg d-flex align-items-center justify-content-center pt-5">
     <div class="container container-sm">
       <div class="row justify-content-center">
         <div class="col-12 col-md-8 col-lg-6">

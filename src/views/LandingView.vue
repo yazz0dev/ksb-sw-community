@@ -138,11 +138,16 @@
     </section>
 
     <!-- Footer -->
-    <footer class="landing-footer mt-5 pt-4 border-top">
-      <div class="container border-top">
+    <footer class="landing-footer mt-5 py-4 border-top">
+      <div class="container">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+           <p class="text-muted small mb-0">&copy; {{ new Date().getFullYear() }} KSB Tech Community. All rights reserved.</p>
+           <div class="d-flex gap-3">
+             <router-link to="/terms" class="text-muted small text-decoration-none">Terms</router-link>
+             <router-link to="/privacy" class="text-muted small text-decoration-none">Privacy</router-link>
+           </div>
         </div>
-        <p class="mt-4 small text-muted text-center">
+        <p class="mt-3 small text-muted text-center">
           This site is managed by the MCA department of KMCT School Of Business.
         </p>
       </div>

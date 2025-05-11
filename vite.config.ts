@@ -39,10 +39,10 @@ const config: UserConfig = {
     }
   },
   plugins: [
-    vue(),// Type assertion for TypeScript
+    vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'src/assets/logo.png', 'OneSignalSDKWorker.js'],
+      includeAssets: ['favicon.ico', 'robots.txt', 'sitemap.xml', 'logo.png', 'OneSignalSDKWorker.js'],
       manifest: {
         name: 'KSB Tech Community',
         short_name: 'KSB Tech',
@@ -52,17 +52,17 @@ const config: UserConfig = {
         display: 'standalone',
         icons: [
           {
-            src: 'src/assets/logo.png',
+            src: '/logo.png', // Fixed path - remove the space
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'src/assets/logo.png',
+            src: '/logo.png', // Fixed path - remove the space
             sizes: '512x512',
             type: 'image/png'
           },
           {
-            src: 'src/assets/logo.png',
+            src: '/logo.png', // Fixed path - remove the space
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
@@ -74,6 +74,11 @@ const config: UserConfig = {
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+        // Don't precache OneSignal files
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        maximumFileSizeToCacheInBytes: 3000000,
+        // Add OneSignal to navigateFallbackDenylist to prevent conflicts
+        navigateFallbackDenylist: [/^\/OneSignalSDKWorker\.js$/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -113,8 +118,13 @@ const config: UserConfig = {
             }
           }
         ]
+      },
+      // Add this to disable PWA's service worker when using OneSignal
+      strategies: 'injectManifest',
+      injectManifest: {
+        injectionPoint: undefined
       }
-    } as VitePWAOptions) // Type assertion for TypeScript
+    } as VitePWAOptions)
   ],
   optimizeDeps: {
     esbuildOptions: {

@@ -27,7 +27,6 @@ export async function createEventRequestInFirestore(initialData: Partial<Event>,
              requestedBy: currentUserUid,
              status: EventStatus.Pending,
              createdAt: Timestamp.now(),
-             lastUpdatedAt: Timestamp.now(),
              votingOpen: false, // Default value
         });
 
@@ -91,10 +90,9 @@ export async function updateEventDetailsInFirestore(eventId: string, updates: Pa
             throw new Error(`Cannot edit event in status '${currentStatus}'.`);
         }
 
-        // Prepare payload using mapper, ensuring lastUpdatedAt is set
+        // Prepare payload using mapper
         const mappedUpdates = mapEventDataToFirestore({
             ...updates,
-            lastUpdatedAt: Timestamp.now()
         });
 
         // Prevent crucial fields from being overwritten accidentally
@@ -151,7 +149,7 @@ export async function updateEventStatusInFirestore(eventId: string, newStatus: E
 
         // TODO: Implement permission checks here based on who is calling
 
-        let updates: Partial<Event> = { status: newStatus, lastUpdatedAt: Timestamp.now() };
+        let updates: Partial<Event> = { status: newStatus };
         let notificationType = '';
         let targetUserIds: string[] = [];
 
@@ -236,7 +234,6 @@ export async function closeEventDocumentInFirestore(eventId: string, currentUser
          await updateDoc(eventRef, {
              status: EventStatus.Closed,
              closedAt: Timestamp.now(),
-             lastUpdatedAt: Timestamp.now()
          });
          console.log(`Firestore: Event ${eventId} marked as Closed.`);
 

@@ -80,18 +80,20 @@ The KSB Tech Community is a student-driven platform for collaborative learning, 
 - 📊 Regular updates and checkpoints may be required.
 - 💬 Collaboration, mentorship, and support are available throughout.
 
-### 4️⃣ Submission & Review
-- 🎉 Participants submit their completed projects before the deadline.
-- 📝 Submissions are reviewed for completeness and adherence to guidelines.
+### 4️⃣ Project Submission & Review
+- ✅ Projects are submitted by the deadline.
+- 🧐 **Admins/Mentors** review submissions for completeness and quality.
+- 📋 Feedback is provided to participants.
 
-### 5️⃣ Peer Voting & XP Distribution
-- ⭐ Participants (not involved in the event) vote on projects based on defined criteria.
-- ✨ XP is awarded for participation, project quality, teamwork, and votes.
-- 🏆 Winners and top performers are recognized on the leaderboard.
+### 5️⃣ Voting & Feedback (If Applicable)
+- 👍 For competitive events, a voting period may be initiated.
+- 🗳️ Participants and/or community members can vote on projects.
+- 🗣️ Constructive feedback is encouraged.
 
-### 6️⃣ Portfolio & Recognition
-- 📁 All completed projects and XP contribute to each student’s portfolio.
-- 🏅 Achievements and badges are displayed on user profiles.
+### 6️⃣ XP & Recognition
+- ⭐ XP (Experience Points) are awarded based on participation, project quality, and contributions.
+- 🏆 Winners/top performers are recognized.
+- 📄 All participants gain valuable experience and portfolio-worthy projects.
 `;
 
 const votingContent = `

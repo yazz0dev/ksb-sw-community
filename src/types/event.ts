@@ -127,7 +127,6 @@ export interface Event {
   bestPerformerSelections?: Record<string, string>;
 
   createdAt: Timestamp;
-  lastUpdatedAt: Timestamp;
   completedAt?: Timestamp | null;
   closedAt?: Timestamp | null;
   rejectionReason?: string | null;

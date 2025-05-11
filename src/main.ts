@@ -15,7 +15,7 @@ import { useUserStore } from "@/store/user";
 import { useNotificationStore } from "./store/notification";
 
 import "@fortawesome/fontawesome-free/css/all.css";
-import "./assets/styles/main.scss";
+import "./styles/main.scss";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
 let appInstance: VueApp | null = null;
@@ -50,74 +50,17 @@ window.addEventListener("offline", () => {
 });
 
 // --- Service Worker Update Prompt ---
+let updatePromptShown = false; // Add this flag
+
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (confirm("A new version of the app is available. Reload now?")) {
-      window.location.reload();
+    if (!updatePromptShown) { // Check the flag
+      updatePromptShown = true; // Set the flag immediately
+      if (confirm("A new version of the app is available. Reload now?")) {
+        window.location.reload();
+      }
     }
   });
-}
-
-// --- Push Notification Setup ---
-async function registerForPushNotifications() {
-  try {
-    // Check if we're in development or on localhost
-    const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
-    if (isDevelopment || isLocalhost) {
-      console.log('Push notifications disabled in development environment');
-      return;
-    }
-
-    const OneSignal = getOneSignal();
-    if (!OneSignal || typeof OneSignal.registerForPushNotifications !== 'function') {
-      console.warn("OneSignal not available for push registration");
-      return;
-    }
-    
-    await OneSignal.registerForPushNotifications();
-    
-    const userStore = useUserStore(pinia);
-    if (userStore.uid && typeof OneSignal.setExternalUserId === 'function') {
-      await OneSignal.setExternalUserId(userStore.uid);
-      console.log("Push notifications registered for user:", userStore.uid);
-    }
-  } catch (error) {
-    console.error("Failed to register for push notifications:", error);
-  }
-}
-
-async function initOneSignal() {
-  try {
-    // Check if we're in development or on localhost
-    const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
-    if (isDevelopment || isLocalhost) {
-      console.log('OneSignal disabled in development environment');
-      return null;
-    }
-
-    const OneSignal = getOneSignal();
-    if (!OneSignal) {
-      console.warn("OneSignal not available for initialization");
-      return;
-    }
-    
-    await OneSignal.init({
-      appId: import.meta.env.VITE_ONESIGNAL_APP_ID || '',
-      allowLocalhostAsSecureOrigin: true,
-      serviceWorkerPath: '/OneSignalSDKWorker.js',
-      notifyButton: { enable: false },
-    });
-    
-    console.log("OneSignal initialized successfully");
-    return OneSignal;
-  } catch (error) {
-    console.error("Failed to initialize OneSignal:", error);
-    return null;
-  }
 }
 
 // --- Firebase Auth State Listener ---
@@ -168,14 +111,22 @@ function setupAuthListener() {
 
       // Process user state (fetch or clear)
       if (user) {
-        // Fetch only if UID differs or it's the initial fetch
-        if (userStore.uid !== user.uid || isInitialAuthCheck) {
-          console.log(
-            `Fetching user data (UID: ${user.uid}, Initial: ${isInitialAuthCheck})`,
-          );
-          await userStore.fetchUserData(user.uid);
-        } else {
-          console.log(`User data already loaded for ${user.uid}`);
+        try {
+          // Fetch only if UID differs or it's the initial fetch
+          if (userStore.uid !== user.uid || isInitialAuthCheck) {
+            console.log(
+              `Fetching user data (UID: ${user.uid}, Initial: ${isInitialAuthCheck})`,
+            );
+            await userStore.fetchUserData(user.uid);
+          } else {
+            console.log(`User data already loaded for ${user.uid}`);
+          }
+        } catch (fetchError) {
+          console.error("Error fetching user data:", fetchError);
+          // Continue processing even if fetch fails
+          if (isInitialAuthCheck) {
+            userStore.$patch({ hasFetched: true });
+          }
         }
       } else {
         // Clear only if currently authenticated or it's the initial check
@@ -183,7 +134,7 @@ function setupAuthListener() {
           console.log(
             `Clearing user data (Authenticated: ${userStore.isAuthenticated}, Initial: ${isInitialAuthCheck})`,
           );
-          // await userStore.clearUserData(); // Commented out due to missing method
+          await userStore.clearUserData();
         } else {
           console.log("No user and already not authenticated, skipping clear.");
         }
@@ -198,7 +149,7 @@ function setupAuthListener() {
       console.error("Error processing auth state change:", error);
       // Ensure state reflects error scenario
       if (!user) {
-        // await userStore.clearUserData(); // Commented out due to missing method
+        await userStore.clearUserData();
       }
       if (isInitialAuthCheck) {
         userStore.$patch({ hasFetched: true }); // Mark fetched even on error
@@ -227,56 +178,24 @@ function setupAuthListener() {
       } else if (appInstance && user && !userStore.isAuthenticated) {
         // Rare case: Auth state mismatch
         // If Firebase has a user, but the store says not authenticated.
-
-        // If this is part of the initial auth check for this specific user,
-        // the main `try` block already attempted to fetch their data.
-        // Avoid an immediate re-fetch here, even if userStore.uid is null
-        // (which would be the case if their profile wasn't found during the initial fetch).
-        if (isInitialAuthCheck) {
+        if (!isInitialAuthCheck && userStore.uid !== user.uid) {
           console.warn(
-            `Auth state: Firebase user ${user.uid} present, store.isAuthenticated is false. ` +
-            `This is during initial auth check. Primary fetch attempt was made in 'try' block. ` +
-            `Current store UID: ${userStore.uid || "null/empty"}.`
+            `Auth state mismatch: Firebase user ${user.uid}, store UID ${userStore.uid || "null/empty"}. Re-fetching user data.`
           );
-          
-          // Recovery option: If currentUser exists in the store but isAuthenticated flag is false,
-          // we can safely patch the isAuthenticated flag without triggering another fetch
-          if (userStore.currentUser?.uid === user.uid) {
-            console.log(`Found valid user data in store for ${user.uid}, fixing authentication state.`);
-            userStore.$patch({ isAuthenticated: true });
-          } else if (userStore.uid === user.uid) {
-            // UID matches but currentUser might be incomplete - still safer to patch than refetch
-            console.log(`User UID matches but isAuthenticated is false. Setting authenticated flag.`);
-            userStore.$patch({ isAuthenticated: true });
-          } else {
-            console.warn(`Cannot safely recover authentication state. User may need to log in again.`);
+          try {
+            await userStore.fetchUserData(user.uid);
+          } catch (err) {
+            console.error("Failed to recover from auth state mismatch:", err);
           }
-        } else {
-          // Not an initial auth check, so this might be a genuine later mismatch.
-          // Only re-fetch if the store's UID also differs from the current Firebase user's UID.
-          // If UIDs match but isAuthenticated is false, it's an internal store state issue
-          // that re-fetching might exacerbate.
-          if (userStore.uid !== user.uid) {
-            console.warn(
-              `Auth state mismatch (non-initial check) AND UID differs: Firebase user ${user.uid}, store UID ${userStore.uid || "null/empty"}. Re-fetching user data.`
-            );
-            await userStore.fetchUserData(user.uid); // Attempt recovery
-          } else {
-            console.warn(
-              `Auth state mismatch (non-initial check): Firebase user ${user.uid} present, store.isAuthenticated is false, but store.uid matches. ` +
-              `Skipping re-fetch to avoid potential Firestore errors. This indicates an issue in userStore logic.`
-            );
-            // At this point, userStore.currentUser might have data. If so, and only isAuthenticated is false,
-            // it's a strong indicator of an internal store problem. Forcing isAuthenticated might be an option
-            // but is risky without full knowledge of userStore.
-            // Example: if (userStore.currentUser) userStore.$patch({ isAuthenticated: true });
-          }
+        } else if (userStore.currentUser?.uid === user.uid) {
+          // Found user data but isAuthenticated flag is false
+          console.log(`Setting authenticated flag for ${user.uid}`);
+          userStore.$patch({ isAuthenticated: true });
         }
       }
     }
   });
 }
-// --- End Firebase Auth State Listener ---
 
 // --- Mount App Function ---
 function mountApp(): void {
@@ -303,12 +222,9 @@ function mountApp(): void {
   appStore.initOfflineCapabilities();
   // userStore.clearStaleCache(); // Commented out due to missing method
 
-  // Initialize Push Notifications after mount and auth check complete
-  initOneSignal().then(() => {
-    if (userStore.isAuthenticated) {
-      registerForPushNotifications();
-    }
-  });
+  // Removed call to local initOneSignal and registerForPushNotifications
+  // OneSignal initialization is handled in App.vue using oneSignalService.ts
+  // The setupAuthListener already handles setting/removing externalUserId.
 }
 
 // --- Initial Setup ---

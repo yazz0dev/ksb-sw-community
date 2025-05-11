@@ -523,36 +523,143 @@ export const useUserStore = defineStore('user', {
     },
 
     async fetchAllUsers(): Promise<void> {
-      if (this.allUsers.length > 0 && this.hasFetched) { // Basic caching: if already fetched, don't refetch
-          // This check is basic. For more robust caching, consider timestamps.
-          // return;
+      console.log('[fetchAllUsers] Action called. Initial state - allUsers.length:', this.allUsers.length, 'loading:', this.loading, 'error:', this.error);
+
+      // If data exists and not currently loading, use cache.
+      if (this.allUsers.length > 0 && !this.loading) {
+        console.log('[fetchAllUsers] Guard 1: Using cached allUsers data as allUsers.length > 0 and not loading. Returning.');
+        return;
       }
+      console.log('[fetchAllUsers] Guard 1: Condition not met (allUsers.length:', this.allUsers.length, 'loading:', this.loading, ')');
+
+      // If already loading (e.g., from another call), let the ongoing fetch complete.
+      if (this.loading) {
+        console.log('[fetchAllUsers] Guard 2: Store is already in a loading state (this.loading is true). Returning to let ongoing fetch complete.');
+        // This is a potential point where fetchAllUsers might return prematurely if loading was set by the caller (e.g., fetchLeaderboardUsers)
+        // and allUsers is empty.
+        return;
+      }
+      console.log('[fetchAllUsers] Guard 2: Condition not met (loading:', this.loading, ')');
+    
+      console.log('[fetchAllUsers] Proceeding to fetch users from Firestore.');
+      this.loading = true;
+      this.error = null; // Clear previous errors specific to this fetch attempt
+      
+      const maxRetries = 3;
+      let retryCount = 0;
+      let lastError: any = null;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          // Add a small delay before retries (but not on first attempt)
+          if (retryCount > 0) {
+            const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000); // Exponential backoff with 5s max
+            console.log(`[fetchAllUsers] Retrying fetchAllUsers (attempt ${retryCount}/${maxRetries}) after ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          
+          console.log(`[fetchAllUsers] Attempting getDocs (attempt ${retryCount + 1}/${maxRetries +1})`);
+          const usersRef = collection(db, 'users');
+          const snapshot = await getDocs(usersRef);
+          console.log('[fetchAllUsers] getDocs completed. Snapshot empty:', snapshot.empty, 'Snapshot size:', snapshot.size);
+          
+          if (snapshot.empty) {
+            console.warn('[fetchAllUsers] User collection is empty. Setting error and clearing allUsers.');
+            this.allUsers = [];
+            this.error = new Error('No users found in the database. The collection might be empty or inaccessible.');
+            this.loading = false;
+            console.log('[fetchAllUsers] Finished due to empty snapshot. Final state - allUsers.length:', this.allUsers.length, 'loading:', this.loading, 'error:', this.error);
+            return;
+          }
+          
+          const users: UserData[] = [];
+          snapshot.forEach(docSnap => {
+            const userDataFromDb = docSnap.data() as Omit<UserData, 'uid' | 'xpByRole'> & { xpByRole?: Partial<Record<XpRoleKey, number>> };
+            const userWithId: UserData = {
+              ...userDataFromDb,
+              uid: docSnap.id,
+              xpByRole: { ...defaultXpStructure, ...(userDataFromDb.xpByRole || {}) }
+            };
+            users.push(userWithId);
+            if (userWithId.name) {
+              this.nameCache.set(docSnap.id, { name: userWithId.name, timestamp: Date.now() });
+            }
+          });
+          
+          this.allUsers = users;
+          
+          console.log(`[fetchAllUsers] Successfully fetched ${users.length} users.`);
+          this.loading = false;
+          this.error = null; // Ensure error is null on success
+          console.log('[fetchAllUsers] Finished successfully. Final state - allUsers.length:', this.allUsers.length, 'loading:', this.loading, 'error:', this.error);
+          return;
+        } catch (error: any) {
+          lastError = error;
+          console.error(`[fetchAllUsers] Error fetching users (attempt ${retryCount+1}/${maxRetries+1}):`, error);
+          retryCount++;
+          
+          // Only continue retrying if it looks like a network or temporary issue
+          if (!navigator.onLine || 
+              error.code === 'unavailable' || 
+              error.code === 'resource-exhausted' ||
+              error.message?.includes('network') ||
+              error.name === 'AbortError') {
+            continue;
+          } else {
+            // For other types of errors, don't retry
+            break;
+          }
+        }
+      }
+      
+      // If we get here, all retries failed
+      this.error = lastError || new Error('Failed to fetch users after multiple attempts');
+      console.error('[fetchAllUsers] All attempts to fetch users failed:', this.error);
+      this.allUsers = []; // Reset on error to ensure fresh fetch next time
+      this.loading = false;
+      console.log('[fetchAllUsers] Finished after all retries failed. Final state - allUsers.length:', this.allUsers.length, 'loading:', this.loading, 'error:', this.error);
+    },
+
+    async fetchLeaderboardUsers(): Promise<void> {
+      console.log('[fetchLeaderboardUsers] Action called. Initial state - loading:', this.loading, 'error:', this.error, 'leaderboardUsers.length:', this.leaderboardUsers.length);
       this.loading = true;
       this.error = null;
+
       try {
-        const usersRef = collection(db, 'users');
-        const snapshot = await getDocs(usersRef);
-        const users: UserData[] = [];
-        snapshot.forEach(docSnap => {
-          const userDataFromDb = docSnap.data() as Omit<UserData, 'uid' | 'xpByRole'> & { xpByRole?: Partial<Record<XpRoleKey, number>> };
-          const userWithId: UserData = {
-            ...userDataFromDb,
-            uid: docSnap.id,
-            xpByRole: { ...defaultXpStructure, ...(userDataFromDb.xpByRole || {}) }
-          };
-          users.push(userWithId);
-          if (userWithId.name) {
-            this.nameCache.set(docSnap.id, { name: userWithId.name, timestamp: Date.now() });
-          }
-        });
-        this.allUsers = users;
-        // this.hasFetched = true; // Mark that all users have been fetched (if this flag is for allUsers)
-      } catch (error: any) {
-        this.error = error;
-        console.error('Error fetching all users:', error);
-        this.allUsers = [];
+        console.log('[fetchLeaderboardUsers] Calling fetchAllUsers...');
+        await this.fetchAllUsers();
+        console.log('[fetchLeaderboardUsers] fetchAllUsers completed. Current state - allUsers.length:', this.allUsers.length, 'loading:', this.loading, 'error:', this.error);
+
+        if (this.error) {
+          console.error('[fetchLeaderboardUsers] Error detected after fetchAllUsers:', this.error, '. Setting leaderboardUsers to empty and returning.');
+          this.leaderboardUsers = [];
+          // this.loading will be set to false in finally
+          return;
+        }
+        console.log('[fetchLeaderboardUsers] No error from fetchAllUsers. Proceeding.');
+
+        if (this.allUsers.length === 0) {
+          console.warn('[fetchLeaderboardUsers] Condition: allUsers.length is 0. Error state:', this.error, '. This leads to the "unexpected" warning if error is null.');
+          this.leaderboardUsers = [];
+          // Optionally set an error here if this state is considered erroneous for leaderboard
+          // this.error = 'Leaderboard processing failed: No user data available after fetch.';
+          return;
+        }
+        console.log('[fetchLeaderboardUsers] allUsers.length is not 0. Proceeding to map users for leaderboard. Count:', this.allUsers.length);
+
+        // Process users for leaderboard display
+        this.leaderboardUsers = this.allUsers.map(user => ({
+          ...user,
+          xpByRole: { ...defaultXpStructure, ...(user.xpByRole || {}) }
+        }));
+        // Successfully processed, this.error remains null.
+      } catch (processingError: any) {
+        console.error('[fetchLeaderboardUsers] Error during leaderboard processing (map, sort):', processingError);
+        this.error = processingError.message || 'An error occurred while processing leaderboard data';
+        this.leaderboardUsers = [];
       } finally {
         this.loading = false;
+        console.log('[fetchLeaderboardUsers] Action finished. Final state - loading:', this.loading, 'error:', this.error, 'leaderboardUsers.length:', this.leaderboardUsers.length);
       }
     },
 
@@ -589,27 +696,6 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    async fetchLeaderboardUsers(): Promise<void> {
-      this.loading = true;
-      this.error = null;
-      try {
-        if (this.allUsers.length === 0) {
-          await this.fetchAllUsers();
-        }
-        // Ensure xpByRole is properly structured for all users in allUsers
-        this.leaderboardUsers = this.allUsers.map(user => ({
-          ...user,
-          xpByRole: { ...defaultXpStructure, ...(user.xpByRole || {}) }
-        }));
-      } catch (error: any) {
-        this.error = error;
-        console.error('Error fetching/preparing leaderboard users:', error);
-        this.leaderboardUsers = [];
-      } finally {
-        this.loading = false;
-      }
-    },
-
     clearStaleCache(): void {
         const now = Date.now();
         const CACHE_TTL = 30 * 60 * 1000; // 30 minutes, adjust as needed
@@ -620,5 +706,44 @@ export const useUserStore = defineStore('user', {
         });
     },
 
+    // Handle OneSignal external user ID setting with retry mechanism
+    async setOneSignalExternalUserId(userId: string | null): Promise<boolean> {
+      if (!userId) return false;
+      
+      // Get OneSignal from window if it exists
+      const oneSignal = (window as any).OneSignal;
+      if (!oneSignal) {
+        console.warn('OneSignal SDK not found in global scope.');
+        return false;
+      }
+
+      // Try to set the external user ID with exponential backoff
+      const maxRetries = 5;
+      const initialDelayMs = 500;
+      
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          // Check if OneSignal is initialized and the function is available
+          if (oneSignal.setExternalUserId) {
+            await oneSignal.setExternalUserId(userId);
+            console.log('OneSignal external user ID set successfully.');
+            return true;
+          } else {
+            // Wait with exponential backoff
+            const delayMs = initialDelayMs * Math.pow(2, attempt);
+            console.log(`OneSignal setExternalUserId not available yet. Retrying in ${delayMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+        } catch (error) {
+          console.error('Error setting OneSignal external user ID:', error);
+          // Wait before retrying
+          const delayMs = initialDelayMs * Math.pow(2, attempt);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+      
+      console.error('Failed to set OneSignal external user ID after maximum retries.');
+      return false;
+    }
   }
 });

@@ -43,6 +43,14 @@
               <BaseSkeleton type="text" width="60%" height="1rem" class="mb-2" />
               <BaseSkeleton type="text" width="40%" height="1rem" />
             </div>
+            <div class="rating-item p-3 border rounded">
+              <BaseSkeleton type="text" width="70%" height="1rem" class="mb-2" />
+              <BaseSkeleton type="text" width="50%" height="1rem" />
+            </div>
+            <div class="rating-item p-3 border rounded">
+              <BaseSkeleton type="text" width="50%" height="1rem" class="mb-2" />
+              <BaseSkeleton type="text" width="30%" height="1rem" />
+            </div>
           </div>
         </div>
       </div>

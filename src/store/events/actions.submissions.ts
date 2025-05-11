@@ -53,7 +53,6 @@ export async function submitProjectToEventInFirestore(eventId: string, userId: s
         // Add submission using arrayUnion to the top-level submissions array
         await updateDoc(eventRef, {
             submissions: arrayUnion(submissionEntry),
-            lastUpdatedAt: Timestamp.now()
         });
         console.log(`Firestore: Submission added by ${userId} to event ${eventId}.`);
 

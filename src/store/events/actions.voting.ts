@@ -12,7 +12,7 @@ import { BEST_PERFORMER_LABEL } from '@/utils/constants';
  */
 export async function togglevotingOpenInFirestore(
     eventId: string,
-    open: boolean,
+    open: boolean, // Parameter 'open' is a boolean
     userId: string
 ): Promise<void> {
     try {
@@ -48,12 +48,12 @@ export async function togglevotingOpenInFirestore(
             throw new Error(`Invalid event status: ${eventData.status}. Must be Completed or InProgress.`);
         }
         
-        // Validate the voting state is changing
+        // Validate the voting state is changing (comparison with existing boolean value)
         if (eventData.votingOpen === open) {
             throw new Error(`Voting is already ${open ? 'open' : 'closed'}.`);
         }
         
-        // Update without lastUpdatedAt, as Firestore rules don't require it
+        // Update with the boolean value 'open'
         await updateDoc(eventRef, {
             votingOpen: open
         });
@@ -85,6 +85,7 @@ export async function submitTeamCriteriaVoteInFirestore(eventId: string, userId:
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
+        // Comparison eventData.votingOpen as a boolean
         if (eventData.status !== EventStatus.Completed || !eventData.votingOpen) {
             throw new Error("Selections can only be submitted for completed events with open voting.");
         }
@@ -162,6 +163,7 @@ export async function submitIndividualWinnerVoteInFirestore(eventId: string, use
          const eventSnap = await getDoc(eventRef);
          if (!eventSnap.exists()) throw new Error('Event not found.');
          const eventData = eventSnap.data() as Event;
+         // Comparison eventData.votingOpen as a boolean
          if (eventData.status !== EventStatus.Completed || !eventData.votingOpen) {
              throw new Error("Winner selection only available for completed events with open voting.");
          }
@@ -231,11 +233,10 @@ export async function submitManualWinnerSelectionInFirestore(eventId: string, or
         const isOrganizer = eventData.details?.organizers?.includes(organizerId) || eventData.requestedBy === organizerId;
         if (!isOrganizer) throw new Error("Only event organizers can manually select winners.");
         
-        // Update winners directly - include lastUpdatedAt for consistency
+        // Update winners directly
         await updateDoc(eventRef, { 
             winners: winnerSelections,
-            manuallySelectedBy: organizerId,
-            lastUpdatedAt: Timestamp.now()
+            manuallySelectedBy: organizerId
         });
         
         console.log(`Firestore: Manual winner selection submitted by organizer ${organizerId} for event ${eventId}.`);
@@ -293,9 +294,7 @@ export async function submitOrganizationRatingInFirestore(eventId: string, userI
 
         // Overwrite the entire array in Firestore
         await updateDoc(eventRef, {
-            organizerRating: currentRatings,
-            // Add lastUpdatedAt to match security rules
-            lastUpdatedAt: Timestamp.now()
+            organizerRating: currentRatings
         });
 
         console.log(`Firestore: Organizer rating submitted/updated by ${userId} for event ${eventId}.`);
@@ -398,10 +397,8 @@ export async function saveWinnersToFirestore(eventId: string, winners: Record<st
 
     const eventRef = doc(db, 'events', eventId);
     try {
-        // Include lastUpdatedAt for consistency with security rules
         await updateDoc(eventRef, {
             winners: winners,
-            lastUpdatedAt: Timestamp.now()
         });
         console.log(`Firestore: Winners saved for event ${eventId}.`);
     } catch (error: any) {
