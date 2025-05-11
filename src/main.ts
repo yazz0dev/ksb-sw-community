@@ -61,6 +61,15 @@ if ("serviceWorker" in navigator) {
 // --- Push Notification Setup ---
 async function registerForPushNotifications() {
   try {
+    // Check if we're in development or on localhost
+    const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    if (isDevelopment || isLocalhost) {
+      console.log('Push notifications disabled in development environment');
+      return;
+    }
+
     const OneSignal = getOneSignal();
     if (!OneSignal || typeof OneSignal.registerForPushNotifications !== 'function') {
       console.warn("OneSignal not available for push registration");
@@ -81,6 +90,15 @@ async function registerForPushNotifications() {
 
 async function initOneSignal() {
   try {
+    // Check if we're in development or on localhost
+    const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    if (isDevelopment || isLocalhost) {
+      console.log('OneSignal disabled in development environment');
+      return null;
+    }
+
     const OneSignal = getOneSignal();
     if (!OneSignal) {
       console.warn("OneSignal not available for initialization");

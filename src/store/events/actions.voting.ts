@@ -20,10 +20,42 @@ export async function togglevotingOpenInFirestore(
         
         const eventRef = doc(db, 'events', eventId);
         
-        // Update MUST include lastUpdatedAt to comply with Firestore rules
+        // First fetch the current event to validate permissions and status
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) {
+            throw new Error('Event not found.');
+        }
+        
+        const eventData = eventSnap.data() as Event;
+        console.log('Current event data:', {
+            eventId,
+            status: eventData.status,
+            votingOpen: eventData.votingOpen,
+            organizers: eventData.details?.organizers,
+            requestedBy: eventData.requestedBy,
+            userId
+        });
+        
+        // Validate user is an organizer
+        const isOrganizer = eventData.details?.organizers?.includes(userId) || eventData.requestedBy === userId;
+        if (!isOrganizer) {
+            throw new Error('Only event organizers can modify voting status.');
+        }
+        
+        // Validate event status
+        const validStatus = [EventStatus.Completed, EventStatus.InProgress].includes(eventData.status as EventStatus);
+        if (!validStatus) {
+            throw new Error(`Invalid event status: ${eventData.status}. Must be Completed or InProgress.`);
+        }
+        
+        // Validate the voting state is changing
+        if (eventData.votingOpen === open) {
+            throw new Error(`Voting is already ${open ? 'open' : 'closed'}.`);
+        }
+        
+        // Update without lastUpdatedAt, as Firestore rules don't require it
         await updateDoc(eventRef, {
-            votingOpen: open,
-            lastUpdatedAt: Timestamp.now() // This is crucial - security rules require this field
+            votingOpen: open
         });
         
         console.log(`Successfully set voting status for ${eventId} to ${open ? 'open' : 'closed'}`);
@@ -60,34 +92,50 @@ export async function submitTeamCriteriaVoteInFirestore(eventId: string, userId:
         const isParticipant = eventData.teams?.some(team => team.members?.includes(userId));
         if (!isParticipant) throw new Error("Only team participants can submit selections.");
 
-        const batch = writeBatch(db); // Use a batch for multiple updates
+        // Create a single object for all updates
+        const updateData: Record<string, any> = {
+            // Always include lastUpdatedAt with the same timestamp value
+            lastUpdatedAt: Timestamp.now()
+        };
+        
+        let hasActualVoteData = false;
 
-        // Update criteria selections within the criteria array
+        // Process criteria selections
         if (Array.isArray(eventData.criteria)) {
-            const updates: Record<string, any> = {}; // Object to hold field updates
             eventData.criteria.forEach((criterion, index) => {
                 const indexStr = String(criterion.constraintIndex);
-                if (selections.criteria[indexStr] !== undefined) {
-                    // Path to update the specific user's selection within the criteria array element
+                if (selections.criteria[indexStr] !== undefined) { // User made a selection (or cleared one) for this criterion
                     const path = `criteria.${index}.criteriaSelections.${userId}`;
-                    updates[path] = selections.criteria[indexStr] || null; // Set null to clear vote
+                    updateData[path] = selections.criteria[indexStr] || null; // Set null to clear vote
+                    hasActualVoteData = true; 
                 }
             });
-            // Apply criteria updates if any
-            if (Object.keys(updates).length > 0) {
-                batch.update(eventRef, updates);
-            }
         }
 
+        // Add best performer selection
+        if (selections.bestPerformer !== undefined) { // Check if bestPerformer selection was made or cleared
+            const bestPerformerPath = `bestPerformerSelections.${userId}`;
+            updateData[bestPerformerPath] = selections.bestPerformer || null;
+            hasActualVoteData = true;
+        }
+        
+        // Only proceed with the update if there's actual vote data to submit
+        // or if it's a scenario where just updating lastUpdatedAt is intended (though rules might prevent this alone).
+        // The security rule `hasAny(['criteria', 'bestPerformerSelections'])` means we MUST affect one of those.
+        if (!hasActualVoteData) {
+            // If the user submitted no changes (e.g. an empty form), and there were no previous votes to clear,
+            // we might not need to write to Firestore at all, or the rules will block it.
+            // For now, let's log this and not proceed with the write if no actual vote changes.
+            // This assumes clearing a vote is still a "vote".
+            console.log(`Firestore: No actual vote changes to submit for event ${eventId} by user ${userId}. Skipping Firestore write.`);
+            // Optionally, you could throw an error here if submitting an "empty" vote is not allowed by business logic.
+            // Example: throw new Error("No selections made.");
+            return; // Exit if no actual vote data, preventing an update with only lastUpdatedAt
+        }
 
-        // Update best performer selection using dot notation
-        const bestPerformerPath = `bestPerformerSelections.${userId}`;
-        batch.update(eventRef, { [bestPerformerPath]: selections.bestPerformer || null });
+        // Single updateDoc call with all changes
+        await updateDoc(eventRef, updateData);
 
-        // Update timestamp
-        batch.update(eventRef, { lastUpdatedAt: Timestamp.now() });
-
-        await batch.commit(); // Commit all updates together
         console.log(`Firestore: Team selections submitted by ${userId} for event ${eventId}.`);
     } catch (error: any) {
         console.error(`Firestore submitTeamCriteriaVote error for ${eventId}:`, error);
@@ -121,14 +169,17 @@ export async function submitIndividualWinnerVoteInFirestore(eventId: string, use
          const isParticipant = eventData.participants?.includes(userId);
          if (!isParticipant) throw new Error("Only event participants can submit selections.");
 
-         const batch = writeBatch(db); // Use batch for updates
-         const updates: Record<string, any> = {};
+         // Create a single object for all updates, always including lastUpdatedAt
+         const updateData: Record<string, any> = {
+             lastUpdatedAt: Timestamp.now()
+         };
+         let hasActualVoteData = false;
 
          // Update criteria selections within the criteria array
          if (Array.isArray(eventData.criteria)) {
              eventData.criteria.forEach((criterion, index) => {
                  const indexStr = String(criterion.constraintIndex);
-                 if (winnerSelections[indexStr] !== undefined) {
+                 if (winnerSelections[indexStr] !== undefined) { // User made a selection (or cleared one)
                      const selectedWinnerId = winnerSelections[indexStr];
                      
                      // Prevent voting for oneself
@@ -136,22 +187,21 @@ export async function submitIndividualWinnerVoteInFirestore(eventId: string, use
                          throw new Error("You cannot vote for yourself.");
                      }
                      
-                     // Path to update the specific user's selection within the criteria array element
                      const path = `criteria.${index}.criteriaSelections.${userId}`;
-                     updates[path] = selectedWinnerId || null; // Set null to clear vote
+                     updateData[path] = selectedWinnerId || null; // Set null to clear vote
+                     hasActualVoteData = true;
                  }
              });
          }
+         
+         if (!hasActualVoteData) {
+            console.log(`Firestore: No actual individual vote changes to submit for event ${eventId} by user ${userId}. Skipping Firestore write.`);
+            return; 
+        }
 
-         // Apply criteria updates if any
-         if (Object.keys(updates).length > 0) {
-             batch.update(eventRef, updates);
-         }
-
-         // Update timestamp
-         batch.update(eventRef, { lastUpdatedAt: Timestamp.now() });
-
-         await batch.commit();
+         // Single updateDoc call with all changes
+         await updateDoc(eventRef, updateData);
+         
          console.log(`Firestore: Individual selections submitted by ${userId} for event ${eventId}.`);
      } catch (error: any) {
          console.error(`Firestore submitIndividualWinnerVote error for ${eventId}:`, error);
@@ -181,11 +231,11 @@ export async function submitManualWinnerSelectionInFirestore(eventId: string, or
         const isOrganizer = eventData.details?.organizers?.includes(organizerId) || eventData.requestedBy === organizerId;
         if (!isOrganizer) throw new Error("Only event organizers can manually select winners.");
         
-        // Update winners directly
+        // Update winners directly - include lastUpdatedAt for consistency
         await updateDoc(eventRef, { 
             winners: winnerSelections,
-            lastUpdatedAt: Timestamp.now(),
-            manuallySelectedBy: organizerId
+            manuallySelectedBy: organizerId,
+            lastUpdatedAt: Timestamp.now()
         });
         
         console.log(`Firestore: Manual winner selection submitted by organizer ${organizerId} for event ${eventId}.`);
@@ -244,6 +294,7 @@ export async function submitOrganizationRatingInFirestore(eventId: string, userI
         // Overwrite the entire array in Firestore
         await updateDoc(eventRef, {
             organizerRating: currentRatings,
+            // Add lastUpdatedAt to match security rules
             lastUpdatedAt: Timestamp.now()
         });
 
@@ -347,7 +398,7 @@ export async function saveWinnersToFirestore(eventId: string, winners: Record<st
 
     const eventRef = doc(db, 'events', eventId);
     try {
-        // TODO: Add permission check (organizer only?) based on who calls the action
+        // Include lastUpdatedAt for consistency with security rules
         await updateDoc(eventRef, {
             winners: winners,
             lastUpdatedAt: Timestamp.now()

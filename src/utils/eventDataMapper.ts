@@ -42,11 +42,7 @@ export function mapEventDataToFirestore(eventData: Partial<Event>): Record<strin
             members: Array.isArray(t.members) ? t.members.filter(Boolean) : [],
             teamLead: t.teamLead || (Array.isArray(t.members) && t.members.length > 0 ? t.members[0] : ''),
         }));
-        // Calculate teamMembersFlat if teams are present
-        mappedData.teamMembersFlat = Array.from(new Set(mappedData.teams.flatMap((team: Team) => team.members || []).filter(Boolean)));
     } else if (mappedData.details?.format === EventFormat.Team && !mappedData.teams) {
-        // If it's a team event but teams array is missing or empty, ensure teamMembersFlat is an empty array
-        mappedData.teamMembersFlat = [];
     }
 
 

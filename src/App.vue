@@ -2,7 +2,7 @@
   <div class="app-wrapper d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-2 px-3 fixed-top">
       <div class="container-fluid">
-        <router-link class="navbar-brand fw-bold text-primary" :to="{ name: 'Home' }" @click="closeNavbar">
+        <router-link class="navbar-brand fw-bold text-primary" :to="brandLinkTarget">
           <span>KSB Tech Community</span>
         </router-link>
 
@@ -69,7 +69,7 @@
             <template v-if="!isAuthenticated">
               <li class="nav-item">
                 <router-link
-                  class="btn btn-outline-light btn-sm"
+                  class="btn btn-primary btn-sm"
                   to="/login"
                   @click="closeNavbar"
                 >
@@ -110,7 +110,7 @@
       </div>
     </nav>
 
-    <main class="flex-grow-1 app-main-content pt-5">
+    <main class="flex-grow-1 app-main-content">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" :key="route.fullPath" />
@@ -160,6 +160,11 @@ const imgError = ref<boolean>(false); // For profile picture error
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const userName = computed(() => userStore.currentUser?.name || 'User');
 const userProfilePicUrl = computed<string | null>(() => userStore.profilePictureUrl ?? null);
+
+// Updated computed property for the brand link target
+const brandLinkTarget = computed(() => {
+  return isAuthenticated.value ? { name: 'Home' } : { name: 'Landing' };
+});
 
 const logout = async (): Promise<void> => {
   const auth = getAuth();
@@ -365,52 +370,46 @@ onUnmounted(() => {
   transform: translateY(-100%);
 }
 
-.app-navbar-brand {
-  color: var(--bs-light) !important;
-  white-space: nowrap;
-}
-.app-navbar-brand:hover {
-  color: var(--bs-white) !important;
-}
-
-.navbar-dark .navbar-nav .nav-link {
-    color: var(--bs-navbar-color);
-    transition: color 0.2s ease-in-out;
-}
-.navbar-dark .navbar-nav .nav-link:hover,
-.navbar-dark .navbar-nav .nav-link:focus {
-    color: var(--bs-navbar-hover-color);
-}
-.navbar-dark .navbar-nav .nav-link.active {
-  color: var(--bs-navbar-active-color) !important;
-  font-weight: var(--bs-font-weight-bold);
-}
-
 @media (max-width: 991.98px) {
-  .app-navbar-menu.navbar-collapse {
+  /* Styles for the collapsed mobile menu */
+  #navbarNav.collapse.show,
+  #navbarNav.collapsing {
     background-color: var(--bs-primary);
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1rem;
     margin-top: 0.5rem;
     border-top: 1px solid var(--bs-border-color-translucent);
+    border-radius: var(--bs-border-radius-sm);
+    box-shadow: var(--bs-box-shadow);
   }
-  .navbar-nav {
-      width: 100%;
-  }
-  .navbar-nav .nav-item {
-      margin-bottom: 0.25rem;
-  }
-}
 
-.app-main-content {
-  padding-top: 72px;
-  padding-bottom: 80px;
-  min-height: 100vh;
-  position: relative;
-  z-index: 1;
-  overflow-x: hidden;
-}
-.app-container:has(.bottom-nav) .app-main-content {
-   padding-bottom: calc(64px + 1rem + env(safe-area-inset-bottom));
+  #navbarNav .nav-item {
+    margin-bottom: 0.125rem;
+  }
+
+  #navbarNav .nav-link {
+    color: rgba(255, 255, 255, 0.85);
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-radius: var(--bs-border-radius-sm); /* for hover indication */
+  }
+
+  #navbarNav .nav-link:hover,
+  #navbarNav .nav-link:focus {
+    color: var(--bs-white);
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Ensure router-link-active styles are applied correctly for visibility */
+  #navbarNav .nav-link.router-link-active.router-link-exact-active,
+  #navbarNav .nav-link.active { /* This targets Bootstrap's .active and Vue Router's active class */
+    color: var(--bs-white) !important; /* Ensure high contrast for active text */
+    font-weight: 600; /* Corresponds to fw-semibold or Bootstrap's bold for active nav items */
+    background-color: rgba(255, 255, 255, 0.15); /* Slightly more prominent active background */
+  }
+
+  .navbar-nav {
+    width: 100%;
+  }
 }
 
 .fade-enter-active,

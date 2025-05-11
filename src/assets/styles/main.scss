@@ -104,11 +104,13 @@ body {
 // Custom spacing classes for navbar spacing - using variables
 .app-main-content {
   padding-top: $navbar-height-mobile; // Using variable instead of hardcoded value
-  padding-bottom: $bottom-nav-height; // Using variable instead of hardcoded value
+  // This padding is for screens smaller than 'lg' (mobile).
+  // It accounts for the bottom nav's base height and the iOS safe area.
+  padding-bottom: calc(#{$bottom-nav-height} + env(safe-area-inset-bottom));
 
   @include media-breakpoint-up(lg) {
     padding-top: $navbar-height-desktop; // Using variable instead of hardcoded value
-    padding-bottom: 0;
+    padding-bottom: 0; // Reset for large screens where bottom nav is hidden by d-lg-none.
   }
 }
 

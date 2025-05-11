@@ -420,6 +420,29 @@ const toggleVoting = async (openState: boolean): Promise<void> => {
             throw new Error('Only event organizers can modify voting status.');
         }
         
+        // Add detailed debugging for troubleshooting
+        console.log('Debug - Event data before voting toggle:', {
+            eventId: props.event.id,
+            status: props.event.status,
+            votingOpen: props.event.votingOpen,
+            isStatusValid: [EventStatus.Completed, EventStatus.InProgress].includes(props.event?.status as EventStatus),
+            organizers: props.event.details?.organizers,
+            requestedBy: props.event.requestedBy,
+            currentUserId: currentUserId.value,
+            isOrganizer: isOrganizer.value
+        });
+        
+        // Check if event status meets requirements from Firestore rules
+        const validStatus = [EventStatus.Completed, EventStatus.InProgress].includes(props.event?.status as EventStatus);
+        if (!validStatus) {
+            throw new Error('Voting can only be modified for events with status Completed or InProgress.');
+        }
+        
+        // Also check that the voting state is actually changing
+        if (props.event.votingOpen === openState) {
+            throw new Error(`Voting is already ${openState ? 'open' : 'closed'}.`);
+        }
+        
         await eventStore.toggleVotingOpen({
             eventId: props.event.id,
             open: openState

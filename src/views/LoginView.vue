@@ -146,50 +146,25 @@ const signIn = async (): Promise<void> => {
 <style scoped>
 .login-bg {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle, #e0e7ff) 100%);
 }
 .login-card {
-  border-radius: 1.5rem;
-  background: #fff;
-  box-shadow: 0 8px 32px 0 rgba(37,99,235,0.10);
-  animation: fadeIn 0.7s;
+  border-radius: var(--bs-border-radius-xl, 1rem);
+  background: var(--bs-card-bg, #fff);
+  box-shadow: var(--bs-box-shadow-lg);
 }
 .login-icon {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(120deg, #e0e7ff 0%, #f8fafc 100%);
+  background-color: var(--bs-light);
   border-radius: 50%;
   width: 64px;
   height: 64px;
   margin: 0 auto 0.5rem auto;
-  box-shadow: 0 2px 8px 0 rgba(37,99,235,0.08);
-}
-.btn-primary {
-  background: linear-gradient(90deg, #2563eb 30%, #14b8a6 100%);
-  border: none;
-}
-.btn-primary:focus, .btn-primary:hover {
-  background: linear-gradient(90deg, #1d4ed8 30%, #0d9488 100%);
+  box-shadow: var(--bs-box-shadow-sm);
 }
 .text-decoration-underline-hover:hover {
   text-decoration: underline;
-}
-.animate-pop {
-  animation: pop-in 0.7s cubic-bezier(.23,1.01,.32,1) both;
-}
-@keyframes pop-in {
-  0% { opacity: 0; transform: scale(0.95);}
-  100% { opacity: 1; transform: scale(1);}
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-.fade-pop-enter-active {
-  animation: fadeIn 0.7s;
-}
-.fade-pop-leave-active {
-  animation: fadeIn 0.7s reverse;
 }
 </style>

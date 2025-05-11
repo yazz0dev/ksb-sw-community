@@ -45,14 +45,12 @@ export async function addTeamToEventInFirestore(
         };
 
         const updatedTeams = [...currentTeams, newTeam];
-        const newTeamMembersFlat = Array.from(new Set(updatedTeams.flatMap(team => team.members || []).filter(Boolean)));
 
         await updateDoc(eventRef, {
             teams: arrayUnion(newTeam), // Add the new team object
-            teamMembersFlat: newTeamMembersFlat, // Update the flat list
             lastUpdatedAt: Timestamp.now()
         });
-        console.log(`Firestore: Team "${trimmedTeamName}" added to event ${eventId}. teamMembersFlat updated.`);
+        console.log(`Firestore: Team "${trimmedTeamName}" added to event ${eventId}.`);
         return newTeam;
 
     } catch (error: any) {
@@ -82,8 +80,6 @@ export async function updateEventTeamsInFirestore(eventId: string, teams: Team[]
         team.members = team.members.filter(m => typeof m === 'string');
     }
 
-    const newTeamMembersFlat = Array.from(new Set(teams.flatMap(team => team.members || []).filter(Boolean)));
-
     const eventRef = doc(db, 'events', eventId);
     try {
         const eventSnap = await getDoc(eventRef);
@@ -93,10 +89,9 @@ export async function updateEventTeamsInFirestore(eventId: string, teams: Team[]
 
         await updateDoc(eventRef, {
             teams: teams,
-            teamMembersFlat: newTeamMembersFlat, // Update the flat list
             lastUpdatedAt: Timestamp.now()
         });
-        console.log(`Firestore: Teams and teamMembersFlat updated for event ${eventId}.`);
+        console.log(`Firestore: Teams updated for event ${eventId}.`);
 
     } catch (error: any) {
         console.error(`Firestore updateTeams error for ${eventId}:`, error);
