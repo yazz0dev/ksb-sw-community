@@ -19,6 +19,7 @@ export interface User {
     participatedEvent?: string[]; // Array of event IDs
     organizedEvent?: string[]; // Array of event IDs
     hasLaptop?: boolean;
+    isAdmin?: boolean; // Indicates if the user has admin privileges
     // ... any other fields from your Firestore user document
 }
 
@@ -101,7 +102,7 @@ export interface UserState {
 // Interface for user profile update payload
 export interface UserProfileUpdatePayload {
   userId: string;
-  profileData: {
+  profileData: Partial<{
     name: string;
     photoURL: string;
     bio: string;
@@ -109,5 +110,7 @@ export interface UserProfileUpdatePayload {
     skills: string[];
     preferredRoles: string[];
     hasLaptop: boolean;
-  };
+    xpByRole?: Record<XpRoleKey, number>; // Only allowed for admin users
+    [key: string]: any; // Allow for additional fields
+  }>;
 }

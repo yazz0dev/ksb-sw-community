@@ -119,11 +119,8 @@ const config: UserConfig = {
           }
         ]
       },
-      // Add this to disable PWA's service worker when using OneSignal
-      strategies: 'injectManifest',
-      injectManifest: {
-        injectionPoint: undefined
-      }
+      // Change from injectManifest to generateSW strategy
+      strategies: 'generateSW'
     } as VitePWAOptions)
   ],
   optimizeDeps: {
@@ -152,11 +149,23 @@ const config: UserConfig = {
           'ui-components': ['@vuepic/vue-datepicker', 'luxon'],
           'pdf-libs': ['jspdf', 'jspdf-autotable'], // Correctly group jspdf and its plugin
           vendor: ['vue', 'vue-router', 'dompurify', 'marked']
-        }
+        },
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
       }
     },
     chunkSizeWarningLimit: 1000,
-    sourcemap: false
+    sourcemap: false,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    },
+    cssCodeSplit: true,
+    assetsInlineLimit: 4096
   },
   server: {
     proxy: {

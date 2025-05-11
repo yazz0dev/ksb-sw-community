@@ -147,7 +147,7 @@
                  <i class="fas fa-history text-primary me-2"></i>Event History
                </h5>
              </div>
-             <ul class="list-group list-group-flush">
+             <ul class="list-group list-group-flush event-history-section">
                <li
                  v-for="eventItem in sortedEventsHistory"
                  :key="eventItem.id"
@@ -167,19 +167,6 @@
                        <i class="fas fa-users me-1"></i>{{ formatEventFormat(eventItem.details.format) }}
                      </span>
                    </div>
-                   <span
-                     v-if="isOrganizer(eventItem)"
-                     class="badge bg-success-subtle text-success-emphasis rounded-pill"
-                   >
-                     <i class="fas fa-crown me-1"></i> Organizer
-                   </span>
-                 </div>
-
-                 <!-- Row 2: Type, Status and Date -->
-                 <div class="d-flex justify-content-between align-items-center">
-                   <span v-if="eventItem.details?.type" class="badge bg-info-subtle text-info-emphasis small">
-                     <i class="fas fa-tag me-1"></i>{{ eventItem.details.type }}
-                   </span>
                    <div class="d-flex align-items-center gap-2">
                      <span
                        class="badge rounded-pill"
@@ -187,6 +174,21 @@
                      >
                        {{ eventItem.status }}
                      </span>
+                     <span
+                       v-if="isOrganizer(eventItem)"
+                       class="badge bg-success-subtle text-success-emphasis rounded-pill"
+                     >
+                       <i class="fas fa-crown me-1"></i> Organizer
+                     </span>
+                   </div>
+                 </div>
+
+                 <!-- Row 2: Type and Date -->
+                 <div class="d-flex justify-content-between align-items-center">
+                   <span v-if="eventItem.details?.type" class="badge bg-info-subtle text-info-emphasis small">
+                     <i class="fas fa-tag me-1"></i>{{ eventItem.details.type }}
+                   </span>
+                   <div class="d-flex align-items-center gap-2">
                      <span class="badge bg-light text-secondary border border-1 fw-normal">
                        {{ formatISTDate(eventItem.details?.date?.start) }}
                      </span>
@@ -516,5 +518,22 @@ onMounted(() => {
 /* Style adjustments can go here */
 .badge.bg-light {
   border: 1px solid var(--bs-border-color-translucent);
+}
+
+.event-history-section {
+  font-size: 0.875rem;
+}
+
+.event-history-section .router-link-active,
+.event-history-section .router-link {
+  font-size: 0.9rem;
+}
+
+.event-history-section .badge {
+  font-size: 0.75rem;
+}
+
+.event-history-section i {
+  font-size: 0.825rem;
 }
 </style>

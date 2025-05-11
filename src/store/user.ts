@@ -85,6 +85,7 @@ export const useUserStore = defineStore('user', {
           return null;
         }
         const userDataFromDb = userDocSnap.data() as Omit<UserData, 'uid' | 'xpByRole'> & { xpByRole?: Partial<Record<XpRoleKey, number>> };
+        
         const userWithId: UserData = {
              ...userDataFromDb,
              uid: userDocSnap.id,
@@ -141,12 +142,28 @@ export const useUserStore = defineStore('user', {
         if (!userId) {
           throw new Error("User ID is required");
         }
+
+        // Verify user is authorized to update this profile
+        if (this.currentUser?.uid !== userId) {
+          throw new Error("You don't have permission to update this profile");
+        }
+
+        // Remove xpByRole from profileData since this site is for regular users
+        const updatedProfileData = { ...profileData };
+        if (updatedProfileData.xpByRole) {
+          delete updatedProfileData.xpByRole;
+        }
+
+        // Debug: log the data being sent to Firestore
+        console.log('Updating profile with data:', updatedProfileData);
+
         const userDocRef = doc(db, 'users', userId);
-        await updateDoc(userDocRef, profileData);
+        await updateDoc(userDocRef, updatedProfileData);
+        
         if (this.currentUser?.uid === userId) {
-          this.currentUser = { ...this.currentUser, ...profileData } as UserData; // Ensure correct type after spread
-          if (profileData.name && this.nameCache.get(userId)?.name !== profileData.name) {
-            this.nameCache.set(userId, { name: profileData.name, timestamp: Date.now() });
+          this.currentUser = { ...this.currentUser, ...updatedProfileData } as UserData; // Ensure correct type after spread
+          if (updatedProfileData.name && this.nameCache.get(userId)?.name !== updatedProfileData.name) {
+            this.nameCache.set(userId, { name: updatedProfileData.name, timestamp: Date.now() });
           }
         }
       } catch (error: any) {

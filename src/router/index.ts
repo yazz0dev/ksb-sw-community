@@ -88,7 +88,7 @@ router.beforeEach((
 
 const DEFAULT_TITLE = 'KSB Tech Community';
 const DEFAULT_DESCRIPTION = 'KSB Software Community Platform for Events & Learning. Join us for skill development, networking, and tech discussions.';
-const SITE_URL = 'https://www.ksbtech.community'; // Replace with your actual domain
+const SITE_URL = 'https://www.ksbtech.web.app'; // Updated to match the sitemap and meta tags
 
 router.afterEach((to) => {
   const routeMeta = to.meta as RouteMeta;
@@ -128,18 +128,16 @@ router.afterEach((to) => {
   setMetaTag({ property: 'og:title', content: title });
   setMetaTag({ property: 'og:description', content: description });
   setMetaTag({ property: 'og:url', content: fullUrl });
-  // og:image can be set to a default or dynamically if available per route
-  // setMetaTag({ property: 'og:image', content: SITE_URL + '/logo.png' }); 
-  // og:type is usually 'website' or 'article' for specific content pages
-  // setMetaTag({ property: 'og:type', content: 'website' });
-
+  setMetaTag({ property: 'og:image', content: SITE_URL + '/logo.png' });
+  setMetaTag({ property: 'og:type', content: 'website' });
+  setMetaTag({ property: 'og:site_name', content: 'KSB Tech Community' });
 
   // Twitter Card
+  setMetaTag({ name: 'twitter:card', content: 'summary_large_image' });
   setMetaTag({ name: 'twitter:title', content: title });
   setMetaTag({ name: 'twitter:description', content: description });
-  // twitter:image can be set to a default or dynamically
-  // setMetaTag({ name: 'twitter:image', content: SITE_URL + '/logo.png' });
-  // twitter:card is usually 'summary' or 'summary_large_image'
+  setMetaTag({ name: 'twitter:url', content: fullUrl });
+  setMetaTag({ name: 'twitter:image', content: SITE_URL + '/logo.png' });
 
   // Canonical URL
   setLinkTag({ rel: 'canonical', href: fullUrl });

@@ -32,7 +32,7 @@
               Events
             </router-link>
           </li>
-           <li class="nav-item d-none d-lg-block" v-if="!isAuthenticated">
+           <li class="nav-item d-none d-lg-block">
              <router-link
                 class="nav-link"
                 active-class="active fw-semibold"

@@ -13,23 +13,38 @@
     <link rel="apple-touch-icon" href="/logo.png" sizes="180x180">
     <link rel="mask-icon" href="/logo.png" color="#FFFFFF">
 
+    <!-- Performance Optimizations -->
+    <link rel="preconnect" href="https://cdn.onesignal.com">
+
     <!-- Canonical URL -->
-    <link rel="canonical" href="https://www.ksbtech.community/" />
+    <link rel="canonical" href="https://www.ksbtech.web.app/" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://www.ksbtech.community/">
+    <meta property="og:url" content="https://www.ksbtech.web.app/">
     <meta property="og:title" content="KSB Tech Community">
     <meta property="og:description" content="Join the KSB Tech Community for events, learning resources, and connecting with fellow tech enthusiasts. Explore our platform for skill development and networking.">
-    <meta property="og:image" content="https://www.ksbtech.community/logo.png">
+    <meta property="og:image" content="https://www.ksbtech.web.app/logo.png">
     <meta property="og:site_name" content="KSB Tech Community">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://www.ksbtech.community/">
+    <meta property="twitter:url" content="https://www.ksbtech.web.app/">
     <meta property="twitter:title" content="KSB Tech Community">
     <meta property="twitter:description" content="Join the KSB Tech Community for events, learning resources, and connecting with fellow tech enthusiasts. Explore our platform for skill development and networking.">
-    <meta property="twitter:image" content="https://www.ksbtech.community/logo.png">
+    <meta property="twitter:image" content="https://www.ksbtech.web.app/logo.png">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "KSB Tech Community",
+      "url": "https://www.ksbtech.web.app/",
+      "logo": "https://www.ksbtech.web.app/logo.png",
+      "description": "Join the KSB Tech Community for events, learning resources, and connecting with fellow tech enthusiasts. Explore our platform for skill development and networking."
+    }
+    </script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,6 +54,6 @@
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer async></script>
   </body>
 </html>

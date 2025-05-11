@@ -184,6 +184,10 @@ onUnmounted(() => {
   color: var(--bs-body-color); /* Use Bootstrap default body color */
 }
 
+.app-main-content {
+  padding-top: 60px; /* Add padding to account for fixed navbar height */
+}
+
 .app-navbar {
   border-bottom: 1px solid var(--bs-border-color-translucent);
   transition: transform 0.3s ease-in-out;
@@ -196,6 +200,10 @@ onUnmounted(() => {
 
 @media (max-width: 991.98px) {
   /* Styles for the collapsed mobile menu */
+  .app-main-content {
+    padding-top: 56px; /* Adjust for smaller navbar on mobile */
+  }
+  
   #navbarNav.collapse.show,
   #navbarNav.collapsing {
     background-color: var(--bs-primary);
