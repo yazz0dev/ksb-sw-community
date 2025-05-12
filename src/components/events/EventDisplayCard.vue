@@ -69,6 +69,7 @@
                  <span class="text-warning me-2" style="font-size: 0.8em;">
                    <i class="fas fa-star fa-fw"></i>
                  </span>
+                 <!-- Use imported formatRoleName -->
                  <span>{{ alloc.constraintLabel || 'Unnamed Criteria' }}: <span class="fw-medium">{{ alloc.points }} XP</span> <span class="text-muted ms-1">({{ formatRoleName(alloc.role || '') }})</span></span>
              </li>
          </ul>
@@ -79,7 +80,7 @@
 <script setup lang="ts">
 import { computed, PropType } from 'vue';
 import { useUserStore } from '@/store/user';
-import { formatRoleName } from '../../utils/formatters';
+import { formatRoleName } from '@/utils/formatters'; // Import formatRoleName
 import { Event, EventFormat } from '@/types/event'; // Import EventFormat
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';

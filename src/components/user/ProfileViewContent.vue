@@ -260,6 +260,7 @@ import { Event as AppEvent, EventStatus, EventFormat } from '@/types/event';
 import { User, UserData } from '@/types/user'; // Import UserData
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useRouter } from 'vue-router'; // Keep useRouter if needed for navigation later
+import { isEventOrganizer } from '@/utils/permissionHelpers'; // Import isEventOrganizer
 
 interface Props {
     userId: string;
@@ -308,23 +309,24 @@ const profileImageRef = ref<HTMLImageElement | null>(null);
 
 // --- Computed Properties ---
 const totalXp = computed((): number => {
-  if (!user.value?.xpByRole) return 0;
+  if (!user.value?.xpByRole) return 0; // Add null check for user.value.xpByRole
   return Object.values(user.value.xpByRole).reduce((sum: number, val: unknown) => sum + (Number(val) || 0), 0);
 });
 
 const hasXpData = computed((): boolean => {
-    const xp = totalXp.value;
-    return !!(xp > 0 && user.value?.xpByRole && Object.values(user.value.xpByRole).some((xpVal: unknown) => Number(xpVal) > 0));
+    // FIX: Check user.value before accessing xpByRole
+    return !!(user.value && totalXp.value > 0 && user.value.xpByRole && Object.values(user.value.xpByRole).some((xpVal: unknown) => Number(xpVal) > 0));
 });
 
 const filteredXpByRole = computed(() => {
-  if (!user.value?.xpByRole) return {};
-  return Object.entries(user.value.xpByRole)
-    .filter(([role, xp]: [string, unknown]) => Number(xp) > 0)
-    .reduce((acc: Record<string, number>, [role, xp]: [string, unknown]) => {
-      acc[role] = Number(xp);
-      return acc;
-    }, {});
+    if (!user.value?.xpByRole) return {};
+    return Object.entries(user.value.xpByRole)
+        .filter(([, xpVal]) => Number(xpVal) > 0)
+        .reduce((obj, [role, xpVal]) => {
+            // FIX: Use imported formatRoleNameUtil
+            obj[formatRoleNameUtil(role)] = Number(xpVal);
+            return obj;
+        }, {} as Record<string, number>);
 });
 
 const socialLinkDetails = computed(() => {
@@ -388,7 +390,7 @@ const isOrganizer = (eventItem: AppEvent): boolean => {
     if (!props.userId || !Array.isArray(eventItem.details?.organizers)) { // Use props.userId
         return false;
     }
-    return eventItem.details.organizers.includes(props.userId);
+    return isEventOrganizer(eventItem, props.userId);
 };
 
 const formatEventFormat = (format: string | undefined): string => {

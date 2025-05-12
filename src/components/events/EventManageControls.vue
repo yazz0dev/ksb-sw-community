@@ -182,6 +182,12 @@ import { DateTime } from 'luxon';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
+import {
+  isEventOrganizer,
+  // isEventParticipant, // Not directly used for control visibility here, but good to be aware of
+  isEventEditable,
+  // canManageEvents, // General permission, isEventOrganizer is more specific here
+} from '@/utils/permissionHelpers';
 
 // Define props and emits
 const props = defineProps<{
@@ -195,27 +201,24 @@ const router = useRouter();
 const userStore = useUserStore();
 const eventStore = useEventStore();
 const notificationStore = useNotificationStore();
-const loadingAction = ref<EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | null>(null);
+const loadingAction = ref<EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner' | null>(null);
 const isClosingEvent = ref(false);
 
 // --- User Role & Permissions ---
 const currentUserId = computed<string | null>(() => userStore.currentUser?.uid ?? null);
+const currentUser = computed(() => userStore.currentUser); // For passing UserData
 
 // Add more explicit debug information for permission checks
-const isOrganizer = computed(() => {
-  const uid = currentUserId.value;
-  const eventData = props.event;
-  const organizers = eventData?.details?.organizers;
-  const requestedBy = eventData?.requestedBy;
+const localIsOrganizer = computed(() => {
+  return isEventOrganizer(props.event, currentUserId.value);
+});
 
-  if (!uid || !eventData) {
-    return false;
+const localIsParticipant = computed(() => {
+  if (!currentUserId.value || !props.event) return false;
+  if (props.event.details.format === EventFormat.Team) {
+    return props.event.teams?.some(team => Array.isArray(team.members) && team.members.includes(currentUserId.value!));
   }
-
-  const isListedOrganizer = Array.isArray(organizers) && organizers.includes(uid);
-  const isRequestingUser = requestedBy === uid;
-  
-  return isListedOrganizer || isRequestingUser;
+  return Array.isArray(props.event.participants) && props.event.participants.includes(currentUserId.value);
 });
 
 const isParticipant = computed(() => {
@@ -227,7 +230,7 @@ const isParticipant = computed(() => {
   return Array.isArray(props.event.participants) && props.event.participants.includes(currentUserId.value);
 });
 
-const canManageEvent = computed(() => isOrganizer.value);
+const canManageEvent = computed(() => localIsOrganizer.value);
 
 // --- Event State Checks ---
 const isWithinEventDates = computed(() => {
@@ -288,34 +291,34 @@ const hasWinners = computed(() => !!props.event?.winners && Object.keys(props.ev
 
 // --- Button Visibility Logic ---
 const showStartButton = computed(() =>
-  canManageEvent.value &&
+  isEventOrganizer(props.event, currentUser.value?.uid) &&
   props.event?.status === EventStatus.Approved &&
   isWithinEventDates.value &&
   !props.event?.closedAt
 );
 
 const showMarkCompleteButton = computed(() =>
-  canManageEvent.value &&
+  isEventOrganizer(props.event, currentUser.value?.uid) &&
   props.event?.status === EventStatus.InProgress &&
   !props.event?.closedAt
 );
 
 const showOpenVotingButton = computed(() =>
-  canManageEvent.value &&
+  isEventOrganizer(props.event, currentUser.value?.uid) &&
   props.event?.status === EventStatus.Completed &&
   votingIsClosed.value &&
   !props.event?.closedAt
 );
 
 const showCloseVotingButton = computed(() =>
-    canManageEvent.value &&
+    isEventOrganizer(props.event, currentUser.value?.uid) &&
     props.event?.status === EventStatus.Completed &&
     props.event?.votingOpen === true &&
     !props.event?.closedAt
 );
 
 const canFindWinner = computed(() =>
-  canManageEvent.value &&
+  isEventOrganizer(props.event, currentUser.value?.uid) &&
   props.event?.status === EventStatus.Completed &&
   votingIsClosed.value &&
   !props.event?.closedAt
@@ -324,28 +327,28 @@ const canFindWinner = computed(() =>
 const showFindWinnerButton = canFindWinner;
 
 const showManualSelectWinnerButton = computed(() =>
-  canManageEvent.value &&
+  isEventOrganizer(props.event, currentUser.value?.uid) &&
   props.event?.status === EventStatus.Completed &&
   votingIsClosed.value && // Typically, manual selection is done after voting period
   !props.event?.closedAt
 );
 
 const showParticipantOrganizerRating = computed(() =>
-  !canManageEvent.value &&
-  isParticipant.value &&
+  !isEventOrganizer(props.event, currentUser.value?.uid) && // Not an organizer
+  localIsParticipant.value && // Is a participant
   props.event?.status === EventStatus.Completed &&
   !props.event?.closedAt
 );
 
 const showParticipantWinnerSelection = computed(() =>
-  isParticipant.value &&
+  localIsParticipant.value && // Is a participant
   props.event?.status === EventStatus.Completed &&
   !props.event?.closedAt &&
   props.event?.votingOpen === true
 );
 
 const showCloseEventButton = computed(() =>
-  canManageEvent.value &&
+  isEventOrganizer(props.event, currentUser.value?.uid) &&
   props.event?.status === EventStatus.Completed &&
   votingIsClosed.value &&
   hasWinners.value &&
@@ -353,20 +356,20 @@ const showCloseEventButton = computed(() =>
 );
 
 const showCancelButton = computed(() =>
-  canManageEvent.value &&
+  isEventOrganizer(props.event, currentUser.value?.uid) &&
   [EventStatus.Approved, EventStatus.InProgress].includes(props.event?.status as EventStatus) &&
   !props.event?.closedAt
 );
 
 const showEditButton = computed(() =>
-  canManageEvent.value &&
-  ![EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(props.event?.status as EventStatus) &&
+  isEventOrganizer(props.event, currentUser.value?.uid) &&
+  isEventEditable(props.event?.status) && // Use helper
   !props.event?.closedAt
 );
 
 // --- Overall Visibility ---
 const shouldShowControls = computed(() =>
-    canManageEvent.value ||
+    isEventOrganizer(props.event, currentUser.value?.uid) || // If organizer, show controls relevant to them
     showParticipantOrganizerRating.value ||
     showParticipantWinnerSelection.value
 );
@@ -416,7 +419,7 @@ const toggleVoting = async (openState: boolean): Promise<void> => {
     loadingAction.value = openState ? 'openVoting' : 'closeVoting';
     try {
         // Double-check permissions before even trying
-        if (!isOrganizer.value) {
+        if (!isEventOrganizer(props.event, currentUser.value?.uid)) {
             throw new Error('Only event organizers can modify voting status.');
         }
         
@@ -429,7 +432,7 @@ const toggleVoting = async (openState: boolean): Promise<void> => {
             organizers: props.event.details?.organizers,
             requestedBy: props.event.requestedBy,
             currentUserId: currentUserId.value,
-            isOrganizer: isOrganizer.value
+            isOrganizer: isEventOrganizer(props.event, currentUser.value?.uid)
         });
         
         // Check if event status meets requirements from Firestore rules
@@ -502,9 +505,7 @@ const findWinnerAction = async (): Promise<void> => {
 
 const goToEditEvent = (): void => {
   // Check if event is in an editable state before navigating
-  const editableStatuses = [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress];
-  
-  if (!props.event || !editableStatuses.includes(props.event.status as EventStatus)) {
+  if (!props.event || !isEventEditable(props.event.status as EventStatus)) {
     notificationStore.showNotification({ 
       message: `Cannot edit event with status: ${props.event?.status || 'Unknown'}`, 
       type: 'warning',

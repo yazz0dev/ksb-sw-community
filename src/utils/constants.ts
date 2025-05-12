@@ -1,13 +1,13 @@
 // Common constants used throughout the application
 
 // --- Event Criteria Constants ---
-export const BEST_PERFORMER_LABEL = 'Best Overall Performer';
+export const BEST_PERFORMER_LABEL = 'Best Performer';
 export const BEST_PERFORMER_POINTS = 10;
 export const MAX_USER_CRITERIA = 5;
 export const MAX_TOTAL_XP = 50; // Maximum XP that can be allocated across criteria
 
 // --- Permission Constants ---
-export const EVENT_MANAGER_ROLES = [  'EventManager'] as const;
+export const EVENT_MANAGER_ROLES = ['admin', 'eventManager', 'moderator'] as const;
 
 // --- Error Message Constants ---
 export const ERROR_MESSAGES = {

@@ -49,15 +49,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watchEffect } from 'vue'; // Import ref, watchEffect (remove computed)
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+import { ref, watchEffect } from 'vue';
+import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
-// Configure marked options
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
+const { renderMarkdown } = useMarkdownRenderer();
 
 // --- Content Strings ---
 const eventLifecycleContent = `
@@ -170,29 +165,38 @@ const votingHtml = ref('');
 const xpHtml = ref('');
 const generalHtml = ref('');
 
-// --- Utility function to render markdown content safely (now async) ---
-const renderSection = async (content: string): Promise<string> => {
-    if (!content) return '';
-    try {
-        const rawHtml: string = await marked(content); // Await the promise
-        return DOMPurify.sanitize(rawHtml);
-    } catch (error) {
-        return `<p class="text-danger">Error rendering content.</p>`;
-    }
-};
-
 // --- Watchers to render content when strings are defined ---
 watchEffect(async () => {
-    eventLifecycleHtml.value = await renderSection(eventLifecycleContent);
+    try {
+        eventLifecycleHtml.value = await renderMarkdown(eventLifecycleContent);
+    } catch (e) {
+        console.error("Error rendering eventLifecycleContent:", e);
+        eventLifecycleHtml.value = `<p class="text-danger">Error rendering content.</p>`;
+    }
 });
 watchEffect(async () => {
-    votingHtml.value = await renderSection(votingContent);
+    try {
+        votingHtml.value = await renderMarkdown(votingContent);
+    } catch (e) {
+        console.error("Error rendering votingContent:", e);
+        votingHtml.value = `<p class="text-danger">Error rendering content.</p>`;
+    }
 });
 watchEffect(async () => {
-    xpHtml.value = await renderSection(xpContent);
+    try {
+        xpHtml.value = await renderMarkdown(xpContent);
+    } catch (e) {
+        console.error("Error rendering xpContent:", e);
+        xpHtml.value = `<p class="text-danger">Error rendering content.</p>`;
+    }
 });
 watchEffect(async () => {
-    generalHtml.value = await renderSection(generalContent);
+    try {
+        generalHtml.value = await renderMarkdown(generalContent);
+    } catch (e) {
+        console.error("Error rendering generalContent:", e);
+        generalHtml.value = `<p class="text-danger">Error rendering content.</p>`;
+    }
 });
 
 </script>

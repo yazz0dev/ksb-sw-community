@@ -284,6 +284,7 @@ import { formatRoleName } from '@/utils/formatters';
 
 // Import the utility functions
 import { createTeamVotePayload, createIndividualVotePayload, createManualWinnerPayload, getValidCriteria } from '@/utils/eventDataUtils';
+import { isEventOrganizer, isEventParticipant } from '@/utils/permissionHelpers'; // Import helpers
 
 // --- Types for Voting ---
 interface TeamVoting {
@@ -494,32 +495,24 @@ const submitButtonText = computed<string>(() => {
   return isSubmitting.value ? 'Submitting...' : `${action} ${target}`;
 });
 
-const isParticipant = computed(() => {
-  if (!event.value || !currentUser.value?.uid) return false;
-  if (isTeamEvent.value) {
-    return event.value.teams?.some(team => team.members?.includes(currentUser.value!.uid));
-  } else {
-    return event.value.participants?.includes(currentUser.value.uid);
-  }
+const localIsParticipant = computed(() => { // Renamed to avoid conflict if isParticipant is used elsewhere
+  return event.value && currentUser.value ? isEventParticipant(event.value, currentUser.value.uid) : false;
 });
 
-const isOrganizer = computed(() => {
-  if (!event.value || !currentUser.value?.uid) return false;
-  const organizers = event.value.details?.organizers || [];
-  const requester = event.value.requestedBy;
-  return organizers.includes(currentUser.value.uid) || requester === currentUser.value.uid;
+const localIsOrganizer = computed(() => { // Renamed to avoid conflict
+  return event.value && currentUser.value ? isEventOrganizer(event.value, currentUser.value.uid) : false;
 });
 
 const canSubmitSelection = computed(() => {
   if (isManualModeActive.value) return false; // This is for voting mode
-  return isParticipant.value &&
+  return localIsParticipant.value && // Use the refactored computed
          event.value?.status === EventStatus.Completed &&
          event.value?.votingOpen === true;
 });
 
 const canFindWinner = computed(() => {
   if (isManualModeActive.value) return false; // Not shown in manual mode
-  return isOrganizer.value &&
+  return localIsOrganizer.value && // Use the refactored computed
          event.value?.status === EventStatus.Completed &&
          event.value?.votingOpen === false;
 });

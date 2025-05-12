@@ -56,6 +56,7 @@
                 :event="event"
                 class="mb-0 animate-fade-in"
                 @update="fetchData"
+                :key="`manage-controls-${event.id}-${event.status}-${event.votingOpen}`" // More specific key
               />
             </div>
 
@@ -122,10 +123,10 @@
               <EventVotingTrigger
                 :event="event"
                 :currentUser="currentUser"
-                :isCurrentUserParticipant="isCurrentUserParticipant"
-                :canRateOrganizer="canRateOrganizer"
+                :isCurrentUserParticipant="localIsCurrentUserParticipant" // Use local computed based on helper
+                :canRateOrganizer="localCanRateOrganizer" // Use local computed based on helper
                 :loading="loading"
-                :isCurrentUserOrganizer="isCurrentUserOrganizer"
+                :isCurrentUserOrganizer="localIsCurrentUserOrganizer" // Use local computed based on helper
                 class="mb-4"
               >
                  <template v-if="loading">
@@ -140,11 +141,9 @@
                  <template v-else-if="event.status !== EventStatus.Completed">
                     <p class="small text-secondary fst-italic">Voting available once event is completed.</p>
                  </template>
-                 <template v-else-if="event.votingOpen !== true">
-                    <p class="small text-secondary fst-italic">Voting is currently closed.</p>
-                 </template>
-                 <template v-else-if="!isCurrentUserParticipant">
-                    <p class="small text-secondary fst-italic">Must be a participant to vote.</p>
+                 <!-- Add check for canUserVoteInEvent -->
+                 <template v-else-if="!canVoteInThisEvent">
+                    <p class="small text-secondary fst-italic">You are not eligible to vote in this event or voting is not open.</p>
                  </template>
                  <template v-else-if="hasUserVoted">
                      <p class="alert alert-success alert-sm py-2 d-flex align-items-center mb-2">
@@ -254,6 +253,13 @@ import { User } from '@/types/user';
 // Import utility functions
 import { hasUserSubmittedVotes } from '@/utils/eventDataUtils';
 import { canVoteInEvent } from '@/utils/permissionHelpers';
+
+import {
+  isEventOrganizer,
+  isEventParticipant,
+  canUserSubmitToEvent,
+  canUserVoteInEvent
+} from '@/utils/permissionHelpers';
 
 // --- Local Types & Interfaces ---
 interface SubmissionFormData {
@@ -693,6 +699,43 @@ const isOrganizer = computed(() => {
   const organizerIds = event.value.details?.organizers || [];
   return organizerIds.includes(currentUser.value.uid) || event.value.requestedBy === currentUser.value.uid;
 });
+
+const localIsCurrentUserOrganizer = computed(() =>
+  event.value && currentUser.value ? isEventOrganizer(event.value, currentUser.value.uid) : false
+);
+
+const localIsCurrentUserParticipant = computed(() =>
+  event.value && currentUser.value ? isEventParticipant(event.value, currentUser.value.uid) : false
+);
+
+const canJoin = computed(() => {
+  if (!event.value || !currentUser.value || event.value.closedAt) return false;
+  if (localIsCurrentUserOrganizer.value || localIsCurrentUserParticipant.value) return false;
+  return [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
+});
+
+const canLeave = computed(() => {
+  if (!event.value || !currentUser.value || event.value.closedAt) return false;
+  if (localIsCurrentUserOrganizer.value) return false; // Organizers can't "leave" through this button
+  return localIsCurrentUserParticipant.value && [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
+});
+
+const canSubmitProject = computed(() =>
+  event.value && currentUser.value ? canUserSubmitToEvent(event.value, currentUser.value) : false
+);
+
+const canRateOrganizer = computed(() => {
+  if (!event.value || !currentUser.value || event.value.closedAt) return false;
+  // Typically, participants can rate organizers after the event is completed.
+  // Organizers cannot rate themselves or other organizers via this mechanism.
+  return localIsCurrentUserParticipant.value &&
+         !localIsCurrentUserOrganizer.value &&
+         event.value.status === EventStatus.Completed;
+});
+
+const canVoteInThisEvent = computed(() =>
+  event.value && currentUser.value ? canUserVoteInEvent(event.value, currentUser.value) : false
+);
 
 </script>
 

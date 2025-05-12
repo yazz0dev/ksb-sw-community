@@ -26,21 +26,6 @@ export function canManageEvents( ): boolean {
 }
 
 /**
- * Checks if a user is an organizer for a specific event
- * @param event The event object
- * @param userId The user's ID
- * @returns boolean
- */
-export function isEventOrganizer(event: Event | null, userId?: string | null): boolean {
-  if (!event || !userId) return false;
-  
-  const organizers = event.details?.organizers || [];
-  const requestedBy = event.requestedBy;
-  
-  return organizers.includes(userId) || requestedBy === userId;
-}
-
-/**
  * Checks if a user is a participant in a specific event
  * @param event The event object
  * @param userId The user's ID
@@ -144,4 +129,61 @@ export function canCalculateWinners(event: Event | null, userId: string | null):
     event.requestedBy === userId;
     
   return isOrganizer;
+}
+
+/**
+ * Checks if a user is an organizer of an event.
+ * An organizer can be the user who requested the event or anyone listed in the event's organizers array.
+ */
+export function isEventOrganizer(event: Event | null, userId: string | null | undefined): boolean {
+  if (!event || !userId) return false;
+  const isRequester = event.requestedBy === userId;
+  const isListedOrganizer = event.details?.organizers?.includes(userId) ?? false;
+  return isRequester || isListedOrganizer;
+}
+
+/**
+ * Checks if the current user can edit a specific event.
+ * Note: This replaces the previous canModifyEvent and canUserEditEvent functions
+ */
+export function canUserEditEvent(event: Event | null, user: UserData | null): boolean {
+  if (!event || !user) return false;
+  // User must be an organizer and the event must be in an editable state.
+  return isEventOrganizer(event, user.uid) && isEventEditable(event.status);
+}
+
+/**
+ * Checks if the current user can vote in a specific event.
+ */
+export function canUserVoteInEvent(event: Event | null, user: UserData | null): boolean {
+  if (!event || !user || !user.uid) return false;
+
+  // Voting is only allowed if the event is Completed and voting is open.
+  if (event.status !== EventStatus.Completed || event.votingOpen !== true) {
+    return false;
+  }
+  // User must be a participant to vote.
+  return isEventParticipant(event, user.uid);
+}
+
+/**
+ * Checks if the current user can submit a project to a specific event.
+ */
+export function canUserSubmitToEvent(event: Event | null, user: UserData | null): boolean {
+  if (!event || !user || !user.uid) return false;
+
+  // Submissions are typically allowed when the event is InProgress.
+  if (event.status !== EventStatus.InProgress) return false;
+  // Check if project submissions are allowed for this event.
+  if (event.details.allowProjectSubmission === false) return false;
+  // Organizers typically cannot submit projects to their own events.
+  if (isEventOrganizer(event, user.uid)) return false;
+
+  // For team events, only the team lead can submit.
+  if (event.details.format === 'Team') {
+    const userTeam = event.teams?.find(team => team.members?.includes(user.uid!));
+    return !!userTeam && userTeam.teamLead === user.uid;
+  }
+  // For individual events, any participant can submit.
+  return event.participants?.includes(user.uid) ?? false;
 }

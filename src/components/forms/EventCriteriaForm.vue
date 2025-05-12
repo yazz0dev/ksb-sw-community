@@ -54,6 +54,7 @@
               required
             >
               <option value="" disabled>Select Role...</option>
+              <!-- Use imported formatRoleName -->
               <option v-for="role in props.assignableXpRoles" :key="role" :value="role">{{ formatRoleName(role) }}</option>
             </select>
           </div>
@@ -107,7 +108,7 @@
 import { ref, watch, computed, nextTick } from 'vue';
 // Remove 'type' from EventFormat import
 import { EventFormat, type EventCriteria } from '@/types/event';
-import { formatRoleName } from '@/utils/formatters';
+import { formatRoleName } from '@/utils/formatters'; // Ensure this is imported
 // Import constants from centralized location
 import { 
   BEST_PERFORMER_LABEL, 

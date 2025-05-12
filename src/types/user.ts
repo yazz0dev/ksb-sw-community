@@ -7,9 +7,9 @@ import type { Project } from './project';
  */
 export interface User {
     uid: string;
-    email?: string | null;
-    name: string;
-    photoURL?: string;
+    email: string | null;
+    name: string | null;
+    photoURL?: string | null;
     bio?: string;
     socialLink?: string;
     xpByRole?: Record<string, number>; // e.g., { developer: 150, presenter: 50 }
@@ -19,7 +19,7 @@ export interface User {
     participatedEvent?: string[]; // Array of event IDs
     organizedEvent?: string[]; // Array of event IDs
     hasLaptop?: boolean;
-    isAdmin?: boolean; // Indicates if the user has admin privileges
+    xp?: number;
     // ... any other fields from your Firestore user document
 }
 
@@ -28,6 +28,10 @@ export interface User {
  * Often includes calculated fields or application state relevant to the user.
  */
 export interface UserData extends User {
+    batch?: string;
+    studentId?: string;
+    linkedin?: string;
+    github?: string;
 }
 
 /**
@@ -110,7 +114,6 @@ export interface UserProfileUpdatePayload {
     skills: string[];
     preferredRoles: string[];
     hasLaptop: boolean;
-    xpByRole?: Record<XpRoleKey, number>; // Only allowed for admin users
     [key: string]: any; // Allow for additional fields
   }>;
 }
