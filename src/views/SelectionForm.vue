@@ -36,13 +36,13 @@
          This event has no valid voting criteria defined. Please contact an event organizer.
       </div>
       
-      <div v-else-if="isManualModeActive && !isOrganizer" class="alert alert-danger" role="alert">
+      <div v-else-if="isManualModeActive && !localIsOrganizer" class="alert alert-danger" role="alert">
         You are not authorized to manually select winners for this event.
       </div>
 
       <div v-else>
         <!-- Live Stats Section (Visible in both modes for organizers) -->
-        <div v-if="showCriteriaStats && criteriaStats.length > 0 && (isOrganizer || !isManualModeActive)" class="mb-4">
+        <div v-if="showCriteriaStats && criteriaStats.length > 0 && (localIsOrganizer || !isManualModeActive)" class="mb-4">
           <div class="card border-info">
             <div class="card-header bg-info-subtle text-info fw-bold">
               <i class="fas fa-chart-line me-2"></i> {{ isManualModeActive ? 'Current Vote Summary (For Reference)' : 'Current Selections (Live Stats)' }}
@@ -284,7 +284,13 @@ import { formatRoleName } from '@/utils/formatters';
 
 // Import the utility functions
 import { createTeamVotePayload, createIndividualVotePayload, createManualWinnerPayload, getValidCriteria } from '@/utils/eventDataUtils';
-import { isEventOrganizer, isEventParticipant } from '@/utils/permissionHelpers'; // Import helpers
+import { 
+  isEventOrganizer, 
+  isEventParticipant, 
+  canUserVoteInEvent,
+  canManuallySelectWinners,
+  canCalculateWinners
+} from '@/utils/permissionHelpers'; // Import additional helpers
 
 // --- Types for Voting ---
 interface TeamVoting {
@@ -344,7 +350,7 @@ const didLoadExistingWinnersForManualMode = ref<boolean>(false);
 
 const userNameMap = ref<Record<string, string>>({});
 
-const isManualModeActive = computed(() => route.query.manualMode === 'true' && isOrganizer.value);
+const isManualModeActive = computed(() => route.query.manualMode === 'true' && localIsOrganizer.value);
 
 const pageTitle = computed(() => {
   if (isManualModeActive.value) {
@@ -355,7 +361,7 @@ const pageTitle = computed(() => {
 
 const canShowForm = computed(() => {
   if (isManualModeActive.value) {
-    return isOrganizer.value && event.value?.status === EventStatus.Completed;
+    return localIsOrganizer.value && event.value?.status === EventStatus.Completed;
   }
   return canSubmitSelection.value;
 });
@@ -512,9 +518,8 @@ const canSubmitSelection = computed(() => {
 
 const canFindWinner = computed(() => {
   if (isManualModeActive.value) return false; // Not shown in manual mode
-  return localIsOrganizer.value && // Use the refactored computed
-         event.value?.status === EventStatus.Completed &&
-         event.value?.votingOpen === false;
+  return event.value && currentUser.value ? 
+    canCalculateWinners(event.value, currentUser.value.uid) : false;
 });
 
 const selectableBestPerformers = computed(() => {
@@ -622,7 +627,7 @@ const fetchEventDetails = async (): Promise<void> => {
     const currentUid = currentUser.value?.uid ?? null;
 
     if (isManualModeActive.value) {
-      if (!isOrganizer.value) {
+      if (!localIsOrganizer.value) {
         throw new Error('You are not authorized to manually select winners.');
       }
       if (eventData.status !== EventStatus.Completed) {
@@ -861,7 +866,7 @@ const submitManualSelection = async (): Promise<void> => {
     errorMessage.value = 'Please complete all selections before saving.';
     return;
   }
-  if (!currentUser.value?.uid || !isOrganizer.value) {
+  if (!currentUser.value?.uid || !localIsOrganizer.value) {
     errorMessage.value = 'Cannot submit: User not authorized or not identified.';
     return;
   }
@@ -899,13 +904,14 @@ const submitManualSelection = async (): Promise<void> => {
 };
 
 const findWinner = async (): Promise<void> => {
-  if (!isOrganizer.value) {
-    errorMessage.value = 'You are not authorized to find the winner.';
+  if (!event.value || !currentUser.value?.uid) {
+    errorMessage.value = 'Event not loaded or user not authenticated.';
     return;
   }
-  if (!event.value?.id) {
-      errorMessage.value = 'Event not loaded.';
-      return;
+  
+  if (!canCalculateWinners(event.value, currentUser.value.uid)) {
+    errorMessage.value = 'You are not authorized to find the winner.';
+    return;
   }
 
   isFindingWinner.value = true;
@@ -979,9 +985,9 @@ const criteriaStats = computed(() => {
        const sortedBestPerformers = Object.entries(bestPerformerCounts).sort(([, countA], [, countB]) => countB - countA);
        if (sortedBestPerformers.length > 0) {
             stats.push({
-                constraintIndex: -1,
-                constraintLabel: BEST_PERFORMER_LABEL,
-                points: 10, // Assume fixed points
+                constraintIndex: -1, // Special index for Best Performer
+                constraintLabel: "Best Performer", // Explicitly set label for display
+                points: BEST_PERFORMER_POINTS, // Use constant for points value
                 selections: sortedBestPerformers as [string, number][]
             });
        }
@@ -1004,11 +1010,11 @@ const showCriteriaStats = computed(() => {
 
 const getStatusMessage = (): string => {
     if (isManualModeActive.value) {
-        if (!isOrganizer.value) return "You are not authorized to manually select winners.";
+        if (!localIsOrganizer.value) return "You are not authorized to manually select winners.";
         if (event.value?.status !== EventStatus.Completed) return "Manual winner selection is only available for completed events.";
         return "Ready to manually set winners.";
     }
-    if (!isParticipant.value) {
+    if (!localIsParticipant.value) {
         return "Only event participants can submit selections.";
     }
     if (event.value?.status !== EventStatus.Completed) {

@@ -268,9 +268,11 @@ export const useEventStore = defineStore('events', {
 
         async updateEventStatus({ eventId, newStatus }: { eventId: string; newStatus: EventStatus }) {
              const notificationStore = useNotificationStore();
+             const userStore = useUserStore(); // Get userStore instance
 
              try {
-                 await updateEventStatusInFirestore(eventId, newStatus);
+                 // Pass currentUser to the Firestore utility function
+                 await updateEventStatusInFirestore(eventId, newStatus, userStore.currentUser);
                  // Fetch fresh details to get the fully updated object
                  await this.fetchEventDetails(eventId); // Use 'this' for other actions
                  notificationStore.showNotification({ message: `Event status updated to ${newStatus}.`, type: 'success' });

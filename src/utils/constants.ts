@@ -7,7 +7,7 @@ export const MAX_USER_CRITERIA = 5;
 export const MAX_TOTAL_XP = 50; // Maximum XP that can be allocated across criteria
 
 // --- Permission Constants ---
-export const EVENT_MANAGER_ROLES = ['admin', 'eventManager', 'moderator'] as const;
+export const EVENT_MANAGER_ROLES = [  'eventManager', 'moderator'] as const;
 
 // --- Error Message Constants ---
 export const ERROR_MESSAGES = {

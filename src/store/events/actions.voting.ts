@@ -55,7 +55,8 @@ export async function togglevotingOpenInFirestore(
         
         // Update with the boolean value 'open'
         await updateDoc(eventRef, {
-            votingOpen: open
+            votingOpen: open,
+            lastUpdatedAt: Timestamp.now() // ADDED
         });
         
         console.log(`Successfully set voting status for ${eventId} to ${open ? 'open' : 'closed'}`);
@@ -236,7 +237,8 @@ export async function submitManualWinnerSelectionInFirestore(eventId: string, or
         // Update winners directly
         await updateDoc(eventRef, { 
             winners: winnerSelections,
-            manuallySelectedBy: organizerId
+            manuallySelectedBy: organizerId,
+            lastUpdatedAt: Timestamp.now() // ADDED
         });
         
         console.log(`Firestore: Manual winner selection submitted by organizer ${organizerId} for event ${eventId}.`);
@@ -294,7 +296,8 @@ export async function submitOrganizationRatingInFirestore(eventId: string, userI
 
         // Overwrite the entire array in Firestore
         await updateDoc(eventRef, {
-            organizerRating: currentRatings
+            organizerRating: currentRatings,
+            lastUpdatedAt: Timestamp.now() // ADDED
         });
 
         console.log(`Firestore: Organizer rating submitted/updated by ${userId} for event ${eventId}.`);
@@ -323,12 +326,9 @@ export async function calculateWinnersFromVotes(eventData: Event): Promise<Recor
     // Calculate winners for each standard criterion
     for (const criterion of criteriaArray) {
         // Skip the special 'Best Performer' if it exists in criteria array
-        if (criterion.constraintLabel === BEST_PERFORMER_LABEL) continue;
+        if (criterion.constraintLabel === BEST_PERFORMER_LABEL) continue; // ADDED continue
          // Skip invalid criteria
-        if (typeof criterion.constraintIndex !== 'number') {
-            console.warn(`Skipping criterion due to invalid constraintIndex:`, criterion);
-            continue;
-        };
+        if (typeof criterion.constraintIndex !== 'number') { continue; }; // FIXED: added continue
 
         // Ensure selections exist and is an object
         const selections = (criterion.criteriaSelections && typeof criterion.criteriaSelections === 'object') ? criterion.criteriaSelections : {};
@@ -399,6 +399,8 @@ export async function saveWinnersToFirestore(eventId: string, winners: Record<st
     try {
         await updateDoc(eventRef, {
             winners: winners,
+            manuallySelectedBy: null, // Explicitly null for calculated winners
+            lastUpdatedAt: Timestamp.now()
         });
         console.log(`Firestore: Winners saved for event ${eventId}.`);
     } catch (error: any) {

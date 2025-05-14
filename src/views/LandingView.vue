@@ -193,6 +193,7 @@ const getIconColorClass = (color: Feature['color']): string => {
 .landing-section {
   background: linear-gradient(135deg, #f8fafc 0%, #e9f0fb 100%);
   min-height: 100vh;
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 /* Welcome Section */

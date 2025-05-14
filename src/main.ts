@@ -56,8 +56,19 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!updatePromptShown) { // Check the flag
       updatePromptShown = true; // Set the flag immediately
-      if (confirm("A new version of the app is available. Reload now?")) {
-        window.location.reload();
+      // Use appStore to signal update, instead of confirm()
+      if (appInstance) { // Ensure app is mounted and store is available
+        const appStore = useAppStore(pinia);
+        appStore.setNewVersionAvailable(true);
+      } else {
+        // Fallback or queue if app not yet mounted, though less likely for controllerchange
+        // For simplicity, we'll rely on appInstance being available.
+        // Consider a queue or event bus if this becomes an issue.
+        console.warn("Service worker controllerchange: App not mounted, cannot show update prompt via store yet.");
+        // As a simple fallback, could use the old confirm, but aiming for store integration.
+        // if (confirm("A new version of the app is available. Reload now?")) {
+        //   window.location.reload();
+        // }
       }
     }
   });
@@ -220,7 +231,7 @@ function mountApp(): void {
   appStore.setOnlineStatus(isOnline);
   appStore.checkNetworkAndSync();
   appStore.initOfflineCapabilities();
-  // userStore.clearStaleCache(); // Commented out due to missing method
+  userStore.clearStaleCache(); // Ensure this is active and the method exists in userStore
 
   // Removed call to local initOneSignal and registerForPushNotifications
   // OneSignal initialization is handled in App.vue using oneSignalService.ts

@@ -32,7 +32,8 @@ export async function joinEventInFirestore(eventId: string, userId: string): Pro
         if (isOrganizer) throw new Error('Organizers cannot explicitly join.');
 
         await updateDoc(eventRef, {
-            participants: arrayUnion(userId)
+            participants: arrayUnion(userId),
+            lastUpdatedAt: Timestamp.now() // ADDED
         });
         console.log(`Firestore: User ${userId} joined event ${eventId}.`);
 
@@ -66,7 +67,9 @@ export async function leaveEventInFirestore(eventId: string, userId: string): Pr
         const isOrganizer = eventData.details?.organizers?.includes(userId);
         if (isOrganizer) throw new Error('Organizers cannot leave the event.');
 
-        let updates: Record<string, any> = {};
+        let updates: Record<string, any> = {
+            lastUpdatedAt: Timestamp.now() // ADDED
+        };
         let userFound = false;
 
         // Remove from participants list

@@ -18,18 +18,33 @@ export async function fetchAllEventsFromFirestore(): Promise<Event[]> {
         const snap = await getDocs(eventsCol);
         const events: Event[] = [];
         snap.forEach(docSnap => {
-            // Basic validation or default values can be added here
             const data = docSnap.data();
+            // Defensive: skip if id or details missing
+            if (!docSnap.id || !data || typeof data !== 'object') return;
+            // Defensive: ensure details is an object
+            const details = typeof data.details === 'object' && data.details !== null ? data.details : {};
+            // Defensive: ensure status is a string
+            const status = typeof data.status === 'string' ? data.status : 'Pending';
+            // Defensive: ensure requestedBy is a string
+            const requestedBy = typeof data.requestedBy === 'string' ? data.requestedBy : '';
+            // Defensive: ensure votingOpen is boolean
+            const votingOpen = typeof data.votingOpen === 'boolean' ? data.votingOpen : false;
+            // Defensive: ensure createdAt and lastUpdatedAt are present
+            const createdAt = data.createdAt ?? null;
+            const lastUpdatedAt = data.lastUpdatedAt ?? null;
+            // Defensive: ensure id is string
+            const id = String(docSnap.id);
+
             events.push({
-                id: docSnap.id,
-                status: data.status || 'Pending', // Example default
-                requestedBy: data.requestedBy || '',
-                details: data.details || {}, // Ensure details exists
-                createdAt: data.createdAt,
-                lastUpdatedAt: data.lastUpdatedAt,
-                votingOpen: typeof data.votingOpen === 'boolean' ? data.votingOpen : false, // Default
-                // Add other necessary fields with defaults if needed
-            } as Event); // Cast carefully
+                id,
+                status,
+                requestedBy,
+                details,
+                createdAt,
+                lastUpdatedAt,
+                votingOpen,
+                // ...add other fields as needed, with defensive checks...
+            } as Event);
         });
         return events;
     } catch (error: any) {

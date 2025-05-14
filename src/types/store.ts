@@ -44,6 +44,7 @@ export interface AppState {
   eventClosed: Record<string, boolean>; // Map of eventId -> isClosed status
   offlineQueue: OfflineQueueState; // Manages actions queued while offline
   networkStatus: NetworkStatusState; // Tracks online/offline status
+  newVersionAvailable: boolean; // Add this line
 }
 
 

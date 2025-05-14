@@ -40,6 +40,7 @@ export const useAppStore = defineStore('app', {
       lastOffline: typeof navigator !== 'undefined' && !navigator.onLine ? Date.now() : undefined,
       reconnectAttempts: 0,
     },
+    newVersionAvailable: false, // Initialize newVersionAvailable
   }),
 
   // Getters definition from your previous getters.ts
@@ -58,6 +59,7 @@ export const useAppStore = defineStore('app', {
       return (eventId: string): boolean => !!state.eventClosed[eventId];
     },
     supportedOfflineActionTypes: (state): string[] => state.offlineQueue.supportedTypes,
+    shouldDisplayUpdateBanner: (state) => state.newVersionAvailable,
   },
 
   // Actions integrate mutations from your previous actions.ts and mutations.ts
@@ -256,6 +258,10 @@ export const useAppStore = defineStore('app', {
     setEventClosedState({ eventId, isClosed }: { eventId: string; isClosed: boolean }) {
       // Direct state mutation using Vue 3 reactivity (no spread needed for top-level)
       this.eventClosed[eventId] = isClosed;
+    },
+
+    setNewVersionAvailable(available: boolean) {
+      this.newVersionAvailable = available;
     },
   },
 });

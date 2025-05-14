@@ -56,7 +56,7 @@
                 :event="event"
                 class="mb-0 animate-fade-in"
                 @update="fetchData"
-                :key="`manage-controls-${event.id}-${event.status}-${event.votingOpen}`" // More specific key
+                :key="`manage-controls-${event.id}-${event.status}-${String(event.votingOpen)}`"  
               />
             </div>
 
@@ -123,10 +123,10 @@
               <EventVotingTrigger
                 :event="event"
                 :currentUser="currentUser"
-                :isCurrentUserParticipant="localIsCurrentUserParticipant" // Use local computed based on helper
-                :canRateOrganizer="localCanRateOrganizer" // Use local computed based on helper
+                :isCurrentUserParticipant="localIsCurrentUserParticipant" 
+                :canRateOrganizer="canRateOrganizer" 
                 :loading="loading"
-                :isCurrentUserOrganizer="localIsCurrentUserOrganizer" // Use local computed based on helper
+                :isCurrentUserOrganizer="localIsCurrentUserOrganizer"  
                 class="mb-4"
               >
                  <template v-if="loading">
@@ -252,8 +252,6 @@ import { User } from '@/types/user';
 
 // Import utility functions
 import { hasUserSubmittedVotes } from '@/utils/eventDataUtils';
-import { canVoteInEvent } from '@/utils/permissionHelpers';
-
 import {
   isEventOrganizer,
   isEventParticipant,
@@ -340,104 +338,14 @@ const nameCacheRecord = computed(() => Object.fromEntries(nameCache.value));
 const isTeamEvent = computed<boolean>(() => event.value?.details.format === EventFormat.Team);
 
 // Determines if the current user is an organizer or the requester of the event
-const isCurrentUserOrganizer = computed<boolean>(() => {
-    if (!event.value || !currentUserId.value) return false;
-    const organizers = event.value.details?.organizers ?? [];
-    const requester = event.value.requestedBy ?? '';
-    return organizers.includes(currentUserId.value) || requester === currentUserId.value;
-});
+const localIsCurrentUserOrganizer = computed<boolean>(() =>
+  event.value && currentUser.value ? isEventOrganizer(event.value, currentUser.value.uid) : false
+);
 
 // Determines if the current user is a participant (directly or via team)
-const isCurrentUserParticipant = computed<boolean>(() => {
-    if (!event.value || !currentUser.value?.uid) return false;
-    const uid = currentUser.value.uid;
-    // Organizers are implicitly participants for rating purposes etc.
-    if (isCurrentUserOrganizer.value) return true;
-    // Check specific participation based on format
-    if (isTeamEvent.value) {
-        return event.value.teams?.some(team => Array.isArray(team.members) && team.members.includes(uid)) ?? false;
-    } else {
-        return event.value.participants?.includes(uid) ?? false;
-    }
-});
-
-// Logic for enabling the "Join Event" button
-const canJoin = computed(() => {
-  if (!event.value || !currentUserId.value || isJoining.value || actionInProgress.value) return false;
-  // Can only join Approved or InProgress events
-  if (![EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus)) return false;
-  // Organizers cannot join explicitly
-  if (isCurrentUserOrganizer.value) return false;
-  // Check if already participating based on format
-  if (isTeamEvent.value) {
-      return !event.value.teams?.some(team => team.members?.includes(currentUserId.value!));
-  } else {
-      return !event.value.participants?.includes(currentUserId.value);
-  }
-});
-
-// Logic for enabling the "Leave Event" button
-const canLeave = computed(() => {
-  if (!event.value || !currentUserId.value || isLeaving.value || actionInProgress.value) return false;
-  // Cannot leave Completed, Cancelled, or Closed events
-  if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(event.value.status as EventStatus)) return false;
-  // Organizers cannot leave
-  if (isCurrentUserOrganizer.value) return false;
-  // Check if currently participating based on format
-  if (isTeamEvent.value) {
-     return event.value.teams?.some(team => team.members?.includes(currentUserId.value!)) ?? false;
-  } else {
-     return event.value.participants?.includes(currentUserId.value) ?? false;
-  }
-});
-
-// Determines if the user can submit a project
-const canSubmitProject = computed(() => {
-  if (!event.value || !currentUserId.value || actionInProgress.value) return false;
-  // Can only submit during InProgress status
-  if (event.value.status !== EventStatus.InProgress) return false;
-  // Check if submissions are allowed for the event
-  if (event.value.details.allowProjectSubmission === false) return false;
-  // Organizers cannot submit
-  if (isCurrentUserOrganizer.value) return false;
-  // Check based on format
-  const uid = currentUserId.value;
-  if (isTeamEvent.value) {
-    // Only the team lead can submit for the team
-    const userTeam = event.value.teams?.find(team => team.members?.includes(uid));
-    return !!userTeam && userTeam.teamLead === uid;
-  } else {
-    // Individual participants can submit
-    return event.value.participants?.includes(uid) ?? false;
-  }
-});
-
-// Checks if the user has already submitted Voting
-const hasUserVoted = computed(() => {
-  return hasUserSubmittedVotes(event.value, currentUser.value?.uid || null);
-});
-
-// Determines if the user can edit their previous submission/rating
-const canEditSubmission = computed(() => {
-    // Can edit if they have rated AND Voting are currently open
-    return hasUserVoted.value && event.value?.votingOpen === true;
-});
-
-// Determines if the current user can rate the organizer
-const canRateOrganizer = computed(() => {
-  if (!event.value || !currentUser.value?.uid) return false;
-  // Can only rate Completed events
-  if (event.value.status !== EventStatus.Completed) return false;
-  // Check if the user participated (but wasn't an organizer)
-  const uid = currentUser.value.uid;
-  let participated = false;
-  if (isTeamEvent.value) {
-    participated = event.value.teams?.some(team => team.members?.includes(uid)) ?? false;
-  } else { // Individual or Competition
-    participated = event.value.participants?.includes(uid) ?? false;
-  }
-  return participated && !isCurrentUserOrganizer.value;
-});
+const localIsCurrentUserParticipant = computed<boolean>(() =>
+  event.value && currentUser.value ? isEventParticipant(event.value, currentUser.value.uid) : false
+);
 
 // Gathers all unique user IDs associated with the event
 const allAssociatedUserIds = computed<string[]>(() => {
@@ -459,6 +367,49 @@ const allAssociatedUserIds = computed<string[]>(() => {
 
     return Array.from(userIds).filter(Boolean); // Ensure no falsy IDs
 });
+
+// Logic for enabling the "Join Event" button
+const canJoin = computed(() => {
+  if (!event.value || !currentUser.value || event.value.closedAt) return false;
+  if (localIsCurrentUserOrganizer.value || localIsCurrentUserParticipant.value) return false;
+  return [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
+});
+
+// Logic for enabling the "Leave Event" button
+const canLeave = computed(() => {
+  if (!event.value || !currentUser.value || event.value.closedAt) return false;
+  if (localIsCurrentUserOrganizer.value) return false; // Organizers can't "leave" through this button
+  return localIsCurrentUserParticipant.value && [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
+});
+
+// Determines if the user can submit a project
+const canSubmitProject = computed(() =>
+  event.value && currentUser.value ? canUserSubmitToEvent(event.value, currentUser.value) : false
+);
+
+// Checks if the user has already submitted Voting
+const hasUserVoted = computed(() => {
+  return hasUserSubmittedVotes(event.value, currentUser.value?.uid || null);
+});
+
+// Determines if the user can edit their previous submission/rating
+const canEditSubmission = computed(() => {
+    // Can edit if they have rated AND Voting are currently open
+    return hasUserVoted.value && event.value?.votingOpen === true;
+});
+
+const canRateOrganizer = computed(() => {
+  if (!event.value || !currentUser.value || event.value.closedAt) return false;
+  // Typically, participants can rate organizers after the event is completed.
+  // Organizers cannot rate themselves or other organizers via this mechanism.
+  return localIsCurrentUserParticipant.value &&
+         !localIsCurrentUserOrganizer.value &&
+         event.value.status === EventStatus.Completed;
+});
+
+const canVoteInThisEvent = computed(() =>
+  event.value && currentUser.value ? canUserVoteInEvent(event.value, currentUser.value) : false
+);
 
 // --- Methods ---
 
@@ -693,49 +644,6 @@ watch(() => props.id, (newId, oldId) => {
 
 // Expose methods if needed by parent (though unlikely here)
 defineExpose({ handleJoin, handleLeave });
-
-const isOrganizer = computed(() => {
-  if (!event.value || !currentUser.value?.uid) return false;
-  const organizerIds = event.value.details?.organizers || [];
-  return organizerIds.includes(currentUser.value.uid) || event.value.requestedBy === currentUser.value.uid;
-});
-
-const localIsCurrentUserOrganizer = computed(() =>
-  event.value && currentUser.value ? isEventOrganizer(event.value, currentUser.value.uid) : false
-);
-
-const localIsCurrentUserParticipant = computed(() =>
-  event.value && currentUser.value ? isEventParticipant(event.value, currentUser.value.uid) : false
-);
-
-const canJoin = computed(() => {
-  if (!event.value || !currentUser.value || event.value.closedAt) return false;
-  if (localIsCurrentUserOrganizer.value || localIsCurrentUserParticipant.value) return false;
-  return [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
-});
-
-const canLeave = computed(() => {
-  if (!event.value || !currentUser.value || event.value.closedAt) return false;
-  if (localIsCurrentUserOrganizer.value) return false; // Organizers can't "leave" through this button
-  return localIsCurrentUserParticipant.value && [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
-});
-
-const canSubmitProject = computed(() =>
-  event.value && currentUser.value ? canUserSubmitToEvent(event.value, currentUser.value) : false
-);
-
-const canRateOrganizer = computed(() => {
-  if (!event.value || !currentUser.value || event.value.closedAt) return false;
-  // Typically, participants can rate organizers after the event is completed.
-  // Organizers cannot rate themselves or other organizers via this mechanism.
-  return localIsCurrentUserParticipant.value &&
-         !localIsCurrentUserOrganizer.value &&
-         event.value.status === EventStatus.Completed;
-});
-
-const canVoteInThisEvent = computed(() =>
-  event.value && currentUser.value ? canUserVoteInEvent(event.value, currentUser.value) : false
-);
 
 </script>
 

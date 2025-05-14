@@ -2,10 +2,7 @@ import { FirebaseApp, initializeApp } from "firebase/app";
 // Import getFirestore and specific cache options
 import { 
     Firestore, 
-    initializeFirestore, // Use initializeFirestore for custom cache
-    memoryLocalCache 
-    // persistentLocalCache, // Keep for reference if you need to switch back
-    // persistentMultipleTabManager // Keep for reference
+    getFirestore // Use standard getFirestore
 } from "firebase/firestore"; 
 import { Auth, getAuth } from 'firebase/auth';
 
@@ -29,14 +26,7 @@ const firebaseConfig: FirebaseConfig = {
 
 const app: FirebaseApp = initializeApp(firebaseConfig);
 
-// Initialize Firestore with memoryLocalCache to bypass IndexedDB for testing
-const db: Firestore = initializeFirestore(app, { 
-    localCache: memoryLocalCache() 
-});
-
-// To revert to default (IndexedDB persistence) if memory cache doesn't help or for production:
-// import { getFirestore } from "firebase/firestore";
-// const db: Firestore = getFirestore(app);
+const db: Firestore = getFirestore(app);
 
 
 const auth: Auth = getAuth(app);

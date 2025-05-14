@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-2 px-3 fixed-top" :class="{ 'navbar-hidden': !showNavbar }">
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-2 px-3 fixed-top">
     <div class="container-fluid">
       <router-link class="navbar-brand fw-bold text-primary" :to="brandLinkTarget">
         <span>KSB Tech Community</span>
@@ -19,10 +19,10 @@
 
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          <li class="nav-item">
+          <li class="nav-item" v-if="isAuthenticated">
             <router-link class="nav-link" :to="{ name: 'Home' }" @click="closeNavbar">Home</router-link>
           </li>
-          <li class="nav-item" v-if="!isAuthenticated">
+          <li class="nav-item">
             <router-link
               class="nav-link"
               active-class="active fw-semibold"
@@ -117,7 +117,7 @@ import { useRouter } from 'vue-router';
 const props = defineProps<{
   isAuthenticated: boolean;
   userName: string;
-  showNavbar?: boolean;
+  // showNavbar?: boolean; // Removed: Topbar will now always be visible
 }>();
 
 const emit = defineEmits<{

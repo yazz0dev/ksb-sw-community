@@ -1,13 +1,20 @@
 <template>
-  <div class="app-wrapper d-flex flex-column min-vh-100">
+  <div class="app-wrapper d-flex flex-column min-vh-100 overflow-hidden">
     <TopBar 
       :isAuthenticated="isAuthenticated"
       :userName="userName"
-      :showNavbar="showNavbar"
       @logout="handleLogout"
     />
 
-    <main class="flex-grow-1 app-main-content">
+    <div v-if="newVersionAvailable" class="update-banner alert alert-info d-flex justify-content-between align-items-center" role="alert">
+      <span>A new version of the app is available.</span>
+      <div>
+        <button class="btn btn-primary btn-sm me-2" @click="reloadApp">Reload</button>
+        <button class="btn btn-secondary btn-sm" @click="dismissUpdatePrompt">Dismiss</button>
+      </div>
+    </div>
+
+    <main class="flex-grow-1 app-main-content" :class="mainContentClasses">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" :key="route.fullPath" />
@@ -17,7 +24,7 @@
 
     <BottomNav
       v-if="isAuthenticated"
-      class="d-lg-none"
+      class="d-lg-none bottom-nav" 
     />
   </div>
 </template>
@@ -43,15 +50,30 @@ const appStore = useAppStore();
 const router = useRouter();
 const route = useRoute();
 
-const showNavbar = ref(true);
-const lastScrollPosition = ref(0);
-const scrollThreshold = 50;
 const showPushPermissionPrompt = ref(false);
 const imgError = ref<boolean>(false); // For profile picture error
 
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const userName = computed(() => userStore.currentUser?.name || 'User');
 const userProfilePicUrl = computed<string | null>(() => userStore.profilePictureUrl ?? null);
+const newVersionAvailable = computed(() => appStore.newVersionAvailable);
+
+const mainContentClasses = computed(() => {
+  return {
+    'has-bottom-nav': isAuthenticated.value // BottomNav is v-if="isAuthenticated" and d-lg-none
+  };
+});
+
+const reloadApp = () => {
+  appStore.setNewVersionAvailable(false); // Hide banner before reload
+  window.location.reload();
+};
+
+const dismissUpdatePrompt = () => {
+  appStore.setNewVersionAvailable(false);
+  // Optionally, set a session flag to not show again for this session
+  // sessionStorage.setItem('updatePromptDismissedSession', 'true');
+};
 
 const logout = async (): Promise<void> => {
   const auth = getAuth();
@@ -144,18 +166,8 @@ watch(isAuthenticated, (loggedIn) => {
     }
 });
 
-const handleScroll = () => {
-  const currentScrollPosition = window.scrollY;
-  if (Math.abs(currentScrollPosition - lastScrollPosition.value) < scrollThreshold && currentScrollPosition > 0) {
-    return;
-  }
-  showNavbar.value = currentScrollPosition < lastScrollPosition.value || currentScrollPosition < 10;
-  lastScrollPosition.value = currentScrollPosition;
-};
-
 onMounted(() => {
   appStore.initOfflineCapabilities();
-  window.addEventListener('scroll', handleScroll, { passive: true });
   if (isAuthenticated.value) {
        setTimeout(checkPushPermissionState, 1500);
   }
@@ -172,7 +184,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll);
 });
 
 </script>
@@ -186,16 +197,6 @@ onUnmounted(() => {
 
 .app-main-content {
   padding-top: 60px; /* Add padding to account for fixed navbar height */
-}
-
-.app-navbar {
-  border-bottom: 1px solid var(--bs-border-color-translucent);
-  transition: transform 0.3s ease-in-out;
-  will-change: transform;
-}
-
-.navbar-hidden {
-  transform: translateY(-100%);
 }
 
 @media (max-width: 991.98px) {
@@ -280,9 +281,21 @@ onUnmounted(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
-.push-prompt-banner {
+.update-banner {
   position: fixed;
-  bottom: calc(64px + 1rem);
+  /* Default bottom position, accounts for safe area */
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); 
+  left: 1rem;
+  right: 1rem;
+  z-index: 1050; 
+  border-radius: var(--bs-border-radius);
+  box-shadow: var(--bs-box-shadow-lg);
+}
+
+.push-prompt-banner { /* Assuming this class exists or will be added */
+  position: fixed;
+  /* Default bottom position, accounts for safe area */
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   left: 1rem;
   right: 1rem;
   z-index: 1045;
@@ -290,16 +303,27 @@ onUnmounted(() => {
   box-shadow: var(--bs-box-shadow);
   transition: bottom 0.3s ease-in-out;
 }
-.app-container:has(.bottom-nav.nav-hidden) .push-prompt-banner {
-    bottom: 1rem;
+
+/* Adjust banner positions if BottomNav is present and visible (not .nav-hidden) */
+/* This targets mobile views implicitly because BottomNav has d-lg-none */
+/* Assumes BottomNav root element will have/get the 'bottom-nav' class */
+.app-wrapper:has(.bottom-nav:not(.nav-hidden)) .update-banner,
+.app-wrapper:has(.bottom-nav:not(.nav-hidden)) .push-prompt-banner {
+  /* $bottom-nav-height is 4rem */
+  bottom: calc(4rem + max(0.5rem, env(safe-area-inset-bottom, 0))); /* Improved calculation */
 }
+
+
 @media (min-width: 992px) {
-    .push-prompt-banner {
-        bottom: 1rem;
-        left: auto;
-        right: 1rem;
-        width: auto;
-        max-width: 400px;
+    .update-banner, .push-prompt-banner {
+        left: auto; /* Align to right on desktop */
+        max-width: 500px; 
     }
+    /* On desktop, BottomNav is not shown, so the default bottom position is fine */
 }
+
+/* Remove old specific banner positioning rules if they conflict */
+/* For example, the old .app-wrapper:has(.bottom-nav:not(.nav-hidden)) .update-banner can be removed if this replaces it */
+/* And the old .push-prompt-banner specific rules for bottom positioning */
+
 </style>

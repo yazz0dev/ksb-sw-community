@@ -1,4 +1,4 @@
- <!-- .\views\LeaderboardView.vue-->
+<!-- .\views\LeaderboardView.vue-->
 <template>
   <section class="leaderboard-section">
     <div class="container-lg py-5">
@@ -40,7 +40,7 @@
 
       <!-- Leaderboard Content -->
       <div v-else>
-        <!-- Placeholder for actual leaderboard data -->
+        <!-- Show message when no users are found -->
         <div v-if="!filteredUsers || filteredUsers.length === 0" class="alert alert-info">
           <i class="fas fa-info-circle me-2"></i>
           <span v-if="isFirstLoad">
@@ -53,14 +53,55 @@
             <i class="fas fa-sync-alt me-1"></i> Refresh
           </button>
         </div>
-        <!-- Actual leaderboard rendering would go here -->
-        <!-- Example:
-        <div v-for="user in filteredUsers" :key="user.id" class="card mb-2">
-          <div class="card-body">
-            {{ user.name }} - {{ user.xp }} XP
+        
+        <!-- Actual leaderboard table -->
+        <div v-else>
+          <!-- Add a summary text about the current view -->
+          <p class="text-secondary mb-3">
+            Showing {{ filteredUsers.length }} users ranked by {{ selectedRole === 'Overall' ? 'total' : selectedRole }} XP
+          </p>
+          
+          <div class="leaderboard-table">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th style="width: 60px;">#</th>
+                  <th>User</th>
+                  <th class="text-end">XP</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(user, index) in filteredUsers" :key="user.uid" class="align-middle">
+                  <td>
+                    <div v-if="index < 3" :class="['rank-badge', `rank-${index + 1}`]">
+                      {{ index + 1 }}
+                    </div>
+                    <span v-else class="rank-number">{{ index + 1 }}</span>
+                  </td>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <img 
+                        :src="user.photoURL || defaultAvatarUrl" 
+                        :alt="user.name || 'User'"
+                        @error="handleImageError"
+                        class="leaderboard-avatar me-2" 
+                      />
+                      <router-link 
+                        :to="{ name: 'PublicProfile', params: { userId: user.uid } }" 
+                        class="user-link"
+                      >
+                        {{ user.name || `User ${user.uid.substring(0, 6)}` }}
+                      </router-link>
+                    </div>
+                  </td>
+                  <td class="text-end">
+                    <span class="xp-value">{{ user.displayXp }}</span> XP
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-        -->
       </div>
     </div>
   </section>
@@ -73,9 +114,12 @@ import { formatRoleName } from '../utils/formatters';
 
 interface User {
     uid: string;
-    name: string;
-    photoURL?: string; // Added
+    name: string | null; // Changed from 'string' to 'string | null' to match actual data
+    photoURL?: string;
     xpByRole?: Record<string, number>;
+    // Add any other potential fields from userStore if needed
+    email?: string | null;
+    bio?: string;
 }
 
 const defaultAvatarUrl: string = '/default-avatar.png';
@@ -174,15 +218,13 @@ const retryLoading = async () => {
   isFirstLoad.value = false; // It's no longer the first load attempt
   
   try {
-    // Clear any existing users in the store to force a fresh fetch by fetchLeaderboardUsers
-    // userStore.leaderboardUsers = []; // fetchLeaderboardUsers will populate this
-    // userStore.allUsers = []; // fetchAllUsers (called by fetchLeaderboardUsers) will populate this
-                             // Clearing allUsers here ensures fetchAllUsers doesn't use its cache.
-    
     await userStore.fetchLeaderboardUsers(); // This action now has more logging
     
     // After the fetch, update local state based on the store
-    users.value = userStore.leaderboardUsers;
+    users.value = userStore.leaderboardUsers.map(u => ({
+      ...u,
+      photoURL: u.photoURL === null ? undefined : u.photoURL
+    }));
     
     // Handle error state from the store specifically after this operation
     if (userStore.error) {
@@ -220,7 +262,10 @@ onMounted(async () => {
         await userStore.fetchLeaderboardUsers();
         
         // After the fetch, update local state based on the store
-        users.value = userStore.leaderboardUsers;
+        users.value = userStore.leaderboardUsers.map(u => ({
+          ...u,
+          photoURL: u.photoURL === null ? undefined : u.photoURL
+        }));
         console.log(`LeaderboardView: onMounted fetch complete. Users count: ${users.value.length}, Store error: ${userStore.error}`);
         
         // Handle error state from the store specifically after this operation
@@ -266,7 +311,8 @@ const filteredUsers = computed(() => {
             if (b.displayXp !== a.displayXp) {
                 return b.displayXp - a.displayXp;
             }
-            return (a.name || a.uid || '').localeCompare(b.name || b.uid || '');
+            // Handle potential null name values in comparison
+            return ((a.name || a.uid) || '').localeCompare((b.name || b.uid) || '');
         });
 });
 

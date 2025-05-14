@@ -133,13 +133,15 @@ export async function updateEventDetailsInFirestore(eventId: string, updates: Pa
  * Updates the status of an event document in Firestore.
  * @param eventId - The ID of the event.
  * @param newStatus - The new EventStatus.
+ * @param currentUser - The user attempting to update the status.
  * @returns Promise<Partial<Event>> - Returns the specific fields that were updated.
  * @throws Error if status change invalid, event not found, or Firestore update fails.
  */
-export async function updateEventStatusInFirestore(eventId: string, newStatus: EventStatus): Promise<Partial<Event>> {
+export async function updateEventStatusInFirestore(eventId: string, newStatus: EventStatus, currentUser: User | null): Promise<Partial<Event>> {
     const validStatuses = Object.values(EventStatus);
     if (!validStatuses.includes(newStatus)) throw new Error(`Invalid status: ${newStatus}.`);
     if (!eventId) throw new Error('Event ID required for status update.');
+    if (!currentUser?.uid) throw new Error('User not authenticated for status update.');
 
     const eventRef = doc(db, 'events', eventId);
     try {
@@ -147,9 +149,16 @@ export async function updateEventStatusInFirestore(eventId: string, newStatus: E
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const currentEvent = eventSnap.data() as Event;
 
-        // TODO: Implement permission checks here based on who is calling
+        // Permission Check: Allow organizers or the event requester.
+        const isOrganizer = currentEvent.details?.organizers?.includes(currentUser.uid) || currentEvent.requestedBy === currentUser.uid;
+        if (!isOrganizer) {
+            throw new Error(`Permission denied: Only organizers or the event requester can change the event status.`);
+        }
 
-        let updates: Partial<Event> = { status: newStatus };
+        let updates: Partial<Event> = { 
+            status: newStatus,
+            lastUpdatedAt: Timestamp.now() // ADDED
+        };
         let notificationType = '';
         let targetUserIds: string[] = [];
 
@@ -234,6 +243,7 @@ export async function closeEventDocumentInFirestore(eventId: string, currentUser
          await updateDoc(eventRef, {
              status: EventStatus.Closed,
              closedAt: Timestamp.now(),
+             // lastUpdatedAt is handled by the Pinia store batch write
          });
          console.log(`Firestore: Event ${eventId} marked as Closed.`);
 

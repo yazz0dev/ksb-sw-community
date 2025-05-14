@@ -1,5 +1,5 @@
 <template>
-  <div class="login-bg d-flex align-items-center justify-content-center pt-5">
+  <div class="login-bg d-flex align-items-center justify-content-center overflow-hidden">
     <div class="container container-sm">
       <div class="row justify-content-center">
         <div class="col-12 col-md-8 col-lg-6">
@@ -147,6 +147,7 @@ const signIn = async (): Promise<void> => {
 .login-bg {
   min-height: 100vh;
   background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle, #e0e7ff) 100%);
+  padding: 1rem 0; /* Add some padding for very small screens */
 }
 .login-card {
   border-radius: var(--bs-border-radius-xl, 1rem);
