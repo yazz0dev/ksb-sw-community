@@ -30,12 +30,62 @@ export async function createEventRequestInFirestore(initialData: Partial<Event>,
              votingOpen: false, // Default value
         });
 
+        // Ensure lastUpdatedAt is also set on creation
+        mappedData.lastUpdatedAt = Timestamp.now();
+
         // Remove fields that shouldn't be set on creation explicitly
         delete mappedData.id;
         delete mappedData.completedAt;
         delete mappedData.closedAt;
+        delete mappedData.teamMembersFlat;
+        delete mappedData.gallery;
+        delete mappedData.winners;
+        delete mappedData.manuallySelectedBy;
 
-        const docRef = await addDoc(collection(db, 'events'), mappedData);
+        // Only include fields explicitly allowed by Firestore rules
+        const allowedFields = [
+            'details', 'requestedBy', 'status', 'createdAt', 'lastUpdatedAt',
+            'votingOpen', 'criteria', 'teams', 'participants', 'submissions',
+            'organizerRating', 'bestPerformerSelections', 'rejectionReason'
+        ];
+
+        const filteredData: Record<string, any> = {};
+        allowedFields.forEach(field => {
+            if (field in mappedData) {
+                filteredData[field] = mappedData[field];
+            }
+        });
+
+        // Ensure required fields are properly initialized according to the security rules
+        // For non-Team events, teams must be null or an empty list
+        if (filteredData.details?.format !== 'Team') {
+            filteredData.teams = [];
+        } else if (!filteredData.teams) {
+            filteredData.teams = [];
+        }
+
+        // Initialize participants as an empty array (required by rules)
+        filteredData.participants = filteredData.participants || [];
+        
+        // Initialize submissions as an empty array (required by rules)
+        filteredData.submissions = filteredData.submissions || [];
+        
+        // Initialize organizerRating as an empty array (required by rules)
+        filteredData.organizerRating = filteredData.organizerRating || [];
+        
+        // Initialize bestPerformerSelections as an empty object (required by rules)
+        filteredData.bestPerformerSelections = filteredData.bestPerformerSelections || {};
+
+        // Log the FILTERED data being sent to Firestore
+        console.log("Data being sent to Firestore for event creation:", JSON.stringify(filteredData, (key, value) => {
+            if (value && value.toDate instanceof Function) {
+                return value.toDate().toISOString();
+            }
+            return value;
+        }, 2));
+
+        // Use filteredData instead of mappedData for the Firestore call
+        const docRef = await addDoc(collection(db, 'events'), filteredData);
 
         // Trigger notification (keep this logic here or move to Pinia action)
         if (isSupabaseConfigured()) {
@@ -93,6 +143,7 @@ export async function updateEventDetailsInFirestore(eventId: string, updates: Pa
         // Prepare payload using mapper
         const mappedUpdates = mapEventDataToFirestore({
             ...updates,
+            lastUpdatedAt: Timestamp.now(), // Ensure lastUpdatedAt is always updated
         });
 
         // Prevent crucial fields from being overwritten accidentally
@@ -105,8 +156,18 @@ export async function updateEventDetailsInFirestore(eventId: string, updates: Pa
         // Only include 'details' if it was actually part of the 'updates'
         if (!updates.details) {
             delete mappedUpdates.details;
+        } else if (mappedUpdates.details && Object.keys(mappedUpdates.details).length === 0) {
+            // If details was in updates but became empty after mapping (e.g. all undefined), remove it
+            delete mappedUpdates.details;
         }
 
+        // Log the data being sent for debugging Firestore rules
+        console.log("Data being sent to Firestore for event update:", JSON.stringify(mappedUpdates, (key, value) => {
+            if (value && value.toDate instanceof Function) {
+                return value.toDate().toISOString();
+            }
+            return value;
+        }, 2));
 
         await updateDoc(eventRef, mappedUpdates);
         console.log(`Firestore: Event ${eventId} details updated.`);

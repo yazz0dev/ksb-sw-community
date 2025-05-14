@@ -3,7 +3,7 @@
     type="button"
     class="btn btn-primary btn-sm shadow-sm d-inline-flex align-items-center"
     @click="generatePDF"
-    :disabled="isGenerating || !isEligible" 
+    :disabled="isGenerating || !isEligible"
     :title="!isEligible ? 'Requires participation in at least 5 events' : 'Generate Portfolio PDF'"
     style="transition: background-color 0.2s;"
   >
@@ -14,31 +14,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'; // Import computed
+import { ref, computed } from 'vue';
 import { generatePortfolioPDF } from '@/utils/pdfGenerator';
+import { XPData } from '@/types/xp'; // Import XPData for user prop
 
-// Define an interface for the project object
 interface Project {
   projectName: string;
   link: string;
   description?: string;
 }
 
-interface User {
+// User prop now reflects the structure where XP data is nested
+interface UserForPortfolio {
   name: string;
-  xpByRole?: Record<string, number>;
-  [key: string]: any;
+  uid: string; // Added UID for pdf naming
+  xpData?: Partial<XPData>; // XP data is now nested and partial to allow for cases where it might not be fully populated yet
+  // Other profile fields if needed by pdfGenerator
+  skills?: string[];
+  bio?: string;
 }
 
 const props = defineProps<{
-  user: User;
+  user: UserForPortfolio; // Use the updated UserForPortfolio interface
   projects: Project[];
-  eventParticipationCount: number; // Add new prop for event count
+  eventParticipationCount: number;
 }>();
 
 const isGenerating = ref(false);
-
-// Computed property to check eligibility
 const isEligible = computed(() => props.eventParticipationCount >= 5);
 
 const emit = defineEmits<{
@@ -48,10 +50,14 @@ const emit = defineEmits<{
 const generatePDF = async () => {
   if (isGenerating.value) return;
   isGenerating.value = true;
-  
+
   try {
+    // Adapt user data for pdfGenerator if its signature changed
+    // For now, assuming pdfGenerator can handle the UserForPortfolio structure,
+    // especially how it accesses XP (e.g., props.user.xpData?.xp_developer)
     const pdf = await generatePortfolioPDF(props.user, props.projects);
-    pdf.save(`portfolio-${props.user.name.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+    const userNameForFile = props.user.name || props.user.uid || 'user';
+    pdf.save(`portfolio-${userNameForFile.toLowerCase().replace(/\s+/g, '-')}.pdf`);
   } catch (error) {
     console.error('PDF generation failed:', error);
     emit('error', 'Failed to generate PDF. Please try again.');
@@ -63,6 +69,6 @@ const generatePDF = async () => {
 
 <style scoped>
 .btn {
-    min-width: 150px; /* Optional: give button a min-width */
+    min-width: 150px;
 }
 </style>

@@ -3,24 +3,24 @@
   <section class="leaderboard-section">
     <div class="container-lg py-5">
       <h1 class="display-5 fw-bold text-primary mb-4">Leaderboard</h1>
-      
+
       <!-- Role Filter -->
       <div class="filter-section mb-5">
-        <label class="form-label text-secondary mb-3">Select Role</label>
+        <label class="form-label text-secondary mb-3">Select Role to Rank By</label>
         <div class="role-filter-group">
           <button
-            v-for="role in availableRoles"
-            :key="role"
-            @click="selectRoleFilter(role)"
+            v-for="role in availableDisplayRoles"
+            :key="role.key"
+            @click="selectRoleFilter(role.key as keyof XPData | 'totalCalculatedXp' | 'count_wins')"
             type="button"
             class="role-btn"
-            :class="{ active: selectedRole === role }"
+            :class="{ active: selectedRoleKey === role.key }"
           >
-            {{ formatRoleName(role) }}
+            {{ role.displayName }}
           </button>
         </div>
       </div>
-    
+
       <!-- Loading State -->
       <div v-if="loading" class="loader-container">
          <div class="spinner-border text-primary" role="status">
@@ -40,11 +40,10 @@
 
       <!-- Leaderboard Content -->
       <div v-else>
-        <!-- Show message when no users are found -->
         <div v-if="!filteredUsers || filteredUsers.length === 0" class="alert alert-info">
           <i class="fas fa-info-circle me-2"></i>
           <span v-if="isFirstLoad">
-            No users found for the leaderboard. This might be normal for a new application.
+            Leaderboard is currently empty. Participate in events to earn XP!
           </span>
           <span v-else>
             No users found for the selected role or leaderboard is empty.
@@ -53,41 +52,40 @@
             <i class="fas fa-sync-alt me-1"></i> Refresh
           </button>
         </div>
-        
-        <!-- Actual leaderboard table -->
+
         <div v-else>
-          <!-- Add a summary text about the current view -->
           <p class="text-secondary mb-3">
-            Showing {{ filteredUsers.length }} users ranked by {{ selectedRole === 'Overall' ? 'total' : selectedRole }} XP
+            Showing {{ filteredUsers.length }} users ranked by {{ currentRoleDisplayName }}
+            <span v-if="selectedRoleKey !== 'totalCalculatedXp' && selectedRoleKey !== 'count_wins'">XP</span>.
           </p>
-          
+
           <div class="leaderboard-table">
             <table class="table table-hover">
               <thead>
                 <tr>
                   <th style="width: 60px;">#</th>
                   <th>User</th>
-                  <th class="text-end">XP</th>
+                  <th class="text-end">{{ selectedRoleKey === 'count_wins' ? 'Wins' : 'XP' }}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(user, index) in filteredUsers" :key="user.uid" class="align-middle">
                   <td>
-                    <div v-if="index < 3" :class="['rank-badge', `rank-${index + 1}`]">
+                    <div v-if="index < 3 && user.displayValue > 0" :class="['rank-badge', `rank-${index + 1}`]">
                       {{ index + 1 }}
                     </div>
                     <span v-else class="rank-number">{{ index + 1 }}</span>
                   </td>
                   <td>
                     <div class="d-flex align-items-center">
-                      <img 
-                        :src="user.photoURL || defaultAvatarUrl" 
+                      <img
+                        :src="user.photoURL || defaultAvatarUrl"
                         :alt="user.name || 'User'"
                         @error="handleImageError"
-                        class="leaderboard-avatar me-2" 
+                        class="leaderboard-avatar me-2"
                       />
-                      <router-link 
-                        :to="{ name: 'PublicProfile', params: { userId: user.uid } }" 
+                      <router-link
+                        :to="{ name: 'PublicProfile', params: { userId: user.uid } }"
                         class="user-link"
                       >
                         {{ user.name || `User ${user.uid.substring(0, 6)}` }}
@@ -95,7 +93,8 @@
                     </div>
                   </td>
                   <td class="text-end">
-                    <span class="xp-value">{{ user.displayXp }}</span> XP
+                    <span class="xp-value">{{ user.displayValue }}</span>
+                    <span v-if="selectedRoleKey !== 'count_wins'"> XP</span>
                   </td>
                 </tr>
               </tbody>
@@ -110,17 +109,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '@/store/user';
-import { formatRoleName } from '../utils/formatters';
-
-interface User {
-    uid: string;
-    name: string | null; // Changed from 'string' to 'string | null' to match actual data
-    photoURL?: string;
-    xpByRole?: Record<string, number>;
-    // Add any other potential fields from userStore if needed
-    email?: string | null;
-    bio?: string;
-}
+import { formatRoleName } from '@/utils/formatters'; // Assuming this handles display names
+import { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Import XP types
+import { EnrichedUserData } from '@/types/user'; // Import EnrichedUserData
 
 const defaultAvatarUrl: string = '/default-avatar.png';
 
@@ -131,34 +122,21 @@ const handleImageError = (event: Event) => {
   }
 };
 
-// Function to convert display role name to xpByRole key
-const getRoleKey = (roleName: string): string => {
-  if (!roleName) return '';
-  const lower = roleName.toLowerCase();
-  if (lower === 'overall') return 'overall';
-  const roleMap: Record<string, string> = {
-    'developer': 'developer',
-    'presenter': 'presenter',
-    'designer': 'designer',
-    'organizer': 'organizer',
-    'problem solver': 'problemSolver'
-  };
-  return roleMap[lower] || lower.replace(/\s+/g, '');
-};
-
-// Define available roles
-const availableRoles = ref<string[]>([
-  'Overall',
-  'developer',
-  'presenter',
-  'designer',
-  'organizer',
-  'problemSolver'
+// Define available roles for filtering, mapping to XPData keys
+// Key: the field in XPData, DisplayName: what's shown to the user
+const availableDisplayRoles = ref([
+  { key: 'totalCalculatedXp', displayName: 'Overall XP' },
+  { key: 'xp_developer', displayName: formatRoleName('developer') },
+  { key: 'xp_presenter', displayName: formatRoleName('presenter') },
+  { key: 'xp_designer', displayName: formatRoleName('designer') },
+  { key: 'xp_problemSolver', displayName: formatRoleName('problemSolver') },
+  { key: 'xp_organizer', displayName: formatRoleName('organizer') },
 ]);
 
-const selectedRole = ref<string>('Overall');
-const users = ref<User[]>([]);
-const loading = ref<boolean>(true); // Start with loading true
+const selectedRoleKey = ref<keyof XPData | 'totalCalculatedXp' | 'count_wins'>('totalCalculatedXp'); // Default to overall XP
+
+const users = ref<EnrichedUserData[]>([]); // Now uses EnrichedUserData
+const loading = ref<boolean>(true);
 const error = ref<string | null>(null);
 const retryCount = ref<number>(0);
 const MAX_RETRIES = 3;
@@ -166,158 +144,123 @@ const isFirstLoad = ref<boolean>(true);
 
 const userStore = useUserStore();
 
-// Watch the store's loading state and update local loading state accordingly
 watch(() => userStore.loading, (storeLoading) => {
-  // If the store is loading, ensure our component shows loading
-  // This might be too simplistic if multiple operations can set userStore.loading
   loading.value = storeLoading;
 });
 
-// Watch for errors in the store
 watch(() => userStore.error, (storeError) => {
-  // This will react to any error set in the userStore.
-  // We need to be careful if an "error" is just an informational message (e.g. "collection empty")
   if (storeError) {
-    const errorMessage = typeof storeError === 'string' ? storeError : 
-                (storeError instanceof Error ? storeError.message : 'Unknown error occurred');
-    
-    // Avoid overwriting a more specific error from retryLoading or onMounted
-    if (error.value && error.value.startsWith("Failed after")) return;
-
-    // Filter out messages that are not actual errors for the leaderboard view
-    if (errorMessage.includes('No users found in the database') ||
-        errorMessage.includes('collection might be empty')) {
-        // This is an informational "error" from fetchAllUsers if the collection is empty.
-        // LeaderboardView handles this by showing "No users found..."
-        // So, we don't set the component's `error.value` for this case.
-        // `users.value` will be empty, and the template will show the correct message.
-        if(users.value.length === 0 && !loading.value){ // ensure users is also empty
-             // error.value = null; // Let the template handle empty state
+    const errorMessage = storeError instanceof Error ? storeError.message : String(storeError);
+    if (!(error.value && error.value.startsWith("Failed after"))) {
+        // Only set local error if it's a "real" error for leaderboard context
+        if (!errorMessage.includes('No users found in the database') && !errorMessage.includes('collection might be empty')) {
+             error.value = errorMessage;
+        } else {
+            error.value = null; // Clear if it's just an empty state info
         }
-    } else {
-        error.value = errorMessage;
     }
   } else {
-    // If store error is cleared, clear local error too, unless it's a retry error
-     if (!(error.value && error.value.startsWith("Failed after"))) {
+    if (!(error.value && error.value.startsWith("Failed after"))) {
         error.value = null;
-     }
+    }
   }
+});
+
+const currentRoleDisplayName = computed(() => {
+  const role = availableDisplayRoles.value.find(r => r.key === selectedRoleKey.value);
+  return role ? role.displayName : 'XP';
 });
 
 const retryLoading = async () => {
   if (retryCount.value >= MAX_RETRIES) {
     error.value = `Failed after ${MAX_RETRIES} attempts. Please refresh the page or try again later.`;
-    loading.value = false; // Stop loading on max retries
+    loading.value = false;
     return;
   }
-  
   error.value = null;
   loading.value = true;
   retryCount.value++;
-  isFirstLoad.value = false; // It's no longer the first load attempt
-  
+  isFirstLoad.value = false;
   try {
-    await userStore.fetchLeaderboardUsers(); // This action now has more logging
-    
-    // After the fetch, update local state based on the store
-    users.value = userStore.leaderboardUsers.map(u => ({
-      ...u,
-      photoURL: u.photoURL === null ? undefined : u.photoURL
-    }));
-    
-    // Handle error state from the store specifically after this operation
+    await userStore.fetchLeaderboardUsers();
+    // userStore.leaderboardUsers is already EnrichedUserData[]
+    users.value = [...userStore.leaderboardUsers];
+
     if (userStore.error) {
         const storeErrorMessage = userStore.error instanceof Error ? userStore.error.message : String(userStore.error);
-        // Only set local error if it's a "real" error, not an "empty collection" message
         if (!storeErrorMessage.includes('No users found in the database') && !storeErrorMessage.includes('collection might be empty')) {
             error.value = storeErrorMessage;
         } else {
-            error.value = null; // Clear local error if it's just an info/empty message from store
+            error.value = null;
         }
     } else {
-        error.value = null; // Clear local error if store has no error
+        error.value = null;
     }
-
-  } catch (err: any) { // Catch errors from the action call itself, though store actions usually handle their own errors
-    console.error("LeaderboardView: Error during retryLoading's call to fetchLeaderboardUsers:", err);
+  } catch (err: any) {
     error.value = err.message || 'Failed to fetch leaderboard data on retry';
-    users.value = []; // Ensure users are empty on error
+    users.value = [];
   } finally {
-    loading.value = userStore.loading; // Reflect store's loading state
+    loading.value = userStore.loading;
   }
 };
 
 onMounted(async () => {
-    console.log("LeaderboardView: onMounted started.");
-    loading.value = true; 
+    loading.value = true;
     error.value = null;
     isFirstLoad.value = true;
-    retryCount.value = 0; // Reset retry count on new mount
-    
+    retryCount.value = 0;
     try {
-        // No need to check for cached leaderboardUsers here, let fetchLeaderboardUsers handle logic
-        // including its call to fetchAllUsers which has its own caching.
-        console.log("LeaderboardView: Calling fetchLeaderboardUsers from onMounted.");
         await userStore.fetchLeaderboardUsers();
-        
-        // After the fetch, update local state based on the store
-        users.value = userStore.leaderboardUsers.map(u => ({
-          ...u,
-          photoURL: u.photoURL === null ? undefined : u.photoURL
-        }));
-        console.log(`LeaderboardView: onMounted fetch complete. Users count: ${users.value.length}, Store error: ${userStore.error}`);
-        
-        // Handle error state from the store specifically after this operation
+        // Directly use the EnrichedUserData from the store
+        users.value = [...userStore.leaderboardUsers];
+
         if (userStore.error) {
             const storeErrorMessage = userStore.error instanceof Error ? userStore.error.message : String(userStore.error);
-            // Only set local error if it's a "real" error
             if (!storeErrorMessage.includes('No users found in the database') && !storeErrorMessage.includes('collection might be empty')) {
                 error.value = storeErrorMessage;
             } else {
-                 error.value = null; // It's an "empty" message, not an error for the view itself
+                 error.value = null;
             }
         } else {
-            error.value = null; // Clear local error if store has no error
+            error.value = null;
         }
-
-    } catch (err: any) { // Catch errors from the action call itself
-        console.error("LeaderboardView: Critical error during onMounted's call to fetchLeaderboardUsers:", err);
+    } catch (err: any) {
         error.value = err.message || "An unexpected error occurred while loading the leaderboard.";
         users.value = [];
     } finally {
-        loading.value = userStore.loading; // Reflect store's loading state
-        isFirstLoad.value = false; // Initial load attempt is complete
-        console.log(`LeaderboardView: onMounted finished. Loading: ${loading.value}, Error: ${error.value}`);
+        loading.value = userStore.loading;
+        isFirstLoad.value = false;
     }
 });
 
 const filteredUsers = computed(() => {
-    const roleKey = getRoleKey(selectedRole.value);
-    
     return users.value
         .map(user => {
-            let displayXp = 0;
-            const userXpMap = user.xpByRole || {};
+            let displayValue = 0;
+            const userXpData = user.xpData; // Access nested xpData
 
-            if (roleKey === 'overall') {
-                displayXp = Object.values(userXpMap).reduce((sum, val) => sum + (Number(val) || 0), 0);
-            } else {
-                displayXp = Number(userXpMap[roleKey]) || 0;
+            if (userXpData) {
+                if (selectedRoleKey.value === 'totalCalculatedXp') {
+                    displayValue = userXpData.totalCalculatedXp || 0;
+                } else if (selectedRoleKey.value === 'count_wins') {
+                    displayValue = userXpData.count_wins || 0;
+                } else if (selectedRoleKey.value.startsWith('xp_')) {
+                    displayValue = (userXpData as any)[selectedRoleKey.value as XpFirestoreFieldKey] || 0;
+                }
             }
-            return { ...user, displayXp };
+            return { ...user, displayValue };
         })
+        .filter(user => user.displayValue > 0 || (selectedRoleKey.value === 'count_wins' && user.displayValue >= 0) ) // Show users with 0 wins if that's selected, otherwise only >0 XP
         .sort((a, b) => {
-            if (b.displayXp !== a.displayXp) {
-                return b.displayXp - a.displayXp;
+            if (b.displayValue !== a.displayValue) {
+                return b.displayValue - a.displayValue;
             }
-            // Handle potential null name values in comparison
             return ((a.name || a.uid) || '').localeCompare((b.name || b.uid) || '');
         });
 });
 
-const selectRoleFilter = (role: string): void => {
-  selectedRole.value = role;
+const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp' | 'count_wins'): void => {
+  selectedRoleKey.value = roleKey;
 };
 </script>
 
@@ -412,7 +355,6 @@ const selectRoleFilter = (role: string): void => {
   transition: color 0.2s ease;
 }
 
-/* .user-link:hover removed - handled by global utility */
 .xp-value {
   font-weight: 600;
   font-size: 1.1rem;
@@ -421,14 +363,6 @@ const selectRoleFilter = (role: string): void => {
 .loader-container {
   text-align: center;
   padding: 3rem;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 3rem;
-  background: white; /* Keep white background */
-  border-radius: 1rem;
-  color: var(--bs-secondary);
 }
 
 .leaderboard-avatar {
@@ -443,12 +377,10 @@ const selectRoleFilter = (role: string): void => {
   .role-filter-group {
     gap: 0.25rem;
   }
-  
   .role-btn {
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
   }
-  
   .table th, .table td {
     padding: 0.75rem;
   }

@@ -21,7 +21,6 @@
         <div class="card shadow-sm">
           <div class="card-body text-center p-4">
             <div class="mb-4">
-              <!-- Updated image handling to better handle missing photoURL -->
               <img
                 :src="user.photoURL || defaultAvatarUrl"
                 :alt="user.name || 'Profile Photo'"
@@ -33,7 +32,6 @@
             </div>
             <h1 class="h4 mb-2">{{ user.name || 'User Profile' }}</h1>
 
-            <!-- Edit Profile Button Added Here -->
             <button
               v-if="isCurrentUserProp"
               @click="openEditProfile"
@@ -42,7 +40,6 @@
               <i class="fas fa-edit me-1"></i> Edit Profile
             </button>
 
-            <!-- Social Link -->
             <div v-if="user.socialLink" class="mb-3">
               <a :href="user.socialLink" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info d-inline-flex align-items-center">
                 <i :class="['fab', socialLinkDetails.icon, 'me-2']" v-if="socialLinkDetails.isFontAwesomeBrand"></i>
@@ -51,11 +48,9 @@
               </a>
             </div>
 
-            <!-- Bio -->
             <p v-if="user.bio" class="text-muted small mb-3">{{ user.bio }}</p>
             <p v-else class="text-muted small fst-italic mb-3">No bio provided.</p>
 
-            <!-- Skills Section -->
             <div v-if="user.skills && user.skills.length > 0" class="mb-3">
               <h6 class="text-secondary small fw-semibold mb-2"><i class="fas fa-code me-1"></i> Skills</h6>
               <div>
@@ -63,15 +58,13 @@
               </div>
             </div>
 
-            <!-- Preferred Roles Section -->
             <div v-if="user.preferredRoles && user.preferredRoles.length > 0" class="mb-3">
               <h6 class="text-secondary small fw-semibold mb-2"><i class="fas fa-user-tag me-1"></i> Preferred Roles</h6>
               <div>
-                <span v-for="role in user.preferredRoles" :key="role" class="badge bg-light text-dark border me-1 mb-1">{{ formatRoleName(role) }}</span>
+                <span v-for="role in user.preferredRoles" :key="role" class="badge bg-light text-dark border me-1 mb-1">{{ formatRoleNameForDisplay(role) }}</span>
               </div>
             </div>
 
-            <!-- Has Laptop Section -->
             <div class="mb-3">
               <h6 class="text-secondary small fw-semibold mb-2"><i class="fas fa-laptop me-1"></i> Equipment</h6>
               <div>
@@ -82,33 +75,31 @@
               </div>
             </div>
 
-            <!-- Stats Section -->
             <div class="d-flex justify-content-around mb-4">
               <div class="text-center">
                 <div class="bg-primary-subtle text-primary-emphasis p-2 rounded mb-1">
-                  <h5 class="h5 mb-0">{{ stats.participatedCount }}</h5> <!-- h4 to h5 -->
+                  <h5 class="h5 mb-0">{{ stats.participatedCount }}</h5>
                 </div>
                 <small class="text-muted text-uppercase">Participated</small>
               </div>
               <div class="text-center">
                  <div class="bg-primary-subtle text-primary-emphasis p-2 rounded mb-1">
-                  <h5 class="h5 mb-0">{{ stats.organizedCount }}</h5> <!-- h4 to h5 -->
+                  <h5 class="h5 mb-0">{{ stats.organizedCount }}</h5>
                  </div>
                 <small class="text-muted text-uppercase">Organized</small>
               </div>
               <div class="text-center">
                  <div class="bg-warning-subtle text-warning-emphasis p-2 rounded mb-1">
-                  <h5 class="h5 mb-0">{{ stats.wonCount }}</h5> <!-- h4 to h5 -->
+                  <h5 class="h5 mb-0">{{ user.xpData?.count_wins ?? stats.wonCount }}</h5>
                  </div>
                 <small class="text-muted text-uppercase">Won</small>
               </div>
             </div>
-            <!-- Total XP Section -->
             <div class="mb-3">
               <p class="small fw-semibold text-secondary mb-1">
                 <i class="fas fa-star text-warning me-1"></i> Total XP Earned
               </p>
-              <p class="fs-2 text-primary fw-bold">{{ totalXp }}</p> <!-- display-5 to fs-2 -->
+              <p class="fs-2 text-primary fw-bold">{{ user.xpData?.totalCalculatedXp ?? 0 }}</p>
             </div>
           </div>
         </div>
@@ -117,7 +108,6 @@
       <!-- Right Column -->
       <div class="col-lg-8">
         <div class="d-flex flex-column gap-3">
-           <!-- XP Breakdown -->
            <div v-if="hasXpData" class="card shadow-sm">
              <div class="card-header">
                <h5 class="card-title mb-0 d-flex align-items-center">
@@ -126,9 +116,9 @@
              </div>
              <div class="card-body">
                <div class="row g-4">
-                  <div v-for="(xp, role) in filteredXpByRole" :key="role" class="col-md-6">
+                  <div v-for="(xp, roleKey) in filteredXpByRole" :key="roleKey" class="col-md-6">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                      <span class="small fw-medium">{{ formatRoleName(role) }}</span>
+                      <span class="small fw-medium">{{ formatRoleNameForDisplay(roleKey) }}</span>
                       <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ xp }} XP</span>
                     </div>
                     <div class="progress" role="progressbar" :aria-valuenow="xpPercentage(xp)" aria-valuemin="0" aria-valuemax="100" style="height: 8px;">
@@ -139,8 +129,6 @@
              </div>
            </div>
 
-           <!-- Event History -->
-           <!-- NOTE: Consider fetching events from store state/getters instead of direct Firestore query here for efficiency -->
            <div v-if="sortedEventsHistory.length > 0" class="card shadow-sm">
              <div class="card-header">
                <h5 class="card-title mb-0 d-flex align-items-center">
@@ -153,7 +141,6 @@
                  :key="eventItem.id"
                  class="list-group-item px-3 py-3"
                >
-                 <!-- Row 1: Event Name & Format with Organizer Badge -->
                  <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
                    <div class="d-flex align-items-center">
                      <i class="fas fa-calendar-alt text-primary me-2"></i>
@@ -182,8 +169,6 @@
                      </span>
                    </div>
                  </div>
-
-                 <!-- Row 2: Type and Date -->
                  <div class="d-flex justify-content-between align-items-center">
                    <span v-if="eventItem.details?.type" class="badge bg-info-subtle text-info-emphasis small">
                      <i class="fas fa-tag me-1"></i>{{ eventItem.details.type }}
@@ -206,7 +191,6 @@
               </div>
            </div>
 
-           <!-- User Projects Section -->
             <div v-if="userProjects.length > 0" class="card shadow-sm mt-4">
               <div class="card-header">
                 <h5 class="card-title mb-0"><i class="fas fa-folder-open text-primary me-2"></i>My Projects</h5>
@@ -234,14 +218,11 @@
                  Loading project details...
               </div>
             </div>
-            <div v-else-if="!loadingEventsOrProjects && initialDataLoaded" class="card shadow-sm mt-4"> <!-- Added initialDataLoaded check -->
+            <div v-else-if="!loadingEventsOrProjects && initialDataLoaded" class="card shadow-sm mt-4">
               <div class="card-body text-center text-muted">
                 No projects submitted yet.
               </div>
             </div>
-
-
-           <!-- Additional Content Slot -->
            <slot name="additional-content"></slot>
         </div>
       </div>
@@ -252,25 +233,24 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useUserStore } from '@/store/user';
-import { useEventStore } from '@/store/events';
+// EventStore not directly used here for fetching, userStore handles enriched data
 import { formatISTDate } from '@/utils/dateTime';
-import { formatRoleName as formatRoleNameUtil } from '@/utils/formatters'; // Renamed import
-// FIX: Rename imported Event type to avoid clash
+// Use the formatRoleName from user types as it handles 'xp_' prefix now
+import { formatRoleName as formatRoleNameForDisplay, EnrichedUserData } from '@/types/user';
 import { Event as AppEvent, EventStatus, EventFormat } from '@/types/event';
-import { User, UserData } from '@/types/user'; // Import UserData
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
-import { useRouter } from 'vue-router'; // Keep useRouter if needed for navigation later
-import { isEventOrganizer } from '@/utils/permissionHelpers'; // Import isEventOrganizer
+import { useRouter } from 'vue-router';
+import { isEventOrganizer } from '@/utils/permissionHelpers';
 
 interface Props {
     userId: string;
-    isCurrentUserProp: boolean; // Renamed prop to avoid conflict with local ref
+    isCurrentUserProp: boolean;
 }
 
 interface Stats {
     participatedCount: number;
     organizedCount: number;
-    wonCount: number;
+    wonCount: number; // This might now come directly from user.xpData.count_wins
 }
 
 interface UserProjectDisplay {
@@ -280,114 +260,85 @@ interface UserProjectDisplay {
   description?: string;
   eventId?: string;
   eventName?: string;
-  submittedAt?: any; // Firestore Timestamp or string
+  submittedAt?: any;
 }
 
 const props = defineProps<Props>();
-// FIX: Initialize local ref from prop
 const isCurrentUser = ref<boolean>(props.isCurrentUserProp);
 
 const userStore = useUserStore();
-const eventStore = useEventStore();
 const router = useRouter();
 
-// --- State Refs ---
-const user = ref<UserData | null>(null); // Use UserData type for more fields
+const user = ref<EnrichedUserData | null>(null); // Now uses EnrichedUserData
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
-const userProjects = ref<UserProjectDisplay[]>([]); // Use UserProjectDisplay type
-// FIX: Use aliased AppEvent type
+const userProjects = ref<UserProjectDisplay[]>([]);
 const participatedEvents = ref<AppEvent[]>([]);
 const loadingEventsOrProjects = ref<boolean>(true);
 const stats = ref<Stats>({ participatedCount: 0, organizedCount: 0, wonCount: 0 });
-const participatedEventIds = ref<string[]>([]);
-const organizedEventIds = ref<string[]>([]);
 const defaultAvatarUrl: string = '/default-avatar.png';
-const initialDataLoaded = ref<boolean>(false); // New ref to track initial load completion
+const initialDataLoaded = ref<boolean>(false);
 const profileImageRef = ref<HTMLImageElement | null>(null);
 
-
-// --- Computed Properties ---
-const totalXp = computed((): number => {
-  if (!user.value?.xpByRole) return 0; // Add null check for user.value.xpByRole
-  return Object.values(user.value.xpByRole).reduce((sum: number, val: unknown) => sum + (Number(val) || 0), 0);
+const totalXpFromStore = computed((): number => {
+  // Access totalCalculatedXp from the nested xpData object
+  return user.value?.xpData?.totalCalculatedXp ?? 0;
 });
 
 const hasXpData = computed((): boolean => {
-    // FIX: Check user.value before accessing xpByRole
-    return !!(user.value && totalXp.value > 0 && user.value.xpByRole && Object.values(user.value.xpByRole).some((xpVal: unknown) => Number(xpVal) > 0));
+    return !!(user.value?.xpData && totalXpFromStore.value > 0 &&
+              Object.values(user.value.xpData).some(val => typeof val === 'number' && val > 0));
 });
 
 const filteredXpByRole = computed(() => {
-    if (!user.value?.xpByRole) return {};
-    return Object.entries(user.value.xpByRole)
-        .filter(([, xpVal]) => Number(xpVal) > 0)
-        .reduce((obj, [role, xpVal]) => {
-            // FIX: Use imported formatRoleNameUtil
-            obj[formatRoleNameUtil(role)] = Number(xpVal);
-            return obj;
-        }, {} as Record<string, number>);
+    if (!user.value?.xpData) return {};
+    const xpData = user.value.xpData;
+    const relevantXp: Record<string, number> = {};
+    // Iterate over keys of xpData that represent XP roles (e.g., start with 'xp_')
+    for (const key in xpData) {
+        if (key.startsWith('xp_') && (xpData as any)[key] > 0) {
+            relevantXp[key] = (xpData as any)[key];
+        }
+    }
+    return relevantXp;
 });
+
 
 const socialLinkDetails = computed(() => {
   if (!user.value?.socialLink) {
     return { name: 'Social Profile', icon: 'fa-link', isFontAwesomeBrand: false };
   }
   const link = user.value.socialLink.toLowerCase();
-  if (link.includes('github.com')) {
-    return { name: 'GitHub Profile', icon: 'fa-github', isFontAwesomeBrand: true };
-  } else if (link.includes('linkedin.com')) {
-    return { name: 'LinkedIn Profile', icon: 'fa-linkedin', isFontAwesomeBrand: true };
-  } else if (link.includes('twitter.com') || link.includes('x.com')) {
-    return { name: 'Twitter Profile', icon: 'fa-twitter', isFontAwesomeBrand: true };
-  } else if (link.includes('facebook.com')) {
-    return { name: 'Facebook Profile', icon: 'fa-facebook', isFontAwesomeBrand: true };
-  } else if (link.includes('instagram.com')) {
-    return { name: 'Instagram Profile', icon: 'fa-instagram', isFontAwesomeBrand: true };
-  } else if (link.includes('behance.net')) {
-    return { name: 'Behance Profile', icon: 'fa-behance', isFontAwesomeBrand: true };
-  } else if (link.includes('dribbble.com')) {
-    return { name: 'Dribbble Profile', icon: 'fa-dribbble', isFontAwesomeBrand: true };
-  }
-  // Default for other links
+  if (link.includes('github.com')) return { name: 'GitHub', icon: 'fa-github', isFontAwesomeBrand: true };
+  if (link.includes('linkedin.com')) return { name: 'LinkedIn', icon: 'fa-linkedin', isFontAwesomeBrand: true };
+  if (link.includes('twitter.com') || link.includes('x.com')) return { name: 'Twitter/X', icon: 'fa-twitter', isFontAwesomeBrand: true };
+  // Add more social links as needed
   return { name: 'Website', icon: 'fa-link', isFontAwesomeBrand: false };
 });
 
-// FIX: Use aliased AppEvent type
 const sortedEventsHistory = computed(() => {
   return [...participatedEvents.value].sort((a: AppEvent, b: AppEvent) => {
-    const timeA = a.details?.date?.start?.toMillis() ?? 0; // Use Optional Chaining and Nullish Coalescing
+    const timeA = a.details?.date?.start?.toMillis() ?? 0;
     const timeB = b.details?.date?.start?.toMillis() ?? 0;
-    return timeB - timeA; // Sort descending
+    return timeB - timeA;
   });
 });
 
-// --- Methods ---
-// FIX: Change parameter type from imported Event to global Event or any
-const handleImageError = (e: Event) => { // Use standard DOM Event type
+const handleImageError = (e: Event) => {
   const target = e.target as HTMLImageElement | null;
   if (target) {
     target.src = defaultAvatarUrl;
-    // Add fallback in case the default avatar also fails
-    target.onerror = () => {
-      target.onerror = null; // Prevent infinite loop
-      target.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23ddd%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%23666%22%20font-family%3D%22sans-serif%22%20font-size%3D%2240%22%20dy%3D%22.3em%22%20text-anchor%3D%22middle%22%20x%3D%22100%22%20y%3D%22100%22%3EUser%3C%2Ftext%3E%3C%2Fsvg%3E';
-    };
+    target.onerror = null; // Prevent infinite loop
   }
 };
 
-const formatRoleName = (roleKey: string) => {
-  return formatRoleNameUtil(roleKey); // Use imported util
-};
-
 const xpPercentage = (xp: number): number => {
-  const total = totalXp.value;
+  const total = totalXpFromStore.value; // Use the new computed total
   return total > 0 ? Math.min(100, Math.round((xp / total) * 100)) : 0;
 };
 
-// FIX: Use aliased AppEvent type
 const isOrganizer = (eventItem: AppEvent): boolean => {
-    if (!props.userId || !Array.isArray(eventItem.details?.organizers)) { // Use props.userId
+    if (!props.userId || !Array.isArray(eventItem.details?.organizers)) {
         return false;
     }
     return isEventOrganizer(eventItem, props.userId);
@@ -395,60 +346,58 @@ const isOrganizer = (eventItem: AppEvent): boolean => {
 
 const formatEventFormat = (format: string | undefined): string => {
   if (!format) return '';
-  if (format === 'Team') return 'Team Event';
-  if (format === 'Individual') return 'Individual Event';
+  if (format === EventFormat.Team) return 'Team Event';
+  if (format === EventFormat.Individual) return 'Individual Event';
+  if (format === EventFormat.Competition) return 'Competition';
   return format;
 };
 
-// --- Data Fetching ---
 const fetchProfileData = async () => {
     loading.value = true;
     loadingEventsOrProjects.value = true;
     errorMessage.value = '';
-    user.value = null;
+    user.value = null; // Reset user
     userProjects.value = [];
     participatedEvents.value = [];
     stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
-    initialDataLoaded.value = false; // Reset on new fetch
+    initialDataLoaded.value = false;
 
     try {
-        // Ensure userId is a string
         const userIdToFetch = props.userId;
-        if (typeof userIdToFetch !== 'string' || !userIdToFetch) {
-             throw new Error('Invalid User ID provided.');
-        }
+        if (!userIdToFetch) throw new Error('Invalid User ID provided.');
 
-        // Use store action to fetch all profile data
+        // fetchFullUserProfileForView in userStore now fetches both user and XP data
+        // and stores it in `viewedUserProfile` (which is EnrichedUserData)
         await userStore.fetchFullUserProfileForView(userIdToFetch);
+        const profileData = userStore.getViewedUserProfile; // This is EnrichedUserData
 
-        // Get data from store
-        const profileData = userStore.getViewedUserProfile;
-        if (!profileData) {
-            throw new Error('User data not found in store after fetch.');
-        }
-        
-        // Assign values from store
-        user.value = profileData;
-        participatedEventIds.value = profileData.participatedEvent || [];
-        organizedEventIds.value = profileData.organizedEvent || [];
-        userProjects.value = userStore.getViewedUserProjects;
+        if (!profileData) throw new Error('User data not found.');
+
+        user.value = profileData; // Assign EnrichedUserData to local user ref
+        // User events and projects are also fetched by fetchFullUserProfileForView
         participatedEvents.value = userStore.getViewedUserEvents;
+        userProjects.value = userStore.getViewedUserProjects;
 
-        // Calculate stats from events
+        // Calculate stats from events (participated/organized)
+        // Win count will come from user.xpData.count_wins
         calculateStatsFromEvents(participatedEvents.value);
+        // Ensure wonCount in stats also reflects xpData if available
+        if (user.value?.xpData) {
+            stats.value.wonCount = user.value.xpData.count_wins ?? 0;
+        }
+
 
     } catch (error: any) {
-        console.error('Error fetching profile data:', error);
         errorMessage.value = error?.message || 'Failed to load profile.';
     } finally {
         loading.value = false;
         loadingEventsOrProjects.value = false;
-        initialDataLoaded.value = true; // Mark initial load complete
+        initialDataLoaded.value = true;
     }
 };
 
 const calculateStatsFromEvents = (events: AppEvent[]) => {
-    let participated = 0, organized = 0, won = 0;
+    let participated = 0, organized = 0; // won is handled by xpData
     const userId = props.userId;
 
     events.forEach((eventItem: AppEvent) => {
@@ -459,28 +408,17 @@ const calculateStatsFromEvents = (events: AppEvent[]) => {
             isTeamMember = eventItem.teams.some(team => Array.isArray(team.members) && team.members.includes(userId));
         }
 
-        let isWinnerFlag = false;
-        if (eventItem.winners && Object.values(eventItem.winners).some(winnerList => winnerList.includes(userId))) {
-            isWinnerFlag = true;
-        } else if (eventItem.details?.format === EventFormat.Team && isTeamMember && eventItem.winners) {
-            const userTeam = eventItem.teams?.find(team => team.members?.includes(userId));
-            if (userTeam && Object.values(eventItem.winners).some(winnerList => winnerList.includes(userTeam.teamName))) {
-                isWinnerFlag = true;
-            }
-        }
-
         if (isPart || isTeamMember) participated++;
         if (isOrg) organized++;
-        if (isWinnerFlag) won++;
     });
-    stats.value = { participatedCount: participated, organizedCount: organized, wonCount: won };
+    // Only update participated and organized here. Won count comes from xpData.
+    stats.value = { ...stats.value, participatedCount: participated, organizedCount: organized };
 };
 
-// --- Watcher ---
+
 watch(() => props.userId, (newUserId) => {
-  if (newUserId && typeof newUserId === 'string') { // Ensure it's a string
+  if (newUserId && typeof newUserId === 'string') {
     fetchProfileData();
-    // FIX: Update local isCurrentUser ref when userId prop changes
     isCurrentUser.value = newUserId === userStore.uid;
   } else {
       loading.value = false;
@@ -489,26 +427,18 @@ watch(() => props.userId, (newUserId) => {
   }
 }, { immediate: true });
 
-// Watch the prop and update the local ref
 watch(() => props.isCurrentUserProp, (newVal) => {
     isCurrentUser.value = newVal;
 });
 
-// Define openEditProfile function (to be called by parent)
 const openEditProfile = () => {
   if (props.userId) {
     router.push({ name: 'EditProfile', params: { id: props.userId } });
-  } else {
-    // Optionally show a notification
   }
 };
-
-// Expose openEditProfile
 defineExpose({ openEditProfile });
 
-// Check image on component mount
 onMounted(() => {
-  // If user exists but photoURL is empty, set default avatar immediately
   if (user.value && !user.value.photoURL && profileImageRef.value) {
     profileImageRef.value.src = defaultAvatarUrl;
   }
@@ -517,25 +447,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Style adjustments can go here */
 .badge.bg-light {
   border: 1px solid var(--bs-border-color-translucent);
 }
-
-.event-history-section {
-  font-size: 0.875rem;
-}
-
+.event-history-section { font-size: 0.875rem; }
 .event-history-section .router-link-active,
-.event-history-section .router-link {
-  font-size: 0.9rem;
-}
-
-.event-history-section .badge {
-  font-size: 0.75rem;
-}
-
-.event-history-section i {
-  font-size: 0.825rem;
-}
+.event-history-section .router-link { font-size: 0.9rem; }
+.event-history-section .badge { font-size: 0.75rem; }
+.event-history-section i { font-size: 0.825rem; }
 </style>

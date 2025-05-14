@@ -2,16 +2,14 @@
 
 import type { jsPDF } from 'jspdf';
 import type { UserOptions } from 'jspdf-autotable';
+import { formatRoleName } from './formatters'; // Assuming this correctly formats display names
+import { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Import XP types
 
-// --- Import local utilities statically ---
-import { formatRoleName } from './formatters';
-
-// --- Interfaces (assuming these are defined correctly) ---
-interface UserData {
+// Updated UserData interface to match the structure passed from PortfolioGeneratorButton
+interface UserDataForPDF {
   name: string;
-  xpByRole?: Record<string, number>;
+  xpData?: Partial<XPData>; // XP data is nested and partial
   // Add other known properties explicitly if needed, e.g.,
-  // uid?: string;
   // bio?: string;
   // skills?: string[];
 }
@@ -22,31 +20,14 @@ interface ProjectData {
   description?: string;
 }
 
-/**
- * Generates a portfolio PDF for the given user and projects.
- * Dynamically imports PDF libraries only when needed.
- *
- * @param user - The user data object.
- * @param projects - An array of project data objects.
- * @returns A Promise that resolves with the jsPDF instance.
- * @throws Throws an error if PDF libraries fail to load or generation fails.
- */
-
-export async function generatePortfolioPDF(user: UserData, projects: ProjectData[]): Promise<jsPDF> {
-
+export async function generatePortfolioPDF(user: UserDataForPDF, projects: ProjectData[]): Promise<jsPDF> {
     try {
-        // --- Dynamic Imports ---
-        // Use Promise.all to load them concurrently for potentially faster loading
         const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
             import('jspdf'),
             import('jspdf-autotable')
         ]);
-        // --- End Dynamic Imports ---
 
-
-        // --- PDF Generation Logic ---
-        const pdf = new jsPDF(); // Now we can instantiate jsPDF
-
+        const pdf = new jsPDF();
         pdf.setFontSize(22);
         pdf.text(`Portfolio of ${user.name || 'User'}`, 20, 20);
 
@@ -55,24 +36,36 @@ export async function generatePortfolioPDF(user: UserData, projects: ProjectData
         pdf.setFontSize(12);
         let yPosition = 50;
 
-        // Role & XP Summary
-        if (user.xpByRole && Object.keys(user.xpByRole).length > 0) {
-            const xpEntries = Object.entries(user.xpByRole)
-                .filter(([, xp]) => typeof xp === 'number' && xp > 0);
+        // Role & XP Summary from user.xpData
+        if (user.xpData && Object.keys(user.xpData).length > 0) {
+            const xpEntries = Object.entries(user.xpData)
+                // Filter for actual XP fields (e.g., starting with 'xp_') and ensure value is a number > 0
+                .filter((entry): entry is [XpFirestoreFieldKey, number] => {
+                    const [key, xp] = entry; // key is string, xp is any from Object.entries on Partial<XPData>
+                    return key.startsWith('xp_') && typeof xp === 'number' && xp > 0;
+                }); // Type predicate now correctly types xpEntries
 
             if (xpEntries.length > 0) {
                  pdf.text('XP Breakdown:', 25, yPosition);
                  yPosition += 7;
-                 xpEntries.forEach(([role, xp]) => {
-                    pdf.text(`${formatRoleName(role)}: ${xp} XP`, 30, yPosition);
+                 xpEntries.forEach(([roleKey, xp]) => {
+                    // formatRoleName should handle 'xp_developer' -> 'Developer'
+                    pdf.text(`${formatRoleName(roleKey)}: ${xp} XP`, 30, yPosition);
                     yPosition += 7;
                  });
-                 // Add Total XP
-                 const totalXp = xpEntries.reduce((sum, [, xp]) => sum + xp, 0);
+                 // Add Total XP (already calculated as totalCalculatedXp)
+                 const totalXp = user.xpData.totalCalculatedXp ?? 0;
                  pdf.setFont('helvetica', 'bold');
                  pdf.text(`Total XP: ${totalXp}`, 30, yPosition);
-                 pdf.setFont('helvetica', 'normal'); // Reset font style
-                 yPosition += 10; // Extra space after XP section
+                 pdf.setFont('helvetica', 'normal');
+                 yPosition += 7;
+
+                 // Add Win Count if available and greater than 0
+                 if (typeof user.xpData.count_wins === 'number' && user.xpData.count_wins > 0) {
+                    pdf.text(`Event Wins: ${user.xpData.count_wins}`, 30, yPosition);
+                    yPosition += 7;
+                 }
+                 yPosition += 3; // Extra space
             } else {
                  pdf.text('No XP earned yet.', 30, yPosition);
                  yPosition += 10;
@@ -82,8 +75,7 @@ export async function generatePortfolioPDF(user: UserData, projects: ProjectData
             yPosition += 10;
         }
 
-
-        // Projects Section
+        // Projects Section (remains the same)
         pdf.setFontSize(16);
         pdf.text('Projects', 20, yPosition);
         yPosition += 10;
@@ -94,13 +86,12 @@ export async function generatePortfolioPDF(user: UserData, projects: ProjectData
                 project.link || 'N/A',
                 project.description || '-'
             ]);
-
-            autoTable(pdf, { // Use the dynamically imported autoTable
+            autoTable(pdf, {
                 startY: yPosition,
                 head: [['Project Name', 'Link', 'Description']],
                 body: projectData,
                 theme: 'grid',
-                headStyles: { fillColor: [37, 99, 235] }, // Primary blueish color
+                headStyles: { fillColor: [37, 99, 235] },
                 margin: { top: 10, right: 20, bottom: 20, left: 20 },
                 columnStyles: {
                     0: { cellWidth: 'auto' },
@@ -110,20 +101,17 @@ export async function generatePortfolioPDF(user: UserData, projects: ProjectData
                 styles: {
                     overflow: 'linebreak',
                     fontSize: 10,
-                    font: 'helvetica' // Ensure consistent font
+                    font: 'helvetica'
                 }
-            } as UserOptions); // Cast options type if necessary
+            } as UserOptions);
         } else {
              pdf.setFontSize(12);
              pdf.text('No projects submitted.', 20, yPosition);
         }
 
-        console.log('PDF generation logic complete.'); // Added log
-        return pdf; // Return the generated PDF object
-
+        return pdf;
     } catch (error) {
         console.error('Error loading PDF libraries or generating PDF:', error);
-        // Rethrow a user-friendly error for the calling component
         throw new Error('Failed to generate portfolio PDF. Please try again.');
     }
 }

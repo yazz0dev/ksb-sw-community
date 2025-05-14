@@ -12,48 +12,48 @@
         </button>
       </div>
 
-      <!-- Standard User View -->
-      <!-- Main Content Block  -->
       <!-- Header for Current User -->
-      <div v-if="isCurrentUser" class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5 pb-4 border-bottom">
+      <div v-if="isCurrentUser && currentUserData" class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5 pb-4 border-bottom">
         <div>
           <h2 class="h2 text-primary mb-2 d-inline-flex align-items-center">
             <i class="fas fa-user-circle me-2"></i>My Profile
           </h2>
-          <!-- Edit Profile Button Removed From Here -->
         </div>
-        <!-- Portfolio Button Area -->
         <div class="d-flex align-items-center">
           <PortfolioGeneratorButton
-            v-if="!loadingProjectsForPortfolio && userProjectsForPortfolio.length > 0"
-            :user="userForPortfolio"
-            :projects="userProjectsForPortfolio"
-            :event-participation-count="eventParticipationCount"
+            v-if="!loadingPortfolioData && currentUserPortfolioData.projects.length > 0 && currentUserPortfolioData.eventParticipationCount >= 5"
+            :user="userForPortfolioGeneration"
+            :projects="currentUserPortfolioData.projects"
+            :event-participation-count="currentUserPortfolioData.eventParticipationCount"
           />
-          <div v-else class="d-flex align-items-center text-secondary">
-            <div v-if="loadingProjectsForPortfolio || loadingEventCount" class="spinner-border spinner-border-sm me-2"></div>
-            <span class="small">{{ loadingProjectsForPortfolio ? 'Loading portfolio data...' : 'No portfolio data' }}</span>
+          <div v-else-if="loadingPortfolioData" class="d-flex align-items-center text-secondary">
+            <div class="spinner-border spinner-border-sm me-2"></div>
+            <span class="small">Loading portfolio data...</span>
+          </div>
+           <div v-else-if="currentUserPortfolioData.eventParticipationCount < 5 && currentUserPortfolioData.projects.length > 0" class="text-secondary small">
+            <i class="fas fa-info-circle me-1"></i> Generate portfolio after 5 event participations.
+          </div>
+          <div v-else class="text-secondary small">
+            <i class="fas fa-info-circle me-1"></i> No project data for portfolio generation.
           </div>
         </div>
       </div>
 
-      <!-- Profile Content -->
       <ProfileViewContent
         ref="profileContentRef"
         v-if="targetUserId"
         :user-id="targetUserId"
         :is-current-user-prop="isCurrentUser"
       >
-        <!-- Slot for Additional Content (e.g., User Requests) -->
         <template #additional-content v-if="isCurrentUser">
           <AuthGuard>
             <div class="card mt-5">
               <div class="card-header requests-card-header">
                 <h6 class="mb-0 d-flex align-items-center">
-                  <i class="fas fa-bell text-primary me-2"></i>Notifications
+                  <i class="fas fa-bell text-primary me-2"></i>Notifications & Requests
                 </h6>
               </div>
-              <div class="card-body p-0"> <!-- Bootstrap uses card-body -->
+              <div class="card-body p-0">
                 <UserRequests />
               </div>
             </div>
@@ -61,10 +61,13 @@
         </template>
       </ProfileViewContent>
 
-      <!-- Fallback if no target user -->
-      <p v-else class="text-center text-secondary py-5">
+      <p v-else-if="!loading" class="text-center text-secondary py-5">
         Could not determine user profile to display.
       </p>
+       <div v-else class="text-center py-5"> <!-- Fallback loading indicator -->
+         <div class="spinner-border text-primary"></div>
+         <p class="mt-2 text-muted">Loading profile...</p>
+       </div>
     </div>
   </div>
 </template>
@@ -73,139 +76,128 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { DocumentData } from 'firebase/firestore';
+import { EnrichedUserData, UserProject as PortfolioUserProject } from '@/types/user'; // Project type for portfolio is different
 
-// Import Components
 import ProfileViewContent from '@/components/user/ProfileViewContent.vue';
 import PortfolioGeneratorButton from '@/components/user/PortfolioGeneratorButton.vue';
 import UserRequests from '@/components/user/UserRequests.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
-import { Project } from '@/types/project'; 
 
-interface UserData {
+// Define a more specific type for the portfolio button's user prop
+interface UserForPortfolio {
   name: string;
   uid: string;
-  photoURL?: string; // Added
-  skills: string[];
-  preferredRoles: string[];
-  xpByRole: Record<string, number>;
-  totalXp: number;
-  hasLaptop?: boolean;
-}
-
-interface UserProject extends DocumentData {
-  id: string;
-  eventName: string;
-  eventType: string;
+  xpData?: Partial<import('@/types/xp').XPData>; // Using Partial as not all XP fields might be needed
+  skills?: string[];
+  bio?: string;
 }
 
 const route = useRoute();
-const router = useRouter();
+const router = useRouter(); // Added to satisfy template if $router is used, though not directly in script
 const userStore = useUserStore();
 
-// --- State ---
 const targetUserId = ref<string | null>(null);
 const isCurrentUser = ref<boolean>(false);
-const userProjectsForPortfolioButton = ref<Project[]>([]); // Use Project[] type
-const loadingProjectsForPortfolio = ref<boolean>(false);
-const eventParticipationCount = ref<number>(0); // State for event count
-const loadingEventCount = ref<boolean>(false); // Loading state for count
+const loadingPortfolioData = ref<boolean>(false); // Renamed from loadingProjectsForPortfolio
+const loading = ref(true); // General loading for the view
 
-// --- Add missing refs for profileUser, loading, error ---
-const profileUser = ref<UserData | null>(null);
-const loading = ref<boolean>(false);
-const error = ref<string>('');
+// This ref will hold the EnrichedUserData for the current user when isCurrentUser is true
+const currentUserData = computed<EnrichedUserData | null>(() => userStore.currentUser);
+// This ref will hold the portfolio-specific data
+const currentUserPortfolioData = computed(() => userStore.currentUserPortfolioData);
 
-// Add ref for ProfileViewContent
-const profileContentRef = ref();
 
-// --- Computed Properties ---
-const loggedInUserId = computed<string | null>(() => userStore.uid);
-
-const userForPortfolio = computed<UserData>(() => {
-    if (!isCurrentUser.value) return {} as UserData;
-    const currentUserData = userStore.currentUser;
-    if (!currentUserData || !currentUserData.uid) return {} as UserData;
-    const totalXp = userStore.currentUserTotalXp;
+const userForPortfolioGeneration = computed<UserForPortfolio>(() => {
+    if (!isCurrentUser.value || !currentUserData.value) {
+        return { name: 'User', uid: '' }; // Fallback
+    }
+    const user = currentUserData.value;
     return {
-        name: currentUserData.name,
-        uid: currentUserData.uid,
-        photoURL: currentUserData.photoURL, // Added
-        skills: currentUserData.skills || [],
-        preferredRoles: currentUserData.preferredRoles || [],
-        xpByRole: currentUserData.xpByRole || {},
-        totalXp,
-        hasLaptop: currentUserData.hasLaptop || false,
+        name: user.name || 'User',
+        uid: user.uid,
+        xpData: user.xpData ? { // Pass only necessary parts of xpData
+            totalCalculatedXp: user.xpData.totalCalculatedXp,
+            xp_developer: user.xpData.xp_developer,
+            xp_presenter: user.xpData.xp_presenter,
+            xp_designer: user.xpData.xp_designer,
+            xp_problemSolver: user.xpData.xp_problemSolver,
+            xp_organizer: user.xpData.xp_organizer,
+            xp_participation: user.xpData.xp_participation,
+            xp_bestPerformer: user.xpData.xp_bestPerformer,
+            count_wins: user.xpData.count_wins,
+        } : undefined,
+        skills: user.skills || [],
+        bio: user.bio || '',
     };
 });
 
-const userProjectsForPortfolio = computed(() => {
-    // Use store getter for current user's projects
-    return userStore.currentUserProjectsForPortfolio || [];
-});
 
-// --- Fetch portfolio data for current user ---
 const fetchPortfolioRelatedDataForCurrentUser = async () => {
-    if (!loggedInUserId.value || !isCurrentUser.value) {
-        userProjectsForPortfolioButton.value = [];
-        eventParticipationCount.value = 0;
+    if (!userStore.uid || !isCurrentUser.value) {
+        // Reset portfolio data if not current user or not logged in
+        userStore.$patch(state => {
+            state.currentUserPortfolioData = { projects: [], eventParticipationCount: 0 };
+        });
         return;
     }
-    
-    loadingProjectsForPortfolio.value = true;
-    loadingEventCount.value = true;
-    
+    loadingPortfolioData.value = true;
     try {
-        // Fetch portfolio data from store
         await userStore.fetchCurrentUserPortfolioData();
-        
-        // Get data from store
-        userProjectsForPortfolioButton.value = userStore.currentUserProjectsForPortfolio;
-        eventParticipationCount.value = userStore.currentUserEventParticipationCount;
+        // Data is now in userStore.currentUserPortfolioData, accessed by computed prop
     } catch (err) {
-        console.error("Error fetching portfolio data:", err);
-        userProjectsForPortfolioButton.value = [];
-        eventParticipationCount.value = 0;
+        console.error("Error fetching portfolio data for ProfileView:", err);
     } finally {
-        loadingProjectsForPortfolio.value = false;
-        loadingEventCount.value = false;
+        loadingPortfolioData.value = false;
     }
 };
 
-const determineProfileContext = async () => {
-    const routeUserId = route.params.userId;
-    const loggedInUid = loggedInUserId.value;
-    const targetUid = Array.isArray(routeUserId) ? routeUserId[0] : routeUserId;
+const determineProfileContextAndLoad = async () => {
+    loading.value = true;
+    const routeUserIdParam = route.params.userId;
+    const loggedInUid = userStore.uid; // Access uid getter
 
-    if (targetUid) {
-        isCurrentUser.value = targetUid === loggedInUid;
-        targetUserId.value = targetUid;
-    } else if (loggedInUid && route.name === 'Profile') {
-        isCurrentUser.value = true;
+    const targetUidFromRoute = Array.isArray(routeUserIdParam) ? routeUserIdParam[0] : routeUserIdParam;
+
+    if (targetUidFromRoute) {
+        targetUserId.value = targetUidFromRoute;
+        isCurrentUser.value = targetUidFromRoute === loggedInUid;
+    } else if (loggedInUid && route.name === 'Profile') { // Viewing own profile via /profile
         targetUserId.value = loggedInUid;
-    } else {
-        isCurrentUser.value = false;
+        isCurrentUser.value = true;
+    } else { // No specific user ID in route and not /profile, or not logged in
         targetUserId.value = null;
+        isCurrentUser.value = false;
+        // Potentially redirect or show an error if no profile can be determined
+        if (!loggedInUid && route.name === 'Profile') {
+            router.replace({ name: 'Login', query: { redirect: route.fullPath }});
+            loading.value = false;
+            return;
+        }
     }
 
-    if (isCurrentUser.value && loggedInUid) {
+    if (isCurrentUser.value && targetUserId.value) {
+        // Ensure current user data (including XP) is fresh if viewing own profile
+        // fetchUserData in userStore now fetches both profile and XP
+        await userStore.fetchUserData(targetUserId.value);
         await fetchPortfolioRelatedDataForCurrentUser();
-    } else {
-        userProjectsForPortfolioButton.value = [];
-        eventParticipationCount.value = 0;
+    } else if (targetUserId.value) {
+        // For viewing others, ProfileViewContent will trigger fetchFullUserProfileForView
+        // which also fetches both profile and XP via userStore.
     }
+    loading.value = false;
 };
 
-// --- Watchers ---
-watch(() => route.params.userId, determineProfileContext, { immediate: true });
-watch(loggedInUserId, (newUid, oldUid) => {
+watch(() => route.params.userId, determineProfileContextAndLoad, { immediate: true });
+// Watch for login/logout to re-determine context
+watch(() => userStore.uid, (newUid, oldUid) => {
     if (newUid !== oldUid) {
-        determineProfileContext();
+        determineProfileContextAndLoad();
     }
 });
 
-// --- Lifecycle Hooks ---
 onMounted(() => {
+    // Initial determination is handled by the immediate watcher
+    // If it's the current user, fetch portfolio data
     if (isCurrentUser.value) {
         fetchPortfolioRelatedDataForCurrentUser();
     }
@@ -216,13 +208,19 @@ onMounted(() => {
 <style scoped>
 .profile-section {
   background-color: var(--bs-body-bg);
-  min-height: calc(100vh - 8rem); /* Keep min-height */
 }
-
 .requests-card-header {
-  background-color: var(--bs-tertiary-bg); /* Using BS variable */
-  border-bottom: 1px solid var(--bs-border-color); /* Using BS variable */
+  background-color: var(--bs-tertiary-bg);
+  border-bottom: 1px solid var(--bs-border-color);
+}
+/* Ensure min-height is applied as intended */
+.min-vh-100-subtract-nav {
+  min-height: calc(100vh - var(--navbar-height-desktop, 4.5rem) - var(--bottom-nav-height-mobile, 0rem)); /* Adjust vars as needed */
+}
+@media (max-width: 991.98px) {
+  .min-vh-100-subtract-nav {
+    min-height: calc(100vh - var(--navbar-height-mobile, 4rem) - var(--bottom-nav-height-mobile, 4rem));
+  }
 }
 
-/* Removed custom gap-4 class */
 </style>

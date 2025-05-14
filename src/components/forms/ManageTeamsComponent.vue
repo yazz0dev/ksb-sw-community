@@ -4,14 +4,10 @@
   <div class="mb-4">
     <h5 class="h5 mb-4">Manage Teams</h5>
 
-    <!-- Display Existing Teams -->
     <div v-if="teams.length > 0" class="mb-4">
-      <p class="small text-success">(Debug: Rendering team list. Prop length: {{ props.students.length }})</p>
+      <p class="small text-success">(Debug: Rendering team list. Students prop length: {{ props.students.length }})</p>
       <transition-group name="fade-fast" tag="div">
-        <!-- Loop through each team -->
         <div v-for="(team, index) in teams" :key="team.name || `team-${index}`" class="p-4 mb-4 border rounded bg-light-subtle team-box">
-
-          <!-- Team Name Input -->
           <div class="d-flex justify-content-between align-items-start mb-3">
             <div class="flex-grow-1 me-3">
               <label :for="`team-name-${index}`" class="form-label small fw-medium">Team Name</label>
@@ -22,18 +18,17 @@
                 :class="{ 'is-invalid': !team.name }"
                 v-model.trim="team.name"
                 placeholder="Enter Team Name"
-                :disabled="props.isSubmitting" 
+                :disabled="props.isSubmitting"
                 required
                 @change="emitTeamsUpdate"
               />
               <div class="invalid-feedback">Team name is required.</div>
             </div>
             <div>
-              <!-- Remove Team Button -->
               <button
                 type="button"
                 class="btn btn-sm btn-outline-danger mt-4"
-                :disabled="props.isSubmitting || teams.length <= 2" 
+                :disabled="props.isSubmitting || teams.length <= 2"
                 @click="removeTeam(index)"
                 title="Remove Team (min 2 required)"
                 aria-label="Remove team"
@@ -43,17 +38,15 @@
             </div>
           </div>
 
-          <!-- Team Member ADD Select Component -->
           <div class="mb-3">
             <TeamMemberSelect
               :selected-members="team.members"
               :available-students="availableStudentsForTeam(index)"
-              :is-submitting="props.isSubmitting" 
+              :is-submitting="props.isSubmitting"
               :min-members="minMembersPerTeam"
               :max-members="maxMembersPerTeam"
               @update:members="updateTeamMembers(index, $event)"
             />
-            <!-- Validation/Count Display -->
             <div v-if="team.members.length < minMembersPerTeam" class="text-danger small mt-1">
                Minimum {{ minMembersPerTeam }} members required.
             </div>
@@ -65,7 +58,6 @@
              </div>
           </div>
 
-          <!-- Display Selected Members -->
           <div v-if="team.members.length > 0" class="mb-3 selected-members-display">
             <label class="form-label small text-secondary mb-1">Selected Members:</label>
             <div class="d-flex flex-wrap gap-2">
@@ -76,7 +68,6 @@
               >
                 <i class="fas fa-user fa-xs me-1"></i>
                 <span class="me-1 small">{{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}</span>
-                <!-- Remove Member Button -->
                 <button
                   type="button"
                   class="btn-close btn-close-sm"
@@ -90,7 +81,6 @@
           </div>
           <p v-else class="text-muted small fst-italic">No members added to this team yet.</p>
 
-          <!-- Team Lead Selection -->
           <div class="mb-3">
             <label :for="`team-lead-${index}`" class="form-label small fw-medium">Select Team Lead <span class="text-danger">*</span></label>
              <select
@@ -99,11 +89,10 @@
                :class="{ 'is-invalid': team.members.length > 0 && !team.teamLead }"
                v-model="team.teamLead"
                required
-               :disabled="props.isSubmitting || team.members.length === 0" 
+               :disabled="props.isSubmitting || team.members.length === 0"
                @change="emitTeamsUpdate"
              >
                <option value="" disabled>Select from members...</option>
-               <!-- Options show member names -->
                <option v-for="memberId in team.members"
                        :key="memberId"
                        :value="memberId">
@@ -111,7 +100,6 @@
                </option>
              </select>
               <div class="invalid-feedback">Team lead selection is required.</div>
-              <!-- Show Selected Team Lead Name -->
               <div v-if="team.teamLead" class="mt-1">
                   <span class="small text-muted">Selected Lead: </span>
                   <span class="small fw-medium text-success">{{ userStore.getCachedUserName(team.teamLead) || `UID: ${team.teamLead.substring(0,6)}...` }}</span>
@@ -120,7 +108,6 @@
         </div>
       </transition-group>
     </div>
-    <!-- Message shown if teams array is empty, with context about student list -->
     <div v-else class="mb-4">
         <p v-if="props.students.length > 0" class="text-secondary small fst-italic">
             No teams added yet. You can add teams manually or use the auto-generate feature below.
@@ -131,10 +118,7 @@
         </p>
     </div>
 
-
-    <!-- Actions Section: Add Team always available (respecting limits), Auto-Generate conditional -->
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-4 pt-3 border-top">
-      <!-- Add Team Button -->
       <div>
         <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center"
           :disabled="props.isSubmitting || teams.length >= maxTeams" @click="addTeam" :title="addTeamButtonTitle">
@@ -144,13 +128,12 @@
          <p v-if="teams.length >= maxTeams" class="form-text text-warning mt-1">Maximum teams reached.</p>
       </div>
 
-      <!-- Auto-Generate Section -->
       <div v-if="props.canAutoGenerate" class="my-2">
           <div v-if="props.students.length > 0" class="d-flex flex-wrap align-items-center gap-2">
               <label for="simpleNumTeams" class="form-label small mb-0 me-1">Auto-generate members for current teams</label>
               <button type="button" class="btn btn-sm btn-outline-info d-inline-flex align-items-center"
-                :disabled="props.isSubmitting || teams.length < 2 || props.students.length < minMembersPerTeam * teams.length" 
-                title="Distribute all students randomly into the currently configured teams (clears existing members)."
+                :disabled="props.isSubmitting || teams.length < 2 || props.students.length < minMembersPerTeam * teams.length"
+                title="Distribute all students randomly into the currently configured teams (clears existing members). Prioritizes experienced or equipped users as leads."
                 @click="simpleAutoGenerateTeams">
                 <i class="fas fa-random me-1"></i>
                 <span>Generate</span>
@@ -171,42 +154,31 @@
           </p>
       </div>
     </div>
-
   </div>
 </template>
 
-<!-- Keep the <script setup> and <style> sections exactly as they were in the previous response -->
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, PropType, nextTick } from 'vue';
 import { useUserStore } from '@/store/user';
-// Import useEventStore
 import { useEventStore } from '@/store/events';
 import TeamMemberSelect from './TeamMemberSelect.vue';
 import { Team as EventTeamType } from '@/types/event';
+// Use UserData as props.students will be UserData[]
 import { UserData } from '@/types/user';
+import { XPData, getDefaultXPData } from '@/types/xp'; // Import XPData for the map
 
-// Props definition remains the same
 const props = defineProps({
   initialTeams: {
       type: Array as PropType<EventTeamType[]>,
       default: () => []
   },
-  students: {
+  students: { // This should now be UserData[]
       type: Array as PropType<UserData[]>,
       required: true
   },
-  isSubmitting: {
-      type: Boolean,
-      default: false
-  },
-  canAutoGenerate: {
-      type: Boolean,
-      default: true
-  },
-  eventId: {
-      type: String,
-      default: ''
-  },
+  isSubmitting: { type: Boolean, default: false },
+  canAutoGenerate: { type: Boolean, default: true },
+  eventId: { type: String, default: '' },
 });
 
 const emit = defineEmits<{
@@ -215,11 +187,11 @@ const emit = defineEmits<{
 }>();
 
 const userStore = useUserStore();
-const eventStore = useEventStore(); // Add eventStore
+const eventStore = useEventStore();
 const teams = ref<LocalTeam[]>([]);
 const maxTeams = 8;
 const minMembersPerTeam = 2;
-const maxMembersPerTeam = 8;
+const maxMembersPerTeam = 8; // Max members per team
 
 interface LocalTeam {
   name: string;
@@ -227,264 +199,230 @@ interface LocalTeam {
   teamLead: string;
 }
 
-// Debug log for students prop changes
-watch(() => props.students, (newVal, oldVal) => {
-    console.log('[ManageTeamsComponent] Students prop changed:', newVal); // Added console.log
+watch(() => props.students, (newVal) => {
+    console.log('[ManageTeamsComponent] Students prop changed:', newVal ? newVal.length : 0);
+    // No xpData directly on UserData, so this check is removed or adapted if needed elsewhere
+    // if (newVal && newVal.length > 0 && newVal[0].xpData) { 
+    //     console.log('[ManageTeamsComponent] First student has xpData.');
+    // } else if (newVal && newVal.length > 0) {
+    //     console.warn('[ManageTeamsComponent] First student does NOT have xpData. Team lead prioritization might not work as expected.');
+    // }
     if (newVal && newVal.length > 0) {
-        console.log(`[ManageTeamsComponent] Received ${newVal.length} students.`);
-    } else {
-        console.log('[ManageTeamsComponent] Students prop is empty or not yet loaded.');
+        console.log('[ManageTeamsComponent] Students prop updated. XP data will be fetched on demand for auto-generation.');
     }
 }, { immediate: true, deep: true });
 
-
-// --- NEW: Remove Member Function ---
 const removeMember = (teamIndex: number, memberId: string) => {
-  if (props.isSubmitting) return; // Use prop
+  if (props.isSubmitting) return;
   const team = teams.value[teamIndex];
   if (team) {
     const memberIndex = team.members.indexOf(memberId);
     if (memberIndex !== -1) {
       team.members.splice(memberIndex, 1);
-      // If the removed member was the team lead, clear the lead selection
-      if (team.teamLead === memberId) {
-        team.teamLead = '';
-      }
-      // If members remain but lead is now invalid, clear lead
-      if (team.members.length > 0 && !team.members.includes(team.teamLead)) {
-           team.teamLead = '';
-      }
-      // Trigger update after state change
+      if (team.teamLead === memberId) team.teamLead = '';
+      if (team.members.length > 0 && !team.members.includes(team.teamLead)) team.teamLead = '';
       nextTick(emitTeamsUpdate);
     }
   }
 };
 
-// --- Issue 2 Fix: Fetch Member Names ---
 const ensureMemberNamesAreFetched = async (currentTeams: LocalTeam[]) => {
     const allMemberIds = new Set<string>();
     currentTeams.forEach(team => {
-        (team.members || []).forEach(id => {
-            if (id) allMemberIds.add(id);
-        });
-        // Also add team leads to ensure their names are fetched
+        (team.members || []).forEach(id => { if (id) allMemberIds.add(id); });
         if (team.teamLead) allMemberIds.add(team.teamLead);
     });
-
     const idsToFetch = Array.from(allMemberIds).filter(id => !userStore.getCachedUserName(id));
-
     if (idsToFetch.length > 0) {
-        try {
-            await userStore.fetchUserNamesBatch(idsToFetch);
-            // Re-render might be needed if reactivity doesn't pick up cached name change immediately.
-            // Forcing an update is generally discouraged, but could be a workaround if needed:
-            // teams.value = [...teams.value]; // This creates a new array reference
-        } catch (error) {
-            emit('error', 'Failed to load some member names.');
-        }
+        try { await userStore.fetchUserNamesBatch(idsToFetch); }
+        catch (error) { emit('error', 'Failed to load some member names.'); }
     }
 };
 
-// Initialize Teams Function
 const initializeTeams = () => {
   teams.value = (props.initialTeams || []).map(team => ({
     name: team.teamName || '',
     members: Array.isArray(team.members) ? [...team.members] : [],
     teamLead: team.teamLead || ''
   }));
-
-  // Add default teams if creating new event and no initial teams provided
   if (!props.eventId && teams.value.length === 0) {
      teams.value.push({ name: `Team 1`, members: [], teamLead: '' });
      teams.value.push({ name: `Team 2`, members: [], teamLead: '' });
   }
-   // Fetch names after initialization
    ensureMemberNamesAreFetched(teams.value);
 };
 
-// --- Watchers ---
-// Watch initialTeams prop for changes (e.g., when editing)
-watch(() => props.initialTeams, (newInitialTeams) => {
-    initializeTeams(); // This now maps initialTeams to local `teams` ref
-    // Names fetching is handled within initializeTeams
-}, { deep: true }); // Removed immediate: true as onMounted will call initializeTeams
-
-// Watch teams array for changes to fetch names of newly added members
+watch(() => props.initialTeams, initializeTeams, { deep: true });
 watch(teams, (newTeams, oldTeams) => {
-    // Avoid running on the initial setup triggered by the initialTeams watcher
     if (JSON.stringify(newTeams) !== JSON.stringify(oldTeams)) {
         ensureMemberNamesAreFetched(newTeams);
     }
 }, { deep: true });
 
-// Add Team Function
 const addTeam = () => {
   if (teams.value.length < maxTeams) {
     teams.value.push({ name: `Team ${teams.value.length + 1}`, members: [], teamLead: '' });
-    // No need to emit here directly, let watcher handle it if needed, or emit on form submit
-    // emitTeamsUpdate();
+    // emitTeamsUpdate will be called on name change or member addition
   }
 };
 
-// Remove Team Function
 const removeTeam = (index: number) => {
   if (teams.value.length <= 2) {
-    alert(`At least 2 teams are required. Cannot remove more teams.`);
-    return;
+    alert(`At least 2 teams are required.`); return;
   }
   teams.value.splice(index, 1);
-  emitTeamsUpdate(); // Emit after removing a whole team
+  emitTeamsUpdate();
 };
 
-// Update Team Members Function (Called by Child Component)
 const updateTeamMembers = (teamIndex: number, members: string[]) => {
   if (teams.value[teamIndex]) {
     const team = teams.value[teamIndex];
-    team.members = [...members]; // Update members
-    // If the current lead is no longer in the members list, clear the lead
-    if (team.teamLead && !team.members.includes(team.teamLead)) {
-        team.teamLead = '';
-    }
-    // Names are fetched by the watcher on `teams` ref
-    emitTeamsUpdate(); // Emit the update
+    team.members = [...members];
+    if (team.teamLead && !team.members.includes(team.teamLead)) team.teamLead = '';
+    emitTeamsUpdate();
   }
 };
 
-// Emit Teams Update Function
 const emitTeamsUpdate = () => {
-  // Perform validation before emitting
-  let valid = true;
-  const teamsToEmit: EventTeamType[] = teams.value.map(localTeam => {
-      if (!localTeam.name.trim()) valid = false;
-      if (localTeam.members.length > 0 && !localTeam.teamLead) valid = false; // Lead required if members exist
-      return {
-          teamName: localTeam.name,
-          members: localTeam.members,
-          teamLead: localTeam.teamLead,
-      };
-  });
-  // Optionally: emit an error if validation fails, or let parent handle it via `isFormValid`
-  // if (!valid) {
-  //     emit('error', 'Some team configurations are invalid.');
-  // }
+  const teamsToEmit: EventTeamType[] = teams.value.map(localTeam => ({
+      teamName: localTeam.name,
+      members: localTeam.members,
+      teamLead: localTeam.teamLead,
+  }));
   emit('update:teams', teamsToEmit);
 };
 
-// Available Students for a Specific Team Function
-const availableStudentsForTeam = (teamIndex: number): UserData[] => {
-  if (!Array.isArray(props.students)) {
-    return [];
-  }
+const availableStudentsForTeam = (teamIndex: number): UserData[] => { // Return type is UserData[]
+  if (!Array.isArray(props.students)) return [];
   const assignedToOtherTeams = new Set<string>(
     teams.value.filter((_, i) => i !== teamIndex).flatMap(t => t.members || []).filter(Boolean)
   );
-  
-  const filteredStudents = props.students
-    .filter(student => {
-      const isAssignedElsewhere = student?.uid && assignedToOtherTeams.has(student.uid);
-      return student?.uid && !isAssignedElsewhere;
-    })
-    .map(student => ({ ...student })); // Return shallow copy
-
-  return filteredStudents;
+  return props.students.filter(student => student?.uid && !assignedToOtherTeams.has(student.uid));
 };
 
 
-// Auto-Generate Teams Function
+// Auto-Generate Teams Function with Prioritization
 async function simpleAutoGenerateTeams() {
-  // Common validations
   if (!Array.isArray(props.students) || props.students.length === 0) {
-      emit('error', 'Student list is not available for auto-generation.');
-      return;
+      emit('error', 'Student list is not available for auto-generation.'); return;
   }
   if (teams.value.length < 2) {
-    emit('error', `At least 2 teams must be configured before auto-generating members.`);
-    return;
+    emit('error', `At least 2 teams must be configured.`); return;
   }
-  if (props.students.length < minMembersPerTeam * teams.value.length) {
-    emit('error', `At least ${minMembersPerTeam * teams.value.length} students required to populate ${teams.value.length} teams with a minimum of ${minMembersPerTeam} members each.`);
+  const requiredStudents = minMembersPerTeam * teams.value.length;
+  if (props.students.length < requiredStudents) {
+    emit('error', `At least ${requiredStudents} students required for ${teams.value.length} teams.`); return;
+  }
+  if (teams.value.some(t => t.members.length > 0) && !confirm('This will clear existing members and leads. Proceed?')) {
     return;
   }
 
-  if (teams.value.some(t => t.members.length > 0)) {
-    if (!confirm('This will clear existing members from all current teams and distribute students. Proceed?')) {
-        return;
-    }
-  }
-
-  if (props.eventId) { // Existing event: Use store action
+  // Use eventStore action if eventId exists (for existing events)
+  // This part might need adjustment if eventStore.autoGenerateTeams also needs to fetch XP
+  if (props.eventId) {
     try {
-      // Ensure the current team structure (names, number of teams) is saved if it has changed.
-      emitTeamsUpdate(); 
+      emitTeamsUpdate(); // Save current team names if they changed
       await nextTick();
-
+      // The eventStore action will need to be updated to fetch XP for students if it relies on it.
+      // For now, assuming it might use its own logic or also call userStore.fetchXPForUsers.
       await eventStore.autoGenerateTeams({
           eventId: props.eventId,
           minMembersPerTeam: minMembersPerTeam,
           maxMembersPerTeam: maxMembersPerTeam,
       });
-      // Parent component should react to store changes and update `initialTeams` prop,
-      // which will trigger re-initialization in this component.
+      // Parent will receive updated `initialTeams` prop
     } catch (error: any) {
       emit('error', error.message || 'Failed to auto-generate teams via store.');
     }
-  } else { // New event: Generate locally
-    try {
-      const studentsToDistribute = [...props.students]; // Mutable copy
-      const localTeams = teams.value; // Direct reference to the reactive array
-      const numberOfLocalTeams = localTeams.length;
+    return;
+  }
 
-      // 1. Clear existing members and leads from local teams but preserve names
-      const tempTeamsToPopulate = localTeams.map(t => ({
-          name: t.name, // Preserve original name
-          members: [] as string[],
-          teamLead: '' as string,
-      }));
+  // Local generation for new events
+  try {
+    const studentUids = props.students.map(s => s.uid);
+    let studentXpMap: Map<string, XPData> = new Map();
 
-      // 2. Shuffle students
-      const shuffledStudents = studentsToDistribute.sort(() => 0.5 - Math.random());
-
-      // 3. Distribute students (round-robin)
-      shuffledStudents.forEach((student, idx) => {
-          const teamIndexToAddTo = idx % numberOfLocalTeams;
-          if (tempTeamsToPopulate[teamIndexToAddTo].members.length < maxMembersPerTeam) {
-              tempTeamsToPopulate[teamIndexToAddTo].members.push(student.uid);
-          }
-      });
-      
-      // 4. Update the actual reactive `teams.value` with populated members and new leads
-      localTeams.forEach((originalTeam, index) => {
-          const populatedTeamData = tempTeamsToPopulate[index];
-          originalTeam.members = populatedTeamData.members;
-          originalTeam.teamLead = populatedTeamData.members.length > 0 ? populatedTeamData.members[0] : '';
-      });
-      
-      // Ensure names are fetched for any new UIDs if necessary (though props.students should have names)
-      // await ensureMemberNamesAreFetched(localTeams); // Watcher on `teams` should handle this if structure changes enough
-
-      emitTeamsUpdate(); // Emit the locally updated teams to the parent
-      // Optionally, emit a success message or rely on UI update.
-      // emit('error', 'Teams generated locally. Save the event to persist them.'); // Example notification
-
-    } catch (error: any) {
-      emit('error', error.message || 'Failed to auto-generate teams locally.');
+    if (studentUids.length > 0) {
+        studentXpMap = await userStore.fetchXPForUsers(studentUids);
     }
+
+    // 1. Sort students: by XP (desc), then by hasLaptop (true first), then shuffle for tie-breaking
+    const sortedStudents = [...props.students].sort((a, b) => {
+        const xpDataA = studentXpMap.get(a.uid) || getDefaultXPData(a.uid);
+        const xpDataB = studentXpMap.get(b.uid) || getDefaultXPData(b.uid);
+        const totalXpA = xpDataA.totalCalculatedXp ?? 0;
+        const totalXpB = xpDataB.totalCalculatedXp ?? 0;
+
+        if (totalXpB !== totalXpA) return totalXpB - totalXpA; // Higher XP first
+
+        const hasLaptopA = a.hasLaptop ?? false;
+        const hasLaptopB = b.hasLaptop ?? false;
+        if (hasLaptopB !== hasLaptopA) return hasLaptopB ? 1 : -1; // Has laptop first
+
+        return 0.5 - Math.random(); // Shuffle for same XP/laptop status
+    });
+
+    const localTeams = teams.value;
+    const numberOfLocalTeams = localTeams.length;
+
+    // 2. Clear existing members and leads, preserve team names
+    const tempTeamsToPopulate = localTeams.map(t => ({
+        name: t.name, members: [] as string[], teamLead: '' as string,
+    }));
+
+    // 3. Distribute members (round-robin)
+    sortedStudents.forEach((student, idx) => {
+        const teamIndexToAddTo = idx % numberOfLocalTeams;
+        if (tempTeamsToPopulate[teamIndexToAddTo].members.length < maxMembersPerTeam) {
+            tempTeamsToPopulate[teamIndexToAddTo].members.push(student.uid);
+        }
+    });
+
+    // 4. Assign Team Leads and update reactive `teams.value`
+    localTeams.forEach((originalTeam, index) => {
+        const populatedTeamData = tempTeamsToPopulate[index];
+        originalTeam.members = populatedTeamData.members;
+
+        if (originalTeam.members.length > 0) {
+            const teamMemberDetails = originalTeam.members
+                .map(memberId => {
+                    const studentData = props.students.find(s => s.uid === memberId);
+                    if (!studentData) return null;
+                    return {
+                        ...studentData, // UserData
+                        xpData: studentXpMap.get(memberId) || getDefaultXPData(memberId) // Add fetched XPData
+                    };
+                })
+                .filter(Boolean) as (UserData & { xpData: XPData })[]; // Enriched locally
+
+            teamMemberDetails.sort((a, b) => {
+                const totalXpA = a.xpData.totalCalculatedXp ?? 0;
+                const totalXpB = b.xpData.totalCalculatedXp ?? 0;
+                if (totalXpB !== totalXpA) return totalXpB - totalXpA;
+
+                const hasLaptopA = a.hasLaptop ?? false;
+                const hasLaptopB = b.hasLaptop ?? false;
+                if (hasLaptopB !== hasLaptopA) return hasLaptopB ? 1 : -1;
+                return 0;
+            });
+            originalTeam.teamLead = teamMemberDetails[0]?.uid || '';
+        } else {
+            originalTeam.teamLead = '';
+        }
+    });
+
+    emitTeamsUpdate();
+  } catch (error: any) {
+    emit('error', error.message || 'Failed to auto-generate teams locally.');
   }
 }
 
-// --- Computed Button Titles ---
 const addTeamButtonTitle = computed(() => {
-  if (teams.value.length >= maxTeams) return `Maximum number of teams (${maxTeams}) reached.`;
+  if (teams.value.length >= maxTeams) return `Maximum teams (${maxTeams}) reached.`;
   return 'Add a new team';
 });
 
-
-// --- Lifecycle Hooks ---
-onMounted(() => {
-  // Initialize based on props. Initial name fetching happens in watcher/initializeTeams
-  initializeTeams();
-});
-
+onMounted(initializeTeams);
 </script>
 
 <style scoped>
@@ -493,50 +431,20 @@ onMounted(() => {
   border-color: var(--bs-border-color-translucent);
   transition: box-shadow 0.2s ease-in-out;
 }
-.team-box:hover {
-    box-shadow: var(--bs-box-shadow-sm);
-}
+.team-box:hover { box-shadow: var(--bs-box-shadow-sm); }
 .form-text { font-size: 0.8em; }
-
-/* Adjusted badge close button size and style */
 .badge .btn-close-sm {
-    padding: 0.15em 0.3em; /* Smaller padding */
-    width: 0.7em;
-    height: 0.7em;
-    line-height: 0.7em; /* Adjust line height */
-    margin-left: 0.3rem !important;
-    vertical-align: middle; /* Align vertically */
-    background-size: 50%; /* Make the 'x' smaller */
-    opacity: 0.7; /* Make it slightly less prominent */
-    transition: opacity 0.15s ease-in-out;
+    padding: 0.15em 0.3em; width: 0.7em; height: 0.7em; line-height: 0.7em;
+    margin-left: 0.3rem !important; vertical-align: middle; background-size: 50%;
+    opacity: 0.7; transition: opacity 0.15s ease-in-out;
 }
-.badge .btn-close-sm:hover {
-    opacity: 1;
-}
-
+.badge .btn-close-sm:hover { opacity: 1; }
 .form-label.small { font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--bs-secondary); }
 .invalid-feedback { font-size: 0.8em; }
 .align-items-start { align-items: flex-start !important; }
 .mt-4 { margin-top: 1.5rem !important; }
-
-/* Style for selected members display */
-.selected-members-display {
-  margin-top: 0.75rem; /* Add some space above */
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--bs-border-color-translucent);
-}
-
-/* Add animation for team boxes */
-.fade-fast-enter-active,
-.fade-fast-leave-active {
-  transition: all 0.3s ease;
-}
-.fade-fast-enter-from,
-.fade-fast-leave-to {
-  opacity: 0;
-  transform: translateY(10px);
-}
-.fade-fast-move {
-  transition: transform 0.3s ease;
-}
+.selected-members-display { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--bs-border-color-translucent); }
+.fade-fast-enter-active, .fade-fast-leave-active { transition: all 0.3s ease; }
+.fade-fast-enter-from, .fade-fast-leave-to { opacity: 0; transform: translateY(10px); }
+.fade-fast-move { transition: transform 0.3s ease; }
 </style>

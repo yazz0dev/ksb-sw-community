@@ -1,10 +1,9 @@
 // src/types/user.ts
 import type { Event as AppEvent } from './event';
 import type { Project } from './project';
+import type { XPData } from './xp';
 
-/**
- * Represents the core user data structure, often mirroring Firestore document.
- */
+// UserData: Base profile info from /users collection
 export interface User {
     uid: string;
     email: string | null;
@@ -12,21 +11,12 @@ export interface User {
     photoURL?: string | null;
     bio?: string;
     socialLink?: string;
-    xpByRole?: Record<string, number>; // e.g., { developer: 150, presenter: 50 }
     skills?: string[];
     preferredRoles?: string[];
-    lastXpCalculationTimestamp?: number | null;
-    participatedEvent?: string[]; // Array of event IDs
-    organizedEvent?: string[]; // Array of event IDs
-    hasLaptop?: boolean;
-    xp?: number;
-    // ... any other fields from your Firestore user document
+    participatedEvent?: string[];
+    organizedEvent?: string[];
+    hasLaptop?: boolean; // Keep hasLaptop here as it's basic profile info
 }
-
-/**
- * Represents user data potentially enriched for display purposes (e.g., in lists or profiles).
- * Often includes calculated fields or application state relevant to the user.
- */
 export interface UserData extends User {
     batch?: string;
     studentId?: string;
@@ -34,21 +24,16 @@ export interface UserData extends User {
     github?: string;
 }
 
-/**
- * Structure for entries in the name cache Map.
- */
+// EnrichedUserData: UserData + XPData
+export interface EnrichedUserData extends UserData {
+    xpData?: XPData | null;
+}
+
 export interface NameCacheEntry {
     name: string;
-    timestamp: number; // When the name was fetched/cached
+    timestamp: number;
 }
-
-// Interface for viewed user profile data
-export interface ViewedUserProfile extends UserData {
-  participatedEvent?: string[];
-  organizedEvent?: string[];
-}
-
-// Interface for profile-related projects
+export interface ViewedUserProfile extends EnrichedUserData {}
 export interface UserProject {
   id: string;
   projectName: string;
@@ -59,51 +44,42 @@ export interface UserProject {
   submittedAt?: any;
 }
 
-// Define the default XP structure helper - centralize keys
-export const defaultXpRoleKeys = [
-    'developer', 'presenter', 'designer',
-    'organizer', 'problemSolver', 'participation', 'BestPerformer'
-] as const; // Use 'as const' for stricter typing
-
-export type XpRoleKey = typeof defaultXpRoleKeys[number]; // Type for valid role keys
-
-export const defaultXpStructure: Record<XpRoleKey, number> = defaultXpRoleKeys.reduce((acc, key) => {
-    acc[key] = 0;
-    return acc;
-}, {} as Record<XpRoleKey, number>);
-
-// Helper to format role names (consider moving to utils/formatters)
 export function formatRoleName(roleKey: string): string {
+    // ... (implementation remains the same)
     if (!roleKey) return 'Unknown Role';
-    // Simple formatting, can be expanded
-    return roleKey
-        .replace(/([A-Z])/g, ' $1') // Add space before uppercase letters
-        .replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
+    const cleanKey = roleKey.startsWith('xp_') ? roleKey.substring(3) : roleKey;
+    const name: string = cleanKey
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, (str) => str.toUpperCase())
         .trim();
+    switch (name) {
+        case 'Xp By Role': return 'Overall';
+        case 'Problem Solver': return 'Problem Solver';
+        case 'Best Performer': return 'Best Performer';
+        default: return name;
+    }
 }
 
-// Interface for UserState in the userStore
 export interface UserState {
-  currentUser: UserData | null;
+  currentUser: EnrichedUserData | null;
   isAuthenticated: boolean;
-  nameCache: Map<string, { name: string, timestamp: number }>; // Matches NameCacheEntry
+  nameCache: Map<string, NameCacheEntry>;
   hasFetched: boolean;
   viewedUserProfile: ViewedUserProfile | null;
   viewedUserProjects: UserProject[];
-  viewedUserEvents: AppEvent[]; // Use AppEvent
-  userRequests: AppEvent[]; // Use AppEvent
+  viewedUserEvents: AppEvent[];
+  userRequests: AppEvent[];
   currentUserPortfolioData: {
     projects: Project[];
     eventParticipationCount: number;
   };
-  allUsers: UserData[]; // Added
-  studentList: UserData[]; // Added
-  leaderboardUsers: UserData[]; // Added for leaderboard
+  allUsers: UserData[]; // List of all users (base data)
+  studentList: UserData[]; // List of students (base data) - THIS IS THE KEY CHANGE FOR HYBRID
+  leaderboardUsers: EnrichedUserData[];
   loading: boolean;
-  error: Error | null; // Can also be 'any' or a custom error type
+  error: Error | null;
 }
 
-// Interface for user profile update payload
 export interface UserProfileUpdatePayload {
   userId: string;
   profileData: Partial<{
@@ -114,6 +90,6 @@ export interface UserProfileUpdatePayload {
     skills: string[];
     preferredRoles: string[];
     hasLaptop: boolean;
-    [key: string]: any; // Allow for additional fields
+    [key: string]: any;
   }>;
 }
