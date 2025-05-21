@@ -13,17 +13,65 @@ export enum EventStatus {
   Closed = 'Closed'
 }
 
+<<<<<<< HEAD
+=======
+// --- Supporting Types ---
+export interface EventCriteria {
+  constraintIndex: number;
+  constraintLabel: string;
+  constraintKey: string; // ADDED
+  xpValue: number; // RENAMED from points
+  roleKey?: string; // RENAMED from role
+  targetRole?: string;
+  votes?: { [userId: string]: string }; // RENAMED from criteriaSelections and made optional
+}
+
+export interface Submission {
+  projectName: string;
+  link: string;
+  submittedBy: string;
+  submittedAt: Timestamp;
+  description?: string | null;
+  participantId?: string | null; // For individual/competition submissions
+  teamId?: string; // For team submissions (stores teamName)
+}
+
+export interface Team {
+  id?: string; // Optional, if you use a unique ID for teams separate from name
+  teamName: string;
+  members: string[];
+  teamLead: string; // Required field
+}
+
+export interface WinnerInfo {
+  [Criteria: string]: string[]; // e.g. { "Best Designer": [userId1], ... }
+}
+
+export interface GalleryItem {
+  url: string;
+  addedBy: string;
+  description?: string;
+}
+
+>>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
 export enum EventFormat {
   Individual = 'Individual',
   Team = 'Team',
   Competition = 'Competition'
 }
 
+<<<<<<< HEAD
 // --- Supporting Interfaces (mostly remain the same) ---
 
 export interface EventDate {
   start: Timestamp | null;
   end: Timestamp | null;
+=======
+export interface OrganizerRating {
+  userId: string;
+  score: number; // RENAMED from rating
+  feedback?: string;
+>>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
 }
 
 export interface EventDetails {
@@ -127,5 +175,32 @@ export interface EventFormData {
   };
   criteria: EventCriterion[];
   teams?: Team[];
+<<<<<<< HEAD
   status?: EventStatus;
+=======
+  teamMembersFlat?: string[]; // ADDED: For Team format, a flat list of all member UIDs
+
+  // CONSOLIDATED SUBMISSIONS
+  submissions?: Submission[]; // Single list for all submissions
+
+  // ORGANIZER RATING - Keep top-level
+  organizerRating?: OrganizerRating[];
+
+  
+  winners?: WinnerInfo;
+
+  gallery?: GalleryItem[];
+  
+  // Controls if participants can submit votes
+  votingOpen: boolean;
+  
+  bestPerformerSelections?: Record<string, string>;
+
+  createdAt: Timestamp | null; // MODIFIED
+  lastUpdatedAt: Timestamp | null; // MODIFIED
+  completedAt?: Timestamp | null;
+  closedAt?: Timestamp | null;
+  rejectionReason?: string | null;
+  manuallySelectedBy?: string; // ADDED: To track if winners were manually set
+>>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
 }

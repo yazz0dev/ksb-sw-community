@@ -1,10 +1,15 @@
 // src/store/events/actions.submissions.ts (Conceptual Student Site Helpers)
 import { doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
+<<<<<<< HEAD
 import type { Event, Submission, EventStatus } from '@/types/event';
 import { EventFormat } from '@/types/event';
 
 const now = () => Timestamp.now();
+=======
+import { Event, Submission, EventStatus, EventFormat } from '@/types/event';
+import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mapper
+>>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
 
 /**
  * Adds a project submission to an event document in Firestore by a student.
@@ -26,7 +31,9 @@ export async function submitProjectByStudentInFirestore(
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        // Use the mapper to convert Firestore data to Event object
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
 
         if (eventData.status !== EventStatus.InProgress) throw new Error("Submissions only allowed for 'In Progress' events.");
         if (eventData.details.allowProjectSubmission === false) throw new Error("Project submissions are not allowed for this event.");

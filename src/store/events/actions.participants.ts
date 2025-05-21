@@ -1,10 +1,15 @@
 // src/store/events/actions.participants.ts (Conceptual Student Site Helpers)
 import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/firebase';
+<<<<<<< HEAD
 import type { Event, EventStatus, Team } from '@/types/event';
 import { EventFormat } from '@/types/event';
 
 const now = () => Timestamp.now();
+=======
+import { Event, EventStatus } from '@/types/event';
+import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mapper
+>>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
 
 /**
  * Adds a student to an event's participants list in Firestore (for Individual/Competition).
@@ -19,7 +24,9 @@ export async function joinEventByStudentInFirestore(eventId: string, studentId: 
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
 
         if (![EventStatus.Approved, EventStatus.InProgress].includes(eventData.status as EventStatus)) {
             throw new Error(`Cannot join event with status: ${eventData.status}`);
@@ -58,7 +65,8 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
 
         if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(eventData.status as EventStatus)) {
             throw new Error(`Cannot leave event with status: ${eventData.status}`);

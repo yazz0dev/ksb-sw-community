@@ -1,9 +1,14 @@
 // src/store/events/actions.teams.ts (Conceptual Student Site Helpers - limited scope)
 import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/firebase';
+<<<<<<< HEAD
 import type { Event, EventStatus, Team } from '@/types/event';
 import { EventFormat } from '@/types/event';
 import { deepClone } from '@/utils/helpers';
+=======
+import { Team, Event, EventFormat } from '@/types/event'; // Event is imported
+import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mapper
+>>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
 
 const now = () => Timestamp.now();
 
@@ -31,7 +36,15 @@ export async function requestToJoinTeamInFirestore(
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
+<<<<<<< HEAD
         const eventData = eventSnap.data() as Event;
+=======
+        // Use the mapper to convert Firestore data to Event object
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+
+        if (eventData.details.format !== EventFormat.Team) throw new Error("Teams can only be added to 'Team' format events.");
+>>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
 
         if (eventData.details.format !== EventFormat.Team) throw new Error("This action is only for team events.");
         if (eventData.status !== EventStatus.Approved) throw new Error("Can only join teams for approved events before they start.");
@@ -69,7 +82,15 @@ export async function leaveMyTeamInFirestore(eventId: string, studentId: string)
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
+<<<<<<< HEAD
         const eventData = eventSnap.data() as Event;
+=======
+        // Use the mapper to convert Firestore data to Event object
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+        
+        if (eventData.details.format !== EventFormat.Team) throw new Error("Cannot update teams for non-team events.");
+>>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
 
         if (eventData.details.format !== EventFormat.Team) throw new Error("This action is only for team events.");
         if (eventData.status !== EventStatus.Approved) throw new Error("Can only leave teams for approved events before they start.");
