@@ -3,6 +3,7 @@
 import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Event, EventStatus } from '@/types/event';
+import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mapper
 
 /**
  * Adds a user to an event's participants list in Firestore.
@@ -19,7 +20,9 @@ export async function joinEventInFirestore(eventId: string, userId: string): Pro
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
 
         // Validation
         if (![EventStatus.Approved, EventStatus.InProgress].includes(eventData.status as EventStatus)) {
@@ -58,7 +61,8 @@ export async function leaveEventInFirestore(eventId: string, userId: string): Pr
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
 
         // Validation
         if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(eventData.status as EventStatus)) {

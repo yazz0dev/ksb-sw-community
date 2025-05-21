@@ -16,10 +16,11 @@ export enum EventStatus {
 export interface EventCriteria {
   constraintIndex: number;
   constraintLabel: string;
-  points: number;
-  role?: string; // e.g., 'developer', 'designer', etc.
-  targetRole?: string; // Add targetRole as optional
-  criteriaSelections: { [userId: string]: string };
+  constraintKey: string; // ADDED
+  xpValue: number; // RENAMED from points
+  roleKey?: string; // RENAMED from role
+  targetRole?: string;
+  votes?: { [userId: string]: string }; // RENAMED from criteriaSelections and made optional
 }
 
 export interface Submission {
@@ -57,7 +58,7 @@ export enum EventFormat {
 
 export interface OrganizerRating {
   userId: string;
-  rating: number;
+  score: number; // RENAMED from rating
   feedback?: string;
 }
 
@@ -126,8 +127,8 @@ export interface Event {
   
   bestPerformerSelections?: Record<string, string>;
 
-  createdAt: Timestamp;
-  lastUpdatedAt: Timestamp; // ADDED
+  createdAt: Timestamp | null; // MODIFIED
+  lastUpdatedAt: Timestamp | null; // MODIFIED
   completedAt?: Timestamp | null;
   closedAt?: Timestamp | null;
   rejectionReason?: string | null;

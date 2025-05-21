@@ -1,11 +1,11 @@
 // src/store/events/actions.lifecycle.ts
 // Helper functions for lifecycle operations.
-import { doc, getDoc, updateDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Event, EventStatus } from '@/types/event';
+import { EventFormData, Event, EventStatus, EventFormat, EventCriteria } from '@/types/event';
 import { User } from '@/types/user'; // Assuming User type exists
 import { invokePushNotification, isSupabaseConfigured } from '@/notifications';
-import { mapEventDataToFirestore } from '@/utils/eventDataMapper'; // Import mapper
+import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mappers
 
 /**
  * Creates a new event request document in Firestore.
@@ -26,12 +26,11 @@ export async function createEventRequestInFirestore(initialData: Partial<Event>,
              ...initialData,
              requestedBy: currentUserUid,
              status: EventStatus.Pending,
-             createdAt: Timestamp.now(),
-             votingOpen: false, // Default value
+             // createdAt and votingOpen will be set by mapEventDataToFirestore if not present
         });
 
-        // Ensure lastUpdatedAt is also set on creation
-        mappedData.lastUpdatedAt = Timestamp.now();
+        // lastUpdatedAt is set by mapEventDataToFirestore
+        // delete mappedData.lastUpdatedAt; // No, this is set by the mapper
 
         // Remove fields that shouldn't be set on creation explicitly
         delete mappedData.id;
@@ -90,7 +89,10 @@ export async function createEventRequestInFirestore(initialData: Partial<Event>,
         // Trigger notification (keep this logic here or move to Pinia action)
         if (isSupabaseConfigured()) {
             invokePushNotification({
-                type: 'event_request', eventId: docRef.id, requestedBy: currentUserUid,
+                type: 'event_request', 
+                eventId: docRef.id, 
+                eventName: filteredData.details?.name || 'New Event', // ADDED eventName
+                requestedBy: currentUserUid,
             }).catch(pushError => {
                 console.error(`Failed to trigger Supabase function for event request:`, pushError);
                 // Consider how to notify about this - maybe return a flag?
@@ -123,7 +125,9 @@ export async function updateEventDetailsInFirestore(eventId: string, updates: Pa
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        // Use the mapper to convert Firestore data to Event object
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.'); // Should not happen if exists()
 
         // Enhanced Permission Check
         const isOrganizer = eventData.details?.organizers?.includes(currentUser.uid) || eventData.requestedBy === currentUser.uid;
@@ -143,7 +147,7 @@ export async function updateEventDetailsInFirestore(eventId: string, updates: Pa
         // Prepare payload using mapper
         const mappedUpdates = mapEventDataToFirestore({
             ...updates,
-            lastUpdatedAt: Timestamp.now(), // Ensure lastUpdatedAt is always updated
+            // lastUpdatedAt is set by mapEventDataToFirestore
         });
 
         // Prevent crucial fields from being overwritten accidentally
@@ -208,7 +212,9 @@ export async function updateEventStatusInFirestore(eventId: string, newStatus: E
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const currentEvent = eventSnap.data() as Event;
+        // Use the mapper to convert Firestore data to Event object
+        const currentEvent = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!currentEvent) throw new Error('Failed to map current event data.');
 
         // Permission Check: Allow organizers or the event requester.
         const isOrganizer = currentEvent.details?.organizers?.includes(currentUser.uid) || currentEvent.requestedBy === currentUser.uid;
@@ -222,33 +228,39 @@ export async function updateEventStatusInFirestore(eventId: string, newStatus: E
         };
         let notificationType = '';
         let targetUserIds: string[] = [];
+        let eventName = ''; // ADDED
 
         // Logic based on newStatus 
         switch (newStatus) {
             case EventStatus.Approved:
                 notificationType = 'event_approved';
                 targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : [];
+                eventName = currentEvent.details?.name || 'Your Event'; // ADDED
                 break;
             case EventStatus.InProgress:
                 updates.votingOpen = true; // Open voting when starting
                 notificationType = 'event_in_progress';
                 targetUserIds = currentEvent.details?.organizers || [];
+                eventName = currentEvent.details?.name || 'Event'; // ADDED
                 break;
             case EventStatus.Completed:
                 updates.completedAt = Timestamp.now();
                 updates.votingOpen = true; // Ensure voting are open initially on completion
                 notificationType = 'event_completed';
                 targetUserIds = currentEvent.details?.organizers || [];
+                eventName = currentEvent.details?.name || 'Event'; // ADDED
                 break;
             case EventStatus.Cancelled:
                 updates.votingOpen = false; // Close voting on cancellation
                 notificationType = 'event_cancelled';
                 targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : [];
+                eventName = currentEvent.details?.name || 'Event'; // ADDED
                 break;
             case EventStatus.Rejected:
                 updates.votingOpen = false;
                 notificationType = 'event_rejected'; // Assuming a type exists
                 targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : [];
+                eventName = currentEvent.details?.name || 'Your Event Request'; // ADDED
                 break;
             case EventStatus.Closed:
                 throw new Error(`Use 'closeEventPermanently' action to close an event.`);
@@ -261,7 +273,12 @@ export async function updateEventStatusInFirestore(eventId: string, newStatus: E
 
         // Trigger notification (keep logic here or move to Pinia action)
         if (isSupabaseConfigured() && notificationType && targetUserIds.length > 0) {
-            invokePushNotification({ type: notificationType, eventId, targetUserIds })
+            invokePushNotification({ 
+                type: notificationType, 
+                eventId, 
+                eventName, // ADDED
+                targetUserIds 
+            })
                 .catch(pushError => console.error("Push notification failed:", pushError));
         }
 
@@ -289,7 +306,9 @@ export async function closeEventDocumentInFirestore(eventId: string, currentUser
      try {
          const eventSnap = await getDoc(eventRef);
          if (!eventSnap.exists()) throw new Error('Event not found.');
-         const eventData = eventSnap.data() as Event;
+         // Use the mapper to convert Firestore data to Event object
+         const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+         if (!eventData) throw new Error('Failed to map event data for closing.');
 
          // Permission Check
          const isOrganizer = eventData.details?.organizers?.includes(currentUser.uid) || eventData.requestedBy === currentUser.uid;
@@ -312,4 +331,93 @@ export async function closeEventDocumentInFirestore(eventId: string, currentUser
          console.error(`Firestore closeEvent error for ${eventId}:`, error);
          throw new Error(`Failed to close event document: ${error.message}`);
      }
+}
+
+/**
+ * Creates a new event document in Firestore.
+ * @param eventData - The data for the event being created.
+ * @param userId - The ID of the user creating the event.
+ * @returns Promise<string> - The ID of the newly created event document.
+ * @throws Error if user not logged in, data invalid, or Firestore operation fails.
+ */
+export async function createEventInFirestore(eventData: EventFormData, userId: string): Promise<string> {
+    if (!userId) throw new Error("User ID is required to create an event.");
+    if (!eventData.details.eventName) throw new Error("Event name is required.");
+
+    const newEventRef = doc(collection(db, 'events'));
+    const newEventId = newEventRef.id;
+
+    // Prepare the Event object from EventFormData
+    const eventToCreate: Event = {
+        id: newEventId,
+        requestedBy: userId,
+        status: eventData.status || EventStatus.Pending, // Default to Pending if not specified
+        details: {
+            eventName: eventData.details.eventName,
+            description: eventData.details.description,
+            format: eventData.details.format,
+            type: eventData.details.type || 'General', // Default type
+            date: {
+                start: eventData.details.date.start ? Timestamp.fromDate(new Date(eventData.details.date.start)) : null,
+                end: eventData.details.date.end ? Timestamp.fromDate(new Date(eventData.details.date.end)) : null,
+            },
+            organizers: eventData.details.organizers || [userId], // Default organizer to requester
+            allowProjectSubmission: eventData.details.allowProjectSubmission || false,
+            prize: eventData.details.prize || undefined,
+            rules: eventData.details.rules || undefined,
+        },
+        criteria: eventData.criteria ? eventData.criteria.map((c, i) => ({ ...c, constraintKey: c.constraintKey || `criterion_${i}`})) : [],
+        teams: eventData.teams || [],
+        participants: [], // Initialize as empty
+        submissions: [], // Initialize as empty
+        organizerRating: [], // Initialize as empty
+        votingOpen: false, // Default to false
+        createdAt: Timestamp.now(),
+        lastUpdatedAt: Timestamp.now(),
+    };
+
+    try {
+        await setDoc(newEventRef, eventToCreate);
+        console.log("Firestore: Event created with ID:", newEventId);
+        return newEventId;
+    } catch (error: any) {
+        console.error("Error creating event in Firestore:", error);
+        throw new Error(`Failed to create event: ${error.message}`);
+    }
+}
+
+/**
+ * Requests deletion of an event by updating its document in Firestore.
+ * @param eventId - The ID of the event to delete.
+ * @param userId - The ID of the user requesting the deletion.
+ * @param reason - The reason for deletion.
+ * @returns Promise<void>
+ * @throws Error if event not found, user not authorized, or Firestore operation fails.
+ */
+export async function requestEventDeletionInFirestore(eventId: string, userId: string, reason: string): Promise<void> {
+    if (!eventId || !userId || !reason) {
+        throw new Error("Event ID, User ID, and reason are required for deletion request.");
+    }
+    // For now, this might just update the event status to something like 'PendingDeletion'
+    // Or add a field like `deletionRequestedBy: userId`, `deletionReason: reason`.
+    // True deletion should be an admin action.
+    // This example will add a request note to the event.
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        await updateDoc(eventRef, {
+            lastUpdatedAt: Timestamp.now(),
+            // Example: Add a specific field for deletion requests
+            deletionRequest: {
+                userId,
+                reason,
+                requestedAt: Timestamp.now(),
+            },
+            // Optionally, change status to a review state if applicable
+            // status: EventStatus.PendingDeletionReview 
+        });
+        console.log(`Firestore: Deletion requested for event ${eventId} by user ${userId}. Reason: ${reason}`);
+    } catch (error: any) {
+        console.error(`Error requesting deletion for event ${eventId}:`, error);
+        throw new Error(`Failed to request event deletion: ${error.message}`);
+    }
 }

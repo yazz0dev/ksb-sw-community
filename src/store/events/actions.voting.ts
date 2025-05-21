@@ -1,11 +1,11 @@
 // src/store/events/actions.voting.ts
 // Helper functions for rating actions.
-import { doc, getDoc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore'; // Removed arrayUnion/Remove, added writeBatch
+import { doc, getDoc, updateDoc, Timestamp, writeBatch, arrayUnion, runTransaction } from 'firebase/firestore'; // Removed arrayUnion/Remove, added writeBatch
 import { db } from '@/firebase';
-import { Event, EventStatus, OrganizerRating, EventFormat, EventCriteria, Team } from '@/types/event'; // Added EventFormat, EventCriteria, Team
-import { User } from '@/types/user'; // Assuming User type exists
-// ADDED: Import constants
+import { Event, EventCriteria, OrganizerRating, Team, Submission, EventStatus } from '@/types/event'; // Added Submission
+import { User } from '@/types/user';
 import { BEST_PERFORMER_LABEL } from '@/utils/constants';
+import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mapper
 
 /**
  * Toggle the voting open status of an event
@@ -26,7 +26,9 @@ export async function togglevotingOpenInFirestore(
             throw new Error('Event not found.');
         }
         
-        const eventData = eventSnap.data() as Event;
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+
         console.log('Current event data:', {
             eventId,
             status: eventData.status,
@@ -76,172 +78,382 @@ export async function togglevotingOpenInFirestore(
  * @returns Promise<void>
  * @throws Error if Firestore update fails or permissions/state invalid.
  */
-export async function submitTeamCriteriaVoteInFirestore(eventId: string, userId: string, selections: { criteria: Record<string, string>, bestPerformer?: string }): Promise<void> {
-    if (!eventId || !userId || !selections || typeof selections.criteria !== 'object') {
-        throw new Error('Missing required parameters for team vote.');
+export async function submitTeamCriteriaVoteInFirestore(
+    eventId: string,
+    userId: string,
+    selections: { criteria: Record<string, string>; bestPerformer?: string }
+): Promise<void> {
+    if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
+    if (!selections || typeof selections.criteria !== 'object' || Object.keys(selections.criteria).length === 0) {
+        throw new Error("Criteria selections are required.");
     }
+
     const eventRef = doc(db, 'events', eventId);
+    const batch = writeBatch(db);
+
     try {
-        // Fetch event to validate status and permissions
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
-        // Comparison eventData.votingOpen as a boolean
-        if (eventData.status !== EventStatus.Completed || !eventData.votingOpen) {
-            throw new Error("Selections can only be submitted for completed events with open voting.");
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+
+        // Validation
+        if (eventData.status !== EventStatus.Completed && eventData.status !== EventStatus.InProgress) {
+            throw new Error("Voting is only allowed for 'Completed' or 'In Progress' events.");
         }
-        // Additional checks: is user a participant?
-        const isParticipant = eventData.teams?.some(team => team.members?.includes(userId));
-        if (!isParticipant) throw new Error("Only team participants can submit selections.");
+        if (!eventData.votingOpen) throw new Error("Voting is currently closed for this event.");
+        if (eventData.details.format !== EventFormat.Team) throw new Error("Team criteria voting only for team events.");
+        if (!eventData.participants?.includes(userId) && !eventData.teams?.some(t => t.members.includes(userId))) {
+            throw new Error("Only event participants or team members can vote.");
+        }
 
-        // Create a single object for all updates
-        const updateData: Record<string, any> = {
-            // Always include lastUpdatedAt with the same timestamp value
-            lastUpdatedAt: Timestamp.now()
-        };
-        
-        let hasActualVoteData = false;
-
-        // Process criteria selections
-        if (Array.isArray(eventData.criteria)) {
-            eventData.criteria.forEach((criterion, index) => {
-                const indexStr = String(criterion.constraintIndex);
-                if (selections.criteria[indexStr] !== undefined) { // User made a selection (or cleared one) for this criterion
-                    const path = `criteria.${index}.criteriaSelections.${userId}`;
-                    updateData[path] = selections.criteria[indexStr] || null; // Set null to clear vote
-                    hasActualVoteData = true; 
+        // Prepare updates for criteria selections
+        (eventData.criteria || []).forEach((criterion, index) => {
+            const selectedTeamName = selections.criteria[criterion.constraintKey]; // Use constraintKey
+            if (selectedTeamName) {
+                // Ensure votes map exists for the criterion at this index
+                // This check might be redundant if Firestore automatically creates nested maps, but good for clarity
+                if (!eventData.criteria?.[index]?.votes) {
+                    // This part is tricky with batch updates. 
+                    // It's generally better to ensure the structure exists or handle it server-side with rules/functions.
+                    // For client-side, if `criteria[index].votes` might not exist, it's safer to fetch, update locally, then set the whole criteria array.
+                    // However, given the current structure, we assume `votes` can be an empty map and Firestore handles path creation.
                 }
-            });
-        }
+                const fieldPath = `criteria.${index}.votes.${userId}`;
+                batch.update(eventRef, { [fieldPath]: selectedTeamName });
+            }
+        });
 
-        // Add best performer selection
-        if (selections.bestPerformer !== undefined) { // Check if bestPerformer selection was made or cleared
-            const bestPerformerPath = `bestPerformerSelections.${userId}`;
-            updateData[bestPerformerPath] = selections.bestPerformer || null;
-            hasActualVoteData = true;
+        // Prepare update for best performer selection if provided
+        if (selections.bestPerformer) {
+            // Similar to above, ensure `bestPerformerSelections` map exists or Firestore handles path creation.
+            const bestPerformerFieldPath = `bestPerformerSelections.${userId}`;
+            batch.update(eventRef, { [bestPerformerFieldPath]: selections.bestPerformer });
         }
         
-        // Only proceed with the update if there's actual vote data to submit
-        // or if it's a scenario where just updating lastUpdatedAt is intended (though rules might prevent this alone).
-        // The security rule `hasAny(['criteria', 'bestPerformerSelections'])` means we MUST affect one of those.
-        if (!hasActualVoteData) {
-            // If the user submitted no changes (e.g. an empty form), and there were no previous votes to clear,
-            // we might not need to write to Firestore at all, or the rules will block it.
-            // For now, let's log this and not proceed with the write if no actual vote changes.
-            // This assumes clearing a vote is still a "vote".
-            console.log(`Firestore: No actual vote changes to submit for event ${eventId} by user ${userId}. Skipping Firestore write.`);
-            // Optionally, you could throw an error here if submitting an "empty" vote is not allowed by business logic.
-            // Example: throw new Error("No selections made.");
-            return; // Exit if no actual vote data, preventing an update with only lastUpdatedAt
-        }
+        batch.update(eventRef, { lastUpdatedAt: Timestamp.now() });
 
-        // Single updateDoc call with all changes
-        await updateDoc(eventRef, updateData);
+        await batch.commit();
+        console.log(`Firestore: Vote submitted by ${userId} for event ${eventId}.`);
 
-        console.log(`Firestore: Team selections submitted by ${userId} for event ${eventId}.`);
     } catch (error: any) {
         console.error(`Firestore submitTeamCriteriaVote error for ${eventId}:`, error);
-        throw new Error(`Failed to submit team selections: ${error.message}`);
+        throw new Error(`Failed to submit vote: ${error.message}`);
     }
 }
 
 /**
- * Submits a user's vote/selection for individual event criteria winners in Firestore.
- * Uses dot notation to update nested maps within the 'criteria' array elements.
+ * Submits a user's vote for an individual winner in Firestore.
  * @param eventId - The ID of the event.
  * @param userId - The UID of the user submitting the vote.
- * @param winnerSelections - Object mapping { constraintIndex: winnerId }.
+ * @param selectedWinnerId - The UID of the user selected as the winner.
  * @returns Promise<void>
  * @throws Error if Firestore update fails or permissions/state invalid.
  */
-export async function submitIndividualWinnerVoteInFirestore(eventId: string, userId: string, winnerSelections: Record<string, string>): Promise<void> {
-     if (!eventId || !userId || typeof winnerSelections !== 'object') {
-         throw new Error('Missing required parameters for individual vote.');
-     }
-     const eventRef = doc(db, 'events', eventId);
-     try {
-         // Fetch event to validate status and permissions
-         const eventSnap = await getDoc(eventRef);
-         if (!eventSnap.exists()) throw new Error('Event not found.');
-         const eventData = eventSnap.data() as Event;
-         // Comparison eventData.votingOpen as a boolean
-         if (eventData.status !== EventStatus.Completed || !eventData.votingOpen) {
-             throw new Error("Winner selection only available for completed events with open voting.");
-         }
-          // Additional checks: is user a participant?
-         const isParticipant = eventData.participants?.includes(userId);
-         if (!isParticipant) throw new Error("Only event participants can submit selections.");
-
-         // Create a single object for all updates, always including lastUpdatedAt
-         const updateData: Record<string, any> = {
-             lastUpdatedAt: Timestamp.now()
-         };
-         let hasActualVoteData = false;
-
-         // Update criteria selections within the criteria array
-         if (Array.isArray(eventData.criteria)) {
-             eventData.criteria.forEach((criterion, index) => {
-                 const indexStr = String(criterion.constraintIndex);
-                 if (winnerSelections[indexStr] !== undefined) { // User made a selection (or cleared one)
-                     const selectedWinnerId = winnerSelections[indexStr];
-                     
-                     // Prevent voting for oneself
-                     if (selectedWinnerId === userId) {
-                         throw new Error("You cannot vote for yourself.");
-                     }
-                     
-                     const path = `criteria.${index}.criteriaSelections.${userId}`;
-                     updateData[path] = selectedWinnerId || null; // Set null to clear vote
-                     hasActualVoteData = true;
-                 }
-             });
-         }
-         
-         if (!hasActualVoteData) {
-            console.log(`Firestore: No actual individual vote changes to submit for event ${eventId} by user ${userId}. Skipping Firestore write.`);
-            return; 
-        }
-
-         // Single updateDoc call with all changes
-         await updateDoc(eventRef, updateData);
-         
-         console.log(`Firestore: Individual selections submitted by ${userId} for event ${eventId}.`);
-     } catch (error: any) {
-         console.error(`Firestore submitIndividualWinnerVote error for ${eventId}:`, error);
-         throw new Error(`Failed to submit individual selections: ${error.message}`);
-     }
-}
-
-// Add a new function for manual winner selection by organizers
-export async function submitManualWinnerSelectionInFirestore(eventId: string, organizerId: string, winnerSelections: Record<string, string[]>): Promise<void> {
-    if (!eventId || !organizerId || typeof winnerSelections !== 'object') {
-        throw new Error('Missing required parameters for manual winner selection.');
+export async function submitIndividualWinnerVoteInFirestore(
+    eventId: string,
+    userId: string,
+    selectedWinnerId: string 
+): Promise<void> {
+    if (!eventId || !userId || !selectedWinnerId) { // Check selectedWinnerId
+        throw new Error("Event ID, User ID, and Selected Winner ID are required.");
     }
-    
+
     const eventRef = doc(db, 'events', eventId);
     try {
-        // Fetch event to validate status and permissions
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
-        
-        // Only allow for completed events with closed voting
-        if (eventData.status !== EventStatus.Completed) {
-            throw new Error("Manual winner selection only available for completed events.");
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+
+        // Validation
+        if (eventData.status !== EventStatus.Completed && eventData.status !== EventStatus.InProgress) {
+            throw new Error("Voting is only allowed for 'Completed' or 'In Progress' events.");
         }
-        
-        // Check if user is an organizer
-        const isOrganizer = eventData.details?.organizers?.includes(organizerId) || eventData.requestedBy === organizerId;
-        if (!isOrganizer) throw new Error("Only event organizers can manually select winners.");
-        
-        // Update winners directly
-        await updateDoc(eventRef, { 
-            winners: winnerSelections,
-            manuallySelectedBy: organizerId,
-            lastUpdatedAt: Timestamp.now() // ADDED
+        if (!eventData.votingOpen) throw new Error("Voting is currently closed for this event.");
+        if (eventData.details.format === EventFormat.Team) {
+            throw new Error("Individual winner voting not applicable for team events. Use team criteria voting.");
+        }
+        if (!eventData.participants?.includes(userId)) {
+            throw new Error("Only event participants can vote.");
+        }
+        if (!eventData.participants?.includes(selectedWinnerId)) {
+            throw new Error("Selected winner must be a participant in the event.");
+        }
+
+        // Update using dot notation for the bestPerformerSelections map
+        // For individual events, the winner is typically stored in a way that reflects a single overall winner.
+        // Using `bestPerformerSelections` might be okay if the UI/logic treats it as the overall winner.
+        // If a different field like `overallWinnerSelections` is intended, this path should change.
+        const fieldPath = `bestPerformerSelections.${userId}`;
+        await updateDoc(eventRef, {
+            [fieldPath]: selectedWinnerId, // Store the selected winner ID
+            lastUpdatedAt: Timestamp.now()
         });
-        
-        console.log(`Firestore: Manual winner selection submitted by organizer ${organizerId} for event ${eventId}.`);
+
+        console.log(`Firestore: Individual winner vote by ${userId} for ${selectedWinnerId} in event ${eventId}.`);
+
+    } catch (error: any) {
+        console.error(`Firestore submitIndividualWinnerVote error for ${eventId}:`, error);
+        throw new Error(`Failed to submit individual winner vote: ${error.message}`);
+    }
+}
+
+/**
+ * Submits an organizer rating for an event in Firestore.
+ * @param eventId - The ID of the event.
+ * @param userId - The UID of the user submitting the rating.
+ * @param ratingData - The rating data (score, comment).
+ * @returns Promise<void>
+ * @throws Error if Firestore update fails or permissions/state invalid.
+ */
+export async function submitOrganizationRatingInFirestore(
+    eventId: string,
+    userId: string,
+    ratingData: { score: number; comment?: string } 
+): Promise<void> {
+    if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
+    // Validate score from ratingData object
+    if (!ratingData || typeof ratingData.score !== 'number' || ratingData.score < 1 || ratingData.score > 5) {
+        throw new Error("Valid rating score (1-5) is required.");
+    }
+
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+
+        // Validation
+        if (eventData.status !== EventStatus.Completed) {
+            throw new Error("Ratings can only be submitted for 'Completed' events.");
+        }
+        if (!eventData.participants?.includes(userId) && !eventData.teams?.some(t => t.members.includes(userId))) {
+            throw new Error("Only event participants or team members can submit ratings.");
+        }
+        const existingRating = eventData.organizerRating?.find(r => r.userId === userId);
+        if (existingRating) throw new Error("You have already submitted a rating for this event.");
+
+        const newRating: OrganizerRating = {
+            userId,
+            score: ratingData.score, // Use score from ratingData
+            comment: ratingData.comment || null, // Use comment from ratingData
+            ratedAt: Timestamp.now(),
+        };
+
+        // Firestore's arrayUnion correctly adds to the array or creates it if it doesn't exist.
+        await updateDoc(eventRef, {
+            organizerRating: arrayUnion(newRating),
+            lastUpdatedAt: Timestamp.now()
+        });
+
+        console.log(`Firestore: Organizer rating submitted by ${userId} for event ${eventId}.`);
+
+    } catch (error: any) {
+        console.error(`Firestore submitOrganizationRating error for ${eventId}:`, error);
+        throw new Error(`Failed to submit organization rating: ${error.message}`);
+    }
+}
+
+/**
+ * Calculates winners based on votes stored in Firestore.
+ * This function reads vote data but does NOT write back to Firestore.
+ * @param eventId - The ID of the event.
+ * @returns Promise<Record<string, string | string[]>> - Object mapping criteria keys/best performer to winner(s).
+ * @throws Error if event not found, not completed, or calculation fails.
+ */
+export async function calculateWinnersFromVotes(eventId: string): Promise<Record<string, string | string[]>> { // Parameter changed to eventId
+    if (!eventId) throw new Error('Event ID required.');
+
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        // Use the mapper to ensure data is in the correct structure
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+
+        // Access eventData.details.format, eventData.criteria, eventData.bestPerformerSelections
+        if (eventData.status !== EventStatus.Completed) {
+            throw new Error("Winners can only be calculated for 'Completed' events.");
+        }
+
+        const results: Record<string, string | string[]> = {};
+
+        // Calculate winners for each criterion (Team events)
+        if (eventData.details.format === EventFormat.Team && eventData.criteria) {
+            eventData.criteria.forEach(criterion => {
+                if (!criterion.votes || Object.keys(criterion.votes).length === 0) return; // Skip if no votes for this criterion
+
+                const voteCounts: Record<string, number> = {};
+                Object.values(criterion.votes).forEach(teamName => {
+                    voteCounts[teamName] = (voteCounts[teamName] || 0) + 1;
+                });
+
+                let maxVotes = 0;
+                let winningTeams: string[] = [];
+                for (const teamName in voteCounts) {
+                    if (voteCounts[teamName] > maxVotes) {
+                        maxVotes = voteCounts[teamName];
+                        winningTeams = [teamName];
+                    } else if (voteCounts[teamName] === maxVotes) {
+                        winningTeams.push(teamName);
+                    }
+                }
+                // Store single winner or array for ties
+                results[criterion.constraintKey] = winningTeams.length === 1 ? winningTeams[0] : winningTeams;
+            });
+        }
+
+        // Calculate Best Performer (Individual or Team events)
+        if (eventData.bestPerformerSelections && Object.keys(eventData.bestPerformerSelections).length > 0) {
+            const bestPerformerVotes: Record<string, number> = {};
+            Object.values(eventData.bestPerformerSelections).forEach(selectedUserId => {
+                // Ensure selectedUserId is a string before using as key
+                if (typeof selectedUserId === 'string') {
+                    bestPerformerVotes[selectedUserId] = (bestPerformerVotes[selectedUserId] || 0) + 1;
+                }
+            });
+
+            let maxVotes = 0;
+            let bestPerformers: string[] = [];
+            for (const userId in bestPerformerVotes) {
+                if (bestPerformerVotes[userId] > maxVotes) {
+                    maxVotes = bestPerformerVotes[userId];
+                    bestPerformers = [userId];
+                } else if (bestPerformerVotes[userId] === maxVotes) {
+                    bestPerformers.push(userId);
+                }
+            }
+            results[BEST_PERFORMER_LABEL] = bestPerformers.length === 1 ? bestPerformers[0] : bestPerformers;
+        }
+
+        return results;
+
+    } catch (error: any) {
+        console.error(`Error calculating winners for event ${eventId}:`, error);
+        throw new Error(`Failed to calculate winners: ${error.message}`);
+    }
+}
+
+/**
+ * Saves the calculated/manually selected winners to the event document in Firestore.
+ * @param eventId - The ID of the event.
+ * @param winners - An object mapping criteria keys/best performer to winner(s).
+ * @param manuallySelectedBy - UID of admin/organizer if manually selected.
+ * @returns Promise<void>
+ * @throws Error if event not found or Firestore update fails.
+ */
+export async function saveWinnersToFirestore(
+    eventId: string, 
+    winners: Record<string, string | string[]>, 
+    manuallySelectedBy?: string
+): Promise<void> {
+    if (!eventId) throw new Error('Event ID required.');
+    if (!winners || Object.keys(winners).length === 0) throw new Error('Winners data is required.');
+
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        const updatePayload: Record<string, any> = {
+            winners,
+            lastUpdatedAt: Timestamp.now() // ADDED
+        };
+        if (manuallySelectedBy) {
+            updatePayload.manuallySelectedBy = manuallySelectedBy;
+        }
+        await updateDoc(eventRef, updatePayload);
+        console.log(`Firestore: Winners saved for event ${eventId}.`);
+
+    } catch (error: any) {
+        console.error(`Firestore saveWinners error for ${eventId}:`, error);
+        throw new Error(`Failed to save winners: ${error.message}`);
+    }
+}
+
+/**
+ * Submits manually selected winners for an event by an organizer.
+ * @param eventId The ID of the event.
+ * @param userId The UID of the organizer submitting the selection.
+ * @param selections Object mapping criteria keys (or 'bestPerformer') to selected team name or user ID.
+ *                   Example: { "criterion_1_key": "TeamAlpha", "bestPerformer": "user123" }
+ * @returns Promise<void>
+ */
+export async function submitManualWinnerSelectionInFirestore(
+    eventId: string,
+    userId: string, // Organizer's UID
+    // Changed selections from Record<string, string[]> to Record<string, string>
+    // This implies one winner per category/best performer, no ties in manual selection.
+    selections: Record<string, string> 
+): Promise<void> {
+    if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
+    if (!selections || Object.keys(selections).length === 0) {
+        throw new Error("Winner selections are required.");
+    }
+
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+
+        // Permission & State Validation
+        const isOrganizer = eventData.details?.organizers?.includes(userId) || eventData.requestedBy === userId;
+        if (!isOrganizer) {
+            throw new Error("Only event organizers can manually select winners.");
+        }
+        if (eventData.status !== EventStatus.Completed) {
+            throw new Error("Manual winner selection is only allowed for 'Completed' events.");
+        }
+        // Optional: Check if voting was open and if it should be closed first
+        // if (eventData.votingOpen) {
+        //     throw new Error("Voting must be closed before manually selecting winners.");
+        // }
+
+        // Validate selections against event criteria and participants/teams
+        for (const key in selections) {
+            const selectedValue = selections[key];
+            if (key === BEST_PERFORMER_LABEL) {
+                // Access format from eventData.details.format
+                if (eventData.details.format === EventFormat.Team) {
+                    // If team event, best performer should be a user from one of the teams
+                    const allTeamMembers = eventData.teams?.flatMap(t => t.members.map(m => m.userId)) || []; // Assuming members is array of {userId: string}
+                    if (!allTeamMembers.includes(selectedValue)) {
+                        throw new Error(`Selected best performer (${selectedValue}) is not a member of any team in this event.`);
+                    }
+                } else {
+                    // If individual event, best performer should be a participant
+                    if (!eventData.participants?.includes(selectedValue)) {
+                        throw new Error(`Selected best performer (${selectedValue}) is not a participant in this event.`);
+                    }
+                }
+            } else {
+                // This is a criteria-based selection, should be a team name
+                // Access criteria from eventData.criteria
+                const criterionExists = eventData.criteria?.some(c => c.constraintKey === key);
+                if (!criterionExists) {
+                    throw new Error(`Invalid criterion key provided: ${key}`);
+                }
+                // Access teams from eventData.teams
+                const teamExists = eventData.teams?.some(t => t.teamName === selectedValue);
+                if (!teamExists) {
+                    throw new Error(`Selected team (${selectedValue}) for criterion ${key} does not exist in this event.`);
+                }
+            }
+        }
+
+        // Update Firestore with the manual selections
+        // This will overwrite any existing winners from voting.
+        await updateDoc(eventRef, {
+            winners: selections, // Winners are now Record<string, string>
+            manuallySelectedBy: userId,
+            votingOpen: false, // Ensure voting is closed
+            lastUpdatedAt: Timestamp.now()
+        });
+
+        console.log(`Firestore: Manual winner selection by ${userId} for event ${eventId} saved.`);
+
     } catch (error: any) {
         console.error(`Firestore submitManualWinnerSelection error for ${eventId}:`, error);
         throw new Error(`Failed to submit manual winner selection: ${error.message}`);
@@ -249,162 +461,395 @@ export async function submitManualWinnerSelectionInFirestore(eventId: string, or
 }
 
 /**
- * Adds or updates an organizer rating for a specific user in Firestore.
- * Reads the existing array, modifies it locally, and writes it back to ensure uniqueness.
+ * Records an organizer's rating for an event in Firestore.
  * @param eventId - The ID of the event.
  * @param userId - The UID of the user submitting the rating.
- * @param score - The rating score (1-5).
- * @param feedback - Optional feedback text.
+ * @param ratingData - The rating data (score, feedback).
  * @returns Promise<void>
  * @throws Error if Firestore update fails or permissions/state invalid.
  */
-export async function submitOrganizationRatingInFirestore(eventId: string, userId: string, score: number, feedback?: string): Promise<void> {
-    if (!eventId || !userId) throw new Error('Event ID and User ID required.');
-    if (typeof score !== 'number' || score < 1 || score > 5) throw new Error("Invalid rating score.");
+export async function recordOrganizerRatingInFirestore(
+    eventId: string,
+    userId: string,
+    ratingData: { score: number; feedback?: string }
+): Promise<void> {
+    if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
+    if (ratingData.score === undefined || ratingData.score < 1 || ratingData.score > 5) {
+        throw new Error("Rating score must be between 1 and 5.");
+    }
 
     const eventRef = doc(db, 'events', eventId);
     try {
-        // Fetch event for validation and current voting
+        await runTransaction(db, async (transaction) => {
+            const eventSnap = await transaction.get(eventRef);
+            if (!eventSnap.exists()) throw new Error("Event not found.");
+
+            const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+            if (!eventData) throw new Error("Could not map event data.");
+
+            if (eventData.status !== EventStatus.Completed && eventData.status !== EventStatus.Closed) {
+                throw new Error("Organizer ratings can only be submitted for completed or closed events.");
+            }
+
+            // Check if user is a participant or team member (if applicable)
+            const isParticipant = eventData.participants?.includes(userId) || 
+                                  eventData.teamMembersFlat?.includes(userId);
+            if (!isParticipant) {
+                throw new Error("Only event participants can rate organizers.");
+            }
+
+            let organizerRatings = eventData.organizerRating || [];
+            const existingRatingIndex = organizerRatings.findIndex(r => r.userId === userId);
+
+            const newRating: OrganizerRating = {
+                userId,
+                score: ratingData.score, // Use score
+                feedback: ratingData.feedback || null,
+            };
+
+            if (existingRatingIndex > -1) {
+                organizerRatings[existingRatingIndex] = newRating;
+            } else {
+                organizerRatings.push(newRating);
+            }
+
+            transaction.update(eventRef, { 
+                organizerRating: organizerRatings,
+                lastUpdatedAt: Timestamp.now()
+            });
+        });
+        console.log(`Firestore: Organizer rating recorded for event ${eventId} by user ${userId}.`);
+    } catch (error: any) {
+        console.error(`Error recording organizer rating for event ${eventId}:`, error);
+        throw new Error(`Failed to record organizer rating: ${error.message}`);
+    }
+}
+
+/**
+ * Casts a vote for a criterion in an event.
+ * This function updates the votes for a specific criterion, identified by its constraint key.
+ * @param eventId - The ID of the event.
+ * @param userId - The UID of the user casting the vote.
+ * @param criteriaConstraintKey - The constraint key of the criterion being voted on.
+ * @param selectedValue - The value selected by the user (e.g., team name).
+ * @returns Promise<void>
+ * @throws Error if Firestore update fails or permissions/state invalid.
+ */
+export async function castVoteInFirestore(
+    eventId: string,
+    userId: string,
+    criteriaConstraintKey: string,
+    selectedValue: string
+): Promise<void> {
+    if (!eventId || !userId || !criteriaConstraintKey || !selectedValue) {
+        throw new Error("Event ID, User ID, criteria key, and selected value are required.");
+    }
+
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const eventSnap = await transaction.get(eventRef);
+            if (!eventSnap.exists()) throw new Error("Event not found.");
+
+            const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+            if (!eventData) throw new Error("Could not map event data.");
+
+            if (!eventData.votingOpen) throw new Error("Voting is not open for this event.");
+
+            // Check if user is an organizer (organizers typically cannot vote)
+            if (eventData.details.organizers?.includes(userId)) {
+                throw new Error("Organizers cannot vote in their own event.");
+            }
+
+            // Check if user is a participant or team member (if applicable)
+            const isParticipantOrTeamMember = eventData.participants?.includes(userId) || 
+                                            eventData.teamMembersFlat?.includes(userId);
+            if (!isParticipantOrTeamMember) {
+                throw new Error("Only registered participants or team members can vote.");
+            }
+
+            const criteriaIndex = eventData.criteria?.findIndex(c => c.constraintKey === criteriaConstraintKey);
+            if (criteriaIndex === undefined || criteriaIndex === -1 || !eventData.criteria) {
+                throw new Error(`Criteria with key '${criteriaConstraintKey}' not found.`);
+            }
+
+            const criterion = eventData.criteria[criteriaIndex];
+            if (!criterion.votes) {
+                criterion.votes = {}; // Initialize if undefined
+            }
+            criterion.votes[userId] = selectedValue;
+
+            // Create a new array for criteria to ensure Firestore detects the change in the nested object
+            const updatedCriteria = [...eventData.criteria];
+            updatedCriteria[criteriaIndex] = criterion;
+
+            transaction.update(eventRef, { 
+                criteria: updatedCriteria,
+                lastUpdatedAt: Timestamp.now()
+            });
+        });
+        console.log(`Firestore: Vote cast by ${userId} for criteria ${criteriaConstraintKey} in event ${eventId}.`);
+    } catch (error: any) {
+        console.error(`Error casting vote for event ${eventId}:`, error);
+        throw new Error(`Failed to cast vote: ${error.message}`);
+    }
+}
+
+/**
+ * Selects the best performer for an event.
+ * This function allows an organizer to select a user as the best performer, typically based on overall performance.
+ * @param eventId - The ID of the event.
+ * @param userId - The UID of the organizer casting the selection.
+ * @param selectedUserId - The UID of the user selected as the best performer.
+ * @returns Promise<void>
+ * @throws Error if Firestore update fails or permissions/state invalid.
+ */
+export async function selectBestPerformerInFirestore(
+    eventId: string,
+    userId: string,
+    selectedUserId: string
+): Promise<void> {
+    if (!eventId || !userId || !selectedUserId) {
+        throw new Error("Event ID, voting User ID, and selected User ID are required.");
+    }
+
+    const eventRef = doc(db, 'events', eventId);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const eventSnap = await transaction.get(eventRef);
+            if (!eventSnap.exists()) throw new Error("Event not found.");
+
+            const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+            if (!eventData) throw new Error("Could not map event data.");
+
+            if (!eventData.votingOpen) throw new Error("Voting for best performer is not open.");
+
+            // Check if the voting user is an organizer
+            if (!eventData.details.organizers?.includes(userId)) {
+                throw new Error("Only organizers can select the best performer.");
+            }
+
+            // Check if the selected user is a participant or team member
+            const isParticipantOrTeamMember = eventData.participants?.includes(selectedUserId) || 
+                                            eventData.teamMembersFlat?.includes(selectedUserId);
+            if (!isParticipantOrTeamMember) {
+                throw new Error("Selected user is not a participant or team member of this event.");
+            }
+
+            let selections = eventData.bestPerformerSelections || {};
+            selections[userId] = selectedUserId; // Record which organizer selected whom
+
+            transaction.update(eventRef, { 
+                bestPerformerSelections: selections,
+                lastUpdatedAt: Timestamp.now()
+            });
+        });
+        console.log(`Firestore: Best performer selection by ${userId} for ${selectedUserId} in event ${eventId}.`);
+    } catch (error: any) {
+        console.error(`Error selecting best performer for event ${eventId}:`, error);
+        throw new Error(`Failed to select best performer: ${error.message}`);
+    }
+}
+
+/**
+ * Toggles the voting status for an event in Firestore.
+ * @param eventId - The ID of the event.
+ * @param open - Boolean indicating whether to open or close voting.
+ * @param currentUser - The user attempting the action.
+ * @returns Promise<void>
+ */
+export async function toggleVotingStatusInFirestore(eventId: string, open: boolean, currentUser: User | null): Promise<void> {
+    if (!eventId) throw new Error('Event ID is required.');
+    if (!currentUser?.uid) throw new Error('User not authenticated.');
+
+    const eventRef = doc(db, 'events', eventId);
+    try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Could not map event data.');
 
-        // --- Validation ---
-        if (eventData.status !== EventStatus.Completed) throw new Error("Can only rate completed events.");
-        if (eventData.details?.organizers?.includes(userId)) throw new Error("Organizers cannot rate their own event.");
-        // Check if user participated (individual or team)
-        const isParticipant = (eventData.participants?.includes(userId) || eventData.teams?.some(t => t.members?.includes(userId)));
-        if (!isParticipant) throw new Error("Only event participants can rate organizers.");
-        // --- End Validation ---
-
-        const newRating: OrganizerRating = { userId, rating: score };
-        if (feedback?.trim()) newRating.feedback = feedback.trim(); // Add trimmed feedback if provided
-
-        // Ensure organizerRating is always an array, even if it doesn't exist in Firestore yet
-        const currentRatings = Array.isArray(eventData.organizerRating) ? [...eventData.organizerRating] : [];
-
-        // Find index of existing rating by this user
-        const existingRatingIndex = currentRatings.findIndex(r => r.userId === userId);
-
-        if (existingRatingIndex !== -1) {
-            // Update existing rating
-            currentRatings[existingRatingIndex] = newRating;
-        } else {
-            // Add new rating
-            currentRatings.push(newRating);
+        // Permission Check: Only organizers can toggle voting
+        const isOrganizer = eventData.details.organizers?.includes(currentUser.uid) || eventData.requestedBy === currentUser.uid;
+        if (!isOrganizer) {
+            throw new Error('Only organizers can change voting status.');
         }
 
-        // Overwrite the entire array in Firestore
+        // State Check: Cannot open voting for events that are not InProgress or Completed.
+        // Can close voting for InProgress or Completed.
+        if (open && ![EventStatus.InProgress, EventStatus.Completed].includes(eventData.status)) {
+            throw new Error(`Cannot open voting for event in status '${eventData.status}'. Event must be InProgress or Completed.`);
+        }
+        if (!open && ![EventStatus.InProgress, EventStatus.Completed].includes(eventData.status)) {
+             console.warn(`Voting is being closed for an event not InProgress or Completed (Status: ${eventData.status}). This is allowed but might be unusual.`);
+        }
+        // Cannot toggle voting if event is Closed
+        if (eventData.status === EventStatus.Closed) {
+            throw new Error("Cannot change voting status for a closed event.");
+        }
+
         await updateDoc(eventRef, {
-            organizerRating: currentRatings,
-            lastUpdatedAt: Timestamp.now() // ADDED
+            votingOpen: open,
+            lastUpdatedAt: Timestamp.now(),
         });
+        console.log(`Firestore: Voting for event ${eventId} has been ${open ? 'opened' : 'closed'}.`);
 
-        console.log(`Firestore: Organizer rating submitted/updated by ${userId} for event ${eventId}.`);
+        // Trigger notification
+        if (isSupabaseConfigured()) {
+            const notificationType = open ? 'voting_opened' : 'voting_closed';
+            // Notify all participants and team members
+            const targetUserIds = [
+                ...(eventData.participants || []),
+                ...(eventData.teamMembersFlat || [])
+            ].filter((id, index, self) => id && self.indexOf(id) === index); // Unique, non-null IDs
+
+            if (targetUserIds.length > 0) {
+                invokePushNotification({
+                    type: notificationType,
+                    eventId,
+                    eventName: eventData.details.eventName || 'Event',
+                    targetUserIds,
+                }).catch(pushError => console.error("Push notification failed:", pushError));
+            }
+        }
+
     } catch (error: any) {
-        console.error(`Firestore submitOrganizationRating error for ${eventId}:`, error);
-        throw new Error(`Failed to submit organizer rating: ${error.message}`);
+        console.error(`Error toggling voting status for event ${eventId}:`, error);
+        throw new Error(`Failed to toggle voting status: ${error.message}`);
     }
 }
 
-/**
- * Calculates winners based on vote counts stored in criteriaSelections/bestPerformerSelections.
- * This function ONLY calculates, it does NOT write back to Firestore.
- * @param eventData - The full event data object.
- * @returns Promise<Record<string, string[]>> - A map where keys are criterion labels (or 'Best Performer') and values are arrays of winner IDs (user or team).
- * @throws Error if calculation is not possible (e.g., no criteria).
- */
-export async function calculateWinnersFromVotes(eventData: Event): Promise<Record<string, string[]>> {
-    const finalWinners: Record<string, string[]> = {};
-    const criteriaArray = Array.isArray(eventData.criteria) ? eventData.criteria : [];
-
-    if (criteriaArray.length === 0) {
-        console.warn(`Cannot calculate winners for event ${eventData.id}: No criteria defined.`);
-        return {};
-    }
-
-    // Calculate winners for each standard criterion
-    for (const criterion of criteriaArray) {
-        // Skip the special 'Best Performer' if it exists in criteria array
-        if (criterion.constraintLabel === BEST_PERFORMER_LABEL) continue; // ADDED continue
-         // Skip invalid criteria
-        if (typeof criterion.constraintIndex !== 'number') { continue; }; // FIXED: added continue
-
-        // Ensure selections exist and is an object
-        const selections = (criterion.criteriaSelections && typeof criterion.criteriaSelections === 'object') ? criterion.criteriaSelections : {};
-        const voteCounts: Record<string, number> = {}; // ID (teamName or participantId) -> vote count
-
-        Object.values(selections).forEach(selectedId => {
-            if (selectedId) { // selectedId is the teamName or participantId voted for
-                voteCounts[selectedId] = (voteCounts[selectedId] || 0) + 1;
-            }
-        });
-
-        // Find winner(s) for this criterion
-        let maxVotes = 0;
-        let winnersForCriterion: string[] = [];
-        for (const [id, count] of Object.entries(voteCounts)) {
-            if (count > maxVotes) {
-                maxVotes = count;
-                winnersForCriterion = [id];
-            } else if (count === maxVotes && maxVotes > 0) { // Handle ties
-                winnersForCriterion.push(id);
-            }
-        }
-
-        if (winnersForCriterion.length > 0) {
-            finalWinners[criterion.constraintLabel || `criterion_${criterion.constraintIndex}`] = winnersForCriterion;
-        }
-    }
-
-    // Calculate Best Performer winner (Team events only)
-    const bestSelections = (eventData.bestPerformerSelections && typeof eventData.bestPerformerSelections === 'object') ? eventData.bestPerformerSelections : {};
-    if (eventData.details.format === EventFormat.Team) { // Use imported EventFormat
-        const bestPerformerCounts: Record<string, number> = {};
-        Object.values(bestSelections).forEach(selectedUserId => { // selectedUserId is the user ID voted as best performer
-            if (selectedUserId) {
-                bestPerformerCounts[selectedUserId] = (bestPerformerCounts[selectedUserId] || 0) + 1;
-            }
-        });
-        let maxVotes = 0;
-        let bestPerformers: string[] = []; // Array of user IDs
-        for (const [userId, count] of Object.entries(bestPerformerCounts)) {
-            if (count > maxVotes) {
-                maxVotes = count;
-                bestPerformers = [userId];
-            } else if (count === maxVotes && maxVotes > 0) { // Handle ties
-                bestPerformers.push(userId);
-            }
-        }
-        if (bestPerformers.length > 0) {
-            finalWinners[BEST_PERFORMER_LABEL] = bestPerformers; // Store array of winner user IDs
-        }
-    }
-
-    return finalWinners;
-}
 
 /**
- * Saves the calculated winners back to the event document in Firestore.
+ * Finalizes winners for the event based on votes and selections.
+ * This function reads votes and best performer selections, determines winners,
+ * and updates the event document with this information.
  * @param eventId - The ID of the event.
- * @param winners - The map of winners calculated by calculateWinnersFromVotes.
- * @returns Promise<void>
- * @throws Error if Firestore update fails or permissions invalid.
+ * @param currentUser - The user attempting the action (must be an organizer).
+ * @returns Promise<WinnerInfo> - The determined winner information.
  */
-export async function saveWinnersToFirestore(eventId: string, winners: Record<string, string[]>): Promise<void> {
-    if (!eventId) throw new Error('Event ID required.');
-    if (typeof winners !== 'object' || winners === null) throw new Error('Winners data is invalid.');
+export async function finalizeWinnersInFirestore(eventId: string, currentUser: User | null): Promise<WinnerInfo> {
+    if (!eventId) throw new Error('Event ID is required.');
+    if (!currentUser?.uid) throw new Error('User not authenticated.');
 
     const eventRef = doc(db, 'events', eventId);
     try {
+        const eventSnap = await getDoc(eventRef);
+        if (!eventSnap.exists()) throw new Error('Event not found.');
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Could not map event data.');
+
+        // Permission Check: Only organizers can finalize winners
+        const isOrganizer = eventData.details.organizers?.includes(currentUser.uid) || eventData.requestedBy === currentUser.uid;
+        if (!isOrganizer) {
+            throw new Error('Only organizers can finalize winners.');
+        }
+
+        // State Check: Event must be Completed, and voting should ideally be closed.
+        if (eventData.status !== EventStatus.Completed) {
+            throw new Error("Winners can only be finalized for 'Completed' events.");
+        }
+        if (eventData.votingOpen) {
+            console.warn(`Finalizing winners for event ${eventId} while voting is still open.`);
+            // Optionally, force voting to close here, or throw an error
+            // await toggleVotingStatusInFirestore(eventId, false, currentUser); // Example: force close
+        }
+
+        const winners: WinnerInfo = {};
+
+        // 1. Determine winners based on criteria votes
+        if (eventData.criteria && eventData.criteria.length > 0) {
+            eventData.criteria.forEach(criterion => {
+                if (criterion.votes && Object.keys(criterion.votes).length > 0) {
+                    const voteCounts: { [selectedValue: string]: number } = {};
+                    Object.values(criterion.votes).forEach(voteValue => {
+                        voteCounts[voteValue] = (voteCounts[voteValue] || 0) + 1;
+                    });
+
+                    let maxVotes = 0;
+                    let winningValues: string[] = [];
+                    for (const value in voteCounts) {
+                        if (voteCounts[value] > maxVotes) {
+                            maxVotes = voteCounts[value];
+                            winningValues = [value];
+                        } else if (voteCounts[value] === maxVotes) {
+                            winningValues.push(value);
+                        }
+                    }
+                    // For criteria, the 'value' is often a teamId or participantId
+                    if (winningValues.length > 0) {
+                        winners[criterion.constraintKey] = winningValues; // Store all winners in case of a tie
+                    }
+                }
+            });
+        }
+
+        // 2. Determine best performer based on organizer selections (if any)
+        if (eventData.bestPerformerSelections && Object.keys(eventData.bestPerformerSelections).length > 0) {
+            const performerVoteCounts: { [userId: string]: number } = {};
+            Object.values(eventData.bestPerformerSelections).forEach(selectedUserId => {
+                if (selectedUserId) { // Ensure selectedUserId is not null/undefined
+                    performerVoteCounts[selectedUserId] = (performerVoteCounts[selectedUserId] || 0) + 1;
+                }
+            });
+
+            let maxVotes = 0;
+            let bestPerformers: string[] = [];
+            for (const userId in performerVoteCounts) {
+                if (performerVoteCounts[userId] > maxVotes) {
+                    maxVotes = performerVoteCounts[userId];
+                    bestPerformers = [userId];
+                } else if (performerVoteCounts[userId] === maxVotes) {
+                    bestPerformers.push(userId);
+                }
+            }
+            if (bestPerformers.length > 0) {
+                winners['bestPerformer'] = bestPerformers; // Could be multiple if tie in organizer votes
+            }
+        }
+        
+        // 3. Handle manually selected winners (if any and if this feature is used)
+        // This part depends on how `manuallySelectedBy` and a potential `manualWinners` field would work.
+        // For now, we assume `winners` object is authoritative if populated by votes/selections.
+        // If `eventData.manuallySelectedBy` exists, it implies manual override or addition.
+        // This example doesn't implement manual winner logic beyond what `winners` captures.
+
+        if (Object.keys(winners).length === 0) {
+            console.warn(`No winners could be determined for event ${eventId}. Check votes and selections.`);
+            // Depending on policy, either throw an error or proceed with empty winners
+            // throw new Error("No winners could be determined.");
+        }
+
+        // Update Firestore with the determined winners
         await updateDoc(eventRef, {
             winners: winners,
-            manuallySelectedBy: null, // Explicitly null for calculated winners
-            lastUpdatedAt: Timestamp.now()
+            lastUpdatedAt: Timestamp.now(),
+            // Optionally, ensure voting is closed if it wasn't already
+            // votingOpen: false 
         });
-        console.log(`Firestore: Winners saved for event ${eventId}.`);
+
+        console.log(`Firestore: Winners finalized for event ${eventId}:`, winners);
+
+        // Trigger notification for winners (if applicable)
+        if (isSupabaseConfigured() && Object.keys(winners).length > 0) {
+            // Collect all unique winner IDs
+            const allWinnerIds = Object.values(winners).flat().filter((id, index, self) => id && self.indexOf(id) === index);
+            
+            if (allWinnerIds.length > 0) {
+                invokePushNotification({
+                    type: 'event_winners_announced',
+                    eventId,
+                    eventName: eventData.details.eventName || 'Event',
+                    targetUserIds: allWinnerIds,
+                    // You might want to include more details about what they won
+                }).catch(pushError => console.error("Winner announcement notification failed:", pushError));
+            }
+        }
+
+        return winners;
+
     } catch (error: any) {
-        console.error(`Firestore saveWinners error for ${eventId}:`, error);
-        throw new Error(`Failed to save winners: ${error.message}`);
+        console.error(`Error finalizing winners for event ${eventId}:`, error);
+        throw new Error(`Failed to finalize winners: ${error.message}`);
     }
 }

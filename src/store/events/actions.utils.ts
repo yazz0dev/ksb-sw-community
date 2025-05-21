@@ -1,8 +1,7 @@
 // src/store/events/actions.utils.ts
-import { EventFormat, Event, EventCriteria, Team } from '@/types/event';
-import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
-// Import new XP types and helpers
-import { XPData, XpCalculationRoleKey, xpCalculationRoleKeys, mapCalcRoleToFirestoreKey, XpFirestoreFieldKey } from '@/types/xp';
+import { Event, EventFormat, EventCriteria, EventStatus } from '@/types/event'; // Added EventStatus
+import { XPData, XpFirestoreFieldKey, mapCalcRoleToFirestoreKey, XpCalculationRoleKey } from '@/types/xp';
+import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants'; // BEST_PERFORMER_POINTS was missing
 
 // --- Utility: Calculate XP earned for event participation ---
 // This function now returns a map of userId to the *changes* in their XPData (increments).
@@ -10,47 +9,42 @@ export function calculateEventXP(eventData: Event): Record<string, Partial<Pick<
     const xpChangesMap: Record<string, Partial<Pick<XPData, XpFirestoreFieldKey | 'count_wins' | 'totalCalculatedXp'>>> = {};
 
     // --- Configuration ---
-    const baseParticipationXP = 10;
-    const organizerXP = 50;
-    // BEST_PERFORMER_POINTS is already imported
+    const baseParticipationXP = 10; // XP for any participation
+    const organizerXP = 50;         // XP for organizing
+    // BEST_PERFORMER_POINTS is now imported from constants
 
     // Helper function to add XP changes safely
     const addXPChange = (userId: string, calcRole: XpCalculationRoleKey, amount: number) => {
-        if (!userId || amount <= 0) return;
+        if (!userId || amount <= 0) return; // Do nothing if no user or no XP
+
         if (!xpChangesMap[userId]) {
-            xpChangesMap[userId] = { totalCalculatedXp: 0 };
-             // Initialize all specific xp_ fields to 0 if not present, to allow increment
-            xpCalculationRoleKeys.forEach(rKey => {
-                const firestoreKey = mapCalcRoleToFirestoreKey(rKey);
-                (xpChangesMap[userId] as any)[firestoreKey] = 0;
-            });
+            xpChangesMap[userId] = { totalCalculatedXp: 0 }; // Initialize if not present
         }
 
         const firestoreKey = mapCalcRoleToFirestoreKey(calcRole);
+        // Ensure the specific XP field is initialized before incrementing
         (xpChangesMap[userId] as any)[firestoreKey] = ((xpChangesMap[userId] as any)[firestoreKey] || 0) + amount;
+        // Increment totalCalculatedXp for the user
         xpChangesMap[userId].totalCalculatedXp = (xpChangesMap[userId].totalCalculatedXp || 0) + amount;
     };
 
     const incrementWinCount = (userId: string) => {
         if (!userId) return;
         if (!xpChangesMap[userId]) {
-            xpChangesMap[userId] = { totalCalculatedXp: 0, count_wins: 0 };
-             // Initialize all specific xp_ fields to 0 if not present
-            xpCalculationRoleKeys.forEach(rKey => {
-                const firestoreKey = mapCalcRoleToFirestoreKey(rKey);
-                (xpChangesMap[userId] as any)[firestoreKey] = 0;
-            });
+            xpChangesMap[userId] = { totalCalculatedXp: 0 }; // Initialize if not present
         }
         xpChangesMap[userId].count_wins = (xpChangesMap[userId].count_wins || 0) + 1;
     };
 
     // --- 1. Organizer XP ---
-    (eventData.details.organizers || []).filter(Boolean).forEach(uid => {
+    // Access organizers from eventData.details.organizers
+    (eventData.details?.organizers || []).filter(Boolean).forEach(uid => {
         addXPChange(uid, 'organizer', organizerXP);
     });
 
     // --- 2. Participation XP ---
-    if (eventData.details.format === EventFormat.Team && Array.isArray(eventData.teams)) {
+    // Access format from eventData.details.format
+    if (eventData.details?.format === EventFormat.Team && Array.isArray(eventData.teams)) {
         eventData.teams.forEach(team => {
             (team.members || []).filter(Boolean).forEach(uid => {
                 addXPChange(uid, 'participation', baseParticipationXP);
@@ -63,69 +57,59 @@ export function calculateEventXP(eventData: Event): Record<string, Partial<Pick<
     }
 
     // --- 3. Winner XP (Based on calculated winners) ---
-    const winners = eventData.winners || {};
+    const winners = eventData.winners || {}; // winners should be top-level on Event
     const criteriaMap = new Map<string, EventCriteria>();
-    if (Array.isArray(eventData.criteria)) {
+    if (Array.isArray(eventData.criteria)) { // criteria should be top-level on Event
         eventData.criteria.forEach(c => {
-            if (c.constraintLabel) criteriaMap.set(c.constraintLabel, c);
-        });
-    }
-
-    for (const [criterionLabel, winnerIds] of Object.entries(winners)) {
-        if (criterionLabel === BEST_PERFORMER_LABEL) continue; // Handled separately
-
-        const criterion = criteriaMap.get(criterionLabel);
-        if (!criterion || !criterion.points || !criterion.role) {
-            console.warn(`Skipping XP for criterion "${criterionLabel}": Missing points or role.`);
-            continue;
-        }
-
-        // Assume criterion.role is one of XpCalculationRoleKey (e.g., 'developer', 'designer')
-        const calcRoleForCriterion = criterion.role as XpCalculationRoleKey;
-        if (!xpCalculationRoleKeys.includes(calcRoleForCriterion)) {
-            console.warn(`Invalid role "${calcRoleForCriterion}" for criterion "${criterionLabel}". Skipping XP.`);
-            continue;
-        }
-
-        const points = criterion.points;
-
-        winnerIds.forEach(winnerIdOrTeamName => {
-            if (eventData.details.format === EventFormat.Team) {
-                const winningTeam = eventData.teams?.find(t => t.teamName === winnerIdOrTeamName);
-                if (winningTeam) {
-                    (winningTeam.members || []).filter(Boolean).forEach(memberId => {
-                        addXPChange(memberId, calcRoleForCriterion, points);
-                        incrementWinCount(memberId); // Increment win count for team members
-                    });
-                } else { // Should not happen if winnerIdOrTeamName is a team name from winners
-                    console.warn(`Team ${winnerIdOrTeamName} not found for XP award.`);
-                }
-            } else { // Individual or Competition
-                addXPChange(winnerIdOrTeamName, calcRoleForCriterion, points);
-                incrementWinCount(winnerIdOrTeamName); // Increment win count for individual winner
+            if (c?.constraintKey && c?.xpValue) { // Ensure criterion has key and xpValue
+                criteriaMap.set(c.constraintKey, c);
             }
         });
     }
 
-    // --- 4. Best Performer XP (Team events only) ---
-    const bestPerformers = winners[BEST_PERFORMER_LABEL]; // This is an array of user UIDs
-    if (eventData.details.format === EventFormat.Team && Array.isArray(bestPerformers)) {
-        bestPerformers.forEach(uid => {
-            addXPChange(uid, 'bestPerformer', BEST_PERFORMER_POINTS);
-            // Note: Being a "best performer" might also count as a "win" depending on definition.
-            // If so, call incrementWinCount(uid) here as well. For now, assuming it's separate.
-        });
+    for (const [criterionOrLabel, winnerIdOrIds] of Object.entries(winners)) {
+        const criterionConfig = criteriaMap.get(criterionOrLabel);
+        const xpValue = criterionConfig?.xpValue || 0; // Default to 0 if no specific XP for this criterion
+
+        if (Array.isArray(winnerIdOrIds)) { // Tie for this criterion
+            winnerIdOrIds.filter(Boolean).forEach(winnerId => {
+                if (xpValue > 0) addXPChange(winnerId, (criterionConfig?.roleKey || 'problemSolver'), xpValue); // Use roleKey from criteria or a default
+                incrementWinCount(winnerId);
+            });
+        } else if (typeof winnerIdOrIds === 'string' && winnerIdOrIds) { // Single winner
+            if (criterionOrLabel !== BEST_PERFORMER_LABEL) { // Don't double count best performer here
+                 if (xpValue > 0) addXPChange(winnerIdOrIds, (criterionConfig?.roleKey || 'problemSolver'), xpValue);
+                 incrementWinCount(winnerIdOrIds);
+            }
+        }
+    }
+    
+    // --- 4. Best Performer XP (Team events or individual competitions) ---
+    // Best performer is handled within the loop above if BEST_PERFORMER_LABEL is a key in winners
+    // This section specifically awards BEST_PERFORMER_POINTS if there's a winner for BEST_PERFORMER_LABEL
+    const bestPerformerWinner = winners[BEST_PERFORMER_LABEL];
+    if (bestPerformerWinner) {
+        if (Array.isArray(bestPerformerWinner)) { // Tie for best performer
+            bestPerformerWinner.filter(Boolean).forEach(bpUid => {
+                addXPChange(bpUid, 'bestPerformer', BEST_PERFORMER_POINTS);
+                // incrementWinCount(bpUid); // Win count already handled in the main winners loop
+            });
+        } else if (typeof bestPerformerWinner === 'string' && bestPerformerWinner) { // Single best performer
+            addXPChange(bestPerformerWinner, 'bestPerformer', BEST_PERFORMER_POINTS);
+            // incrementWinCount(bestPerformerWinner); // Win count already handled
+        }
     }
 
-    console.log("Calculated XP Changes Map:", JSON.parse(JSON.stringify(xpChangesMap)));
+
+    console.log("Calculated XP Changes Map:", JSON.parse(JSON.stringify(xpChangesMap))); // Deep copy for logging
     return xpChangesMap;
 }
 
 // handleFirestoreError remains the same
 export function handleFirestoreError(error: any): string {
-    if (error?.code === 'permission-denied') return 'You do not have permission to perform this action.';
-    if (error?.code === 'not-found') return 'The requested resource was not found.';
-    if (error?.code === 'unavailable') return 'The service is temporarily unavailable.';
+    if (error?.code === 'permission-denied') return 'Permission denied. You might not have access to this resource.';
+    if (error?.code === 'not-found') return 'The requested document or resource was not found.';
+    if (error?.code === 'unavailable') return 'The service is currently unavailable. Please try again later.';
     if (typeof error?.message === 'string') return error.message;
     return 'An unknown error occurred.';
 }

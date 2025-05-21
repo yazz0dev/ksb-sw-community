@@ -3,6 +3,7 @@
 import { doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Team, Event, EventFormat } from '@/types/event'; // Event is imported
+import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mapper
 
 /**
  * Adds a new team to an event document in Firestore.
@@ -30,7 +31,10 @@ export async function addTeamToEventInFirestore(
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        // Use the mapper to convert Firestore data to Event object
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+
         if (eventData.details.format !== EventFormat.Team) throw new Error("Teams can only be added to 'Team' format events.");
 
         const currentTeams = eventData.teams || []; // Use teams from fetched event data
@@ -84,7 +88,10 @@ export async function updateEventTeamsInFirestore(eventId: string, teams: Team[]
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
+        // Use the mapper to convert Firestore data to Event object
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) throw new Error('Failed to map event data.');
+        
         if (eventData.details.format !== EventFormat.Team) throw new Error("Cannot update teams for non-team events.");
 
         await updateDoc(eventRef, {

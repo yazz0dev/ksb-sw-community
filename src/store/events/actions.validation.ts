@@ -1,8 +1,9 @@
 // src/store/events/actions.validation.ts
 // Helper functions for validation actions.
-import { getDocs, Timestamp, collection, query, where } from 'firebase/firestore';
+import { Timestamp, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Event, EventStatus, EventFormat } from '@/types/event'; // Add EventFormat
+import { Event, EventStatus, EventFormat } from '@/types/event'; // Removed EventDetails and EventDate
+import { mapFirestoreToEventData } from '@/utils/eventDataMapper';
 import { DateTime } from 'luxon';
 
 /**
@@ -37,79 +38,67 @@ export async function checkExistingRequestsForUser(userId: string): Promise<bool
  * @throws Error if dates are invalid or Firestore query fails.
  */
 export async function checkDateConflictInFirestore(
-    startDate: Date | string | Timestamp | null,
-    endDate: Date | string | Timestamp | null,
+    startDate: string | Date | Timestamp | null,
+    endDate: string | Date | Timestamp | null,
     excludeEventId: string | null = null
 ): Promise<{ hasConflict: boolean; nextAvailableDate: string | null; conflictingEvent: Event | null }> {
-
-    // Helper to convert various date types to Luxon DateTime in UTC start of day
-    const convertToLuxonUTC = (d: Date | string | Timestamp | null): DateTime | null => {
-        if (!d) return null;
-        let dt: DateTime;
-        try {
-            if (d instanceof Timestamp) dt = DateTime.fromJSDate(d.toDate());
-            else if (d instanceof Date) dt = DateTime.fromJSDate(d);
-            else dt = DateTime.fromISO(d); // Assume ISO string
-
-            if (!dt.isValid) throw new Error(`Invalid date value: ${d}`);
-            return dt.toUTC().startOf('day'); // Normalize to UTC start of day
-        } catch (e) {
-            console.error("Date conversion error:", e);
-            return null;
-        }
-    };
-
-    const checkStartLuxon = convertToLuxonUTC(startDate);
-    const checkEndLuxon = convertToLuxonUTC(endDate);
-
-    if (!checkStartLuxon || !checkEndLuxon) {
-        throw new Error('Invalid date(s) provided for conflict check.');
-    }
-    if (checkEndLuxon < checkStartLuxon) {
-        throw new Error('End date cannot be before start date.');
+    if (!startDate || !endDate) {
+        return { hasConflict: false, nextAvailableDate: null, conflictingEvent: null };
     }
 
-    // Query for potentially conflicting events
-    const q = query(collection(db, 'events'), where('status', 'in', [EventStatus.Approved, EventStatus.InProgress]));
-    let conflictingEvent: Event | null = null;
-    let latestConflictEndDate: DateTime | null = null;
+    const startTimestamp = startDate instanceof Timestamp ? startDate : Timestamp.fromDate(new Date(startDate as any));
+    const endTimestamp = endDate instanceof Timestamp ? endDate : Timestamp.fromDate(new Date(endDate as any));
+
+    const eventsCollection = collection(db, 'events');
+    // Query for events that overlap with the given date range
+    // An event conflicts if its start is before the new event's end AND its end is after the new event's start
+    const q = query(
+        eventsCollection,
+        where('status', 'in', [EventStatus.Approved, EventStatus.InProgress, EventStatus.Pending]),
+        // No direct way to query (event.start < new.end && event.end > new.start)
+        // So, we fetch broader and filter client-side, or use multiple queries if performance is an issue.
+        // For simplicity, fetching events that *could* conflict based on start or end times near the range.
+        // This might fetch more documents than necessary, but Firestore's querying capabilities for date ranges are limited.
+    );
 
     try {
         const querySnapshot = await getDocs(q);
+        let conflictingEvent: Event | null = null;
+        let hasConflict = false;
+        let earliestConflictEnd: Timestamp | null = null;
 
-        for (const docSnap of querySnapshot.docs) {
-            const event = { id: docSnap.id, ...docSnap.data() } as Event;
-            if (excludeEventId && event.id === excludeEventId) continue; // Skip self if editing
+        querySnapshot.forEach((docSnap) => {
+            if (excludeEventId && docSnap.id === excludeEventId) {
+                return; // Skip the event being edited
+            }
+            const event = mapFirestoreToEventData(docSnap.id, docSnap.data());
+            if (!event || !event.details.date.start || !event.details.date.end) return;
 
-            const eventStartLuxon = convertToLuxonUTC(event.details?.date?.start);
-            const eventEndLuxon = convertToLuxonUTC(event.details?.date?.end);
-
-            if (!eventStartLuxon || !eventEndLuxon) continue; // Skip events with invalid dates
+            const eventStart = event.details.date.start;
+            const eventEnd = event.details.date.end;
 
             // Check for overlap: (StartA <= EndB) and (EndA >= StartB)
-            if (checkStartLuxon <= eventEndLuxon && checkEndLuxon >= eventStartLuxon) {
-                conflictingEvent = event; // Mark conflict
-                // Track the latest end date among all conflicting events
-                if (!latestConflictEndDate || eventEndLuxon > latestConflictEndDate) {
-                    latestConflictEndDate = eventEndLuxon;
+            if (startTimestamp.toMillis() < eventEnd.toMillis() && endTimestamp.toMillis() > eventStart.toMillis()) {
+                hasConflict = true;
+                conflictingEvent = event;
+                if (!earliestConflictEnd || eventEnd.toMillis() > earliestConflictEnd.toMillis()) {
+                    earliestConflictEnd = eventEnd;
                 }
-                // Don't break; check all events to find the latest conflict end date
+                // Break early if a conflict is found (though forEach doesn't directly support break)
+                // For finding *any* conflict, this is sufficient. For *next available*, we might need to process all.
             }
+        });
+
+        let nextAvailableDateISO: string | null = null;
+        if (hasConflict && earliestConflictEnd) {
+            // Suggest next day after the conflicting event ends
+            nextAvailableDateISO = DateTime.fromMillis(earliestConflictEnd.toMillis()).plus({ days: 1 }).startOf('day').toISO();
         }
-    } catch (error: any) {
-        console.error("Firestore date conflict check query error:", error);
-        // Decide how to handle query errors - maybe return conflict=true?
-        throw new Error(`Failed to check date conflicts: ${error.message}`);
+
+        return { hasConflict, nextAvailableDate: nextAvailableDateISO, conflictingEvent };
+
+    } catch (error) {
+        console.error("Error checking date conflict in Firestore:", error);
+        throw new Error("Failed to check for date conflicts.");
     }
-
-    // Calculate the next available date based on the latest conflict end date found
-    const nextAvailableDate = latestConflictEndDate
-        ? latestConflictEndDate.plus({ days: 1 }).toISODate() // Return YYYY-MM-DD format
-        : null;
-
-    return {
-        hasConflict: !!conflictingEvent,
-        nextAvailableDate: nextAvailableDate,
-        conflictingEvent: conflictingEvent // Return the first conflicting event found (or null)
-    };
 }

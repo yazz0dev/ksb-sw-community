@@ -7,7 +7,7 @@ import { DateTime } from 'luxon';
 // --- Import Types ---
 import {
     Event, EventStatus, EventFormat,
-    EventCriteria, Team, Submission
+    EventCriteria, Team, Submission, OrganizerRating // Added OrganizerRating for clarity
 } from '@/types/event';
 // Import new XP types
 import { XPData, XpFirestoreFieldKey, mapCalcRoleToFirestoreKey, XpCalculationRoleKey, getDefaultXPData } from '@/types/xp';
@@ -324,28 +324,31 @@ export const useEventStore = defineStore('events', {
              }
          },
 
-         async submitIndividualWinnerVote({ eventId, winnerSelections }: { eventId: string; winnerSelections: Record<string, string> }) {
-              const userStore = useUserStore();
-              const notificationStore = useNotificationStore();
-              const appStore = useAppStore();
-              const offlineResult = await appStore.handleOfflineAction({ type: 'events/submitIndividualWinnerVote', payload: { eventId, winnerSelections } });
-              if (offlineResult.queued) return;
-              try {
-                  if (!userStore.uid) throw new Error("User not authenticated.");
-                  await submitIndividualWinnerVoteInFirestore(eventId, userStore.uid, winnerSelections);
-                  await this.fetchEventDetails(eventId);
-                  notificationStore.showNotification({ message: "Winner selections submitted.", type: 'success' });
-              } catch (error) {
-                  notificationStore.showNotification({ message: `Failed to submit selections: ${handleFirestoreError(error)}`, type: 'error' });
-                  throw error;
-              }
+         async submitIndividualWinnerVote({ eventId, selectedWinnerId }: { eventId: string; selectedWinnerId: string }) { // MODIFIED PAYLOAD
+             const userStore = useUserStore();
+             const notificationStore = useNotificationStore();
+             const appStore = useAppStore();
+             // MODIFIED PAYLOAD for offline action as well
+             const offlineResult = await appStore.handleOfflineAction({ type: 'events/submitIndividualWinnerVote', payload: { eventId, selectedWinnerId } });
+             if (offlineResult.queued) return;
+             try {
+                 if (!userStore.uid) throw new Error("User not authenticated.");
+                 // MODIFIED call to helper
+                 await submitIndividualWinnerVoteInFirestore(eventId, userStore.uid, selectedWinnerId);
+                 await this.fetchEventDetails(eventId);
+                 notificationStore.showNotification({ message: "Winner selection submitted.", type: 'success' }); // Message updated for single selection
+             } catch (error) {
+                 notificationStore.showNotification({ message: `Failed to submit selection: ${handleFirestoreError(error)}`, type: 'error' });
+                 throw error;
+             }
           },
 
-          async submitManualWinnerSelection({ eventId, winnerSelections }: { eventId: string; winnerSelections: Record<string, string[]> }) {
+          async submitManualWinnerSelection({ eventId, winnerSelections }: { eventId: string; winnerSelections: Record<string, string> }) { // MODIFIED PAYLOAD (string[] to string)
               const userStore = useUserStore();
               const notificationStore = useNotificationStore();
               try {
                   if (!userStore.uid) throw new Error("User not authenticated.");
+                  // Call to helper is now consistent with its signature
                   await submitManualWinnerSelectionInFirestore(eventId, userStore.uid, winnerSelections);
                   await this.fetchEventDetails(eventId);
                   notificationStore.showNotification({ message: "Manual winner selection successfully saved.", type: 'success' });
@@ -359,12 +362,14 @@ export const useEventStore = defineStore('events', {
               const userStore = useUserStore();
               const notificationStore = useNotificationStore();
               const appStore = useAppStore();
-              const payload = { eventId, score, feedback };
-              const offlineResult = await appStore.handleOfflineAction({ type: 'events/submitOrganizationRating', payload });
+              const ratingData = { score, comment: feedback }; // Create object for helper
+              // MODIFIED PAYLOAD for offline action
+              const offlineResult = await appStore.handleOfflineAction({ type: 'events/submitOrganizationRating', payload: { eventId, ratingData } });
               if (offlineResult.queued) return;
               try {
                   if (!userStore.uid) throw new Error("User not authenticated.");
-                  await submitOrganizationRatingInFirestore(eventId, userStore.uid, score, feedback);
+                  // MODIFIED call to helper
+                  await submitOrganizationRatingInFirestore(eventId, userStore.uid, ratingData);
                   await this.fetchEventDetails(eventId);
                   notificationStore.showNotification({ message: "Organizer rating submitted.", type: 'success' });
               } catch (error) {
@@ -378,7 +383,8 @@ export const useEventStore = defineStore('events', {
                  try {
                      const event = this.getEventById(eventId);
                      if (!event) throw new Error("Event data not loaded locally.");
-                     const calculatedWinners = await calculateWinnersFromVotes(event);
+                     // calculateWinnersFromVotes expects a full Event object, which getEventById should provide with details nested.
+                     const calculatedWinners = await calculateWinnersFromVotes(eventId); // Pass eventId, helper will fetch
                      if (Object.keys(calculatedWinners).length === 0) {
                           notificationStore.showNotification({ message: "No winners could be determined based on selections.", type: 'info' });
                           return;
@@ -505,6 +511,7 @@ export const useEventStore = defineStore('events', {
                 // 1. Fetch latest event data
                 const eventData = this.getEventById(eventId) || await this.fetchEventDetails(eventId);
                 if (!eventData) throw new Error("Event not found.");
+                // eventData here will have the correct structure due to mappers in fetching actions
 
                 // 2. Perform Checks
                 const currentUserUid = userStore.uid;
