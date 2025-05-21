@@ -22,7 +22,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useAppStore } from '@/store/app';
+import { useAppStore } from '@/store/studentAppStore';
 
 interface QueuedAction {
   type: string;

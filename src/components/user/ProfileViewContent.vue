@@ -232,11 +232,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useUserStore } from '@/store/user';
+import { useUserStore } from '@/store/studentProfileStore';
 // EventStore not directly used here for fetching, userStore handles enriched data
 import { formatISTDate } from '@/utils/dateTime';
 // Use the formatRoleName from user types as it handles 'xp_' prefix now
-import { formatRoleName as formatRoleNameForDisplay, EnrichedUserData } from '@/types/user';
+import { formatRoleName as formatRoleNameForDisplay, EnrichedUserData } from '@/types/student';
 import { Event as AppEvent, EventStatus, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useRouter } from 'vue-router';

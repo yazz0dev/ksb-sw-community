@@ -108,10 +108,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useUserStore } from '@/store/user';
+import { useUserStore } from '@/store/studentProfileStore';
 import { formatRoleName } from '@/utils/formatters'; // Assuming this handles display names
 import { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Import XP types
-import { EnrichedUserData } from '@/types/user'; // Import EnrichedUserData
+import { EnrichedUserData } from '@/types/student'; // Import EnrichedUserData
 
 const defaultAvatarUrl: string = '/default-avatar.png';
 

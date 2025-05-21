@@ -1,7 +1,7 @@
 // src/router/index.ts
 import { createRouter, createWebHistory, RouteRecordRaw, NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 import EditProfileView from '../views/EditProfileView.vue';
-import { useUserStore } from '@/store/user';
+import { useUserStore } from '@/store/studentProfileStore';
 
 interface RouteMeta {
   requiresAuth?: boolean;
@@ -13,7 +13,7 @@ interface RouteMeta {
 }
 
 const routes: Array<RouteRecordRaw> = [
-    { path: '/', name: 'Landing', component: () => import('@/views/LandingView.vue'), meta: { requiresAuth: false, guestOnly: true, title: 'Welcome', description: 'Join the KSB Tech Community platform. Sign in or explore public resources.' } as RouteMeta },
+    { path: '/', name: 'Landing', component: () => import('@/views/LandingView.vue'), meta: { requiresAuth: false, guestOnly: true, title: 'Welcome to KSB Tech Community', description: 'Discover the KSB Tech Community: a hub for MCA students to manage events, collaborate on software projects, and access shared resources. Join us to learn, build, and grow.' } as RouteMeta },
     { path: '/home', name: 'Home', component: () => import('@/views/HomeView.vue'), meta: { requiresAuth: true, title: 'Home Dashboard', description: 'Your personalized dashboard in the KSB Tech Community.' } as RouteMeta },
     { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { requiresAuth: false, guestOnly: true, title: 'Login', description: 'Login to your KSB Tech Community account.' } as RouteMeta },
     { path: '/event/:id', name: 'EventDetails', component: () => import('@/views/EventDetails.vue'), meta: { requiresAuth: true, title: 'Event Details', description: 'View details for a specific event.' }, props: true },
@@ -28,6 +28,7 @@ const routes: Array<RouteRecordRaw> = [
     { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPasswordView.vue'), meta: { requiresAuth: false, guestOnly: true, title: 'Forgot Password', description: 'Reset your KSB Tech Community account password.' } as RouteMeta },
     { path: '/events', name: 'EventsList', component: () => import('@/views/EventsListView.vue'), meta: { requiresAuth: false, title: 'Events', description: 'Browse upcoming and past events by KSB Tech Community.' } as RouteMeta },
     { path: '/selection/:eventId/:teamId?', name: 'SelectionForm', component: () => import('@/views/SelectionForm.vue'), meta: { requiresAuth: true, title: 'Team Selection', description: 'Participate in team selection for an event.' } as RouteMeta, props: true },
+    { path: '/legal', name: 'Legal', component: () => import('@/views/LegalView.vue'), meta: { requiresAuth: false, title: 'Terms & Privacy', description: 'Read the Terms of Service and Privacy Policy for the KSB Tech Community.' } as RouteMeta },
     { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFoundView.vue'), meta: { requiresAuth: false, title: 'Page Not Found', description: 'The page you are looking for does not exist.' } as RouteMeta },
 ] as RouteRecordRaw[];
 

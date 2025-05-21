@@ -32,9 +32,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from './store/user';
-import { useNotificationStore } from './store/notification';
-import { useAppStore } from './store/app';
+import { useStudentProfileStore } from './store/studentProfileStore';
+import { useStudentNotificationStore } from './store/studentNotificationStore'; // Changed import
+import { useAppStore } from './store/studentAppStore';
 import { getAuth, signOut } from 'firebase/auth';
 
 import BottomNav from './components/ui/BottomNav.vue';
@@ -44,8 +44,8 @@ import { isOneSignalConfigured } from './utils/oneSignalUtils';
 import { getOneSignal, isPushSupported } from './utils/oneSignalUtils';
 import { initializeOneSignal } from './utils/oneSignalService';
 
-const userStore = useUserStore();
-const notificationStore = useNotificationStore();
+const userStore = useStudentProfileStore();
+const notificationStore = useStudentNotificationStore(); // Changed usage
 const appStore = useAppStore();
 const router = useRouter();
 const route = useRoute();

@@ -159,12 +159,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, PropType, nextTick } from 'vue';
-import { useUserStore } from '@/store/user';
-import { useEventStore } from '@/store/events';
+import { useUserStore } from '@/store/studentProfileStore';
+import { useEventStore } from '@/store/studentEventStore';
 import TeamMemberSelect from './TeamMemberSelect.vue';
 import { Team as EventTeamType } from '@/types/event';
 // Use UserData as props.students will be UserData[]
-import { UserData } from '@/types/user';
+import { UserData } from '@/types/student';
 import { XPData, getDefaultXPData } from '@/types/xp'; // Import XPData for the map
 
 const props = defineProps({

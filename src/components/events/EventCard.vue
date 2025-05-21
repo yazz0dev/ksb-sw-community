@@ -80,7 +80,7 @@
 
 <script setup lang="ts">
 import { computed, PropType, ref, watch } from 'vue';
-import { useUserStore } from '@/store/user';
+import { useUserStore } from '@/store/studentProfileStore';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';

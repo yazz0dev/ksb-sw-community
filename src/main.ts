@@ -10,9 +10,9 @@ import {
   getOneSignal,
 } from "./utils/oneSignalUtils";
 
-import { useAppStore } from "@/store/app";
-import { useUserStore } from "@/store/user";
-import { useNotificationStore } from "./store/notification";
+import { useAppStore } from "@/store/studentAppStore";
+import { useUserStore } from "@/store/studentProfileStore";
+import { useNotificationStore } from "./store/studentNotificationStore";
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "./styles/main.scss";

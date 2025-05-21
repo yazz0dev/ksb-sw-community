@@ -81,7 +81,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { getAuth, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
-import { useUserStore } from '@/store/user';
+import { useUserStore } from '@/store/studentProfileStore';
 
 const email = ref<string>('');
 const password = ref<string>('');
@@ -145,14 +145,23 @@ const signIn = async (): Promise<void> => {
 
 <style scoped>
 .login-bg {
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
   background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle, #e0e7ff) 100%);
-  padding: 1rem 0; /* Add some padding for very small screens */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 .login-card {
   border-radius: var(--bs-border-radius-xl, 1rem);
   background: var(--bs-card-bg, #fff);
   box-shadow: var(--bs-box-shadow-lg);
+  max-height: 95vh; 
+  overflow-y: auto; 
 }
 .login-icon {
   display: flex;

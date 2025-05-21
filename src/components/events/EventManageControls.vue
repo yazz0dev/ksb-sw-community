@@ -175,9 +175,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserStore } from '@/store/user';
-import { useEventStore } from '@/store/events';
-import { useNotificationStore } from '@/store/notification';
+import { useUserStore } from '@/store/studentProfileStore';
+import { useEventStore } from '@/store/studentEventStore';
+import { useNotificationStore } from '@/store/studentNotificationStore';
 import { DateTime } from 'luxon';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';

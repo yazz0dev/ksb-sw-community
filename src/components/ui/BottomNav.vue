@@ -58,7 +58,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useUserStore } from '@/store/user';
+import { useUserStore } from '@/store/studentProfileStore';
 
 const userStore = useUserStore();
 const imgError = ref<boolean>(false);

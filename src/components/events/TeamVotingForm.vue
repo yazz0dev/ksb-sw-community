@@ -111,8 +111,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useEventStore } from '@/store/events';
-import { useUserStore } from '@/store/user';
+import { useEventStore } from '@/store/studentEventStore';
+import { useUserStore } from '@/store/studentProfileStore';
 import { EventCriteria, Team as EventTeam, Event } from '@/types/event'; // Use aliases if needed
 import { BEST_PERFORMER_LABEL } from '@/utils/constants'; // Ensure this is imported
 

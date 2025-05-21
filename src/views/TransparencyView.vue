@@ -1,12 +1,12 @@
 <template>
-    <section class="py-5 transparency-section">
-        <div class="container-lg py-5">
-            <h1 class="h1 text-primary mb-5 pb-3 border-bottom border-2">
+    <section class="transparency-section">
+        <div class="container-lg py-4">
+            <h1 class="h1 text-primary mb-4 pb-3 border-bottom border-2">
                 Community Processes & Guidelines
             </h1>
             <div class="transparency-content">
                 <!-- Event System Section -->
-                <div class="card mb-4 shadow-sm">
+                <div class="card mb-4 shadow-sm hover-card">
                     <div class="card-header bg-primary-subtle">
                         <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
                             <i class="fas fa-tasks me-3"></i>
@@ -18,7 +18,7 @@
                     </div>
                 </div>
                 <!-- Voting & XP System Section -->
-                <div class="card mb-4 shadow-sm">
+                <div class="card mb-4 shadow-sm hover-card">
                     <div class="card-header bg-primary-subtle">
                         <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
                             <i class="fas fa-star me-3"></i>
@@ -32,7 +32,7 @@
                     </div>
                 </div>
                 <!-- General Guidelines Section -->
-                <div class="card mb-4 shadow-sm">
+                <div class="card mb-4 shadow-sm hover-card">
                     <div class="card-header bg-primary-subtle">
                         <h5 class="mb-0 d-flex align-items-center text-primary-emphasis">
                             <i class="fas fa-book me-3"></i>
@@ -204,52 +204,84 @@ watchEffect(async () => {
 <style scoped>
 .transparency-section {
   background-color: var(--bs-body-bg);
+  padding-top: 2rem;
+  padding-bottom: 3rem;
 }
 
 .card {
   border-radius: 1rem;
   overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.hover-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
 }
 
 .card-header {
   border-top-left-radius: 1rem !important;
   border-top-right-radius: 1rem !important;
   background: var(--bs-primary-bg-subtle);
+  padding: 1rem 1.25rem;
+}
+
+.card-body {
+  padding: 1.5rem;
 }
 
 .card-body .content h2 {
     font-size: 1.75rem;
-    margin-bottom: 1rem;
-    margin-top: 1.5rem;
-    font-weight: 500;
+    margin-bottom: 1.25rem;
+    margin-top: 1rem;
+    font-weight: 600;
+    color: var(--bs-primary);
 }
 
 .card-body .content h3 {
-    font-size: 1.5rem;
-    margin-bottom: 0.75rem;
-    margin-top: 1.25rem;
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+    margin-top: 1.5rem;
     font-weight: 500;
+    color: var(--bs-primary-text-emphasis);
 }
 
 .card-body .content ul {
     list-style: disc;
     padding-left: 2rem;
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .card-body .content p,
 .card-body .content li {
-    line-height: 1.7;
-    margin-bottom: 0.5rem;
+    line-height: 1.8;
+    margin-bottom: 0.75rem;
+    font-size: 1.05rem;
 }
 
 .card-body .content strong {
     color: var(--bs-primary);
+    font-weight: 600;
+}
+
+hr {
+  opacity: 0.15;
 }
 
 @media (max-width: 768px) {
   .card-header, .card {
     border-radius: 0.5rem !important;
+  }
+  
+  .card-body {
+    padding: 1.25rem;
+  }
+  
+  .transparency-section {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
   }
 }
 </style>

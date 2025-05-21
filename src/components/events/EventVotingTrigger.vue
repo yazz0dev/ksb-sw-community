@@ -22,7 +22,7 @@
 
 <script setup lang="ts">
 import type { Event } from '@/types/event';
-import type { User } from '@/types/user';
+import type { User } from '@/types/student';
 
 defineProps<{
   event: Event;

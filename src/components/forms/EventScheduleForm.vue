@@ -41,7 +41,7 @@
 import { ref, watch, onMounted } from 'vue'; // Remove 'computed'
 import DatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
-import { useEventStore } from '@/store/events';
+import { useEventStore } from '@/store/studentEventStore';
 import { DateTime } from 'luxon'; // Import DateTime
 
 // --- Props & Emits ---

@@ -29,9 +29,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useUserStore } from '@/store/user';
+import { useUserStore } from '@/store/studentProfileStore';
 // FIX: Import UserData type
-import { UserData } from '@/types/user';
+import { UserData } from '@/types/student';
 
 interface Props {
   selectedMembers: string[];

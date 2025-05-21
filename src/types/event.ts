@@ -1,52 +1,16 @@
 // src/types/event.ts
-import { Timestamp } from 'firebase/firestore';
+import type { Timestamp } from 'firebase/firestore';
+import type { XpCalculationRoleKey } from './xp';
 
-// --- Event Status Enum ---
+// --- Enums (remain the same) ---
 export enum EventStatus {
   Pending = 'Pending',
   Approved = 'Approved',
   Rejected = 'Rejected',
   InProgress = 'InProgress',
   Completed = 'Completed',
-  Cancelled = 'Cancelled',
+  Cancelled = 'Cancelled', // Kept for completeness, though its timestamp is removed
   Closed = 'Closed'
-}
-
-// --- Supporting Types ---
-export interface EventCriteria {
-  constraintIndex: number;
-  constraintLabel: string;
-  points: number;
-  role?: string; // e.g., 'developer', 'designer', etc.
-  targetRole?: string; // Add targetRole as optional
-  criteriaSelections: { [userId: string]: string };
-}
-
-export interface Submission {
-  projectName: string;
-  link: string;
-  submittedBy: string;
-  submittedAt: Timestamp;
-  description?: string | null;
-  participantId?: string | null; // For individual/competition submissions
-  teamId?: string; // For team submissions (stores teamName)
-}
-
-export interface Team {
-  id?: string; // Optional, if you use a unique ID for teams separate from name
-  teamName: string;
-  members: string[];
-  teamLead: string; // Required field
-}
-
-export interface WinnerInfo {
-  [Criteria: string]: string[]; // e.g. { "Best Designer": [userId1], ... }
-}
-
-export interface GalleryItem {
-  url: string;
-  addedBy: string;
-  description?: string;
 }
 
 export enum EventFormat {
@@ -55,81 +19,113 @@ export enum EventFormat {
   Competition = 'Competition'
 }
 
-export interface OrganizerRating {
-  userId: string;
-  rating: number;
-  feedback?: string;
+// --- Supporting Interfaces (mostly remain the same) ---
+
+export interface EventDate {
+  start: Timestamp | null;
+  end: Timestamp | null;
 }
 
-// --- Event Form Data Interface ---
+export interface EventDetails {
+  eventName: string;
+  description: string;
+  rules?: string;
+  format: EventFormat;
+  type: string;
+  organizers: string[]; // Student UIDs
+  date: EventDate;
+  allowProjectSubmission: boolean;
+  prize?: string;
+}
+
+export interface EventCriterion {
+  constraintIndex: number;
+  constraintLabel: string;
+  points: number;
+  role: XpCalculationRoleKey | string;
+  selections?: Record<string, string>; // voterUID -> selectedEntityID
+}
+
+export interface Team {
+  teamName: string;
+  members: string[]; // Student UIDs
+  teamLead: string;  // Student UID
+}
+
+export interface Submission {
+  projectName: string;
+  link: string;
+  description?: string;
+  submittedBy: string; // Student UID
+  submittedAt: Timestamp;
+  teamName?: string;
+  participantId?: string;
+}
+
+export type EventWinners = Record<string, string[]>;
+
+export interface OrganizerRating {
+  userId: string; // Student UID who rated
+  rating: number;
+  feedback?: string;
+  ratedAt: Timestamp;
+}
+
+// --- MODIFIED: Simplified Lifecycle Timestamps ---
+export interface EventLifecycleTimestamps {
+  rejectedAt?: Timestamp;   // When event was moved to Rejected status
+  completedAt?: Timestamp;  // When event was moved to Completed status
+  // approvedAt, startedAt, cancelledAt are removed from this map
+}
+
+// --- Main Event Interface (Firestore: events/{eventId}) ---
+export interface Event {
+  id: string; // Firestore document ID
+  details: EventDetails;
+  status: EventStatus;
+  requestedBy: string; // Student UID
+
+  criteria?: EventCriterion[];
+  participants?: string[];
+  teams?: Team[];
+  teamMemberFlatList?: string[];
+
+  submissions?: Submission[];
+  votingOpen: boolean;
+  bestPerformerSelections?: Record<string, string>;
+
+  winners?: EventWinners;
+  manuallySelectedBy?: string;
+  organizerRatings?: OrganizerRating[];
+
+  // --- Core Timestamps (Top-Level) ---
+  createdAt: Timestamp;         // Immutable: When the event request document was first created.
+  lastUpdatedAt: Timestamp;     // Mutable: When any field in the event document was last modified.
+  closedAt?: Timestamp;        // Mutable: When event is fully archived and XP awarded. Signifies terminal state.
+
+  // --- Simplified Lifecycle Timestamps (Nested) ---
+  lifecycleTimestamps?: EventLifecycleTimestamps; // Optional: created/updated as needed.
+
+  rejectionReason?: string;    // If status is 'Rejected'.
+}
+
+// --- EventFormData Interface (For event creation/editing forms) ---
 export interface EventFormData {
   details: {
     eventName: string;
     description: string;
-    format: EventFormat;
-    type?: string;
-    date: {
-      start: string | null;
-      end: string | null;
-    };
-    organizers: string[];
-    allowProjectSubmission?: boolean;
-    prize?: string;
     rules?: string;
-    [key: string]: any;
-  };
-  criteria: EventCriteria[];
-  teams?: Team[];
-  status?: EventStatus;
-  [key: string]: any;
-}
-
-// --- Main Event Interface ---
-export interface Event {
-  id: string;
-  status: EventStatus;
-  requestedBy: string;
-
-  details: {
     format: EventFormat;
     type: string;
-    eventName: string;
     organizers: string[];
     date: {
-      start: Timestamp | null;
-      end: Timestamp | null;
+      start: string | Date | null;
+      end: string | Date | null;
     };
-    description: string;
-    allowProjectSubmission?: boolean;
+    allowProjectSubmission: boolean;
     prize?: string;
-    rules?: string;
   };
-
-  criteria?: EventCriteria[];
-  participants?: string[];
+  criteria: EventCriterion[];
   teams?: Team[];
-  teamMembersFlat?: string[]; // ADDED: For Team format, a flat list of all member UIDs
-
-  // CONSOLIDATED SUBMISSIONS
-  submissions?: Submission[]; // Single list for all submissions
-
-  // ORGANIZER RATING - Keep top-level
-  organizerRating?: OrganizerRating[];
-
-  
-  winners?: WinnerInfo;
-
-  gallery?: GalleryItem[];
-  
-  // Controls if participants can submit votes
-  votingOpen: boolean;
-  
-  bestPerformerSelections?: Record<string, string>;
-
-  createdAt: Timestamp;
-  lastUpdatedAt: Timestamp; // ADDED
-  completedAt?: Timestamp | null;
-  closedAt?: Timestamp | null;
-  rejectionReason?: string | null;
-  manuallySelectedBy?: string; // ADDED: To track if winners were manually set
+  status?: EventStatus;
 }

@@ -1,77 +1,79 @@
-// src/store/events/actions.fetching.ts
-// These are now helper functions
-// They operate on data and interact with Firestore directly.
-// They might need the Pinia store instance passed if they need to commit mutations (modify state directly in Pinia actions).
-
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/firebase';
-import { Event } from '@/types/event';
+// src/store/events/actions.fetching.ts (Conceptual Student Site Helpers)
+import { collection, doc, getDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { db } from '@/firebase'; // Adjusted path
+import type { Event, EventStatus } from '@/types/event'; // Common types
+import { studentProfileStore } from '@/store/studentProfileStore'; // To get current student's UID
 
 /**
- * Fetches all events from Firestore.
+ * Fetches publicly viewable events (Approved, InProgress, Completed, Closed).
  * @returns Promise<Event[]> - An array of event objects.
- * @throws Error if Firestore query fails.
  */
-export async function fetchAllEventsFromFirestore(): Promise<Event[]> {
-    const eventsCol = collection(db, 'events');
+export async function fetchPubliclyViewableEventsFromFirestore(): Promise<Event[]> {
     try {
-        const snap = await getDocs(eventsCol);
-        const events: Event[] = [];
-        snap.forEach(docSnap => {
-            const data = docSnap.data();
-            // Defensive: skip if id or details missing
-            if (!docSnap.id || !data || typeof data !== 'object') return;
-            // Defensive: ensure details is an object
-            const details = typeof data.details === 'object' && data.details !== null ? data.details : {};
-            // Defensive: ensure status is a string
-            const status = typeof data.status === 'string' ? data.status : 'Pending';
-            // Defensive: ensure requestedBy is a string
-            const requestedBy = typeof data.requestedBy === 'string' ? data.requestedBy : '';
-            // Defensive: ensure votingOpen is boolean
-            const votingOpen = typeof data.votingOpen === 'boolean' ? data.votingOpen : false;
-            // Defensive: ensure createdAt and lastUpdatedAt are present
-            const createdAt = data.createdAt ?? null;
-            const lastUpdatedAt = data.lastUpdatedAt ?? null;
-            // Defensive: ensure id is string
-            const id = String(docSnap.id);
-
-            events.push({
-                id,
-                status,
-                requestedBy,
-                details,
-                createdAt,
-                lastUpdatedAt,
-                votingOpen,
-                // ...add other fields as needed, with defensive checks...
-            } as Event);
-        });
-        return events;
+        const q = query(
+            collection(db, "events"),
+            where('status', 'in', [EventStatus.Approved, EventStatus.InProgress, EventStatus.Completed, EventStatus.Closed]),
+            orderBy('details.date.start', 'desc') // Example sort
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
     } catch (error: any) {
-        console.error("Firestore fetchAllEvents error:", error);
-        throw new Error(`Failed to fetch events: ${error.message}`);
+        console.error("Firestore fetchPubliclyViewableEvents error:", error);
+        throw new Error(`Failed to fetch public events: ${error.message}`);
     }
 }
 
 /**
- * Fetches details for a single event from Firestore.
- * @param eventId - The ID of the event to fetch.
- * @returns Promise<Event | null> - The event object or null if not found.
- * @throws Error if eventId is missing or Firestore query fails.
+ * Fetches event requests made by a specific student.
+ * @param studentId - The UID of the student.
+ * @returns Promise<Event[]> - An array of the student's event requests (Pending, Rejected).
  */
-export async function fetchSingleEventFromFirestore(eventId: string): Promise<Event | null> {
+export async function fetchMyEventRequestsFromFirestore(studentId: string): Promise<Event[]> {
+    if (!studentId) return [];
+    try {
+        const q = query(
+            collection(db, "events"),
+            where('requestedBy', '==', studentId),
+            where('status', 'in', [EventStatus.Pending, EventStatus.Rejected]),
+            orderBy('createdAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
+    } catch (error: any) {
+        console.error(`Firestore fetchMyEventRequests error for ${studentId}:`, error);
+        throw new Error(`Failed to fetch your event requests: ${error.message}`);
+    }
+}
+
+/**
+ * Fetches details for a single event from Firestore, with student-specific access checks.
+ * @param eventId - The ID of the event to fetch.
+ * @param currentStudentId - The UID of the currently logged-in student (for permission checks).
+ * @returns Promise<Event | null> - The event object or null if not found/accessible.
+ */
+export async function fetchSingleEventForStudentFromFirestore(eventId: string, currentStudentId: string | null): Promise<Event | null> {
     if (!eventId) throw new Error('Event ID required for fetching details.');
     const eventRef = doc(db, 'events', eventId);
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) {
-            console.warn(`Event with ID ${eventId} not found in Firestore.`);
-            return null; // Return null instead of throwing for "not found"
+            return null;
         }
-        // Add validation/defaults here too if necessary
-        return { id: eventSnap.id, ...eventSnap.data() } as Event;
+        const eventData = { id: eventSnap.id, ...eventSnap.data() } as Event;
+
+        // Student-specific access logic:
+        // Allow if public, or if it's their own pending/rejected request.
+        const isPubliclyViewable = [EventStatus.Approved, EventStatus.InProgress, EventStatus.Completed, EventStatus.Closed].includes(eventData.status);
+        const isMyRequest = eventData.requestedBy === currentStudentId && [EventStatus.Pending, EventStatus.Rejected].includes(eventData.status);
+
+        if (isPubliclyViewable || isMyRequest) {
+            return eventData;
+        } else {
+            // Student doesn't have permission to view this specific event state
+            throw new Error("You do not have permission to view this event's details.");
+        }
     } catch (error: any) {
-        console.error(`Firestore fetchEventDetails error for ${eventId}:`, error);
+        console.error(`Firestore fetchSingleEventForStudent error for ${eventId}:`, error);
         throw new Error(`Failed to fetch event details: ${error.message}`);
     }
 }

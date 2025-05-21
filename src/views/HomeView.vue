@@ -124,8 +124,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserStore } from '@/store/user';
-import { useEventStore } from '@/store/events';
+import { useUserStore } from '@/store/studentProfileStore';
+import { useEventStore } from '@/store/studentEventStore';
 import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
 

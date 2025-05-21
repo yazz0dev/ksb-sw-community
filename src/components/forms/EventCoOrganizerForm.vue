@@ -56,7 +56,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, PropType } from 'vue';
 // Ensure UserData is the base type without XP, or EnrichedUserData if XP is indeed needed here (but it's not)
-import { UserData } from '@/types/user';
+import { UserData } from '@/types/student';
 
 const props = defineProps({
   organizers: {

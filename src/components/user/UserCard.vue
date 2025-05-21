@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useUserStore } from '@/store/user';
+import { useUserStore } from '@/store/studentProfileStore';
 
 interface Props {
   userId: string;

@@ -28,10 +28,10 @@
       <div class="container-lg">
         <transition-group name="fade-slide-up" tag="div" class="row g-4 justify-content-center">
           <div class="col-md-4" v-for="(feature, index) in features" :key="feature.icon">
-            <div class="card h-100 shadow feature-card animate-pop" :style="{ animationDelay: `${index * 80}ms` }">
+            <div class="card h-100 shadow-sm feature-card animate-pop" :style="{ animationDelay: `${index * 80}ms` }">
               <div class="card-body text-center">
                 <span :class="['feature-icon', getIconColorClass(feature.color)]">
-                  <i :class="['fas', feature.icon]"></i>
+                  <i :class="['fas', feature.icon]" aria-hidden="true"></i>
                 </span>
                 <h5 class="card-title mt-3 mb-2 fw-semibold">{{ feature.title }}</h5>
                 <p class="card-text text-secondary small">{{ feature.text }}</p>
@@ -54,10 +54,10 @@
                   The KSB Tech Community is a collaborative platform for MCA students at KMCT School Of Business to learn, build, and grow together through real-world software projects and events.
                 </p>
                 <ul class="list-unstyled mb-4">
-                  <li class="mb-2"><i class="fas fa-lightbulb text-warning me-2"></i> Foster practical software development experience</li>
-                  <li class="mb-2"><i class="fas fa-users text-info me-2"></i> Encourage peer learning and mentorship</li>
-                  <li class="mb-2"><i class="fas fa-folder-open text-success me-2"></i> Build a portfolio of real-world projects</li>
-                  <li class="mb-2"><i class="fas fa-rocket text-primary me-2"></i> Develop professional and technical skills</li>
+                  <li class="mb-2"><i class="fas fa-lightbulb text-warning me-2" aria-hidden="true"></i> Foster practical software development experience</li>
+                  <li class="mb-2"><i class="fas fa-users text-info me-2" aria-hidden="true"></i> Encourage peer learning and mentorship</li>
+                  <li class="mb-2"><i class="fas fa-folder-open text-success me-2" aria-hidden="true"></i> Build a portfolio of real-world projects</li>
+                  <li class="mb-2"><i class="fas fa-rocket text-primary me-2" aria-hidden="true"></i> Develop professional and technical skills</li>
                 </ul>
               </div>
             </transition>
@@ -65,17 +65,17 @@
           <div class="col-lg-6">
             <transition name="fade-slide-right">
               <div>
-                <div class="card shadow-lg border-0 about-card animate-pop">
+                <div class="card shadow-sm about-card animate-pop">
                   <div class="card-body">
-                    <h5 class="h5 text-primary mb-3"><i class="fas fa-gift me-2"></i> What We Offer</h5>
+                    <h5 class="h5 text-primary mb-3"><i class="fas fa-gift me-2" aria-hidden="true"></i> What We Offer</h5>
                     <ul class="list-unstyled mb-3">
-                      <li class="mb-2"><i class="fas fa-calendar-alt text-primary me-2"></i> Regular events and hackathons</li>
-                      <li class="mb-2"><i class="fas fa-users text-secondary me-2"></i> Team-based and individual projects</li>
-                      <li class="mb-2"><i class="fas fa-star text-warning me-2"></i> XP and rating system for recognition</li>
-                      <li class="mb-2"><i class="fas fa-book text-success me-2"></i> Curated resources and learning materials</li>
-                      <li class="mb-2"><i class="fas fa-trophy text-danger me-2"></i> Leaderboards and portfolio generation</li>
+                      <li class="mb-2"><i class="fas fa-calendar-alt text-primary me-2" aria-hidden="true"></i> Regular events and hackathons</li>
+                      <li class="mb-2"><i class="fas fa-users text-secondary me-2" aria-hidden="true"></i> Team-based and individual projects</li>
+                      <li class="mb-2"><i class="fas fa-star text-warning me-2" aria-hidden="true"></i> XP and rating system for recognition</li>
+                      <li class="mb-2"><i class="fas fa-book text-success me-2" aria-hidden="true"></i> Curated resources and learning materials</li>
+                      <li class="mb-2"><i class="fas fa-trophy text-danger me-2" aria-hidden="true"></i> Leaderboards and portfolio generation</li>
                     </ul>
-                    <h6 class="fw-semibold text-primary mb-2 mt-4"><i class="fas fa-hands-helping me-2"></i> How to Get Involved</h6>
+                    <h6 class="fw-semibold text-primary mb-2 mt-4"><i class="fas fa-hands-helping me-2" aria-hidden="true"></i> How to Get Involved</h6>
                     <ol class="mb-0 ps-3">
                       <li>Log in with your student account</li>
                       <li>Participate in events or request new ones</li>
@@ -99,7 +99,7 @@
           <div class="col-md-7">
             <transition name="fade-slide-left">
               <div>
-                <h3 class="fw-bold text-primary mb-3"><i class="fas fa-hand-holding-heart me-2"></i> Sponsor the Tech Community</h3>
+                <h3 class="fw-bold text-primary mb-3"><i class="fas fa-hand-holding-heart me-2" aria-hidden="true"></i> Sponsor the Tech Community</h3>
                 <p class="text-secondary mb-2">
                   We welcome sponsorships and partnerships from organizations, companies, and individuals who wish to support student innovation and skill development. Sponsoring the KSB Tech Community helps us organize more impactful events, provide better resources, and empower the next generation of tech professionals.
                 </p>
@@ -111,20 +111,20 @@
           </div>
           <div class="col-md-5">
             <transition name="fade-slide-right">
-              <div class="contact-card card shadow border-0 animate-pop">
+              <div class="contact-card card shadow-sm animate-pop">
                 <div class="card-body text-center">
-                  <h5 class="mb-3 text-primary"><i class="fas fa-envelope me-2"></i>Contact & Socials</h5>
+                  <h5 class="mb-3 text-primary"><i class="fas fa-envelope me-2" aria-hidden="true"></i>Contact & Socials</h5>
                   <p class="text-secondary small mb-3">For questions or suggestions, reach out to the MCA department or connect with us on:</p>
                   <div class="mb-3">
-                    <a href="https://instagram.com/USERNAME" target="_blank" rel="noopener" class="text-secondary me-3" aria-label="Instagram">
-              <i class="fab fa-instagram fa-lg"></i>
-            </a>
-            <a href="https://linkedin.com/in/USERNAME" target="_blank" rel="noopener" class="text-secondary me-3" aria-label="LinkedIn">
-              <i class="fab fa-linkedin fa-lg"></i>
-            </a>
-            <a href="https://github.com/USERNAME" target="_blank" rel="noopener" class="text-secondary" aria-label="GitHub">
-              <i class="fab fa-github fa-lg"></i>
-            </a>
+                    <a href="https://instagram.com/" target="_blank" rel="noopener" class="text-secondary me-3" aria-label="Instagram">
+                      <i class="fab fa-instagram fa-lg"></i>
+                    </a>
+                    <a href="mailto:labkmct@gmail.com" class="text-secondary me-3" aria-label="Email">
+                      <i class="fas fa-envelope fa-lg"></i>
+                    </a>
+                    <a href="https://github.com/" target="_blank" rel="noopener" class="text-secondary" aria-label="GitHub">
+                      <i class="fab fa-github fa-lg"></i>
+                    </a>
                   </div>
                   <router-link to="/transparency" class="btn btn-outline-primary btn-sm">
                     <i class="fas fa-eye me-2"></i> Community Transparency
@@ -143,8 +143,7 @@
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
            <p class="text-muted small mb-0">&copy; {{ new Date().getFullYear() }} KSB Tech Community. All rights reserved.</p>
            <div class="d-flex gap-3">
-             <router-link to="/terms" class="text-muted small text-decoration-none">Terms</router-link>
-             <router-link to="/privacy" class="text-muted small text-decoration-none">Privacy</router-link>
+             <router-link to="/legal" class="text-muted small text-decoration-none">Terms & Privacy</router-link>
            </div>
         </div>
         <p class="mt-3 small text-muted text-center">
@@ -193,7 +192,7 @@ const getIconColorClass = (color: Feature['color']): string => {
 .landing-section {
   background: linear-gradient(135deg, #f8fafc 0%, #e9f0fb 100%);
   min-height: 100vh;
-  overflow-x: hidden; /* Prevent horizontal scroll */
+  overflow-x: hidden; 
 }
 
 /* Welcome Section */
@@ -263,7 +262,7 @@ const getIconColorClass = (color: Feature['color']): string => {
 .about-card {
   background: #fff;
   border-radius: 1rem;
-  box-shadow: 0 4px 24px 0 rgba(20,184,166,0.09);
+  /* box-shadow removed, shadow-sm class will handle it */
 }
 
 /* Sponsor Section */
@@ -278,7 +277,7 @@ const getIconColorClass = (color: Feature['color']): string => {
 .contact-card {
   border-radius: 1rem;
   background: #fff;
-  box-shadow: 0 4px 24px 0 rgba(37,99,235,0.09);
+  /* box-shadow removed, shadow-sm class will handle it */
 }
 
 /* Footer */

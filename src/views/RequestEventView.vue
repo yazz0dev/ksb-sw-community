@@ -170,9 +170,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from '@/store/user';
-import { useEventStore } from '@/store/events';
-import { useNotificationStore } from '@/store/notification';
+import { useUserStore } from '@/store/studentProfileStore';
+import { useEventStore } from '@/store/studentEventStore';
+import { useNotificationStore } from '@/store/studentNotificationStore';
 import { DateTime } from 'luxon';
 // Form Components
 import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
@@ -183,7 +183,7 @@ import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
 // Types
 import { EventFormData, EventFormat, Event, Team, EventStatus, EventCriteria } from '@/types/event';
-import { UserData } from '@/types/user'; // Use UserData consistently
+import { UserData } from '@/types/student'; // Use UserData consistently
 import { BEST_PERFORMER_LABEL } from '@/utils/constants'; // Corrected import path (removed semicolon)
 
 

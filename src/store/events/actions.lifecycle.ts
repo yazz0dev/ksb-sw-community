@@ -1,315 +1,93 @@
-// src/store/events/actions.lifecycle.ts
-// Helper functions for lifecycle operations.
+// src/store/events/actions.lifecycle.ts (Conceptual Student Site Helpers)
 import { doc, getDoc, updateDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Event, EventStatus } from '@/types/event';
-import { User } from '@/types/user'; // Assuming User type exists
-import { invokePushNotification, isSupabaseConfigured } from '@/notifications';
-import { mapEventDataToFirestore } from '@/utils/eventDataMapper'; // Import mapper
+import type { Event, EventStatus, EventFormData } from '@/types/event';
+import { mapEventDataToFirestore, type MappedEventForFirestore } from '@/utils/eventDataMapper'; // Assuming updated mapper
+
+const now = () => Timestamp.now();
 
 /**
- * Creates a new event request document in Firestore.
- * @param initialData - The initial event data (Partial<Event>).
- * @param currentUserUid - The UID of the user making the request.
+ * Creates a new event request document in Firestore submitted by a student.
+ * @param formData - The event form data.
+ * @param studentId - The UID of the student making the request.
  * @returns Promise<string> - The ID of the newly created event document.
- * @throws Error if user not logged in, data invalid, or Firestore operation fails.
  */
-export async function createEventRequestInFirestore(initialData: Partial<Event>, currentUserUid: string): Promise<string> {
-    if (!currentUserUid) throw new Error('User must be logged in to request an event.');
-    if (!initialData.details?.date?.start || !initialData.details?.date?.end) {
-        throw new Error('Event start and end dates are required.');
-    }
+export async function createEventRequestByStudentInFirestore(formData: EventFormData, studentId: string): Promise<string> {
+    if (!studentId) throw new Error('Student ID is required to request an event.');
+    if (!formData.details?.eventName?.trim()) throw new Error('Event name is required.');
+    // Add more formData validation as needed
 
     try {
-        // Use the mapper to prepare data
-        const mappedData = mapEventDataToFirestore({
-             ...initialData,
-             requestedBy: currentUserUid,
-             status: EventStatus.Pending,
-             createdAt: Timestamp.now(),
-             votingOpen: false, // Default value
-        });
-
-        // Ensure lastUpdatedAt is also set on creation
-        mappedData.lastUpdatedAt = Timestamp.now();
-
-        // Remove fields that shouldn't be set on creation explicitly
-        delete mappedData.id;
-        delete mappedData.completedAt;
-        delete mappedData.closedAt;
-        delete mappedData.teamMembersFlat;
-        delete mappedData.gallery;
-        delete mappedData.winners;
-        delete mappedData.manuallySelectedBy;
-
-        // Only include fields explicitly allowed by Firestore rules
-        const allowedFields = [
-            'details', 'requestedBy', 'status', 'createdAt', 'lastUpdatedAt',
-            'votingOpen', 'criteria', 'teams', 'participants', 'submissions',
-            'organizerRating', 'bestPerformerSelections', 'rejectionReason'
-        ];
-
-        const filteredData: Record<string, any> = {};
-        allowedFields.forEach(field => {
-            if (field in mappedData) {
-                filteredData[field] = mappedData[field];
-            }
-        });
-
-        // Ensure required fields are properly initialized according to the security rules
-        // For non-Team events, teams must be null or an empty list
-        if (filteredData.details?.format !== 'Team') {
-            filteredData.teams = [];
-        } else if (!filteredData.teams) {
-            filteredData.teams = [];
+        const dataToSubmit: Partial<Event> = {
+            ...mapEventDataToFirestore(formData, true), // isNew = true
+            requestedBy: studentId,
+            status: EventStatus.Pending,
+            votingOpen: false,
+            organizerRatings: [],
+            submissions: [],
+            winners: {},
+            bestPerformerSelections: {},
+            // createdAt & lastUpdatedAt are handled by mapEventDataToFirestore or set below
+        };
+        // Ensure organizers array includes the requester if not already
+        if (dataToSubmit.details && !dataToSubmit.details.organizers?.includes(studentId)) {
+            dataToSubmit.details.organizers = [studentId, ...(dataToSubmit.details.organizers || [])];
         }
+        if (!dataToSubmit.createdAt) dataToSubmit.createdAt = now(); // Ensure createdAt if mapper doesn't set
+        if (!dataToSubmit.lastUpdatedAt) dataToSubmit.lastUpdatedAt = now();
 
-        // Initialize participants as an empty array (required by rules)
-        filteredData.participants = filteredData.participants || [];
-        
-        // Initialize submissions as an empty array (required by rules)
-        filteredData.submissions = filteredData.submissions || [];
-        
-        // Initialize organizerRating as an empty array (required by rules)
-        filteredData.organizerRating = filteredData.organizerRating || [];
-        
-        // Initialize bestPerformerSelections as an empty object (required by rules)
-        filteredData.bestPerformerSelections = filteredData.bestPerformerSelections || {};
 
-        // Log the FILTERED data being sent to Firestore
-        console.log("Data being sent to Firestore for event creation:", JSON.stringify(filteredData, (key, value) => {
-            if (value && value.toDate instanceof Function) {
-                return value.toDate().toISOString();
-            }
-            return value;
-        }, 2));
-
-        // Use filteredData instead of mappedData for the Firestore call
-        const docRef = await addDoc(collection(db, 'events'), filteredData);
-
-        // Trigger notification (keep this logic here or move to Pinia action)
-        if (isSupabaseConfigured()) {
-            invokePushNotification({
-                type: 'event_request', eventId: docRef.id, requestedBy: currentUserUid,
-            }).catch(pushError => {
-                console.error(`Failed to trigger Supabase function for event request:`, pushError);
-                // Consider how to notify about this - maybe return a flag?
-            });
-        }
+        const docRef = await addDoc(collection(db, "events"), dataToSubmit);
         return docRef.id;
     } catch (error: any) {
-        console.error('Firestore createEventRequest error:', error);
+        console.error('Firestore createEventRequestByStudent error:', error);
         throw new Error(`Failed to submit event request: ${error.message}`);
     }
 }
 
 /**
- * Updates an existing event document in Firestore.
+ * Updates an existing event request document in Firestore by a student.
+ * Only for their own PENDING requests.
  * @param eventId - The ID of the event to update.
- * @param updates - The partial event data containing updates.
- * @param currentUser - The currently logged-in user object.
- * @returns Promise<void>
- * @throws Error if permissions fail, event not found, or Firestore update fails.
+ * @param formData - The partial event form data containing updates.
+ * @param studentId - The UID of the student making the update.
  */
-export async function updateEventDetailsInFirestore(eventId: string, updates: Partial<Event>, currentUser: User | null): Promise<void> {
+export async function updateMyEventRequestInFirestore(eventId: string, formData: EventFormData, studentId: string): Promise<void> {
     if (!eventId) throw new Error('Event ID is required for updates.');
-    if (!currentUser?.uid) throw new Error('User not authenticated for update.');
-    if (typeof updates !== 'object' || updates === null || Object.keys(updates).length === 0) {
-         console.warn("No updates provided for event:", eventId);
-         return;
-     }
+    if (!studentId) throw new Error('Student ID is required.');
 
     const eventRef = doc(db, 'events', eventId);
     try {
         const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = eventSnap.data() as Event;
-
-        // Enhanced Permission Check
-        const isOrganizer = eventData.details?.organizers?.includes(currentUser.uid) || eventData.requestedBy === currentUser.uid;
- 
-    
-        if (!isOrganizer ) {
-            throw new Error(`Permission denied: Only organizers  can modify this event.`);
-        }
-        
-        const currentStatus = eventData.status as EventStatus;
-        const editableStatuses: EventStatus[] = [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress];
-
-        if (!editableStatuses.includes(currentStatus)) {
-            throw new Error(`Cannot edit event in status '${currentStatus}'.`);
-        }
-
-        // Prepare payload using mapper
-        const mappedUpdates = mapEventDataToFirestore({
-            ...updates,
-            lastUpdatedAt: Timestamp.now(), // Ensure lastUpdatedAt is always updated
-        });
-
-        // Prevent crucial fields from being overwritten accidentally
-        delete mappedUpdates.id;
-        delete mappedUpdates.createdAt;
-        delete mappedUpdates.requestedBy;
-        delete mappedUpdates.status; // Status updated via specific function
-        delete mappedUpdates.completedAt;
-        delete mappedUpdates.closedAt;
-        // Only include 'details' if it was actually part of the 'updates'
-        if (!updates.details) {
-            delete mappedUpdates.details;
-        } else if (mappedUpdates.details && Object.keys(mappedUpdates.details).length === 0) {
-            // If details was in updates but became empty after mapping (e.g. all undefined), remove it
-            delete mappedUpdates.details;
-        }
-
-        // Log the data being sent for debugging Firestore rules
-        console.log("Data being sent to Firestore for event update:", JSON.stringify(mappedUpdates, (key, value) => {
-            if (value && value.toDate instanceof Function) {
-                return value.toDate().toISOString();
-            }
-            return value;
-        }, 2));
-
-        await updateDoc(eventRef, mappedUpdates);
-        console.log(`Firestore: Event ${eventId} details updated.`);
-
-    } catch (error: any) {
-        // Enhanced error handling
-        console.error(`Firestore updateEventDetails error for ${eventId}:`, error);
-        
-        // Categorize errors for better user feedback
-        if (error.code === 'permission-denied') {
-            throw new Error(`Permission denied: You don't have access to update this event.`);
-        } else if (error.code === 'not-found') {
-            throw new Error(`Event not found. It may have been deleted.`);
-        } else if (error.code === 'unavailable') {
-            throw new Error(`Service temporarily unavailable. Please try again later.`);
-        } else {
-            throw new Error(`Failed to update event details: ${error.message || 'Unknown error'}`);
-        }
-    }
-}
-
-
-/**
- * Updates the status of an event document in Firestore.
- * @param eventId - The ID of the event.
- * @param newStatus - The new EventStatus.
- * @param currentUser - The user attempting to update the status.
- * @returns Promise<Partial<Event>> - Returns the specific fields that were updated.
- * @throws Error if status change invalid, event not found, or Firestore update fails.
- */
-export async function updateEventStatusInFirestore(eventId: string, newStatus: EventStatus, currentUser: User | null): Promise<Partial<Event>> {
-    const validStatuses = Object.values(EventStatus);
-    if (!validStatuses.includes(newStatus)) throw new Error(`Invalid status: ${newStatus}.`);
-    if (!eventId) throw new Error('Event ID required for status update.');
-    if (!currentUser?.uid) throw new Error('User not authenticated for status update.');
-
-    const eventRef = doc(db, 'events', eventId);
-    try {
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) throw new Error('Event not found.');
+        if (!eventSnap.exists()) throw new Error('Event request not found.');
         const currentEvent = eventSnap.data() as Event;
 
-        // Permission Check: Allow organizers or the event requester.
-        const isOrganizer = currentEvent.details?.organizers?.includes(currentUser.uid) || currentEvent.requestedBy === currentUser.uid;
-        if (!isOrganizer) {
-            throw new Error(`Permission denied: Only organizers or the event requester can change the event status.`);
+        if (currentEvent.requestedBy !== studentId) {
+            throw new Error("Permission denied: You can only edit your own event requests.");
+        }
+        if (currentEvent.status !== EventStatus.Pending) {
+            throw new Error(`Cannot edit request with status: ${currentEvent.status}. Contact an admin.`);
         }
 
-        let updates: Partial<Event> = { 
-            status: newStatus,
-            lastUpdatedAt: Timestamp.now() // ADDED
+        const updates: Partial<MappedEventForFirestore> = {
+            ...mapEventDataToFirestore(formData, false), // isNew = false
+            lastUpdatedAt: now()
         };
-        let notificationType = '';
-        let targetUserIds: string[] = [];
-
-        // Logic based on newStatus 
-        switch (newStatus) {
-            case EventStatus.Approved:
-                notificationType = 'event_approved';
-                targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : [];
-                break;
-            case EventStatus.InProgress:
-                updates.votingOpen = true; // Open voting when starting
-                notificationType = 'event_in_progress';
-                targetUserIds = currentEvent.details?.organizers || [];
-                break;
-            case EventStatus.Completed:
-                updates.completedAt = Timestamp.now();
-                updates.votingOpen = true; // Ensure voting are open initially on completion
-                notificationType = 'event_completed';
-                targetUserIds = currentEvent.details?.organizers || [];
-                break;
-            case EventStatus.Cancelled:
-                updates.votingOpen = false; // Close voting on cancellation
-                notificationType = 'event_cancelled';
-                targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : [];
-                break;
-            case EventStatus.Rejected:
-                updates.votingOpen = false;
-                notificationType = 'event_rejected'; // Assuming a type exists
-                targetUserIds = currentEvent.requestedBy ? [currentEvent.requestedBy] : [];
-                break;
-            case EventStatus.Closed:
-                throw new Error(`Use 'closeEventPermanently' action to close an event.`);
-            case EventStatus.Pending:
-                throw new Error(`Changing status back to '${newStatus}' is not supported here.`);
-        }
+        // Ensure student cannot change status, requester, or critical system-managed fields
+        delete updates.status;
+        delete updates.requestedBy;
+        delete updates.createdAt; // Should not be changed
+        delete updates.closedAt;
+        delete updates.lifecycleTimestamps; // Admins manage these
+        delete updates.votingOpen;
+        delete updates.winners;
+        delete updates.manuallySelectedBy;
+        delete updates.organizerRatings;
+        // `submissions` might be editable if you allow pre-adding submission links, but usually not.
 
         await updateDoc(eventRef, updates);
-        console.log(`Firestore: Event ${eventId} status updated to ${newStatus}.`);
-
-        // Trigger notification (keep logic here or move to Pinia action)
-        if (isSupabaseConfigured() && notificationType && targetUserIds.length > 0) {
-            invokePushNotification({ type: notificationType, eventId, targetUserIds })
-                .catch(pushError => console.error("Push notification failed:", pushError));
-        }
-
-        return updates; // Return the updates applied
-
     } catch (error: any) {
-        console.error(`Firestore updateEventStatus error for ${eventId}:`, error);
-        throw new Error(`Failed to update event status: ${error.message}`);
+        console.error(`Firestore updateMyEventRequest error for ${eventId}:`, error);
+        throw new Error(`Failed to update event request: ${error.message}`);
     }
-}
-
-/**
- * Closes an event permanently in Firestore (sets status and closedAt).
- * Does NOT handle XP calculation/award - that's done in the Pinia action.
- * @param eventId - The ID of the event.
- * @param currentUser - The currently logged-in user object.
- * @returns Promise<void>
- * @throws Error if permissions fail, event not found, state invalid, or Firestore update fails.
- */
-export async function closeEventDocumentInFirestore(eventId: string, currentUser: User | null): Promise<void> {
-     if (!eventId) throw new Error('Event ID required.');
-     if (!currentUser?.uid) throw new Error('User not authenticated.');
-
-     const eventRef = doc(db, 'events', eventId);
-     try {
-         const eventSnap = await getDoc(eventRef);
-         if (!eventSnap.exists()) throw new Error('Event not found.');
-         const eventData = eventSnap.data() as Event;
-
-         // Permission Check
-         const isOrganizer = eventData.details?.organizers?.includes(currentUser.uid) || eventData.requestedBy === currentUser.uid;
-         if (!isOrganizer) throw new Error("Unauthorized: Only organizers can close events.");
-
-         // State Check
-         if (eventData.status !== EventStatus.Completed) throw new Error("Event must be 'Completed' to be closed.");
-         if (eventData.votingOpen) throw new Error("Voting must be closed before closing the event.");
-         if (!eventData.winners || Object.keys(eventData.winners).length === 0) throw new Error("Winners must be determined before closing.");
-
-         // Update Firestore status and timestamp
-         await updateDoc(eventRef, {
-             status: EventStatus.Closed,
-             closedAt: Timestamp.now(),
-             // lastUpdatedAt is handled by the Pinia store batch write
-         });
-         console.log(`Firestore: Event ${eventId} marked as Closed.`);
-
-     } catch (error: any) {
-         console.error(`Firestore closeEvent error for ${eventId}:`, error);
-         throw new Error(`Failed to close event document: ${error.message}`);
-     }
 }

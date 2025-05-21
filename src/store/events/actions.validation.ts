@@ -1,115 +1,83 @@
-// src/store/events/actions.validation.ts
-// Helper functions for validation actions.
-import { getDocs, Timestamp, collection, query, where } from 'firebase/firestore';
+// src/store/events/actions.validation.ts (Conceptual Student Site Helpers)
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Event, EventStatus, EventFormat } from '@/types/event'; // Add EventFormat
-import { DateTime } from 'luxon';
+import type { Event, EventStatus } from '@/types/event';
+import { toAppTimezone } from '@/utils/dateTime'; // For date comparisons
+import { Interval } from 'luxon'; // For date range overlap checks
 
 /**
- * Checks if a user already has active (Pending, Approved, InProgress) event requests.
- * @param userId - The UID of the user to check.
+ * Checks if a student already has an active (Pending) event request.
+ * @param studentId - The UID of the student to check.
  * @returns Promise<boolean> - True if an active request exists, false otherwise.
  */
-export async function checkExistingRequestsForUser(userId: string): Promise<boolean> {
-    if (!userId) return false; // No user, no requests
+export async function checkExistingPendingRequestForStudent(studentId: string): Promise<boolean> {
+    if (!studentId) return false;
 
     try {
         const q = query(
             collection(db, 'events'),
-            where('requestedBy', '==', userId),
-            where('status', 'in', [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress])
+            where('requestedBy', '==', studentId),
+            where('status', '==', EventStatus.Pending) // Only check for Pending
         );
         const querySnapshot = await getDocs(q);
-        return !querySnapshot.empty; // Return true if any documents match
-    } catch (error) {
-        console.error("Error checking existing requests:", error);
-        // Decide error handling: rethrow or return false? Returning false might be safer UI-wise.
-        return false;
+        return !querySnapshot.empty; // True if any PENDING documents match
+    } catch (error: any) {
+        console.error("Error checking existing student requests:", error);
+        throw new Error(`Failed to check existing requests: ${error.message}`);
     }
 }
 
 /**
  * Checks if the proposed event dates conflict with existing Approved/InProgress events.
- * @param startDate - Proposed start date (Date, ISO string, or Timestamp).
- * @param endDate - Proposed end date (Date, ISO string, or Timestamp).
- * @param excludeEventId - Optional ID of an event to exclude (used when editing).
- * @returns Promise<{ hasConflict: boolean; nextAvailableDate: string | null; conflictingEvent: Event | null }>
- * @throws Error if dates are invalid or Firestore query fails.
+ * This is important for students when requesting an event to avoid obvious clashes.
+ * @param startDateInput - Proposed start date.
+ * @param endDateInput - Proposed end date.
+ * @param excludeEventId - Optional ID of an event to exclude (used when student is editing their own PENDING request).
+ * @returns Promise<{ hasConflict: boolean; conflictingEventName: string | null }>
  */
-export async function checkDateConflictInFirestore(
-    startDate: Date | string | Timestamp | null,
-    endDate: Date | string | Timestamp | null,
-    excludeEventId: string | null = null
-): Promise<{ hasConflict: boolean; nextAvailableDate: string | null; conflictingEvent: Event | null }> {
+export async function checkDateConflictForRequest(
+    startDateInput: Date | string | Timestamp | null | undefined,
+    endDateInput: Date | string | Timestamp | null | undefined,
+    excludeEventId?: string | null
+): Promise<{ hasConflict: boolean; conflictingEventName: string | null }> {
+    const checkStartLuxon = toAppTimezone(startDateInput)?.startOf('day');
+    const checkEndLuxon = toAppTimezone(endDateInput)?.startOf('day');
 
-    // Helper to convert various date types to Luxon DateTime in UTC start of day
-    const convertToLuxonUTC = (d: Date | string | Timestamp | null): DateTime | null => {
-        if (!d) return null;
-        let dt: DateTime;
-        try {
-            if (d instanceof Timestamp) dt = DateTime.fromJSDate(d.toDate());
-            else if (d instanceof Date) dt = DateTime.fromJSDate(d);
-            else dt = DateTime.fromISO(d); // Assume ISO string
-
-            if (!dt.isValid) throw new Error(`Invalid date value: ${d}`);
-            return dt.toUTC().startOf('day'); // Normalize to UTC start of day
-        } catch (e) {
-            console.error("Date conversion error:", e);
-            return null;
-        }
-    };
-
-    const checkStartLuxon = convertToLuxonUTC(startDate);
-    const checkEndLuxon = convertToLuxonUTC(endDate);
-
-    if (!checkStartLuxon || !checkEndLuxon) {
+    if (!checkStartLuxon?.isValid || !checkEndLuxon?.isValid) {
         throw new Error('Invalid date(s) provided for conflict check.');
     }
     if (checkEndLuxon < checkStartLuxon) {
         throw new Error('End date cannot be before start date.');
     }
 
-    // Query for potentially conflicting events
-    const q = query(collection(db, 'events'), where('status', 'in', [EventStatus.Approved, EventStatus.InProgress]));
-    let conflictingEvent: Event | null = null;
-    let latestConflictEndDate: DateTime | null = null;
+    // Query for potentially conflicting events (Approved or InProgress)
+    const q = query(
+        collection(db, 'events'),
+        where('status', 'in', [EventStatus.Approved, EventStatus.InProgress])
+    );
 
     try {
         const querySnapshot = await getDocs(q);
-
         for (const docSnap of querySnapshot.docs) {
-            const event = { id: docSnap.id, ...docSnap.data() } as Event;
-            if (excludeEventId && event.id === excludeEventId) continue; // Skip self if editing
+            if (excludeEventId && docSnap.id === excludeEventId) continue;
 
-            const eventStartLuxon = convertToLuxonUTC(event.details?.date?.start);
-            const eventEndLuxon = convertToLuxonUTC(event.details?.date?.end);
+            const event = docSnap.data() as Event;
+            const eventStartLuxon = toAppTimezone(event.details?.date?.start)?.startOf('day');
+            const eventEndLuxon = toAppTimezone(event.details?.date?.end)?.startOf('day');
 
-            if (!eventStartLuxon || !eventEndLuxon) continue; // Skip events with invalid dates
+            if (!eventStartLuxon?.isValid || !eventEndLuxon?.isValid) continue;
 
-            // Check for overlap: (StartA <= EndB) and (EndA >= StartB)
-            if (checkStartLuxon <= eventEndLuxon && checkEndLuxon >= eventStartLuxon) {
-                conflictingEvent = event; // Mark conflict
-                // Track the latest end date among all conflicting events
-                if (!latestConflictEndDate || eventEndLuxon > latestConflictEndDate) {
-                    latestConflictEndDate = eventEndLuxon;
-                }
-                // Don't break; check all events to find the latest conflict end date
+            // Check for overlap
+            const requestedInterval = Interval.fromDateTimes(checkStartLuxon, checkEndLuxon.endOf('day'));
+            const existingEventInterval = Interval.fromDateTimes(eventStartLuxon, eventEndLuxon.endOf('day'));
+
+            if (requestedInterval.overlaps(existingEventInterval)) {
+                return { hasConflict: true, conflictingEventName: event.details.eventName || "an existing event" };
             }
         }
+        return { hasConflict: false, conflictingEventName: null };
     } catch (error: any) {
         console.error("Firestore date conflict check query error:", error);
-        // Decide how to handle query errors - maybe return conflict=true?
         throw new Error(`Failed to check date conflicts: ${error.message}`);
     }
-
-    // Calculate the next available date based on the latest conflict end date found
-    const nextAvailableDate = latestConflictEndDate
-        ? latestConflictEndDate.plus({ days: 1 }).toISODate() // Return YYYY-MM-DD format
-        : null;
-
-    return {
-        hasConflict: !!conflictingEvent,
-        nextAvailableDate: nextAvailableDate,
-        conflictingEvent: conflictingEvent // Return the first conflicting event found (or null)
-    };
 }

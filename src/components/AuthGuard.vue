@@ -32,7 +32,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useUserStore } from '../store/user';
+import { useUserStore } from '../store/studentProfileStore';
 
 interface Props {
   message?: string;

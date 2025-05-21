@@ -93,8 +93,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from '@/store/user';
-import { useNotificationStore } from '@/store/notification';
+import { useUserStore } from '@/store/studentProfileStore';
+import { useNotificationStore } from '@/store/studentNotificationStore';
 
 const router = useRouter();
 const route = useRoute();

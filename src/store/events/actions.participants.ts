@@ -1,19 +1,19 @@
-// src/store/events/actions.participants.ts
-// Helper functions for participant actions.
+// src/store/events/actions.participants.ts (Conceptual Student Site Helpers)
 import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Event, EventStatus } from '@/types/event';
+import type { Event, EventStatus, Team } from '@/types/event';
+import { EventFormat } from '@/types/event';
+
+const now = () => Timestamp.now();
 
 /**
- * Adds a user to an event's participants list in Firestore.
+ * Adds a student to an event's participants list in Firestore (for Individual/Competition).
+ * For Team events, students join teams, not the event directly as a participant.
  * @param eventId - The ID of the event.
- * @param userId - The UID of the user joining.
- * @returns Promise<void>
- * @throws Error if user/event invalid, status wrong, already joined, or Firestore fails.
+ * @param studentId - The UID of the student joining.
  */
-export async function joinEventInFirestore(eventId: string, userId: string): Promise<void> {
-    if (!eventId) throw new Error('Event ID required.');
-    if (!userId) throw new Error("User ID required to join.");
+export async function joinEventByStudentInFirestore(eventId: string, studentId: string): Promise<void> {
+    if (!eventId || !studentId) throw new Error('Event ID and Student ID are required.');
 
     const eventRef = doc(db, 'events', eventId);
     try {
@@ -21,38 +21,38 @@ export async function joinEventInFirestore(eventId: string, userId: string): Pro
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
 
-        // Validation
         if (![EventStatus.Approved, EventStatus.InProgress].includes(eventData.status as EventStatus)) {
-            throw new Error(`Cannot join event with status '${eventData.status}'.`);
+            throw new Error(`Cannot join event with status: ${eventData.status}`);
         }
-        const alreadyParticipant = eventData.participants?.includes(userId);
-        const alreadyTeamMember = eventData.teams?.some(team => team.members?.includes(userId));
-        if (alreadyParticipant || alreadyTeamMember) throw new Error('Already joined this event.');
-        const isOrganizer = eventData.details?.organizers?.includes(userId);
-        if (isOrganizer) throw new Error('Organizers cannot explicitly join.');
+        if (eventData.details.format === EventFormat.Team) {
+            throw new Error("To join a team event, please find and join a specific team.");
+        }
+        if (eventData.participants?.includes(studentId)) {
+            console.warn(`Student ${studentId} already a participant in event ${eventId}.`);
+            return; // Already joined
+        }
+        if (eventData.details.organizers?.includes(studentId)) {
+            throw new Error("Organizers are automatically part of the event.");
+        }
+
 
         await updateDoc(eventRef, {
-            participants: arrayUnion(userId),
-            lastUpdatedAt: Timestamp.now() // ADDED
+            participants: arrayUnion(studentId),
+            lastUpdatedAt: now()
         });
-        console.log(`Firestore: User ${userId} joined event ${eventId}.`);
-
     } catch (error: any) {
-        console.error(`Firestore joinEvent error for ${eventId}:`, error);
+        console.error(`Firestore joinEventByStudent error for ${eventId}:`, error);
         throw new Error(`Failed to join event: ${error.message}`);
     }
 }
 
 /**
- * Removes a user from an event's participants list or team in Firestore.
+ * Removes a student from an event's participants list or their team in Firestore.
  * @param eventId - The ID of the event.
- * @param userId - The UID of the user leaving.
- * @returns Promise<void>
- * @throws Error if user/event invalid, status wrong, not part of event, or Firestore fails.
+ * @param studentId - The UID of the student leaving.
  */
-export async function leaveEventInFirestore(eventId: string, userId: string): Promise<void> {
-    if (!eventId) throw new Error('Event ID required.');
-    if (!userId) throw new Error("User ID required to leave.");
+export async function leaveEventByStudentInFirestore(eventId: string, studentId: string): Promise<void> {
+    if (!eventId || !studentId) throw new Error('Event ID and Student ID are required.');
 
     const eventRef = doc(db, 'events', eventId);
     try {
@@ -60,45 +60,42 @@ export async function leaveEventInFirestore(eventId: string, userId: string): Pr
         if (!eventSnap.exists()) throw new Error('Event not found.');
         const eventData = eventSnap.data() as Event;
 
-        // Validation
         if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(eventData.status as EventStatus)) {
-            throw new Error(`Cannot leave event with status '${eventData.status}'.`);
+            throw new Error(`Cannot leave event with status: ${eventData.status}`);
         }
-        const isOrganizer = eventData.details?.organizers?.includes(userId);
-        if (isOrganizer) throw new Error('Organizers cannot leave the event.');
-
-        let updates: Record<string, any> = {
-            lastUpdatedAt: Timestamp.now() // ADDED
-        };
-        let userFound = false;
-
-        // Remove from participants list
-        if (eventData.participants?.includes(userId)) {
-            updates.participants = arrayRemove(userId);
-            userFound = true;
+        if (eventData.details.organizers?.includes(studentId)) {
+            throw new Error("Organizers cannot leave the event via this student action.");
         }
 
-        // Remove from teams (read-modify-write needed for safety)
-        if (eventData.teams?.some(team => team.members?.includes(userId))) {
-            const updatedTeams = eventData.teams.map(team => {
-                if (team.members?.includes(userId)) {
-                    return { ...team, members: team.members.filter(m => m !== userId) };
+        const updates: Partial<MappedEventForFirestore> = { lastUpdatedAt: now() };
+        let userFoundAndRemoved = false;
+
+        if (eventData.details.format !== EventFormat.Team && eventData.participants?.includes(studentId)) {
+            updates.participants = arrayRemove(studentId) as any;
+            userFoundAndRemoved = true;
+        } else if (eventData.details.format === EventFormat.Team && eventData.teams) {
+            const newTeams = deepClone(eventData.teams).map(team => {
+                if (team.members.includes(studentId)) {
+                    userFoundAndRemoved = true;
+                    team.members = team.members.filter(m => m !== studentId);
+                    if (team.teamLead === studentId) { // If lead leaves
+                        team.teamLead = team.members.length > 0 ? team.members[0] : ''; // Assign new lead or clear
+                    }
                 }
                 return team;
-            });
-            // Filter out teams that might become empty if needed
-            // const validTeams = updatedTeams.filter(team => team.members.length > 0);
-            updates.teams = updatedTeams;
-            userFound = true;
+            }).filter(team => team.members.length > 0); // Remove empty teams
+
+            if (userFoundAndRemoved) {
+                updates.teams = newTeams;
+                updates.teamMemberFlatList = [...new Set(newTeams.flatMap(team => team.members).filter(Boolean))];
+            }
         }
 
-        if (!userFound) throw new Error('You are not currently part of this event.');
+        if (!userFoundAndRemoved) throw new Error('You are not currently registered for this event or team.');
 
         await updateDoc(eventRef, updates);
-        console.log(`Firestore: User ${userId} left event ${eventId}.`);
-
     } catch (error: any) {
-        console.error(`Firestore leaveEvent error for ${eventId}:`, error);
+        console.error(`Firestore leaveEventByStudent error for ${eventId}:`, error);
         throw new Error(`Failed to leave event: ${error.message}`);
     }
 }

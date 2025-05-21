@@ -95,8 +95,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useUserStore } from '@/store/user';
-import { useEventStore } from '@/store/events';
+import { useUserStore } from '@/store/studentProfileStore';
+import { useEventStore } from '@/store/studentEventStore';
 import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
 import { Event, EventStatus } from '@/types/event';

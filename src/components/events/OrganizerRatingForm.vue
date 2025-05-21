@@ -38,7 +38,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useEventStore } from '@/store/events';
+import { useEventStore } from '@/store/studentEventStore';
 import type { OrganizerRating } from '@/types/event';
 
 interface Props {

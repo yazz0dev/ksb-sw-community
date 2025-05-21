@@ -230,9 +230,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from '@/store/user';
-import { useEventStore } from '@/store/events';
-import { useNotificationStore } from '@/store/notification';
+import { useUserStore } from '@/store/studentProfileStore';
+import { useEventStore } from '@/store/studentEventStore';
+import { useNotificationStore } from '@/store/studentNotificationStore';
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
@@ -248,7 +248,7 @@ import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
 
 // Type Imports
 import { EventStatus, type Event, type Team, type Submission, EventFormat, type EventCriteria } from '@/types/event';
-import { User } from '@/types/user';
+import { User } from '@/types/student';
 
 // Import utility functions
 import { hasUserSubmittedVotes } from '@/utils/eventDataUtils';

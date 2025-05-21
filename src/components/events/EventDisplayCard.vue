@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 import { computed, PropType } from 'vue';
-import { useUserStore } from '@/store/user';
+import { useUserStore } from '@/store/studentProfileStore';
 import { formatRoleName } from '@/utils/formatters'; // Import formatRoleName
 import { Event, EventFormat } from '@/types/event'; // Import EventFormat
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';

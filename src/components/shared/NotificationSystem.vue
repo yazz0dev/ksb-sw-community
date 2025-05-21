@@ -33,8 +33,8 @@
 
 <script setup lang="ts">
 import { computed, watch } from 'vue';
-import { useNotificationStore } from '@/store/notification';
-import { useAppStore } from '@/store/app';
+import { useNotificationStore } from '@/store/studentNotificationStore';
+import { useAppStore } from '@/store/studentAppStore';
 // FIX: Import QueuedAction type if not globally defined (assuming it's in store types)
 import type { QueuedAction, Notification as AppNotification } from '@/types/store'; // Assuming Notification is also defined here
 
