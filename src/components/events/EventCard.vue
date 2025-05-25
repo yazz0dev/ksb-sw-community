@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 import { computed, PropType, ref, watch } from 'vue';
-import { useStudentProfileStore } from '@/stores/studentProfileStore'; // Corrected import
+import { useProfileStore } from '@/stores/profileStore'; // Corrected import
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat, type EventCriterion } from '@/types/event'; // Added EventCriterion
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
@@ -96,7 +96,7 @@ const props = defineProps({
   }
 });
 
-const userStore = useStudentProfileStore(); // Corrected usage
+const studentStore = useProfileStore(); // Corrected usage
 const { renderMarkdown } = useMarkdownRenderer();
 
 const isCancelledOrRejected = computed(() =>
@@ -139,7 +139,7 @@ const formatOrganizers = computed(() => {
   }
   const getName = (uid: string): string => {
     if (!uid) return 'Unknown';
-    const cachedName = userStore.getCachedStudentName(uid); // Corrected method name
+    const cachedName = studentStore.getCachedStudentName(uid); // Corrected method name
     return cachedName || 'Member';
   };
   const names = organizers.map(getName);

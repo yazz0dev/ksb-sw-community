@@ -1,7 +1,7 @@
 // src/router/index.ts
 import { createRouter, createWebHistory, RouteRecordRaw, NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 import EditProfileView from '../views/EditProfileView.vue';
-import { useStudentProfileStore } from '@/stores/studentProfileStore';
+import { useProfileStore } from '@/stores/profileStore';
 
 interface RouteMeta {
   requiresAuth?: boolean;
@@ -47,7 +47,7 @@ router.beforeEach((
   from: RouteLocationNormalized,
   next: NavigationGuardNext
 ) => {
-  const userStore = useStudentProfileStore(); // Get store instance
+  const studentStore = useProfileStore(); // Get store instance
   // const eventStore = useEventStore(); // Uncomment if needed
 
   // --- Check if initial auth fetch is complete ---
@@ -55,7 +55,7 @@ router.beforeEach((
   // so this check acts as a safety net if navigation somehow happens before mount completes.
   // In a correctly functioning setup post main.ts changes, this might become less critical,
   // but it's good practice.
-  if (!userStore.hasFetched && to.name !== 'Landing' && to.name !== 'Login' && to.name !== 'ForgotPassword') {
+  if (!studentStore.hasFetched && to.name !== 'Landing' && to.name !== 'Login' && to.name !== 'ForgotPassword') {
     // If the initial check isn't done AND we are trying to access a potentially protected route,
     // it's safer to wait or redirect to a loading/landing page.
     // However, since main.ts delays mounting, hasFetched SHOULD be true here.
@@ -66,7 +66,7 @@ router.beforeEach((
      // return;
   }
 
-  const isAuthenticated = userStore.isAuthenticated;
+  const isAuthenticated = studentStore.isAuthenticated;
   const routeMeta = to.meta as RouteMeta; // Cast meta
 
   // --- Guest Only routes ---

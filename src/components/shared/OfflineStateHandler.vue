@@ -23,12 +23,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStudentAppStore } from '@/stores/studentAppStore';
+import { useAppStore } from '@/stores/appStore';
 // QueuedAction should be imported from types/store.ts if it's shared
 // For this component, it doesn't directly use the QueuedAction type in its script,
 // but relies on appStore which uses it.
 
-const appStore = useStudentAppStore();
+const appStore = useAppStore();
 
 const isOnline = computed<boolean>(() => appStore.isOnline);
 // Accessing the reactive ref directly from the store

@@ -66,7 +66,7 @@
                 class="badge rounded-pill bg-primary-subtle text-primary-emphasis d-inline-flex align-items-center p-1 ps-2"
               >
                 <i class="fas fa-user fa-xs me-1"></i>
-                <span class="me-1 small">{{ userStore.getCachedStudentName(memberId) || `UID: ${memberId.substring(0,6)}...` }}</span>
+                <span class="me-1 small">{{ studentStore.getCachedStudentName(memberId) || `UID: ${memberId.substring(0,6)}...` }}</span>
                 <button
                   type="button"
                   class="btn-close btn-close-sm"
@@ -95,13 +95,13 @@
                <option v-for="memberId in team.members"
                        :key="memberId"
                        :value="memberId">
-                 {{ userStore.getCachedStudentName(memberId) || `UID: ${memberId.substring(0,6)}...` }}
+                 {{ studentStore.getCachedStudentName(memberId) || `UID: ${memberId.substring(0,6)}...` }}
                </option>
              </select>
               <div class="invalid-feedback">Team lead selection is required.</div>
               <div v-if="team.teamLead" class="mt-1">
                   <span class="small text-muted">Selected Lead: </span>
-                  <span class="small fw-medium text-success">{{ userStore.getCachedStudentName(team.teamLead) || `UID: ${team.teamLead.substring(0,6)}...` }}</span>
+                  <span class="small fw-medium text-success">{{ studentStore.getCachedStudentName(team.teamLead) || `UID: ${team.teamLead.substring(0,6)}...` }}</span>
               </div>
           </div>
         </div>
@@ -158,8 +158,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, PropType, nextTick } from 'vue';
-import { useStudentProfileStore } from '@/stores/studentProfileStore';
-import { useStudentEventStore } from '@/stores/studentEventStore'; // Corrected import
+import { useProfileStore } from '@/stores/profileStore';
+import { useEventStore } from '@/stores/eventStore'; // Corrected import
 import TeamMemberSelect from './TeamMemberSelect.vue';
 import { Team as EventTeamType } from '@/types/event';
 import { UserData } from '@/types/student';
@@ -184,8 +184,8 @@ const emit = defineEmits<{
   (e: 'error', message: string): void;
 }>();
 
-const userStore = useStudentProfileStore();
-const eventStore = useStudentEventStore(); // Corrected usage
+const studentStore = useProfileStore();
+const eventStore = useEventStore(); // Corrected usage
 const teams = ref<LocalTeam[]>([]);
 const maxTeams = 8;
 const minMembersPerTeam = 2;
@@ -224,9 +224,9 @@ const ensureMemberNamesAreFetched = async (currentTeams: LocalTeam[]) => {
         (team.members || []).forEach(id => { if (id) allMemberIds.add(id); });
         if (team.teamLead) allMemberIds.add(team.teamLead);
     });
-    const idsToFetch = Array.from(allMemberIds).filter(id => !userStore.getCachedStudentName(id));
+    const idsToFetch = Array.from(allMemberIds).filter(id => !studentStore.getCachedStudentName(id));
     if (idsToFetch.length > 0) {
-        try { await userStore.fetchUserNamesBatch(idsToFetch); }
+        try { await studentStore.fetchUserNamesBatch(idsToFetch); }
         catch (error) { emit('error', 'Failed to load some member names.'); }
     }
 };
@@ -327,7 +327,7 @@ async function simpleAutoGenerateTeams() {
     let studentXpMap: Map<string, XPData> = new Map();
 
     if (studentUids.length > 0) {
-        // studentXpMap = await userStore.fetchXPForUsers(studentUids); // This method needs to exist in userStore
+        // studentXpMap = await studentStore.fetchXPForUsers(studentUids); // This method needs to exist in studentStore
         // Placeholder:
         props.students.forEach(s => studentXpMap.set(s.uid, getDefaultXPData(s.uid)));
     }

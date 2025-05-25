@@ -8,9 +8,9 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import AuthGuard from "@/components/AuthGuard.vue";
 import { getOneSignal } from "./utils/oneSignalUtils";
 
-import { useStudentAppStore } from "@/stores/studentAppStore";
-import { useStudentProfileStore } from "@/stores/studentProfileStore";
-import { useStudentNotificationStore } from "./stores/studentNotificationStore";
+import { useAppStore } from "@/stores/appStore";
+import { useProfileStore } from "@/stores/profileStore";
+import { useNotificationStore } from "./stores/notificationStore";
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "./styles/main.scss";
@@ -30,9 +30,9 @@ function setupAuthListener() {
 
   unsubscribeAuth = onAuthStateChanged(auth, async (user: User | null) => {
     console.log("Firebase Auth State Changed. User:", user ? user.uid : "null");
-    const userStore = useStudentProfileStore(pinia); // Pass pinia instance
-    const appStore = useStudentAppStore(pinia);     // Pass pinia instance
-    const notificationStore = useStudentNotificationStore(pinia); // Pass pinia instance
+    const studentStore = useProfileStore(pinia); // Pass pinia instance
+    const appStore = useAppStore(pinia);     // Pass pinia instance
+    const notificationStore = useNotificationStore(pinia); // Pass pinia instance
 
     const isInitialAuthCheck = !appStore.hasFetchedInitialAuth; // Use appStore's flag
 
@@ -58,7 +58,7 @@ function setupAuthListener() {
       });
 
       // Let studentProfileStore handle its own state based on auth changes
-      await userStore.handleAuthStateChange(user);
+      await studentStore.handleAuthStateChange(user);
 
       if (isInitialAuthCheck) {
         appStore.setHasFetchedInitialAuth(true); // Mark initial auth processed
@@ -67,7 +67,7 @@ function setupAuthListener() {
 
     } catch (error) {
       console.error("Error processing auth state change:", error);
-      await userStore.clearStudentSession(false); // Clear session but don't sign out from Firebase again
+      await studentStore.clearStudentSession(false); // Clear session but don't sign out from Firebase again
       if (isInitialAuthCheck) {
         appStore.setHasFetchedInitialAuth(true);
       }
@@ -107,11 +107,11 @@ function mountApp(): void {
   appInstance.mount("#app");
   console.log("Vue app mounted.");
 
-  const appStore = useStudentAppStore();
-  const userStore = useStudentProfileStore();
+  const appStore = useAppStore();
+  const studentStore = useProfileStore();
 
   appStore.initAppListeners(); // Initialize network listeners and other app-level logic
-  // userStore.clearStaleNameCache(); // Ensure this is active and the method exists in userStore
+  // studentStore.clearStaleNameCache(); // Ensure this is active and the method exists in studentStore
 }
 
 // --- Initial Setup ---

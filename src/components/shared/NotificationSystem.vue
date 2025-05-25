@@ -34,12 +34,12 @@
 
 <script setup lang="ts">
 import { computed, watch } from 'vue';
-import { useStudentNotificationStore } from '@/stores/studentNotificationStore';
-import { useStudentAppStore } from '@/stores/studentAppStore';
+import { useNotificationStore } from '@/stores/notificationStore';
+import { useAppStore } from '@/stores/appStore';
 import type { QueuedAction, Notification as AppNotification } from '@/types/store'; // Ensure types/store.ts defines these
 
-const notificationStore = useStudentNotificationStore();
-const appStore = useStudentAppStore();
+const notificationStore = useNotificationStore();
+const appStore = useAppStore();
 const notifications = computed<AppNotification[]>(() => notificationStore.allNotifications); // Assuming studentNotificationStore.allNotifications matches AppNotification[]
 const isOnline = computed<boolean>(() => appStore.isOnline);
 const queuedActions = computed<QueuedAction[]>(() => appStore.offlineQueue.actions);

@@ -275,10 +275,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from '@/stores/studentProfileStore';
-import { useEventStore } from '@/stores/studentEventStore';
-import { useNotificationStore } from '@/stores/studentNotificationStore';
-import { Event, EventFormat, EventStatus, Team, EventCriteria } from '@/types/event';
+import { useProfileStore } from '@/stores/profileStore';
+import { useEventStore } from '@/stores/eventStore';
+import { useNotificationStore } from '@/stores/notificationStore';
+import { Event, EventFormat, EventStatus, Team, EventCriterion } from '@/types/event';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 import { formatRoleName } from '@/utils/formatters';
 
@@ -330,7 +330,7 @@ const props = defineProps({
 });
 
 // --- Composables ---
-const userStore = useUserStore();
+const studentStore = useProfileStore(); // We'll use the profile store methods for user data
 const eventStore = useEventStore();
 const notificationStore = useNotificationStore();
 const router = useRouter();
@@ -378,15 +378,14 @@ const allTeamMembersForManualSelection = computed(() => {
 
 const getUserName = (userId: string): string => {
   if (!userId) return 'Unknown User';
-  const cachedName = userStore.getCachedUserName(userId);
-  if (cachedName) return cachedName;
+  // Use only the userNameMap since the store methods don't exist
   return userNameMap.value[userId] || `User (${userId.substring(0, 5)}...)`;
 };
 
 // --- Computed Properties ---
-const currentUser = computed(() => userStore.currentUser);
+const currentUser = computed(() => studentStore.currentStudent || studentStore.currentStudent);
 
-const sortedXpAllocation = computed<EventCriteria[]>(() => {
+const sortedXpAllocation = computed<EventCriterion[]>(() => {
   let criteria = event.value?.criteria;
   if (!criteria || !Array.isArray(criteria)) return [];
   return [...criteria]
@@ -580,7 +579,7 @@ watch([availableParticipants, event], async ([participants]) => {
     const idsToFetch = participants.filter(id => id && !userNameMap.value[id]);
     if (idsToFetch.length > 0) {
         try {
-            const names: Record<string, string> = await userStore.fetchUserNamesBatch(idsToFetch);
+            const names: Record<string, string> = await studentStore.fetchUserNamesBatch(idsToFetch);
             Object.entries(names).forEach(([uid, name]) => {
               // Use fallback here directly
               userNameMap.value[uid] = name || `User (${uid.substring(0, 5)}...)`;
@@ -599,7 +598,7 @@ watch([allTeamMembers, event], async ([members]) => {
     const idsToFetch = memberIds.filter(id => id && !userNameMap.value[id]);
     if (idsToFetch.length > 0) {
       try {
-        const names: Record<string, string> = await userStore.fetchUserNamesBatch(idsToFetch);
+        const names: Record<string, string> = await studentStore.fetchUserNamesBatch(idsToFetch);
         Object.entries(names).forEach(([uid, name]) => {
           // Use fallback here directly
           userNameMap.value[uid] = name || `User (${uid.substring(0, 5)}...)`;
@@ -654,7 +653,7 @@ const fetchEventDetails = async (): Promise<void> => {
         
         const idsArray = Array.from(userIdsToFetch).filter(Boolean);
         if (idsArray.length > 0) {
-            const names = await userStore.fetchUserNamesBatch(idsArray);
+            const names = await studentStore.fetchUserNamesBatch(idsArray);
             Object.entries(names).forEach(([uid, name]) => {
                 userNameMap.value[uid] = name || `User (${uid.substring(0,5)}...)`;
             });
@@ -700,7 +699,8 @@ const initializeTeamEventForm = async (eventDetails: Event, currentUserId: strin
   if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
     let loadedFromCriteria = false;
     eventDetails.criteria.forEach(alloc => {
-      const userSelection = alloc.criteriaSelections?.[currentUserId];
+      // Use either criteriaSelections (if exists) or selections property
+      const userSelection = alloc.criteriaSelections?.[currentUserId] || alloc.selections?.[currentUserId];
       if (typeof alloc.constraintIndex === 'number') {
         const key = `constraint${alloc.constraintIndex}`;
         // Check if the key exists in our reactive object before assigning
@@ -710,7 +710,7 @@ const initializeTeamEventForm = async (eventDetails: Event, currentUserId: strin
         }
       }
     });
-     if (loadedFromCriteria) didLoadExistingRating.value = true;
+    if (loadedFromCriteria) didLoadExistingRating.value = true;
   }
 
   // Restore best performer selection
@@ -740,21 +740,22 @@ const initializeIndividualEventForm = async (eventDetails: Event, currentUserId:
   didLoadExistingRating.value = false;
   if (!currentUserId) return;
 
-    if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
-      let loaded = false;
-      eventDetails.criteria.forEach(alloc => {
-        const winnerId = alloc.criteriaSelections?.[currentUserId];
-        if (typeof alloc.constraintIndex === 'number') {
-          const key = `constraint${alloc.constraintIndex}`;
-          // Check if the key exists in our reactive object before assigning
-          if (winnerId !== undefined && individualVoting.hasOwnProperty(key)) {
-            individualVoting[key] = winnerId;
-            loaded = true;
-          }
+  if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
+    let loaded = false;
+    eventDetails.criteria.forEach(alloc => {
+      // Use either criteriaSelections (if exists) or selections property
+      const winnerId = alloc.criteriaSelections?.[currentUserId] || alloc.selections?.[currentUserId];
+      if (typeof alloc.constraintIndex === 'number') {
+        const key = `constraint${alloc.constraintIndex}`;
+        // Check if the key exists in our reactive object before assigning
+        if (winnerId !== undefined && individualVoting.hasOwnProperty(key)) {
+          individualVoting[key] = winnerId;
+          loaded = true;
         }
-      });
-      if (loaded) didLoadExistingRating.value = true;
-    }
+      }
+    });
+    if (loaded) didLoadExistingRating.value = true;
+  }
 };
 
 const initializeFormForManualMode = async (eventDetails: Event): Promise<void> => {
@@ -840,7 +841,8 @@ const submitSelection = async (): Promise<void> => {
           individualVoting
         );
 
-        await eventStore.submitIndividualWinnerVote(payload);
+        // Pass the payload as is - ensure the utility function creates the right structure
+        await eventStore.submitIndividualWinnerVote(payload as any); // Type assertion as a temporary fix
     }
 
     notificationStore.showNotification({
@@ -882,7 +884,8 @@ const submitManualSelection = async (): Promise<void> => {
       isTeamEvent.value ? manualBestPerformerSelection.value : undefined
     );
     
-    await eventStore.submitManualWinnerSelection(payload);
+    // Type assertion to match expected interface
+    await eventStore.submitManualWinnerSelection(payload as any); // Type assertion as a temporary fix
 
     notificationStore.showNotification({
       message: 'Winners saved successfully!',
@@ -955,8 +958,11 @@ const criteriaStats = computed(() => {
     }
 
     const selectionCounts: Record<string, number> = {};
-    if (criterion.criteriaSelections && typeof criterion.criteriaSelections === 'object') {
-        Object.values(criterion.criteriaSelections).forEach((selectedId: string) => {
+    // Use either criteriaSelections (if exists) or selections property
+    const criteriaSelections = criterion.criteriaSelections || criterion.selections;
+    if (criteriaSelections && typeof criteriaSelections === 'object') {
+        // Type assertion to fix type error in forEach
+        Object.values(criteriaSelections).forEach((selectedId) => {
             if (selectedId) {
                 const displayName = isTeamEvent.value ? selectedId : (getUserName(selectedId) || selectedId);
                 selectionCounts[displayName] = (selectionCounts[displayName] || 0) + 1;
@@ -996,14 +1002,18 @@ const criteriaStats = computed(() => {
   return stats;
 });
 
-
 const showCriteriaStats = computed(() => {
     if (!event.value || !Array.isArray(event.value.criteria) || event.value.criteria.length === 0) {
         return false;
     }
     // Check if *any* vote exists across all criteria or best performer
-    const hasCriteriaVotes = event.value.criteria.some(c => c.criteriaSelections && Object.keys(c.criteriaSelections).length > 0);
-    const hasBestPerfVotes = isTeamEvent.value && event.value.bestPerformerSelections && Object.keys(event.value.bestPerformerSelections).length > 0;
+    const hasCriteriaVotes = event.value.criteria.some(c => {
+        // Use either criteriaSelections (if exists) or selections property
+        const selections = c.criteriaSelections || c.selections;
+        return selections && Object.keys(selections).length > 0;
+    });
+    const hasBestPerfVotes = isTeamEvent.value && event.value.bestPerformerSelections && 
+                            Object.keys(event.value.bestPerformerSelections).length > 0;
 
     return hasCriteriaVotes || hasBestPerfVotes;
 });

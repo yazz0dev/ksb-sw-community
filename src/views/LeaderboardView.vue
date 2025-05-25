@@ -108,7 +108,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useStudentProfileStore } from '@/stores/studentProfileStore'; // Changed useUserStore
+import { useProfileStore } from '@/stores/profileStore'; // Changed usestudentStore
 import { formatRoleName } from '@/utils/formatters'; // Assuming this handles display names
 import { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Import XP types
 import { EnrichedStudentData } from '@/types/student'; // Changed EnrichedUserData
@@ -145,7 +145,7 @@ const retryCount = ref<number>(0);
 const MAX_RETRIES = 3;
 const isFirstLoad = ref<boolean>(true);
 
-const userStore = useStudentProfileStore();
+const studentStore = useProfileStore();
 
 // Helper function to safely get an error message
 const getErrorMessage = (errorValue: unknown): string => {
@@ -162,11 +162,11 @@ const getErrorMessage = (errorValue: unknown): string => {
   return String(errorValue); // Fallback
 };
 
-watch(() => userStore.isLoading, (storeLoading) => { // Changed userStore.loading to userStore.isLoading
+watch(() => studentStore.isLoading, (storeLoading) => { // Changed studentStore.loading to studentStore.isLoading
   loading.value = storeLoading;
 });
 
-watch(() => userStore.error, (storeErrorValue) => {
+watch(() => studentStore.error, (storeErrorValue) => {
   if (storeErrorValue) {
     const errorMessage = getErrorMessage(storeErrorValue);
     if (!(error.value && error.value.startsWith("Failed after"))) {
@@ -200,11 +200,11 @@ const retryLoading = async () => {
   retryCount.value++;
   isFirstLoad.value = false;
   try {
-    const fetchedUsers = await userStore.loadLeaderboardUsers(); // Changed action name
+    const fetchedUsers = await studentStore.loadLeaderboardUsers(); // Changed action name
     users.value = fetchedUsers || []; // Assign fetched data, default to empty array if null/undefined
 
-    if (userStore.error) {
-        const storeErrorMessage = getErrorMessage(userStore.error);
+    if (studentStore.error) {
+        const storeErrorMessage = getErrorMessage(studentStore.error);
         if (!storeErrorMessage.includes('No users found in the database') && !storeErrorMessage.includes('collection might be empty')) {
             error.value = storeErrorMessage;
         } else {
@@ -217,7 +217,7 @@ const retryLoading = async () => {
     error.value = getErrorMessage(err) || 'Failed to fetch leaderboard data on retry';
     users.value = [];
   } finally {
-    loading.value = userStore.isLoading; // Changed userStore.loading to userStore.isLoading
+    loading.value = studentStore.isLoading; // Changed studentStore.loading to studentStore.isLoading
   }
 };
 
@@ -227,11 +227,11 @@ onMounted(async () => {
     isFirstLoad.value = true;
     retryCount.value = 0;
     try {
-        const fetchedUsers = await userStore.loadLeaderboardUsers(); // Changed action name
+        const fetchedUsers = await studentStore.loadLeaderboardUsers(); // Changed action name
         users.value = fetchedUsers || []; // Assign fetched data, default to empty array if null/undefined
 
-        if (userStore.error) {
-            const storeErrorMessage = getErrorMessage(userStore.error);
+        if (studentStore.error) {
+            const storeErrorMessage = getErrorMessage(studentStore.error);
             if (!storeErrorMessage.includes('No users found in the database') && !storeErrorMessage.includes('collection might be empty')) {
                 error.value = storeErrorMessage;
             } else {
@@ -244,7 +244,7 @@ onMounted(async () => {
         error.value = getErrorMessage(err) || "An unexpected error occurred while loading the leaderboard.";
         users.value = [];
     } finally {
-        loading.value = userStore.isLoading; // Changed userStore.loading to userStore.isLoading
+        loading.value = studentStore.isLoading; // Changed studentStore.loading to studentStore.isLoading
         isFirstLoad.value = false;
     }
 });

@@ -94,14 +94,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useStudentProfileStore } from '@/stores/studentProfileStore';
-import { useStudentNotificationStore } from '@/stores/studentNotificationStore';
+import { useProfileStore } from '@/stores/profileStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import type { StudentProfileData, EnrichedStudentData } from '@/types/student';
 
 const router = useRouter();
 const route = useRoute();
-const userStore = useStudentProfileStore();
-const notificationStore = useStudentNotificationStore();
+const studentStore = useProfileStore();
+const notificationStore = useNotificationStore();
 
 const loading = ref(false);
 const error = ref('');
@@ -126,7 +126,7 @@ const isFormValid = computed(() => {
 
 async function loadUserData() {
   const userId = route.params.id as string;
-  if (!userId || !userStore.isAuthenticated || userId !== userStore.studentId) {
+  if (!userId || !studentStore.isAuthenticated || userId !== studentStore.studentId) {
     error.value = 'You are not authorized to edit this profile or user ID is missing.';
     notificationStore.showNotification({ message: error.value, type: 'error' });
     router.push({ name: 'Home' });
@@ -135,9 +135,9 @@ async function loadUserData() {
   loading.value = true;
 
   try {
-    const userData: EnrichedStudentData | null = userStore.currentStudent ?
-        JSON.parse(JSON.stringify(userStore.currentStudent))
-        : await userStore.fetchProfileForView(userId);
+    const userData: EnrichedStudentData | null = studentStore.currentStudent ?
+        JSON.parse(JSON.stringify(studentStore.currentStudent))
+        : await studentStore.fetchProfileForView(userId);
 
     if (!userData) {
       throw new Error('User profile not found.');
@@ -182,13 +182,13 @@ async function saveProfileEdits() {
     };
 
     // Cast to any to work around issues with StudentProfileData's external definition
-    const success = await userStore.updateMyProfile(payloadForUpdate as any);
+    const success = await studentStore.updateMyProfile(payloadForUpdate as any);
 
     if (success) {
         notificationStore.showNotification({ message: 'Profile updated successfully', type: 'success' });
         router.push({ name: 'Profile' });
     } else {
-        throw new Error(userStore.actionError || 'Failed to update profile.');
+        throw new Error(studentStore.actionError || 'Failed to update profile.');
     }
   } catch (err: any) {
     error.value = err?.message || 'Failed to update profile';

@@ -95,14 +95,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useStudentProfileStore } from '@/stores/studentProfileStore';
-import { useStudentEventStore } from '@/stores/studentEventStore';
+import { useProfileStore } from '@/stores/profileStore';
+import { useEventStore } from '@/stores/eventStore';
 import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
 import { Event, EventStatus } from '@/types/event';
 
-const userStore = useStudentProfileStore();
-const eventStore = useStudentEventStore();
+const studentStore = useProfileStore();
+const eventStore = useEventStore();
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
@@ -126,7 +126,7 @@ const getDefaultFilter = () => {
 
 const activeFilter = ref<FilterValue>(getDefaultFilter());
 
-const isAuthenticated = computed<boolean>(() => userStore.isAuthenticated);
+const isAuthenticated = computed<boolean>(() => studentStore.isAuthenticated);
 
 const viewTitle = computed(() => {
   if (!isAuthenticated.value) return 'Completed Events';
@@ -204,7 +204,7 @@ const completedEvents = computed<Event[]>(() => {
 });
 
 const nameCache = computed(() => {
-  const cache = userStore.nameCache; // Assuming nameCache is a state property
+  const cache = studentStore.nameCache; // Assuming nameCache is a state property
   if (cache instanceof Map) {
     const obj: Record<string, string> = {};
     cache.forEach((entry, uid) => {
@@ -227,7 +227,7 @@ onMounted(async () => {
       )
     ).filter(Boolean);
     if (allOrganizerUids.length > 0) {
-      await userStore.fetchUserNamesBatch(allOrganizerUids);
+      await studentStore.fetchUserNamesBatch(allOrganizerUids);
     }
   } catch (err: any) {
     error.value = err.message || 'Failed to load events.';

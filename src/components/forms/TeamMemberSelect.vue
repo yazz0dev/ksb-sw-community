@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-// No need to import useUserStore if not directly used for fetching here.
+// No need to import usestudentStore if not directly used for fetching here.
 // Name is passed via availableStudents prop.
 import { UserData } from '@/types/student'; // Correctly import UserData
 

@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useAppStore } from '@/stores/studentAppStore';
+import { useAppStore } from '@/stores/appStore';
 
 interface Props {
   loading: boolean;

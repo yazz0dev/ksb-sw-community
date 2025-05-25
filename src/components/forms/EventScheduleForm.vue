@@ -42,7 +42,7 @@
 import { ref, watch, onMounted } from 'vue';
 import DatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
-import { useStudentEventStore } from '@/stores/studentEventStore'; // Corrected import
+import { useEventStore } from '@/stores/eventStore'; // Corrected import
 import { DateTime } from 'luxon';
 
 interface FormDateRange {
@@ -88,7 +88,7 @@ const checkAvailability = async () => {
     return;
   }
   try {
-    const eventStore = useStudentEventStore(); // Corrected usage
+    const eventStore = useEventStore(); // Corrected usage
     const result = await eventStore.checkDateConflict({
       startDate: localDates.value.start,
       endDate: localDates.value.end,

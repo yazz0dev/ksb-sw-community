@@ -228,9 +228,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useStudentProfileStore } from '@/stores/studentProfileStore';
-import { useStudentEventStore } from '@/stores/studentEventStore';
-import { useStudentNotificationStore } from '@/stores/studentNotificationStore';
+import { useProfileStore } from '@/stores/profileStore';
+import { useEventStore } from '@/stores/eventStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
@@ -299,9 +299,9 @@ interface Props {
 const props = defineProps<Props>();
 
 // --- Composables ---
-const userStore = useStudentProfileStore();
-const eventStore = useStudentEventStore();
-const notificationStore = useStudentNotificationStore();
+const studentStore = useProfileStore();
+const eventStore = useEventStore();
+const notificationStore = useNotificationStore();
 const router = useRouter();
 const route = useRoute();
 
@@ -324,8 +324,8 @@ const isLeaving = ref(false);
 const globalFeedback = ref<FeedbackState>({ message: '', type: 'success' });
 
 // --- Computed Properties ---
-const currentUserId = computed<string | null>(() => userStore.studentId); // Corrected to use studentId getter
-const currentUser = computed<EnrichedStudentData | null>(() => userStore.currentStudent); // Uses EnrichedStudentData
+const currentUserId = computed<string | null>(() => studentStore.studentId); // Corrected to use studentId getter
+const currentUser = computed<EnrichedStudentData | null>(() => studentStore.currentStudent); // Uses EnrichedStudentData
 
 const nameCacheRecord = computed(() => Object.fromEntries(nameCache.value));
 const isTeamEvent = computed<boolean>(() => event.value?.details.format === EventFormat.Team);
@@ -411,7 +411,7 @@ async function fetchUserNames(userIds: string[]): Promise<void> {
 
     organizerNamesLoading.value = true;
     try {
-        const names: Record<string, string> = await userStore.fetchUserNamesBatch(uniqueIdsToFetch);
+        const names: Record<string, string> = await studentStore.fetchUserNamesBatch(uniqueIdsToFetch);
         uniqueIdsToFetch.forEach(id => {
             nameCache.value.set(id, names[id] || `User (${id.substring(0, 5)}...)`);
         });

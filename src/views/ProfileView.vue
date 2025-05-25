@@ -23,7 +23,7 @@
           <PortfolioGeneratorButton
             v-if="!loadingPortfolioData && currentUserPortfolioData.projects.length > 0 && currentUserPortfolioData.eventParticipationCount >= 5"
             :user="userForPortfolioGeneration"
-            :projects="currentUserPortfolioData.projects"
+            :projects="projectsForPortfolio"
             :event-participation-count="currentUserPortfolioData.eventParticipationCount"
           />
           <div v-else-if="loadingPortfolioData" class="d-flex align-items-center text-secondary">
@@ -75,13 +75,55 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useUserStore } from '@/stores/studentProfileStore';
-import { EnrichedUserData, UserProject as PortfolioUserProject } from '@/types/student'; // Project type for portfolio is different
+import { useProfileStore } from '@/stores/profileStore';
+// Import Project type but use it only for type annotations, not directly
+import type { Project } from '@/types/project';
 
 import ProfileViewContent from '@/components/user/ProfileViewContent.vue';
 import PortfolioGeneratorButton from '@/components/user/PortfolioGeneratorButton.vue';
 import UserRequests from '@/components/user/UserRequests.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
+
+// Define the user structure we're working with to match the actual structure
+interface UserData {
+  uid: string;
+  name?: string | null; // Allow null here to match the actual data structure
+  email?: string | null;
+  batchYear?: number;
+  xpData?: {
+    uid: string;
+    xp_developer: number;
+    xp_presenter: number;
+    xp_designer: number;
+    xp_problemSolver: number;
+    xp_organizer: number;
+    xp_participation: number;
+    xp_bestPerformer: number;
+    count_wins: number;
+    totalCalculatedXp: number;
+    lastUpdatedAt: any;
+  };
+  skills?: string[];
+  bio?: string | null; // Allow null here too
+  organizedEventIDs?: string[];
+  // Add other properties as needed
+}
+
+// Define a type for the portfolio component projects to handle the null description
+interface PortfolioProject {
+  id: string;
+  projectName: string;
+  description?: string; // No null here, only string or undefined
+  eventId?: string;
+  eventName?: string;
+  eventFormat?: any;
+  role?: string;
+  roleDescription?: string;
+  startDate?: any;
+  endDate?: any;
+  tags?: string[];
+  link: string; // Added to match the Project type requirement
+}
 
 // Define a more specific type for the portfolio button's user prop
 interface UserForPortfolio {
@@ -94,18 +136,16 @@ interface UserForPortfolio {
 
 const route = useRoute();
 const router = useRouter(); // Added to satisfy template if $router is used, though not directly in script
-const userStore = useUserStore();
-
+const studentStore = useProfileStore();
 const targetUserId = ref<string | null>(null);
 const isCurrentUser = ref<boolean>(false);
 const loadingPortfolioData = ref<boolean>(false); // Renamed from loadingProjectsForPortfolio
 const loading = ref(true); // General loading for the view
 
-// This ref will hold the EnrichedUserData for the current user when isCurrentUser is true
-const currentUserData = computed<EnrichedUserData | null>(() => userStore.currentUser);
+// This ref will hold the user data for the current user when isCurrentUser is true
+const currentUserData = computed<UserData | null>(() => studentStore.currentStudent);
 // This ref will hold the portfolio-specific data
-const currentUserPortfolioData = computed(() => userStore.currentUserPortfolioData);
-
+const currentUserPortfolioData = computed(() => studentStore.currentUserPortfolioData);
 
 const userForPortfolioGeneration = computed<UserForPortfolio>(() => {
     if (!isCurrentUser.value || !currentUserData.value) {
@@ -131,19 +171,28 @@ const userForPortfolioGeneration = computed<UserForPortfolio>(() => {
     };
 });
 
+// This computed property converts projects to the format expected by the PortfolioGeneratorButton
+const projectsForPortfolio = computed<PortfolioProject[]>(() => {
+  return (currentUserPortfolioData.value.projects || []).map(project => ({
+    ...project,
+    // Convert null descriptions to undefined to match the expected type
+    description: project.description === null ? undefined : project.description
+  }));
+});
 
 const fetchPortfolioRelatedDataForCurrentUser = async () => {
-    if (!userStore.uid || !isCurrentUser.value) {
+    // Fix access to student ID from store
+    if (!studentStore.currentStudent?.uid || !isCurrentUser.value) {
         // Reset portfolio data if not current user or not logged in
-        userStore.$patch(state => {
+        studentStore.$patch(state => {
             state.currentUserPortfolioData = { projects: [], eventParticipationCount: 0 };
         });
         return;
     }
     loadingPortfolioData.value = true;
     try {
-        await userStore.fetchCurrentUserPortfolioData();
-        // Data is now in userStore.currentUserPortfolioData, accessed by computed prop
+        await studentStore.fetchCurrentUserPortfolioData();
+        // Data is now in studentStore.currentUserPortfolioData, accessed by computed prop
     } catch (err) {
         console.error("Error fetching portfolio data for ProfileView:", err);
     } finally {
@@ -154,7 +203,8 @@ const fetchPortfolioRelatedDataForCurrentUser = async () => {
 const determineProfileContextAndLoad = async () => {
     loading.value = true;
     const routeUserIdParam = route.params.userId;
-    const loggedInUid = userStore.uid; // Access uid getter
+    // Fix access to current user ID
+    const loggedInUid = studentStore.currentStudent?.uid; // Access uid through currentStudent
 
     const targetUidFromRoute = Array.isArray(routeUserIdParam) ? routeUserIdParam[0] : routeUserIdParam;
 
@@ -177,19 +227,20 @@ const determineProfileContextAndLoad = async () => {
 
     if (isCurrentUser.value && targetUserId.value) {
         // Ensure current user data (including XP) is fresh if viewing own profile
-        // fetchUserData in userStore now fetches both profile and XP
-        await userStore.fetchUserData(targetUserId.value);
+        // Use the correct method name from the store
+        if (studentStore.fetchProfileForView) {
+            await studentStore.fetchProfileForView(targetUserId.value);
+        } else {
+            console.warn('No method available to fetch user profile');
+        }
         await fetchPortfolioRelatedDataForCurrentUser();
-    } else if (targetUserId.value) {
-        // For viewing others, ProfileViewContent will trigger fetchFullUserProfileForView
-        // which also fetches both profile and XP via userStore.
     }
     loading.value = false;
 };
 
 watch(() => route.params.userId, determineProfileContextAndLoad, { immediate: true });
 // Watch for login/logout to re-determine context
-watch(() => userStore.uid, (newUid, oldUid) => {
+watch(() => studentStore.currentStudent?.uid, (newUid, oldUid) => {
     if (newUid !== oldUid) {
         determineProfileContextAndLoad();
     }

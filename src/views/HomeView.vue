@@ -124,12 +124,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserStore } from '@/stores/studentProfileStore';
-import { useEventStore } from '@/stores/studentEventStore';
+import { usestudentStore } from '@/stores/profileStore';
+import { useEventStore } from '@/stores/eventStore';
 import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
 
-const userStore = useUserStore();
+const studentStore = usestudentStore();
 const eventStore = useEventStore();
 const router = useRouter(); // Although not used directly, good practice to have if needed later
 
@@ -143,7 +143,7 @@ const maxEventsPerSection = 6; // Max events to show per category on dashboard
 
 // --- Computed Properties ---
 const allEvents = computed<Event[]>(() => eventStore.events || []);
-const isAuthenticated = computed<boolean>(() => userStore.isAuthenticated);
+const isAuthenticated = computed<boolean>(() => studentStore.isAuthenticated);
 const canRequestEvent = computed<boolean>(() => isAuthenticated.value); // Simple check for now
 
 // Filter and sort events for display
@@ -187,7 +187,7 @@ const totalCompletedCount = computed<number>(() =>
 
 // nameCache Map to a plain object for props
 const nameCache = computed(() => {
-  const cache = userStore.nameCache;
+  const cache = studentStore.nameCache;
   const obj: Record<string, string> = {};
   if (cache instanceof Map) {
     cache.forEach((entry, uid) => {
@@ -215,7 +215,7 @@ onMounted(async () => {
 
     // Fetch names only if there are organizers to fetch for
     if (allOrganizerUids.length > 0) {
-      await userStore.fetchUserNamesBatch(allOrganizerUids);
+      await studentStore.fetchUserNamesBatch(allOrganizerUids);
     }
   } catch (err) {
     console.error("Failed to load events or user names:", err);

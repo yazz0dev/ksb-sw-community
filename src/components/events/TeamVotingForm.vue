@@ -111,8 +111,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useStudentEventStore } from '@/stores/studentEventStore';
-import { useStudentProfileStore } from '@/stores/studentProfileStore';
+import { useEventStore } from '@/stores/eventStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { EventCriterion, Team as EventTeam, Event } from '@/types/event'; // Use aliases if needed
 import { BEST_PERFORMER_LABEL } from '@/utils/constants'; // Ensure this is imported
 
@@ -136,8 +136,8 @@ const emit = defineEmits<{
   (e: 'submitted', data: { message: string; type: string }): void;
 }>();
 
-const eventStore = useStudentEventStore();
-const userStore = useStudentProfileStore();
+const eventStore = useEventStore();
+const studentStore = useProfileStore();
 const loading = ref(true);
 const error = ref<string>('');
 const submissionError = ref<string>('');
@@ -152,7 +152,7 @@ const teamMemberMap = ref<Record<string, string>>({}); // uid -> teamName
 const teamSelections = ref<TeamSelections>({});
 const bestPerformerSelection = ref<string>('');
 
-const currentUserId = computed(() => userStore.studentId);
+const currentUserId = computed(() => studentStore.studentId);
 
 // Fetch necessary data on mount
 onMounted(async () => {
@@ -211,7 +211,7 @@ onMounted(async () => {
 
     allTeamMembers.value = []; // Reset member list
     if (memberIds.size > 0) {
-      const userNames = await userStore.fetchUserNamesBatch(Array.from(memberIds));
+      const userNames = await studentStore.fetchUserNamesBatch(Array.from(memberIds));
       allTeamMembers.value = Array.from(memberIds)
         .map(uid => ({ uid, name: userNames[uid] || uid }))
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''));

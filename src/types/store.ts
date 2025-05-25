@@ -1,5 +1,9 @@
 // src/types/store.ts
 
+import type { EnrichedStudentData, StudentPortfolioGenerationData, NameCacheMap, StudentEventHistoryItem } from './student';
+import type { Event, EventStatus, Submission, EventFormData } from './event';
+import type { XPData } from './xp';
+
 // --- Notification Interface ---
 export interface Notification {
   id: string;
@@ -7,6 +11,7 @@ export interface Notification {
   message: string;
   title?: string; 
   createdAt: number; // Added creation timestamp
+  duration?: number; // Added from StudentNotification
 }
 
 // --- QueuedAction, OfflineQueueState, NetworkStatusState ---
@@ -36,7 +41,6 @@ export interface NetworkStatusState {
   reconnectAttempts: number;
 }
 
-
 // --- AppState ---
 export interface AppState {
   lastSyncTimestamp: number | null; // Timestamp of the last successful sync
@@ -44,11 +48,50 @@ export interface AppState {
   eventClosed: Record<string, boolean>; // Map of eventId -> isClosed status
   offlineQueue: OfflineQueueState; // Manages actions queued while offline
   networkStatus: NetworkStatusState; // Tracks online/offline status
-  newVersionAvailable: boolean; // Add this line
+  newVersionAvailable: boolean; 
+  currentTheme?: 'light' | 'dark'; // Added from StudentAppState
+  hasFetchedInitialAuth?: boolean; // Added from StudentAppState
+  nameCache?: NameCacheMap; // Added from StudentAppState
 }
-
 
 // --- NotificationState ---
 export interface NotificationState {
   notifications: Notification[];
+}
+
+// --- Student Profile State (From store.ts) ---
+export interface StudentProfileState {
+  currentStudent: EnrichedStudentData | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  portfolioData: StudentPortfolioGenerationData | null;
+  allUsers: EnrichedStudentData[];
+}
+
+// --- Student Profile Getters and Actions ---
+export interface StudentProfileGetters {
+  getCachedUserName: (userId: string) => string | undefined;
+}
+
+export interface StudentProfileActions {
+  fetchUserData: (userId: string) => Promise<void>;
+}
+
+// --- Student Event State ---
+export interface StudentEventState {
+  relevantEvents: Event[];
+  viewedEventDetails: Event | null;
+  isLoading: boolean;
+  error: string | null;
+  myEventRequests: Event[];
+  eventFormData: Partial<EventFormData> | null;
+}
+
+// --- Student Root State ---
+export interface StudentRootState {
+  profile: StudentProfileState;
+  events: StudentEventState;
+  notifications: NotificationState;
+  app: AppState;
 }

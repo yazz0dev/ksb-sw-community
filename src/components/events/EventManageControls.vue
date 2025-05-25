@@ -175,9 +175,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useStudentProfileStore } from '@/stores/studentProfileStore';
-import { useStudentEventStore } from '@/stores/studentEventStore';
-import { useStudentNotificationStore } from '@/stores/studentNotificationStore';
+import { useProfileStore } from '@/stores/profileStore';
+import { useEventStore } from '@/stores/eventStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { DateTime } from 'luxon';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
@@ -204,15 +204,15 @@ const emit = defineEmits(['update']);
 
 // Setup state
 const router = useRouter();
-const userStore = useStudentProfileStore();
-const eventStore = useStudentEventStore();
-const notificationStore = useStudentNotificationStore();
+const studentStore = useProfileStore();
+const eventStore = useEventStore();
+const notificationStore = useNotificationStore();
 const loadingAction = ref<EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner' | null>(null);
 const isClosingEvent = ref(false);
 
 // --- User Role & Permissions ---
-const currentUserId = computed<string | null>(() => userStore.currentStudent?.uid ?? null);
-const currentUser = computed(() => userStore.currentStudent); // For passing UserData
+const currentUserId = computed<string | null>(() => studentStore.currentStudent?.uid ?? null);
+const currentUser = computed(() => studentStore.currentStudent); // For passing UserData
 
 // Add more explicit debug information for permission checks
 const localIsOrganizer = computed(() => {

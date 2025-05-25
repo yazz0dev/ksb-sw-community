@@ -1,14 +1,13 @@
-// src/stores/studentNotificationStore.ts
+// src/stores/notificationStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
-// Assuming a common Notification type structure, or define one here
-// For example, if types/storeStudent.ts defines StudentNotification:
-import type { StudentNotification } from '@/types/storeStudent'; // Or your common notification type path
+// Import the updated Notification type after merging
+import type { Notification } from '@/types/store';
 
-export const useStudentNotificationStore = defineStore('studentNotification', () => {
+export const useNotificationStore = defineStore('studentNotification', () => {
   // --- State ---
-  const notifications = ref<StudentNotification[]>([]);
+  const notifications = ref<Notification[]>([]);
 
   // --- Getters ---
   const allNotifications = computed(() => notifications.value);
@@ -16,10 +15,10 @@ export const useStudentNotificationStore = defineStore('studentNotification', ()
 
   // --- Actions ---
   function showNotification(
-    payload: Omit<StudentNotification, 'id' | 'createdAt'> & { duration?: number }
+    payload: Omit<Notification, 'id' | 'createdAt'> & { duration?: number }
   ): string {
     const id = `student_notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const newNotification: StudentNotification = {
+    const newNotification: Notification = {
       ...payload,
       id,
       createdAt: Date.now(),

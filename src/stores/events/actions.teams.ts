@@ -1,7 +1,7 @@
 // src/stores/events/actions.teams.ts (Conceptual Student Site Helpers - limited scope)
 import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/firebase';
-import type { Event, EventStatus, Team } from '@/types/event';
+import { Event, EventStatus, Team } from '@/types/event';
 import { EventFormat } from '@/types/event';
 import { deepClone } from '../../utils/helpers';
 
@@ -111,6 +111,101 @@ export async function leaveMyTeamInFirestore(eventId: string, studentId: string)
     }
 }
 
-export function autoGenerateEventTeamsInFirestore(eventId: string, students: any, minMembersPerTeam: number, maxMembersPerTeam: number) {
-  throw new Error('Function not implemented.');
+export async function addTeamToEventInFirestore(eventId: string, teamName: string, members: string[], existingTeams: Team[]) {
+  // Validate input
+  if (!eventId || !teamName) throw new Error("Event ID and team name are required.");
+  
+  // Create new team object
+  const newTeam: Team = {
+    teamName,
+    members: Array.isArray(members) ? members : [],
+    teamLead: members && members.length > 0 ? members[0] : ''
+  };
+  
+  // Update Firestore
+  const eventRef = doc(db, 'events', eventId);
+  const updatedTeams = [...existingTeams, newTeam];
+  
+  await updateDoc(eventRef, {
+    teams: updatedTeams,
+    lastUpdatedAt: Timestamp.now()
+  });
+  
+  return newTeam;
+}
+
+export async function updateEventTeamsInFirestore(eventId: string, teams: Team[]) {
+  if (!eventId) throw new Error("Event ID is required.");
+  if (!Array.isArray(teams)) throw new Error("Teams must be an array.");
+  
+  // Update Firestore
+  const eventRef = doc(db, 'events', eventId);
+  await updateDoc(eventRef, {
+    teams: teams,
+    lastUpdatedAt: Timestamp.now()
+  });
+  
+  return teams;
+}
+
+// New function that combines both previous functions
+export async function autoGenerateEventTeamsInFirestore(
+  eventId: string, 
+  students: any[], 
+  minMembersPerTeam: number = 2, 
+  maxMembersPerTeam: number = 8
+) {
+  const eventRef = doc(db, 'events', eventId);
+  const eventSnapshot = await getDoc(eventRef);
+  
+  if (!eventSnapshot.exists()) {
+    throw new Error("Event not found");
+  }
+  
+  const eventData = eventSnapshot.data() as Event;
+  
+  if (eventData.details.format !== EventFormat.Team) {
+    throw new Error("Auto-generation only for 'Team' events.");
+  }
+  
+  if (!eventData.teams || eventData.teams.length < 2) {
+    throw new Error("Auto-generation requires at least 2 teams to be pre-defined for the event.");
+  }
+  
+  const numberOfTeams = eventData.teams.length;
+  
+  if (students.length < numberOfTeams * minMembersPerTeam) {
+    throw new Error(`Not enough students (${students.length}) available to populate ${numberOfTeams} teams with at least ${minMembersPerTeam} members each.`);
+  }
+  
+  const teamsToPopulate: Team[] = eventData.teams.map(team => ({
+    teamName: team.teamName,
+    members: [],
+    teamLead: '',
+  }));
+  
+  const shuffledStudents = [...students].sort(() => 0.5 - Math.random());
+  
+  shuffledStudents.forEach((student, idx) => {
+    teamsToPopulate[idx % numberOfTeams].members.push(student.uid);
+  });
+  
+  const finalTeams = teamsToPopulate
+    .filter(team => team.members.length >= minMembersPerTeam)
+    .map(team => {
+      const currentMembers = team.members.slice(0, maxMembersPerTeam);
+      const newTeamLead = currentMembers[0] || '';
+      return { ...team, members: currentMembers, teamLead: newTeamLead };
+    });
+  
+  if (finalTeams.length < 2) {
+    throw new Error("Could not generate at least 2 valid teams after distribution.");
+  }
+  
+  await updateDoc(eventRef, {
+    teams: finalTeams,
+    lastUpdatedAt: Timestamp.now()
+  });
+  
+  return finalTeams;
 }

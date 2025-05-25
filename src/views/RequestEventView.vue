@@ -157,10 +157,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useStudentProfileStore } from '@/stores/studentProfileStore';
-import { useStudentEventStore } from '@/stores/studentEventStore';
-import { useStudentNotificationStore } from '@/stores/studentNotificationStore';
-import type { StudentProfileState } from '@/types/storeStudent'; // Import StudentProfileState
+import { useProfileStore } from '@/stores/profileStore';
+import { useEventStore } from '@/stores/eventStore';
+import { useNotificationStore } from '@/stores/notificationStore';
+import type { StudentProfileState } from '@/types/store'; // Import StudentProfileState
 import { DateTime } from 'luxon';
 // Form Components
 import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
@@ -176,9 +176,9 @@ import { BEST_PERFORMER_LABEL } from '@/utils/constants';
 
 
 // --- Composables ---
-const userStore = useStudentProfileStore() as (ReturnType<typeof useStudentProfileStore> & Pick<StudentProfileState, 'allUsers'>);
-const eventStore = useStudentEventStore();
-const notificationStore = useStudentNotificationStore();
+const studentStore = useProfileStore() as (ReturnType<typeof useProfileStore> & Pick<StudentProfileState, 'allUsers'>);
+const eventStore = useEventStore();
+const notificationStore = useNotificationStore();
 const router = useRouter();
 const route = useRoute();
 
@@ -219,15 +219,15 @@ const formData = ref<EventFormData>(createDefaultFormData());
 // --- Computed Properties ---
 const eventId = computed(() => route.params.eventId as string | undefined);
 const isEditing = computed(() => !!eventId.value);
-const currentUserUid = computed<string | null>(() => userStore.studentId);
+const currentUserUid = computed<string | null>(() => studentStore.studentId);
 
 const allUsers = computed<UserData[]>(() => {
-    const usersFromStore = userStore.allUsers; // Changed from students to allUsers
+    const usersFromStore = studentStore.allUsers; // Changed from students to allUsers
     return Array.isArray(usersFromStore) ? usersFromStore : [];
 });
 
 const nameCacheObject = computed(() => {
-    const cache = userStore.nameCache;
+    const cache = studentStore.nameCache;
     const obj: Record<string, string> = {};
     if (cache instanceof Map) {
         cache.forEach((entry, uid) => {
@@ -337,8 +337,8 @@ const loadInitialData = async () => {
       editError.value = '';
       hasActiveRequest.value = false;
 
-      // No need to fetch allUsers explicitly if userStore.allUsers getter is reliable
-      // await userStore.fetchUserNamesBatch([]); // If needed to populate nameCache for co-organizer form
+      // No need to fetch allUsers explicitly if studentStore.allUsers getter is reliable
+      // await studentStore.fetchUserNamesBatch([]); // If needed to populate nameCache for co-organizer form
 
       const tempFormData = createDefaultFormData();
 

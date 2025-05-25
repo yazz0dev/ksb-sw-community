@@ -1,14 +1,14 @@
-// src/stores/studentAppStore.ts
+// src/stores/appStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 import { db } from '@/firebase'; // For Firestore network toggle
 import { enableNetwork, disableNetwork } from 'firebase/firestore';
-import { useStudentNotificationStore } from './studentNotificationStore';
+import { useNotificationStore } from './notificationStore';
 // Import studentEventStore for replaying actions.
 // This creates a slight circular dependency if studentEventStore also imports studentAppStore
 // for offline handling. This is usually manageable in Pinia.
 // Alternatively, pass the event store instance to syncOfflineChanges if needed.
-import { useStudentEventStore } from './studentEventStore';
+import { useEventStore } from './eventStore';
 
 
 // --- Types for Offline Queue ---
@@ -22,7 +22,7 @@ interface QueuedStudentAction {
 }
 
 // --- Store Definition ---
-export const useStudentAppStore = defineStore('studentApp', () => {
+export const useAppStore = defineStore('studentApp', () => {
   // --- State ---
   const currentTheme = ref<'light' | 'dark'>('light');
   const isOnline = ref<boolean>(navigator.onLine);
@@ -46,7 +46,7 @@ export const useStudentAppStore = defineStore('studentApp', () => {
     ],
   });
 
-  const notificationStore = useStudentNotificationStore();
+  const notificationStore = useNotificationStore();
 
   // --- Getters ---
   const getTheme = computed(() => currentTheme.value);
@@ -154,7 +154,7 @@ export const useStudentAppStore = defineStore('studentApp', () => {
       duration: 2000
     });
 
-    const studentEventStore = useStudentEventStore(); // Get event store instance
+    const studentEventStore = useEventStore(); // Get event store instance
 
     const actionsToProcess = [...offlineQueue.value.actions];
     let successCount = 0;

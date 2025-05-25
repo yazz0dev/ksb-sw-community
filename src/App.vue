@@ -43,9 +43,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useStudentProfileStore } from './stores/studentProfileStore';
-import { useStudentNotificationStore } from './stores/studentNotificationStore';
-import { useStudentAppStore } from './stores/studentAppStore';
+import { useProfileStore } from './stores/profileStore';
+import { useNotificationStore } from './stores/notificationStore';
+import { useAppStore } from './stores/appStore';
 
 import BottomNav from './components/ui/BottomNav.vue';
 import TopBar from './components/ui/TopBar.vue';
@@ -54,18 +54,18 @@ import { isOneSignalConfigured } from './utils/oneSignalUtils';
 import { getOneSignal, isPushSupported } from './utils/oneSignalUtils';
 import { initializeOneSignal } from './utils/oneSignalService';
 
-const userStore = useStudentProfileStore();
-const notificationStore = useStudentNotificationStore();
-const appStore = useStudentAppStore();
+const studentStore = useProfileStore();
+const notificationStore = useNotificationStore();
+const appStore = useAppStore();
 const router = useRouter();
 const route = useRoute();
 
 const showPushPermissionPrompt = ref(false);
 const imgError = ref<boolean>(false); // This seems unused, consider removing if not needed for profile pic fallback
 
-const isAuthenticated = computed(() => userStore.isAuthenticated);
-const userName = computed(() => userStore.studentName);
-const userProfilePicUrl = computed<string | null>(() => userStore.currentStudentPhotoURL ?? null);
+const isAuthenticated = computed(() => studentStore.isAuthenticated);
+const userName = computed(() => studentStore.studentName);
+const userProfilePicUrl = computed<string | null>(() => studentStore.currentStudentPhotoURL ?? null);
 const newVersionAvailableComputed = computed(() => appStore.newAppVersionAvailable); // Renamed for clarity
 
 const mainContentClasses = computed(() => {
@@ -85,7 +85,7 @@ const dismissUpdatePrompt = () => {
 
 const handleLogout = async (): Promise<void> => {
   try {
-    await userStore.studentSignOut();
+    await studentStore.studentSignOut();
     await router.replace({ name: 'Landing' });
   } catch (error) {
     console.error("Logout error in App.vue:", error);
@@ -127,11 +127,11 @@ async function requestPushPermission() {
   }
 
   try {
-    if (!userStore.studentId) {
+    if (!studentStore.studentId) {
       notificationStore.showNotification({ message: 'User ID not available for push notifications.', type: 'error' });
       return;
     }
-    await initializeOneSignal(userStore.studentId);
+    await initializeOneSignal(studentStore.studentId);
 
     const OneSignal = getOneSignal();
     if (!OneSignal) {
@@ -174,10 +174,10 @@ onMounted(() => {
        setTimeout(checkPushPermissionState, 1500);
   }
   try {
-    if (typeof userStore.clearStaleNameCache === 'function') {
-      userStore.clearStaleNameCache();
+    if (typeof studentStore.clearStaleNameCache === 'function') {
+      studentStore.clearStaleNameCache();
     } else {
-      console.warn("clearStaleNameCache method not available in userStore");
+      console.warn("clearStaleNameCache method not available in studentStore");
     }
   } catch (error) {
     console.error("Error during clearStaleNameCache:", error);

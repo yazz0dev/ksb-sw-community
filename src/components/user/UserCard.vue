@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useUserStore } from '@/stores/studentProfileStore';
+import { usestudentStore } from '@/stores/profileStore';
 
 interface Props {
   userId: string;
@@ -24,26 +24,26 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const userStore = useUserStore();
+const studentStore = usestudentStore();
 const name = ref<string | null>(null);
 // const totalXp = ref<number | null>(null); // Optional: If you want to display total XP
 
 const fetchUserData = async (): Promise<void> => {
   // Fetch name from cache or store
-  const cachedName = userStore.getCachedUserName(props.userId);
+  const cachedName = studentStore.getCachedUserName(props.userId);
   if (cachedName) {
     name.value = cachedName;
   } else {
     // Optionally fetch if not in cache (might be less efficient if called many times)
-    // const names = await userStore.fetchUserNamesBatch([props.userId]);
+    // const names = await studentStore.fetchUserNamesBatch([props.userId]);
     // name.value = names[props.userId] || `User (${props.userId.substring(0, 5)}...)`;
     name.value = `User (${props.userId.substring(0, 5)}...)`; // Fallback if not fetching here
   }
 
   // Optional: Fetch total XP if needed
   // This requires ensuring the user's full data (including xpByRole) is loaded
-  // const userProfile = await userStore.fetchUserProfileData(props.userId); // This might be too heavy here
-  // const userProfile = userStore.getUserById(props.userId) // If you have such a getter
+  // const userProfile = await studentStore.fetchUserProfileData(props.userId); // This might be too heavy here
+  // const userProfile = studentStore.getUserById(props.userId) // If you have such a getter
   // if (userProfile?.xpByRole) {
   //   totalXp.value = Object.values(userProfile.xpByRole).reduce((sum, val) => sum + (Number(val) || 0), 0);
   // }

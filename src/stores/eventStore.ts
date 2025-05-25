@@ -6,9 +6,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Event, EventStatus, EventFormData, Team, Submission, EventCriterion, EventLifecycleTimestamps, OrganizerRating, EventFormat } from '@/types/event';
-import { useStudentProfileStore } from './studentProfileStore';
-import { useStudentNotificationStore } from './studentNotificationStore';
-import { useStudentAppStore } from './studentAppStore';
+import { useProfileStore } from './profileStore';
+import { useNotificationStore } from './notificationStore';
+import { useAppStore } from './appStore';
 import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataMapper';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { deepClone, isEmpty } from '@/utils/helpers';
@@ -87,7 +87,7 @@ function _mergeLifecycleTimestamps(
 }
 
 
-export const useStudentEventStore = defineStore('studentEvents', () => {
+export const useEventStore = defineStore('studentEvents', () => {
   const events = ref<Event[]>([]);
   const viewedEventDetails = ref<Event | null>(null);
   const myEventRequests = ref<Event[]>([]);
@@ -95,9 +95,9 @@ export const useStudentEventStore = defineStore('studentEvents', () => {
   const actionError = ref<string | null>(null);
   const fetchError = ref<string | null>(null);
 
-  const studentProfileStore = useStudentProfileStore();
-  const notificationStore = useStudentNotificationStore();
-  const appStore = useStudentAppStore();
+  const studentProfileStore = useProfileStore();
+  const notificationStore = useNotificationStore();
+  const appStore = useAppStore();
 
   const allPubliclyViewableEvents = computed(() =>
     events.value.filter(e =>
@@ -558,27 +558,28 @@ export const useStudentEventStore = defineStore('studentEvents', () => {
     actionError.value = null;
     try {
       const event = getEventById(eventId);
-      if (!event) throw new Error('Event data not loaded locally.');
+      if (!event) throw new Error('Event data not loaded locally. Cannot auto-generate teams.');
       if (event.details.format !== EventFormat.Team) throw new Error("Auto-generation only for 'Team' events.");
       if (!event.teams || event.teams.length < 2) {
-        throw new Error("Auto-generation requires at least 2 teams to be pre-defined.");
+        throw new Error("Auto-generation requires at least 2 teams to be pre-defined for the event.");
       }
       const numberOfTeams = event.teams.length;
 
-      if ((studentProfileStore as any).allUsers.length === 0) { // Use allUsers getter with type assertion
+      if ((studentProfileStore as any).allUsers.length === 0) {
         await studentProfileStore.fetchUserNamesBatch([]); // Or appropriate fetch all students action
       }
-      const students = (studentProfileStore as any).allUsers; // Use allUsers getter with type assertion
+      const students = (studentProfileStore as any).allUsers;
 
       if (students.length < numberOfTeams * minMembersPerTeam) {
-        throw new Error(`Not enough students (${students.length}) for ${numberOfTeams} teams.`);
+        throw new Error(`Not enough students (${students.length}) available to populate ${numberOfTeams} teams with at least ${minMembersPerTeam} members each.`);
       }
 
+      // Use the new function that combines both operations
       await EventTeamActions.autoGenerateEventTeamsInFirestore(eventId, students, minMembersPerTeam, maxMembersPerTeam);
 
       const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
       if (updatedEventData) _updateLocalEventLists(updatedEventData);
-      notificationStore.showNotification({ message: `Teams auto-generated successfully.`, type: 'success' });
+      notificationStore.showNotification({ message: `Teams auto-generated successfully for ${numberOfTeams} teams.`, type: 'success' });
     } catch (err) {
       await _handleOpError("auto-generating teams", err, eventId);
     }

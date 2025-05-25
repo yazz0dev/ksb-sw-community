@@ -45,6 +45,7 @@ export interface EventCriterion {
   role: XpCalculationRoleKey | string;
   targetRole?: string;
   selections?: Record<string, string>;
+  criteriaSelections?: Record<string, string>; // Add this property for backward compatibility
 }
 
 

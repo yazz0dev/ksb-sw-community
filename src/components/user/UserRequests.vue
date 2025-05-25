@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { doc, deleteDoc } from 'firebase/firestore';
-import { useUserStore } from '@/stores/studentProfileStore';
+import { usestudentStore } from '@/stores/profileStore';
 import { useRouter } from 'vue-router'; // Import if needed for routing
 import { db } from '@/firebase';
 // Import the Event type from the store's perspective
@@ -85,7 +85,7 @@ interface Request {
     [key: string]: any;
 }
 
-const userStore = useUserStore();
+const studentStore = usestudentStore();
 const router = useRouter(); // Initialize router from the imported useRouter
 const requests = ref<Request[]>([]); // Use the local Request interface
 const loadingRequests = ref<boolean>(true);
@@ -106,7 +106,7 @@ const fetchRequests = async (): Promise<void> => {
     errorMessage.value = '';
 
     try {
-        const user = userStore.currentUser;
+        const user = studentStore.currentUser;
         if (!user?.uid) {
             errorMessage.value = 'User not logged in.';
             // loadingRequests.value = false; // This line is removed; finally block will handle it.
@@ -114,8 +114,8 @@ const fetchRequests = async (): Promise<void> => {
         }
 
         // Fetch user requests (returns StoreEvent[])
-        await userStore.fetchUserRequests(user.uid);
-        const storeRequests: StoreEvent[] = userStore.userRequests; // Type as StoreEvent[]
+        await studentStore.fetchUserRequests(user.uid);
+        const storeRequests: StoreEvent[] = studentStore.userRequests; // Type as StoreEvent[]
 
         // Map StoreEvent[] to Request[] for the component's needs
         requests.value = storeRequests.map((event: StoreEvent): Request => ({

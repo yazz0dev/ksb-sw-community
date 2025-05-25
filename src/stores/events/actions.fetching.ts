@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs, query, where, orderBy, Timestamp } fr
 import { db } from '@/firebase'; // Adjusted path
 import { Event } from '@/types/event'; // Import Event as a type
 import { EventStatus } from '@/types/event'; // Import EventStatus as a value
-import { useStudentProfileStore } from '@/stores/studentProfileStore'; // Fixed import name
+import { useProfileStore } from '@/stores/profileStore'; // Fixed import name
 
 /**
  * Fetches publicly viewable events (Approved, InProgress, Completed, Closed).

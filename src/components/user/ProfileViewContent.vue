@@ -232,8 +232,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useUserStore } from '@/stores/studentProfileStore';
-// EventStore not directly used here for fetching, userStore handles enriched data
+import { usestudentStore } from '@/stores/profileStore';
+// EventStore not directly used here for fetching, studentStore handles enriched data
 import { formatISTDate } from '@/utils/dateTime';
 // Use the formatRoleName from user types as it handles 'xp_' prefix now
 import { formatRoleName as formatRoleNameForDisplay, EnrichedUserData } from '@/types/student';
@@ -266,7 +266,7 @@ interface UserProjectDisplay {
 const props = defineProps<Props>();
 const isCurrentUser = ref<boolean>(props.isCurrentUserProp);
 
-const userStore = useUserStore();
+const studentStore = usestudentStore();
 const router = useRouter();
 
 const user = ref<EnrichedUserData | null>(null); // Now uses EnrichedUserData
@@ -366,17 +366,17 @@ const fetchProfileData = async () => {
         const userIdToFetch = props.userId;
         if (!userIdToFetch) throw new Error('Invalid User ID provided.');
 
-        // fetchFullUserProfileForView in userStore now fetches both user and XP data
+        // fetchFullUserProfileForView in studentStore now fetches both user and XP data
         // and stores it in `viewedUserProfile` (which is EnrichedUserData)
-        await userStore.fetchFullUserProfileForView(userIdToFetch);
-        const profileData = userStore.getViewedUserProfile; // This is EnrichedUserData
+        await studentStore.fetchFullUserProfileForView(userIdToFetch);
+        const profileData = studentStore.getViewedUserProfile; // This is EnrichedUserData
 
         if (!profileData) throw new Error('User data not found.');
 
         user.value = profileData; // Assign EnrichedUserData to local user ref
         // User events and projects are also fetched by fetchFullUserProfileForView
-        participatedEvents.value = userStore.getViewedUserEvents;
-        userProjects.value = userStore.getViewedUserProjects;
+        participatedEvents.value = studentStore.getViewedUserEvents;
+        userProjects.value = studentStore.getViewedUserProjects;
 
         // Calculate stats from events (participated/organized)
         // Win count will come from user.xpData.count_wins
@@ -419,7 +419,7 @@ const calculateStatsFromEvents = (events: AppEvent[]) => {
 watch(() => props.userId, (newUserId) => {
   if (newUserId && typeof newUserId === 'string') {
     fetchProfileData();
-    isCurrentUser.value = newUserId === userStore.uid;
+    isCurrentUser.value = newUserId === studentStore.uid;
   } else {
       loading.value = false;
       errorMessage.value = "Invalid User ID.";

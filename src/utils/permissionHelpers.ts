@@ -1,7 +1,7 @@
 import { Event, EventStatus, EventFormat } from '@/types/event';
 import { UserData } from '@/types/student';
 import {  EVENT_MANAGER_ROLES } from './constants';
-import { useUserStore } from '@/stores/studentProfileStore'; // Import the user store
+import { usestudentStore } from '@/stores/profileStore'; // Import the user store
 
 
 /**
@@ -12,8 +12,8 @@ import { useUserStore } from '@/stores/studentProfileStore'; // Import the user 
  * @returns boolean
  */
 export function canManageEvents( ): boolean {
-  const userStore = useUserStore();
-  const currentUser = userStore.currentUser;
+  const studentStore = usestudentStore();
+  const currentUser = studentStore.currentUser;
 
   if (!currentUser) { // If no user is logged in, they cannot manage events.
     return false;

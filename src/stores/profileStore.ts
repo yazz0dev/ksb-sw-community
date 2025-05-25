@@ -18,8 +18,8 @@ import { Event, EventStatus } from '@/types/event';
 import type { Submission } from '@/types/event';
 import { EventFormat } from '@/types/event';
 
-import { useStudentNotificationStore } from './studentNotificationStore';
-import { useStudentAppStore } from './studentAppStore';
+import { useNotificationStore } from './notificationStore';
+import { useAppStore } from './appStore';
 
 import { deepClone, isEmpty } from '../utils/helpers';
 
@@ -45,7 +45,7 @@ const NAME_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 const now = () => Timestamp.now();
 
-export const useStudentProfileStore = defineStore('studentProfile', () => {
+export const useProfileStore = defineStore('studentProfile', () => {
   // --- State ---
   const currentStudent = ref<EnrichedStudentData | null>(null);
   const isAuthenticated = ref<boolean>(false);
@@ -66,8 +66,8 @@ export const useStudentProfileStore = defineStore('studentProfile', () => {
     eventParticipationCount: number;
   }>({ projects: [], eventParticipationCount: 0 });
 
-  const studentAppStore = useStudentAppStore();
-  const notificationStore = useStudentNotificationStore();
+  const studentAppStore = useAppStore();
+  const notificationStore = useNotificationStore();
 
   // --- Getters ---
   const studentId = computed(() => currentStudent.value?.uid || null);
