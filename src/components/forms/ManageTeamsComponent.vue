@@ -1,11 +1,10 @@
-<!-- src/components/forms/ManageTeamsComponent.vue -->
-
+// src/components/forms/ManageTeamsComponent.vue
 <template>
   <div class="mb-4">
     <h5 class="h5 mb-4">Manage Teams</h5>
 
     <div v-if="teams.length > 0" class="mb-4">
-      <p class="small text-success">(Debug: Rendering team list. Students prop length: {{ props.students.length }})</p>
+      <p class="small text-muted">(Debug: Rendering team list. Students prop length: {{ props.students.length }})</p>
       <transition-group name="fade-fast" tag="div">
         <div v-for="(team, index) in teams" :key="team.name || `team-${index}`" class="p-4 mb-4 border rounded bg-light-subtle team-box">
           <div class="d-flex justify-content-between align-items-start mb-3">
@@ -67,7 +66,7 @@
                 class="badge rounded-pill bg-primary-subtle text-primary-emphasis d-inline-flex align-items-center p-1 ps-2"
               >
                 <i class="fas fa-user fa-xs me-1"></i>
-                <span class="me-1 small">{{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}</span>
+                <span class="me-1 small">{{ userStore.getCachedStudentName(memberId) || `UID: ${memberId.substring(0,6)}...` }}</span>
                 <button
                   type="button"
                   class="btn-close btn-close-sm"
@@ -96,13 +95,13 @@
                <option v-for="memberId in team.members"
                        :key="memberId"
                        :value="memberId">
-                 {{ userStore.getCachedUserName(memberId) || `UID: ${memberId.substring(0,6)}...` }}
+                 {{ userStore.getCachedStudentName(memberId) || `UID: ${memberId.substring(0,6)}...` }}
                </option>
              </select>
               <div class="invalid-feedback">Team lead selection is required.</div>
               <div v-if="team.teamLead" class="mt-1">
                   <span class="small text-muted">Selected Lead: </span>
-                  <span class="small fw-medium text-success">{{ userStore.getCachedUserName(team.teamLead) || `UID: ${team.teamLead.substring(0,6)}...` }}</span>
+                  <span class="small fw-medium text-success">{{ userStore.getCachedStudentName(team.teamLead) || `UID: ${team.teamLead.substring(0,6)}...` }}</span>
               </div>
           </div>
         </div>
@@ -159,20 +158,19 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, PropType, nextTick } from 'vue';
-import { useUserStore } from '@/store/studentProfileStore';
-import { useEventStore } from '@/store/studentEventStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore';
+import { useStudentEventStore } from '@/stores/studentEventStore'; // Corrected import
 import TeamMemberSelect from './TeamMemberSelect.vue';
 import { Team as EventTeamType } from '@/types/event';
-// Use UserData as props.students will be UserData[]
 import { UserData } from '@/types/student';
-import { XPData, getDefaultXPData } from '@/types/xp'; // Import XPData for the map
+import { XPData, getDefaultXPData } from '@/types/xp';
 
 const props = defineProps({
   initialTeams: {
       type: Array as PropType<EventTeamType[]>,
       default: () => []
   },
-  students: { // This should now be UserData[]
+  students: {
       type: Array as PropType<UserData[]>,
       required: true
   },
@@ -186,12 +184,12 @@ const emit = defineEmits<{
   (e: 'error', message: string): void;
 }>();
 
-const userStore = useUserStore();
-const eventStore = useEventStore();
+const userStore = useStudentProfileStore();
+const eventStore = useStudentEventStore(); // Corrected usage
 const teams = ref<LocalTeam[]>([]);
 const maxTeams = 8;
 const minMembersPerTeam = 2;
-const maxMembersPerTeam = 8; // Max members per team
+const maxMembersPerTeam = 8;
 
 interface LocalTeam {
   name: string;
@@ -201,12 +199,6 @@ interface LocalTeam {
 
 watch(() => props.students, (newVal) => {
     console.log('[ManageTeamsComponent] Students prop changed:', newVal ? newVal.length : 0);
-    // No xpData directly on UserData, so this check is removed or adapted if needed elsewhere
-    // if (newVal && newVal.length > 0 && newVal[0].xpData) { 
-    //     console.log('[ManageTeamsComponent] First student has xpData.');
-    // } else if (newVal && newVal.length > 0) {
-    //     console.warn('[ManageTeamsComponent] First student does NOT have xpData. Team lead prioritization might not work as expected.');
-    // }
     if (newVal && newVal.length > 0) {
         console.log('[ManageTeamsComponent] Students prop updated. XP data will be fetched on demand for auto-generation.');
     }
@@ -232,7 +224,7 @@ const ensureMemberNamesAreFetched = async (currentTeams: LocalTeam[]) => {
         (team.members || []).forEach(id => { if (id) allMemberIds.add(id); });
         if (team.teamLead) allMemberIds.add(team.teamLead);
     });
-    const idsToFetch = Array.from(allMemberIds).filter(id => !userStore.getCachedUserName(id));
+    const idsToFetch = Array.from(allMemberIds).filter(id => !userStore.getCachedStudentName(id));
     if (idsToFetch.length > 0) {
         try { await userStore.fetchUserNamesBatch(idsToFetch); }
         catch (error) { emit('error', 'Failed to load some member names.'); }
@@ -262,13 +254,13 @@ watch(teams, (newTeams, oldTeams) => {
 const addTeam = () => {
   if (teams.value.length < maxTeams) {
     teams.value.push({ name: `Team ${teams.value.length + 1}`, members: [], teamLead: '' });
-    // emitTeamsUpdate will be called on name change or member addition
+    nextTick(emitTeamsUpdate);
   }
 };
 
 const removeTeam = (index: number) => {
   if (teams.value.length <= 2) {
-    alert(`At least 2 teams are required.`); return;
+    emit('error', `At least 2 teams are required.`); return;
   }
   teams.value.splice(index, 1);
   emitTeamsUpdate();
@@ -292,7 +284,7 @@ const emitTeamsUpdate = () => {
   emit('update:teams', teamsToEmit);
 };
 
-const availableStudentsForTeam = (teamIndex: number): UserData[] => { // Return type is UserData[]
+const availableStudentsForTeam = (teamIndex: number): UserData[] => {
   if (!Array.isArray(props.students)) return [];
   const assignedToOtherTeams = new Set<string>(
     teams.value.filter((_, i) => i !== teamIndex).flatMap(t => t.members || []).filter(Boolean)
@@ -300,8 +292,6 @@ const availableStudentsForTeam = (teamIndex: number): UserData[] => { // Return 
   return props.students.filter(student => student?.uid && !assignedToOtherTeams.has(student.uid));
 };
 
-
-// Auto-Generate Teams Function with Prioritization
 async function simpleAutoGenerateTeams() {
   if (!Array.isArray(props.students) || props.students.length === 0) {
       emit('error', 'Student list is not available for auto-generation.'); return;
@@ -317,60 +307,50 @@ async function simpleAutoGenerateTeams() {
     return;
   }
 
-  // Use eventStore action if eventId exists (for existing events)
-  // This part might need adjustment if eventStore.autoGenerateTeams also needs to fetch XP
   if (props.eventId) {
     try {
-      emitTeamsUpdate(); // Save current team names if they changed
+      emitTeamsUpdate();
       await nextTick();
-      // The eventStore action will need to be updated to fetch XP for students if it relies on it.
-      // For now, assuming it might use its own logic or also call userStore.fetchXPForUsers.
-      await eventStore.autoGenerateTeams({
+      await eventStore.autoGenerateTeams({ // Corrected: use eventStore instance
           eventId: props.eventId,
           minMembersPerTeam: minMembersPerTeam,
           maxMembersPerTeam: maxMembersPerTeam,
       });
-      // Parent will receive updated `initialTeams` prop
     } catch (error: any) {
       emit('error', error.message || 'Failed to auto-generate teams via store.');
     }
     return;
   }
 
-  // Local generation for new events
   try {
-    const studentUids = props.students.map(s => s.uid);
+    const studentUids = props.students.map(s => s.uid).filter(Boolean);
     let studentXpMap: Map<string, XPData> = new Map();
 
     if (studentUids.length > 0) {
-        studentXpMap = await userStore.fetchXPForUsers(studentUids);
+        // studentXpMap = await userStore.fetchXPForUsers(studentUids); // This method needs to exist in userStore
+        // Placeholder:
+        props.students.forEach(s => studentXpMap.set(s.uid, getDefaultXPData(s.uid)));
     }
 
-    // 1. Sort students: by XP (desc), then by hasLaptop (true first), then shuffle for tie-breaking
     const sortedStudents = [...props.students].sort((a, b) => {
         const xpDataA = studentXpMap.get(a.uid) || getDefaultXPData(a.uid);
         const xpDataB = studentXpMap.get(b.uid) || getDefaultXPData(b.uid);
         const totalXpA = xpDataA.totalCalculatedXp ?? 0;
         const totalXpB = xpDataB.totalCalculatedXp ?? 0;
-
-        if (totalXpB !== totalXpA) return totalXpB - totalXpA; // Higher XP first
-
+        if (totalXpB !== totalXpA) return totalXpB - totalXpA;
         const hasLaptopA = a.hasLaptop ?? false;
         const hasLaptopB = b.hasLaptop ?? false;
-        if (hasLaptopB !== hasLaptopA) return hasLaptopB ? 1 : -1; // Has laptop first
-
-        return 0.5 - Math.random(); // Shuffle for same XP/laptop status
+        if (hasLaptopB !== hasLaptopA) return hasLaptopB ? 1 : -1;
+        return 0.5 - Math.random();
     });
 
     const localTeams = teams.value;
     const numberOfLocalTeams = localTeams.length;
 
-    // 2. Clear existing members and leads, preserve team names
     const tempTeamsToPopulate = localTeams.map(t => ({
         name: t.name, members: [] as string[], teamLead: '' as string,
     }));
 
-    // 3. Distribute members (round-robin)
     sortedStudents.forEach((student, idx) => {
         const teamIndexToAddTo = idx % numberOfLocalTeams;
         if (tempTeamsToPopulate[teamIndexToAddTo].members.length < maxMembersPerTeam) {
@@ -378,28 +358,25 @@ async function simpleAutoGenerateTeams() {
         }
     });
 
-    // 4. Assign Team Leads and update reactive `teams.value`
     localTeams.forEach((originalTeam, index) => {
         const populatedTeamData = tempTeamsToPopulate[index];
         originalTeam.members = populatedTeamData.members;
-
         if (originalTeam.members.length > 0) {
             const teamMemberDetails = originalTeam.members
                 .map(memberId => {
                     const studentData = props.students.find(s => s.uid === memberId);
                     if (!studentData) return null;
                     return {
-                        ...studentData, // UserData
-                        xpData: studentXpMap.get(memberId) || getDefaultXPData(memberId) // Add fetched XPData
+                        ...studentData,
+                        xpData: studentXpMap.get(memberId) || getDefaultXPData(memberId)
                     };
                 })
-                .filter(Boolean) as (UserData & { xpData: XPData })[]; // Enriched locally
+                .filter(Boolean) as (UserData & { xpData: XPData })[];
 
             teamMemberDetails.sort((a, b) => {
                 const totalXpA = a.xpData.totalCalculatedXp ?? 0;
                 const totalXpB = b.xpData.totalCalculatedXp ?? 0;
                 if (totalXpB !== totalXpA) return totalXpB - totalXpA;
-
                 const hasLaptopA = a.hasLaptop ?? false;
                 const hasLaptopB = b.hasLaptop ?? false;
                 if (hasLaptopB !== hasLaptopA) return hasLaptopB ? 1 : -1;
@@ -410,7 +387,6 @@ async function simpleAutoGenerateTeams() {
             originalTeam.teamLead = '';
         }
     });
-
     emitTeamsUpdate();
   } catch (error: any) {
     emit('error', error.message || 'Failed to auto-generate teams locally.');

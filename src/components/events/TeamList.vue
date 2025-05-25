@@ -73,7 +73,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useUserStore } from '@/stores/studentProfileStore';
 
 interface Team {
   teamName: string;

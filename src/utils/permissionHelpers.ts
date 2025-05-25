@@ -1,7 +1,7 @@
 import { Event, EventStatus, EventFormat } from '@/types/event';
 import { UserData } from '@/types/student';
 import {  EVENT_MANAGER_ROLES } from './constants';
-import { useUserStore } from '@/store/studentProfileStore'; // Import the user store
+import { useUserStore } from '@/stores/studentProfileStore'; // Import the user store
 
 
 /**

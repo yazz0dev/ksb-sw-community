@@ -6,7 +6,7 @@ export interface Project {
   eventId?: string;            // ID of the event this project belongs to
   eventName?: string;          // Name of the event
   projectName: string;
-  description?: string;
+  description?: string | null; // MODIFIED to allow null
   link: string;               // URL to the project (GitHub, Demo, Figma)
   submittedBy: string;        // Student UID of the main submitter
   teamName?: string;           // If a team project

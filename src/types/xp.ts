@@ -89,6 +89,19 @@ export function mapCalcRoleToFirestoreKey(calcRole: XpCalculationRoleKey): XpFir
 }
 
 /**
+ * Formats a role key for display by removing the 'xp_' prefix and capitalizing the first letter.
+ * @param roleKey The role key to format, e.g. 'xp_developer' or 'developer'
+ * @returns The formatted role name, e.g. 'Developer'
+ */
+export function formatRoleName(roleKey: string): string {
+    // Remove 'xp_' prefix if present
+    const baseName = roleKey.startsWith('xp_') ? roleKey.substring(3) : roleKey;
+    
+    // Capitalize the first letter
+    return baseName.charAt(0).toUpperCase() + baseName.slice(1);
+}
+
+/**
  * Formats role keys (either `XpCalculationRoleKey` or `XpFirestoreFieldKey`) for display in the UI.
  * @param roleKey The role key string (e.g., "developer", "xp_problemSolver", "totalCalculatedXp").
  * @returns A user-friendly display name (e.g., "Developer", "Problem Solver XP", "Total XP").

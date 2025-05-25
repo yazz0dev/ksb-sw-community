@@ -1,39 +1,42 @@
 // src/types/student.ts
 import type { XPData } from './xp';
 import type { Project } from './project'; // For portfolio data
-import type { Event, EventFormat, EventStatus } from './event';   // For event history
+import type { EventFormat, EventStatus } from './event';   // For event history
 import { Timestamp } from 'firebase/firestore';
 
-// --- Base Student Data Interface (Represents the object stored under students/{batchYear}/{studentUid}) ---
-export interface StudentProfileData { // Renamed to avoid confusion with a top-level document
-  name: string | null;        // Should be required, with fallback for display
-  studentId?: string;         // College student ID (Optional)
+// UserData: Basic information often needed for lists, dropdowns, etc.
+export interface UserData {
+  uid: string;
+  name: string | null;
+  email?: string | null | undefined; // Allow undefined
+  photoURL?: string | null;
+  batchYear?: number;
+  hasLaptop?: boolean;
+}
+
+// --- Base Student Data Interface (Represents the object stored under students/{studentUid}) ---
+export interface StudentProfileData {
+  name: string | null;
+  studentId?: string;
 
   photoURL?: string | null;
   bio?: string;
-  skills?: string[];          // Self-reported
-  preferredRoles?: string[];  // For event participation
-  hasLaptop?: boolean;        // Default to false if not set
+  skills?: string[];
+  preferredRoles?: string[];
+  hasLaptop?: boolean;
 
-  socialLinks?: {
-    linkedin?: string;
-    github?: string;
-    portfolio?: string; // Personal portfolio website
-  };
+  socialLink?: string;
 
-  // Arrays of Event IDs.
   participatedEventIDs?: string[];
   organizedEventIDs?: string[];
-
-  // Fields like uid, email, batchYear, createdAt, lastUpdatedAt are not stored in this nested object.
 }
 
 // --- Enriched Student Data (StudentProfileData + XPData + context like UID, email, batchYear) ---
 export interface EnrichedStudentData extends StudentProfileData {
-  uid: string; // Added here as it's contextually important
-  email: string | null; // Added here from Auth
-  batchYear: number; // Added here as it's contextually important
-  xpData?: XPData | null; // XPData can be optional if a student might not have an XP doc yet
+  uid: string;
+  email?: string | null | undefined; // MODIFIED: Allow undefined to match potential sources
+  batchYear: number | undefined; // MODIFIED: Allow undefined
+  xpData: XPData;
 }
 
 // --- For Name Caching (Used by both admin and student sites) ---
@@ -44,14 +47,10 @@ export interface NameCacheEntry {
 export type NameCacheMap = Map<string, NameCacheEntry>;
 
 // --- Data Structures for Student-Facing UI (e.g., Profile View) ---
-
-// Portfolio specific project data
 export interface StudentPortfolioProject extends Project {
-  // Inherits from Project, can add student-specific portfolio display fields if needed
-  eventFormat?: EventFormat; // To show if it was an individual or team project
+  eventFormat?: EventFormat;
 }
 
-// Event history item for student profile
 export interface StudentEventHistoryItem {
   eventId: string;
   eventName: string;
@@ -62,13 +61,11 @@ export interface StudentEventHistoryItem {
     start: Timestamp | null;
     end: Timestamp | null;
   };
-  xpEarnedInEvent?: number; // Optional: total XP earned from this specific event (could be complex to track accurately here)
+  xpEarnedInEvent?: number;
 }
 
-// Data specifically for generating a student's portfolio PDF
 export interface StudentPortfolioGenerationData {
-  student: EnrichedStudentData; // Full student data including XP
-  projects: StudentPortfolioProject[]; // List of their notable projects
-  eventParticipationCount: number; // Count of genuinely participated events (e.g., not cancelled/rejected)
-  // Could also include skills, bio, preferred roles directly if needed by PDF generator
+  student: EnrichedStudentData;
+  projects: StudentPortfolioProject[];
+  eventParticipationCount: number;
 }

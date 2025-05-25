@@ -232,7 +232,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useUserStore } from '@/stores/studentProfileStore';
 // EventStore not directly used here for fetching, userStore handles enriched data
 import { formatISTDate } from '@/utils/dateTime';
 // Use the formatRoleName from user types as it handles 'xp_' prefix now

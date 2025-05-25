@@ -1,3 +1,4 @@
+// src/components/forms/EventCoOrganizerForm.vue
 <template>
   <div>
     <!-- Search Input -->
@@ -22,7 +23,7 @@
       <ul v-if="showCoOrganizerDropdown && filteredUsers.length > 0" class="dropdown-menu show w-100 shadow-sm">
         <li v-for="user in filteredUsers" :key="user.uid">
           <button class="dropdown-item py-1 px-3" type="button" @mousedown.prevent="addOrganizer(user.uid)">
-            {{ user.name || `User (${user.uid.substring(0,5)}...)` }} <!-- Added fallback for name display -->
+            {{ user.name || `User (${user.uid.substring(0,5)}...)` }}
           </button>
         </li>
       </ul>
@@ -37,7 +38,7 @@
       <div class="d-flex flex-wrap gap-2">
         <span v-for="uid in localOrganizers" :key="uid" class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis d-inline-flex align-items-center">
           <i class="fas fa-user me-1"></i>
-          {{ nameCache[uid] || `User (${uid.substring(0,5)}...)` }} <!-- Added fallback for name display -->
+          {{ nameCache[uid] || `User (${uid.substring(0,5)}...)` }}
           <button
              type="button"
              class="btn-close btn-close-sm ms-1"
@@ -55,8 +56,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, PropType } from 'vue';
-// Ensure UserData is the base type without XP, or EnrichedUserData if XP is indeed needed here (but it's not)
-import { UserData } from '@/types/student';
+import { UserData } from '@/types/student'; // Correctly import UserData
 
 const props = defineProps({
   organizers: {
@@ -67,7 +67,7 @@ const props = defineProps({
       type: Boolean,
       default: false
   },
-  nameCache: { // nameCache is Record<string, string> where value is the name
+  nameCache: {
       type: Object as PropType<Record<string, string>>,
       required: true
   },
@@ -75,7 +75,7 @@ const props = defineProps({
       type: String as PropType<string | null>,
       default: null
   },
-  allUsers: { // This prop expects UserData[] (name, uid, etc., NO XP needed)
+  allUsers: { // This prop expects UserData[]
       type: Array as PropType<UserData[]>,
       required: true
   }
@@ -96,9 +96,8 @@ const filteredUsers = computed(() => {
   const searchLower = coOrganizerSearch.value.toLowerCase().trim();
   if (searchLower.length < 2) return [];
 
-  // props.allUsers should be UserData[] (without XP)
   return (props.allUsers || []).filter(user => {
-    if (!user?.uid || !user.name) return false; // User must have uid and name
+    if (!user?.uid || !user.name) return false;
     if (user.uid === props.currentUserUid || localOrganizers.value.includes(user.uid)) return false;
     return user.name.toLowerCase().includes(searchLower);
   }).slice(0, 10);

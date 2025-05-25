@@ -1,3 +1,4 @@
+// src/components/events/EventVotingTrigger.vue
 <template>
   <div class="card ratings-box shadow-sm mb-4 animate-fade-in">
     <div class="card-header bg-light d-flex justify-content-between align-items-center">
@@ -22,11 +23,11 @@
 
 <script setup lang="ts">
 import type { Event } from '@/types/event';
-import type { User } from '@/types/student';
+import type { EnrichedStudentData } from '@/types/student'; // Corrected import
 
 defineProps<{
   event: Event;
-  currentUser: User | null;
+  currentUser: EnrichedStudentData | null; // Corrected type
   isCurrentUserParticipant: boolean;
   canRateOrganizer: boolean;
   loading: boolean;

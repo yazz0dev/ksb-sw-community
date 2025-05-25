@@ -68,7 +68,7 @@ This platform allows students and organizers within the KSB MCA community to:
     │   └── user/
     ├── composables/    # Reusable Composition API functions
     ├── router/         # Vue Router configuration
-    ├── store/          # Pinia stores (state management)
+    ├── stores/          # Pinia stores (state management)
     │   ├── events/     # Event store module (split actions)
     │   ├── app.ts
     │   ├── events.ts
@@ -175,7 +175,7 @@ It is **critical** to set up proper Firestore security rules to protect your dat
 *   Allow specific roles (e.g., event organizers, admins) to modify event data.
 *   Validate data writes (e.g., ensuring XP cannot be set arbitrarily).
 
-Consult the [Firebase Firestore Security Rules documentation](https://firebase.google.com/docs/firestore/security/get-started) for details.
+Consult the [Firebase Firestore Security Rules documentation](https://firebase.google.com/docs/firestores/security/get-started) for details.
 
 ### Firestore Indexes
 

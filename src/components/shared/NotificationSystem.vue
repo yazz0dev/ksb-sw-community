@@ -1,3 +1,4 @@
+// src/components/shared/NotificationSystem.vue
 <template>
   <div class="notification-container toast-container position-fixed top-0 end-0 p-3">
     <transition-group name="notification" tag="div">
@@ -33,37 +34,21 @@
 
 <script setup lang="ts">
 import { computed, watch } from 'vue';
-import { useNotificationStore } from '@/store/studentNotificationStore';
-import { useAppStore } from '@/store/studentAppStore';
-// FIX: Import QueuedAction type if not globally defined (assuming it's in store types)
-import type { QueuedAction, Notification as AppNotification } from '@/types/store'; // Assuming Notification is also defined here
+import { useStudentNotificationStore } from '@/stores/studentNotificationStore';
+import { useStudentAppStore } from '@/stores/studentAppStore';
+import type { QueuedAction, Notification as AppNotification } from '@/types/store'; // Ensure types/store.ts defines these
 
-// Define Notification type locally if not imported globally
-// interface AppNotification {
-//   id: string;
-//   type: 'success' | 'error' | 'warning' | 'info';
-//   message: string;
-//   title?: string;
-//   duration?: number;
-// }
-
-// Removed QueuedAction interface definition as it should be imported
-
-
-const notificationStore = useNotificationStore();
-const appStore = useAppStore();
-const notifications = computed<AppNotification[]>(() => notificationStore.allNotifications);
+const notificationStore = useStudentNotificationStore();
+const appStore = useStudentAppStore();
+const notifications = computed<AppNotification[]>(() => notificationStore.allNotifications); // Assuming studentNotificationStore.allNotifications matches AppNotification[]
 const isOnline = computed<boolean>(() => appStore.isOnline);
-// FIX: Access the 'actions' array within the offlineQueue state
 const queuedActions = computed<QueuedAction[]>(() => appStore.offlineQueue.actions);
 
 const dismissNotification = (id: string): void => {
   notificationStore.dismissNotification(id);
 };
 
-// Watch for network status changes
 watch(isOnline, (online: boolean) => {
-  // FIX: Use .value for computed refs inside watch
   if (online && queuedActions.value.length > 0) {
     notificationStore.showNotification({
       message: `Back online. Syncing ${queuedActions.value.length} pending changes...`,
@@ -73,9 +58,7 @@ watch(isOnline, (online: boolean) => {
   }
 });
 
-// Watch queued actions for offline notifications
 watch(() => queuedActions.value.length, (newCount: number, oldCount: number) => {
-  // FIX: Use .value for computed ref inside watch
   if (!isOnline.value && newCount > oldCount) {
     notificationStore.showNotification({
       message: 'Action queued. Will sync when back online.',
@@ -118,54 +101,16 @@ const getTypeIcon = (type: AppNotification['type']): string => {
 
 <style scoped>
 .notification-container {
-  /* Position fixed is handled by toast-container */
-  z-index: 1100; /* Ensure it's above Bootstrap modals (1050+) */
+  z-index: 1100;
 }
-
-/* --- Vue Transition Classes --- */
-/* Enter */
-.notification-enter-active {
-  transition: all 0.3s ease-out;
-}
-.notification-enter-from {
-  opacity: 0;
-  transform: translateX(30px);
-}
-.notification-enter-to {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-/* Leave */
-.notification-leave-active {
-  transition: all 0.2s ease-in;
-  /* Ensure leaving item stays in place initially */
-  position: absolute; /* Or adjust based on layout needs */
-  width: 100%; /* Prevent width collapsing */
-}
-.notification-leave-to {
-  opacity: 0;
-  transform: translateY(-20px); /* Or scale(0.8) */
-}
-
-/* Move */
-.notification-move {
-  transition: transform 0.3s ease;
-}
-/* --- End Vue Transition Classes --- */
-
-
-.toast.show {
-  opacity: 1;
-  /* transition: opacity 0.3s; */ /* Let Vue handle transitions */
-}
-
-/* Adjust close button color if needed based on header */
-.toast-header .btn-close {
-  filter: invert(1) grayscale(100%) brightness(200%); /* Make close button visible on colored backgrounds */
-}
+.notification-enter-active { transition: all 0.3s ease-out; }
+.notification-enter-from { opacity: 0; transform: translateX(30px); }
+.notification-enter-to { opacity: 1; transform: translateX(0); }
+.notification-leave-active { transition: all 0.2s ease-in; position: absolute; width: 100%; }
+.notification-leave-to { opacity: 0; transform: translateY(-20px); }
+.notification-move { transition: transform 0.3s ease; }
+.toast.show { opacity: 1; }
+.toast-header .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
 .bg-warning-subtle .btn-close,
-.bg-info-subtle .btn-close {
-   filter: none; /* Reset filter for lighter backgrounds */
-}
+.bg-info-subtle .btn-close { filter: none; }
 </style>

@@ -1,3 +1,4 @@
+// src/views/EditProfileView.vue
 <template>
   <div class="container py-5">
     <div class="row justify-content-center">
@@ -22,18 +23,18 @@
             <form @submit.prevent="saveProfileEdits" class="needs-validation" novalidate>
               <div class="mb-4">
                 <label class="form-label required">Name</label>
-                <input 
-                  v-model="form.name" 
-                  type="text" 
-                  class="form-control" 
+                <input
+                  v-model="form.name"
+                  type="text"
+                  class="form-control"
                   :class="{ 'is-invalid': formErrors.name }"
-                  maxlength="50" 
-                  required 
+                  maxlength="50"
+                  required
                   :disabled="loading"
                 />
                 <div class="invalid-feedback">Name is required</div>
               </div>
-              
+
               <div class="mb-3">
                 <label class="form-label">Profile Image URL</label>
                 <input v-model="form.photoURL" type="url" class="form-control" placeholder="https://..." />
@@ -65,17 +66,17 @@
               </div>
 
               <div class="d-flex justify-content-end gap-2">
-                <button 
-                  type="button" 
-                  class="btn btn-light" 
+                <button
+                  type="button"
+                  class="btn btn-light"
                   @click="router.back()"
                   :disabled="loading"
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
-                  class="btn btn-primary" 
+                <button
+                  type="submit"
+                  class="btn btn-primary"
                   :disabled="loading || !isFormValid"
                 >
                   <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
@@ -93,18 +94,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from '@/store/studentProfileStore';
-import { useNotificationStore } from '@/store/studentNotificationStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore';
+import { useStudentNotificationStore } from '@/stores/studentNotificationStore';
+import type { StudentProfileData, EnrichedStudentData } from '@/types/student';
 
 const router = useRouter();
 const route = useRoute();
-const userStore = useUserStore();
-const notificationStore = useNotificationStore();
+const userStore = useStudentProfileStore();
+const notificationStore = useStudentNotificationStore();
 
 const loading = ref(false);
 const error = ref('');
 const form = ref({
-  name: '',
+  name: '', // Will be string, not null, due to required validation
   photoURL: '',
   bio: '',
   socialLink: '',
@@ -118,26 +120,31 @@ const formErrors = ref({
 });
 
 const isFormValid = computed(() => {
-  return form.value.name.trim().length > 0;
+  formErrors.value.name = form.value.name.trim().length === 0;
+  return !formErrors.value.name;
 });
 
 async function loadUserData() {
   const userId = route.params.id as string;
-  if (!userId) {
-    error.value = 'User ID not found';
+  if (!userId || !userStore.isAuthenticated || userId !== userStore.studentId) {
+    error.value = 'You are not authorized to edit this profile or user ID is missing.';
+    notificationStore.showNotification({ message: error.value, type: 'error' });
+    router.push({ name: 'Home' });
     return;
   }
   loading.value = true;
 
   try {
-    const userData = await userStore.fetchUserData(userId);
+    const userData: EnrichedStudentData | null = userStore.currentStudent ?
+        JSON.parse(JSON.stringify(userStore.currentStudent))
+        : await userStore.fetchProfileForView(userId);
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new Error('User profile not found.');
     }
 
     form.value = {
-      name: userData.name || '',
+      name: userData.name || '', // Fallback to empty string if name is null
       photoURL: userData.photoURL || '',
       bio: userData.bio || '',
       socialLink: userData.socialLink || '',
@@ -145,8 +152,13 @@ async function loadUserData() {
       preferredRoles: Array.isArray(userData.preferredRoles) ? userData.preferredRoles.join(', ') : '',
       hasLaptop: userData.hasLaptop || false
     };
+     if (!form.value.name) { // If name becomes empty string after fallback, set error
+        formErrors.value.name = true;
+     }
+
   } catch (err: any) {
     error.value = err?.message || 'Failed to load profile data';
+    notificationStore.showNotification({ message: error.value, type: 'error' });
     router.back();
   } finally {
     loading.value = false;
@@ -154,27 +166,30 @@ async function loadUserData() {
 }
 
 async function saveProfileEdits() {
-  if (!isFormValid.value) return;
-  
+  if (!isFormValid.value) {
+    notificationStore.showNotification({ message: "Please correct the form errors.", type: "warning" });
+    return;
+  }
+
   loading.value = true;
   error.value = '';
-  
+
   try {
-    const userId = route.params.id as string;
-    
-    const updatePayload = {
-      name: form.value.name.trim(),
-      photoURL: form.value.photoURL.trim(),
-      bio: form.value.bio.trim(),
-      socialLink: form.value.socialLink.trim(),
-      hasLaptop: form.value.hasLaptop,
-      skills: form.value.skills ? form.value.skills.split(',').map(skill => skill.trim()).filter(Boolean) : [],
-      preferredRoles: form.value.preferredRoles ? form.value.preferredRoles.split(',').map(role => role.trim()).filter(Boolean) : []
+    // Ensure `name` is not null, as the store expects string | undefined
+    const payloadForUpdate = {
+      ...form.value,
+      name: form.value.name === null ? undefined : form.value.name,
     };
-    
-    await userStore.updateUserProfile({ userId, profileData: updatePayload });
-    notificationStore.showNotification({ message: 'Profile updated successfully', type: 'success' });
-    router.back();
+
+    // Cast to any to work around issues with StudentProfileData's external definition
+    const success = await userStore.updateMyProfile(payloadForUpdate as any);
+
+    if (success) {
+        notificationStore.showNotification({ message: 'Profile updated successfully', type: 'success' });
+        router.push({ name: 'Profile' });
+    } else {
+        throw new Error(userStore.actionError || 'Failed to update profile.');
+    }
   } catch (err: any) {
     error.value = err?.message || 'Failed to update profile';
     notificationStore.showNotification({ message: error.value, type: 'error' });

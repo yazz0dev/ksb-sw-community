@@ -175,9 +175,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserStore } from '@/store/studentProfileStore';
-import { useEventStore } from '@/store/studentEventStore';
-import { useNotificationStore } from '@/store/studentNotificationStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore';
+import { useStudentEventStore } from '@/stores/studentEventStore';
+import { useStudentNotificationStore } from '@/stores/studentNotificationStore';
 import { DateTime } from 'luxon';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventStatus, type Event, EventFormat } from '@/types/event';
@@ -189,6 +189,12 @@ import {
   // canManageEvents, // General permission, isEventOrganizer is more specific here
 } from '@/utils/permissionHelpers';
 
+// Define a custom interface to extend EventCriterion with the properties used in the component
+interface ExtendedEventCriterion {
+  criteriaSelections?: Record<string, any>;
+  [key: string]: any;
+}
+
 // Define props and emits
 const props = defineProps<{
   event: Event;
@@ -198,15 +204,15 @@ const emit = defineEmits(['update']);
 
 // Setup state
 const router = useRouter();
-const userStore = useUserStore();
-const eventStore = useEventStore();
-const notificationStore = useNotificationStore();
+const userStore = useStudentProfileStore();
+const eventStore = useStudentEventStore();
+const notificationStore = useStudentNotificationStore();
 const loadingAction = ref<EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner' | null>(null);
 const isClosingEvent = ref(false);
 
 // --- User Role & Permissions ---
-const currentUserId = computed<string | null>(() => userStore.currentUser?.uid ?? null);
-const currentUser = computed(() => userStore.currentUser); // For passing UserData
+const currentUserId = computed<string | null>(() => userStore.currentStudent?.uid ?? null);
+const currentUser = computed(() => userStore.currentStudent); // For passing UserData
 
 // Add more explicit debug information for permission checks
 const localIsOrganizer = computed(() => {
@@ -270,9 +276,11 @@ const submissionCount = computed(() => {
   const criteria = Array.isArray(props.event.criteria) ? props.event.criteria : [];
 
   criteria.forEach(criterion => {
-    if (criterion.criteriaSelections) {
-      Object.keys(criterion.criteriaSelections).forEach(uid => {
-        if (criterion.criteriaSelections[uid]) userIds.add(uid);
+    // Use type assertion to access criteriaSelections
+    const extendedCriterion = criterion as ExtendedEventCriterion;
+    if (extendedCriterion.criteriaSelections) {
+      Object.keys(extendedCriterion.criteriaSelections).forEach(uid => {
+        if (extendedCriterion.criteriaSelections![uid]) userIds.add(uid);
       });
     }
   });

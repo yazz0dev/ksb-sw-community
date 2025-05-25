@@ -1,4 +1,4 @@
-// src/store/studentNotificationStore.ts
+// src/stores/studentNotificationStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 

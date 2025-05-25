@@ -108,10 +108,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore'; // Changed useUserStore
 import { formatRoleName } from '@/utils/formatters'; // Assuming this handles display names
 import { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Import XP types
-import { EnrichedUserData } from '@/types/student'; // Import EnrichedUserData
+import { EnrichedStudentData } from '@/types/student'; // Changed EnrichedUserData
 
 const defaultAvatarUrl: string = '/default-avatar.png';
 
@@ -131,26 +131,44 @@ const availableDisplayRoles = ref([
   { key: 'xp_designer', displayName: formatRoleName('designer') },
   { key: 'xp_problemSolver', displayName: formatRoleName('problemSolver') },
   { key: 'xp_organizer', displayName: formatRoleName('organizer') },
+  // Add 'Wins' to the available roles if it's not implicitly handled by totalCalculatedXp or another mechanism
+  // For example, if 'count_wins' is a distinct metric you want to rank by:
+  { key: 'count_wins', displayName: 'Wins' },
 ]);
 
 const selectedRoleKey = ref<keyof XPData | 'totalCalculatedXp' | 'count_wins'>('totalCalculatedXp'); // Default to overall XP
 
-const users = ref<EnrichedUserData[]>([]); // Now uses EnrichedUserData
+const users = ref<EnrichedStudentData[]>([]); // Now uses EnrichedStudentData
 const loading = ref<boolean>(true);
 const error = ref<string | null>(null);
 const retryCount = ref<number>(0);
 const MAX_RETRIES = 3;
 const isFirstLoad = ref<boolean>(true);
 
-const userStore = useUserStore();
+const userStore = useStudentProfileStore();
 
-watch(() => userStore.loading, (storeLoading) => {
+// Helper function to safely get an error message
+const getErrorMessage = (errorValue: unknown): string => {
+  if (errorValue instanceof Error) {
+    return errorValue.message;
+  }
+  if (typeof errorValue === 'string') {
+    return errorValue;
+  }
+  // Handle cases where errorValue might be an object with a message property but not an Error instance
+  if (errorValue && typeof (errorValue as any).message === 'string') {
+    return (errorValue as any).message;
+  }
+  return String(errorValue); // Fallback
+};
+
+watch(() => userStore.isLoading, (storeLoading) => { // Changed userStore.loading to userStore.isLoading
   loading.value = storeLoading;
 });
 
-watch(() => userStore.error, (storeError) => {
-  if (storeError) {
-    const errorMessage = storeError instanceof Error ? storeError.message : String(storeError);
+watch(() => userStore.error, (storeErrorValue) => {
+  if (storeErrorValue) {
+    const errorMessage = getErrorMessage(storeErrorValue);
     if (!(error.value && error.value.startsWith("Failed after"))) {
         // Only set local error if it's a "real" error for leaderboard context
         if (!errorMessage.includes('No users found in the database') && !errorMessage.includes('collection might be empty')) {
@@ -182,12 +200,11 @@ const retryLoading = async () => {
   retryCount.value++;
   isFirstLoad.value = false;
   try {
-    await userStore.fetchLeaderboardUsers();
-    // userStore.leaderboardUsers is already EnrichedUserData[]
-    users.value = [...userStore.leaderboardUsers];
+    const fetchedUsers = await userStore.loadLeaderboardUsers(); // Changed action name
+    users.value = fetchedUsers || []; // Assign fetched data, default to empty array if null/undefined
 
     if (userStore.error) {
-        const storeErrorMessage = userStore.error instanceof Error ? userStore.error.message : String(userStore.error);
+        const storeErrorMessage = getErrorMessage(userStore.error);
         if (!storeErrorMessage.includes('No users found in the database') && !storeErrorMessage.includes('collection might be empty')) {
             error.value = storeErrorMessage;
         } else {
@@ -197,10 +214,10 @@ const retryLoading = async () => {
         error.value = null;
     }
   } catch (err: any) {
-    error.value = err.message || 'Failed to fetch leaderboard data on retry';
+    error.value = getErrorMessage(err) || 'Failed to fetch leaderboard data on retry';
     users.value = [];
   } finally {
-    loading.value = userStore.loading;
+    loading.value = userStore.isLoading; // Changed userStore.loading to userStore.isLoading
   }
 };
 
@@ -210,12 +227,11 @@ onMounted(async () => {
     isFirstLoad.value = true;
     retryCount.value = 0;
     try {
-        await userStore.fetchLeaderboardUsers();
-        // Directly use the EnrichedUserData from the store
-        users.value = [...userStore.leaderboardUsers];
+        const fetchedUsers = await userStore.loadLeaderboardUsers(); // Changed action name
+        users.value = fetchedUsers || []; // Assign fetched data, default to empty array if null/undefined
 
         if (userStore.error) {
-            const storeErrorMessage = userStore.error instanceof Error ? userStore.error.message : String(userStore.error);
+            const storeErrorMessage = getErrorMessage(userStore.error);
             if (!storeErrorMessage.includes('No users found in the database') && !storeErrorMessage.includes('collection might be empty')) {
                 error.value = storeErrorMessage;
             } else {
@@ -225,17 +241,22 @@ onMounted(async () => {
             error.value = null;
         }
     } catch (err: any) {
-        error.value = err.message || "An unexpected error occurred while loading the leaderboard.";
+        error.value = getErrorMessage(err) || "An unexpected error occurred while loading the leaderboard.";
         users.value = [];
     } finally {
-        loading.value = userStore.loading;
+        loading.value = userStore.isLoading; // Changed userStore.loading to userStore.isLoading
         isFirstLoad.value = false;
     }
 });
 
+// Define an interface for the user object after adding displayValue
+interface UserWithDisplayValue extends EnrichedStudentData {
+  displayValue: number;
+}
+
 const filteredUsers = computed(() => {
     return users.value
-        .map(user => {
+        .map((user: EnrichedStudentData): UserWithDisplayValue => {
             let displayValue = 0;
             const userXpData = user.xpData; // Access nested xpData
 
@@ -250,8 +271,8 @@ const filteredUsers = computed(() => {
             }
             return { ...user, displayValue };
         })
-        .filter(user => user.displayValue > 0 || (selectedRoleKey.value === 'count_wins' && user.displayValue >= 0) ) // Show users with 0 wins if that's selected, otherwise only >0 XP
-        .sort((a, b) => {
+        .filter((user: UserWithDisplayValue) => user.displayValue > 0 || (selectedRoleKey.value === 'count_wins' && user.displayValue >= 0) ) // Show users with 0 wins if that's selected, otherwise only >0 XP
+        .sort((a: UserWithDisplayValue, b: UserWithDisplayValue) => {
             if (b.displayValue !== a.displayValue) {
                 return b.displayValue - a.displayValue;
             }

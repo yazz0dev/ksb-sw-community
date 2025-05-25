@@ -25,7 +25,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useUserStore } from '@/stores/studentProfileStore';
 
 defineProps<{
   participants: string[];

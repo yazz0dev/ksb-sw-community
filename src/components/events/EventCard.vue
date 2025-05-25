@@ -1,3 +1,4 @@
+// src/components/events/EventCard.vue
 <template>
   <div
     v-if="event?.id"
@@ -56,7 +57,6 @@
       </div>
 
       <!-- Description -->
-      <!-- FIX: Ensure renderedDescriptionHtml uses the centrally rendered markdown -->
       <div class="card-text small text-secondary mb-4 flex-grow-1 rendered-markdown" v-html="renderedDescriptionHtml"></div>
 
       <!-- Footer: Action & Participants -->
@@ -67,7 +67,6 @@
         >
           View Details
         </router-link>
-        <!-- Removed participant count display -->
       </div>
     </div>
   </div>
@@ -80,14 +79,12 @@
 
 <script setup lang="ts">
 import { computed, PropType, ref, watch } from 'vue';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore'; // Corrected import
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, type Event, EventFormat } from '@/types/event';
+import { EventStatus, type Event, EventFormat, type EventCriterion } from '@/types/event'; // Added EventCriterion
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
-// Import the composable instead of direct utility
 import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
-// Define props using defineProps
 const props = defineProps({
   event: {
     type: Object as PropType<Event>,
@@ -99,8 +96,7 @@ const props = defineProps({
   }
 });
 
-const userStore = useUserStore();
-// Use the composable
+const userStore = useStudentProfileStore(); // Corrected usage
 const { renderMarkdown } = useMarkdownRenderer();
 
 const isCancelledOrRejected = computed(() =>
@@ -110,29 +106,23 @@ const isCancelledOrRejected = computed(() =>
 
 const renderedDescriptionHtml = ref('');
 
-// Helper to render markdown description
 async function processDescription(description: string | undefined) {
     let desc = description || '';
-    const maxLen = 80; // Max length for truncated description
+    const maxLen = 80;
     if (desc.length > maxLen) {
         desc = desc.substring(0, maxLen).trim() + '…';
     }
-    desc = desc || 'No description provided.'; // Fallback text
-
-    // Use the centralized markdown renderer (async version)
-    // FIX: Call the composable's function
+    desc = desc || 'No description provided.';
     renderedDescriptionHtml.value = await renderMarkdown(desc);
 }
 
-// Watch the event description and re-render markdown when it changes
 watch(() => props.event?.details?.description, (newDesc) => {
      processDescription(newDesc);
-}, { immediate: true }); // Run immediately on component mount
+}, { immediate: true });
 
-// Helper to format date range
 const formatDateRange = (start: any, end: any): string => {
   try {
-    const startDate = formatISTDate(start, 'dd MMM yy'); // Shortened year
+    const startDate = formatISTDate(start, 'dd MMM yy');
     const endDate = formatISTDate(end, 'dd MMM yy');
     if (!startDate) return 'Date TBD';
     return endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate;
@@ -142,22 +132,16 @@ const formatDateRange = (start: any, end: any): string => {
   }
 };
 
-// Format organizers names using the store getter
 const formatOrganizers = computed(() => {
   const organizers = props.event?.details?.organizers;
   if (!organizers?.length) {
     return 'N/A';
   }
-
-  // Use the store getter to get cached names
   const getName = (uid: string): string => {
     if (!uid) return 'Unknown';
-    // Access the getter via the store instance
-    const cachedName = userStore.getCachedUserName(uid);
-    return cachedName || 'Member'; // Fallback name if not in cache
+    const cachedName = userStore.getCachedStudentName(uid); // Corrected method name
+    return cachedName || 'Member';
   };
-
-  // Show only the first organizer if there are many
   const names = organizers.map(getName);
   if (names.length > 1) {
     return `${names[0]}, +${names.length - 1} more`;
@@ -165,33 +149,27 @@ const formatOrganizers = computed(() => {
   return names[0];
 });
 
-// Removed participantCount computed property
-
 </script>
 
 <style scoped>
 .event-card {
-  /* Remove duplicated transitions and border properties that are in global styles */
   border-color: var(--bs-border-color-translucent);
 }
-/* Keep specific hover behavior if it differs from global card hover */
 .event-card:hover {
-  transform: translateY(-4px) scale(1.02); /* Different from global hover effect */
+  transform: translateY(-4px) scale(1.02);
   box-shadow: var(--bs-box-shadow-lg);
 }
-
-/* Style for rendered markdown - prevent excessive margins */
 .rendered-markdown :deep(p:last-child) {
     margin-bottom: 0;
 }
 .rendered-markdown :deep(ul),
 .rendered-markdown :deep(ol) {
     margin-bottom: 0;
-    padding-left: 1.2rem; /* Adjust list indent */
+    padding-left: 1.2rem;
 }
 .text-break {
    overflow-wrap: break-word;
-   word-wrap: break-word; /* Older browsers */
-   word-break: break-word; /* Ensure long words break */
+   word-wrap: break-word;
+   word-break: break-word;
 }
 </style>

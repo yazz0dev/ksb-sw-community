@@ -275,9 +275,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from '@/store/studentProfileStore';
-import { useEventStore } from '@/store/studentEventStore';
-import { useNotificationStore } from '@/store/studentNotificationStore';
+import { useUserStore } from '@/stores/studentProfileStore';
+import { useEventStore } from '@/stores/studentEventStore';
+import { useNotificationStore } from '@/stores/studentNotificationStore';
 import { Event, EventFormat, EventStatus, Team, EventCriteria } from '@/types/event';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 import { formatRoleName } from '@/utils/formatters';

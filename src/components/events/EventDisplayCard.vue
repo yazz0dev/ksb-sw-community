@@ -79,7 +79,8 @@
 
 <script setup lang="ts">
 import { computed, PropType } from 'vue';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore';
+import type { StudentProfileGetters } from '@/types/storeStudent'; // Import StudentProfileGetters
 import { formatRoleName } from '@/utils/formatters'; // Import formatRoleName
 import { Event, EventFormat } from '@/types/event'; // Import EventFormat
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
@@ -96,7 +97,7 @@ showStatus: {
 },
 });
 
-const userStore = useUserStore();
+const userStore = useStudentProfileStore() as (ReturnType<typeof useStudentProfileStore> & StudentProfileGetters); // Apply type assertion
 
 interface ColorScheme {
 class: string;

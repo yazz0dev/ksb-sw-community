@@ -1,4 +1,4 @@
-// src/store/studentAppStore.ts
+// src/stores/studentAppStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 import { db } from '@/firebase'; // For Firestore network toggle

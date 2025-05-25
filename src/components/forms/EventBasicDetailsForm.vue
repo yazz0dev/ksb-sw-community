@@ -1,3 +1,4 @@
+// src/components/forms/EventBasicDetailsForm.vue
 <template>
   <div>
     <!-- Event Format Selection -->
@@ -177,15 +178,24 @@ watch(details, (newVal) => {
   }
 }, { deep: true });
 
+watch(() => localDetails.value.format, (newFormat) => {
+    // Reset type if format changes and current type is not valid
+    if (!eventTypesForFormat.value.includes(localDetails.value.type ?? '')) {
+        localDetails.value.type = '';
+    }
+    // Remove prize field if format is not Competition
+    if (newFormat !== EventFormat.Competition) {
+        delete localDetails.value.prize;
+    }
+    // For new events (or when format changes significantly), if format is Competition, set allowProjectSubmission to true
+    if (newFormat === EventFormat.Competition) {
+        localDetails.value.allowProjectSubmission = true;
+    }
+    emitDetailsUpdate();
+}, { deep: true });
+
+
 function emitDetailsUpdate() {
-  // Reset type if format changes and current type is not valid
-  if (!eventTypesForFormat.value.includes(localDetails.value.type ?? '')) {
-      localDetails.value.type = '';
-  }
-  // Remove prize field if format is not Competition
-  if (localDetails.value.format !== EventFormat.Competition) {
-      delete localDetails.value.prize;
-  }
   emit('update:details', { ...localDetails.value });
 }
 </script>

@@ -1,7 +1,7 @@
 // src/router/index.ts
 import { createRouter, createWebHistory, RouteRecordRaw, NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 import EditProfileView from '../views/EditProfileView.vue';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore';
 
 interface RouteMeta {
   requiresAuth?: boolean;
@@ -47,7 +47,7 @@ router.beforeEach((
   from: RouteLocationNormalized,
   next: NavigationGuardNext
 ) => {
-  const userStore = useUserStore(); // Get store instance
+  const userStore = useStudentProfileStore(); // Get store instance
   // const eventStore = useEventStore(); // Uncomment if needed
 
   // --- Check if initial auth fetch is complete ---

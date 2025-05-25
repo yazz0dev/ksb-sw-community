@@ -95,14 +95,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useUserStore } from '@/store/studentProfileStore';
-import { useEventStore } from '@/store/studentEventStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore';
+import { useStudentEventStore } from '@/stores/studentEventStore';
 import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
 import { Event, EventStatus } from '@/types/event';
 
-const userStore = useUserStore();
-const eventStore = useEventStore();
+const userStore = useStudentProfileStore();
+const eventStore = useStudentEventStore();
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
@@ -153,15 +153,14 @@ watch(() => route.query.filter, (newFilter) => {
   }
 });
 
-const now = DateTime.now();
-
 const upcomingEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
+    const currentTime = DateTime.now(); // Define current time inside computed
     return eventStore.events.filter((event: Event) => {
         const start = event.details.date.start ? DateTime.fromJSDate(event.details.date.start.toDate()) : null;
-        const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
+        // const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null; // end not used in this specific filter logic
         return event.status === EventStatus.Approved && 
-               start?.isValid && start > now;
+               start?.isValid && start > currentTime;
     }).sort((a: Event, b: Event) => {
         const dateA = a.details.date.start ? DateTime.fromJSDate(a.details.date.start.toDate()) : null;
         const dateB = b.details.date.start ? DateTime.fromJSDate(b.details.date.start.toDate()) : null;
@@ -172,13 +171,14 @@ const upcomingEvents = computed<Event[]>(() => {
 
 const activeEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
+    const currentTime = DateTime.now(); // Define current time inside computed
     return eventStore.events.filter((event: Event) => {
         const start = event.details.date.start ? DateTime.fromJSDate(event.details.date.start.toDate()) : null;
         const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
         return event.status === EventStatus.InProgress || 
                (event.status === EventStatus.Approved && 
-                start?.isValid && start <= now && 
-                end?.isValid && end >= now);
+                start?.isValid && start <= currentTime && 
+                end?.isValid && end >= currentTime);
     }).sort((a: Event, b: Event) => { 
         const dateA = a.details.date.start ? DateTime.fromJSDate(a.details.date.start.toDate()) : null;
         const dateB = b.details.date.start ? DateTime.fromJSDate(b.details.date.start.toDate()) : null;
@@ -188,10 +188,11 @@ const activeEvents = computed<Event[]>(() => {
 });
 
 const completedEvents = computed<Event[]>(() => {
+    const currentTime = DateTime.now(); // Define current time inside computed
     return eventStore.events.filter((event: Event) => {
         const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
         return event.status === EventStatus.Completed ||
-               (event.status === EventStatus.Approved && end?.isValid && end < now);
+               (event.status === EventStatus.Approved && end?.isValid && end < currentTime);
     }).sort((a: Event, b: Event) => {
         const dateA = a.details.date.end || a.details.date.start;
         const dateB = b.details.date.end || b.details.date.start;

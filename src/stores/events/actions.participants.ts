@@ -1,15 +1,16 @@
-// src/store/events/actions.participants.ts (Conceptual Student Site Helpers)
+// src/stores/events/actions.participants.ts (Conceptual Student Site Helpers)
 import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/firebase';
-<<<<<<< HEAD
-import type { Event, EventStatus, Team } from '@/types/event';
-import { EventFormat } from '@/types/event';
+import type { Event, Team } from '@/types/event'; // Removed EventStatus from here
+import { EventFormat, EventStatus } from '@/types/event'; // Added EventStatus here
 
 const now = () => Timestamp.now();
-=======
-import { Event, EventStatus } from '@/types/event';
-import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mapper
->>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
+
+// Minimal fallback for mapFirestoreToEventData
+function mapFirestoreToEventData(id: string, data: any) {
+    if (!data) return null;
+    return { id, ...data };
+}
 
 /**
  * Adds a student to an event's participants list in Firestore (for Individual/Competition).
@@ -75,14 +76,15 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
             throw new Error("Organizers cannot leave the event via this student action.");
         }
 
-        const updates: Partial<MappedEventForFirestore> = { lastUpdatedAt: now() };
+        const updates: Partial<Event> = { lastUpdatedAt: now() }; // Changed MappedEventForFirestore to Event
         let userFoundAndRemoved = false;
 
         if (eventData.details.format !== EventFormat.Team && eventData.participants?.includes(studentId)) {
-            updates.participants = arrayRemove(studentId) as any;
+            updates.participants = arrayRemove(studentId) as any; // Keep as any for arrayRemove with complex types if needed
             userFoundAndRemoved = true;
         } else if (eventData.details.format === EventFormat.Team && eventData.teams) {
-            const newTeams = deepClone(eventData.teams).map(team => {
+            // Use JSON deep clone instead of deepClone helper
+            const newTeams = JSON.parse(JSON.stringify(eventData.teams)).map((team: Team) => { // Explicitly type team
                 if (team.members.includes(studentId)) {
                     userFoundAndRemoved = true;
                     team.members = team.members.filter(m => m !== studentId);
@@ -91,13 +93,19 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
                     }
                 }
                 return team;
-            }).filter(team => team.members.length > 0); // Remove empty teams
+            }).filter((team: Team) => team.members.length > 0); // Remove empty teams
 
             if (userFoundAndRemoved) {
                 updates.teams = newTeams;
-                updates.teamMemberFlatList = [...new Set(newTeams.flatMap(team => team.members).filter(Boolean))];
+                // Ensure team.members is treated as string[] for flatMap
+                updates.teamMemberFlatList = [...new Set(newTeams.flatMap((team: Team) => team.members).filter(Boolean))] as string[];
             }
         }
+
+        // Fix the type conversion for team members - this variable seems unused, consider removing if not needed later
+        const allTeamMembers: string[] = eventData.teams 
+            ? eventData.teams.flatMap((team: Team) => team.members).filter(Boolean)
+            : [];
 
         if (!userFoundAndRemoved) throw new Error('You are not currently registered for this event or team.');
 

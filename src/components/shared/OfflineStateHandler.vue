@@ -1,6 +1,7 @@
+// src/components/shared/OfflineStateHandler.vue
 <template>
-  <div v-if="!isOnline || hasQueuedActions" 
-       class="offline-status-bar" 
+  <div v-if="!isOnline || hasQueuedActions"
+       class="offline-status-bar"
        :class="{ 'has-queued': hasQueuedActions }">
     <div class="container-fluid">
       <div class="d-flex justify-content-between align-items-center">
@@ -8,8 +9,8 @@
           <i class="fas" :class="isOnline ? 'fa-clock' : 'fa-wifi-slash'"></i>
           {{ statusMessage }}
         </span>
-        <button v-if="canSync" 
-                @click="syncNow" 
+        <button v-if="canSync"
+                @click="syncNow"
                 class="btn btn-sm btn-light"
                 :disabled="isSyncing">
           <span v-if="isSyncing" class="spinner-border spinner-border-sm me-1"></span>
@@ -22,23 +23,22 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useAppStore } from '@/store/studentAppStore';
+import { useStudentAppStore } from '@/stores/studentAppStore';
+// QueuedAction should be imported from types/store.ts if it's shared
+// For this component, it doesn't directly use the QueuedAction type in its script,
+// but relies on appStore which uses it.
 
-interface QueuedAction {
-  type: string;
-  payload: any;
-  timestamp: number;
-}
- 
-const appStore = useAppStore();
- 
+const appStore = useStudentAppStore();
+
 const isOnline = computed<boolean>(() => appStore.isOnline);
+// Accessing the reactive ref directly from the store
 const hasQueuedActions = computed<boolean>(() => appStore.offlineQueue.actions.length > 0);
-const isSyncing = computed<boolean>(() => appStore.isSyncing);
+const isSyncing = computed<boolean>(() => appStore.offlineQueue.isSyncing); // Corrected path
 
 const statusMessage = computed<string>(() => {
   if (!isOnline.value) return 'You are currently offline';
   if (hasQueuedActions.value) {
+    // Accessing the reactive ref directly
     return `${appStore.offlineQueue.actions.length} action(s) pending sync`;
   }
   return '';
@@ -47,7 +47,7 @@ const statusMessage = computed<string>(() => {
 const canSync = computed<boolean>(() => isOnline.value && hasQueuedActions.value && !isSyncing.value);
 
 const syncNow = (): void => {
-  appStore.syncOfflineChanges();
+  appStore.syncOfflineActions(); // Corrected method name
 };
 </script>
 

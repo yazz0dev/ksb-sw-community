@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { doc, deleteDoc } from 'firebase/firestore';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useUserStore } from '@/stores/studentProfileStore';
 import { useRouter } from 'vue-router'; // Import if needed for routing
 import { db } from '@/firebase';
 // Import the Event type from the store's perspective

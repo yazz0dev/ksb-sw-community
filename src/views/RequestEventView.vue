@@ -1,8 +1,8 @@
+// src/views/RequestEventView.vue
 <template>
   <section class="py-5 create-event-section">
     <div class="container-lg">
 
-      <!-- Loading State - Placed OUTSIDE AuthGuard -->
       <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
           <span class="visually-hidden">Loading...</span>
@@ -10,7 +10,6 @@
         <p class="text-muted mt-2">Loading initial data...</p>
       </div>
 
-      <!-- Error state for editing - NEW COMPONENT -->
       <div v-else-if="editError" class="alert alert-danger p-4 shadow-sm border-danger-subtle mb-5">
         <div class="d-flex align-items-start">
           <i class="fas fa-exclamation-circle text-danger me-3 fs-4 mt-1"></i>
@@ -29,10 +28,8 @@
         </div>
       </div>
 
-      <!-- Auth Guard - Render only AFTER loading is false and no edit error -->
       <AuthGuard v-else :key="'auth-guard'" message="You must be logged in to request or edit events.">
 
-        <!-- Active Request Warning (Show after loading, only when creating) -->
         <div v-if="!isEditing && hasActiveRequest" :key="'active-request-warning'" class="alert alert-warning d-flex align-items-start mb-5 shadow-sm border-warning-subtle" role="alert" style="background-color: var(--bs-warning-bg-subtle);">
           <i class="fas fa-exclamation-triangle text-warning me-3 fs-4 mt-1"></i>
           <div>
@@ -41,9 +38,7 @@
           </div>
         </div>
 
-        <!-- Main Form Content (Render only when not loading and no active request conflict) -->
         <div v-else :key="'event-form-content'">
-          <!-- Header -->
           <div class="d-flex justify-content-between align-items-center mb-5 pb-4 border-bottom">
             <div>
               <h2 class="h3 text-primary mb-0">{{ isEditing ? 'Edit Event' : 'Request New Event' }}</h2>
@@ -60,16 +55,13 @@
             </div>
           </div>
 
-          <!-- Global Error Message -->
           <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
             <i class="fas fa-times-circle me-2"></i>
             <div>{{ errorMessage }}</div>
             <button type="button" class="btn-close btn-sm" @click="errorMessage = ''" aria-label="Close"></button>
           </div>
 
-          <!-- Event Form -->
           <form @submit.prevent="handleSubmitForm" class="mb-5 needs-validation" novalidate>
-            <!-- Event Details Card -->
             <div class="card shadow-sm mb-4" key="event-details-card">
               <div class="card-header bg-light">
                 <h4 class="h5 mb-0 text-dark">1. Event Details</h4>
@@ -82,7 +74,6 @@
               </div>
             </div>
 
-            <!-- Team Configuration Card (Only for Team Format) -->
             <div v-if="formData.details.format === EventFormat.Team" class="card shadow-sm mb-4" :key="`team-config-card-${2}`">
               <div class="card-header bg-light">
                 <h4 class="h5 mb-0 text-dark">2. Team Configuration</h4>
@@ -90,7 +81,7 @@
               <div class="card-body p-4 p-lg-5">
                  <ManageTeamsComponent
                   :initial-teams="formData.teams ?? []"
-                  :students="availableStudents"
+                  :students="allUsers"
                   :is-submitting="isSubmitting"
                   :can-auto-generate="true"
                   :event-id="eventId || ''"
@@ -100,7 +91,6 @@
               </div>
             </div>
 
-             <!-- Event Schedule Card -->
              <div class="card shadow-sm mb-4" :key="`schedule-card-${scheduleCardNumber}`">
                <div class="card-header bg-light">
                  <h4 class="h5 mb-0 text-dark">{{ scheduleCardNumber }}. Event Schedule</h4>
@@ -116,7 +106,6 @@
                </div>
              </div>
 
- <!-- Rating Criteria Card (Not for Competition Format) -->
              <div v-if="formData.details.format !== EventFormat.Competition" class="card shadow-sm mb-4" :key="`criteria-card-${criteriaCardNumber}`">
                <div class="card-header bg-light">
                  <h4 class="h5 mb-0 text-dark">{{ criteriaCardNumber }}. Selection Criteria & XP</h4>
@@ -137,7 +126,6 @@
                </div>
              </div>
 
-             <!-- Co-organizers Card -->
              <div class="card shadow-sm mb-4" :key="`coorganizer-card-${coorganizerCardNumber}`">
                <div class="card-header bg-light">
                  <h4 class="h5 mb-0 text-dark">{{ coorganizerCardNumber }}. Co-organizers (Optional)</h4>
@@ -153,7 +141,6 @@
                </div>
              </div>
 
-             <!-- Submit Button -->
              <div class="text-end mt-5">
                <button type="submit" class="btn btn-primary btn-lg" :disabled="!canSubmitForm">
                  <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
@@ -162,17 +149,18 @@
              </div>
           </form>
         </div>
-      </AuthGuard> <!-- End AuthGuard -->
-    </div> <!-- End container-lg -->
+      </AuthGuard>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from '@/store/studentProfileStore';
-import { useEventStore } from '@/store/studentEventStore';
-import { useNotificationStore } from '@/store/studentNotificationStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore';
+import { useStudentEventStore } from '@/stores/studentEventStore';
+import { useStudentNotificationStore } from '@/stores/studentNotificationStore';
+import type { StudentProfileState } from '@/types/storeStudent'; // Import StudentProfileState
 import { DateTime } from 'luxon';
 // Form Components
 import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
@@ -182,15 +170,15 @@ import EventCoOrganizerForm from '@/components/forms/EventCoOrganizerForm.vue';
 import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
 // Types
-import { EventFormData, EventFormat, Event, Team, EventStatus, EventCriteria } from '@/types/event';
-import { UserData } from '@/types/student'; // Use UserData consistently
-import { BEST_PERFORMER_LABEL } from '@/utils/constants'; // Corrected import path (removed semicolon)
+import { EventFormData, EventFormat, Event, Team, EventStatus, EventCriterion } from '@/types/event';
+import { UserData } from '@/types/student'; // UserData is imported, ensure it's the correct one or change if needed
+import { BEST_PERFORMER_LABEL } from '@/utils/constants';
 
 
 // --- Composables ---
-const userStore = useUserStore();
-const eventStore = useEventStore();
-const notificationStore = useNotificationStore();
+const userStore = useStudentProfileStore() as (ReturnType<typeof useStudentProfileStore> & Pick<StudentProfileState, 'allUsers'>);
+const eventStore = useStudentEventStore();
+const notificationStore = useStudentNotificationStore();
 const router = useRouter();
 const route = useRoute();
 
@@ -200,28 +188,29 @@ const assignableXpRoles = ['developer', 'presenter', 'designer', 'problemSolver'
 // --- Helper Functions ---
 function createDefaultFormData(): EventFormData {
     return {
-        details: { 
-            eventName: '', 
-            format: EventFormat.Individual, 
-            type: '', 
+        details: {
+            eventName: '',
+            format: EventFormat.Individual,
+            type: '',
             description: '',
-            rules: '', // Added rules field
-            date: { start: null, end: null }, 
-            organizers: [], 
-            allowProjectSubmission: true, 
-            prize: '' 
+            rules: '',
+            date: { start: null, end: null }, // Dates as string | null
+            organizers: currentUserUid.value ? [currentUserUid.value] : [],
+            allowProjectSubmission: true,
+            prize: ''
         },
-        status: EventStatus.Pending, 
+        status: EventStatus.Pending,
         teams: [],
-        criteria: [{ constraintIndex: Date.now(), constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], criteriaSelections: {} }]
+        criteria: [{ constraintIndex: Date.now(), constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], selections: {} }],
+        votingOpen: false // Added votingOpen
     };
 }
 
 // --- State ---
-const loading = ref(true); // Single loading flag
+const loading = ref(true);
 const isSubmitting = ref(false);
 const errorMessage = ref('');
-const editError = ref(''); // NEW: Specific error for editing issues
+const editError = ref('');
 const hasActiveRequest = ref(false);
 const initialEventData = ref<EventFormData | null>(null);
 const isDateAvailable = ref(true);
@@ -230,12 +219,12 @@ const formData = ref<EventFormData>(createDefaultFormData());
 // --- Computed Properties ---
 const eventId = computed(() => route.params.eventId as string | undefined);
 const isEditing = computed(() => !!eventId.value);
-const currentUserUid = computed<string | null>(() => userStore.uid);
+const currentUserUid = computed<string | null>(() => userStore.studentId);
 
-// Type as UserData[]
-// Fallback to empty array if the getter doesn't exist or returns falsy.
-const allUsers = computed<UserData[]>(() => userStore.getAllUsers); 
-const availableStudents = computed<UserData[]>(() => userStore.getStudentList); 
+const allUsers = computed<UserData[]>(() => {
+    const usersFromStore = userStore.allUsers; // Changed from students to allUsers
+    return Array.isArray(usersFromStore) ? usersFromStore : [];
+});
 
 const nameCacheObject = computed(() => {
     const cache = userStore.nameCache;
@@ -249,76 +238,45 @@ const nameCacheObject = computed(() => {
 });
 
 
-const totalXP = computed(() => formData.value.criteria?.reduce((sum, c) => (c.constraintLabel === BEST_PERFORMER_LABEL ? sum : sum + (Number(c.points) || 0)), 0) || 0);
+const totalXP = computed(() => {
+  if (!formData.value.criteria) return 0;
+  return formData.value.criteria.reduce((sum, c) => {
+    return c.constraintLabel === BEST_PERFORMER_LABEL ? sum : sum + (Number(c.points) || 0);
+  }, 0);
+});
+
 
 const isFormValid = computed(() => {
-  if (loading.value) {
-    return false;
-  }
-
+  if (loading.value) return false;
   const d = formData.value.details;
+  if (!d.eventName.trim() || !d.format || !d.type || !d.description.trim() || !d.date.start || !d.date.end) return false;
+  if (!isDateAvailable.value) return false;
 
-  // Basic Details Check
-  if (!d.eventName.trim()) { return false; }
-  if (!d.format) { return false; }
-  if (!d.type) { return false; }
-  if (!d.description.trim()) { return false; }
-  if (!d.date.start) { return false; }
-  if (!d.date.end) { return false; }
-
-  // Date Availability Check
-  if (!isDateAvailable.value) {
-    return false;
-  }
-
-  // Team Check
   if (d.format === EventFormat.Team) {
     const teams = formData.value.teams ?? [];
-    if (teams.length < 2) {
-        return false;
-    }
-    const minMembers = 2; // Define minimum explicitly
-    const teamsAreValid = teams.every((team) => { // Removed unused 'index'
-        const teamIsValid =
-            team.teamName?.trim() &&
-            Array.isArray(team.members) &&
-            team.members.length >= minMembers &&
-            team.teamLead &&
-            team.members.includes(team.teamLead);
-
-        return teamIsValid;
-    });
-
-    if (!teamsAreValid) {
-        return false; // Exit if any team is invalid
-    }
+    if (teams.length < 2) return false;
+    const minMembers = 2;
+    const teamsAreValid = teams.every(team =>
+        team.teamName?.trim() &&
+        Array.isArray(team.members) &&
+        team.members.length >= minMembers &&
+        team.teamLead &&
+        team.members.includes(team.teamLead)
+    );
+    if (!teamsAreValid) return false;
   }
 
-  // Criteria Check
   if (d.format !== EventFormat.Competition) {
     const criteria = formData.value.criteria ?? [];
-    if (criteria.length === 0) {
-        return false; // Must have at least default/best performer
-    }
-    // Filter out the best performer criterion for validation checks
+    if (criteria.length === 0) return false;
     const nonBestPerformerCriteria = criteria.filter(c => c.constraintLabel !== BEST_PERFORMER_LABEL);
-    const currentTotalXP = totalXP.value; // Use computed totalXP
-
-    // Validate total XP (excluding best performer)
-    if (currentTotalXP <= 0 || currentTotalXP > 50) {
-      return false;
-    }
-    // Check each non-best-performer criterion for label and role
-    const criteriaAreValid = nonBestPerformerCriteria.every((criterion) => { // Removed unused 'index'
-        const isValid = criterion.constraintLabel?.trim() && criterion.role;
-        return isValid;
-    });
-
-     if (!criteriaAreValid) {
-         return false; // Exit if any user criterion is invalid
-     }
+    const currentTotalXP = totalXP.value;
+    if (currentTotalXP <= 0 || currentTotalXP > 50) return false;
+    const criteriaAreValid = nonBestPerformerCriteria.every(criterion =>
+        criterion.constraintLabel?.trim() && criterion.role
+    );
+    if (!criteriaAreValid) return false;
   }
-
   return true;
 });
 
@@ -339,22 +297,32 @@ const handleSubmitForm = async () => {
   if (!isFormValid.value) { handleFormError("Please fix validation errors before submitting."); return; }
   isSubmitting.value = true; errorMessage.value = '';
   try {
-    const dataToSubmit = JSON.parse(JSON.stringify(formData.value));
-    // Cleanup data based on format
-    if (dataToSubmit.details.format !== EventFormat.Team) delete dataToSubmit.teams;
-    if (dataToSubmit.details.format === EventFormat.Competition) delete dataToSubmit.criteria;
-    else delete dataToSubmit.details.prize; // Remove prize if not competition
-    // Ensure Best Performer criteria is removed if not a Team event
+    const dataToSubmit: EventFormData = JSON.parse(JSON.stringify(formData.value)); // Deep clone
+
+    if (dataToSubmit.details.format !== EventFormat.Team) {
+        // For non-team events, ensure teams array is empty
+        dataToSubmit.teams = []; // Set to empty array instead of using delete
+    }
+    
+    // Fix type comparison by checking string equality or using type assertion
+    if (String(dataToSubmit.details.format) === String(EventFormat.Competition)) {
+        dataToSubmit.criteria = []; // Set to empty array instead of using delete
+    } else if (String(dataToSubmit.details.format) !== String(EventFormat.Competition)) {
+        // prize is optional, so set to undefined if not competition
+        if (dataToSubmit.details.prize === '') dataToSubmit.details.prize = undefined;
+    }
+
+
     if (dataToSubmit.details.format !== EventFormat.Team && dataToSubmit.criteria) {
-        dataToSubmit.criteria = dataToSubmit.criteria.filter((c: EventCriteria) => c.constraintLabel !== BEST_PERFORMER_LABEL);
+        dataToSubmit.criteria = dataToSubmit.criteria.filter((c: EventCriterion) => c.constraintLabel !== BEST_PERFORMER_LABEL);
     }
 
     if (isEditing.value && eventId.value) {
-      await eventStore.updateEventDetails({ eventId: eventId.value, updates: dataToSubmit });
+      await eventStore.editMyEventRequest(eventId.value, dataToSubmit);
       notificationStore.showNotification({ message: 'Event updated successfully!', type: 'success' });
       router.push({ name: 'EventDetails', params: { id: eventId.value } });
     } else {
-      await eventStore.requestEvent(dataToSubmit);
+      await eventStore.requestNewEvent(dataToSubmit);
       notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
       router.push({ name: 'Home' });
     }
@@ -366,118 +334,82 @@ const loadInitialData = async () => {
   try {
       loading.value = true;
       errorMessage.value = '';
-      editError.value = ''; // Reset edit error
+      editError.value = '';
       hasActiveRequest.value = false;
 
-      await Promise.all([
-          userStore.fetchAllStudents ? userStore.fetchAllStudents() : Promise.resolve(), 
-          userStore.fetchAllUsers ? userStore.fetchAllUsers() : Promise.resolve()
-      ]);
+      // No need to fetch allUsers explicitly if userStore.allUsers getter is reliable
+      // await userStore.fetchUserNamesBatch([]); // If needed to populate nameCache for co-organizer form
 
-      // Log store state immediately after fetches
-      console.log('[RequestEventView loadInitialData] After fetchAllStudents promise resolved. Store studentList length:', userStore.getStudentList.length);
-      if (userStore.getStudentList.length > 0) {
-          console.log('[RequestEventView loadInitialData] First student from store after fetch:', JSON.stringify(userStore.getStudentList[0]));
-      }
-
-
-      const tempFormData = createDefaultFormData(); // Start with default
+      const tempFormData = createDefaultFormData();
 
       if (!isEditing.value) {
-          const hasRequest = await eventStore.checkExistingRequests();
+          const hasRequest = await eventStore.checkExistingRequests(); // Call the action from the store
           hasActiveRequest.value = hasRequest;
           if (hasRequest) {
-              loading.value = false; // Stop loading if user can't proceed
-              return; // Exit early
+              loading.value = false;
+              return;
           }
       } else if (eventId.value) {
-          await eventStore.fetchEventDetails(eventId.value);
-          const storeEvent = eventStore.currentEventDetails;
-          if (!storeEvent) throw new Error('Event not found or inaccessible.');
+          // Use the correct method name for fetching event details
+          const fetchedEvent = await eventStore.getEventById(eventId.value);
+          if (!fetchedEvent) throw new Error('Event not found or inaccessible.');
 
           const userId = currentUserUid.value;
-          const isOrganizer = storeEvent.details.organizers?.includes(userId ?? '') || storeEvent.requestedBy === userId;
+          const isOrganizer = fetchedEvent.details.organizers?.includes(userId ?? '') || fetchedEvent.requestedBy === userId;
           if (!isOrganizer) {
               throw new Error('You do not have permission to edit this event.');
           }
-          if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(storeEvent.status as EventStatus)) {
-              throw new Error(`Cannot edit an event with status: ${storeEvent.status}`);
+          if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed, EventStatus.Rejected].includes(fetchedEvent.status as EventStatus)) {
+              throw new Error(`Cannot edit an event with status: ${fetchedEvent.status}`);
           }
-          // Map fetched event data
-          Object.assign(tempFormData, mapEventToFormData(storeEvent));
+          Object.assign(tempFormData, mapEventToFormData(fetchedEvent));
       }
 
-      // Update reactive state
       formData.value = tempFormData;
       initialEventData.value = JSON.parse(JSON.stringify(tempFormData));
 
   } catch (error: any) {
-      // Handle editing errors without auto-redirect
       if (isEditing.value) {
-          // Set the edit error message that will trigger the error UI
           editError.value = error.message || 'Access denied or invalid status';
-          
-          // Show notification but don't auto-redirect
-          notificationStore.showNotification({ 
-              message: `Cannot edit event: ${editError.value}`, 
+          notificationStore.showNotification({
+              message: `Cannot edit event: ${editError.value}`,
               type: 'warning',
-              duration: 8000 // Longer duration since we're not redirecting
+              duration: 8000
           });
       } else {
-          // Only handle errors locally if we're not editing (new event creation)
           handleFormError(error.message || 'Failed to initialize the event form.');
       }
   } finally {
-      loading.value = false; // Set loading false *after* all async ops are done
+      loading.value = false;
   }
 };
 
 
 const mapEventToFormData = (eventData: Event): EventFormData => {
-    // Helper function to safely convert various date formats to ISO date string
     const convertDateToISOString = (date: any): string | null => {
         if (!date) return null;
-        
         try {
-            // Handle Firestore Timestamp objects
-            if (date.toDate && typeof date.toDate === 'function') {
-                return DateTime.fromJSDate(date.toDate()).toISODate();
-            } 
-            // Handle regular Date objects
-            else if (date instanceof Date) {
-                return DateTime.fromJSDate(date).toISODate();
-            } 
-            // Handle ISO strings
-            else if (typeof date === 'string') {
-                return DateTime.fromISO(date).toISODate();
-            }
-            // Unknown format
-            console.warn("Unknown date format:", date);
+            if (date.toDate && typeof date.toDate === 'function') return DateTime.fromJSDate(date.toDate()).toISODate();
+            if (date instanceof Date) return DateTime.fromJSDate(date).toISODate();
+            if (typeof date === 'string') return DateTime.fromISO(date).toISODate();
             return null;
-        } catch (error) {
-            console.error("Error converting date:", error);
-            return null;
-        }
+        } catch (error) { return null; }
     };
 
-    const startDate = convertDateToISOString(eventData.details.date.start);
-    const endDate = convertDateToISOString(eventData.details.date.end);
-    
-    let mappedCriteria: EventCriteria[] = [];
+    let mappedCriteria: EventCriterion[] = [];
     const criteriaSource = eventData.criteria;
 
-    if (criteriaSource) {
-        if (Array.isArray(criteriaSource)) {
-            mappedCriteria = criteriaSource;
-        } else if (typeof criteriaSource === 'object' && criteriaSource !== null) {
-            // Handles cases where Firestore might return an object like {0: {...}, 1: {...}}
-            mappedCriteria = Object.values(criteriaSource);
-        }
+    if (Array.isArray(criteriaSource)) { // If it's already an array
+        mappedCriteria = criteriaSource.map(c => ({...c, selections: c.selections || {}}));
     }
-    
-    // If after processing, criteria is empty and it's not a competition, add default
+    // No need for Object.values if criteriaSource is already EventCriterion[] from Firestore
+    // else if (typeof criteriaSource === 'object' && criteriaSource !== null) {
+    //     mappedCriteria = Object.values(criteriaSource).map(c => ({...(c as EventCriterion), selections: (c as EventCriterion).selections || {}}));
+    // }
+
+
     if (mappedCriteria.length === 0 && eventData.details.format !== EventFormat.Competition) {
-         mappedCriteria = [{ constraintIndex: Date.now(), constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], criteriaSelections: {} }];
+         mappedCriteria = [{ constraintIndex: Date.now(), constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], selections: {} }];
     }
 
     return {
@@ -487,37 +419,42 @@ const mapEventToFormData = (eventData: Event): EventFormData => {
              format: eventData.details.format || EventFormat.Individual,
              type: eventData.details.type || '',
              description: eventData.details.description || '',
-             organizers: Array.isArray(eventData.details.organizers) ? eventData.details.organizers : [],
+             organizers: Array.isArray(eventData.details.organizers) ? eventData.details.organizers : (currentUserUid.value ? [currentUserUid.value] : []),
              allowProjectSubmission: typeof eventData.details.allowProjectSubmission === 'boolean' ? eventData.details.allowProjectSubmission : true,
              prize: eventData.details.prize || '',
-             date: { start: startDate, end: endDate },
-             rules: eventData.details.rules || '', // Added rules
+             date: {
+                start: convertDateToISOString(eventData.details.date.start),
+                end: convertDateToISOString(eventData.details.date.end)
+             },
+             rules: eventData.details.rules || '',
          },
-        criteria: mappedCriteria, // Use the processed mappedCriteria
+        criteria: mappedCriteria,
         teams: Array.isArray(eventData.teams) ? eventData.teams : [],
         status: eventData.status || EventStatus.Pending,
+        votingOpen: typeof eventData.votingOpen === 'boolean' ? eventData.votingOpen : false, // Ensure votingOpen is included
     };
 };
 
 // --- Watchers ---
 watch(() => formData.value.details.format, (newFormat, oldFormat) => {
-    // Prevent watcher running during initial load or if format hasn't changed
     if (loading.value || newFormat === oldFormat) return;
 
-    // Reset teams if format changes away from Team
     if (newFormat !== EventFormat.Team) formData.value.teams = [];
 
-    // Reset criteria if changing to Competition, or add default if changing away and criteria is empty
-    if (newFormat === EventFormat.Competition) formData.value.criteria = [];
-    else if (oldFormat === EventFormat.Competition && (!formData.value.criteria || formData.value.criteria.length === 0)) {
-         formData.value.criteria = [{ constraintIndex: Date.now() + 1, constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], criteriaSelections: {} }];
+    if (newFormat === EventFormat.Competition) {
+      formData.value.criteria = [];
+      formData.value.details.allowProjectSubmission = true;
+    } else if (oldFormat === EventFormat.Competition && (!formData.value.criteria || formData.value.criteria.length === 0)) {
+         formData.value.criteria = [{ constraintIndex: Date.now() + 1, constraintLabel: 'Overall Performance', points: 10, role: assignableXpRoles[0], selections: {} }];
     }
 
-    // Remove prize if not Competition
-    if (newFormat !== EventFormat.Competition) formData.value.details.prize = '';
+    if (newFormat !== EventFormat.Competition) {
+        // Ensure prize is either string or undefined, not null
+        formData.value.details.prize = formData.value.details.prize || '';
+    }
 
-    // Add/Remove 'Best Performer' criterion based on Team format
-     const bestPerformerCriterion = { constraintIndex: -1, constraintLabel: BEST_PERFORMER_LABEL, points: 10, role: '', criteriaSelections: {} };
+
+     const bestPerformerCriterion: EventCriterion = { constraintIndex: -1, constraintLabel: BEST_PERFORMER_LABEL, points: 10, role: '', selections: {} };
      const criteriaList = formData.value.criteria || [];
      const hasBestPerf = criteriaList.some(c => c.constraintLabel === BEST_PERFORMER_LABEL);
 
@@ -528,13 +465,6 @@ watch(() => formData.value.details.format, (newFormat, oldFormat) => {
      }
 }, { deep: true });
 
-// Watch availableStudents to see when it updates
-watch(availableStudents, (newStudents, oldStudents) => {
-  console.log(`[RequestEventView] Watcher: availableStudents changed. New length: ${newStudents.length}, Old length: ${oldStudents?.length ?? 0}`);
-  if (newStudents.length > 0) {
-    console.log('[RequestEventView] Watcher: First student in availableStudents:', JSON.stringify(newStudents[0]));
-  }
-}, { deep: true, immediate: true }); // Add immediate to see initial state
 
 // --- Lifecycle Hooks ---
 onMounted(loadInitialData);
@@ -546,7 +476,6 @@ onMounted(loadInitialData);
 .card { border: none; border-radius: 0.75rem; }
 .card-header { background-color: var(--bs-light); border-bottom: 1px solid var(--bs-border-color-translucent); padding: 1rem 1.5rem; }
 .card-body { padding: 1.5rem; }
-/* Improved validation styling */
 .needs-validation .form-control.is-invalid,
 .needs-validation .form-select.is-invalid {
     border-color: var(--bs-danger);

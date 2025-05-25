@@ -1,3 +1,4 @@
+// src/components/forms/TeamMemberSelect.vue
 <template>
   <div class="mb-3">
     <label class="form-label small text-secondary">
@@ -8,20 +9,18 @@
       </span>
     </label>
     <select
-      class="form-select form-select-sm" 
+      class="form-select form-select-sm"
       v-model="selectedMemberToAdd"
       :disabled="isSubmitting || selectedMembers.length >= maxMembers"
       @change="addMember"
     >
       <option value="" disabled selected>Select a student to add...</option>
-      <!-- FIX: Iterate over availableStudents which now includes name -->
       <option
         v-for="student in availableStudentsForDropdown"
         :key="student.uid"
         :value="student.uid"
       >
-        <!-- Display name directly from student object -->
-        {{ console.log('[TMS Dropdown] Student:', JSON.stringify(student)), '' }} {{ student.name || `UID: ${student.uid.substring(0,6)}...` }}
+        {{ student.name || `UID: ${student.uid.substring(0,6)}...` }}
       </option>
     </select>
   </div>
@@ -29,14 +28,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useUserStore } from '@/store/studentProfileStore';
-// FIX: Import UserData type
-import { UserData } from '@/types/student';
+// No need to import useUserStore if not directly used for fetching here.
+// Name is passed via availableStudents prop.
+import { UserData } from '@/types/student'; // Correctly import UserData
 
 interface Props {
   selectedMembers: string[];
-  // FIX: Expect UserData array
-  availableStudents: UserData[];
+  availableStudents: UserData[]; // Expect UserData array
   isSubmitting: boolean;
   minMembers?: number;
   maxMembers?: number;
@@ -45,26 +43,17 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   minMembers: 2,
   maxMembers: 8,
-  selectedMembers: () => [], // Ensure default is a new array instance
-  availableStudents: () => [], // Ensure default is a new array instance
+  selectedMembers: () => [],
+  availableStudents: () => [],
 });
 
 const emit = defineEmits(['update:members']);
 
-const userStore = useUserStore();
+const selectedMemberToAdd = ref('');
 
-const selectedMemberToAdd = ref(''); // Renamed to avoid confusion
-
-// Filter available students for the dropdown (exclude already selected)
 const availableStudentsForDropdown = computed(() => {
-    // Log the raw props.availableStudents received by TeamMemberSelect
-    if (props.availableStudents.length > 0) {
-        console.log('[TMS availableStudentsForDropdown] props.availableStudents[0]:', JSON.stringify(props.availableStudents[0]));
-    } else {
-        console.log('[TMS availableStudentsForDropdown] props.availableStudents is empty.');
-    }
     const selectedSet = new Set(props.selectedMembers);
-    return props.availableStudents.filter(student => !selectedSet.has(student.uid));
+    return props.availableStudents.filter(student => student?.uid && !selectedSet.has(student.uid));
 });
 
 const addMember = () => {
@@ -73,37 +62,28 @@ const addMember = () => {
     if (newMembers.length <= props.maxMembers) {
       emit('update:members', newMembers);
     } else {
-        // Optionally notify user they reached the max limit
         console.warn(`Maximum team members (${props.maxMembers}) reached.`);
     }
   }
-  selectedMemberToAdd.value = ''; // Reset selection
+  selectedMemberToAdd.value = '';
 };
 
-// Enforce max members limit (e.g., if prop changes externally)
 watch(() => props.selectedMembers, (newMembers) => {
   if (newMembers.length > props.maxMembers) {
-    // If somehow the list exceeds max, truncate it
     emit('update:members', newMembers.slice(0, props.maxMembers));
   }
 }, { deep: true });
 
-// Reset selection on mount or when available students change significantly
-watch(() => props.availableStudents, (newVal) => {
-    console.log('[TMS Watcher] props.availableStudents changed. Length:', newVal?.length ?? 0);
-    if (newVal && newVal.length > 0) {
-        console.log('[TMS Watcher] First student in new props.availableStudents:', JSON.stringify(newVal[0]));
-    }
+watch(() => props.availableStudents, () => {
     selectedMemberToAdd.value = '';
 }, { deep: true, immediate: true });
 
 onMounted(() => {
-  selectedMemberToAdd.value = ''; // Reset selection on mount
+  selectedMemberToAdd.value = '';
 });
 </script>
 
 <style scoped>
-/* Add styles if needed, e.g., for the optional selected members display */
 .badge .btn-close-sm {
   padding: 0.2em 0.35em;
   width: 0.7em;

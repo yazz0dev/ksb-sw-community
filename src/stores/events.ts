@@ -1,4 +1,4 @@
-// src/store/events.ts
+// src/stores/events.ts
 import { defineStore } from 'pinia';
 import { Timestamp, doc, writeBatch, increment } from 'firebase/firestore';
 import { db } from '../firebase'; // Adjusted path

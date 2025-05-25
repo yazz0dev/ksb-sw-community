@@ -10,6 +10,17 @@ export interface StudentProfileState {
   isLoading: boolean;
   error: string | null;
   portfolioData: StudentPortfolioGenerationData | null; // Data prepared for portfolio generation
+  allUsers: EnrichedStudentData[]; // Added to address 'allUsers' property error
+}
+
+// --- Student Profile Store Getters ---
+export interface StudentProfileGetters {
+  getCachedUserName: (userId: string) => string | undefined;
+}
+
+// --- Student Profile Store Actions ---
+export interface StudentProfileActions {
+  fetchUserData: (userId: string) => Promise<void>;
 }
 
 // --- Student Event Interaction Store State ---

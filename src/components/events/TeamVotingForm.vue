@@ -111,9 +111,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useEventStore } from '@/store/studentEventStore';
-import { useUserStore } from '@/store/studentProfileStore';
-import { EventCriteria, Team as EventTeam, Event } from '@/types/event'; // Use aliases if needed
+import { useStudentEventStore } from '@/stores/studentEventStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore';
+import { EventCriterion, Team as EventTeam, Event } from '@/types/event'; // Use aliases if needed
 import { BEST_PERFORMER_LABEL } from '@/utils/constants'; // Ensure this is imported
 
 interface TeamMember {
@@ -136,15 +136,15 @@ const emit = defineEmits<{
   (e: 'submitted', data: { message: string; type: string }): void;
 }>();
 
-const eventStore = useEventStore();
-const userStore = useUserStore();
+const eventStore = useStudentEventStore();
+const userStore = useStudentProfileStore();
 const loading = ref(true);
 const error = ref<string>('');
 const submissionError = ref<string>('');
 const isSubmitting = ref(false);
 
 const eventDetails = ref<Event | null>(null); // Use specific Event type or null
-const eventCriteria = ref<EventCriteria[]>([]); // Use EventCriteria type
+const eventCriteria = ref<EventCriterion[]>([]); // Use EventCriterion type
 const eventTeams = ref<EventTeam[]>([]); // Use EventTeam type
 const allTeamMembers = ref<TeamMember[]>([]);
 const teamMemberMap = ref<Record<string, string>>({}); // uid -> teamName
@@ -152,7 +152,7 @@ const teamMemberMap = ref<Record<string, string>>({}); // uid -> teamName
 const teamSelections = ref<TeamSelections>({});
 const bestPerformerSelection = ref<string>('');
 
-const currentUserId = computed(() => userStore.uid);
+const currentUserId = computed(() => userStore.studentId);
 
 // Fetch necessary data on mount
 onMounted(async () => {
@@ -179,7 +179,7 @@ onMounted(async () => {
     // FIX: Use eventDetails.value.criteria and filter out BEST_PERFORMER_LABEL
     if (eventDetails.value && Array.isArray(eventDetails.value.criteria)) {
       eventCriteria.value = eventDetails.value.criteria.filter(
-        c => c.constraintLabel !== BEST_PERFORMER_LABEL && c.constraintLabel && (typeof c.points === 'number' && c.points > 0)
+        (c: EventCriterion) => c.constraintLabel !== BEST_PERFORMER_LABEL && c.constraintLabel && (typeof c.points === 'number' && c.points > 0)
       );
     } else {
       eventCriteria.value = [];
@@ -188,7 +188,7 @@ onMounted(async () => {
 
     // Initialize selections based on filtered criteria
     teamSelections.value = {}; // Reset selections
-    eventCriteria.value.forEach(c => {
+    eventCriteria.value.forEach((c: EventCriterion) => {
       // Ensure constraintIndex is valid before using it as a key
       if (typeof c.constraintIndex === 'number') {
           teamSelections.value[c.constraintIndex] = '';
@@ -240,7 +240,7 @@ const isFormValid = computed(() => {
     // For now, assume if eventCriteria is empty, that part is "filled".
   }
 
-  const criteriaFilled = eventCriteria.value.every(c =>
+  const criteriaFilled = eventCriteria.value.every((c: EventCriterion) =>
     typeof c.constraintIndex === 'number' &&
     teamSelections.value[c.constraintIndex] &&
     teamSelections.value[c.constraintIndex] !== ''
@@ -278,7 +278,7 @@ const submitTeamVoting = async (): Promise<void> => {
     }
 
     const criteriaPayload: Record<string, string> = {};
-    eventCriteria.value.forEach(c => {
+    eventCriteria.value.forEach((c: EventCriterion) => {
       if (typeof c.constraintIndex === 'number') {
           // Use the actual constraintIndex from the criteria object as the key
           criteriaPayload[String(c.constraintIndex)] = teamSelections.value[c.constraintIndex];

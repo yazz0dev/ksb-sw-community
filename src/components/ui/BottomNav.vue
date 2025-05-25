@@ -58,20 +58,19 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useStudentProfileStore } from '@/stores/studentProfileStore';
 
-const userStore = useUserStore();
+const userStore = useStudentProfileStore();
 const imgError = ref<boolean>(false);
 
 // Computed properties with type annotations
 const isAuthenticated = computed<boolean>(() => userStore.isAuthenticated);
-const userProfilePicUrl = computed<string | null>(() => userStore.currentUser?.photoURL ?? null);
-const userName = computed<string | null>(() => userStore.currentUser?.name ?? null);
+const userProfilePicUrl = computed<string | null>(() => userStore.currentStudent?.photoURL ?? null);
+const userName = computed<string | null>(() => userStore.currentStudent?.name ?? null);
 
 const handleImageError = (): void => {
   imgError.value = true;
 };
-
 </script>
 
 <style scoped>

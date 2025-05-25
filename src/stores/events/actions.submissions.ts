@@ -1,15 +1,10 @@
-// src/store/events/actions.submissions.ts (Conceptual Student Site Helpers)
+// src/stores/events/actions.submissions.ts (Conceptual Student Site Helpers)
 import { doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
-<<<<<<< HEAD
-import type { Event, Submission, EventStatus } from '@/types/event';
-import { EventFormat } from '@/types/event';
-
-const now = () => Timestamp.now();
-=======
 import { Event, Submission, EventStatus, EventFormat } from '@/types/event';
 import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mapper
->>>>>>> 18584e3e4cbfec6471edfa715168774adf7c20a5
+
+const now = () => Timestamp.now();
 
 /**
  * Adds a project submission to an event document in Firestore by a student.

@@ -1,3 +1,4 @@
+// src/components/events/EventDetailsHeader.vue
 <template>
   <div class="event-details-header bg-light border rounded-3 shadow-sm overflow-hidden mb-4"> <!-- Added rounded-3 -->
     <div class="p-4 p-md-5">
@@ -18,7 +19,7 @@
           </h1>
 
            <!-- Prize Display (for Competition) -->
-           <div v-if="event?.details?.format === 'Competition' && event?.details?.prize" class="mb-3 d-flex align-items-center text-warning-emphasis bg-warning-subtle p-2 rounded-pill border border-warning-subtle" style="max-width: fit-content;">
+           <div v-if="event?.details?.format === EventFormat.Competition && event?.details?.prize" class="mb-3 d-flex align-items-center text-warning-emphasis bg-warning-subtle p-2 rounded-pill border border-warning-subtle" style="max-width: fit-content;">
                <i class="fas fa-trophy me-2"></i>
                <span class="fw-medium small">Prize: {{ event.details.prize }}</span>
            </div>
@@ -107,7 +108,7 @@ import { useRouter } from 'vue-router';
 import { Timestamp } from 'firebase/firestore';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
-import { EventFormat } from '@/types/event'; // Import EventFormat
+import { EventFormat, type Team } from '@/types/event'; // Import Team for EventHeaderProps
 import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
 // Define a more specific Event type for the header props
@@ -120,8 +121,8 @@ interface EventHeaderProps {
     type?: string; // Added type
     format: EventFormat; // Use enum
     date: {
-        start: Timestamp | null;
-        end: Timestamp | null;
+        start: Timestamp | Date | string | null; // Accept various date inputs
+        end: Timestamp | Date | string | null;   // Accept various date inputs
     };
     description: string;
     organizers?: string[];
@@ -129,7 +130,7 @@ interface EventHeaderProps {
     rules?: string; // Added rules field
   };
   closed?: boolean;
-  teams?: { members: string[] }[];
+  teams?: Team[];
   participants?: string[];
 }
 
@@ -177,7 +178,7 @@ async function renderDescription(description: string | undefined) {
 // New function to render rules as markdown
 async function renderRules(rulesContent: string | undefined) {
   if (!rulesContent) {
-    renderedRulesHtml.value = '';
+    renderedRulesHtml.value = ''; // Clear if no rules
     return;
   }
   try {

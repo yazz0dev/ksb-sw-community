@@ -75,7 +75,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useUserStore } from '@/store/studentProfileStore';
+import { useUserStore } from '@/stores/studentProfileStore';
 import { EnrichedUserData, UserProject as PortfolioUserProject } from '@/types/student'; // Project type for portfolio is different
 
 import ProfileViewContent from '@/components/user/ProfileViewContent.vue';

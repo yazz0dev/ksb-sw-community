@@ -1,200 +1,223 @@
 // src/utils/eventDataMapper.ts
-import { Timestamp, DocumentData } from 'firebase/firestore';
+import { Timestamp, DocumentData, deleteField } from 'firebase/firestore';
 import {
     Event,
     EventStatus,
     EventFormat,
-    EventCriteria,
     Team,
     Submission,
     OrganizerRating,
+    EventFormData,
+    EventDetails,
+    EventDate,
     WinnerInfo,
-    GalleryItem
-} from '@/types/event'; // Removed EventDetails, EventDate
+    GalleryItem,
+    EventCriterion,
+    EventLifecycleTimestamps
+} from '@/types/event';
+import { DateTime } from 'luxon';
 
 // Helper function to convert JS Date or ISO string to Firestore Timestamp in IST
 const getISTTimestamp = (dateInput: Date | string | Timestamp | { seconds: number, nanoseconds: number } | null | undefined): Timestamp | null => {
     if (!dateInput) return null;
     if (dateInput instanceof Timestamp) return dateInput;
 
-    // Handle plain objects that look like Firestore Timestamps (from JSON.parse(JSON.stringify(timestamp)))
     if (typeof dateInput === 'object' && 'seconds' in dateInput && 'nanoseconds' in dateInput && !(dateInput instanceof Date)) {
         return new Timestamp(dateInput.seconds, dateInput.nanoseconds);
     }
 
     let dt: DateTime;
-    if (dateInput instanceof Date) {
+    if (typeof dateInput === 'string') {
+        dt = DateTime.fromISO(dateInput, { zone: 'utc' });
+    } else if (dateInput instanceof Date) {
         dt = DateTime.fromJSDate(dateInput);
-    } else if (typeof dateInput === 'string') {
-        // Try to parse as ISO, if it fails, it might be a different format or invalid
-        dt = DateTime.fromISO(dateInput);
-        if (!dt.isValid) {
-            // Attempt to parse common non-ISO formats if necessary, or throw error
-            console.warn(`Invalid ISO string for date: ${dateInput}`);
-            return null; // Or handle error appropriately
-        }
     } else {
-        console.warn(`Unsupported date input type: ${typeof dateInput}`);
-        return null;
+        return null; 
     }
+    
+    if (!dt.isValid) return null;
 
-    // Assuming you want to store in UTC, but ensure consistency.
-    // If you specifically need to convert to IST and then to Timestamp:
-    // dt = dt.setZone('Asia/Kolkata');
-    // return Timestamp.fromDate(dt.toJSDate());
-    // For now, let's assume the DateTime object is in the correct zone or UTC.
-    return Timestamp.fromDate(dt.toJSDate());
+    return Timestamp.fromDate(dt.setZone('Asia/Kolkata').toJSDate());
 };
 
-// Maps the application's Event object structure to a Firestore-compatible structure.
-export function mapEventDataToFirestore(eventData: Partial<Event>): Record<string, any> {
-    const firestoreData: Record<string, any> = {};
 
-    // Map top-level Event properties
-    if (eventData.id) firestoreData.id = eventData.id; // Usually not needed for add/update directly
-    firestoreData.status = eventData.status || EventStatus.Pending;
-    firestoreData.requestedBy = eventData.requestedBy || null;
-    firestoreData.votingOpen = typeof eventData.votingOpen === 'boolean' ? eventData.votingOpen : false;
-    
-    firestoreData.createdAt = getISTTimestamp(eventData.createdAt) || Timestamp.now(); // Default to now if not provided
-    firestoreData.lastUpdatedAt = Timestamp.now(); // Always set on map
-    
-    if (eventData.completedAt) firestoreData.completedAt = getISTTimestamp(eventData.completedAt);
-    if (eventData.closedAt) firestoreData.closedAt = getISTTimestamp(eventData.closedAt);
-    
-    firestoreData.criteria = Array.isArray(eventData.criteria) ? eventData.criteria : [];
-    firestoreData.teams = Array.isArray(eventData.teams) ? eventData.teams : [];
-    firestoreData.participants = Array.isArray(eventData.participants) ? eventData.participants : [];
-    firestoreData.submissions = Array.isArray(eventData.submissions) ? eventData.submissions : [];
-    firestoreData.organizerRating = Array.isArray(eventData.organizerRating) ? eventData.organizerRating : [];
-    firestoreData.bestPerformerSelections = typeof eventData.bestPerformerSelections === 'object' ? eventData.bestPerformerSelections : {};
-    if (eventData.rejectionReason) firestoreData.rejectionReason = eventData.rejectionReason;
+export const mapEventDataToFirestore = (data: Partial<Event> | EventFormData, isNew = false, existingEvent?: Event): Partial<Event> => {
+    const sourceData = { ...data };
+    const eventToFirestore: Partial<Event> = {};
 
-
-    // Map nested EventDetails
-    const details: Partial<EventDetails> = eventData.details || {};
-    const firestoreDetails: Record<string, any> = {};
-
-    firestoreDetails.name = details.name || '';
-    firestoreDetails.description = details.description || '';
-    firestoreDetails.bannerUrl = details.bannerUrl || null;
-    firestoreDetails.location = details.location || null;
-    firestoreDetails.format = details.format || EventFormat.Individual;
+    if ('id' in sourceData && typeof sourceData.id === 'string') {
+        eventToFirestore.id = sourceData.id;
+    }
+    if ('status' in sourceData && sourceData.status !== undefined) {
+        eventToFirestore.status = sourceData.status;
+    }
+    if ('requestedBy' in sourceData && typeof sourceData.requestedBy === 'string') {
+        eventToFirestore.requestedBy = sourceData.requestedBy;
+    }
     
-    const eventDate: Partial<EventDate> = details.date || {};
-    firestoreDetails.date = {
-        start: getISTTimestamp(eventDate.start),
-        end: getISTTimestamp(eventDate.end)
+    if ('details' in sourceData && sourceData.details) {
+        const detailsFromSource = sourceData.details;
+        eventToFirestore.details = {
+            ...detailsFromSource,
+            date: { 
+                start: getISTTimestamp(detailsFromSource.date?.start),
+                end: getISTTimestamp(detailsFromSource.date?.end),
+            },
+        } as EventDetails; // Assuming detailsFromSource matches EventDetails structure except for date types
+    }
+
+    if ('criteria' in sourceData && sourceData.criteria !== undefined) eventToFirestore.criteria = sourceData.criteria;
+    if ('participants' in sourceData && sourceData.participants !== undefined) eventToFirestore.participants = sourceData.participants;
+    if ('teams' in sourceData && sourceData.teams !== undefined) eventToFirestore.teams = sourceData.teams;
+    if ('teamMemberFlatList' in sourceData && sourceData.teamMemberFlatList !== undefined) eventToFirestore.teamMemberFlatList = sourceData.teamMemberFlatList;
+    if ('submissions' in sourceData && sourceData.submissions !== undefined) eventToFirestore.submissions = sourceData.submissions;
+    
+    if ('votingOpen' in sourceData && typeof sourceData.votingOpen === 'boolean') eventToFirestore.votingOpen = sourceData.votingOpen;
+    if ('bestPerformerSelections' in sourceData && sourceData.bestPerformerSelections !== undefined) eventToFirestore.bestPerformerSelections = sourceData.bestPerformerSelections;
+    if ('winners' in sourceData && sourceData.winners !== undefined) eventToFirestore.winners = sourceData.winners;
+    if ('manuallySelectedBy' in sourceData && sourceData.manuallySelectedBy !== undefined) {
+         eventToFirestore.manuallySelectedBy = sourceData.manuallySelectedBy === null ? undefined : sourceData.manuallySelectedBy;
+    }
+    if ('organizerRatings' in sourceData && sourceData.organizerRatings !== undefined) eventToFirestore.organizerRatings = sourceData.organizerRatings; 
+    
+    if ('lifecycleTimestamps' in sourceData && sourceData.lifecycleTimestamps !== undefined) eventToFirestore.lifecycleTimestamps = sourceData.lifecycleTimestamps;
+    
+    if ('rejectionReason' in sourceData) { // Check presence before access
+        const reason = sourceData.rejectionReason; // Explicitly type if needed or handle null
+        eventToFirestore.rejectionReason = reason === null ? undefined : reason;
+    }
+    
+    const srcCreatedAt = 'createdAt' in sourceData ? sourceData.createdAt : undefined;
+    const srcLastUpdatedAt = 'lastUpdatedAt' in sourceData ? sourceData.lastUpdatedAt : undefined;
+
+    if (isNew) {
+        eventToFirestore.createdAt = srcCreatedAt instanceof Timestamp ? srcCreatedAt : Timestamp.now();
+        eventToFirestore.lastUpdatedAt = srcLastUpdatedAt instanceof Timestamp ? srcLastUpdatedAt : Timestamp.now();
+    } else {
+        eventToFirestore.lastUpdatedAt = srcLastUpdatedAt instanceof Timestamp ? srcLastUpdatedAt : Timestamp.now();
+        if (existingEvent?.createdAt) {
+            eventToFirestore.createdAt = existingEvent.createdAt;
+        } else if (srcCreatedAt instanceof Timestamp) {
+            eventToFirestore.createdAt = srcCreatedAt;
+        }
+    }
+    
+    // These keys are expected to be on `Event` or `EventFormData`
+    const optionalTimestampKeys: (keyof Event | keyof EventFormData)[] = ['completedAt', 'closedAt'];
+    
+    optionalTimestampKeys.forEach(key => {
+        if (key in sourceData) {
+            // Type assertion to help TypeScript narrow down sourceData
+            const tsValue = (sourceData as Partial<Event> & EventFormData)[key] as Date | string | Timestamp | null | undefined;
+            if (tsValue instanceof Timestamp) {
+                (eventToFirestore as any)[key] = tsValue;
+            } else if (tsValue) { 
+                (eventToFirestore as any)[key] = getISTTimestamp(tsValue);
+            } else if (tsValue === null) {
+                 // If Firestore should store null, assign it. Otherwise, it remains undefined.
+                (eventToFirestore as any)[key] = null; 
+            }
+            // If tsValue is undefined, it's implicitly handled (field not set on eventToFirestore)
+        }
+    });
+
+    return eventToFirestore;
+};
+
+const tsNullToUndefined = (ts: Timestamp | null): Timestamp | undefined => {
+    return ts === null ? undefined : ts;
+};
+
+export const mapFirestoreToEventData = (id: string, firestoreData: DocumentData | null | undefined): Event | null => {
+    if (!firestoreData) return null;
+
+    const event: Partial<Event> = {
+        id,
+        ...firestoreData,
     };
+
+    // Assuming EventDetails.date.start/end can be Timestamp | null
+    if (event.details && typeof event.details === 'object' && event.details.date && typeof event.details.date === 'object') {
+        const sourceStartDate = firestoreData.details?.date?.start;
+        if (sourceStartDate instanceof Timestamp) {
+            event.details.date.start = sourceStartDate;
+        } else if (sourceStartDate) {
+            event.details.date.start = getISTTimestamp(sourceStartDate); // Returns Timestamp | null
+        } else {
+            event.details.date.start = null; // Or undefined if your type prefers that
+        }
+
+        const sourceEndDate = firestoreData.details?.date?.end;
+        if (sourceEndDate instanceof Timestamp) {
+            event.details.date.end = sourceEndDate;
+        } else if (sourceEndDate) {
+            event.details.date.end = getISTTimestamp(sourceEndDate); // Returns Timestamp | null
+        } else {
+            event.details.date.end = null; // Or undefined
+        }
+    }
     
-    firestoreDetails.organizers = Array.isArray(details.organizers) ? details.organizers : [];
-    firestoreDetails.tags = Array.isArray(details.tags) ? details.tags : [];
-    
-    firestoreData.details = firestoreDetails;
+    // For fields on Event type that are Timestamp | undefined
+    const timestampFields: (keyof Event)[] = ['createdAt', 'lastUpdatedAt', 'closedAt'];
+    timestampFields.forEach(field => {
+        const fieldValue = firestoreData[field];
+        if (fieldValue instanceof Timestamp) {
+            (event as any)[field] = fieldValue;
+        } else if (fieldValue) {
+            (event as any)[field] = tsNullToUndefined(getISTTimestamp(fieldValue));
+        } else {
+            (event as any)[field] = undefined;
+        }
+    });
 
-    return firestoreData;
-}
-
-// Maps Firestore document data to the application's Event object structure.
-// (This is similar to what's now in actions.fetching.ts, consider consolidating or ensuring consistency)
-export function mapFirestoreToEventData(docId: string, firestoreData: Record<string, any>): Event {
-    const detailsData = firestoreData.details || {};
-    const dateData = detailsData.date || {};
-
-    const eventDetails: EventDetails = {
-        name: detailsData.name || '',
-        description: detailsData.description || '',
-        bannerUrl: detailsData.bannerUrl || null,
-        location: detailsData.location || null,
-        format: (detailsData.format || EventFormat.Individual) as EventFormat,
-        date: {
-            start: dateData.start instanceof Timestamp ? dateData.start : null,
-            end: dateData.end instanceof Timestamp ? dateData.end : null,
-        } as EventDate,
-        organizers: Array.isArray(detailsData.organizers) ? detailsData.organizers : [],
-        tags: Array.isArray(detailsData.tags) ? detailsData.tags : [],
-    };
-
-    // --- CRITERIA MAPPING (Array of Objects) ---
-    const criteria: EventCriteria[] = Array.isArray(firestoreData.criteria) ? firestoreData.criteria.map((crit: any, index: number) => ({
-        constraintIndex: typeof crit.constraintIndex === 'number' ? crit.constraintIndex : index,
-        constraintLabel: crit.constraintLabel || `Criterion ${index + 1}`,
-        constraintKey: crit.constraintKey || `criterion_${index + 1}`, // Ensure constraintKey
-        xpValue: typeof crit.xpValue === 'number' ? crit.xpValue : (typeof crit.points === 'number' ? crit.points : 0), // Handle old 'points' field
-        roleKey: crit.roleKey || crit.role || null, // Handle old 'role' field
-        targetRole: crit.targetRole || null,
-        votes: typeof crit.votes === 'object' && crit.votes !== null ? crit.votes : (typeof crit.criteriaSelections === 'object' && crit.criteriaSelections !== null ? crit.criteriaSelections : {}), // Handle old 'criteriaSelections'
-    })) : [];
-
-    // --- TEAMS MAPPING (Array of Objects) ---
-    const teams: Team[] = Array.isArray(firestoreData.teams) ? firestoreData.teams.map((team: any) => ({
-        id: team.id || null,
-        teamName: team.teamName || 'Unnamed Team',
-        members: Array.isArray(team.members) ? team.members.filter((m: any) => typeof m === 'string') : [],
-        teamLead: team.teamLead || null,
-    })) : [];
-    
-    // --- TEAM MEMBERS FLAT LIST ---
-    // Consolidate all unique member UIDs from all teams for easier lookup/filtering
-    const teamMembersFlat: string[] = teams.reduce((acc: string[], team: Team) => {
-        team.members.forEach(memberId => {
-            if (!acc.includes(memberId)) {
-                acc.push(memberId);
+    if (firestoreData.lifecycleTimestamps && typeof firestoreData.lifecycleTimestamps === 'object') {
+        event.lifecycleTimestamps = {};
+        const lifecycleKeys: (keyof EventLifecycleTimestamps)[] = ['rejectedAt', 'completedAt'];
+        lifecycleKeys.forEach(key => {
+            const tsValue = firestoreData.lifecycleTimestamps[key];
+            if (tsValue instanceof Timestamp) {
+                event.lifecycleTimestamps![key] = tsValue;
+            } else if (tsValue) {
+                event.lifecycleTimestamps![key] = tsNullToUndefined(getISTTimestamp(tsValue));
+            } else {
+                event.lifecycleTimestamps![key] = undefined;
             }
         });
-        return acc;
-    }, []);
+    } else if ('lifecycleTimestamps' in event) {
+        event.lifecycleTimestamps = undefined;
+    }
+    
+    if (Array.isArray(firestoreData.organizerRatings)) {
+        event.organizerRatings = firestoreData.organizerRatings.map((rating: any) => {
+            const ratedAtValue = rating.ratedAt;
+            return {
+                ...rating,
+                ratedAt: ratedAtValue instanceof Timestamp ? ratedAtValue : tsNullToUndefined(getISTTimestamp(ratedAtValue)),
+            };
+        });
+    } else if ('organizerRatings' in event) {
+         event.organizerRatings = undefined;
+    }
 
+    if (Array.isArray(firestoreData.submissions)) {
+        event.submissions = firestoreData.submissions.map((sub: any) => {
+            const submittedAtValue = sub.submittedAt;
+            return {
+                ...sub,
+                submittedAt: submittedAtValue instanceof Timestamp ? submittedAtValue : tsNullToUndefined(getISTTimestamp(submittedAtValue)),
+            };
+        });
+    } else if ('submissions' in event) {
+        event.submissions = undefined;
+    }
 
-    // --- SUBMISSIONS MAPPING (Array of Objects) ---
-    const submissions: Submission[] = Array.isArray(firestoreData.submissions) ? firestoreData.submissions.map((sub: any) => ({
-        projectName: sub.projectName || 'Untitled Project',
-        link: sub.link || '#',
-        submittedBy: sub.submittedBy || null,
-        submittedAt: sub.submittedAt instanceof Timestamp ? sub.submittedAt : Timestamp.now(), // Default to now if invalid
-        description: sub.description || null,
-        participantId: sub.participantId || null,
-        teamId: sub.teamId || null,
-    })) : [];
+    if (firestoreData.criteria && typeof firestoreData.criteria === 'object' && !Array.isArray(firestoreData.criteria)) {
+        event.criteria = Object.values(firestoreData.criteria) as EventCriterion[];
+    } else if (Array.isArray(firestoreData.criteria)) {
+        event.criteria = firestoreData.criteria as EventCriterion[];
+    } else {
+        event.criteria = undefined;
+    }
 
-    // --- ORGANIZER RATING MAPPING (Array of Objects) ---
-    const organizerRating: OrganizerRating[] = Array.isArray(firestoreData.organizerRating) ? firestoreData.organizerRating.map((rating: any) => ({
-        userId: rating.userId || null,
-        score: typeof rating.score === 'number' ? rating.score : (typeof rating.rating === 'number' ? rating.rating : 0), // Handle old 'rating' field
-        feedback: rating.feedback || null,
-    })) : [];
-
-    // --- WINNERS MAPPING (Object) ---
-    // Winners structure is Record<string, string[]> or Record<string, string>
-    // No complex mapping needed if structure is consistent, but ensure it's an object.
-    const winners: WinnerInfo | undefined = typeof firestoreData.winners === 'object' && firestoreData.winners !== null ? firestoreData.winners : undefined;
-
-    // --- GALLERY MAPPING (Array of Objects) ---
-    const gallery: GalleryItem[] = Array.isArray(firestoreData.gallery) ? firestoreData.gallery.map((item: any) => ({
-        url: item.url || '#',
-        addedBy: item.addedBy || null,
-        description: item.description || null,
-    })) : [];
-
-    // --- Construct the Event Object ---
-    const event: Event = {
-        id: docId,
-        details: eventDetails,
-        status: (firestoreData.status || EventStatus.Pending) as EventStatus,
-        requestedBy: firestoreData.requestedBy || '',
-        votingOpen: typeof firestoreData.votingOpen === 'boolean' ? firestoreData.votingOpen : false,
-        createdAt: firestoreData.createdAt instanceof Timestamp ? firestoreData.createdAt : null,
-        lastUpdatedAt: firestoreData.lastUpdatedAt instanceof Timestamp ? firestoreData.lastUpdatedAt : null,
-        completedAt: firestoreData.completedAt instanceof Timestamp ? firestoreData.completedAt : null,
-        closedAt: firestoreData.closedAt instanceof Timestamp ? firestoreData.closedAt : null,
-        criteria: (Array.isArray(firestoreData.criteria) ? firestoreData.criteria : []) as EventCriteria[],
-        teams: (Array.isArray(firestoreData.teams) ? firestoreData.teams : []) as Team[],
-        participants: (Array.isArray(firestoreData.participants) ? firestoreData.participants : []) as string[],
-        submissions: (Array.isArray(firestoreData.submissions) ? firestoreData.submissions : []) as Submission[],
-        organizerRating: (Array.isArray(firestoreData.organizerRating) ? firestoreData.organizerRating : []) as OrganizerRating[],
-        bestPerformerSelections: (typeof firestoreData.bestPerformerSelections === 'object' && firestoreData.bestPerformerSelections !== null ? firestoreData.bestPerformerSelections : {}) as Record<string, string>,
-        rejectionReason: firestoreData.rejectionReason || null,
-    };
-
-    return event;
-}
+    return event as Event;
+};
