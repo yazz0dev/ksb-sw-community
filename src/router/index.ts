@@ -26,6 +26,7 @@ const routes: Array<RouteRecordRaw> = [
     { path: '/profile/:id/edit', name: 'EditProfile', component: EditProfileView, meta: { requiresAuth: true, title: 'Edit Profile', description: 'Edit your KSB Tech Community profile information.' } as RouteMeta, props: true },
     { path: '/user/:userId', name: 'PublicProfile', component: () => import('@/views/ProfileView.vue'), props: true, meta: { requiresAuth: false, title: 'User Profile', description: 'View a KSB Tech Community member\'s public profile.' } as RouteMeta },
     { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPasswordView.vue'), meta: { requiresAuth: false, guestOnly: true, title: 'Forgot Password', description: 'Reset your KSB Tech Community account password.' } as RouteMeta },
+    { path: '/signup', name: 'StudentSignup', component: () => import('@/views/SignupView.vue'), meta: { requiresAuth: false, publicAccess: true, title: 'Student Registration', description: 'Register for KSB Tech Community with your batch signup link.' } as RouteMeta },
     { path: '/events', name: 'EventsList', component: () => import('@/views/EventsListView.vue'), meta: { requiresAuth: false, title: 'Events', description: 'Browse upcoming and past events by KSB Tech Community.' } as RouteMeta },
     { path: '/selection/:eventId/:teamId?', name: 'SelectionForm', component: () => import('@/views/SelectionForm.vue'), meta: { requiresAuth: true, title: 'Team Selection', description: 'Participate in team selection for an event.' } as RouteMeta, props: true },
     { path: '/legal', name: 'Legal', component: () => import('@/views/LegalView.vue'), meta: { requiresAuth: false, title: 'Terms & Privacy', description: 'Read the Terms of Service and Privacy Policy for the KSB Tech Community.' } as RouteMeta },
@@ -89,7 +90,7 @@ router.beforeEach((
 
 const DEFAULT_TITLE = 'KSB Tech Community';
 const DEFAULT_DESCRIPTION = 'KSB Software Community Platform for Events & Learning. Join us for skill development, networking, and tech discussions.';
-const SITE_URL = 'https://www.ksbtech.web.app'; // Updated to match the sitemap and meta tags
+const SITE_URL = 'https://www.ksbtechs.web.app'; // Updated to match the sitemap and meta tags
 
 router.afterEach((to) => {
   const routeMeta = to.meta as RouteMeta;

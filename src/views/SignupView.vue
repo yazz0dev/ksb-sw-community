@@ -1,0 +1,516 @@
+<template>
+  <div class="signup-bg d-flex align-items-center justify-content-center overflow-hidden">
+    <div class="container container-sm">
+      <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+          <transition name="fade-pop">
+            <div class="card signup-card shadow-lg border-0 animate-pop">
+              <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                  <div class="signup-icon mb-2">
+                    <i class="fas fa-user-plus fa-3x text-primary"></i>
+                  </div>
+                  <h2 class="h3 fw-bold text-primary mb-1">Student Registration</h2>
+                  <p class="text-secondary small mb-0">
+                    Join KSB Tech Community - Batch {{ batchYear || 'Unknown' }}
+                  </p>
+                </div>
+
+                <!-- Success Message -->
+                <div v-if="submissionSuccess" class="alert alert-success text-center" role="alert">
+                  <i class="fas fa-check-circle me-2"></i>
+                  <strong>Registration Submitted!</strong>
+                  <p class="mb-0 mt-2 small">
+                    Your registration has been submitted for approval. You will be notified via email once your account is activated.
+                  </p>
+                </div>
+
+                <!-- Error Message -->
+                <div v-if="errorMessage" class="alert alert-danger small p-2 text-center" role="alert">
+                  {{ errorMessage }}
+                </div>
+
+                <!-- Invalid Link Message -->
+                <div v-if="invalidLink" class="alert alert-warning text-center" role="alert">
+                  <i class="fas fa-exclamation-triangle me-2"></i>
+                  <strong>Invalid Registration Link</strong>
+                  <p class="mb-0 mt-2 small">
+                    This registration link is invalid or has expired. Please contact your administrator for a new link.
+                  </p>
+                </div>
+
+                <!-- Registration Form -->
+                <form v-if="!submissionSuccess && !invalidLink" @submit.prevent="submitRegistration" autocomplete="on">
+                  <div class="mb-3">
+                    <label for="fullName" class="form-label small">Full Name <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
+                      <input
+                        id="fullName"
+                        class="form-control"
+                        type="text"
+                        v-model="formData.fullName"
+                        placeholder="Enter your full name"
+                        required
+                        :disabled="isLoading"
+                        autocomplete="name"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="email" class="form-label small">Email Address <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
+                      <input
+                        id="email"
+                        class="form-control"
+                        type="email"
+                        v-model="formData.email"
+                        placeholder="you@example.com"
+                        required
+                        :disabled="isLoading"
+                        autocomplete="email"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="studentId" class="form-label small">Student ID <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light"><i class="fas fa-id-card"></i></span>
+                      <input
+                        id="studentId"
+                        class="form-control"
+                        type="text"
+                        v-model="formData.studentId"
+                        placeholder="Enter your student ID"
+                        required
+                        :disabled="isLoading"
+                        autocomplete="off"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="batchYearConfirm" class="form-label small">Batch Year Confirmation <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light"><i class="fas fa-calendar"></i></span>
+                      <input
+                        id="batchYearConfirm"
+                        class="form-control"
+                        type="number"
+                        v-model.number="formData.batchYearConfirm"
+                        :placeholder="`Confirm batch year: ${batchYear || 'YYYY'}`"
+                        required
+                        :disabled="isLoading"
+                        min="2020"
+                        max="2030"
+                      />
+                    </div>
+                    <div class="form-text small">
+                      Please confirm your batch year: {{ batchYear || 'Not specified' }}
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="hasLaptop" class="form-label small">Do you have a laptop? <span class="text-danger">*</span></label>
+                    <div class="form-check">
+                      <input
+                        id="hasLaptopYes"
+                        class="form-check-input"
+                        type="radio"
+                        name="hasLaptop"
+                        :value="true"
+                        v-model="formData.hasLaptop"
+                        required
+                        :disabled="isLoading"
+                      />
+                      <label class="form-check-label" for="hasLaptopYes">
+                        Yes, I have a laptop
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        id="hasLaptopNo"
+                        class="form-check-input"
+                        type="radio"
+                        name="hasLaptop"
+                        :value="false"
+                        v-model="formData.hasLaptop"
+                        required
+                        :disabled="isLoading"
+                      />
+                      <label class="form-check-label" for="hasLaptopNo">
+                        No, I don't have a laptop
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="skills" class="form-label small">Skills (Optional)</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light"><i class="fas fa-code"></i></span>
+                      <input
+                        id="skills"
+                        class="form-control"
+                        type="text"
+                        v-model="skillsInput"
+                        placeholder="e.g., JavaScript, Python, React (comma-separated)"
+                        :disabled="isLoading"
+                      />
+                    </div>
+                    <div class="form-text small">
+                      Enter your technical skills separated by commas
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="bio" class="form-label small">Bio (Optional)</label>
+                    <textarea
+                      id="bio"
+                      class="form-control"
+                      v-model="formData.bio"
+                      placeholder="Tell us a bit about yourself..."
+                      rows="3"
+                      :disabled="isLoading"
+                      maxlength="500"
+                    ></textarea>
+                    <div class="form-text small">
+                      {{ formData.bio?.length || 0 }}/500 characters
+                    </div>
+                  </div>
+
+                  <div class="mb-4">
+                    <div class="form-check">
+                      <input
+                        id="agreeTerms"
+                        class="form-check-input"
+                        type="checkbox"
+                        v-model="formData.agreeTerms"
+                        required
+                        :disabled="isLoading"
+                      />
+                      <label class="form-check-label small" for="agreeTerms">
+                        I agree to the 
+                        <router-link to="/legal" target="_blank" class="text-primary">
+                          Terms of Service and Privacy Policy
+                        </router-link>
+                        <span class="text-danger">*</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="d-grid mt-4">
+                    <button
+                      type="submit"
+                      class="btn btn-primary btn-lg rounded-pill shadow-sm"
+                      :disabled="isLoading || !isFormValid"
+                    >
+                      <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                      {{ isLoading ? 'Submitting...' : 'Submit Registration' }}
+                    </button>
+                  </div>
+                </form>
+
+                <!-- Back to Landing -->
+                <div v-if="submissionSuccess || invalidLink" class="mt-4 text-center">
+                  <router-link
+                    to="/"
+                    class="btn btn-outline-primary"
+                  >
+                    <i class="fas fa-home me-1"></i>
+                    Back to Home
+                  </router-link>
+                </div>
+              </div>
+            </div>
+          </transition>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
+import { collection, addDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/firebase';
+import type { RegistrationFormData, PendingStudentRegistration } from '@/types/registration';
+import { validateSignupToken, isValidBatchYear, isBatchSignupActive, getBatchRegistrationsPath, incrementBatchRegistrationCount } from '@/utils/signupUtils';
+
+const route = useRoute();
+
+// Form data
+const formData = ref<RegistrationFormData>({
+  fullName: '',
+  email: '',
+  studentId: '',
+  batchYearConfirm: null,
+  hasLaptop: null,
+  bio: '',
+  agreeTerms: false
+});
+
+const skillsInput = ref('');
+const errorMessage = ref('');
+const isLoading = ref(false);
+const submissionSuccess = ref(false);
+const invalidLink = ref(false);
+const batchYear = ref<number | null>(null);
+const signupToken = ref<string | null>(null);
+
+// Computed properties
+const isFormValid = computed(() => {
+  return (
+    formData.value.fullName.trim() &&
+    formData.value.email.trim() &&
+    formData.value.studentId.trim() &&
+    formData.value.batchYearConfirm === batchYear.value &&
+    formData.value.hasLaptop !== null &&
+    formData.value.agreeTerms
+  );
+});
+
+// Validate signup link
+const validateSignupLink = async (): Promise<boolean> => {
+  const batch = route.query.batch;
+  const token = route.query.token;
+
+  if (batch) {
+    const year = parseInt(batch as string);
+    if (!isNaN(year) && isValidBatchYear(year)) {
+      // Check if batch signup is active
+      const isActive = await isBatchSignupActive(year);
+      if (!isActive) {
+        errorMessage.value = `Signup for batch ${year} is currently not active. Please contact your administrator.`;
+        return false;
+      }
+      batchYear.value = year;
+      return true;
+    }
+  }
+
+  if (token && typeof token === 'string') {
+    signupToken.value = token;
+    try {
+      const validation = await validateSignupToken(token);
+      if (validation.isValid && validation.batchYear) {
+        // Check if batch signup is active for token-based links too
+        const isActive = await isBatchSignupActive(validation.batchYear);
+        if (!isActive) {
+          errorMessage.value = `Signup for batch ${validation.batchYear} is currently not active. Please contact your administrator.`;
+          return false;
+        }
+        batchYear.value = validation.batchYear;
+        return true;
+      } else {
+        errorMessage.value = validation.error || 'Invalid signup token';
+        return false;
+      }
+    } catch (error) {
+      console.error('Error validating token:', error);
+      errorMessage.value = 'Error validating signup link';
+      return false;
+    }
+  }
+
+  return false;
+};
+
+// Check if email or student ID already exists
+const checkExistingRegistration = async (email: string, studentId: string): Promise<boolean> => {
+  try {
+    if (!batchYear.value) {
+      errorMessage.value = 'Batch year not determined. Please try again.';
+      return false;
+    }
+
+    const batchRegistrationsPath = getBatchRegistrationsPath(batchYear.value);
+    const pendingRef = collection(db, batchRegistrationsPath);
+    
+    // Check email within this batch
+    const emailQuery = query(pendingRef, where('email', '==', email.toLowerCase()));
+    const emailSnapshot = await getDocs(emailQuery);
+    
+    if (!emailSnapshot.empty) {
+      errorMessage.value = 'An account with this email address has already been registered for this batch.';
+      return false;
+    }
+
+    // Check student ID within this batch
+    const studentIdQuery = query(pendingRef, where('studentId', '==', studentId.toUpperCase()));
+    const studentIdSnapshot = await getDocs(studentIdQuery);
+    
+    if (!studentIdSnapshot.empty) {
+      errorMessage.value = 'An account with this student ID has already been registered for this batch.';
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error checking existing registration:', error);
+    errorMessage.value = 'Error validating registration. Please try again.';
+    return false;
+  }
+};
+
+// Submit registration
+const submitRegistration = async () => {
+  errorMessage.value = '';
+  isLoading.value = true;
+
+  try {
+    // Validate form
+    if (!isFormValid.value) {
+      errorMessage.value = 'Please fill in all required fields correctly.';
+      return;
+    }
+
+    // Check for existing registration
+    const canProceed = await checkExistingRegistration(
+      formData.value.email.trim(),
+      formData.value.studentId.trim()
+    );
+
+    if (!canProceed) {
+      return;
+    }
+
+    // Parse skills
+    const skills = skillsInput.value
+      ? skillsInput.value.split(',').map(skill => skill.trim()).filter(skill => skill)
+      : [];
+
+    // Prepare registration data
+    const registrationData: Omit<PendingStudentRegistration, 'id'> = {
+      fullName: formData.value.fullName.trim(),
+      email: formData.value.email.toLowerCase().trim(),
+      studentId: formData.value.studentId.toUpperCase().trim(),
+      batchYear: batchYear.value!,
+      hasLaptop: formData.value.hasLaptop!,
+      bio: formData.value.bio?.trim() || '',
+      skills: skills,
+      status: 'pending_approval',
+      submittedAt: Timestamp.now(),
+      signupSource: {
+        batch: batchYear.value,
+        token: signupToken.value,
+        userAgent: navigator.userAgent,
+        referrer: document.referrer || null
+      }
+    };
+
+    // Submit to Firestore using the new collection structure
+    const batchRegistrationsPath = getBatchRegistrationsPath(batchYear.value!);
+    const pendingRef = collection(db, batchRegistrationsPath);
+    await addDoc(pendingRef, registrationData);
+
+    // Increment the batch registration count
+    await incrementBatchRegistrationCount(batchYear.value!);
+
+    submissionSuccess.value = true;
+    
+  } catch (error) {
+    console.error('Error submitting registration:', error);
+    errorMessage.value = 'Failed to submit registration. Please try again.';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Initialize component
+onMounted(async () => {
+  const isValid = await validateSignupLink();
+  if (!isValid) {
+    invalidLink.value = true;
+  }
+});
+</script>
+
+<style scoped>
+.signup-bg {
+  min-height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle, #e0e7ff) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 2rem 0;
+}
+
+.signup-card {
+  border-radius: var(--bs-border-radius-xl, 1rem);
+  background: var(--bs-card-bg, #fff);
+  box-shadow: var(--bs-box-shadow-lg);
+  max-height: 95vh;
+  overflow-y: auto;
+}
+
+.signup-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--bs-light);
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 0.5rem auto;
+  box-shadow: var(--bs-box-shadow-sm);
+}
+
+.fade-pop-enter-active,
+.fade-pop-leave-active {
+  transition: all 0.3s ease-out;
+}
+
+.fade-pop-enter-from,
+.fade-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(10px);
+}
+
+.animate-pop {
+  animation: popIn 0.4s ease-out;
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+.input-group-text {
+  border-color: var(--bs-border-color);
+}
+
+.form-control:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+@media (max-width: 576px) {
+  .signup-bg {
+    padding: 1rem 0;
+  }
+  
+  .card-body {
+    padding: 1.5rem !important;
+  }
+}
+</style> 
