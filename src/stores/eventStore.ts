@@ -2,13 +2,14 @@
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
 import {
-  doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, Timestamp, addDoc, arrayUnion, arrayRemove, deleteField, writeBatch, increment
+  doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, Timestamp, addDoc, arrayUnion, arrayRemove, deleteField, writeBatch, increment, serverTimestamp, setDoc
 } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Event, EventStatus, EventFormData, Team, Submission, EventCriterion, EventLifecycleTimestamps, OrganizerRating, EventFormat } from '@/types/event';
 import { useProfileStore } from './profileStore';
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore';
+import { useAuth } from '@/composables/useAuth';
 import { mapEventDataToFirestore, mapFirestoreToEventData, getISTTimestamp } from '@/utils/eventDataMapper';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { deepClone, isEmpty } from '@/utils/helpers';
@@ -99,12 +100,34 @@ export const useEventStore = defineStore('studentEvents', () => {
   const studentProfileStore = useProfileStore();
   const notificationStore = useNotificationStore();
   const appStore = useAppStore();
+  const auth = useAuth();
 
   const allPubliclyViewableEvents = computed(() =>
-    events.value.filter(e =>
-        [EventStatus.Approved, EventStatus.InProgress, EventStatus.Completed, EventStatus.Closed].includes(e.status)
-    ).sort(compareEventsForSort)
+    events.value.filter(event => 
+      event.settings?.visibility === 'public' || 
+      (event.settings?.visibility === 'students' && auth.isAuthenticated.value) ||
+      (event.settings?.visibility === 'participants' && studentProfileStore.studentId && event.participants?.[studentProfileStore.studentId])
+    )
   );
+
+  const userSubmittedEvents = computed(() => {
+    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) return [];
+    return events.value.filter(event => event.submittedBy?.userId === studentProfileStore.studentId);
+  });
+
+  const userParticipatingEvents = computed(() => {
+    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) return [];
+    return events.value.filter(event => 
+      Object.values(event.participants || {}).some(p => p.userId === studentProfileStore.studentId && p.status === 'approved')
+    );
+  });
+
+  const userWaitlistedEvents = computed(() => {
+    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) return [];
+    return events.value.filter(event => 
+      Object.values(event.participants || {}).some(p => p.userId === studentProfileStore.studentId && p.status === 'waitlisted')
+    );
+  });
 
   const getEventById = (eventId: string): Event | undefined => {
     return events.value.find(e => e.id === eventId) ||
@@ -667,7 +690,77 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
+  async function submitEventRequest(eventData: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'submittedBy' | 'teamSubmissions' | 'participants' | 'waitlist'>): Promise<string | null> {
+    actionError.value = null;
+    isLoading.value = true;
 
+    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
+      actionError.value = "User not authenticated or profile not loaded.";
+      isLoading.value = false;
+      return null;
+    }
+
+    try {
+      const currentUserId = studentProfileStore.studentId;
+      const newEventRef = doc(collection(db, 'events'));
+      const newEventData: Event = {
+        ...eventData,
+        id: newEventRef.id,
+        status: EventStatus.Pending,
+        createdAt: serverTimestamp() as Timestamp,
+        updatedAt: serverTimestamp() as Timestamp,
+        submittedBy: { userId: currentUserId, name: studentProfileStore.studentName, submittedAt: serverTimestamp() as Timestamp },
+        participants: [],
+        votingOpen: false
+      };
+      await setDoc(newEventRef, mapEventDataToFirestore(newEventData));
+      events.value.unshift(newEventData); 
+      return newEventRef.id;
+    } catch (err) {
+      await _handleOpError("submitting event request", err);
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  async function updateEventRequest(eventId: string, eventData: Partial<Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'submittedBy' | 'teamSubmissions' | 'participants' | 'waitlist'>>): Promise<boolean> {
+    actionError.value = null;
+    isLoading.value = true;
+
+    try {
+      if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
+        actionError.value = "User not authenticated or profile not loaded.";
+        return false;
+      }
+      const eventRef = doc(db, 'events', eventId);
+      const eventSnap = await getDoc(eventRef);
+      if (!eventSnap.exists() || eventSnap.data()?.submittedBy?.userId !== studentProfileStore.studentId) {
+        actionError.value = "Event not found or you do not have permission to edit it.";
+        return false;
+      }
+
+      const updates = {
+        ...mapEventDataToFirestore(eventData as Partial<Event>),
+        updatedAt: serverTimestamp() as Timestamp
+      };
+      await updateDoc(eventRef, updates);
+      
+      const eventIndex = events.value.findIndex(e => e.id === eventId);
+      if (eventIndex !== -1) {
+        events.value[eventIndex] = { ...events.value[eventIndex], ...eventData, updatedAt: Timestamp.now() };
+      }
+      if (viewedEventDetails.value && viewedEventDetails.value.id === eventId) {
+        viewedEventDetails.value = { ...viewedEventDetails.value, ...eventData, updatedAt: Timestamp.now() };
+      }
+      return true;
+    } catch (err) {
+      await _handleOpError("updating event request", err);
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
 
   return {
     events, viewedEventDetails, myEventRequests, isLoading, actionError, fetchError,
@@ -678,6 +771,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     submitProject,
     submitTeamCriteriaVote, submitIndividualWinnerVote, submitManualWinnerSelection, submitOrganizationRating,
     toggleVotingOpen, findWinner, closeEventPermanently, autoGenerateTeams,
-    checkExistingRequests, checkDateConflict
+    checkExistingRequests, checkDateConflict,
+    userSubmittedEvents, userParticipatingEvents, userWaitlistedEvents,
+    submitEventRequest, updateEventRequest
   };
 });

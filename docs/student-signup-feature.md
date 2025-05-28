@@ -35,7 +35,7 @@ https://yourstudentapp.com/signup?token=abc123xyz789...
    - Terms agreement (required)
 
 4. System validates the submission and checks for duplicates
-5. Registration data is saved to `pendingStudentRegistrations` collection
+5. Registration data is saved to `signup` collection
 6. Student receives confirmation message
 
 ### 3. Admin Approval Process
@@ -50,13 +50,13 @@ https://yourstudentapp.com/signup?token=abc123xyz789...
 ### New Files Created
 
 1. **`src/views/StudentSignupView.vue`** - Main signup form component
-2. **`src/types/pendingRegistration.ts`** - TypeScript interfaces
+2. **`src/types/signup.ts`** - TypeScript interfaces
 3. **`src/utils/signupUtils.ts`** - Utility functions for link generation and validation
 4. **Route added to `src/router/index.ts`** - `/signup` route
 
 ### Firestore Collections
 
-#### `pendingStudentRegistrations/{batchYear}` (Batch Configuration)
+#### `signup/{batchYear}` (Batch Configuration)
 Stores batch signup configuration and controls:
 ```typescript
 {
@@ -73,7 +73,7 @@ Stores batch signup configuration and controls:
 }
 ```
 
-#### `pendingStudentRegistrations/{batchYear}/{registrationId}` (Individual Registrations)
+#### `signup/{batchYear}/{registrationId}` (Individual Registrations)
 Stores individual student registration submissions within each batch:
 ```typescript
 {
@@ -165,12 +165,12 @@ To test the feature:
 
 1. Navigate to `/signup?batch=2024` (replace 2024 with desired batch year)
 2. Fill out the registration form
-3. Check Firestore `pendingStudentRegistrations` collection for the submission
+3. Check Firestore `signup` collection for the submission
 4. Verify duplicate prevention by trying to register with same email/student ID
 
 ## Deployment Notes
 
-- Ensure Firestore security rules allow writes to `pendingStudentRegistrations`
+- Ensure Firestore security rules allow writes to `signup`
 - Configure email templates for approval notifications
 - Set up admin interface for managing pending registrations
 - Consider implementing rate limiting for signup submissions

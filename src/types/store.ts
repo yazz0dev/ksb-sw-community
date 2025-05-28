@@ -1,6 +1,6 @@
 // src/types/store.ts
 
-import type { EnrichedStudentData, StudentPortfolioGenerationData, NameCacheMap, StudentEventHistoryItem } from './student';
+import type { EnrichedStudentData, StudentPortfolioGenerationData, NameCacheMap, StudentEventHistoryItem, UserData } from './student';
 import type { Event, EventStatus, Submission, EventFormData } from './event';
 import type { XPData } from './xp';
 

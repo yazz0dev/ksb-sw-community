@@ -1,4 +1,4 @@
-import { Event, EventCriteria, EventFormat, EventStatus } from '@/types/event';
+import { Event, EventCriterion, EventFormat, EventStatus } from '@/types/event';
 import { BEST_PERFORMER_LABEL } from '@/utils/constants';
 
 /**
@@ -23,7 +23,7 @@ export function hasUserSubmittedVotes(event: Event | null, userId: string | null
   const criteriaArray = Array.isArray(event.criteria) ? event.criteria : [];
   
   if (event.details?.format === EventFormat.Team) {
-    const criteriaVoted = criteriaArray.some((c: EventCriteria) => 
+    const criteriaVoted = criteriaArray.some((c: EventCriterion) => 
       c.criteriaSelections && c.criteriaSelections[userId] !== undefined
     );
     const bestPerformerVoted = !!(event.bestPerformerSelections && 
@@ -31,7 +31,7 @@ export function hasUserSubmittedVotes(event: Event | null, userId: string | null
     
     return criteriaVoted || bestPerformerVoted;
   } else {
-    return criteriaArray.some((c: EventCriteria) => 
+    return criteriaArray.some((c: EventCriterion) => 
       c.criteriaSelections && c.criteriaSelections[userId] !== undefined
     );
   }
@@ -46,7 +46,7 @@ export function hasUserSubmittedVotes(event: Event | null, userId: string | null
 export function getValidCriteria(
   event: Event | null, 
   excludeBestPerformer: boolean = false
-): EventCriteria[] {
+): EventCriterion[] {
   if (!event || !Array.isArray(event.criteria)) return [];
   
   return event.criteria.filter(c => {

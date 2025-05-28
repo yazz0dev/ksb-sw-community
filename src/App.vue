@@ -50,48 +50,47 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useProfileStore } from './stores/profileStore';
 import { useNotificationStore } from './stores/notificationStore';
-import { useAppStore } from './stores/appStore';
+import { usePushNotifications } from '@/composables/usePushNotifications';
+import { useAppState } from '@/composables/useAppState';
+import { useAuth } from '@/composables/useAuth';
 
 import BottomNav from './components/ui/BottomNav.vue';
 import TopBar from './components/ui/TopBar.vue';
 
-import { isOneSignalConfigured } from './utils/oneSignalUtils';
-import { getOneSignal, isPushSupported } from './utils/oneSignalUtils';
-import { initializeOneSignal } from './utils/oneSignalService';
-
 const studentStore = useProfileStore();
 const notificationStore = useNotificationStore();
-const appStore = useAppStore();
 const router = useRouter();
 const route = useRoute();
 
-const showPushPermissionPrompt = ref(false);
-const isOnline = computed(() => appStore.isOnline);
+const { 
+  isOnline, 
+  newVersionAvailable: newVersionAvailableComputed,
+  reloadApp,
+  setNewVersionAvailable,
+  initAppState
+} = useAppState();
 
-const isAuthenticated = computed(() => studentStore.isAuthenticated);
+const { 
+  showPushPermissionPrompt, 
+  requestPushPermission, 
+  dismissPushPrompt,
+} = usePushNotifications();
+
+const { 
+  logout: performLogout,
+  isAuthenticated
+} = useAuth();
+
 const userName = computed(() => studentStore.studentName);
 const userProfilePicUrl = computed<string | null>(() => studentStore.currentStudentPhotoURL ?? null);
-const newVersionAvailableComputed = computed(() => appStore.newAppVersionAvailable);
 
 const mainContentClasses = computed(() => ({
   'has-bottom-nav': isAuthenticated.value,
   'is-offline': !isOnline.value
 }));
 
-const reloadApp = () => {
-  if (!isOnline.value) {
-    notificationStore.showNotification({
-      message: 'Cannot update while offline. Please check your connection.',
-      type: 'warning'
-    });
-    return;
-  }
-  appStore.setNewAppVersionAvailable(false);
-  window.location.reload();
-};
-
 const dismissUpdatePrompt = () => {
-  appStore.setNewAppVersionAvailable(false);
+  setNewVersionAvailable(false);
 };
 
 const handleLogout = async (): Promise<void> => {
@@ -104,10 +103,10 @@ const handleLogout = async (): Promise<void> => {
   }
   
   try {
-    await studentStore.studentSignOut();
+    await performLogout();
     await router.replace({ name: 'Landing' });
   } catch (error) {
-    console.error("Logout error in App.vue:", error);
+    console.error("Logout error in App.vue (after calling useAuth.logout):", error);
     notificationStore.showNotification({
       message: 'Logout failed. Please try again.',
       type: 'error'
@@ -115,107 +114,17 @@ const handleLogout = async (): Promise<void> => {
   }
 };
 
-function checkPushPermissionState() {
-  if (!isOnline.value || !isOneSignalConfigured() || !isPushSupported()) {
-    return;
-  }
-  const OneSignal = getOneSignal();
-  if (!OneSignal || typeof OneSignal.getNotificationPermission !== 'function') {
-    return;
-  }
-  OneSignal.getNotificationPermission().then((permission: string) => {
-    if (isAuthenticated.value && permission === 'default' && !sessionStorage.getItem('pushPromptDismissed')) {
-      showPushPermissionPrompt.value = true;
-    } else {
-      showPushPermissionPrompt.value = false;
-    }
-  });
-}
-
-async function requestPushPermission() {
-  if (!isOnline.value) {
-    notificationStore.showNotification({
-      message: 'Cannot enable notifications while offline.',
-      type: 'warning'
-    });
-    return;
-  }
-
-  showPushPermissionPrompt.value = false;
-  sessionStorage.setItem('pushPromptDismissed', 'true');
-
-  if (!isOneSignalConfigured() || !isPushSupported()) {
-    notificationStore.showNotification({ 
-      message: 'Push notifications not supported on this browser.',
-      type: 'warning'
-    });
-    return;
-  }
-
-  try {
-    if (!studentStore.studentId) {
-      notificationStore.showNotification({
-        message: 'User ID not available for push notifications.',
-        type: 'error'
-      });
-      return;
-    }
-    await initializeOneSignal(studentStore.studentId);
-
-    const OneSignal = getOneSignal();
-    if (!OneSignal) {
-      throw new Error('OneSignal not available');
-    }
-
-    await OneSignal.registerForPushNotifications();
-
-    if (typeof OneSignal.getNotificationPermission === 'function') {
-      const permission = await OneSignal.getNotificationPermission();
-      if (permission === 'granted') {
-        notificationStore.showNotification({
-          message: 'Push notifications enabled!',
-          type: 'success'
-        });
-      } else if (permission === 'denied') {
-        notificationStore.showNotification({
-          message: 'Push permission was denied. You can enable it in browser settings.',
-          type: 'warning'
-        });
-      }
-    }
-  } catch (err) {
-    console.error("Error requesting push permission:", err);
-    notificationStore.showNotification({
-      message: 'Failed to enable push notifications.',
-      type: 'error'
-    });
-  }
-}
-
-function dismissPushPrompt() {
-  showPushPermissionPrompt.value = false;
-  sessionStorage.setItem('pushPromptDismissed', 'true');
-}
-
-watch(isAuthenticated, (loggedIn) => {
-  if (loggedIn && isOnline.value) {
-    setTimeout(checkPushPermissionState, 1500);
-  } else {
-    showPushPermissionPrompt.value = false;
-  }
-});
-
 watch(isOnline, (online) => {
   if (online && isAuthenticated.value) {
-    studentStore.refreshUserData();
+    // studentStore.refreshUserData(); // FIXME: Property 'refreshUserData' does not exist on type 'Store<"studentProfile", ...>'.
+    // TODO: Review and implement user data refresh logic for when connection is restored.
+    // The push permission check is now handled within the usePushNotifications composable based on isOnline and isAuthenticated.
   }
 });
 
 onMounted(() => {
-  appStore.initAppListeners();
-  if (isAuthenticated.value && isOnline.value) {
-    setTimeout(checkPushPermissionState, 1500);
-  }
+  initAppState();
+  
   try {
     if (typeof studentStore.clearStaleNameCache === 'function') {
       studentStore.clearStaleNameCache();

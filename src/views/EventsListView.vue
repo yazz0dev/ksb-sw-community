@@ -96,13 +96,13 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { useEventStore } from '@/stores/eventStore';
+import { useEvents } from '@/composables/useEvents';
 import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
 import { Event, EventStatus } from '@/types/event';
 
 const studentStore = useProfileStore();
-const eventStore = useEventStore();
+const { events, isLoading, error: eventsError, fetchPublicEvents } = useEvents();
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
@@ -155,10 +155,9 @@ watch(() => route.query.filter, (newFilter) => {
 
 const upcomingEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
-    const currentTime = DateTime.now(); // Define current time inside computed
-    return eventStore.events.filter((event: Event) => {
+    const currentTime = DateTime.now();
+    return events.value.filter((event: Event) => {
         const start = event.details.date.start ? DateTime.fromJSDate(event.details.date.start.toDate()) : null;
-        // const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null; // end not used in this specific filter logic
         return event.status === EventStatus.Approved && 
                start?.isValid && start > currentTime;
     }).sort((a: Event, b: Event) => {
@@ -171,8 +170,8 @@ const upcomingEvents = computed<Event[]>(() => {
 
 const activeEvents = computed<Event[]>(() => {
     if (!isAuthenticated.value) return [];
-    const currentTime = DateTime.now(); // Define current time inside computed
-    return eventStore.events.filter((event: Event) => {
+    const currentTime = DateTime.now();
+    return events.value.filter((event: Event) => {
         const start = event.details.date.start ? DateTime.fromJSDate(event.details.date.start.toDate()) : null;
         const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
         return event.status === EventStatus.InProgress || 
@@ -188,8 +187,8 @@ const activeEvents = computed<Event[]>(() => {
 });
 
 const completedEvents = computed<Event[]>(() => {
-    const currentTime = DateTime.now(); // Define current time inside computed
-    return eventStore.events.filter((event: Event) => {
+    const currentTime = DateTime.now();
+    return events.value.filter((event: Event) => {
         const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
         return event.status === EventStatus.Completed ||
                (event.status === EventStatus.Approved && end?.isValid && end < currentTime);
@@ -199,7 +198,7 @@ const completedEvents = computed<Event[]>(() => {
         const dtA = dateA ? DateTime.fromJSDate(dateA.toDate()) : null;
         const dtB = dateB ? DateTime.fromJSDate(dateB.toDate()) : null;
         if (!dtA?.isValid || !dtB?.isValid) return 0; 
-        return dtB.toMillis() - dtA.toMillis(); // Sort descending 
+        return dtB.toMillis() - dtA.toMillis();
     });
 });
 
@@ -219,8 +218,8 @@ onMounted(async () => {
   loading.value = true;
   error.value = null;
   try {
-    await eventStore.fetchEvents();
-    const allEventsArr = eventStore.events;
+    await fetchPublicEvents();
+    const allEventsArr = events.value;
     const allOrganizerUids = Array.from(
       new Set(
         allEventsArr.flatMap((e: any) => Array.isArray(e.details.organizers) ? e.details.organizers : [])

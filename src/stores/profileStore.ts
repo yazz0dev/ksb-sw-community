@@ -48,7 +48,6 @@ const now = () => Timestamp.now();
 export const useProfileStore = defineStore('studentProfile', () => {
   // --- State ---
   const currentStudent = ref<EnrichedStudentData | null>(null);
-  const isAuthenticated = ref<boolean>(false);
   const isLoading = ref<boolean>(true);
   const error = ref<string | null>(null);
   const actionError = ref<string | null>(null);
@@ -150,14 +149,13 @@ export const useProfileStore = defineStore('studentProfile', () => {
   // --- Public Actions ---
   async function handleAuthStateChange(firebaseUser: FirebaseUser | null) {
     isLoading.value = true;
-    error.value = null; // Clear general error on auth change
-    actionError.value = null; // Clear action error
-    fetchError.value = null;  // Clear fetch error
+    error.value = null;
+    actionError.value = null;
+    fetchError.value = null;
     if (firebaseUser) {
       const enrichedData = await _fetchStudentDataInternal(firebaseUser.uid);
       if (enrichedData) {
         currentStudent.value = enrichedData;
-        isAuthenticated.value = true;
         await fetchCurrentUserPortfolioData();
       } else {
         await clearStudentSession(false); 
@@ -173,22 +171,21 @@ export const useProfileStore = defineStore('studentProfile', () => {
     if (!studentAppStore.hasFetchedInitialAuth) {
         studentAppStore.setHasFetchedInitialAuth(true);
     }
-    // Fetch all users if authenticated and not already fetched
-    if (isAuthenticated.value && allUsers.value.length === 0) {
+    if (currentStudent.value && allUsers.value.length === 0) {
         await fetchAllStudentProfiles();
     }
   }
 
-  async function clearStudentSession(performFirebaseSignOut: boolean = true) {
+  async function clearStudentSession(performFirebaseSignOut: boolean = false) {
     if (performFirebaseSignOut && auth.currentUser) {
         try {
             await firebaseSignOut(auth);
+            console.log("Firebase sign out explicitly performed by clearStudentSession.");
         } catch (e) {
-            console.error("Error during Firebase sign out:", e);
+            console.error("Error during Firebase sign out in clearStudentSession:", e);
         }
     }
     currentStudent.value = null;
-    isAuthenticated.value = false;
     viewedStudentProfile.value = null;
     viewedStudentProjects.value = [];
     viewedStudentEventHistory.value = [];
@@ -199,17 +196,21 @@ export const useProfileStore = defineStore('studentProfile', () => {
   async function studentSignOut() {
     isLoading.value = true;
     try {
-      await clearStudentSession(true);
-      notificationStore.showNotification({ message: "You have been logged out.", type: 'success' });
-    } catch (err) {
-      await _handleAuthError("signing out", err); // Use _handleAuthError for sign-out process
+      // The actual Firebase sign-out is handled by useAuth().logout().
+      // This method, if called directly, should now primarily ensure local store cleanup.
+      await clearStudentSession(false); // Changed to false, as useAuth().logout() handles Firebase sign-out.
+      // Notification is handled by useAuth().logout() if it's the initiator.
+      // If this is called standalone, a generic logout message might be missed.
+      // However, for consistency, notifications should be managed at the primary action point (useAuth).
+    } catch (err: any) {
+      await _handleAuthError("clearing student session on sign out", err);
     } finally {
       isLoading.value = false;
     }
   }
 
   async function updateMyProfile(updates: Partial<Omit<StudentData, 'uid' | 'email' | 'batchYear' | 'createdAt' | 'participatedEventIDs' | 'organizedEventIDs' | 'xpData'>>) {
-    if (!isAuthenticated.value || !studentId.value) {
+    if (!studentId.value) {
       notificationStore.showNotification({ message: "You must be logged in to update your profile.", type: 'error'});
       return false;
     }
@@ -253,10 +254,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
         return null;
       }
     } catch (err) {
-      // _fetchStudentDataInternal already calls _handleAuthError which sets 'error'
-      // For a fetch operation, _handleFetchError might be more appropriate to set 'fetchError'
       await _handleFetchError("fetching profile for view", err);
-      // notificationStore.showNotification({message: fetchError.value || error.value || "Failed to load profile.", type: 'error'});
       return null;
     } finally {
       isLoading.value = false;
@@ -367,7 +365,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
   }
 
   async function fetchCurrentUserPortfolioData() {
-    if (!isAuthenticated.value || !studentId.value) {
+    if (!studentId.value) {
       currentUserPortfolioData.value = { projects: [], eventParticipationCount: 0 };
       return;
     }
@@ -540,14 +538,30 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
+  // This ensures profile data is loaded/cleared when Firebase auth state changes.
+  let unsubscribeAuthStateListener: (() => void) | null = null;
+  if (auth) {
+    unsubscribeAuthStateListener = onAuthStateChanged(auth, handleAuthStateChange);
+  } else {
+    console.error("Firebase auth instance not available in profileStore for onAuthStateChanged");
+  }
+  
+  // Expose a way to unsubscribe if needed, e.g. on app teardown.
+  const unsubscribeProfileAuthListener = () => {
+    if (unsubscribeAuthStateListener) {
+      unsubscribeAuthStateListener();
+      unsubscribeAuthStateListener = null;
+      console.log("ProfileStore auth state listener unsubscribed.");
+    }
+  };
+
   return {
     currentStudent,
-    isAuthenticated,
     isLoading,
     error,
     actionError,
     fetchError,
-    hasFetched, // Expose hasFetched state
+    hasFetched,
     nameCache,
     viewedStudentProfile,
     viewedStudentProjects,
@@ -565,11 +579,12 @@ export const useProfileStore = defineStore('studentProfile', () => {
     updateMyProfile,
     fetchProfileForView,
     fetchCurrentUserPortfolioData,
-    loadLeaderboardUsers, // Add the new action here
+    loadLeaderboardUsers,
     fetchUserNamesBatch,
     clearStaleNameCache,
     getAllUsers,
     allUsers,
     fetchAllStudentProfiles,
+    unsubscribeProfileAuthListener
   };
 });

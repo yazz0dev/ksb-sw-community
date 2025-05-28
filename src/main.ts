@@ -3,10 +3,9 @@ import { createApp, App as VueApp } from "vue";
 import { createPinia } from "pinia";
 import App from "@/App.vue";
 import router from "./router";
-import { auth } from "./firebase";
-import { onAuthStateChanged, User, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { auth } from "@/firebase";
+import { setupAuthStateListener, setAuthPersistence } from "./services/authService";
 import AuthGuard from "@/components/AuthGuard.vue";
-import { getOneSignal } from "./utils/oneSignalUtils";
 
 import { useAppStore } from "@/stores/appStore";
 import { useProfileStore } from "@/stores/profileStore";
@@ -66,12 +65,12 @@ async function setupAuthListener() {
 
   // Set persistence to LOCAL
   try {
-    await setPersistence(auth, browserLocalPersistence);
+    await setAuthPersistence();
   } catch (error) {
     console.error("Error setting auth persistence:", error);
   }
 
-  unsubscribeAuth = onAuthStateChanged(auth, async (user: User | null) => {
+  unsubscribeAuth = setupAuthStateListener(async (user) => {
     console.log("Firebase Auth State Changed. User:", user ? user.uid : "null");
     const studentStore = useProfileStore(pinia);
     const appStore = useAppStore(pinia);
@@ -80,24 +79,6 @@ async function setupAuthListener() {
     const isInitialAuthCheck = !appStore.hasFetchedInitialAuth;
 
     try {
-      // OneSignal Setup
-      const OneSignal = getOneSignal();
-      OneSignal.push(async () => {
-        if (!isOnline) return; // Skip OneSignal operations when offline
-        
-        try {
-          if (user) {
-            if (typeof OneSignal.setExternalUserId === "function") {
-              await OneSignal.setExternalUserId(user.uid);
-            }
-          } else if (typeof OneSignal.removeExternalUserId === "function") {
-            await OneSignal.removeExternalUserId();
-          }
-        } catch (osError) {
-          console.error("OneSignal Error:", osError);
-        }
-      });
-
       // Handle auth state in student store
       if (isOnline) {
         await studentStore.handleAuthStateChange(user);

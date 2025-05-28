@@ -125,26 +125,26 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { useEventStore } from '@/stores/eventStore';
+import { useEvents } from '@/composables/useEvents';
 import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
 
 const studentStore = useProfileStore();
-const eventStore = useEventStore();
-const router = useRouter(); // Although not used directly, good practice to have if needed later
+const { events, fetchPublicEvents } = useEvents();
+const router = useRouter();
 
 // --- State ---
 const loading = ref<boolean>(true);
-const error = ref<string | null>(null); // Added error state
+const error = ref<string | null>(null);
 const showCancelled = ref<boolean>(false);
 
 // --- Constants ---
-const maxEventsPerSection = 6; // Max events to show per category on dashboard
+const maxEventsPerSection = 6;
 
 // --- Computed Properties ---
-const allEvents = computed<Event[]>(() => eventStore.events || []);
+const allEvents = computed<Event[]>(() => events.value || []);
 const isAuthenticated = computed<boolean>(() => studentStore.isAuthenticated);
-const canRequestEvent = computed<boolean>(() => isAuthenticated.value); // Simple check for now
+const canRequestEvent = computed<boolean>(() => isAuthenticated.value);
 
 // Filter and sort events for display
 const upcomingEvents = computed<Event[]>(() =>
@@ -201,17 +201,17 @@ const nameCache = computed(() => {
 // --- Lifecycle Hook ---
 onMounted(async () => {
   loading.value = true;
-  error.value = null; // Reset error on mount
+  error.value = null;
   try {
-    // Fetch all events first
-    await eventStore.fetchEvents();
+    // Fetch all events using composable
+    await fetchPublicEvents();
 
     // Gather all unique organizer UIDs from the fetched events
     const allOrganizerUids = Array.from(
       new Set(
-        allEvents.value.flatMap(e => e.details?.organizers || []) // Use optional chaining and provide default empty array
+        allEvents.value.flatMap(e => e.details?.organizers || [])
       )
-    ).filter(Boolean); // Filter out any potential undefined/null/empty string UIDs
+    ).filter(Boolean);
 
     // Fetch names only if there are organizers to fetch for
     if (allOrganizerUids.length > 0) {
@@ -219,7 +219,7 @@ onMounted(async () => {
     }
   } catch (err) {
     console.error("Failed to load events or user names:", err);
-    error.value = "Failed to load event data. Please try refreshing the page."; // Set user-friendly error message
+    error.value = "Failed to load event data. Please try refreshing the page.";
   } finally {
     loading.value = false;
   }

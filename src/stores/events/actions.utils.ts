@@ -3,6 +3,10 @@ import { Timestamp } from 'firebase/firestore'; // Added import
 import { Event, EventFormat, EventCriterion, EventStatus } from '@/types/event'; // Fixed EventCriteria to EventCriterion
 import { XPData, XpFirestoreFieldKey, mapCalcRoleToFirestoreKey, XpCalculationRoleKey } from '@/types/xp';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants'; // BEST_PERFORMER_POINTS was missing
+import { handleFirestoreError } from '@/utils/errorHandlers'; // Import instead of duplicating
+
+// Re-export for use by eventStore
+export { handleFirestoreError };
 
 /**
  * Create a new XPData object with default values for all required properties.
@@ -154,13 +158,4 @@ export function calculateEventXP(eventData: Event): Record<string, XPData> {
 
     console.log("Calculated XP Changes Map:", JSON.parse(JSON.stringify(xpChangesMap))); // Deep copy for logging
     return xpChangesMap;
-}
-
-// handleFirestoreError remains the same
-export function handleFirestoreError(error: any): string {
-    if (error?.code === 'permission-denied') return 'Permission denied. You might not have access to this resource.';
-    if (error?.code === 'not-found') return 'The requested document or resource was not found.';
-    if (error?.code === 'unavailable') return 'The service is currently unavailable. Please try again later.';
-    if (typeof error?.message === 'string') return error.message;
-    return 'An unknown error occurred.';
 }

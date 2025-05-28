@@ -158,6 +158,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
+import { useEvents } from '@/composables/useEvents';
 import { useEventStore } from '@/stores/eventStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import type { StudentProfileState } from '@/types/store'; // Import StudentProfileState
@@ -177,6 +178,7 @@ import { BEST_PERFORMER_LABEL } from '@/utils/constants';
 
 // --- Composables ---
 const studentStore = useProfileStore() as (ReturnType<typeof useProfileStore> & Pick<StudentProfileState, 'getAllUsers'>);
+const { fetchEventById } = useEvents();
 const eventStore = useEventStore();
 const notificationStore = useNotificationStore();
 const router = useRouter();
@@ -339,21 +341,18 @@ const loadInitialData = async () => {
       editError.value = '';
       hasActiveRequest.value = false;
 
-      // No need to fetch allUsers explicitly if studentStore.getAllUsers getter is reliable
-      // await studentStore.fetchUserNamesBatch([]); // If needed to populate nameCache for co-organizer form
-
       const tempFormData = createDefaultFormData();
 
       if (!isEditing.value) {
-          const hasRequest = await eventStore.checkExistingRequests(); // Call the action from the store
+          const hasRequest = await eventStore.checkExistingRequests(); // Keep using store
           hasActiveRequest.value = hasRequest;
           if (hasRequest) {
               loading.value = false;
               return;
           }
       } else if (eventId.value) {
-          // Use the correct method name for fetching event details
-          const fetchedEvent = await eventStore.getEventById(eventId.value);
+          // Use composable for fetching event data
+          const fetchedEvent = await fetchEventById(eventId.value);
           if (!fetchedEvent) throw new Error('Event not found or inaccessible.');
 
           const userId = currentUserUid.value;

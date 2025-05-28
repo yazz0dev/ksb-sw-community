@@ -383,7 +383,7 @@ const getUserName = (userId: string): string => {
 };
 
 // --- Computed Properties ---
-const currentUser = computed(() => studentStore.currentStudent || studentStore.currentStudent);
+const currentUser = computed(() => studentStore.currentStudent);
 
 const sortedXpAllocation = computed<EventCriterion[]>(() => {
   let criteria = event.value?.criteria;

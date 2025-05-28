@@ -1,6 +1,6 @@
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '@/firebase';
-import type { SignupLinkData, BatchSignupConfig } from '@/types/registration';
+import type { SignupLinkData, BatchSignupConfig } from '@/types/signup';
 
 /**
  * Generate a random token for signup links
@@ -84,7 +84,7 @@ export async function createSignupLinkRecord(
 ): Promise<string> {
   const linkData: Omit<SignupLinkData, 'id'> = {
     batchYear,
-    token: options.token || null,
+    token: options.token || undefined,
     isActive: true,
     createdAt: Timestamp.now(),
     createdBy,
@@ -150,7 +150,7 @@ export async function validateSignupToken(token: string): Promise<{
  */
 export async function isBatchSignupActive(batchYear: number): Promise<boolean> {
   try {
-    const batchDocRef = doc(db, 'pendingStudentRegistrations', batchYear.toString());
+    const batchDocRef = doc(db, 'signup', batchYear.toString());
     const batchDoc = await getDoc(batchDocRef);
     
     if (!batchDoc.exists()) {
@@ -170,7 +170,7 @@ export async function isBatchSignupActive(batchYear: number): Promise<boolean> {
  */
 export async function getBatchSignupConfig(batchYear: number): Promise<BatchSignupConfig | null> {
   try {
-    const batchDocRef = doc(db, 'pendingStudentRegistrations', batchYear.toString());
+    const batchDocRef = doc(db, 'signup', batchYear.toString());
     const batchDoc = await getDoc(batchDocRef);
     
     if (!batchDoc.exists()) {
@@ -198,7 +198,7 @@ export async function createOrUpdateBatchConfig(
   } = {}
 ): Promise<void> {
   try {
-    const batchDocRef = doc(db, 'pendingStudentRegistrations', batchYear.toString());
+    const batchDocRef = doc(db, 'signup', batchYear.toString());
     const existingDoc = await getDoc(batchDocRef);
     
     if (existingDoc.exists()) {
@@ -256,7 +256,7 @@ export async function createOrUpdateBatchConfig(
  * Get the collection path for registrations in a specific batch
  */
 export function getBatchRegistrationsPath(batchYear: number): string {
-  return `pendingStudentRegistrations/${batchYear}`;
+  return `signup/${batchYear}`;
 }
 
 /**
@@ -264,7 +264,7 @@ export function getBatchRegistrationsPath(batchYear: number): string {
  */
 export async function incrementBatchRegistrationCount(batchYear: number): Promise<void> {
   try {
-    const batchDocRef = doc(db, 'pendingStudentRegistrations', batchYear.toString());
+    const batchDocRef = doc(db, 'signup', batchYear.toString());
     await updateDoc(batchDocRef, {
       currentRegistrations: increment(1)
     });
@@ -286,4 +286,4 @@ export function formatSignupLinkForDisplay(
     return createTokenSignupLink(token, baseUrl);
   }
   return createBatchSignupLink(batchYear, baseUrl);
-} 
+}

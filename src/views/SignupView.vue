@@ -237,7 +237,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { collection, addDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase';
-import type { RegistrationFormData, studreg } from '@/types/signup';
+import type { RegistrationFormData, signup } from '@/types/signup';
 import { validateSignupToken, isValidBatchYear, isBatchSignupActive, getBatchRegistrationsPath, incrementBatchRegistrationCount } from '@/utils/signupUtils';
 
 const route = useRoute();
@@ -384,7 +384,7 @@ const submitRegistration = async () => {
       : [];
 
     // Prepare registration data
-    const registrationData: Omit<studreg, 'id'> = {
+    const registrationData: Omit<signup, 'id'> = {
       fullName: formData.value.fullName.trim(),
       email: formData.value.email.toLowerCase().trim(),
       studentId: formData.value.studentId.toUpperCase().trim(),

@@ -13,7 +13,7 @@ import { useProfileStore } from '@/stores/profileStore'; // Import the user stor
  */
 export function canManageEvents( ): boolean {
   const studentStore = useProfileStore();
-  const currentUser = studentStore.currentUser;
+  const currentUser = studentStore.currentStudent;
 
   if (!currentUser) { // If no user is logged in, they cannot manage events.
     return false;

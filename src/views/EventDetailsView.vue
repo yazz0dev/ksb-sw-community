@@ -187,7 +187,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               <div class="modal-body">
-                <form @submit.prevent="submitProject" id="submissionFormInternal">
+                <form @submit.prevent="handleSubmitProject" id="submissionFormInternal">
                   <div class="mb-3">
                     <label for="projectName" class="form-label small">Project Name <span class="text-danger">*</span></label>
                     <input type="text" id="projectName" v-model="submissionForm.projectName" required class="form-control form-control-sm">
@@ -209,7 +209,7 @@
                 </button>
                 <button
                   type="button"
-                  @click="submitProject"
+                  @click="handleSubmitProject"
                   :disabled="isSubmittingProject || actionInProgress"
                   class="btn btn-sm btn-primary"
                 >
@@ -229,8 +229,9 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { useEventStore } from '@/stores/eventStore';
+import { useEvents } from '@/composables/useEvents'; // Use composable instead of direct store
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useEventStore } from '@/stores/eventStore'; // Keep for join/leave actions that aren't in composable yet
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
@@ -300,7 +301,8 @@ const props = defineProps<Props>();
 
 // --- Composables ---
 const studentStore = useProfileStore();
-const eventStore = useEventStore();
+const { fetchEventById, submitProject } = useEvents(); // Use composable for data operations
+const eventStore = useEventStore(); // Keep for join/leave actions that aren't in composable yet
 const notificationStore = useNotificationStore();
 const router = useRouter();
 const route = useRoute();
@@ -433,20 +435,15 @@ async function fetchData(): Promise<void> {
 
   try {
     if (props.id) {
-      // Corrected action name
-      await eventStore.fetchEventDetails(props.id); 
+      const fetchedEvent = await fetchEventById(props.id);
+      if (!fetchedEvent) {
+        throw new Error('Event not found or you do not have permission to view it.');
+      }
+      event.value = { ...fetchedEvent };
+      teams.value = (isTeamEvent.value && Array.isArray(fetchedEvent.teams)) ? [...fetchedEvent.teams] : [];
+
+      await fetchUserNames(allAssociatedUserIds.value);
     }
-    const storeEvent = eventStore.viewedEventDetails as Event | null; // Use viewedEventDetails
-
-    if (!storeEvent || storeEvent.id !== props.id) {
-      throw new Error('Event not found or you do not have permission to view it.');
-    }
-
-    event.value = { ...storeEvent };
-    teams.value = (isTeamEvent.value && Array.isArray(storeEvent.teams)) ? [...storeEvent.teams] : [];
-
-    await fetchUserNames(allAssociatedUserIds.value);
-
   } catch (error: any) {
     console.error('Failed to load event details:', error);
     initialFetchError.value = error.message || 'Failed to load event data. Please try again.';
@@ -471,7 +468,7 @@ const triggerSubmitModalOpen = (): void => {
   getOrCreateModalInstance()?.show();
 };
 
-const submitProject = async (): Promise<void> => {
+const handleSubmitProject = async (): Promise<void> => {
     if (!submissionForm.value.projectName || !submissionForm.value.link) {
         submissionError.value = 'Project Name and Link are required.';
         return;
@@ -493,12 +490,12 @@ const submitProject = async (): Promise<void> => {
     actionInProgress.value = true;
 
     try {
-        await eventStore.submitProject({ // Corrected action name
+        await submitProject({ // Use composable method
             eventId: props.id,
             submissionData: {
                 projectName: submissionForm.value.projectName.trim(),
                 link: submissionForm.value.link.trim(),
-                description: submissionForm.value.description.trim() || undefined, // Send undefined if empty
+                description: submissionForm.value.description.trim() || undefined,
             }
         });
         setGlobalFeedback('Project submitted successfully!', 'success');
@@ -518,7 +515,7 @@ const handleJoin = async (): Promise<void> => {
     isJoining.value = true;
     actionInProgress.value = true;
     try {
-        await eventStore.joinEvent(props.id);
+        await eventStore.joinEvent(props.id); // Keep using store for join action
         setGlobalFeedback('Successfully joined the event!', 'success');
         await fetchData();
     } catch (error: any) {
@@ -536,7 +533,7 @@ const handleLeave = async (): Promise<void> => {
     isLeaving.value = true;
     actionInProgress.value = true;
     try {
-        await eventStore.leaveEvent(props.id);
+        await eventStore.leaveEvent(props.id); // Keep using store for leave action
         setGlobalFeedback('Successfully left the event.', 'success');
         await fetchData();
     } catch (error: any) {

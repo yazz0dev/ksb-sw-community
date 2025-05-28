@@ -67,13 +67,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watchEffect } from 'vue';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { useProfileStore } from '@/stores/profileStore';
+import { useAppStore } from '@/stores/appStore';
 import { useRouter } from 'vue-router'; // Import if needed for routing
 import { db } from '@/firebase';
 // Import the Event type from the store's perspective
 import type { Event as StoreEvent, EventStatus } from '@/types/event';
+import type { UserData } from '@/types/student'; // For currentStudent type
+import type { Ref } from 'vue'; // For Ref type
 
 // Local interface for the component's needs
 interface Request {
@@ -85,7 +88,16 @@ interface Request {
     [key: string]: any;
 }
 
-const studentStore = useProfileStore();
+// Define an extended interface for the profile store with the additional methods
+interface ProfileStoreWithUserRequests {
+  currentStudent: Ref<UserData | null>;
+  fetchUserRequests: (uid: string) => Promise<void>;
+  userRequests: StoreEvent[];
+}
+
+// Explicitly type studentStore using ReturnType
+const studentStore: ReturnType<typeof useProfileStore> = useProfileStore();
+const appStore = useAppStore();
 const router = useRouter(); // Initialize router from the imported useRouter
 const requests = ref<Request[]>([]); // Use the local Request interface
 const loadingRequests = ref<boolean>(true);
@@ -100,22 +112,16 @@ const getStatusClass = (status: Request['status']): string => {
     }
 };
 
-const fetchRequests = async (): Promise<void> => {
-    // Set loading state and clear previous errors at the beginning of the function
-    loadingRequests.value = true;
+const fetchRequestsInternal = async (uid: string): Promise<void> => {
     errorMessage.value = '';
 
     try {
-        const user = studentStore.currentUser;
-        if (!user?.uid) {
-            errorMessage.value = 'User not logged in.';
-            // loadingRequests.value = false; // This line is removed; finally block will handle it.
-            return;
-        }
-
-        // Fetch user requests (returns StoreEvent[])
-        await studentStore.fetchUserRequests(user.uid);
-        const storeRequests: StoreEvent[] = studentStore.userRequests; // Type as StoreEvent[]
+        // Use a type assertion with 'as unknown as' for safer casting
+        const typedStore = studentStore as unknown as ProfileStoreWithUserRequests;
+        
+        // Use the properly typed store reference and passed uid
+        await typedStore.fetchUserRequests(uid);
+        const storeRequests: StoreEvent[] = typedStore.userRequests; 
 
         // Map StoreEvent[] to Request[] for the component's needs
         requests.value = storeRequests.map((event: StoreEvent): Request => ({
@@ -160,7 +166,24 @@ const editRequest = (request: Request): void => {
   router.push({ name: 'EditEvent', params: { eventId: request.id } });
 };
 
-onMounted(fetchRequests);
+onMounted(() => {
+  watchEffect(async () => {
+    // Assuming studentStore.currentStudent is already the EnrichedStudentData | null
+    const user = studentStore.currentStudent; 
+    const initialAuthDone = appStore.hasFetchedInitialAuth;
+
+    if (user?.uid) {
+      loadingRequests.value = true;
+      await fetchRequestsInternal(user.uid);
+    } else if (initialAuthDone && !user?.uid) {
+      errorMessage.value = 'User not logged in.';
+      requests.value = [];
+      loadingRequests.value = false;
+    } else if (!initialAuthDone) {
+      loadingRequests.value = true; 
+    }
+  });
+});
 </script>
 
 <style scoped>

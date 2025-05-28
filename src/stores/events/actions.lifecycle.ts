@@ -6,7 +6,7 @@ import { EventStatus, type Event, type EventFormData, type EventLifecycleTimesta
 import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Added mapFirestoreToEventData
 
 // Assuming User type is defined in @/types/user.ts
-import type { User } from '@/types/user';
+import type { UserData } from '@/types/student'; // Changed from {} to UserData
 // Assuming notification helpers are defined elsewhere, e.g., @/notifications.ts
 // For now, these will be commented out if their definitions are not provided.
 // import { invokePushNotification, isSupabaseConfigured } from '@/notifications';
@@ -122,7 +122,7 @@ export async function updateMyEventRequestInFirestore(eventId: string, formData:
 export async function updateEventStatusInFirestore(
     eventId: string,
     newStatus: EventStatus, // EventStatus can be used as a value
-    currentUser: User | null, 
+    currentUser: UserData | null, 
     rejectionReason?: string
 ): Promise<Partial<Event>> {
     const validStatuses = Object.values(EventStatus); // EventStatus can now be used as a value
@@ -223,7 +223,7 @@ export async function updateEventStatusInFirestore(
  * @returns Promise<void>
  * @throws Error if permissions fail, event not found, state invalid, or Firestore update fails.
  */
-export async function closeEventDocumentInFirestore(eventId: string, currentUser: User | null): Promise<void> {
+export async function closeEventDocumentInFirestore(eventId: string, currentUser: UserData | null): Promise<void> {
      if (!eventId) throw new Error('Event ID required.');
      if (!currentUser?.uid) throw new Error('User not authenticated.');
 
@@ -293,7 +293,7 @@ export async function createEventInFirestore(eventData: EventFormData, userId: s
         teams: eventData.teams || [],
         participants: [], 
         submissions: [], 
-        organizerRatings: eventData.organizerRating || [], // Corrected: organizerRatings, and use form data if present
+        organizerRatings: eventData.organizerRatings || [], // Corrected: organizerRatings, and use form data if present
         votingOpen: false, 
         createdAt: Timestamp.now(),
         lastUpdatedAt: Timestamp.now(),

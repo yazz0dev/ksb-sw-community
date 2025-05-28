@@ -3,7 +3,7 @@
 // - signup/{batchYear} - Batch configuration document with 'active' field
 import { Timestamp } from 'firebase/firestore';
 
-export interface studreg {
+export interface signup {
   id?: string; // Document ID (optional for new registrations)
   fullName: string;
   email: string;

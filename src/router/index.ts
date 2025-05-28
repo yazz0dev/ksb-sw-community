@@ -1,6 +1,9 @@
 // src/router/index.ts
 import { createRouter, createWebHistory, RouteRecordRaw, NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
+import { useAppStore } from '@/stores/appStore';
+import { useAuth } from '@/composables/useAuth';
+import { watch } from 'vue';
 
 interface RouteMeta {
   requiresAuth?: boolean;
@@ -9,6 +12,7 @@ interface RouteMeta {
   publicAccess?: boolean;
   title?: string;
   description?: string;
+  [key: string]: any;
 }
 
 const routes: Array<RouteRecordRaw> = [
@@ -42,31 +46,29 @@ const router = createRouter({
 });
 
 // --- Navigation Guard (Simplified) ---
-router.beforeEach((
+router.beforeEach(async (
   to: RouteLocationNormalized,
   from: RouteLocationNormalized,
   next: NavigationGuardNext
 ) => {
-  const studentStore = useProfileStore(); // Get store instance
-  // const eventStore = useEventStore(); // Uncomment if needed
+  const studentStore = useProfileStore();
+  const appStore = useAppStore();
+  const auth = useAuth();
 
-  // --- Check if initial auth fetch is complete ---
-  // If not, we shouldn't navigate yet. main.ts handles delaying the mount,
-  // so this check acts as a safety net if navigation somehow happens before mount completes.
-  // In a correctly functioning setup post main.ts changes, this might become less critical,
-  // but it's good practice.
-  if (!studentStore.hasFetched && to.name !== 'Landing' && to.name !== 'Login' && to.name !== 'ForgotPassword') {
-    // If the initial check isn't done AND we are trying to access a potentially protected route,
-    // it's safer to wait or redirect to a loading/landing page.
-    // However, since main.ts delays mounting, hasFetched SHOULD be true here.
-    // We'll log a warning if this unexpected state occurs.
-     // Let's allow navigation for now, assuming main.ts fixed the core issue.
-     // If problems persist, we might need a dedicated loading route or better waiting here.
-     // next({ name: 'Loading' }); // Example: Redirect to a loading route
-     // return;
+  // Wait for initial auth check to complete
+  if (!appStore.hasFetchedInitialAuth) {
+    await new Promise<void>(resolve => {
+      const unsubscribe = watch(() => appStore.hasFetchedInitialAuth, (isFetched) => {
+        if (isFetched) {
+          unsubscribe();
+          resolve();
+        }
+      });
+    });
   }
 
-  const isAuthenticated = studentStore.isAuthenticated;
+  const isAuthenticated = auth.isAuthenticated.value;
+  const studentRoles = studentStore.currentStudent?.roles || [];
   const routeMeta = to.meta as RouteMeta; // Cast meta
 
   // --- Guest Only routes ---
@@ -76,7 +78,6 @@ router.beforeEach((
   }
 
   // --- Requires Auth routes ---
-  // Now that mounting is delayed, hasFetched should be true here.
   if (routeMeta.requiresAuth && !isAuthenticated) {
      next({ name: 'Login', query: { redirect: to.fullPath } });
      return;

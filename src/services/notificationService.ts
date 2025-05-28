@@ -1,4 +1,8 @@
-// src/notifications.ts
+import type { Notification } from '@/types/store';
+
+// The OneSignal utility functions (getOneSignal, isOneSignalConfigured, 
+// isPushSupported, initializeOneSignal) have been removed from here 
+// as their logic is now encapsulated within the usePushNotifications.ts composable.
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseFunctionKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -44,7 +48,7 @@ export async function invokePushNotification(payload: any): Promise<Response> {
         console.log('Supabase function invoked successfully.');
         return response; // Return the response object
 
-    } catch (error) {
+  } catch (error) {
         console.error('Error invoking Supabase function:', error);
         if (error instanceof Error) {
              throw error; // Re-throw the caught error
