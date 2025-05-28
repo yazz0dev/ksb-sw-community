@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { usestudentStore } from '@/stores/profileStore';
+import { useProfileStore } from '@/stores/profileStore';
 
 interface Props {
   userId: string;
@@ -24,13 +24,13 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const studentStore = usestudentStore();
+const studentStore = useProfileStore();
 const name = ref<string | null>(null);
 // const totalXp = ref<number | null>(null); // Optional: If you want to display total XP
 
 const fetchUserData = async (): Promise<void> => {
   // Fetch name from cache or store
-  const cachedName = studentStore.getCachedUserName(props.userId);
+  const cachedName = studentStore.getCachedStudentName(props.userId);
   if (cachedName) {
     name.value = cachedName;
   } else {

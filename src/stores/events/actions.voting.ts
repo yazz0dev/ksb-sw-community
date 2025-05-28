@@ -1,6 +1,6 @@
 // src/stores/events/actions.voting.ts
 // Helper functions for rating actions.
-import { doc, getDoc, updateDoc, Timestamp, arrayUnion, writeBatch, runTransaction, type Transaction } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, arrayUnion, writeBatch, runTransaction, type Transaction, serverTimestamp } from 'firebase/firestore'; // Added serverTimestamp
 import { db } from '@/firebase';
 import { type Event, EventStatus, type EventCriterion, type Team, type Submission, type OrganizerRating, EventFormat } from '@/types/event'; // EventStatus and EventFormat are enums
 import type { EnrichedStudentData } from '@/types/student'; // Changed from Student to EnrichedStudentData
@@ -69,7 +69,7 @@ export async function togglevotingOpenInFirestore(
         // Update with the boolean value 'open'
         await updateDoc(eventRef, {
             votingOpen: open,
-            lastUpdatedAt: Timestamp.now() // ADDED
+            lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
         });
         
         console.log(`Successfully set voting status for ${eventId} to ${open ? 'open' : 'closed'}`);
@@ -101,7 +101,6 @@ export async function submitTeamCriteriaVoteInFirestore(
     }
 
     const eventRef = doc(db, 'events', eventId);
-    const batch = writeBatch(db);
 
     try {
         const eventSnap = await getDoc(eventRef);
@@ -119,36 +118,52 @@ export async function submitTeamCriteriaVoteInFirestore(
             throw new Error("Only event participants or team members can vote.");
         }
 
-        // Prepare updates for criteria selections
-        (eventData.criteria || []).forEach((criterion, index) => {
-            const selectedTeamName = selections.criteria[(criterion as any).constraintKey]; // Use constraintKey with type assertion
-            if (selectedTeamName) {
-                // Ensure votes map exists for the criterion at this index
-                // This check might be redundant if Firestore automatically creates nested maps, but good for clarity
-                if (!(eventData.criteria?.[index] as any)?.votes) { // Type assertion for votes
-                    // This part is tricky with batch updates. 
-                    // It's generally better to ensure the structure exists or handle it server-side with rules/functions.
-                    // For client-side, if `criteria[index].votes` might not exist, it's safer to fetch, update locally, then set the whole criteria array.
-                    // However, given the current structure, we assume `votes` can be an empty map and Firestore handles path creation.
-                    // To initialize if it doesn't exist, you might need a separate read-modify-write or ensure structure on creation.
-                    // For simplicity here, we'll assume the path can be directly updated.
-                    // If criteria[index].votes might be undefined, ensure it's initialized in eventData mapping or creation.
+        // Use transaction instead of batch for better error handling
+        await runTransaction(db, async (transaction) => {
+            const eventSnap = await transaction.get(eventRef);
+            if (!eventSnap.exists()) throw new Error('Event not found in transaction.');
+            
+            const currentEventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+            if (!currentEventData) throw new Error('Failed to map event data in transaction.');
+
+            // Prepare updated criteria array
+            let updatedCriteria = [...(currentEventData.criteria || [])];
+            
+            // Update votes for each criterion
+            Object.entries(selections.criteria).forEach(([constraintIndexStr, selectedTeamName]) => {
+                const constraintIndex = parseInt(constraintIndexStr);
+                const criterionIndex = updatedCriteria.findIndex(c => 
+                    typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
+                );
+                
+                if (criterionIndex !== -1) {
+                    // Initialize votes object if it doesn't exist - ensure it's always an object, never null
+                    if (!updatedCriteria[criterionIndex].votes || typeof updatedCriteria[criterionIndex].votes !== 'object') {
+                        updatedCriteria[criterionIndex].votes = {};
+                    }
+                    // Add/update the user's vote
+                    updatedCriteria[criterionIndex].votes![userId] = selectedTeamName;
                 }
-                const fieldPath = `criteria.${index}.votes.${userId}`;
-                batch.update(eventRef, { [fieldPath]: selectedTeamName });
+            });
+
+            // Prepare update object
+            const updateData: any = {
+                criteria: updatedCriteria,
+                lastUpdatedAt: serverTimestamp()
+            };
+
+            // Handle best performer selection if provided
+            if (selections.bestPerformer) {
+                const currentBestPerformerSelections = currentEventData.bestPerformerSelections || {};
+                updateData.bestPerformerSelections = {
+                    ...currentBestPerformerSelections,
+                    [userId]: selections.bestPerformer
+                };
             }
+
+            transaction.update(eventRef, updateData);
         });
 
-        // Prepare update for best performer selection if provided
-        if (selections.bestPerformer) {
-            // Similar to above, ensure `bestPerformerSelections` map exists or Firestore handles path creation.
-            const bestPerformerFieldPath = `bestPerformerSelections.${userId}`;
-            batch.update(eventRef, { [bestPerformerFieldPath]: selections.bestPerformer });
-        }
-        
-        batch.update(eventRef, { lastUpdatedAt: Timestamp.now() });
-
-        await batch.commit();
         console.log(`Firestore: Vote submitted by ${userId} for event ${eventId}.`);
 
     } catch (error: any) {
@@ -210,7 +225,7 @@ export async function submitOrganizerRatingByStudentInFirestore(
 
             transaction.update(eventRef, {
                 organizerRatings: organizerRatings,
-                lastUpdatedAt: Timestamp.now()
+                lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
             });
         });
         console.log(`Firestore: Organizer rating by student ${studentId} submitted for event ${eventId}.`);
@@ -266,7 +281,7 @@ export async function submitIndividualWinnerVoteInFirestore(
         const fieldPath = `bestPerformerSelections.${userId}`;
         await updateDoc(eventRef, {
             [fieldPath]: selectedWinnerId, // Store the selected winner ID
-            lastUpdatedAt: Timestamp.now()
+            lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
         });
 
         console.log(`Firestore: Individual winner vote by ${userId} for ${selectedWinnerId} in event ${eventId}.`);
@@ -288,42 +303,52 @@ export async function submitIndividualWinnerVoteInFirestore(
 export async function submitOrganizationRatingInFirestore(
     eventId: string,
     userId: string,
-    ratingData: { score: number; comment?: string } 
+    ratingData: { score: number; comment?: string | null } // Explicitly allow null for comment
 ): Promise<void> {
     if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
-    // Validate score from ratingData object
     if (!ratingData || typeof ratingData.score !== 'number' || ratingData.score < 1 || ratingData.score > 5) {
         throw new Error("Valid rating score (1-5) is required.");
     }
 
     const eventRef = doc(db, 'events', eventId);
     try {
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) throw new Error('Event not found.');
-        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
-        if (!eventData) throw new Error('Failed to map event data.');
+        await runTransaction(db, async (transaction) => {
+            const eventSnap = await transaction.get(eventRef);
+            if (!eventSnap.exists()) throw new Error('Event not found.');
+            const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+            if (!eventData) throw new Error('Failed to map event data.');
 
-        // Validation
-        if (eventData.status !== EventStatus.Completed) {
-            throw new Error("Ratings can only be submitted for 'Completed' events.");
-        }
-        if (!eventData.participants?.includes(userId) && !eventData.teams?.some(t => t.members.includes(userId))) {
-            throw new Error("Only event participants or team members can submit ratings.");
-        }
-        const existingRating = eventData.organizerRatings?.find((r: OrganizerRating) => r.userId === userId);
-        if (existingRating) throw new Error("You have already submitted a rating for this event.");
+            // Validation
+            if (eventData.status !== EventStatus.Completed) {
+                throw new Error("Ratings can only be submitted for 'Completed' events.");
+            }
+            if (!eventData.participants?.includes(userId) && !eventData.teams?.some(t => t.members.includes(userId))) {
+                throw new Error("Only event participants or team members can submit ratings.");
+            }
+            
+            // Check if user already rated
+            const existingRating = eventData.organizerRatings?.find((r: OrganizerRating) => r.userId === userId);
+            if (existingRating) throw new Error("You have already submitted a rating for this event.");
 
-        const newRating: OrganizerRating = {
-            userId,
-            rating: ratingData.score, // Changed from score to rating
-            feedback: ratingData.comment || undefined, // Changed from comment to feedback, and null to undefined
-            ratedAt: Timestamp.now(),
-        };
+            // Create new rating object
+            const newRating: OrganizerRating = {
+                userId,
+                rating: ratingData.score,
+                ratedAt: Timestamp.now(),
+            };
 
-        // Firestore's arrayUnion correctly adds to the array or creates it if it doesn't exist.
-        await updateDoc(eventRef, {
-            organizerRatings: arrayUnion(newRating), // Changed from organizerRating
-            lastUpdatedAt: Timestamp.now()
+            // Conditionally add feedback if provided and non-empty
+            if (typeof ratingData.comment === 'string' && ratingData.comment.trim() !== '') {
+                newRating.feedback = ratingData.comment;
+            }
+
+            // Update ratings array
+            const updatedRatings = [...(eventData.organizerRatings || []), newRating];
+
+            transaction.update(eventRef, {
+                organizerRatings: updatedRatings,
+                lastUpdatedAt: serverTimestamp()
+            });
         });
 
         console.log(`Firestore: Organizer rating submitted by ${userId} for event ${eventId}.`);
@@ -427,7 +452,7 @@ export async function saveWinnersToFirestore(
     try {
         const updatePayload: Record<string, any> = {
             winners,
-            lastUpdatedAt: Timestamp.now() // ADDED
+            lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
         };
         if (manuallySelectedBy) {
             updatePayload.manuallySelectedBy = manuallySelectedBy;
@@ -519,7 +544,7 @@ export async function submitManualWinnerSelectionInFirestore(
             winners: selections, // Winners are now Record<string, string>
             manuallySelectedBy: userId,
             votingOpen: false, // Ensure voting is closed
-            lastUpdatedAt: Timestamp.now()
+            lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
         });
 
         console.log(`Firestore: Manual winner selection by ${userId} for event ${eventId} saved.`);
@@ -586,7 +611,7 @@ export async function recordOrganizerRatingInFirestore(
 
             transaction.update(eventRef, { 
                 organizerRatings: organizerRatings,
-                lastUpdatedAt: Timestamp.now()
+                lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
             });
         });
         console.log(`Firestore: Organizer rating recorded for event ${eventId} by user ${userId}.`);
@@ -647,10 +672,11 @@ export async function castVoteInFirestore(
             }
 
             const criterion = eventData.criteria[criteriaIndex];
-            if (!(criterion as any).votes) { // Type assertion
-                (criterion as any).votes = {}; // Initialize if undefined
+            // Initialize votes object if it doesn't exist - ensure it's always an object, never null
+            if (!(criterion as any).votes || typeof (criterion as any).votes !== 'object') {
+                (criterion as any).votes = {};
             }
-            (criterion as any).votes[userId] = selectedValue; // Type assertion
+            (criterion as any).votes[userId] = selectedValue;
 
             // Create a new array for criteria to ensure Firestore detects the change in the nested object
             const updatedCriteria = [...eventData.criteria];
@@ -658,7 +684,7 @@ export async function castVoteInFirestore(
 
             transaction.update(eventRef, { 
                 criteria: updatedCriteria,
-                lastUpdatedAt: Timestamp.now()
+                lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
             });
         });
         console.log(`Firestore: Vote cast by ${userId} for criteria ${criteriaConstraintKey} in event ${eventId}.`);
@@ -714,7 +740,7 @@ export async function selectBestPerformerInFirestore(
 
             transaction.update(eventRef, { 
                 bestPerformerSelections: selections,
-                lastUpdatedAt: Timestamp.now()
+                lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
             });
         });
         console.log(`Firestore: Best performer selection by ${userId} for ${selectedUserId} in event ${eventId}.`);
@@ -763,7 +789,7 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
 
         await updateDoc(eventRef, {
             votingOpen: open,
-            lastUpdatedAt: Timestamp.now(),
+            lastUpdatedAt: serverTimestamp(), // CHANGED from Timestamp.now()
         });
         console.log(`Firestore: Voting for event ${eventId} has been ${open ? 'opened' : 'closed'}.`);
 
@@ -906,7 +932,7 @@ export async function finalizeWinnersInFirestore(eventId: string, currentUser: E
         // Update Firestore with the determined winners
         await updateDoc(eventRef, {
             winners: winners,
-            lastUpdatedAt: Timestamp.now(),
+            lastUpdatedAt: serverTimestamp(), // CHANGED from Timestamp.now()
             // Optionally, ensure voting is closed if it wasn't already
             // votingOpen: false 
         });

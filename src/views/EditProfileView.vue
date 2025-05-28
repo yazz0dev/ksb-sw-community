@@ -147,7 +147,7 @@ async function loadUserData() {
       name: userData.name || '', // Fallback to empty string if name is null
       photoURL: userData.photoURL || '',
       bio: userData.bio || '',
-      socialLink: userData.socialLink || '',
+      socialLink: userData.socialLinks?.portfolio || '', // Correctly access portfolio from socialLinks
       skills: Array.isArray(userData.skills) ? userData.skills.join(', ') : '',
       preferredRoles: Array.isArray(userData.preferredRoles) ? userData.preferredRoles.join(', ') : '',
       hasLaptop: userData.hasLaptop || false

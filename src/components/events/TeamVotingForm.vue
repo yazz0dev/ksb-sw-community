@@ -280,8 +280,8 @@ const submitTeamVoting = async (): Promise<void> => {
     const criteriaPayload: Record<string, string> = {};
     eventCriteria.value.forEach((c: EventCriterion) => {
       if (typeof c.constraintIndex === 'number') {
-          // Use the actual constraintIndex from the criteria object as the key
-          criteriaPayload[String(c.constraintIndex)] = teamSelections.value[c.constraintIndex];
+          // Use constraintIndex as string key for the payload
+          criteriaPayload[c.constraintIndex.toString()] = teamSelections.value[c.constraintIndex];
       }
     });
 
@@ -289,7 +289,7 @@ const submitTeamVoting = async (): Promise<void> => {
     await eventStore.submitTeamCriteriaVote({
       eventId: props.eventId,
       selections: {
-        criteria: criteriaPayload, // Pass the correctly structured criteria object
+        criteria: criteriaPayload,
         bestPerformer: bestPerformerSelection.value
       }
     });

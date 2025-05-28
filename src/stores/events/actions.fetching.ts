@@ -103,8 +103,20 @@ export class EventFetchingActions {
  * @param studentId - The UID of the student.
  * @returns Promise<boolean> - True if the student has a pending request.
  */
-export function checkExistingPendingRequestForStudent(studentId: string): boolean | PromiseLike<boolean> {
-  throw new Error('Function not implemented.');
+export async function checkExistingPendingRequestForStudent(studentId: string): Promise<boolean> {
+    if (!studentId) return false;
+    try {
+        const q = query(
+            collection(db, 'events'),
+            where('requestedBy', '==', studentId),
+            where('status', '==', EventStatus.Pending)
+        );
+        const querySnapshot = await getDocs(q);
+        return !querySnapshot.empty;
+    } catch (error: any) {
+        console.error("Error checking existing student requests:", error);
+        throw new Error(`Failed to check existing requests: ${error.message}`);
+    }
 }
 
 export function fetchSingleEventFromFirestore(eventId: string): Event | null {

@@ -10,7 +10,6 @@ import {
     EventFormData,
     EventDetails,
     EventDate,
-    WinnerInfo,
     GalleryItem,
     EventCriterion,
     EventLifecycleTimestamps
@@ -18,7 +17,7 @@ import {
 import { DateTime } from 'luxon';
 
 // Helper function to convert JS Date or ISO string to Firestore Timestamp in IST
-const getISTTimestamp = (dateInput: Date | string | Timestamp | { seconds: number, nanoseconds: number } | null | undefined): Timestamp | null => {
+export const getISTTimestamp = (dateInput: Date | string | Timestamp | { seconds: number, nanoseconds: number } | null | undefined): Timestamp | null => {
     if (!dateInput) return null;
     if (dateInput instanceof Timestamp) return dateInput;
 
@@ -45,6 +44,37 @@ export const mapEventDataToFirestore = (data: Partial<Event> | EventFormData, is
     const sourceData = { ...data };
     const eventToFirestore: Partial<Event> = {};
 
+    // Validate organizers if details are present
+    if ('details' in sourceData && sourceData.details) {
+        const detailsFromSource = sourceData.details;
+        
+        // Ensure organizers list is valid
+        if (!Array.isArray(detailsFromSource.organizers)) {
+            throw new Error('Organizers must be an array');
+        }
+        if (detailsFromSource.organizers.length === 0) {
+            throw new Error('Event must have at least one organizer');
+        }
+        if (detailsFromSource.organizers.length > 10) {
+            throw new Error('Event cannot have more than 10 organizers');
+        }
+        
+        // For new events, ensure creator is in organizers list
+        if (isNew && 'requestedBy' in sourceData && typeof sourceData.requestedBy === 'string') {
+            if (!detailsFromSource.organizers.includes(sourceData.requestedBy)) {
+                detailsFromSource.organizers.push(sourceData.requestedBy);
+            }
+        }
+
+        eventToFirestore.details = {
+            ...detailsFromSource,
+            date: { 
+                start: getISTTimestamp(detailsFromSource.date?.start),
+                end: getISTTimestamp(detailsFromSource.date?.end),
+            },
+        } as EventDetails;
+    }
+
     if ('id' in sourceData && typeof sourceData.id === 'string') {
         eventToFirestore.id = sourceData.id;
     }
@@ -55,17 +85,6 @@ export const mapEventDataToFirestore = (data: Partial<Event> | EventFormData, is
         eventToFirestore.requestedBy = sourceData.requestedBy;
     }
     
-    if ('details' in sourceData && sourceData.details) {
-        const detailsFromSource = sourceData.details;
-        eventToFirestore.details = {
-            ...detailsFromSource,
-            date: { 
-                start: getISTTimestamp(detailsFromSource.date?.start),
-                end: getISTTimestamp(detailsFromSource.date?.end),
-            },
-        } as EventDetails; // Assuming detailsFromSource matches EventDetails structure except for date types
-    }
-
     if ('criteria' in sourceData && sourceData.criteria !== undefined) eventToFirestore.criteria = sourceData.criteria;
     if ('participants' in sourceData && sourceData.participants !== undefined) eventToFirestore.participants = sourceData.participants;
     if ('teams' in sourceData && sourceData.teams !== undefined) eventToFirestore.teams = sourceData.teams;
@@ -82,8 +101,8 @@ export const mapEventDataToFirestore = (data: Partial<Event> | EventFormData, is
     
     if ('lifecycleTimestamps' in sourceData && sourceData.lifecycleTimestamps !== undefined) eventToFirestore.lifecycleTimestamps = sourceData.lifecycleTimestamps;
     
-    if ('rejectionReason' in sourceData) { // Check presence before access
-        const reason = sourceData.rejectionReason; // Explicitly type if needed or handle null
+    if ('rejectionReason' in sourceData) {
+        const reason = sourceData.rejectionReason;
         eventToFirestore.rejectionReason = reason === null ? undefined : reason;
     }
     
@@ -93,6 +112,7 @@ export const mapEventDataToFirestore = (data: Partial<Event> | EventFormData, is
     if (isNew) {
         eventToFirestore.createdAt = srcCreatedAt instanceof Timestamp ? srcCreatedAt : Timestamp.now();
         eventToFirestore.lastUpdatedAt = srcLastUpdatedAt instanceof Timestamp ? srcLastUpdatedAt : Timestamp.now();
+        eventToFirestore.votingOpen = false; // Ensure votingOpen is false for new events
     } else {
         eventToFirestore.lastUpdatedAt = srcLastUpdatedAt instanceof Timestamp ? srcLastUpdatedAt : Timestamp.now();
         if (existingEvent?.createdAt) {
@@ -107,17 +127,14 @@ export const mapEventDataToFirestore = (data: Partial<Event> | EventFormData, is
     
     optionalTimestampKeys.forEach(key => {
         if (key in sourceData) {
-            // Type assertion to help TypeScript narrow down sourceData
             const tsValue = (sourceData as Partial<Event> & EventFormData)[key] as Date | string | Timestamp | null | undefined;
             if (tsValue instanceof Timestamp) {
                 (eventToFirestore as any)[key] = tsValue;
             } else if (tsValue) { 
                 (eventToFirestore as any)[key] = getISTTimestamp(tsValue);
             } else if (tsValue === null) {
-                 // If Firestore should store null, assign it. Otherwise, it remains undefined.
                 (eventToFirestore as any)[key] = null; 
             }
-            // If tsValue is undefined, it's implicitly handled (field not set on eventToFirestore)
         }
     });
 

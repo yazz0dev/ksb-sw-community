@@ -46,6 +46,7 @@ export interface EventCriterion {
   targetRole?: string;
   selections?: Record<string, string>;
   criteriaSelections?: Record<string, string>; // Add this property for backward compatibility
+  votes?: Record<string, string>; // Add votes property for storing user votes
 }
 
 

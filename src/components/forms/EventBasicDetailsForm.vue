@@ -6,15 +6,15 @@
       <label class="form-label fw-medium">Event Format <span class="text-danger">*</span></label>
       <div class="d-flex flex-wrap gap-3">
         <div class="form-check">
-          <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" :value="EventFormat.Individual" v-model="localDetails.format" @change="emitDetailsUpdate" :disabled="isSubmitting">
+          <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" :value="EventFormat.Individual" v-model="localDetails.format" :disabled="isSubmitting">
           <label class="form-check-label" for="formatIndividual">Individual</label>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" :value="EventFormat.Team" v-model="localDetails.format" @change="emitDetailsUpdate" :disabled="isSubmitting">
+          <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" :value="EventFormat.Team" v-model="localDetails.format" :disabled="isSubmitting">
           <label class="form-check-label" for="formatTeam">Team</label>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="radio" name="eventFormat" id="formatCompetition" :value="EventFormat.Competition" v-model="localDetails.format" @change="emitDetailsUpdate" :disabled="isSubmitting">
+          <input class="form-check-input" type="radio" name="eventFormat" id="formatCompetition" :value="EventFormat.Competition" v-model="localDetails.format" :disabled="isSubmitting">
           <label class="form-check-label" for="formatCompetition">Competition</label>
         </div>
       </div>
@@ -31,7 +31,6 @@
         :disabled="isSubmitting"
         placeholder="Enter a clear and concise event name"
         required
-        @input="emitDetailsUpdate"
         maxlength="100"
       />
       <div class="invalid-feedback">Event name is required.</div>
@@ -48,7 +47,6 @@
           v-model="localDetails.type"
           :disabled="isSubmitting || !localDetails.format"
           required
-          @change="emitDetailsUpdate"
         >
           <option value="" disabled>Select type...</option>
           <option
@@ -71,7 +69,6 @@
         v-model.trim="localDetails.prize"
         :disabled="isSubmitting"
         placeholder="e.g., Cash prize, Vouchers, Swag"
-        @input="emitDetailsUpdate"
         maxlength="150"
       />
       <small class="form-text text-muted">Briefly describe the prize for the competition.</small>
@@ -88,7 +85,6 @@
         :disabled="isSubmitting"
         placeholder="Provide a detailed description of the event, including goals, rules, and expected outcomes. Markdown is supported."
         required
-        @input="emitDetailsUpdate"
       ></textarea>
       <small class="form-text text-muted">Use Markdown for formatting (e.g., **bold**, *italic*, lists).</small>
        <div class="invalid-feedback">Description is required.</div>
@@ -104,7 +100,6 @@
         v-model="localDetails.rules"
         :disabled="isSubmitting"
         placeholder="Enter specific event rules, guidelines, or judging criteria. Markdown is supported."
-        @input="emitDetailsUpdate"
       ></textarea>
       <small class="form-text text-muted">Use Markdown for formatting (e.g., **bold**, *italic*, lists).</small>
     </div>
@@ -119,7 +114,6 @@
           id="allowProjectSubmission"
           v-model="localDetails.allowProjectSubmission"
           :disabled="isSubmitting"
-          @change="emitDetailsUpdate"
         />
         <label class="form-check-label" for="allowProjectSubmission">
           Allow Project Submissions
@@ -131,8 +125,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, toRefs, computed, PropType } from 'vue';
-import { EventFormData, EventFormat } from '@/types/event'; // Import EventFormat
+import { ref, watch, toRefs, computed } from 'vue';
+import { EventFormData, EventFormat } from '@/types/event';
 
 interface Props {
   details: EventFormData['details'];
@@ -143,7 +137,7 @@ const emit = defineEmits(['update:details']);
 const props = defineProps<Props>();
 const { details, isSubmitting } = toRefs(props);
 
-// Local copy for two-way binding, ensuring type safety
+// Local copy for two-way binding
 const localDetails = ref<EventFormData['details']>({ ...details.value });
 
 // Event types based on format
@@ -169,33 +163,39 @@ const eventTypesForFormat = computed(() => {
   }
 });
 
+// Watch for prop changes from parent (only update local if different)
+let isUpdatingFromProp = false;
 watch(details, (newVal) => {
-  // Ensure the local copy is always in sync with the prop
-  localDetails.value = { ...newVal };
-  // Reset type if format changes and current type is not valid for the new format
-  if (!eventTypesForFormat.value.includes(localDetails.value.type ?? '')) {
-    localDetails.value.type = '';
+  if (!isUpdatingFromProp) {
+    localDetails.value = { ...newVal };
   }
 }, { deep: true });
 
-watch(() => localDetails.value.format, (newFormat) => {
-    // Reset type if format changes and current type is not valid
+// Watch for format changes to reset type and handle competition-specific logic
+watch(() => localDetails.value.format, (newFormat, oldFormat) => {
+  if (newFormat !== oldFormat) {
+    // Reset type if format changes and current type is not valid for the new format
     if (!eventTypesForFormat.value.includes(localDetails.value.type ?? '')) {
-        localDetails.value.type = '';
+      localDetails.value.type = '';
     }
     // Remove prize field if format is not Competition
     if (newFormat !== EventFormat.Competition) {
-        delete localDetails.value.prize;
+      delete localDetails.value.prize;
     }
-    // For new events (or when format changes significantly), if format is Competition, set allowProjectSubmission to true
+    // For Competition format, set allowProjectSubmission to true
     if (newFormat === EventFormat.Competition) {
-        localDetails.value.allowProjectSubmission = true;
+      localDetails.value.allowProjectSubmission = true;
     }
-    emitDetailsUpdate();
+  }
+});
+
+// Watch local changes and emit to parent
+watch(localDetails, (newVal) => {
+  isUpdatingFromProp = true;
+  emit('update:details', { ...newVal });
+  // Reset flag on next tick to allow prop updates
+  setTimeout(() => {
+    isUpdatingFromProp = false;
+  }, 0);
 }, { deep: true });
-
-
-function emitDetailsUpdate() {
-  emit('update:details', { ...localDetails.value });
-}
 </script>

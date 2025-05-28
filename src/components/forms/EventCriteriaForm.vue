@@ -12,11 +12,9 @@
               :id="`criterion-label-${idx}`"
               class="form-control form-control-sm"
               type="text"
-              v-model="criterion.constraintLabel"
-              :readonly="isBestPerformerCriterion(criterion)"
+              v-model.trim="criterion.constraintLabel"
+              placeholder="Enter criterion name (e.g., Code Quality, Creativity)"
               :disabled="isSubmitting || isBestPerformerCriterion(criterion)"
-              @input="emitCriteriaUpdate"
-              placeholder="Criterion Name (e.g., Functionality)"
               required
             />
           </div>
@@ -51,7 +49,6 @@
               class="form-select form-select-sm"
               v-model="criterion.role"
               :disabled="isSubmitting || isBestPerformerCriterion(criterion)"
-              @change="emitCriteriaUpdate"
               required
             >
               <option value="" disabled>Select Role...</option>
@@ -168,9 +165,12 @@ const canAddMoreCriteria = computed(() => {
 });
 
 // --- Watcher for Prop Changes ---
+let isUpdatingFromProp = false;
 watch(
   [() => props.criteria, () => props.eventFormat],
   ([newCriteria, newFormat], [oldCriteria, oldFormat]) => {
+    if (isUpdatingFromProp) return;
+    
     let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as EventCriterion[];
 
     if (newFormat !== oldFormat) {
@@ -200,11 +200,19 @@ watch(
 
     if (JSON.stringify(workingCriteria) !== JSON.stringify(localCriteria.value)) {
       localCriteria.value = workingCriteria;
-      nextTick(emitCriteriaUpdate);
     }
   },
   { immediate: true, deep: true }
 );
+
+// Watch localCriteria and emit updates
+watch(localCriteria, (newVal) => {
+  isUpdatingFromProp = true;
+  emit('update:criteria', JSON.parse(JSON.stringify(newVal)));
+  setTimeout(() => {
+    isUpdatingFromProp = false;
+  }, 0);
+}, { deep: true });
 
 // --- Methods ---
 function getCriterionKey(criterion: EventCriterion, index: number): string | number { // Use EventCriterion
@@ -212,10 +220,6 @@ function getCriterionKey(criterion: EventCriterion, index: number): string | num
     return criterion.constraintIndex;
   }
   return criterion.constraintLabel || `temp-${index}`;
-}
-
-function emitCriteriaUpdate() {
-  emit('update:criteria', JSON.parse(JSON.stringify(localCriteria.value)));
 }
 
 function addCriterion() {
@@ -226,7 +230,6 @@ function addCriterion() {
   const bestPerformerIndex = localCriteria.value.findIndex(isBestPerformerCriterion);
   const insertIndex = bestPerformerIndex !== -1 ? bestPerformerIndex : localCriteria.value.length;
   localCriteria.value.splice(insertIndex, 0, newCriterion);
-  nextTick(emitCriteriaUpdate);
 }
 
 function removeCriterion(idx: number) {
@@ -235,7 +238,6 @@ function removeCriterion(idx: number) {
     return;
   }
   localCriteria.value.splice(idx, 1);
-  nextTick(emitCriteriaUpdate);
 }
 
 function getCriterionMaxPoints(idx: number): number {
@@ -259,7 +261,6 @@ function handlePointsInput(idx: number) {
   if (isBestPerformerCriterion(criterion)) return;
   const maxPoints = getCriterionMaxPoints(idx);
   criterion.points = Math.max(1, Math.min(Number(criterion.points) || 1, maxPoints));
-  nextTick(emitCriteriaUpdate);
 }
 
 </script>

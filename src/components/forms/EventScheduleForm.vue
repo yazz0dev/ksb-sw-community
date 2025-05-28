@@ -72,7 +72,13 @@ const localDates = ref<{ start: Date | null; end: Date | null }>({
 
 const dateConflictError = ref<string | null>(null);
 const nextAvailableDateISO = ref<string | null>(null);
-const minDate = ref(new Date());
+const minDate = ref(
+  DateTime.now()
+    .setZone('Asia/Kolkata')
+    .plus({ days: 2 })
+    .startOf('day')
+    .toJSDate()
+);
 
 const formatDateISO = (isoDateString: string | null): string => {
   if (!isoDateString) return 'N/A';
@@ -112,10 +118,6 @@ const checkAvailability = async () => {
 };
 
 const onDateChange = async () => {
-  if (localDates.value.start && localDates.value.end && localDates.value.end < localDates.value.start) {
-    localDates.value.end = localDates.value.start;
-  }
-
   const datesToEmit: FormDateRange = {
       start: localDates.value.start ? DateTime.fromJSDate(localDates.value.start).toISODate() : null,
       end: localDates.value.end ? DateTime.fromJSDate(localDates.value.end).toISODate() : null

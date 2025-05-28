@@ -1,15 +1,16 @@
 // Collection Structure:
-// - studReg/{batchYear}/{registrationId} - Individual registration documents
-// - studReg/{batchYear} - Batch configuration document with 'active' field
+// - signup/{batchYear}/signup/{registrationId} - Individual registration documents
+// - signup/{batchYear} - Batch configuration document with 'active' field
 import { Timestamp } from 'firebase/firestore';
 
-export interface PendingStudentRegistration {
+export interface studreg {
   id?: string; // Document ID (optional for new registrations)
   fullName: string;
   email: string;
   studentId: string;
   batchYear: number;
   hasLaptop: boolean;
+  photoURL?: string;
   bio?: string;
   skills?: string[];
   status: 'pending_approval' | 'approved' | 'rejected';
@@ -32,10 +33,12 @@ export interface BatchSignupConfig {
   active: boolean; // Whether signup is currently active for this batch
   createdAt: Timestamp;
   createdBy: string; // Admin user ID who created/activated this batch
+  updatedAt?: Timestamp; // When this config was last updated
+  updatedBy?: string; // Admin user ID who last updated this
   activatedAt?: Timestamp; // When this batch was last activated
   deactivatedAt?: Timestamp; // When this batch was last deactivated
   maxRegistrations?: number; // Optional limit on registrations for this batch
-  currentRegistrations: number; // Current count of registrations
+  currentRegistrations: number; // Current count of registrations for this batch year
   description?: string; // Optional description for this batch
   notes?: string; // Admin notes about this batch
 }
@@ -63,4 +66,4 @@ export interface RegistrationFormData {
   hasLaptop: boolean | null;
   bio: string;
   agreeTerms: boolean;
-} 
+}

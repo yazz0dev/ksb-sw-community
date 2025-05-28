@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { getAuth, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
 import { useProfileStore } from '@/stores/profileStore';
 
@@ -88,25 +88,17 @@ const password = ref<string>('');
 const errorMessage = ref<string>('');
 const isLoading = ref<boolean>(false);
 const router = useRouter();
+const route = useRoute();
 const studentStore = useProfileStore();
 
 const processLoginSuccess = async (user: UserCredential['user']): Promise<void> => {
     try {
-        // Fetch Firebase user data first
-        await (studentStore as any).fetchUserData(user.uid);
-
-        // Check if user data exists after fetch
-        const userData = studentStore.currentStudent;
-        if (!userData || !userData.uid) {
-            errorMessage.value = 'Your account exists in authentication, but no user profile was found. Please contact support or try registering again.';
-            return; // Do not navigate
-        }
-
-        router.replace({ name: 'Home' });
+        // Get redirect path from query, fallback to /home
+        const redirectPath = (route.query.redirect as string) || '/home';
+        router.replace(redirectPath);
     } catch (fetchError) {
-        console.error("Error fetching user data after Firebase login:", fetchError);
+        console.error("Error after Firebase login:", fetchError);
         errorMessage.value = 'Login successful, but failed to load profile. Please try refreshing.';
-        // Keep the user logged into Firebase, but show an error.
     }
 };
 

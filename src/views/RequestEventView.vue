@@ -176,7 +176,7 @@ import { BEST_PERFORMER_LABEL } from '@/utils/constants';
 
 
 // --- Composables ---
-const studentStore = useProfileStore() as (ReturnType<typeof useProfileStore> & Pick<StudentProfileState, 'allUsers'>);
+const studentStore = useProfileStore() as (ReturnType<typeof useProfileStore> & Pick<StudentProfileState, 'getAllUsers'>);
 const eventStore = useEventStore();
 const notificationStore = useNotificationStore();
 const router = useRouter();
@@ -186,6 +186,10 @@ const route = useRoute();
 const assignableXpRoles = ['developer', 'presenter', 'designer', 'problemSolver'] as const;
 
 // --- Helper Functions ---
+const eventId = computed(() => route.params.eventId as string | undefined);
+const isEditing = computed(() => !!eventId.value);
+const currentUserUid = computed<string | null>(() => studentStore.studentId);
+
 function createDefaultFormData(): EventFormData {
     return {
         details: {
@@ -217,12 +221,8 @@ const isDateAvailable = ref(true);
 const formData = ref<EventFormData>(createDefaultFormData());
 
 // --- Computed Properties ---
-const eventId = computed(() => route.params.eventId as string | undefined);
-const isEditing = computed(() => !!eventId.value);
-const currentUserUid = computed<string | null>(() => studentStore.studentId);
-
 const allUsers = computed<UserData[]>(() => {
-    const usersFromStore = studentStore.allUsers; // Changed from students to allUsers
+    const usersFromStore = studentStore.getAllUsers;
     return Array.isArray(usersFromStore) ? usersFromStore : [];
 });
 
@@ -308,8 +308,10 @@ const handleSubmitForm = async () => {
     if (String(dataToSubmit.details.format) === String(EventFormat.Competition)) {
         dataToSubmit.criteria = []; // Set to empty array instead of using delete
     } else if (String(dataToSubmit.details.format) !== String(EventFormat.Competition)) {
-        // prize is optional, so set to undefined if not competition
-        if (dataToSubmit.details.prize === '') dataToSubmit.details.prize = undefined;
+        // prize is optional. If it's an empty string, remove it to avoid sending undefined to Firestore.
+        if (dataToSubmit.details.prize === '') {
+            delete dataToSubmit.details.prize;
+        }
     }
 
 
@@ -337,7 +339,7 @@ const loadInitialData = async () => {
       editError.value = '';
       hasActiveRequest.value = false;
 
-      // No need to fetch allUsers explicitly if studentStore.allUsers getter is reliable
+      // No need to fetch allUsers explicitly if studentStore.getAllUsers getter is reliable
       // await studentStore.fetchUserNamesBatch([]); // If needed to populate nameCache for co-organizer form
 
       const tempFormData = createDefaultFormData();

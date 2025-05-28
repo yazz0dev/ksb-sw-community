@@ -108,7 +108,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useProfileStore } from '@/stores/profileStore'; // Changed usestudentStore
+import { useProfileStore } from '@/stores/profileStore'; // Changed useProfileStore
 import { formatRoleName } from '@/utils/formatters'; // Assuming this handles display names
 import { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Import XP types
 import { EnrichedStudentData } from '@/types/student'; // Changed EnrichedUserData

@@ -78,58 +78,38 @@ import { useRoute, useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 // Import Project type but use it only for type annotations, not directly
 import type { Project } from '@/types/project';
+import type { EnrichedStudentData } from '@/types/student'; // Import EnrichedStudentData
+import type { XPData } from '@/types/xp'; // Import XPData
 
 import ProfileViewContent from '@/components/user/ProfileViewContent.vue';
 import PortfolioGeneratorButton from '@/components/user/PortfolioGeneratorButton.vue';
 import UserRequests from '@/components/user/UserRequests.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
 
-// Define the user structure we're working with to match the actual structure
-interface UserData {
-  uid: string;
-  name?: string | null; // Allow null here to match the actual data structure
-  email?: string | null;
-  batchYear?: number;
-  xpData?: {
-    uid: string;
-    xp_developer: number;
-    xp_presenter: number;
-    xp_designer: number;
-    xp_problemSolver: number;
-    xp_organizer: number;
-    xp_participation: number;
-    xp_bestPerformer: number;
-    count_wins: number;
-    totalCalculatedXp: number;
-    lastUpdatedAt: any;
-  };
-  skills?: string[];
-  bio?: string | null; // Allow null here too
-  organizedEventIDs?: string[];
-  // Add other properties as needed
-}
-
-// Define a type for the portfolio component projects to handle the null description
+// Define a type for the portfolio component projects
 interface PortfolioProject {
   id: string;
   projectName: string;
-  description?: string; // No null here, only string or undefined
+  description?: string;
   eventId?: string;
   eventName?: string;
-  eventFormat?: any;
+  eventFormat?: any; // Consider using a more specific type if available (e.g., EventFormat from '@/types/event')
   role?: string;
   roleDescription?: string;
-  startDate?: any;
-  endDate?: any;
+  startDate?: any; // Consider using Timestamp or Date
+  endDate?: any;   // Consider using Timestamp or Date
   tags?: string[];
-  link: string; // Added to match the Project type requirement
+  link: string;
+  // Add any other fields that StudentPortfolioProject might have and are needed by PortfolioGeneratorButton
+  submittedBy?: string; // Example, if needed
+  submittedAt?: any; // Example, if needed
 }
 
 // Define a more specific type for the portfolio button's user prop
 interface UserForPortfolio {
   name: string;
   uid: string;
-  xpData?: Partial<import('@/types/xp').XPData>; // Using Partial as not all XP fields might be needed
+  xpData?: Partial<XPData>; // Changed from `| null` to match button's expectation (undefined if not present)
   skills?: string[];
   bio?: string;
 }
@@ -143,7 +123,8 @@ const loadingPortfolioData = ref<boolean>(false); // Renamed from loadingProject
 const loading = ref(true); // General loading for the view
 
 // This ref will hold the user data for the current user when isCurrentUser is true
-const currentUserData = computed<UserData | null>(() => studentStore.currentStudent);
+// Use EnrichedStudentData directly from the store
+const currentUserData = computed<EnrichedStudentData | null>(() => studentStore.currentStudent);
 // This ref will hold the portfolio-specific data
 const currentUserPortfolioData = computed(() => studentStore.currentUserPortfolioData);
 
@@ -151,11 +132,11 @@ const userForPortfolioGeneration = computed<UserForPortfolio>(() => {
     if (!isCurrentUser.value || !currentUserData.value) {
         return { name: 'User', uid: '' }; // Fallback
     }
-    const user = currentUserData.value;
+    const user = currentUserData.value; // user is now EnrichedStudentData | null
     return {
         name: user.name || 'User',
         uid: user.uid,
-        xpData: user.xpData ? { // Pass only necessary parts of xpData
+        xpData: user.xpData ? { 
             totalCalculatedXp: user.xpData.totalCalculatedXp,
             xp_developer: user.xpData.xp_developer,
             xp_presenter: user.xpData.xp_presenter,
@@ -165,7 +146,9 @@ const userForPortfolioGeneration = computed<UserForPortfolio>(() => {
             xp_participation: user.xpData.xp_participation,
             xp_bestPerformer: user.xpData.xp_bestPerformer,
             count_wins: user.xpData.count_wins,
-        } : undefined,
+            uid: user.xpData.uid, 
+            lastUpdatedAt: user.xpData.lastUpdatedAt, 
+        } : undefined, // Ensure it's undefined if user.xpData is null/undefined
         skills: user.skills || [],
         bio: user.bio || '',
     };
@@ -202,9 +185,12 @@ const fetchPortfolioRelatedDataForCurrentUser = async () => {
 
 const determineProfileContextAndLoad = async () => {
     loading.value = true;
+    // Ensure studentStore.currentStudent is at least checked once initial auth might have settled.
+    // This relies on the watcher for studentStore.currentStudent to trigger this function
+    // once the login state is more definitively known.
+    
     const routeUserIdParam = route.params.userId;
-    // Fix access to current user ID
-    const loggedInUid = studentStore.currentStudent?.uid; // Access uid through currentStudent
+    const loggedInUid = studentStore.currentStudent?.uid; 
 
     const targetUidFromRoute = Array.isArray(routeUserIdParam) ? routeUserIdParam[0] : routeUserIdParam;
 
@@ -214,11 +200,11 @@ const determineProfileContextAndLoad = async () => {
     } else if (loggedInUid && route.name === 'Profile') { // Viewing own profile via /profile
         targetUserId.value = loggedInUid;
         isCurrentUser.value = true;
-    } else { // No specific user ID in route and not /profile, or not logged in
+    } else { 
         targetUserId.value = null;
         isCurrentUser.value = false;
-        // Potentially redirect or show an error if no profile can be determined
         if (!loggedInUid && route.name === 'Profile') {
+            // Only redirect if explicitly trying to access own profile page without being logged in.
             router.replace({ name: 'Login', query: { redirect: route.fullPath }});
             loading.value = false;
             return;
@@ -226,32 +212,45 @@ const determineProfileContextAndLoad = async () => {
     }
 
     if (isCurrentUser.value && targetUserId.value) {
-        // Ensure current user data (including XP) is fresh if viewing own profile
-        // Use the correct method name from the store
-        if (studentStore.fetchProfileForView) {
-            await studentStore.fetchProfileForView(targetUserId.value);
-        } else {
-            console.warn('No method available to fetch user profile');
+        if (studentStore.fetchProfileForView && loggedInUid) { // Ensure loggedInUid before fetching
+            await studentStore.fetchProfileForView(loggedInUid);
         }
         await fetchPortfolioRelatedDataForCurrentUser();
     }
     loading.value = false;
 };
 
-watch(() => route.params.userId, determineProfileContextAndLoad, { immediate: true });
-// Watch for login/logout to re-determine context
-watch(() => studentStore.currentStudent?.uid, (newUid, oldUid) => {
-    if (newUid !== oldUid) {
-        determineProfileContextAndLoad();
+// Watch for route changes (e.g., navigating from one user's profile to another)
+watch(() => route.params.userId, 
+    (newRouteUserId, oldRouteUserId) => {
+        if (newRouteUserId !== oldRouteUserId) {
+            determineProfileContextAndLoad();
+        }
     }
-});
+);
 
-onMounted(() => {
-    // Initial determination is handled by the immediate watcher
-    // If it's the current user, fetch portfolio data
-    if (isCurrentUser.value) {
-        fetchPortfolioRelatedDataForCurrentUser();
-    }
+// Watch for changes in the logged-in user's state (login/logout)
+// This is crucial for updating isCurrentUser correctly.
+watch(() => studentStore.currentStudent, // Watch the whole currentStudent object
+    (newStudent, oldStudent) => {
+        // Re-evaluate profile context if the student object itself changes (login/logout)
+        // or if the UID specifically changes (though student object changing implies this)
+        if (newStudent?.uid !== oldStudent?.uid) {
+            determineProfileContextAndLoad();
+        }
+    },
+    { deep: true, immediate: true } // immediate: true to run on component mount
+);
+
+
+onMounted(async () => {
+  // determineProfileContextAndLoad is now called by the immediate watcher for studentStore.currentStudent
+  // Additional logic for onMounted if needed, but primary load is handled by watcher.
+  // If for some reason the watcher didn't fire immediately or if initial loggedInUid was available,
+  // we can re-check portfolio data fetching.
+  if (isCurrentUser.value && studentStore.currentStudent?.uid) {
+     await fetchPortfolioRelatedDataForCurrentUser();
+  }
 });
 
 </script>

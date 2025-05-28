@@ -1,7 +1,7 @@
 // src/stores/studentProfileStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
-import { doc, getDoc, updateDoc, collection, getDocs, query, where, Timestamp, documentId } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs, query, where, Timestamp, documentId, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/firebase'; // Assuming auth is also exported from firebase.ts
 import { onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
 
@@ -56,6 +56,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
   const hasFetched = ref<boolean>(false); // Added: Tracks if initial student data fetch is done
 
   const nameCache = ref<NameCacheMap>(new Map());
+  const allUsers = ref<StudentData[]>([]); // New state for all users
 
   const viewedStudentProfile = ref<EnrichedStudentData | null>(null);
   const viewedStudentProjects = ref<StudentPortfolioProject[]>([]);
@@ -75,6 +76,9 @@ export const useProfileStore = defineStore('studentProfile', () => {
   const studentBatchYear = computed(() => currentStudent.value?.batchYear || null);
   const studentXP = computed(() => currentStudent.value?.xpData?.totalCalculatedXp || 0);
   const currentStudentPhotoURL = computed(() => currentStudent.value?.photoURL || null);
+
+  // New getter for allUsers
+  const getAllUsers = computed(() => allUsers.value);
 
   const getCachedStudentName = (uid: string): string | undefined => {
     const entry = nameCache.value.get(uid);
@@ -123,19 +127,18 @@ export const useProfileStore = defineStore('studentProfile', () => {
 
       if (!studentSnap.exists()) {
         console.warn(`Student profile for UID ${uid} not found in Firestore 'students' collection.`);
-        // For leaderboard, we might still want to return partial data if XP exists, or handle this differently.
-        // For now, if student doc doesn't exist, we treat as no data.
         return null;
       }
 
-      const studentDocData = studentSnap.data(); // Guaranteed to be DocumentData because studentSnap.exists() is true
+      const studentDocData = studentSnap.data();
       const studentData = { uid: studentSnap.id, ...studentDocData } as StudentData;
       const xpData = xpSnap.exists() ? { uid: xpSnap.id, ...xpSnap.data() } as XPData : getDefaultXPData(uid);
 
       _updateNameCache(studentData.uid, studentData.name);
       return {
         ...studentData,
-        batchYear: studentDocData?.batchYear ?? 0, // Ensure batchYear is a number
+        email: studentData.email ?? null, // Ensure email is string | null, never undefined
+        batchYear: studentDocData?.batchYear ?? 0,
         xpData: deepClone(xpData)
       };
     } catch (err) {
@@ -169,6 +172,10 @@ export const useProfileStore = defineStore('studentProfile', () => {
     isLoading.value = false;
     if (!studentAppStore.hasFetchedInitialAuth) {
         studentAppStore.setHasFetchedInitialAuth(true);
+    }
+    // Fetch all users if authenticated and not already fetched
+    if (isAuthenticated.value && allUsers.value.length === 0) {
+        await fetchAllStudentProfiles();
     }
   }
 
@@ -400,8 +407,8 @@ export const useProfileStore = defineStore('studentProfile', () => {
 
   async function loadLeaderboardUsers(): Promise<EnrichedStudentData[]> {
     isLoading.value = true;
-    error.value = null; // Clear previous errors specific to this operation
-    fetchError.value = null; // Clear fetch error as well
+    error.value = null;
+    fetchError.value = null;
 
     try {
       const studentsCollectionRef = collection(db, 'students');
@@ -409,28 +416,25 @@ export const useProfileStore = defineStore('studentProfile', () => {
 
       if (studentsSnapshot.empty) {
         console.warn("No users found in the 'students' collection for leaderboard.");
-        error.value = "No users found in the database for the leaderboard."; // More specific message
+        error.value = "No users found in the database for the leaderboard.";
         return [];
       }
 
       const enrichedUsers: EnrichedStudentData[] = [];
       const studentPromises = studentsSnapshot.docs.map(async (studentDoc) => {
-        const studentData = { uid: studentDoc.id, ...studentDoc.data() } as StudentData;
+        const studentData = { uid: studentDoc.id, ...studentDoc.data() } as EnrichedStudentData;
+        studentData.email = studentData.email ?? null; // Ensure email is string | null, never undefined
         const xpDocRef = doc(db, XP_COLLECTION_PATH, studentDoc.id);
         const xpSnap = await getDoc(xpDocRef);
-        const xpData = xpSnap.exists() ? { uid: xpSnap.id, ...xpSnap.data() } as XPData : getDefaultXPData(studentDoc.id);
+        studentData.xpData = xpSnap.exists()
+          ? ({ uid: xpSnap.id, ...xpSnap.data() } as XPData)
+          : (getDefaultXPData(studentDoc.id) as XPData);
 
-        _updateNameCache(studentData.uid, studentData.name);
-        return {
-          ...studentData,
-          batchYear: studentData.batchYear ?? 0, // Ensure batchYear is a number
-          xpData: deepClone(xpData),
-        } as EnrichedStudentData; // Cast to EnrichedStudentData
+        _updateNameCache(studentData.uid, studentData.name ?? '');
+        return studentData;
       });
 
       const results = await Promise.all(studentPromises);
-      // Filter out any null results if _fetchStudentDataInternal (or similar logic) could return null
-      // For this direct implementation, all promises should resolve to EnrichedStudentData
       enrichedUsers.push(...results);
 
       if (enrichedUsers.length === 0) {
@@ -439,9 +443,8 @@ export const useProfileStore = defineStore('studentProfile', () => {
 
       return enrichedUsers;
     } catch (err) {
-      await _handleFetchError("loading leaderboard users", err); // Use fetchError for this operation
-      // error.value is now set by _handleFetchError
-      return []; // Return empty array on error
+      await _handleFetchError("loading leaderboard users", err);
+      return [];
     } finally {
       isLoading.value = false;
     }
@@ -510,6 +513,33 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
+  async function fetchAllStudentProfiles(): Promise<StudentData[]> {
+    if (allUsers.value.length > 0) {
+      // Return cached data if available and not forced to refetch
+      return allUsers.value;
+    }
+    isLoading.value = true;
+    fetchError.value = null;
+    try {
+      const studentsCollectionRef = collection(db, 'students');
+      const q = query(studentsCollectionRef, orderBy('name', 'asc')); // Optional: order by name
+      const querySnapshot = await getDocs(q);
+      const fetchedUsers: StudentData[] = [];
+      querySnapshot.forEach((docSnap) => {
+        const userData = { uid: docSnap.id, ...docSnap.data() } as StudentData;
+        fetchedUsers.push(userData);
+        _updateNameCache(userData.uid, userData.name); // Update name cache as well
+      });
+      allUsers.value = fetchedUsers;
+      return fetchedUsers;
+    } catch (err) {
+      await _handleFetchError("fetching all student profiles", err);
+      return []; // Return empty array on error
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     currentStudent,
     isAuthenticated,
@@ -538,5 +568,8 @@ export const useProfileStore = defineStore('studentProfile', () => {
     loadLeaderboardUsers, // Add the new action here
     fetchUserNamesBatch,
     clearStaleNameCache,
+    getAllUsers,
+    allUsers,
+    fetchAllStudentProfiles,
   };
 });

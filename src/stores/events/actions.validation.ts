@@ -61,9 +61,9 @@ export async function checkDateConflictForRequest(
 
     const q = query(
         collection(db, 'events'),
-        where('status', 'in', [EventStatus.Approved, EventStatus.InProgress, EventStatus.Pending])
-        // We fetch broadly and filter client-side due to Firestore's range query limitations
-        // where('details.date.end', '>=', Timestamp.fromDate(checkStartLuxon.toJSDate())) // Example of a broader query if needed
+        where('status', 'in', [EventStatus.Approved, EventStatus.InProgress, EventStatus.Completed])
+        // Note: Removed EventStatus.Pending from the query because students cannot read other users' pending events
+        // Only publicly viewable events should be checked for conflicts
     );
 
     try {

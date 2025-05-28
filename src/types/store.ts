@@ -65,8 +65,14 @@ export interface StudentProfileState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  actionError: string | null;
+  fetchError: string | null;
+  hasFetched: boolean;
+  nameCache: NameCacheMap;
+  allUsers: UserData[];
+  getAllUsers: UserData[];
+  viewedStudentProfile: EnrichedStudentData | null;
   portfolioData: StudentPortfolioGenerationData | null;
-  allUsers: EnrichedStudentData[];
 }
 
 // --- Student Profile Getters and Actions ---

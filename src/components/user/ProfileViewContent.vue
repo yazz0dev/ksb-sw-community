@@ -40,8 +40,8 @@
               <i class="fas fa-edit me-1"></i> Edit Profile
             </button>
 
-            <div v-if="user.socialLink" class="mb-3">
-              <a :href="user.socialLink" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info d-inline-flex align-items-center">
+            <div v-if="user.socialLinks?.portfolio" class="mb-3">
+              <a :href="user.socialLinks.portfolio" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info d-inline-flex align-items-center">
                 <i :class="['fab', socialLinkDetails.icon, 'me-2']" v-if="socialLinkDetails.isFontAwesomeBrand"></i>
                 <i :class="['fas', socialLinkDetails.icon, 'me-2']" v-else></i>
                 {{ socialLinkDetails.name }}
@@ -138,28 +138,28 @@
              <ul class="list-group list-group-flush event-history-section">
                <li
                  v-for="eventItem in sortedEventsHistory"
-                 :key="eventItem.id"
+                 :key="eventItem.eventId" 
                  class="list-group-item px-3 py-3"
                >
                  <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
                    <div class="d-flex align-items-center">
                      <i class="fas fa-calendar-alt text-primary me-2"></i>
                      <router-link
-                       :to="{ name: 'EventDetails', params: { id: eventItem.id } }"
+                       :to="{ name: 'EventDetails', params: { id: eventItem.eventId } }" 
                        class="fw-semibold text-primary text-decoration-none me-2"
                      >
-                       {{ eventItem.details?.eventName || 'Unnamed Event' }}
+                       {{ eventItem.eventName || 'Unnamed Event' }} <!-- Changed from eventItem.details?.eventName -->
                      </router-link>
-                     <span v-if="eventItem.details?.format" class="badge bg-secondary-subtle text-secondary-emphasis small ms-2">
-                       <i class="fas fa-users me-1"></i>{{ formatEventFormat(eventItem.details.format) }}
+                     <span v-if="eventItem.eventFormat" class="badge bg-secondary-subtle text-secondary-emphasis small ms-2"> <!-- Changed from eventItem.details?.format -->
+                       <i class="fas fa-users me-1"></i>{{ formatEventFormat(eventItem.eventFormat) }}
                      </span>
                    </div>
                    <div class="d-flex align-items-center gap-2">
                      <span
                        class="badge rounded-pill"
-                       :class="getEventStatusBadgeClass(eventItem.status)"
+                       :class="getEventStatusBadgeClass(eventItem.eventStatus)" 
                      >
-                       {{ eventItem.status }}
+                       {{ eventItem.eventStatus }} <!-- Changed from eventItem.status -->
                      </span>
                      <span
                        v-if="isOrganizer(eventItem)"
@@ -170,12 +170,12 @@
                    </div>
                  </div>
                  <div class="d-flex justify-content-between align-items-center">
-                   <span v-if="eventItem.details?.type" class="badge bg-info-subtle text-info-emphasis small">
-                     <i class="fas fa-tag me-1"></i>{{ eventItem.details.type }}
+                   <span v-if="false" class="badge bg-info-subtle text-info-emphasis small"> <!-- Assuming event type is not directly in StudentEventHistoryItem, adjust if it is -->
+                     <!-- <i class="fas fa-tag me-1"></i> -->
                    </span>
                    <div class="d-flex align-items-center gap-2">
                      <span class="badge bg-light text-secondary border border-1 fw-normal">
-                       {{ formatISTDate(eventItem.details?.date?.start) }}
+                       {{ formatISTDate(eventItem.date?.start) }} <!-- Use eventItem.date.start -->
                      </span>
                    </div>
                  </div>
@@ -232,12 +232,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { usestudentStore } from '@/stores/profileStore';
+import { useProfileStore } from '@/stores/profileStore'; // Corrected import
 // EventStore not directly used here for fetching, studentStore handles enriched data
 import { formatISTDate } from '@/utils/dateTime';
 // Use the formatRoleName from user types as it handles 'xp_' prefix now
-import { formatRoleName as formatRoleNameForDisplay, EnrichedUserData } from '@/types/student';
-import { Event as AppEvent, EventStatus, EventFormat } from '@/types/event';
+import { formatRoleName as formatRoleNameForDisplay } from '@/utils/formatters'; // Corrected import path
+import { EnrichedUserData, type StudentEventHistoryItem } from '@/types/student'; // Import StudentEventHistoryItem
+import { EventStatus, EventFormat } from '@/types/event'; // Removed AppEvent as it's not directly used for participatedEvents
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useRouter } from 'vue-router';
 import { isEventOrganizer } from '@/utils/permissionHelpers';
@@ -257,7 +258,7 @@ interface UserProjectDisplay {
   id: string;
   projectName: string;
   link: string;
-  description?: string;
+  description?: string | null; // Allow null to match StudentPortfolioProject
   eventId?: string;
   eventName?: string;
   submittedAt?: any;
@@ -266,14 +267,14 @@ interface UserProjectDisplay {
 const props = defineProps<Props>();
 const isCurrentUser = ref<boolean>(props.isCurrentUserProp);
 
-const studentStore = usestudentStore();
+const studentStore = useProfileStore(); // Corrected usage
 const router = useRouter();
 
 const user = ref<EnrichedUserData | null>(null); // Now uses EnrichedUserData
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const userProjects = ref<UserProjectDisplay[]>([]);
-const participatedEvents = ref<AppEvent[]>([]);
+const participatedEvents = ref<StudentEventHistoryItem[]>([]); // Changed type to StudentEventHistoryItem
 const loadingEventsOrProjects = ref<boolean>(true);
 const stats = ref<Stats>({ participatedCount: 0, organizedCount: 0, wonCount: 0 });
 const defaultAvatarUrl: string = '/default-avatar.png';
@@ -305,10 +306,11 @@ const filteredXpByRole = computed(() => {
 
 
 const socialLinkDetails = computed(() => {
-  if (!user.value?.socialLink) {
+  const portfolioLink = user.value?.socialLinks?.portfolio;
+  if (!portfolioLink) {
     return { name: 'Social Profile', icon: 'fa-link', isFontAwesomeBrand: false };
   }
-  const link = user.value.socialLink.toLowerCase();
+  const link = portfolioLink.toLowerCase();
   if (link.includes('github.com')) return { name: 'GitHub', icon: 'fa-github', isFontAwesomeBrand: true };
   if (link.includes('linkedin.com')) return { name: 'LinkedIn', icon: 'fa-linkedin', isFontAwesomeBrand: true };
   if (link.includes('twitter.com') || link.includes('x.com')) return { name: 'Twitter/X', icon: 'fa-twitter', isFontAwesomeBrand: true };
@@ -317,9 +319,9 @@ const socialLinkDetails = computed(() => {
 });
 
 const sortedEventsHistory = computed(() => {
-  return [...participatedEvents.value].sort((a: AppEvent, b: AppEvent) => {
-    const timeA = a.details?.date?.start?.toMillis() ?? 0;
-    const timeB = b.details?.date?.start?.toMillis() ?? 0;
+  return [...participatedEvents.value].sort((a: StudentEventHistoryItem, b: StudentEventHistoryItem) => { // Changed type to StudentEventHistoryItem
+    const timeA = a.date?.start?.toMillis() ?? 0; // Access date directly
+    const timeB = b.date?.start?.toMillis() ?? 0; // Access date directly
     return timeB - timeA;
   });
 });
@@ -337,14 +339,16 @@ const xpPercentage = (xp: number): number => {
   return total > 0 ? Math.min(100, Math.round((xp / total) * 100)) : 0;
 };
 
-const isOrganizer = (eventItem: AppEvent): boolean => {
-    if (!props.userId || !Array.isArray(eventItem.details?.organizers)) {
-        return false;
-    }
-    return isEventOrganizer(eventItem, props.userId);
+const isOrganizer = (eventItem: StudentEventHistoryItem): boolean => { // Changed type to StudentEventHistoryItem
+    // For StudentEventHistoryItem, role is already determined.
+    // This function might need to be re-evaluated based on how organizer status is displayed for history items.
+    // If eventItem directly contains organizer info or role, use that.
+    // For now, assuming it might still need to check against props.userId if eventItem contains raw event details.
+    // However, StudentEventHistoryItem has `roleInEvent`.
+    return eventItem.roleInEvent === 'organizer';
 };
 
-const formatEventFormat = (format: string | undefined): string => {
+const formatEventFormat = (format: EventFormat | undefined): string => { // Changed type to EventFormat
   if (!format) return '';
   if (format === EventFormat.Team) return 'Team Event';
   if (format === EventFormat.Individual) return 'Individual Event';
@@ -366,26 +370,21 @@ const fetchProfileData = async () => {
         const userIdToFetch = props.userId;
         if (!userIdToFetch) throw new Error('Invalid User ID provided.');
 
-        // fetchFullUserProfileForView in studentStore now fetches both user and XP data
-        // and stores it in `viewedUserProfile` (which is EnrichedUserData)
-        await studentStore.fetchFullUserProfileForView(userIdToFetch);
-        const profileData = studentStore.getViewedUserProfile; // This is EnrichedUserData
+        await studentStore.fetchProfileForView(userIdToFetch);
+        const profileDataFromStore = studentStore.viewedStudentProfile; 
 
-        if (!profileData) throw new Error('User data not found.');
+        if (!profileDataFromStore) throw new Error('User data not found.');
 
-        user.value = profileData; // Assign EnrichedUserData to local user ref
-        // User events and projects are also fetched by fetchFullUserProfileForView
-        participatedEvents.value = studentStore.getViewedUserEvents;
-        userProjects.value = studentStore.getViewedUserProjects;
+        // Ensure xpData is explicitly null if undefined from store/inference
+        user.value = { ...profileDataFromStore, xpData: profileDataFromStore.xpData ?? null };
+        
+        participatedEvents.value = studentStore.viewedStudentEventHistory; 
+        userProjects.value = studentStore.viewedStudentProjects.map(p => ({...p, description: p.description === undefined ? null : p.description }));
 
-        // Calculate stats from events (participated/organized)
-        // Win count will come from user.xpData.count_wins
         calculateStatsFromEvents(participatedEvents.value);
-        // Ensure wonCount in stats also reflects xpData if available
         if (user.value?.xpData) {
             stats.value.wonCount = user.value.xpData.count_wins ?? 0;
         }
-
 
     } catch (error: any) {
         errorMessage.value = error?.message || 'Failed to load profile.';
@@ -396,22 +395,18 @@ const fetchProfileData = async () => {
     }
 };
 
-const calculateStatsFromEvents = (events: AppEvent[]) => {
-    let participated = 0, organized = 0; // won is handled by xpData
-    const userId = props.userId;
+const calculateStatsFromEvents = (events: StudentEventHistoryItem[]) => { // Changed parameter type to StudentEventHistoryItem[]
+    let participated = 0, organized = 0; 
+    // const userId = props.userId; // userId from props might not be needed if roleInEvent is reliable
 
-    events.forEach((eventItem: AppEvent) => {
-        const isOrg = Array.isArray(eventItem.details?.organizers) && eventItem.details.organizers.includes(userId);
-        const isPart = Array.isArray(eventItem.participants) && eventItem.participants.includes(userId);
-        let isTeamMember = false;
-        if (eventItem.details?.format === EventFormat.Team && Array.isArray(eventItem.teams)) {
-            isTeamMember = eventItem.teams.some(team => Array.isArray(team.members) && team.members.includes(userId));
+    events.forEach((eventItem: StudentEventHistoryItem) => { 
+        if (eventItem.roleInEvent === 'participant' || eventItem.roleInEvent === 'team_member' || eventItem.roleInEvent === 'team_lead') {
+            participated++;
         }
-
-        if (isPart || isTeamMember) participated++;
-        if (isOrg) organized++;
+        if (eventItem.roleInEvent === 'organizer') {
+            organized++;
+        }
     });
-    // Only update participated and organized here. Won count comes from xpData.
     stats.value = { ...stats.value, participatedCount: participated, organizedCount: organized };
 };
 
@@ -419,7 +414,7 @@ const calculateStatsFromEvents = (events: AppEvent[]) => {
 watch(() => props.userId, (newUserId) => {
   if (newUserId && typeof newUserId === 'string') {
     fetchProfileData();
-    isCurrentUser.value = newUserId === studentStore.uid;
+    isCurrentUser.value = newUserId === studentStore.studentId;
   } else {
       loading.value = false;
       errorMessage.value = "Invalid User ID.";

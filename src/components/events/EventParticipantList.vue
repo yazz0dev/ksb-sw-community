@@ -15,7 +15,7 @@
       </div>
       <ul v-else class="list-unstyled mb-0">
         <li v-for="uid in participants" :key="uid" class="mb-2">
-          <span class="fw-semibold">{{ studentStore.getCachedUserName(uid) }}</span>
+          <span class="fw-semibold">{{ studentStore.getCachedStudentName(uid) }}</span>
           <span v-if="uid === currentUserId" class="badge bg-primary ms-2">You</span>
         </li>
       </ul>
@@ -25,7 +25,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { usestudentStore } from '@/stores/profileStore';
+import { useProfileStore } from '@/stores/profileStore';
 
 defineProps<{
   participants: string[];
@@ -34,7 +34,7 @@ defineProps<{
 }>();
 
 const showParticipants = ref(true);
-const studentStore = usestudentStore();
+const studentStore = useProfileStore();
 </script>
 
 <style scoped>

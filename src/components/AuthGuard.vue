@@ -1,10 +1,17 @@
 <template>
   <div>
+    <!-- Show a loading indicator or nothing while initial auth is being fetched -->
+    <!-- Let's render nothing for now to avoid layout shifts, or a subtle loader could be added here -->
+    <div v-if="!initialAuthAttempted && !isAuthenticated">
+      <!-- Optional: <div class="text-center p-3"><div class="spinner-border spinner-border-sm text-secondary" role="status"><span class="visually-hidden">Loading...</span></div></div> -->
+    </div>
     <!-- Show content when authenticated -->
-    <slot v-if="isAuthenticated"></slot>
+    <slot v-else-if="isAuthenticated"></slot>
 
-    <!-- Auth required message -->
-    <div v-else>
+    <!-- Auth required message, only after initial auth attempt -->
+    <div 
+      v-else-if="initialAuthAttempted && !isAuthenticated"
+    >
       <slot name="public" v-if="$slots.public"></slot>
       
       <div 
@@ -33,6 +40,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useProfileStore } from '../stores/profileStore';
+import { useAppStore } from '../stores/appStore';
 
 interface Props {
   message?: string;
@@ -43,7 +51,10 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const studentStore = useProfileStore();
+const appStore = useAppStore();
+
 const isAuthenticated = computed<boolean>(() => studentStore.isAuthenticated);
+const initialAuthAttempted = computed<boolean>(() => appStore.hasFetchedInitialAuth);
 </script>
 
 

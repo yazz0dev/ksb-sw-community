@@ -1,3 +1,15 @@
 User-agent: *
 Allow: /
+Allow: /events
+Allow: /leaderboard
+Allow: /resources
+Allow: /transparency
+Allow: /signup
+Allow: /login
+Allow: /legal
+
+Disallow: /profile/
+Disallow: /edit-event/
+Disallow: /selection/
+
 Sitemap: https://www.ksbtech.web.app/sitemap.xml

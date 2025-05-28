@@ -26,12 +26,16 @@ export async function createEventRequestByStudentInFirestore(formData: EventForm
     // Add more formData validation as needed
 
     try {
+        const newEventRef = doc(collection(db, 'events')); // Generate a new document reference
+        const newEventId = newEventRef.id; // Get the auto-generated ID
+
         // formData.createdAt and .lastUpdatedAt are now optional (Timestamp | undefined)
         // mapEventDataToFirestore expects Partial<Event> | EventFormData
         const mappedData = mapEventDataToFirestore(formData, true); // isNew = true
         
         const dataToSubmit: Partial<Event> = {
             ...mappedData,
+            id: newEventId, // Include the generated ID in the document data
             requestedBy: studentId,
             status: EventStatus.Pending, // EventStatus can now be used as a value
             votingOpen: false,
@@ -49,9 +53,8 @@ export async function createEventRequestByStudentInFirestore(formData: EventForm
         // If they are still undefined here, it means formData didn't provide them and mapEventDataToFirestore also didn't set them.
         // However, the logic in mapEventDataToFirestore for isNew=true should set them.
 
-
-        const docRef = await addDoc(collection(db, "events"), dataToSubmit);
-        return docRef.id;
+        await setDoc(newEventRef, dataToSubmit); // Use setDoc with the generated reference
+        return newEventId;
     } catch (error: any) {
         console.error('Firestore createEventRequestByStudent error:', error);
         throw new Error(`Failed to submit event request: ${error.message}`);

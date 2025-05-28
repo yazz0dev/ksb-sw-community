@@ -73,7 +73,7 @@ const getTeamSubmissions = (teamName: string): Submission[] => {
   if (!props.event.submissions || !Array.isArray(props.event.submissions)) {
     return [];
   }
-  return props.event.submissions.filter(sub => sub.teamId === teamName);
+  return props.event.submissions.filter(sub => sub.teamName === teamName);
 };
 </script>
 

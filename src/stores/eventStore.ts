@@ -9,7 +9,7 @@ import { Event, EventStatus, EventFormData, Team, Submission, EventCriterion, Ev
 import { useProfileStore } from './profileStore';
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore';
-import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataMapper';
+import { mapEventDataToFirestore, mapFirestoreToEventData, getISTTimestamp } from '@/utils/eventDataMapper';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { deepClone, isEmpty } from '@/utils/helpers';
 import { Interval } from 'luxon';
@@ -23,6 +23,7 @@ import * as EventTeamActions from './events/actions.teams';
 import * as EventVotingActions from './events/actions.voting';
 import * as EventUtils from './events/actions.utils';
 import { XPData, XpFirestoreFieldKey } from '@/types/xp';
+import { DateTime } from 'luxon';
 
 
 const now = () => Timestamp.now();
@@ -238,46 +239,79 @@ export const useEventStore = defineStore('studentEvents', () => {
   }
 
   async function requestNewEvent(formData: EventFormData): Promise<string | null> {
-    if (!studentProfileStore.isAuthenticated || !studentProfileStore.studentId) {
-      notificationStore.showNotification({ message: "You must be logged in to request an event.", type: 'error' });
-      return null;
-    }
-    const studentId = studentProfileStore.studentId!;
     actionError.value = null;
-
-    const hasPending = await checkExistingRequests();
-    if (hasPending) {
-        notificationStore.showNotification({ message: "You already have a pending event request.", type: 'warning', duration: 7000 });
-        return null;
-    }
-    if (formData.details.date.start && formData.details.date.end) {
-      const conflictResult = await checkDateConflict({
-          startDate: formData.details.date.start,
-          endDate: formData.details.date.end
-      });
-      if (conflictResult.hasConflict) {
-          notificationStore.showNotification({ message: `Chosen dates conflict with "${conflictResult.conflictingEventName || 'an existing event'}".`, type: 'error', duration: 7000 }); // Use conflictingEventName
-          return null;
-      }
-    } else {
-        notificationStore.showNotification({ message: "Event start and end dates are required.", type: 'error'}); return null;
-    }
-
-    isLoading.value = true;
     try {
-      const newEventId = await EventLifecycleActions.createEventRequestByStudentInFirestore(formData, studentId);
-      const newEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(newEventId, studentId);
-      if (newEventData) {
-        _updateLocalEventLists(newEventData);
-        notificationStore.showNotification({ message: "Event request submitted successfully!", type: 'success' });
-        return newEventId;
+      if (!studentProfileStore.isAuthenticated || !studentProfileStore.studentId) {
+        throw new Error('You must be authenticated to create an event.');
       }
-      throw new Error("Failed to retrieve new event after creation.");
+
+      // Validate event dates
+      const now = Timestamp.now();
+      const startDate = formData.details.date.start ? getISTTimestamp(formData.details.date.start) : null;
+      const endDate = formData.details.date.end ? getISTTimestamp(formData.details.date.end) : null;
+
+      if (!startDate || !endDate) {
+        throw new Error('Event start and end dates are required.');
+      }
+
+      // Get start of current day in IST
+      const todayStartIST = DateTime.now()
+        .setZone('Asia/Kolkata')
+        .startOf('day')
+        .toJSDate();
+      const todayStartTimestamp = Timestamp.fromDate(todayStartIST);
+
+      // Compare with start of current day instead of current time
+      if (startDate.toMillis() < todayStartTimestamp.toMillis()) {
+        throw new Error('Event must start from today onwards.');
+      }
+
+      if (endDate.toMillis() <= startDate.toMillis()) {
+        throw new Error('Event end date must be after start date.');
+      }
+
+      // Check for date conflicts
+      const { hasConflict, conflictingEventName } = await checkDateConflict({
+        startDate: startDate,
+        endDate: endDate
+      });
+
+      if (hasConflict) {
+        throw new Error(`Date conflict with event: ${conflictingEventName}`);
+      }
+
+      // Ensure current user is in organizers list
+      if (!formData.details.organizers.includes(studentProfileStore.studentId)) {
+        formData.details.organizers.push(studentProfileStore.studentId);
+      }
+
+      const eventData = mapEventDataToFirestore({
+        ...formData,
+        status: EventStatus.Pending,
+        requestedBy: studentProfileStore.studentId,
+        votingOpen: false,
+        createdAt: now,
+        lastUpdatedAt: now
+      }, true); // Pass isNew=true to enforce additional validations
+
+      const eventRef = await addDoc(collection(db, 'events'), eventData);
+      const newEventId = eventRef.id;
+
+      // Update local state
+      _updateLocalEventLists({
+        id: newEventId,
+        ...mapFirestoreToEventData(newEventId, eventData)
+      } as Event);
+
+      notificationStore.showNotification({
+        message: 'Event request submitted successfully!',
+        type: 'success'
+      });
+
+      return newEventId;
     } catch (err) {
-      await _handleOpError("requesting new event", err);
+      await _handleOpError('creating new event', err);
       return null;
-    } finally {
-      isLoading.value = false;
     }
   }
 
@@ -397,7 +431,13 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true; actionError.value = null;
     try {
-        await EventVotingActions.submitTeamCriteriaVoteInFirestore(eventId, studentId, selections);
+        // Convert constraint keys to the format expected by backend
+        const processedSelections = {
+            criteria: selections.criteria, // Keep as-is, backend will handle constraint index mapping
+            bestPerformer: selections.bestPerformer
+        };
+        
+        await EventVotingActions.submitTeamCriteriaVoteInFirestore(eventId, studentId, processedSelections);
         const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Team selections submitted!", type: 'success' });
@@ -447,14 +487,18 @@ export const useEventStore = defineStore('studentEvents', () => {
 
 
   async function submitOrganizationRating(payload: { eventId: string; score: number; feedback?: string }) {
-    const { eventId, score, feedback } = payload;
+    const { eventId, score, feedback } = payload; // feedback from OrganizerRatingForm is '' or a string
      if (!studentProfileStore.isAuthenticated || !studentProfileStore.studentId) {
         notificationStore.showNotification({ message: "You must be logged in.", type: 'error' }); return;
     }
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true; actionError.value = null;
     try {
-        await EventVotingActions.submitOrganizationRatingInFirestore(eventId, studentId, { score, comment: feedback });
+        // If feedback is an empty string (e.g., from trim() || ''), pass null to Firestore.
+        // Otherwise, pass the feedback string.
+        const commentToSend = (feedback === '' || feedback === undefined) ? null : feedback;
+
+        await EventVotingActions.submitOrganizationRatingInFirestore(eventId, studentId, { score, comment: commentToSend });
         const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Organizer rating submitted!", type: 'success' });

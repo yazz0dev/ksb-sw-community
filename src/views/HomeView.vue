@@ -124,12 +124,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { usestudentStore } from '@/stores/profileStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore';
 import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
 
-const studentStore = usestudentStore();
+const studentStore = useProfileStore();
 const eventStore = useEventStore();
 const router = useRouter(); // Although not used directly, good practice to have if needed later
 

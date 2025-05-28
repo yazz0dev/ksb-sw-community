@@ -237,7 +237,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { collection, addDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase';
-import type { RegistrationFormData, PendingStudentRegistration } from '@/types/registration';
+import type { RegistrationFormData, studreg } from '@/types/signup';
 import { validateSignupToken, isValidBatchYear, isBatchSignupActive, getBatchRegistrationsPath, incrementBatchRegistrationCount } from '@/utils/signupUtils';
 
 const route = useRoute();
@@ -384,7 +384,7 @@ const submitRegistration = async () => {
       : [];
 
     // Prepare registration data
-    const registrationData: Omit<PendingStudentRegistration, 'id'> = {
+    const registrationData: Omit<studreg, 'id'> = {
       fullName: formData.value.fullName.trim(),
       email: formData.value.email.toLowerCase().trim(),
       studentId: formData.value.studentId.toUpperCase().trim(),
@@ -400,6 +400,7 @@ const submitRegistration = async () => {
         userAgent: navigator.userAgent,
         referrer: document.referrer || null
       }
+      // notes, photoURL, processedAt, processedBy, rejectionReason are optional and omitted here
     };
 
     // Submit to Firestore using the new collection structure
@@ -513,4 +514,4 @@ onMounted(async () => {
     padding: 1.5rem !important;
   }
 }
-</style> 
+</style>

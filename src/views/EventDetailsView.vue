@@ -382,7 +382,7 @@ const canRateOrganizer = computed(() => {
   if (!event.value || !currentUser.value || event.value.closedAt) return false;
   return localIsCurrentUserParticipant.value &&
          !localIsCurrentUserOrganizer.value &&
-         (event.value.status === EventStatus.Completed || event.value.status === EventStatus.Closed) ; // Allow rating for closed events too
+         event.value.status === EventStatus.Completed; // Only allow rating for 'Completed' events
 });
 
 const canVoteInThisEvent = computed(() =>

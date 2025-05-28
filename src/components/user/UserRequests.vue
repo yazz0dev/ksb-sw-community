@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { doc, deleteDoc } from 'firebase/firestore';
-import { usestudentStore } from '@/stores/profileStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useRouter } from 'vue-router'; // Import if needed for routing
 import { db } from '@/firebase';
 // Import the Event type from the store's perspective
@@ -85,7 +85,7 @@ interface Request {
     [key: string]: any;
 }
 
-const studentStore = usestudentStore();
+const studentStore = useProfileStore();
 const router = useRouter(); // Initialize router from the imported useRouter
 const requests = ref<Request[]>([]); // Use the local Request interface
 const loadingRequests = ref<boolean>(true);

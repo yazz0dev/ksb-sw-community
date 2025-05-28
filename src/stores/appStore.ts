@@ -26,8 +26,10 @@ export const useAppStore = defineStore('studentApp', () => {
   // --- State ---
   const currentTheme = ref<'light' | 'dark'>('light');
   const isOnline = ref<boolean>(navigator.onLine);
-  const hasFetchedInitialAuth = ref<boolean>(false); // Tracks if initial onAuthStateChanged has run
-  const newAppVersionAvailable = ref<boolean>(false); // For PWA updates
+  const hasFetchedInitialAuth = ref<boolean>(false);
+  const newAppVersionAvailable = ref<boolean>(false);
+  const lastOnlineTime = ref<number>(Date.now());
+  const isFirestoreEnabled = ref<boolean>(true);
 
   const offlineQueue = ref<{
     actions: QueuedStudentAction[];
@@ -53,6 +55,7 @@ export const useAppStore = defineStore('studentApp', () => {
   const getNetworkStatus = computed(() => isOnline.value);
   const getHasFetchedInitialAuth = computed(() => hasFetchedInitialAuth.value);
   const getNewAppVersionAvailable = computed(() => newAppVersionAvailable.value);
+  const getLastOnlineTime = computed(() => lastOnlineTime.value);
   const hasPendingOfflineActions = computed(() => offlineQueue.value.actions.length > 0);
   const pendingActionCount = computed(() => offlineQueue.value.actions.length);
 
@@ -72,31 +75,57 @@ export const useAppStore = defineStore('studentApp', () => {
     } else {
       setTheme('light');
     }
-    // Listen for system theme changes if no explicit theme is set by user
+    
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-        if (!localStorage.getItem('student-app-theme')) { // Only if user hasn't set a preference
-            setTheme(e.matches ? 'dark' : 'light');
-        }
+      if (!localStorage.getItem('student-app-theme')) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
     });
   }
-  watch(currentTheme, (newTheme) => { // Persist theme changes
-      localStorage.setItem('student-app-theme', newTheme);
+
+  watch(currentTheme, (newTheme) => {
+    localStorage.setItem('student-app-theme', newTheme);
   });
 
-
-  function setNetworkOnlineStatus(status: boolean) {
+  async function setNetworkOnlineStatus(status: boolean) {
     if (isOnline.value !== status) {
       isOnline.value = status;
-      console.log(`Student App Network Status: ${status ? 'Online' : 'Offline'}`);
-      // Toggle Firestore network
-      try {
-        status ? enableNetwork(db) : disableNetwork(db);
-        if (status && hasPendingOfflineActions.value) {
-          syncOfflineActions(); // Attempt sync when coming online
+      
+      if (status) {
+        lastOnlineTime.value = Date.now();
+        if (!isFirestoreEnabled.value) {
+          try {
+            await enableNetwork(db);
+            isFirestoreEnabled.value = true;
+            notificationStore.showNotification({
+              message: 'You are back online! Syncing data...',
+              type: 'success',
+              duration: 3000
+            });
+            // Trigger data refresh in relevant stores
+            const eventStore = useEventStore();
+            await eventStore.fetchEvents();
+          } catch (e) {
+            console.error("Error enabling Firestore network:", e);
+          }
         }
-      } catch (e) {
-        console.error("Error toggling Firestore network:", e);
+      } else {
+        try {
+          await disableNetwork(db);
+          isFirestoreEnabled.value = false;
+          notificationStore.showNotification({
+            message: 'You are offline. Some features will be limited.',
+            type: 'warning',
+            duration: 5000
+          });
+        } catch (e) {
+          console.error("Error disabling Firestore network:", e);
+        }
       }
+
+      // Save offline status to localStorage for persistence
+      localStorage.setItem('lastOnlineTime', lastOnlineTime.value.toString());
+      localStorage.setItem('isOnline', status.toString());
     }
   }
 
@@ -213,25 +242,58 @@ export const useAppStore = defineStore('studentApp', () => {
     }
   }
 
-  // This would be called from main.ts or App.vue
   function initAppListeners() {
-    initTheme();
+    // Network status listeners
     window.addEventListener('online', () => setNetworkOnlineStatus(true));
     window.addEventListener('offline', () => setNetworkOnlineStatus(false));
-    // Service worker update listener also belongs here or in main.ts
-  }
 
+    // Initialize network status
+    setNetworkOnlineStatus(navigator.onLine);
+
+    // Initialize theme
+    initTheme();
+
+    // Service worker registration for PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!newAppVersionAvailable.value) {
+          newAppVersionAvailable.value = true;
+        }
+      });
+    }
+
+    // Restore last online time from localStorage
+    const savedLastOnlineTime = localStorage.getItem('lastOnlineTime');
+    if (savedLastOnlineTime) {
+      lastOnlineTime.value = parseInt(savedLastOnlineTime, 10);
+    }
+
+    // Handle page visibility changes
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        setNetworkOnlineStatus(navigator.onLine);
+      }
+    });
+
+    // Handle beforeunload to save state
+    window.addEventListener('beforeunload', () => {
+      localStorage.setItem('lastOnlineTime', lastOnlineTime.value.toString());
+      localStorage.setItem('isOnline', isOnline.value.toString());
+    });
+  }
 
   return {
     currentTheme,
     isOnline,
     hasFetchedInitialAuth,
     newAppVersionAvailable,
-    offlineQueue, // Expose the reactive object for more detailed UI if needed
+    lastOnlineTime,
+    offlineQueue,
     getTheme,
     getNetworkStatus,
     getHasFetchedInitialAuth,
     getNewAppVersionAvailable,
+    getLastOnlineTime,
     hasPendingOfflineActions,
     pendingActionCount,
     setTheme,
