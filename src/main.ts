@@ -1,12 +1,12 @@
 // src/main.ts
-import { createApp, App as VueApp } from "vue";
+import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "@/App.vue";
 import router from "./router";
-import { auth } from "@/firebase";
-import { setupAuthStateListener, setAuthPersistence } from "./services/authService";
 import AuthGuard from "@/components/AuthGuard.vue";
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
+// Import stores only once
 import { useAppStore } from "@/stores/appStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useNotificationStore } from "./stores/notificationStore";
@@ -15,123 +15,82 @@ import "@fortawesome/fontawesome-free/css/all.css";
 import "./styles/main.scss";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
-let appInstance: VueApp | null = null;
+// PWA Registration
+import { registerSW } from 'virtual:pwa-register'
+
+// Create pinia instance only once
 const pinia = createPinia();
 
-// Service Worker Registration
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(registration => {
-        console.log('ServiceWorker registration successful');
-      })
-      .catch(err => {
-        console.log('ServiceWorker registration failed: ', err);
-      });
-  });
-}
+// Create the Vue application
+const app = createApp(App);
+app.use(pinia);
+app.use(router);
+app.component("AuthGuard", AuthGuard);
 
 // Network Status Management
-let isOnline = navigator.onLine;
 const updateOnlineStatus = () => {
-  const wasOnline = isOnline;
-  isOnline = navigator.onLine;
-  
-  if (appInstance) {
-    const appStore = useAppStore(pinia);
-    appStore.setNetworkOnlineStatus(isOnline);
-    
-    // Show notification only when status changes
-    if (wasOnline !== isOnline) {
-      const notificationStore = useNotificationStore(pinia);
-      notificationStore.showNotification({
-        message: isOnline ? 'You are back online!' : 'You are offline. Some features may be limited.',
-        type: isOnline ? 'success' : 'warning',
-        duration: 3000
-      });
-    }
-  }
+  const appStore = useAppStore();
+  appStore.setNetworkOnlineStatus(navigator.onLine);
 };
 
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
 
-// Firebase Auth State Listener
-let unsubscribeAuth: (() => void) | null = null;
+// Initialize app stores
+const appStore = useAppStore();
+const profileStore = useProfileStore();
 
-async function setupAuthListener() {
-  if (unsubscribeAuth) return;
-  console.log("Setting up Firebase Auth State Listener...");
+// Initialize app listeners
+appStore.initAppListeners();
 
-  // Set persistence to LOCAL
-  try {
-    await setAuthPersistence();
-  } catch (error) {
-    console.error("Error setting auth persistence:", error);
+// PWA Service Worker Registration
+const updateSW = registerSW({
+  onNeedRefresh() {
+    console.log('New version available, showing update prompt');
+    appStore.setNewAppVersionAvailable(true);
+  },
+  onOfflineReady() {
+    console.log('App ready to work offline');
+    const notificationStore = useNotificationStore();
+    notificationStore.showNotification({
+      message: 'App is ready to work offline!',
+      type: 'success',
+      duration: 3000
+    });
+  },
+  onRegisterError(error) {
+    console.error('SW registration error:', error);
   }
+});
 
-  unsubscribeAuth = setupAuthStateListener(async (user) => {
-    console.log("Firebase Auth State Changed. User:", user ? user.uid : "null");
-    const studentStore = useProfileStore(pinia);
-    const appStore = useAppStore(pinia);
-    const notificationStore = useNotificationStore(pinia);
+// Make updateSW available globally for the reload functionality
+window.__updateSW = updateSW;
 
-    const isInitialAuthCheck = !appStore.hasFetchedInitialAuth;
+// Set up auth initialization
+const auth = getAuth();
+console.log('Setting up Firebase Auth State Listener...');
 
-    try {
-      // Handle auth state in student store
-      if (isOnline) {
-        await studentStore.handleAuthStateChange(user);
-      } else if (user) {
-        // If offline, use cached data
-        await studentStore.handleAuthStateChange(user);
-      }
+// Mount app immediately
+app.mount('#app');
+console.log('Vue App Mounted.');
 
-      if (isInitialAuthCheck) {
-        appStore.setHasFetchedInitialAuth(true);
-      }
-
-    } catch (error) {
-      console.error("Error processing auth state change:", error);
-      if (isOnline) {
-        await studentStore.clearStudentSession(false);
-      }
-      if (isInitialAuthCheck) {
-        appStore.setHasFetchedInitialAuth(true);
-      }
-      notificationStore.showNotification({
-        message: "Error processing login state.",
-        type: "error"
-      });
-    } finally {
-      if ((isInitialAuthCheck && appStore.hasFetchedInitialAuth) || !appInstance) {
-        mountApp();
-      }
-
-      if (appInstance && !user && router.currentRoute.value.meta.requiresAuth) {
-        await router.replace({ name: "Landing" });
-      }
+// Handle auth state changes AFTER mounting
+onAuthStateChanged(auth, async (user) => {
+  console.log('Firebase Auth State Changed. User:', user ? user.uid : 'null');
+  
+  try {
+    if (user) {
+      await profileStore.handleAuthStateChange(user);
+    } else {
+      await profileStore.clearStudentSession(false);
     }
-  });
-}
+  } catch (error) {
+    console.error('Error during auth state change:', error);
+  } finally {
+    appStore.setHasFetchedInitialAuth(true);
+  }
+}, (error) => {
+  console.error('Auth state change error:', error);
+  appStore.setHasFetchedInitialAuth(true);
+});
 
-function mountApp(): void {
-  if (appInstance) return;
-
-  appInstance = createApp(App);
-  appInstance.use(pinia);
-  appInstance.use(router);
-  appInstance.component("AuthGuard", AuthGuard);
-  
-  // Add global properties
-  appInstance.config.globalProperties.$isOnline = isOnline;
-  
-  appInstance.mount("#app");
-
-  const appStore = useAppStore();
-  appStore.initAppListeners();
-  updateOnlineStatus(); // Initial online status check
-}
-
-// Initial Setup
-setupAuthListener();

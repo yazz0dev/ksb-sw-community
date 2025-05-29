@@ -39,106 +39,58 @@ export const getISTTimestamp = (dateInput: Date | string | Timestamp | { seconds
     return Timestamp.fromDate(dt.setZone('Asia/Kolkata').toJSDate());
 };
 
-
-export const mapEventDataToFirestore = (data: Partial<Event> | EventFormData, isNew = false, existingEvent?: Event): Partial<Event> => {
-    const sourceData = { ...data };
-    const eventToFirestore: Partial<Event> = {};
-
-    // Validate organizers if details are present
-    if ('details' in sourceData && sourceData.details) {
-        const detailsFromSource = sourceData.details;
-        
-        // Ensure organizers list is valid
-        if (!Array.isArray(detailsFromSource.organizers)) {
-            throw new Error('Organizers must be an array');
-        }
-        if (detailsFromSource.organizers.length === 0) {
-            throw new Error('Event must have at least one organizer');
-        }
-        if (detailsFromSource.organizers.length > 10) {
-            throw new Error('Event cannot have more than 10 organizers');
-        }
-        
-        // For new events, ensure creator is in organizers list
-        if (isNew && 'requestedBy' in sourceData && typeof sourceData.requestedBy === 'string') {
-            if (!detailsFromSource.organizers.includes(sourceData.requestedBy)) {
-                detailsFromSource.organizers.push(sourceData.requestedBy);
+export const mapEventDataToFirestore = (data: EventFormData): any => {
+    const firestoreData = { ...data };
+    
+    // Handle date conversion to Firestore Timestamps
+    if (data.details.date.start || data.details.date.end) {
+        const convertToTimestamp = (dateValue: any): Timestamp | null => {
+            if (!dateValue) return null;
+            
+            try {
+                let dateTime: DateTime;
+                
+                if (typeof dateValue === 'string') {
+                    dateTime = DateTime.fromISO(dateValue);
+                } else if (dateValue instanceof Date) {
+                    dateTime = DateTime.fromJSDate(dateValue);
+                } else if (dateValue && typeof dateValue === 'object' && 'toDate' in dateValue) {
+                    return dateValue; // Already a Firestore Timestamp
+                } else {
+                    console.warn('Unknown date format:', dateValue);
+                    return null;
+                }
+                
+                if (!dateTime.isValid) {
+                    console.warn('Invalid date:', dateValue, dateTime.invalidReason);
+                    return null;
+                }
+                
+                return Timestamp.fromDate(dateTime.toJSDate());
+            } catch (error) {
+                console.error('Error converting date to Timestamp:', error);
+                return null;
             }
-        }
-
-        eventToFirestore.details = {
-            ...detailsFromSource,
-            date: { 
-                start: getISTTimestamp(detailsFromSource.date?.start),
-                end: getISTTimestamp(detailsFromSource.date?.end),
-            },
-        } as EventDetails;
-    }
-
-    if ('id' in sourceData && typeof sourceData.id === 'string') {
-        eventToFirestore.id = sourceData.id;
-    }
-    if ('status' in sourceData && sourceData.status !== undefined) {
-        eventToFirestore.status = sourceData.status;
-    }
-    if ('requestedBy' in sourceData && typeof sourceData.requestedBy === 'string') {
-        eventToFirestore.requestedBy = sourceData.requestedBy;
+        };
+        
+        // Convert to Timestamps for Firestore storage
+        const startTimestamp = convertToTimestamp(data.details.date.start);
+        const endTimestamp = convertToTimestamp(data.details.date.end);
+        
+        // Add dateTimestamps as a separate top-level property for Firestore
+        firestoreData.dateTimestamps = {
+            start: startTimestamp,
+            end: endTimestamp
+        };
     }
     
-    if ('criteria' in sourceData && sourceData.criteria !== undefined) eventToFirestore.criteria = sourceData.criteria;
-    if ('participants' in sourceData && sourceData.participants !== undefined) eventToFirestore.participants = sourceData.participants;
-    if ('teams' in sourceData && sourceData.teams !== undefined) eventToFirestore.teams = sourceData.teams;
-    if ('teamMemberFlatList' in sourceData && sourceData.teamMemberFlatList !== undefined) eventToFirestore.teamMemberFlatList = sourceData.teamMemberFlatList;
-    if ('submissions' in sourceData && sourceData.submissions !== undefined) eventToFirestore.submissions = sourceData.submissions;
-    
-    if ('votingOpen' in sourceData && typeof sourceData.votingOpen === 'boolean') eventToFirestore.votingOpen = sourceData.votingOpen;
-    if ('bestPerformerSelections' in sourceData && sourceData.bestPerformerSelections !== undefined) eventToFirestore.bestPerformerSelections = sourceData.bestPerformerSelections;
-    if ('winners' in sourceData && sourceData.winners !== undefined) eventToFirestore.winners = sourceData.winners;
-    if ('manuallySelectedBy' in sourceData && sourceData.manuallySelectedBy !== undefined) {
-         eventToFirestore.manuallySelectedBy = sourceData.manuallySelectedBy === null ? undefined : sourceData.manuallySelectedBy;
+    // Add createdAt and lastUpdatedAt timestamps for new events
+    if (!firestoreData.createdAt) {
+        firestoreData.createdAt = Timestamp.now();
     }
-    if ('organizerRatings' in sourceData && sourceData.organizerRatings !== undefined) eventToFirestore.organizerRatings = sourceData.organizerRatings; 
+    firestoreData.lastUpdatedAt = Timestamp.now();
     
-    if ('lifecycleTimestamps' in sourceData && sourceData.lifecycleTimestamps !== undefined) eventToFirestore.lifecycleTimestamps = sourceData.lifecycleTimestamps;
-    
-    if ('rejectionReason' in sourceData) {
-        const reason = sourceData.rejectionReason;
-        eventToFirestore.rejectionReason = reason === null ? undefined : reason;
-    }
-    
-    const srcCreatedAt = 'createdAt' in sourceData ? sourceData.createdAt : undefined;
-    const srcLastUpdatedAt = 'lastUpdatedAt' in sourceData ? sourceData.lastUpdatedAt : undefined;
-
-    if (isNew) {
-        eventToFirestore.createdAt = srcCreatedAt instanceof Timestamp ? srcCreatedAt : Timestamp.now();
-        eventToFirestore.lastUpdatedAt = srcLastUpdatedAt instanceof Timestamp ? srcLastUpdatedAt : Timestamp.now();
-        eventToFirestore.votingOpen = false; // Ensure votingOpen is false for new events
-    } else {
-        eventToFirestore.lastUpdatedAt = srcLastUpdatedAt instanceof Timestamp ? srcLastUpdatedAt : Timestamp.now();
-        if (existingEvent?.createdAt) {
-            eventToFirestore.createdAt = existingEvent.createdAt;
-        } else if (srcCreatedAt instanceof Timestamp) {
-            eventToFirestore.createdAt = srcCreatedAt;
-        }
-    }
-    
-    // These keys are expected to be on `Event` or `EventFormData`
-    const optionalTimestampKeys: (keyof Event | keyof EventFormData)[] = ['completedAt', 'closedAt'];
-    
-    optionalTimestampKeys.forEach(key => {
-        if (key in sourceData) {
-            const tsValue = (sourceData as Partial<Event> & EventFormData)[key] as Date | string | Timestamp | null | undefined;
-            if (tsValue instanceof Timestamp) {
-                (eventToFirestore as any)[key] = tsValue;
-            } else if (tsValue) { 
-                (eventToFirestore as any)[key] = getISTTimestamp(tsValue);
-            } else if (tsValue === null) {
-                (eventToFirestore as any)[key] = null; 
-            }
-        }
-    });
-
-    return eventToFirestore;
+    return firestoreData;
 };
 
 const tsNullToUndefined = (ts: Timestamp | null): Timestamp | undefined => {
@@ -153,24 +105,24 @@ export const mapFirestoreToEventData = (id: string, firestoreData: DocumentData 
         ...firestoreData,
     };
 
-    // Assuming EventDetails.date.start/end can be Timestamp | null
+    // Convert Firestore date objects back to Event format (Timestamp | null)
     if (event.details && typeof event.details === 'object' && event.details.date && typeof event.details.date === 'object') {
         const sourceStartDate = firestoreData.details?.date?.start;
         if (sourceStartDate instanceof Timestamp) {
             event.details.date.start = sourceStartDate;
         } else if (sourceStartDate) {
-            event.details.date.start = getISTTimestamp(sourceStartDate); // Returns Timestamp | null
+            event.details.date.start = getISTTimestamp(sourceStartDate);
         } else {
-            event.details.date.start = null; // Or undefined if your type prefers that
+            event.details.date.start = null;
         }
 
         const sourceEndDate = firestoreData.details?.date?.end;
         if (sourceEndDate instanceof Timestamp) {
             event.details.date.end = sourceEndDate;
         } else if (sourceEndDate) {
-            event.details.date.end = getISTTimestamp(sourceEndDate); // Returns Timestamp | null
+            event.details.date.end = getISTTimestamp(sourceEndDate);
         } else {
-            event.details.date.end = null; // Or undefined
+            event.details.date.end = null;
         }
     }
     

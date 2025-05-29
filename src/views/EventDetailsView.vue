@@ -1,12 +1,12 @@
 // src/views/EventDetails.vue
 <template>
-  <div class="event-details-view container-fluid px-0 px-md-2 event-details-bg">
+  <div class="event-details-view container-fluid px-2 px-md-3 event-details-bg">
     <SkeletonProvider
       :loading="loading"
       :skeleton-component="EventDetailsSkeleton"
     >
       <!-- Error Display -->
-      <div v-if="initialFetchError" class="container-lg mt-4">
+      <div v-if="initialFetchError" class="container-lg mt-3 mt-md-4">
         <div class="alert alert-danger" role="alert">
           <i class="fas fa-exclamation-triangle me-2"></i>
           {{ initialFetchError }}
@@ -30,7 +30,7 @@
 
         <!-- Floating Action Button for Submission (conditionally rendered) -->
         <template v-if="canSubmitProject && event.details.allowProjectSubmission !== false">
-          <div class="d-none d-md-block text-end mb-3">
+          <div class="d-none d-md-block text-end mb-2 mb-md-3">
             <button
               class="btn btn-lg btn-primary shadow submit-fab"
               @click="triggerSubmitModalOpen"
@@ -48,11 +48,11 @@
           </button>
         </template>
 
-        <div class="row g-4 mt-0">
+        <div class="row g-3 g-md-4 mt-0">
           <!-- Main Content Column -->
           <div class="col-12 col-lg-8">
             <!-- Event Management Controls -->
-            <div class="mb-4">
+            <div class="mb-3 mb-md-4">
               <EventManageControls
                 :event="event"
                 class="mb-0 animate-fade-in"
@@ -67,7 +67,7 @@
             <!-- Feedback Message -->
             <transition name="fade-pop">
               <div v-if="globalFeedback.message"
-                class="alert alert-sm mt-3 mb-3 d-flex align-items-center animate-fade-in"
+                class="alert alert-sm mt-2 mt-md-3 mb-2 mb-md-3 d-flex align-items-center animate-fade-in"
                 :class="globalFeedback.type === 'success' ? 'alert-success' : 'alert-danger'"
                 role="alert"
               >
@@ -77,9 +77,9 @@
             </transition>
 
             <!-- Teams/Participants Section -->
-            <div class="mt-4">
+            <div class="mt-3 mt-md-4">
               <!-- Team List -->
-              <div v-if="isTeamEvent" class="mb-4">
+              <div v-if="isTeamEvent" class="mb-3 mb-md-4">
                 <div class="section-header mb-3">
                   <i class="fas fa-users text-primary me-2"></i>
                   <span class="h5 mb-0 text-primary">Teams</span>
@@ -490,13 +490,10 @@ const handleSubmitProject = async (): Promise<void> => {
     actionInProgress.value = true;
 
     try {
-        await submitProject({ // Use composable method
-            eventId: props.id,
-            submissionData: {
-                projectName: submissionForm.value.projectName.trim(),
-                link: submissionForm.value.link.trim(),
-                description: submissionForm.value.description.trim() || undefined,
-            }
+        await submitProject(props.id, {
+            projectName: submissionForm.value.projectName.trim(),
+            link: submissionForm.value.link.trim(),
+            description: submissionForm.value.description.trim() || undefined,
         });
         setGlobalFeedback('Project submitted successfully!', 'success');
         getOrCreateModalInstance()?.hide();

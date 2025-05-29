@@ -3,7 +3,6 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useAppStore } from '@/stores/appStore';
 import { useNotifications } from '@/composables/useNotifications'; // For in-app messages
 import { useAuth } from '@/composables/useAuth'; // Added
-import { isSupported, permissionState, requestPermission, sendNotification } from '@/utils/pushApi';
 
 // --- OneSignal Utilities (consolidated) ---
 
@@ -217,4 +216,4 @@ export function usePushNotifications() {
     checkPushPermissionState, // Expose if needed externally, though mostly internal
     initializeOneSignalSdk // Expose for potential explicit initialization elsewhere, e.g., after login
   };
-} 
+}

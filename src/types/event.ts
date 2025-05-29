@@ -141,6 +141,12 @@ export interface EventFormData {
   winners?: EventWinners;
   gallery?: GalleryItem[];
 
+  // Firestore timestamp storage for date operations
+  dateTimestamps?: {
+    start: Timestamp | null;
+    end: Timestamp | null;
+  };
+
   createdAt?: Timestamp;
   lastUpdatedAt?: Timestamp;
   completedAt?: Timestamp;

@@ -88,15 +88,8 @@ interface Request {
     [key: string]: any;
 }
 
-// Define an extended interface for the profile store with the additional methods
-interface ProfileStoreWithUserRequests {
-  currentStudent: Ref<UserData | null>;
-  fetchUserRequests: (uid: string) => Promise<void>;
-  userRequests: StoreEvent[];
-}
-
 // Explicitly type studentStore using ReturnType
-const studentStore: ReturnType<typeof useProfileStore> = useProfileStore();
+const studentStore = useProfileStore(); // No need for complex typing if store is correctly defined
 const appStore = useAppStore();
 const router = useRouter(); // Initialize router from the imported useRouter
 const requests = ref<Request[]>([]); // Use the local Request interface
@@ -117,11 +110,11 @@ const fetchRequestsInternal = async (uid: string): Promise<void> => {
 
     try {
         // Use a type assertion with 'as unknown as' for safer casting
-        const typedStore = studentStore as unknown as ProfileStoreWithUserRequests;
+        // const typedStore = studentStore as unknown as ProfileStoreWithUserRequests; // No longer needed
         
         // Use the properly typed store reference and passed uid
-        await typedStore.fetchUserRequests(uid);
-        const storeRequests: StoreEvent[] = typedStore.userRequests; 
+        await studentStore.fetchUserRequests(uid); // Use studentStore directly
+        const storeRequests: StoreEvent[] = studentStore.userRequests; // Use studentStore directly
 
         // Map StoreEvent[] to Request[] for the component's needs
         requests.value = storeRequests.map((event: StoreEvent): Request => ({
@@ -176,7 +169,6 @@ onMounted(() => {
       loadingRequests.value = true;
       await fetchRequestsInternal(user.uid);
     } else if (initialAuthDone && !user?.uid) {
-      errorMessage.value = 'User not logged in.';
       requests.value = [];
       loadingRequests.value = false;
     } else if (!initialAuthDone) {

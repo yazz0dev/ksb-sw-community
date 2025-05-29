@@ -1,27 +1,36 @@
 // src/views/EditProfileView.vue
 <template>
-  <div class="container py-5">
+  <div class="container py-4 py-md-5 px-3 px-md-4">
     <div class="row justify-content-center">
       <div class="col-lg-8">
         <!-- Header -->
-        <div class="d-flex align-items-center mb-4">
-          <button @click="router.back()" class="btn btn-link text-secondary text-decoration-none">
+        <div class="d-flex align-items-center mb-3 mb-md-4">
+          <button @click="router.back()" class="btn btn-link text-secondary text-decoration-none p-1 p-md-2">
             <i class="fas fa-arrow-left me-2"></i> Back
           </button>
-          <h1 class="h3 mb-0">Edit Profile</h1>
+          <h1 class="h3 h2-md mb-0">Edit Profile</h1>
         </div>
 
         <!-- Error Alert -->
-        <div v-if="error" class="alert alert-danger d-flex align-items-center mb-4">
+        <div v-if="error" class="alert alert-danger d-flex align-items-center mb-3 mb-md-4">
           <i class="fas fa-exclamation-circle me-2"></i>
           {{ error }}
         </div>
 
         <!-- Edit Form -->
         <div class="card shadow-sm">
-          <div class="card-body p-4">
+          <div class="card-body p-3 p-md-4">
             <form @submit.prevent="saveProfileEdits" class="needs-validation" novalidate>
-              <div class="mb-4">
+              <!-- Profile Image -->
+              <div class="mb-3 mb-md-4 text-center">
+                <ProfileImageUploader
+                  :current-image-url="form.photoURL"
+                  :disabled="loading"
+                  @update:image="form.photoURL = $event"
+                />
+              </div>
+
+              <div class="mb-3 mb-md-4">
                 <label class="form-label required">Name</label>
                 <input
                   v-model="form.name"
@@ -33,11 +42,6 @@
                   :disabled="loading"
                 />
                 <div class="invalid-feedback">Name is required</div>
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Profile Image URL</label>
-                <input v-model="form.photoURL" type="url" class="form-control" placeholder="https://..." />
               </div>
 
               <div class="mb-3">
@@ -97,6 +101,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import type { StudentProfileData, EnrichedStudentData } from '@/types/student';
+import ProfileImageUploader from '@/components/common/ProfileImageUploader.vue';
 
 const router = useRouter();
 const route = useRoute();

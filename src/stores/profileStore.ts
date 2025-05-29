@@ -1,73 +1,61 @@
 // src/stores/studentProfileStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
-import { doc, getDoc, updateDoc, collection, getDocs, query, where, Timestamp, documentId, orderBy } from 'firebase/firestore';
-import { db, auth } from '@/firebase'; // Assuming auth is also exported from firebase.ts
-import { onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
-
-import type {
-    EnrichedStudentData,
-    NameCacheMap,
-    NameCacheEntry,
-    StudentPortfolioProject,
-    StudentEventHistoryItem
-} from '@/types/student';
-import type { XPData } from '@/types/xp';
-import { getDefaultXPData, XP_COLLECTION_PATH } from '@/types/xp';
-import { Event, EventStatus } from '@/types/event';
-import type { Submission } from '@/types/event';
-import { EventFormat } from '@/types/event';
-
+import {
+  doc, getDoc, updateDoc, collection, query, where, getDocs, Timestamp,
+  writeBatch, serverTimestamp, increment, arrayUnion, arrayRemove, orderBy, limit, startAfter, FieldPath, documentId
+} from 'firebase/firestore';
+import type { User as FirebaseUser, AuthError as FirebaseAuthError } from 'firebase/auth'; // Added AuthError
+import { getAuth, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth'; // Added getAuth, signOut, onAuthStateChanged
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'; // Added Firebase Storage imports
+import { db } from '@/firebase';
+import { deepClone, now, isEmpty } from '@/utils/helpers'; // Added now, isEmpty
 import { useNotificationStore } from './notificationStore';
-import { useAppStore } from './appStore';
+import { useAppStore } from './appStore'; // Renamed to studentAppStore for clarity in this file
+import type { EnrichedStudentData, StudentPortfolioGenerationData, StudentEventHistoryItem, UserData, XPData } from '@/types/student'; // Adjusted imports: Removed StudentData, Changed StudentPortfolioData
+import { getDefaultXPData } from '@/types/xp';
+import { Event, EventStatus, EventFormat } from '@/types/event'; // Added Event and EventStatus, EventFormat
+import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Added mapFirestoreToEventData
+import type { NameCacheEntry, StudentPortfolioProject, ImageUploadOptions, ImageUploadState } from '@/types/student'; // Removed UploadStatusValue
+import { UploadStatus } from '@/types/student'; // Added UploadStatus enum
 
-import { deepClone, isEmpty } from '../utils/helpers';
+const STUDENT_COLLECTION_PATH = 'students';
+const XP_COLLECTION_PATH = 'xp';
 
-// Define the StudentData interface if it's missing from the imported types
-interface StudentData {
-  uid: string;
-  name: string;
-  email?: string | null; // MODIFIED HERE: string | undefined -> string | null
-  batchYear?: number;
-  photoURL?: string;
-  createdAt?: Timestamp;
-  lastUpdatedAt?: Timestamp;
-  bio?: string;
-  hasLaptop?: boolean;
-  skills?: string[];
-  participatedEventIDs?: string[];
-  organizedEventIDs?: string[];
-  preferredRoles?: string[];
-  socialLink?: string;
-}
+// Get storage reference from the existing Firebase app
+const storage = getStorage();
 
 const NAME_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
-const now = () => Timestamp.now();
+// const now = () => Timestamp.now(); // Now imported from helpers
 
 export const useProfileStore = defineStore('studentProfile', () => {
-  // --- State ---
-  const currentStudent = ref<EnrichedStudentData | null>(null);
-  const isLoading = ref<boolean>(true);
-  const error = ref<string | null>(null);
-  const actionError = ref<string | null>(null);
-  const fetchError = ref<string | null>(null);
-  const hasFetched = ref<boolean>(false); // Added: Tracks if initial student data fetch is done
-
-  const nameCache = ref<NameCacheMap>(new Map());
-  const allUsers = ref<StudentData[]>([]); // New state for all users
-
-  const viewedStudentProfile = ref<EnrichedStudentData | null>(null);
-  const viewedStudentProjects = ref<StudentPortfolioProject[]>([]);
-  const viewedStudentEventHistory = ref<StudentEventHistoryItem[]>([]);
-
-  const currentUserPortfolioData = ref<{
-    projects: StudentPortfolioProject[];
-    eventParticipationCount: number;
-  }>({ projects: [], eventParticipationCount: 0 });
-
-  const studentAppStore = useAppStore();
+  const auth = getAuth(); // Initialize Firebase Auth
   const notificationStore = useNotificationStore();
+  const studentAppStore = useAppStore(); // Use the renamed import
+
+  const currentStudent = ref<EnrichedStudentData | null>(null);
+  const viewedStudentProfile = ref<EnrichedStudentData | null>(null);
+  const viewedStudentProjects = ref<StudentPortfolioProject[]>([]); // Explicitly type if possible
+  const viewedStudentEventHistory = ref<StudentEventHistoryItem[]>([]);
+  const currentUserPortfolioData = ref<{ projects: StudentPortfolioProject[]; eventParticipationCount: number; }>({ projects: [], eventParticipationCount: 0 }); // Adjusted type
+  const allUsers = ref<UserData[]>([]);
+  const nameCache = ref<Map<string, NameCacheEntry>>(new Map()); // Changed to Map
+  const isLoading = ref<boolean>(false);
+  const error = ref<string | null>(null); // General error for profile loading
+  const actionError = ref<string | null>(null); // Error for specific actions like update
+  const fetchError = ref<string | null>(null); // Error for fetching data for other profiles/lists
+  const userRequests = ref<Event[]>([]); // State for user's event requests
+  const hasFetched = ref<boolean>(false); // Added hasFetched state
+
+  // --- State ---
+  const imageUploadState = ref<ImageUploadState>({
+    status: UploadStatus.Idle,
+    progress: 0,
+    error: null,
+    fileName: null,
+    downloadURL: null
+  });
 
   // --- Getters ---
   const studentId = computed(() => currentStudent.value?.uid || null);
@@ -75,6 +63,8 @@ export const useProfileStore = defineStore('studentProfile', () => {
   const studentBatchYear = computed(() => currentStudent.value?.batchYear || null);
   const studentXP = computed(() => currentStudent.value?.xpData?.totalCalculatedXp || 0);
   const currentStudentPhotoURL = computed(() => currentStudent.value?.photoURL || null);
+  // Add isAuthenticated computed property
+  const isAuthenticated = computed(() => !!currentStudent.value?.uid);
 
   // New getter for allUsers
   const getAllUsers = computed(() => allUsers.value);
@@ -91,13 +81,15 @@ export const useProfileStore = defineStore('studentProfile', () => {
   function _updateNameCache(uid: string, name: string | null) {
     if (name) {
       nameCache.value.set(uid, { name, timestamp: Date.now() });
+    } else {
+      nameCache.value.delete(uid); // Optionally remove if name is null
     }
   }
 
   async function _handleAuthError(operation: string, err: unknown, uid?: string): Promise<void> {
     const message = err instanceof Error ? err.message : `An unknown error occurred during ${operation}.`;
-    error.value = message; // Use the main 'error' for auth-related issues primarily
-    console.error(`StudentProfileStore Auth/Profile Error (${operation})${uid ? ` for UID ${uid}` : ''}:`, err);
+    error.value = message; // Set general error for auth-related issues
+    console.error(`StudentProfileStore Auth Error (${operation})${uid ? ` for UID ${uid}` : ''}:`, err);
     notificationStore.showNotification({ message, type: 'error' });
   }
 
@@ -129,17 +121,31 @@ export const useProfileStore = defineStore('studentProfile', () => {
         return null;
       }
 
-      const studentDocData = studentSnap.data();
-      const studentData = { uid: studentSnap.id, ...studentDocData } as StudentData;
+      const firestoreDocData = studentSnap.data();
+      const studentDataFromDoc = { uid: studentSnap.id, ...firestoreDocData } as UserData; // Use UserData
       const xpData = xpSnap.exists() ? { uid: xpSnap.id, ...xpSnap.data() } as XPData : getDefaultXPData(uid);
 
-      _updateNameCache(studentData.uid, studentData.name);
-      return {
-        ...studentData,
-        email: studentData.email ?? null, // Ensure email is string | null, never undefined
-        batchYear: studentDocData?.batchYear ?? 0,
+      _updateNameCache(studentDataFromDoc.uid, studentDataFromDoc.name ?? null); 
+
+      // Construct EnrichedStudentData carefully
+      const enrichedData: EnrichedStudentData = {
+        uid: studentDataFromDoc.uid,
+        name: studentDataFromDoc.name ?? null,
+        email: studentDataFromDoc.email ?? null,
+        studentId: studentDataFromDoc.studentId,
+        batchYear: studentDataFromDoc.batchYear, // UserData.batchYear is number | undefined
+        batch: studentDataFromDoc.batch, // UserData.batch is string | undefined
+        photoURL: studentDataFromDoc.photoURL ?? null,
+        bio: studentDataFromDoc.bio,
+        skills: studentDataFromDoc.skills,
+        preferredRoles: studentDataFromDoc.preferredRoles,
+        hasLaptop: studentDataFromDoc.hasLaptop,
+        socialLinks: studentDataFromDoc.socialLinks,
+        participatedEventIDs: studentDataFromDoc.participatedEventIDs,
+        organizedEventIDs: studentDataFromDoc.organizedEventIDs,
         xpData: deepClone(xpData)
       };
+      return enrichedData;
     } catch (err) {
       await _handleAuthError("fetching student data", err, uid);
       return null;
@@ -152,11 +158,13 @@ export const useProfileStore = defineStore('studentProfile', () => {
     error.value = null;
     actionError.value = null;
     fetchError.value = null;
+    // Removed duplicate _fetchStudentDataInternal definition that was causing the syntax error
     if (firebaseUser) {
       const enrichedData = await _fetchStudentDataInternal(firebaseUser.uid);
       if (enrichedData) {
         currentStudent.value = enrichedData;
         await fetchCurrentUserPortfolioData();
+        hasFetched.value = true; // Set hasFetched to true after successful fetch
       } else {
         await clearStudentSession(false); 
         if (auth.currentUser) { 
@@ -176,6 +184,36 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
+  async function fetchUserRequests(userId: string): Promise<void> {
+    isLoading.value = true;
+    fetchError.value = null;
+    userRequests.value = []; // Clear previous requests
+
+    try {
+      const eventsRef = collection(db, 'events');
+      const q = query(
+        eventsRef,
+        where('requestedBy', '==', userId),
+        where('status', '==', EventStatus.Pending), // Assuming EventStatus.Pending is 'Pending'
+        orderBy('details.eventName', 'asc') // Optional: order by name or date
+      );
+
+      const querySnapshot = await getDocs(q);
+      const fetchedRequests: Event[] = [];
+      querySnapshot.forEach((docSnap) => {
+        // Use mapFirestoreToEventData or similar mapping if available and necessary
+        // For now, directly casting, assuming data structure matches Event type
+        fetchedRequests.push({ id: docSnap.id, ...docSnap.data() } as Event);
+      });
+      userRequests.value = fetchedRequests;
+    } catch (err) {
+      await _handleFetchError("fetching user event requests", err);
+      userRequests.value = []; // Ensure requests are empty on error
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   async function clearStudentSession(performFirebaseSignOut: boolean = false) {
     if (performFirebaseSignOut && auth.currentUser) {
         try {
@@ -191,6 +229,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     viewedStudentEventHistory.value = [];
     currentUserPortfolioData.value = { projects: [], eventParticipationCount: 0 };
     console.log("Student session data cleared from store.");
+    hasFetched.value = false; // Reset hasFetched on session clear
   }
 
   async function studentSignOut() {
@@ -202,6 +241,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
       // Notification is handled by useAuth().logout() if it's the initiator.
       // If this is called standalone, a generic logout message might be missed.
       // However, for consistency, notifications should be managed at the primary action point (useAuth).
+      // No explicit notificationStore call here to avoid duplicates if useAuth().logout() also shows one.
     } catch (err: any) {
       await _handleAuthError("clearing student session on sign out", err);
     } finally {
@@ -209,7 +249,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
-  async function updateMyProfile(updates: Partial<Omit<StudentData, 'uid' | 'email' | 'batchYear' | 'createdAt' | 'participatedEventIDs' | 'organizedEventIDs' | 'xpData'>>) {
+  async function updateMyProfile(updates: Partial<Omit<UserData, 'uid' | 'email' | 'createdAt' | 'participatedEventIDs' | 'organizedEventIDs' | 'xpData' | 'lastLogin' | 'profileUpdatedAt'>>) { // Use UserData
     if (!studentId.value) {
       notificationStore.showNotification({ message: "You must be logged in to update your profile.", type: 'error'});
       return false;
@@ -217,13 +257,19 @@ export const useProfileStore = defineStore('studentProfile', () => {
     isLoading.value = true; actionError.value = null;
     try {
       const studentRef = doc(db, 'students', studentId.value);
-      const dataToUpdate = { ...updates, lastUpdatedAt: now() };
+      const dataToUpdate: any = { ...updates, lastUpdatedAt: now() }; // Use any for dataToUpdate to match updateDoc flexibility
       await updateDoc(studentRef, dataToUpdate);
 
       if (currentStudent.value) {
-        // Assuming StudentData (used in updates) and EnrichedStudentData are compatible after the interface change
-        currentStudent.value = { ...currentStudent.value, ...deepClone(dataToUpdate) } as EnrichedStudentData;
-        if (updates.name) _updateNameCache(studentId.value, updates.name);
+        // Update currentStudent.value carefully
+        currentStudent.value = { 
+            ...currentStudent.value, 
+            ...deepClone(dataToUpdate),
+            // Ensure properties not in UserData but in EnrichedStudentData are preserved or handled
+            name: dataToUpdate.name !== undefined ? dataToUpdate.name : currentStudent.value.name, // Example for name
+            photoURL: dataToUpdate.photoURL !== undefined ? dataToUpdate.photoURL : currentStudent.value.photoURL, // Example for photoURL
+        } as EnrichedStudentData; // Cast might be needed
+        if (updates.name) _updateNameCache(studentId.value, updates.name ?? null);
       }
       notificationStore.showNotification({ message: "Profile updated successfully!", type: 'success' });
       return true;
@@ -476,14 +522,14 @@ export const useProfileStore = defineStore('studentProfile', () => {
                 snapshot.forEach(docSnap => {
                     const nameVal = docSnap.data()?.name || `Student (${docSnap.id.substring(0,5)})`;
                     namesMap[docSnap.id] = nameVal;
-                    _updateNameCache(docSnap.id, nameVal);
+                    _updateNameCache(docSnap.id, nameVal ?? null); // Ensure name is string | null
                 });
             }
              idsToFetchFromDB.forEach(id => {
                 if (!namesMap[id]) {
                     const unknownName = `Student (${id.substring(0,5)})`;
                     namesMap[id] = unknownName;
-                    _updateNameCache(id, unknownName); // Cache even if not found in DB to prevent re-fetch
+                    _updateNameCache(id, unknownName ?? null); // Cache even if not found in DB to prevent re-fetch, ensure name is string | null
                 }
             });
         } catch (err) {
@@ -511,7 +557,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
-  async function fetchAllStudentProfiles(): Promise<StudentData[]> {
+  async function fetchAllStudentProfiles(): Promise<UserData[]> { // Return UserData[]
     if (allUsers.value.length > 0) {
       // Return cached data if available and not forced to refetch
       return allUsers.value;
@@ -522,11 +568,11 @@ export const useProfileStore = defineStore('studentProfile', () => {
       const studentsCollectionRef = collection(db, 'students');
       const q = query(studentsCollectionRef, orderBy('name', 'asc')); // Optional: order by name
       const querySnapshot = await getDocs(q);
-      const fetchedUsers: StudentData[] = [];
+      const fetchedUsers: UserData[] = []; // Use UserData[]
       querySnapshot.forEach((docSnap) => {
-        const userData = { uid: docSnap.id, ...docSnap.data() } as StudentData;
+        const userData = { uid: docSnap.id, ...docSnap.data() } as UserData; // Use UserData
         fetchedUsers.push(userData);
-        _updateNameCache(userData.uid, userData.name); // Update name cache as well
+        _updateNameCache(userData.uid, userData.name ?? null); 
       });
       allUsers.value = fetchedUsers;
       return fetchedUsers;
@@ -555,6 +601,202 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   };
 
+  // --- Image Upload Functions ---
+  /**
+   * Upload an image file to Firebase Storage
+   * @param file The file to upload
+   * @param options Upload options
+   * @returns Promise with the download URL
+   */
+  async function uploadProfileImage(file: File, options: ImageUploadOptions = {}): Promise<string> {
+    if (!studentId.value) {
+      throw new Error("You must be logged in to upload a profile image.");
+    }
+
+    // Reset upload state
+    imageUploadState.value = {
+      status: UploadStatus.Uploading,
+      progress: 0,
+      error: null,
+      fileName: null,
+      downloadURL: null
+    };
+
+    try {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        throw new Error("Only image files are allowed.");
+      }
+
+      // Validate file size (default: 2MB)
+      const maxSizeMB = options.maxSizeMB || 2;
+      if (file.size > maxSizeMB * 1024 * 1024) {
+        throw new Error(`File size exceeds ${maxSizeMB}MB limit.`);
+      }
+
+      // Compress image if needed
+      let fileToUpload = file;
+      if (options.maxWidthOrHeight || options.quality) {
+        try {
+          // Handle browser-image-compression library safely
+          try {
+            // Dynamic import with error handling
+            const imageCompression = await import('browser-image-compression')
+              .then(module => module.default)
+              .catch(() => {
+                console.warn("Image compression library not available, using original file");
+                return null;
+              });
+              
+            if (imageCompression) {
+              // Fix the type error by casting options to any for the imageCompression call
+              fileToUpload = await imageCompression(file, {
+                maxSizeMB: options.maxSizeMB || 2,
+                maxWidthOrHeight: options.maxWidthOrHeight || 1200,
+                useWebWorker: true,
+                fileType: file.type,
+                // @ts-ignore - quality may not be in type definition but is supported
+                quality: options.quality || 0.8
+              });
+            }
+          } catch (err) {
+            console.warn("Image compression failed, using original file:", err);
+          }
+        } catch (err) {
+          console.warn("Image compression failed, using original file:", err);
+        }
+      }
+
+      // Create file name with timestamp to avoid cache issues
+      const timestamp = Date.now();
+      const extension = file.name.split('.').pop() || 'jpg';
+      const fileName = `${studentId.value}_${timestamp}.${extension}`;
+      
+      // Set storage path
+      const path = options.path || 'profile-images';
+      const fileRef = storageRef(storage, `${path}/${fileName}`);
+      
+      // Delete old profile image if it exists
+      if (currentStudent.value?.photoURL) {
+        try {
+          const oldUrl = currentStudent.value.photoURL;
+          // Only delete if it's a Firebase Storage URL
+          if (oldUrl && oldUrl.includes('firebasestorage.googleapis.com')) {
+            const oldRef = storageRef(storage, oldUrl);
+            await deleteObject(oldRef);
+          }
+        } catch (err) {
+          console.warn("Failed to delete old profile image:", err);
+        }
+      }
+
+      // Upload the file
+      const uploadTask = uploadBytesResumable(fileRef, fileToUpload);
+      
+      // Return a promise that resolves when the upload is complete
+      return new Promise((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            // Track upload progress
+            const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+            imageUploadState.value.progress = progress;
+          },
+          (error) => {
+            // Handle upload error
+            imageUploadState.value = {
+              status: UploadStatus.Error,
+              progress: 0,
+              error: error.message || "Upload failed",
+              fileName: file.name,
+              downloadURL: null
+            };
+            reject(error);
+          },
+          async () => {
+            // Upload complete, get download URL
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              imageUploadState.value = {
+                status: UploadStatus.Success,
+                progress: 100,
+                error: null,
+                fileName: file.name,
+                downloadURL
+              };
+              resolve(downloadURL);
+            } catch (err: any) {
+              imageUploadState.value = {
+                status: UploadStatus.Error,
+                progress: 0,
+                error: err?.message || "Failed to get download URL",
+                fileName: file.name,
+                downloadURL: null
+              };
+              reject(err);
+            }
+          }
+        );
+      });
+    } catch (err: any) {
+      imageUploadState.value = {
+        status: UploadStatus.Error,
+        progress: 0,
+        error: err?.message || "Upload failed",
+        fileName: file.name,
+        downloadURL: null
+      };
+      throw err;
+    }
+  }
+
+  /**
+   * Upload a profile image and update the user profile with the new image URL
+   * @param file The image file to upload
+   * @param options Upload options
+   * @returns Promise with success status
+   */
+  async function updateProfileImage(file: File, options: ImageUploadOptions = {}): Promise<boolean> {
+    if (!studentId.value) {
+      notificationStore.showNotification({ message: "You must be logged in to update your profile image.", type: 'error'});
+      return false;
+    }
+    
+    actionError.value = null;
+    isLoading.value = true;
+    
+    try {
+      const downloadURL = await uploadProfileImage(file, options);
+      
+      // Update the user profile with the new image URL
+      const success = await updateMyProfile({ photoURL: downloadURL });
+      if (success) {
+        notificationStore.showNotification({ message: "Profile image updated successfully!", type: 'success' });
+        return true;
+      } else {
+        throw new Error(actionError.value || "Failed to update profile with new image URL.");
+      }
+    } catch (err: any) {
+      await _handleOpError("updating profile image", err, studentId.value);
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /**
+   * Reset the image upload state
+   */
+  function resetImageUploadState(): void {
+    imageUploadState.value = {
+      status: UploadStatus.Idle,
+      progress: 0,
+      error: null,
+      fileName: null,
+      downloadURL: null
+    };
+  }
+
   return {
     currentStudent,
     isLoading,
@@ -572,6 +814,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     studentBatchYear,
     studentXP,
     currentStudentPhotoURL,
+    isAuthenticated, // Add this to the returned object
     getCachedStudentName,
     handleAuthStateChange,
     studentSignOut,
@@ -585,6 +828,14 @@ export const useProfileStore = defineStore('studentProfile', () => {
     getAllUsers,
     allUsers,
     fetchAllStudentProfiles,
-    unsubscribeProfileAuthListener
+    unsubscribeProfileAuthListener,
+    // Add the new image upload related exports
+    imageUploadState,
+    uploadProfileImage,
+    updateProfileImage,
+    resetImageUploadState,
+    // Expose user requests related state and actions
+    userRequests,
+    fetchUserRequests
   };
 });

@@ -1,5 +1,6 @@
 // src/types/student.ts
 import type { XPData } from './xp';
+export type { XPData } from './xp'; // Re-export XPData
 import type { Project } from './project'; // For portfolio data
 import type { EventFormat, EventStatus } from './event';   // For event history
 import type { Timestamp } from 'firebase/firestore';
@@ -120,4 +121,27 @@ export interface UserData {
 // specifically XP data, often used in views that display richer user profiles.
 export interface EnrichedUserData extends UserData {
   xpData: XPData | null; // Detailed XP breakdown for the user
+}
+
+// --- Image Upload Types ---
+export enum UploadStatus {
+  Idle = 'idle',
+  Uploading = 'uploading',
+  Success = 'success',
+  Error = 'error'
+}
+
+export interface ImageUploadState {
+  status: UploadStatus;
+  progress: number;
+  error: string | null;
+  fileName: string | null;
+  downloadURL: string | null;
+}
+
+export interface ImageUploadOptions {
+  maxSizeMB?: number;
+  maxWidthOrHeight?: number;
+  quality?: number;
+  path?: string; // Storage path
 }

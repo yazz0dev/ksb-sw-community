@@ -219,16 +219,27 @@ onMounted(async () => {
   error.value = null;
   try {
     await fetchPublicEvents();
-    const allEventsArr = events.value;
-    const allOrganizerUids = Array.from(
-      new Set(
-        allEventsArr.flatMap((e: any) => Array.isArray(e.details.organizers) ? e.details.organizers : [])
-      )
-    ).filter(Boolean);
-    if (allOrganizerUids.length > 0) {
-      await studentStore.fetchUserNamesBatch(allOrganizerUids);
+    
+    // Only try to fetch names if authenticated
+    if (isAuthenticated.value) {
+      const allEventsArr = events.value;
+      const allOrganizerUids = Array.from(
+        new Set(
+          allEventsArr.flatMap((e: any) => Array.isArray(e.details.organizers) ? e.details.organizers : [])
+        )
+      ).filter(Boolean);
+      
+      if (allOrganizerUids.length > 0) {
+        try {
+          await studentStore.fetchUserNamesBatch(allOrganizerUids);
+        } catch (nameError) {
+          console.warn("Failed to load organizer names, but events will still be displayed:", nameError);
+          // Don't set error.value here - let events display without names
+        }
+      }
     }
   } catch (err: any) {
+    console.error("Failed to load events:", err);
     error.value = err.message || 'Failed to load events.';
   } finally {
     loading.value = false;

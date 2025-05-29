@@ -6,8 +6,8 @@ declare global {
       Modal: typeof Modal;
       [key: string]: any;
     }
+    __updateSW?: (reloadPage?: boolean) => Promise<void>;
   }
 }
-
 
 export {}

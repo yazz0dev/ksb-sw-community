@@ -52,17 +52,17 @@ const config: UserConfig = {
         display: 'standalone',
         icons: [
           {
-            src: '/logo.png', // Fixed path - remove the space
+            src: '/logo.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/logo.png', // Fixed path - remove the space
+            src: '/logo.png',
             sizes: '512x512',
             type: 'image/png'
           },
           {
-            src: '/logo.png', // Fixed path - remove the space
+            src: '/logo.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
@@ -74,10 +74,8 @@ const config: UserConfig = {
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        // Don't precache OneSignal files
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         maximumFileSizeToCacheInBytes: 3000000,
-        // Add OneSignal to navigateFallbackDenylist to prevent conflicts
         navigateFallbackDenylist: [/^\/OneSignalSDKWorker\.js$/],
         runtimeCaching: [
           {
@@ -118,9 +116,7 @@ const config: UserConfig = {
             }
           }
         ]
-      },
-      // Change from injectManifest to generateSW strategy
-      strategies: 'generateSW'
+      }
     } as VitePWAOptions)
   ],
   optimizeDeps: {
@@ -168,9 +164,17 @@ const config: UserConfig = {
     assetsInlineLimit: 4096
   },
   server: {
+    port: 5173,
+    host: 'localhost', // Change from true to 'localhost' for more specificity
+    hmr: {
+      protocol: 'ws',    // Explicitly set WebSocket protocol
+      host: 'localhost',   // HMR server host
+      port: 5173,          // HMR server port
+      clientPort: 5173,    // Port the client should connect to for HMR
+      overlay: true        // Keep the error overlay enabled
+    },
     proxy: {
       '/api': {
-        target: 'https://instagram.fcok10-1.fna.fbcdn.net',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }

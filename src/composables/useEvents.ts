@@ -20,16 +20,26 @@ export function useEvents() {
    * The store handles caching and state updates.
    */
   const fetchPublicEvents = async (): Promise<Event[]> => {
-    await eventStore.fetchEvents();
-    return eventStore.allPubliclyViewableEvents;
+    try {
+      await eventStore.fetchEvents();
+      return eventStore.allPubliclyViewableEvents;
+    } catch (error) {
+      console.error('Error fetching public events:', error);
+      return []; // Return empty array on error
+    }
   };
 
   /**
    * Fetches event requests made by the current student via the store.
    */
   const fetchUserRequests = async (): Promise<Event[]> => {
-    await eventStore.fetchMyEventRequests();
-    return eventStore.myEventRequests;
+    try {
+      await eventStore.fetchMyEventRequests();
+      return eventStore.myEventRequests;
+    } catch (error) {
+      console.error('Error fetching user requests:', error);
+      return []; // Return empty array on error
+    }
   };
 
   /**
@@ -37,7 +47,12 @@ export function useEvents() {
    * @param eventId Event ID
    */
   const fetchEventById = async (eventId: string): Promise<Event | null> => {
-    return eventStore.fetchEventDetails(eventId);
+    try {
+      return await eventStore.fetchEventDetails(eventId);
+    } catch (error) {
+      console.error('Error fetching event by ID:', error);
+      return null;
+    }
   };
 
   /**

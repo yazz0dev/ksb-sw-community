@@ -2,18 +2,18 @@
   <div class="landing-section">
     <!-- Welcome Section -->
     <section class="welcome-section d-flex align-items-center justify-content-center">
-      <div class="container-xl text-center">
+      <div class="container-xl text-center px-3 px-md-4">
         <transition name="fade-slide-down">
           <div>
-            <h1 class="display-3 fw-bold text-gradient mb-4">
+            <h1 class="display-4 display-md-3 fw-bold text-gradient mb-3 mb-md-4">
               Welcome to the <span class="brand-highlight">KSB Tech Community!</span>
             </h1>
-            <p class="lead text-secondary mb-4 mx-auto" style="max-width: 40rem;">
+            <p class="lead text-secondary mb-3 mb-md-4 mx-auto" style="max-width: 40rem;">
               Manage events, collaborate on projects, and share resources within the KSB MCA community.
             </p>
             <router-link
               to="/login"
-              class="btn btn-lg btn-primary px-5 py-2 shadow animate-pop d-inline-flex align-items-center justify-content-center gap-2"
+              class="btn btn-lg btn-primary px-4 px-md-5 py-2 shadow animate-pop d-inline-flex align-items-center justify-content-center gap-2"
             >
               <i class="fas fa-sign-in-alt"></i>
               <span>Log In to Get Started</span>
@@ -24,12 +24,12 @@
     </section>
 
     <!-- Platform Features Section -->
-    <section class="features-section py-5">
-      <div class="container-lg">
-        <transition-group name="fade-slide-up" tag="div" class="row g-4 justify-content-center">
+    <section class="features-section py-4 py-md-5">
+      <div class="container-lg px-3 px-md-4">
+        <transition-group name="fade-slide-up" tag="div" class="row g-3 g-md-4 justify-content-center">
           <div class="col-md-4" v-for="(feature, index) in features" :key="feature.icon">
             <div class="card h-100 shadow-sm feature-card animate-pop" :style="{ animationDelay: `${index * 80}ms` }">
-              <div class="card-body text-center">
+              <div class="card-body text-center p-3 p-md-4">
                 <span :class="['feature-icon', getIconColorClass(feature.color)]">
                   <i :class="['fas', feature.icon]" aria-hidden="true"></i>
                 </span>
@@ -43,17 +43,17 @@
     </section>
 
     <!-- About & Info Section -->
-    <section class="about-section py-5">
-      <div class="container-lg">
-        <div class="row g-5 align-items-center">
+    <section class="about-section py-4 py-md-5">
+      <div class="container-lg px-3 px-md-4">
+        <div class="row g-4 g-md-5 align-items-center">
           <div class="col-lg-6">
             <transition name="fade-slide-left">
               <div>
                 <h2 class="fw-bold text-primary mb-3">About <span class="brand-highlight">KSB Tech Community</span></h2>
-                <p class="lead text-secondary mb-4">
+                <p class="lead text-secondary mb-3 mb-md-4">
                   The KSB Tech Community is a collaborative platform for MCA students at KMCT School Of Business to learn, build, and grow together through real-world software projects and events.
                 </p>
-                <ul class="list-unstyled mb-4">
+                <ul class="list-unstyled mb-3 mb-md-4">
                   <li class="mb-2"><i class="fas fa-lightbulb text-warning me-2" aria-hidden="true"></i> Foster practical software development experience</li>
                   <li class="mb-2"><i class="fas fa-users text-info me-2" aria-hidden="true"></i> Encourage peer learning and mentorship</li>
                   <li class="mb-2"><i class="fas fa-folder-open text-success me-2" aria-hidden="true"></i> Build a portfolio of real-world projects</li>

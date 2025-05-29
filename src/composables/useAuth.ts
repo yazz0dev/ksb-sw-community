@@ -1,110 +1,62 @@
-import { ref, computed } from 'vue';
-import { 
-  signInWithEmailAndPassword, 
-  signOut, 
-  setPersistence, 
-  browserLocalPersistence,
-  onAuthStateChanged,
-  type User as FirebaseUser
-} from 'firebase/auth';
-import { auth } from '@/firebase';
+import { computed, ref } from 'vue';
+import { getAuth, signOut, User } from 'firebase/auth';
 import { useProfileStore } from '@/stores/profileStore';
+import { useAppStore } from '@/stores/appStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useRouter } from 'vue-router';
 
 export function useAuth() {
-  const currentUser = ref<FirebaseUser | null>(null);
-  const isLoading = ref(false);
-  const error = ref<string | null>(null);
-  const isAuthenticated = computed(() => !!currentUser.value);
-  
+  const firebaseAuthInstance = getAuth(); // Renamed to avoid conflict if 'auth' is used as a variable name elsewhere
   const profileStore = useProfileStore();
+  const appStore = useAppStore();
   const notificationStore = useNotificationStore();
+  const router = useRouter();
 
-  /**
-   * Set persistent authentication mode
-   */
-  const setAuthPersistence = async (): Promise<void> => {
+  const isAuthenticated = computed(() => profileStore.isAuthenticated);
+  // Provides direct access to the current Firebase user object
+  const authUser = computed(() => firebaseAuthInstance.currentUser as User | null); 
+  const isInitialized = computed(() => appStore.hasFetchedInitialAuth);
+  // This error ref is for errors originating from actions within this composable (e.g., logout)
+  const authActionError = ref<Error | null>(null);
+
+  const logout = async () => {
+    authActionError.value = null; // Clear previous action error
     try {
-      await setPersistence(auth, browserLocalPersistence);
-    } catch (err) {
-      console.error('Error setting auth persistence:', err);
-      throw err;
+      await signOut(firebaseAuthInstance);
+      // The global onAuthStateChanged listener in main.ts handles profileStore.clearStudentSession
+      
+      notificationStore.showNotification({
+        type: 'success',
+        message: 'You have been successfully signed out.'
+      });
+      
+      // It's common to redirect after logout.
+      // Ensure the route 'Login' or 'Landing' exists and is appropriate.
+      router.push({ name: 'Login' }).catch(err => console.error("Router push error after logout:", err));
+    } catch (error) {
+      console.error('Error during logout:', error);
+      authActionError.value = error instanceof Error ? error : new Error(String(error));
+      notificationStore.showNotification({
+        type: 'error',
+        message: 'Error signing out. Please try again.'
+      });
     }
   };
 
-  /**
-   * Sign in with email and password
-   * @param email User's email
-   * @param password User's password
-   * @returns Promise that resolves with the user credentials
-   */
-  const login = async (email: string, password: string) => {
-    isLoading.value = true;
-    error.value = null;
-    
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      currentUser.value = userCredential.user;
-      return userCredential;
-    } catch (err: any) {
-      error.value = err.message || 'Failed to sign in';
-      throw err;
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
-  /**
-   * Sign out the current user
-   */
-  const logout = async (): Promise<void> => {
-    isLoading.value = true;
-    error.value = null;
-    
-    try {
-      await signOut(auth);
-      currentUser.value = null;
-      await profileStore.clearStudentSession(false);
-      notificationStore.showNotification({ message: "You have been logged out.", type: 'success' });
-    } catch (err: any) {
-      error.value = err.message || 'Failed to sign out';
-      throw err;
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
-  /**
-   * Set up an auth state change listener
-   * @param callback Function to call when auth state changes
-   * @returns Unsubscribe function
-   */
-  const setupAuthStateListener = (
-    callback: (user: FirebaseUser | null) => void
-  ): (() => void) => {
-    return onAuthStateChanged(auth, (user) => {
-      currentUser.value = user;
-      callback(user);
-    });
-  };
-
-  /**
-   * Get the current auth user
-   * @returns The current user or null if not authenticated
-   */
-  const getCurrentUser = (): FirebaseUser | null => {
-    return auth.currentUser;
+  // This function can be used to manually re-check Firebase's current user.
+  // The global listener in main.ts is the primary mechanism for state sync.
+  const refreshAuthState = async () => {
+    // The stores should be up-to-date via the global listener in main.ts.
+    // This function primarily serves to return the current user from Firebase.
+    return firebaseAuthInstance.currentUser;
   };
 
   return {
-    currentUser,
-    isLoading,
-    error,
     isAuthenticated,
-    login,
+    authUser,
+    authActionError, 
+    isInitialized,
     logout,
-    setAuthPersistence,
-    setupAuthStateListener,
-    getCurrentUser
+    refreshAuthState
   };
 }

@@ -1,9 +1,9 @@
 <template>
   <div class="transparency-section">
-    <div class="container-lg py-5">
+    <div class="container-lg py-4 py-md-5">
       <!-- Header -->
-      <div class="text-center mb-5">
-        <h1 class="display-4 fw-bold text-primary mb-3">
+      <div class="text-center mb-4 mb-md-5">
+        <h1 class="h2 h1-md fw-bold text-primary mb-3">
           <i class="fas fa-eye me-3"></i>How KSB Tech Community Works
         </h1>
         <p class="lead text-secondary mx-auto" style="max-width: 600px;">
@@ -12,11 +12,8 @@
       </div>
 
       <!-- Quick Navigation -->
-      <div class="card shadow-sm mb-5">
-        <div class="card-body">
-          <h5 class="card-title mb-3">
-            <i class="fas fa-compass me-2 text-primary"></i>Quick Navigation
-          </h5>
+      <div class="card shadow-sm mb-4 mb-md-5">
+        <div class="card-body p-3 p-md-4">
           <div class="row g-2">
             <div class="col-md-6 col-lg-4" v-for="section in navigationSections" :key="section.id">
               <a :href="`#${section.id}`" class="btn btn-outline-primary btn-sm w-100 text-start">
@@ -28,14 +25,14 @@
       </div>
 
       <!-- Platform Overview -->
-      <section id="overview" class="mb-5">
+      <section id="overview" class="mb-4 mb-md-5">
         <div class="card shadow-sm">
           <div class="card-header bg-primary text-white">
-            <h2 class="h4 mb-0">
+            <h2 class="h3 h2-md mb-0">
               <i class="fas fa-info-circle me-2"></i>Platform Overview
             </h2>
           </div>
-          <div class="card-body">
+          <div class="card-body p-3 p-md-4">
             <div class="row g-4">
               <div class="col-lg-8">
                 <h5 class="text-primary mb-3">What is KSB Tech Community?</h5>
@@ -79,7 +76,7 @@
       </section>
 
       <!-- User Journey -->
-      <section id="user-journey" class="mb-5">
+      <section id="user-journey" class="mb-4 mb-md-5">
         <div class="card shadow-sm">
           <div class="card-header bg-info text-white">
             <h2 class="h4 mb-0">
@@ -104,7 +101,7 @@
       </section>
 
       <!-- Event Management System -->
-      <section id="events" class="mb-5">
+      <section id="events" class="mb-4 mb-md-5">
         <div class="card shadow-sm">
           <div class="card-header bg-success text-white">
             <h2 class="h4 mb-0">
@@ -150,7 +147,7 @@
       </section>
 
       <!-- XP & Rating System -->
-      <section id="xp-system" class="mb-5">
+      <section id="xp-system" class="mb-4 mb-md-5">
         <div class="card shadow-sm">
           <div class="card-header bg-warning text-dark">
             <h2 class="h4 mb-0">
@@ -199,7 +196,7 @@
       </section>
 
       <!-- Team & Collaboration -->
-      <section id="collaboration" class="mb-5">
+      <section id="collaboration" class="mb-4 mb-md-5">
         <div class="card shadow-sm">
           <div class="card-header bg-secondary text-white">
             <h2 class="h4 mb-0">
@@ -259,7 +256,7 @@
       </section>
 
       <!-- Technology Stack -->
-      <section id="technology" class="mb-5">
+      <section id="technology" class="mb-4 mb-md-5">
         <div class="card shadow-sm">
           <div class="card-header bg-dark text-white">
             <h2 class="h4 mb-0">
@@ -314,7 +311,7 @@
       </section>
 
       <!-- Data & Privacy -->
-      <section id="privacy" class="mb-5">
+      <section id="privacy" class="mb-4 mb-md-5">
         <div class="card shadow-sm">
           <div class="card-header bg-danger text-white">
             <h2 class="h4 mb-0">
@@ -367,7 +364,7 @@
       </section>
 
       <!-- Student Registration -->
-      <section id="registration" class="mb-5">
+      <section id="registration" class="mb-4 mb-md-5">
         <div class="card shadow-sm">
           <div class="card-header bg-primary text-white">
             <h2 class="h4 mb-0">
@@ -433,7 +430,7 @@
       </section>
 
       <!-- Contact & Support -->
-      <section id="contact" class="mb-5">
+      <section id="contact" class="mb-4 mb-md-5">
         <div class="card shadow-sm">
           <div class="card-header bg-info text-white">
             <h2 class="h4 mb-0">
@@ -489,7 +486,7 @@
       </section>
 
       <!-- Footer -->
-      <div class="text-center mt-5 pt-4 border-top">
+      <div class="text-center mt-4 pt-4 border-top">
         <p class="text-muted">
           <i class="fas fa-heart text-danger me-1"></i>
           Built with transparency and community in mind by the MCA department at KMCT School of Business

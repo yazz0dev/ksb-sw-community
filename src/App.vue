@@ -65,7 +65,7 @@ const route = useRoute();
 const { 
   isOnline, 
   newVersionAvailable: newVersionAvailableComputed,
-  reloadApp,
+  reloadApp: reloadAppOriginal,
   setNewVersionAvailable,
   initAppState
 } = useAppState();
@@ -93,6 +93,21 @@ const dismissUpdatePrompt = () => {
   setNewVersionAvailable(false);
 };
 
+const reloadApp = async () => {
+  try {
+    // Use the global updateSW function if available
+    if (window.__updateSW) {
+      await window.__updateSW(true);
+    } else {
+      // Fallback to regular reload
+      window.location.reload();
+    }
+  } catch (error) {
+    console.error('Error updating app:', error);
+    window.location.reload();
+  }
+};
+
 const handleLogout = async (): Promise<void> => {
   if (!isOnline.value) {
     notificationStore.showNotification({
@@ -116,22 +131,16 @@ const handleLogout = async (): Promise<void> => {
 
 watch(isOnline, (online) => {
   if (online && isAuthenticated.value) {
-    // studentStore.refreshUserData(); // FIXME: Property 'refreshUserData' does not exist on type 'Store<"studentProfile", ...>'.
-    // TODO: Review and implement user data refresh logic for when connection is restored.
-    // The push permission check is now handled within the usePushNotifications composable based on isOnline and isAuthenticated.
+    // Remove any refresh logic that might cause loops
+    console.log('Back online, authenticated user detected');
   }
 });
 
 onMounted(() => {
   initAppState();
   
-  try {
-    if (typeof studentStore.clearStaleNameCache === 'function') {
-      studentStore.clearStaleNameCache();
-    }
-  } catch (error) {
-    console.error("Error during clearStaleNameCache:", error);
-  }
+  // Remove clearStaleNameCache call that might cause issues
+  console.log('App mounted successfully');
 });
 
 onUnmounted(() => {

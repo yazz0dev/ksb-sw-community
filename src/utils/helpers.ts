@@ -22,6 +22,16 @@ export function deepClone<T>(obj: T): T {
 }
 
 /**
+ * Gets the current Firestore Timestamp.
+ * @returns A Firestore Timestamp representing the current time.
+ */
+import { Timestamp } from 'firebase/firestore'; // Add this import
+
+export function now(): Timestamp {
+  return Timestamp.now();
+}
+
+/**
  * Checks if a value is empty.
  * Considers null, undefined, empty string, empty array, or empty object as empty.
  * @param value The value to check.

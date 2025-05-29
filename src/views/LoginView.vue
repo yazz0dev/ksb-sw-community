@@ -1,12 +1,12 @@
 <template>
   <div class="login-bg d-flex align-items-center justify-content-center overflow-hidden">
-    <div class="container container-sm">
+    <div class="container container-sm px-3 px-md-4">
       <div class="row justify-content-center">
         <div class="col-12 col-md-8 col-lg-6">
           <transition name="fade-pop">
             <div class="card login-card shadow-lg border-0 animate-pop">
-              <div class="card-body p-4 p-md-5">
-                <div class="text-center mb-4">
+              <div class="card-body p-3 p-md-5">
+                <div class="text-center mb-3 mb-md-4">
                   <div class="login-icon mb-2">
                     <i class="fas fa-user-circle fa-3x text-primary"></i>
                   </div>
@@ -82,6 +82,7 @@ import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { getAuth, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
 import { useProfileStore } from '@/stores/profileStore';
+import { useAppStore } from '@/stores/appStore'; // Import useAppStore
 
 const email = ref<string>('');
 const password = ref<string>('');
@@ -90,27 +91,51 @@ const isLoading = ref<boolean>(false);
 const router = useRouter();
 const route = useRoute();
 const studentStore = useProfileStore();
+const appStore = useAppStore(); // Initialize appStore
 
 const processLoginSuccess = async (user: UserCredential['user']): Promise<void> => {
     try {
-        // Get redirect path from query, fallback to /home
-        const redirectPath = (route.query.redirect as string) || '/home';
-        router.replace(redirectPath);
+        // Get redirect path from appStore, fallback to query param, then to /home
+        const redirectPath = appStore.getRedirectAfterLogin() || 
+                           (route.query.redirect as string) || 
+                           '/home';
+        
+        console.log('Authentication successful, user ID:', user.uid);
+        
+        // Use router navigation instead of window.location
+        await router.replace(redirectPath);
+        
     } catch (fetchError) {
         console.error("Error after Firebase login:", fetchError);
         errorMessage.value = 'Login successful, but failed to load profile. Please try refreshing.';
+        
+        // Fallback navigation
+        await router.replace('/home');
+    } finally {
+        // Reset processing login flag
+        appStore.setIsProcessingLogin(false);
     }
 };
 
 const signIn = async (): Promise<void> => {
     errorMessage.value = '';
     isLoading.value = true;
+    appStore.setIsProcessingLogin(true);
+    
     try {
         const auth = getAuth();
-        const userCredential = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
-        // processLoginSuccess will handle fetching data and routing.
+        
+        const userCredential = await signInWithEmailAndPassword(
+            auth, 
+            email.value.trim(), 
+            password.value
+        );
+        
+        // Force update store authentication state
+        await studentStore.handleAuthStateChange(userCredential.user);
+        
+        // Process login success after store is updated
         await processLoginSuccess(userCredential.user);
-
     } catch (error: any) {
         console.error("Email/Password Sign-In Error:", error);
         switch (error.code) {
@@ -129,6 +154,7 @@ const signIn = async (): Promise<void> => {
             default:
                 errorMessage.value = 'An error occurred during sign in. Please try again.';
         }
+        appStore.setIsProcessingLogin(false); // Reset on error
     } finally {
         isLoading.value = false;
     }

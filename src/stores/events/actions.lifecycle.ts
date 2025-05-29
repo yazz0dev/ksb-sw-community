@@ -4,6 +4,7 @@ import { db } from '@/firebase';
 // Import EventStatus as a value, not just a type
 import { EventStatus, type Event, type EventFormData, type EventLifecycleTimestamps } from '@/types/event';
 import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Added mapFirestoreToEventData
+import { DateTime } from 'luxon'; // Import DateTime for date handling
 
 // Assuming User type is defined in @/types/user.ts
 import type { UserData } from '@/types/student'; // Changed from {} to UserData
@@ -30,8 +31,8 @@ export async function createEventRequestByStudentInFirestore(formData: EventForm
         const newEventId = newEventRef.id; // Get the auto-generated ID
 
         // formData.createdAt and .lastUpdatedAt are now optional (Timestamp | undefined)
-        // mapEventDataToFirestore expects Partial<Event> | EventFormData
-        const mappedData = mapEventDataToFirestore(formData, true); // isNew = true
+        // mapEventDataToFirestore expects only EventFormData
+        const mappedData = mapEventDataToFirestore(formData);
         
         const dataToSubmit: Partial<Event> = {
             ...mappedData,
@@ -85,8 +86,8 @@ export async function updateMyEventRequestInFirestore(eventId: string, formData:
             throw new Error(`Cannot edit request with status: ${currentEvent.status}. Contact an admin.`);
         }
 
-        // mapEventDataToFirestore expects Partial<Event> | EventFormData
-        const mappedUpdates = mapEventDataToFirestore(formData, false, currentEvent);
+        // mapEventDataToFirestore expects only EventFormData
+        const mappedUpdates = mapEventDataToFirestore(formData);
 
         const updates: Partial<Event> = { // Changed from MappedEventForFirestore
             ...mappedUpdates,
@@ -342,5 +343,75 @@ export async function requestEventDeletionInFirestore(eventId: string, userId: s
     } catch (error: any) {
         console.error(`Error requesting deletion for event ${eventId}:`, error);
         throw new Error(`Failed to request event deletion: ${error.message}`);
+    }
+}
+
+/**
+ * Creates a new event request document in Firestore submitted by a student.
+ * @param formData - The event form data.
+ * @param studentId - The UID of the student making the request.
+ * @returns Promise<string> - The ID of the newly created event document.
+ */
+export async function createEventRequest(formData: EventFormData, studentId: string): Promise<string> {
+    if (!formData || !studentId) {
+        throw new Error('Event form data and student ID are required.');
+    }
+
+    // Validate dates before processing
+    const startDate = formData.details.date.start;
+    const endDate = formData.details.date.end;
+    
+    if (!startDate || !endDate) {
+        throw new Error('Both start and end dates are required.');
+    }
+
+    // Convert and validate dates
+    let startDateTime: DateTime;
+    let endDateTime: DateTime;
+    
+    try {
+        if (typeof startDate === 'string') {
+            startDateTime = DateTime.fromISO(startDate);
+        } else if (startDate && typeof startDate === 'object' && (startDate as any) instanceof Date) {
+            startDateTime = DateTime.fromJSDate(startDate as Date);
+        } else if (startDate && typeof startDate === 'object' && 'toDate' in startDate) {
+            startDateTime = DateTime.fromJSDate((startDate as any).toDate());
+        } else {
+            throw new Error('Invalid start date format');
+        }
+        
+        if (typeof endDate === 'string') {
+            endDateTime = DateTime.fromISO(endDate);
+        } else if (endDate && typeof endDate === 'object' && (endDate as any) instanceof Date) {
+            endDateTime = DateTime.fromJSDate(endDate as Date);
+        } else if (endDate && typeof endDate === 'object' && 'toDate' in endDate) {
+            endDateTime = DateTime.fromJSDate((endDate as any).toDate());
+        } else {
+            throw new Error('Invalid end date format');
+        }
+    } catch (error) {
+        throw new Error('Invalid date format provided.');
+    }
+
+    if (!startDateTime.isValid || !endDateTime.isValid) {
+        throw new Error('Invalid dates provided. Please check your date selection.');
+    }
+
+    if (endDateTime <= startDateTime) {
+        throw new Error(`Event end date must be after start date.`);
+    }
+
+    try {
+        const eventRef = await addDoc(collection(db, 'events'), {
+            ...mapEventDataToFirestore(formData),
+            requestedBy: studentId,
+            createdAt: now(),
+            lastUpdatedAt: now()
+        });
+        
+        return eventRef.id;
+    } catch (error: any) {
+        console.error('Error creating event request:', error);
+        throw new Error('Failed to create event request: ' + error.message);
     }
 }

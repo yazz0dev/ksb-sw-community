@@ -13,6 +13,7 @@ interface RouteMeta {
   title?: string;
   description?: string;
   [key: string]: any;
+  [key: symbol]: any;
 }
 
 const routes: Array<RouteRecordRaw> = [
@@ -68,23 +69,41 @@ router.beforeEach(async (
   }
 
   const isAuthenticated = auth.isAuthenticated.value;
-  const studentRoles = studentStore.currentStudent?.roles || [];
   const routeMeta = to.meta as RouteMeta; // Cast meta
+  
+  // Store the intended destination for post-login redirect if going to login page
+  if (to.name === 'Login' && to.query.redirect) {
+    // Only store if it's a valid internal path
+    const redirectPath = to.query.redirect as string;
+    if (redirectPath && redirectPath.startsWith('/') && !redirectPath.startsWith('//')) {
+      appStore.setRedirectAfterLogin(redirectPath);
+    }
+  }
+  
+  // --- Handle Login Processing State ---
+  // If we're in the middle of processing a login, allow navigation to continue
+  if (appStore.isProcessingLogin) {
+    next();
+    return;
+  }
 
   // --- Guest Only routes ---
+  // If user is authenticated and route is guestOnly, redirect to Home
   if (routeMeta.guestOnly && isAuthenticated) {
     next({ name: 'Home', replace: true });
     return;
   }
 
   // --- Requires Auth routes ---
+  // If route requires auth and user isn't authenticated, redirect to login
   if (routeMeta.requiresAuth && !isAuthenticated) {
-     next({ name: 'Login', query: { redirect: to.fullPath } });
-     return;
+    // Save the requested URL for redirection after login
+    appStore.setRedirectAfterLogin(to.fullPath);
+    next({ name: 'Login', replace: true });
+    return;
   }
 
   // If none of the above conditions were met, allow navigation
-  const routeNameStr = String(to.name ?? 'Unnamed Route');
   next();
 });
 

@@ -30,6 +30,8 @@ export const useAppStore = defineStore('studentApp', () => {
   const newAppVersionAvailable = ref<boolean>(false);
   const lastOnlineTime = ref<number>(Date.now());
   const isFirestoreEnabled = ref<boolean>(true);
+  const isProcessingLogin = ref<boolean>(false); // <-- Added property
+  const redirectAfterLogin = ref<string | null>(null);
 
   const offlineQueue = ref<{
     actions: QueuedStudentAction[];
@@ -137,6 +139,30 @@ export const useAppStore = defineStore('studentApp', () => {
     newAppVersionAvailable.value = status;
   }
 
+  function setIsProcessingLogin(value: boolean) {
+    isProcessingLogin.value = value;
+  }
+
+  function setRedirectAfterLogin(path: string | null) {
+    // Only store valid internal paths, avoid loops
+    if (path && typeof path === 'string' && path.startsWith('/') && !path.startsWith('//') && path !== '/login') {
+      redirectAfterLogin.value = path;
+      sessionStorage.setItem('redirectAfterLogin', path);
+    } else if (path === null) {
+      redirectAfterLogin.value = null;
+      sessionStorage.removeItem('redirectAfterLogin');
+    }
+  }
+
+  function getRedirectAfterLogin(): string {
+    // Try to get from state first, then from sessionStorage
+    const storedRedirect = redirectAfterLogin.value || sessionStorage.getItem('redirectAfterLogin');
+    // Clear after retrieving
+    setRedirectAfterLogin(null);
+    // Return the path or default to '/home', avoid login page
+    return (storedRedirect && storedRedirect !== '/login') ? storedRedirect : '/home';
+  }
+
   // --- Offline Queue Management ---
   /**
    * Tries to execute an action or queues it if offline.
@@ -242,6 +268,14 @@ export const useAppStore = defineStore('studentApp', () => {
     }
   }
 
+  // Initialize the redirectAfterLogin from sessionStorage
+  const initRedirectPath = () => {
+    const storedPath = sessionStorage.getItem('redirectAfterLogin');
+    if (storedPath) {
+      redirectAfterLogin.value = storedPath;
+    }
+  };
+
   function initAppListeners() {
     // Network status listeners
     window.addEventListener('online', () => setNetworkOnlineStatus(true));
@@ -253,10 +287,28 @@ export const useAppStore = defineStore('studentApp', () => {
     // Initialize theme
     initTheme();
 
-    // Service worker registration for PWA
+    // Enhanced Service worker handling for PWA updates
     if ('serviceWorker' in navigator) {
+      // Listen for service worker updates
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        console.log('Service worker controller changed');
         if (!newAppVersionAvailable.value) {
+          newAppVersionAvailable.value = true;
+        }
+      });
+
+      // Listen for service worker messages
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SW_UPDATED') {
+          console.log('Service worker updated message received');
+          newAppVersionAvailable.value = true;
+        }
+      });
+
+      // Check for waiting service worker on page load
+      navigator.serviceWorker.ready.then((registration) => {
+        if (registration.waiting) {
+          console.log('Service worker waiting, new version available');
           newAppVersionAvailable.value = true;
         }
       });
@@ -280,6 +332,9 @@ export const useAppStore = defineStore('studentApp', () => {
       localStorage.setItem('lastOnlineTime', lastOnlineTime.value.toString());
       localStorage.setItem('isOnline', isOnline.value.toString());
     });
+
+    // Initialize redirectAfterLogin from sessionStorage
+    initRedirectPath();
   }
 
   return {
@@ -289,6 +344,8 @@ export const useAppStore = defineStore('studentApp', () => {
     newAppVersionAvailable,
     lastOnlineTime,
     offlineQueue,
+    isProcessingLogin, // <-- Expose the new property
+    redirectAfterLogin,
     getTheme,
     getNetworkStatus,
     getHasFetchedInitialAuth,
@@ -301,6 +358,9 @@ export const useAppStore = defineStore('studentApp', () => {
     setNetworkOnlineStatus,
     setHasFetchedInitialAuth,
     setNewAppVersionAvailable,
+    setIsProcessingLogin, // <-- Expose the new method
+    setRedirectAfterLogin,
+    getRedirectAfterLogin,
     tryQueueAction,
     syncOfflineActions,
     initAppListeners,

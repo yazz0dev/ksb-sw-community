@@ -1,8 +1,8 @@
 <template>
   <div class="home-section">
-    <div class="container-lg">
+    <div class="container-lg px-3 px-md-4">
       <!-- Loading State -->
-      <div v-if="loading" class="text-center py-5">
+      <div v-if="loading" class="text-center py-4 py-md-5">
         <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
           <span class="visually-hidden">Loading events...</span>
         </div>
@@ -10,17 +10,17 @@
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="alert alert-danger mt-4" role="alert">
+      <div v-else-if="error" class="alert alert-danger mt-3 mt-md-4" role="alert">
         <i class="fas fa-exclamation-triangle me-2"></i>
         {{ error }}
       </div>
 
       <!-- Content Area (Show only if not loading and no error) -->
       <div v-else>
-        <div class="row g-4 mb-4 mt-2">
+        <div class="row g-3 g-md-4 mb-3 mb-md-4 mt-1 mt-md-2">
           <div class="col-12">
             <!-- Header -->
-            <div class="d-flex justify-content-between align-items-center mb-4 px-lg-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3 mb-md-4 px-lg-3">
               <h2 class="h3 text-dark mb-0"><i class="fas fa-calendar-alt text-primary me-2"></i>Events</h2>
               <!-- Show "Request Event" button only if user is authenticated -->
               <div v-if="canRequestEvent">
@@ -206,19 +206,26 @@ onMounted(async () => {
     // Fetch all events using composable
     await fetchPublicEvents();
 
-    // Gather all unique organizer UIDs from the fetched events
-    const allOrganizerUids = Array.from(
-      new Set(
-        allEvents.value.flatMap(e => e.details?.organizers || [])
-      )
-    ).filter(Boolean);
+    // Only try to fetch names if authenticated and there are organizers
+    if (isAuthenticated.value) {
+      const allOrganizerUids = Array.from(
+        new Set(
+          allEvents.value.flatMap(e => e.details?.organizers || [])
+        )
+      ).filter(Boolean);
 
-    // Fetch names only if there are organizers to fetch for
-    if (allOrganizerUids.length > 0) {
-      await studentStore.fetchUserNamesBatch(allOrganizerUids);
+      // Fetch names only if there are organizers to fetch for
+      if (allOrganizerUids.length > 0) {
+        try {
+          await studentStore.fetchUserNamesBatch(allOrganizerUids);
+        } catch (nameError) {
+          console.warn("Failed to load organizer names, but events will still be displayed:", nameError);
+          // Don't set error.value here - let events display without names
+        }
+      }
     }
   } catch (err) {
-    console.error("Failed to load events or user names:", err);
+    console.error("Failed to load events:", err);
     error.value = "Failed to load event data. Please try refreshing the page.";
   } finally {
     loading.value = false;

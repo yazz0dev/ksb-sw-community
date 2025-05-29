@@ -1,17 +1,17 @@
 <!-- .\views\LeaderboardView.vue-->
 <template>
   <section class="leaderboard-section">
-    <div class="container-lg py-5">
-      <h1 class="display-5 fw-bold text-primary mb-4">Leaderboard</h1>
+    <div class="container-lg py-4 py-md-5">
+      <h1 class="h2 h1-lg fw-bold text-primary mb-4 text-center">Leaderboard</h1>
 
       <!-- Role Filter -->
-      <div class="filter-section mb-5">
-        <label class="form-label text-secondary mb-3">Select Role to Rank By</label>
-        <div class="role-filter-group">
+      <div class="filter-section mb-4 mb-md-5">
+        <label class="form-label text-secondary mb-3 text-center d-block">Select Role to Rank By</label>
+        <div class="role-filter-group justify-content-center">
           <button
             v-for="role in availableDisplayRoles"
             :key="role.key"
-            @click="selectRoleFilter(role.key as keyof XPData | 'totalCalculatedXp' | 'count_wins')"
+            @click="selectRoleFilter(role.key as keyof XPData | 'totalCalculatedXp')"
             type="button"
             class="role-btn"
             :class="{ active: selectedRoleKey === role.key }"
@@ -53,52 +53,52 @@
           </button>
         </div>
 
-        <div v-else>
-          <p class="text-secondary mb-3">
-            Showing {{ filteredUsers.length }} users ranked by {{ currentRoleDisplayName }}
-            <span v-if="selectedRoleKey !== 'totalCalculatedXp' && selectedRoleKey !== 'count_wins'">XP</span>.
+        <div v-else class="leaderboard-content">
+          <p class="text-secondary mb-2 text-center">
+            Showing {{ filteredUsers.length }} users ranked by {{ currentRoleDisplayName }} XP.
           </p>
 
-          <div class="leaderboard-table">
-            <table class="table table-hover">
-              <thead>
-                <tr>
-                  <th style="width: 60px;">#</th>
-                  <th>User</th>
-                  <th class="text-end">{{ selectedRoleKey === 'count_wins' ? 'Wins' : 'XP' }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(user, index) in filteredUsers" :key="user.uid" class="align-middle">
-                  <td>
-                    <div v-if="index < 3 && user.displayValue > 0" :class="['rank-badge', `rank-${index + 1}`]">
-                      {{ index + 1 }}
-                    </div>
-                    <span v-else class="rank-number">{{ index + 1 }}</span>
-                  </td>
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <img
-                        :src="user.photoURL || defaultAvatarUrl"
-                        :alt="user.name || 'User'"
-                        @error="handleImageError"
-                        class="leaderboard-avatar me-2"
-                      />
-                      <router-link
-                        :to="{ name: 'PublicProfile', params: { userId: user.uid } }"
-                        class="user-link"
-                      >
-                        {{ user.name || `User ${user.uid.substring(0, 6)}` }}
-                      </router-link>
-                    </div>
-                  </td>
-                  <td class="text-end">
-                    <span class="xp-value">{{ user.displayValue }}</span>
-                    <span v-if="selectedRoleKey !== 'count_wins'"> XP</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="leaderboard-table-container">
+            <div class="leaderboard-table">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th style="width: 60px;">#</th>
+                    <th>User</th>
+                    <th class="text-end">XP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(user, index) in filteredUsers" :key="user.uid" class="align-middle">
+                    <td>
+                      <div v-if="index < 3" :class="['rank-badge', `rank-${index + 1}`]">
+                        {{ index + 1 }}
+                      </div>
+                      <span v-else class="rank-number">{{ index + 1 }}</span>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center">
+                        <img
+                          :src="user.photoURL || defaultAvatarUrl"
+                          :alt="user.name || 'User'"
+                          @error="handleImageError"
+                          class="leaderboard-avatar me-2"
+                        />
+                        <router-link
+                          :to="{ name: 'PublicProfile', params: { userId: user.uid } }"
+                          class="user-link"
+                        >
+                          {{ user.name || `User ${user.uid.substring(0, 6)}` }}
+                        </router-link>
+                      </div>
+                    </td>
+                    <td class="text-end">
+                      <span class="xp-value">{{ user.displayValue }} XP</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -131,12 +131,9 @@ const availableDisplayRoles = ref([
   { key: 'xp_designer', displayName: formatRoleName('designer') },
   { key: 'xp_problemSolver', displayName: formatRoleName('problemSolver') },
   { key: 'xp_organizer', displayName: formatRoleName('organizer') },
-  // Add 'Wins' to the available roles if it's not implicitly handled by totalCalculatedXp or another mechanism
-  // For example, if 'count_wins' is a distinct metric you want to rank by:
-  { key: 'count_wins', displayName: 'Wins' },
 ]);
 
-const selectedRoleKey = ref<keyof XPData | 'totalCalculatedXp' | 'count_wins'>('totalCalculatedXp'); // Default to overall XP
+const selectedRoleKey = ref<keyof XPData | 'totalCalculatedXp'>('totalCalculatedXp'); // Default to overall XP
 
 const users = ref<EnrichedStudentData[]>([]); // Now uses EnrichedStudentData
 const loading = ref<boolean>(true);
@@ -200,8 +197,9 @@ const retryLoading = async () => {
   retryCount.value++;
   isFirstLoad.value = false;
   try {
-    const fetchedUsers = await studentStore.loadLeaderboardUsers(); // Changed action name
-    users.value = fetchedUsers || []; // Assign fetched data, default to empty array if null/undefined
+    // Load leaderboard data regardless of authentication status
+    const fetchedUsers = await studentStore.loadLeaderboardUsers();
+    users.value = fetchedUsers || [];
 
     if (studentStore.error) {
         const storeErrorMessage = getErrorMessage(studentStore.error);
@@ -214,10 +212,17 @@ const retryLoading = async () => {
         error.value = null;
     }
   } catch (err: any) {
-    error.value = getErrorMessage(err) || 'Failed to fetch leaderboard data on retry';
+    // Handle errors gracefully for unauthenticated users
+    const errorMessage = getErrorMessage(err);
+    if (!errorMessage.includes('permission') && !errorMessage.includes('unauthorized')) {
+        error.value = errorMessage || 'Failed to fetch leaderboard data on retry';
+    } else {
+        // For auth-related errors, still show empty state instead of error
+        error.value = null;
+    }
     users.value = [];
   } finally {
-    loading.value = studentStore.isLoading; // Changed studentStore.loading to studentStore.isLoading
+    loading.value = studentStore.isLoading;
   }
 };
 
@@ -227,8 +232,9 @@ onMounted(async () => {
     isFirstLoad.value = true;
     retryCount.value = 0;
     try {
-        const fetchedUsers = await studentStore.loadLeaderboardUsers(); // Changed action name
-        users.value = fetchedUsers || []; // Assign fetched data, default to empty array if null/undefined
+        // Load leaderboard data regardless of authentication status
+        const fetchedUsers = await studentStore.loadLeaderboardUsers();
+        users.value = fetchedUsers || [];
 
         if (studentStore.error) {
             const storeErrorMessage = getErrorMessage(studentStore.error);
@@ -241,10 +247,17 @@ onMounted(async () => {
             error.value = null;
         }
     } catch (err: any) {
-        error.value = getErrorMessage(err) || "An unexpected error occurred while loading the leaderboard.";
+        // Handle errors gracefully for unauthenticated users
+        const errorMessage = getErrorMessage(err);
+        if (!errorMessage.includes('permission') && !errorMessage.includes('unauthorized')) {
+            error.value = errorMessage || "An unexpected error occurred while loading the leaderboard.";
+        } else {
+            // For auth-related errors, still show empty state instead of error
+            error.value = null;
+        }
         users.value = [];
     } finally {
-        loading.value = studentStore.isLoading; // Changed studentStore.loading to studentStore.isLoading
+        loading.value = studentStore.isLoading;
         isFirstLoad.value = false;
     }
 });
@@ -263,15 +276,13 @@ const filteredUsers = computed(() => {
             if (userXpData) {
                 if (selectedRoleKey.value === 'totalCalculatedXp') {
                     displayValue = userXpData.totalCalculatedXp || 0;
-                } else if (selectedRoleKey.value === 'count_wins') {
-                    displayValue = userXpData.count_wins || 0;
                 } else if (selectedRoleKey.value.startsWith('xp_')) {
                     displayValue = (userXpData as any)[selectedRoleKey.value as XpFirestoreFieldKey] || 0;
                 }
             }
             return { ...user, displayValue };
         })
-        .filter((user: UserWithDisplayValue) => user.displayValue > 0 || (selectedRoleKey.value === 'count_wins' && user.displayValue >= 0) ) // Show users with 0 wins if that's selected, otherwise only >0 XP
+        // Show all users regardless of XP value (including 0 XP)
         .sort((a: UserWithDisplayValue, b: UserWithDisplayValue) => {
             if (b.displayValue !== a.displayValue) {
                 return b.displayValue - a.displayValue;
@@ -280,7 +291,7 @@ const filteredUsers = computed(() => {
         });
 });
 
-const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp' | 'count_wins'): void => {
+const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => {
   selectedRoleKey.value = roleKey;
 };
 </script>
@@ -288,39 +299,69 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp' | 'count_w
 <style scoped>
 /* .leaderboard-section styles removed - handled by global styles/variables */
 .role-filter-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 0.75rem;
+  max-width: 600px;
+  margin: 0 auto;
+  justify-content: center;
 }
 
 .role-btn {
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
   border: 2px solid var(--bs-primary);
   background: transparent;
   color: var(--bs-primary);
   border-radius: 2rem;
   transition: all 0.2s ease;
   font-weight: 500;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  text-align: center;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .role-btn:hover {
   background: var(--bs-primary-subtle);
+  transform: translateY(-1px);
 }
 
 .role-btn.active {
   background: var(--bs-primary);
   color: white;
+  box-shadow: 0 2px 8px rgba(var(--bs-primary-rgb), 0.3);
+}
+
+.leaderboard-content {
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.leaderboard-table-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0 1rem;
 }
 
 .leaderboard-table {
-  background: white; /* Keep white background for table */
+  background: white;
   border-radius: 1rem;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* Keep specific shadow */
-  padding: 1.5rem;
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .table {
   margin-bottom: 0;
+  width: 100%;
 }
 
 .table th {
@@ -329,39 +370,64 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp' | 'count_w
   color: var(--bs-secondary);
   text-transform: uppercase;
   font-size: 0.875rem;
-  padding: 1rem;
+  padding: 1.25rem 1rem;
+  border-bottom: 2px solid var(--bs-border-color-translucent);
 }
 
 .table td {
-  padding: 1rem;
+  padding: 1.25rem 1rem;
   vertical-align: middle;
+  border-bottom: 1px solid var(--bs-border-color-translucent);
 }
 
 .rank-badge {
-  width: 2rem;
-  height: 2rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
   color: white;
-  font-size: 0.875rem;
+  font-size: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.rank-badge::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+  transform: rotate(45deg);
+  transition: all 0.6s;
+  opacity: 0;
+}
+
+.rank-badge:hover::before {
+  opacity: 1;
+  transform: rotate(45deg) translate(50%, 50%);
 }
 
 .rank-badge.rank-1 {
-  background: linear-gradient(135deg, #ffd700, #ffa500); /* Keep specific gradient */
-  box-shadow: 0 2px 4px rgba(255, 215, 0, 0.3); /* Keep specific shadow */
+  background: linear-gradient(135deg, #ffd700, #ffa500, #ff8c00);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+  border: 2px solid #ffed4e;
 }
 
 .rank-badge.rank-2 {
-  background: linear-gradient(135deg, #c0c0c0, #a9a9a9); /* Keep specific gradient */
-  box-shadow: 0 2px 4px rgba(192, 192, 192, 0.3); /* Keep specific shadow */
+  background: linear-gradient(135deg, #e8e8e8, #c0c0c0, #a9a9a9);
+  box-shadow: 0 4px 12px rgba(192, 192, 192, 0.4);
+  border: 2px solid #f0f0f0;
 }
 
 .rank-badge.rank-3 {
-  background: linear-gradient(135deg, #cd7f32, #8b4513); /* Keep specific gradient */
-  box-shadow: 0 2px 4px rgba(205, 127, 50, 0.3); /* Keep specific shadow */
+  background: linear-gradient(135deg, #daa520, #cd7f32, #8b4513);
+  box-shadow: 0 4px 12px rgba(205, 127, 50, 0.4);
+  border: 2px solid #f4a460;
 }
 
 .rank-number {
@@ -396,14 +462,68 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp' | 'count_w
 
 @media (max-width: 768px) {
   .role-filter-group {
-    gap: 0.25rem;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 0.5rem;
+    max-width: 400px;
   }
+  
   .role-btn {
-    padding: 0.375rem 0.75rem;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.8rem;
+    min-height: 40px;
+  }
+  
+  .table th, .table td {
+    padding: 1rem 0.75rem;
+  }
+  
+  .leaderboard-table {
+    padding: 1.5rem;
+  }
+  
+  .leaderboard-table-container {
+    padding: 0 0.5rem;
+  }
+  
+  .rank-badge {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .role-filter-group {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(6, 1fr);
+    gap: 0.5rem;
+    max-width: 280px;
+  }
+  
+  .role-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    min-height: 36px;
+  }
+  
+  .table th, .table td {
+    padding: 0.75rem 0.5rem;
     font-size: 0.875rem;
   }
-  .table th, .table td {
-    padding: 0.75rem;
+  
+  .leaderboard-table {
+    padding: 1rem;
+  }
+  
+  .leaderboard-table-container {
+    padding: 0 0.25rem;
+  }
+  
+  .rank-badge {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.8rem;
   }
 }
 </style>
