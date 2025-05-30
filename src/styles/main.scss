@@ -131,31 +131,31 @@ body {
 // Responsive typography utilities
 .h1-lg {
   @include media-breakpoint-up(lg) {
-    font-size: 2.5rem !important;
+    font-size: 2rem !important; // Reduced from 2.5rem
   }
 }
 
 .h1-md {
   @include media-breakpoint-up(md) {
-    font-size: 2.5rem !important;
+    font-size: 2rem !important; // Reduced from 2.5rem
   }
 }
 
 .h2-md {
   @include media-breakpoint-up(md) {
-    font-size: 2rem !important;
+    font-size: 1.75rem !important; // Reduced from 2rem
   }
 }
 
 .h3-md {
   @include media-breakpoint-up(md) {
-    font-size: 1.75rem !important;
+    font-size: 1.5rem !important; // Reduced from 1.75rem
   }
 }
 
 .display-md-3 {
   @include media-breakpoint-up(md) {
-    font-size: calc(3.5rem + 1.5vw) !important;
+    font-size: calc(2.5rem + 0.5vw) !important; // Reduced from calc(3.5rem + 1.5vw)
   }
 }
 

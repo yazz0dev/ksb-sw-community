@@ -34,7 +34,7 @@
                   <i :class="['fas', feature.icon]" aria-hidden="true"></i>
                 </span>
                 <h5 class="card-title mt-3 mb-2 fw-semibold">{{ feature.title }}</h5>
-                <p class="card-text text-secondary small">{{ feature.text }}</p>
+                <p class="card-text text-secondary">{{ feature.text }}</p> <!-- Removed small class -->
               </div>
             </div>
           </div>

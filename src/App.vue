@@ -153,6 +153,7 @@ onUnmounted(() => {
   min-height: 100vh;
   background-color: var(--bs-light);
   color: var(--bs-body-color);
+  font-size: 1rem; /* Ensure base font size */
 }
 
 .app-main-content {

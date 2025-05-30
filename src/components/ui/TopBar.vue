@@ -225,6 +225,7 @@ onMounted(() => {
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
     border-radius: var(--bs-border-radius-sm); /* for hover indication */
+    font-size: 1rem; /* Ensure consistent font size */
   }
 
   #navbarNav .nav-link:hover,
@@ -252,7 +253,7 @@ onMounted(() => {
   border-color: var(--bs-border-color-translucent);
 }
 .dropdown-item {
-    font-size: 0.9rem;
+    font-size: 1rem; /* Changed from 0.9rem */
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
 }

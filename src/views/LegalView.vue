@@ -2,10 +2,10 @@
   <div class="legal-view container py-4 py-md-5">
     <div class="card shadow-sm">
       <div class="card-body p-3 p-md-5">
-        <h1 class="h2 h1-md text-primary mb-3 mb-md-4 text-center">Legal Information</h1>
+        <h1 class="h3 h2-md text-primary mb-3 mb-md-4 text-center">Legal Information</h1>
 
         <section id="terms-of-service" class="mb-4 mb-md-5">
-          <h2 class="h4 h3-md text-dark mb-3 border-bottom pb-2">Terms of Service</h2>
+          <h2 class="h5 h4-md text-dark mb-3 border-bottom pb-2">Terms of Service</h2>
           <p class="text-secondary">Last updated: {{ new Date().toLocaleDateString() }}</p>
 
           <h5 class="h6 fw-semibold mt-3 mt-md-4 mb-2">1. Acceptance of Terms</h5>

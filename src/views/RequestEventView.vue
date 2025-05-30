@@ -132,7 +132,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
 import EventScheduleForm from '@/components/forms/EventScheduleForm.vue';
-import ManageTeamsComponent from '@/components/events/ManageTeamsComponent.vue';
+import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
 import { EventFormat } from '@/types/event';
 

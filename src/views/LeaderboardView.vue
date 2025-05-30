@@ -301,7 +301,6 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => 
 .role-filter-group {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
   gap: 0.75rem;
   max-width: 600px;
   margin: 0 auto;
@@ -462,8 +461,8 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => 
 
 @media (max-width: 768px) {
   .role-filter-group {
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(3, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
     gap: 0.5rem;
     max-width: 400px;
   }
@@ -495,16 +494,16 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => 
 
 @media (max-width: 480px) {
   .role-filter-group {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(6, 1fr);
-    gap: 0.5rem;
-    max-width: 280px;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 0.4rem;
+    max-width: 350px;
   }
   
   .role-btn {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.75rem;
-    min-height: 36px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.7rem;
+    min-height: 32px;
   }
   
   .table th, .table td {

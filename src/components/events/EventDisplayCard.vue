@@ -6,7 +6,7 @@
      </h5>
 
      <!-- Details Section -->
-     <div class="row g-1 fs-7 text-secondary mb-2"> <!-- Use fs-7 and mb-2 -->
+     <div class="row g-1 text-secondary mb-2"> <!-- Removed fs-7 -->
          <div class="col-md-6 col-12 py-1 d-flex align-items-center">
              <i class="fas fa-user-edit fa-fw me-2 text-muted"></i>
              <strong class="fw-medium text-dark me-1">Requested by:</strong> {{ studentStore.getCachedUserName(event.requestedBy) || '(Name unavailable)' }}
@@ -33,7 +33,7 @@
      </div>
 
      <!-- Co-Organizers -->
-     <p v-if="event.details.organizers && event.details.organizers.length > 0" class="fs-7 text-secondary mt-1 mb-2 d-flex align-items-start"> <!-- Use mb-2 -->
+     <p v-if="event.details.organizers && event.details.organizers.length > 0" class="text-secondary mt-1 mb-2 d-flex align-items-start"> <!-- Removed fs-7 -->
          <i class="fas fa-user-shield fa-fw me-2 text-muted mt-1"></i>
          <div>
               <strong class="fw-medium text-dark">Co-Organizers:</strong>
@@ -57,14 +57,14 @@
 
      <!-- Description -->
      <div class="pt-2 mt-2 border-top"> <!-- Added border-top -->
-         <strong class="d-block fs-7 fw-medium text-dark mb-1">Description:</strong>
-         <p class="fs-7 text-secondary mb-0 description-text">{{ event.details.description }}</p>
+         <strong class="d-block fw-medium text-dark mb-1">Description:</strong> <!-- Removed fs-7 -->
+         <p class="text-secondary mb-0 description-text">{{ event.details.description }}</p> <!-- Removed fs-7 -->
      </div>
 
      <!-- XP/Constraint Info -->
      <div v-if="event.criteria && event.criteria.length > 0" class="mt-3 pt-3 border-top">
-         <strong class="d-block fs-7 fw-medium text-dark mb-2">Rating Criteria & XP:</strong> <!-- Increased mb -->
-         <ul class="list-unstyled fs-7 text-secondary mb-0">
+         <strong class="d-block fw-medium text-dark mb-2">Rating Criteria & XP:</strong> <!-- Removed fs-7 -->
+         <ul class="list-unstyled text-secondary mb-0"> <!-- Removed fs-7 -->
              <li v-for="(alloc, index) in event.criteria" :key="index" class="d-flex align-items-center mb-1">
                  <span class="text-warning me-2" style="font-size: 0.8em;">
                    <i class="fas fa-star fa-fw"></i>
@@ -114,7 +114,7 @@ defineExpose({ EventFormat });
 
 <style scoped>
 .fs-7 {
-  font-size: 0.85rem !important; /* Slightly larger small text */
+  font-size: 0.875rem !important; /* Increased from 0.85rem */
 }
 .alert-sm {
   padding: 0.4rem 0.8rem;

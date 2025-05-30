@@ -7,7 +7,7 @@
         active-class="active"
       >
         <span class="fs-4 mb-1"><i class="fas fa-home"></i></span>
-        <span class="fs-7">Home</span>
+        <span class="small">Home</span> <!-- Changed from fs-7 -->
       </router-link>
 
       <!-- Event Request Link  -->
@@ -18,7 +18,7 @@
         active-class="active"
       >
         <span class="fs-4 mb-1"><i class="fas fa-calendar-plus"></i></span>
-        <span class="fs-7">Request</span>
+        <span class="small">Request</span> <!-- Changed from fs-7 -->
       </router-link>
 
       <!-- Leaderboard -->
@@ -28,7 +28,7 @@
         active-class="active"
       >
         <span class="fs-4 mb-1"><i class="fas fa-trophy"></i></span>
-        <span class="fs-7">Leaderboard</span>
+        <span class="small">Leaderboard</span> <!-- Changed from fs-7 -->
       </router-link>
 
       <!-- Profile (User Only) -->
@@ -50,7 +50,7 @@
           />
         </figure>
         <span v-else class="fs-4 mb-1"><i class="fas fa-user-circle"></i></span>
-        <span class="fs-7">Profile</span>
+        <span class="small">Profile</span> <!-- Changed from fs-7 -->
       </router-link>
     </div>
   </nav>
@@ -166,7 +166,7 @@ img.rounded-circle {
 }
 
 .fs-7 {
-    font-size: 0.75rem !important; /* Define fs-7 if not globally available */
+    font-size: 0.875rem !important; /* Increased from 0.75rem */
 }
 
 /* Add transition for scroll hiding */

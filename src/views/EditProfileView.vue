@@ -180,9 +180,23 @@ async function saveProfileEdits() {
   error.value = '';
 
   try {
+    // If there's a new image but upload failed due to CORS, we'll skip image update
+    let finalPhotoURL = form.value.photoURL;
+    
+    // Check if the photoURL looks like a blob URL (indicating a new upload that might have failed)
+    if (form.value.photoURL && form.value.photoURL.startsWith('blob:')) {
+      console.warn('Image upload may have failed due to CORS. Skipping image update.');
+      finalPhotoURL = studentStore.currentStudent?.photoURL || ''; // Keep existing photo
+      notificationStore.showNotification({ 
+        message: 'Note: Image upload failed due to configuration. Profile updated without new image.', 
+        type: 'warning' 
+      });
+    }
+
     // Ensure `name` is not null, as the store expects string | undefined
     const payloadForUpdate = {
       ...form.value,
+      photoURL: finalPhotoURL,
       name: form.value.name === null ? undefined : form.value.name,
     };
 

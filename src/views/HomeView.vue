@@ -21,7 +21,7 @@
           <div class="col-12">
             <!-- Header -->
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3 mb-md-4 px-lg-3">
-              <h2 class="h3 text-dark mb-0"><i class="fas fa-calendar-alt text-primary me-2"></i>Events</h2>
+              <h2 class="h4 h3-md text-dark mb-0"><i class="fas fa-calendar-alt text-primary me-2"></i>Events</h2>
               <!-- Show "Request Event" button only if user is authenticated -->
               <div v-if="canRequestEvent">
                 <router-link
@@ -37,7 +37,7 @@
             <!-- Active Events Section -->
             <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
               <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="h4 text-dark mb-0"><i class="fas fa-bolt text-primary me-2"></i>Active Events</h4>
+                <h4 class="h5 h4-md text-dark mb-0"><i class="fas fa-bolt text-primary me-2"></i>Active Events</h4>
                 <!-- Show "View All" link only if there are more events than displayed -->
                 <router-link
                   v-if="totalActiveCount > maxEventsPerSection"
@@ -58,7 +58,7 @@
             <!-- Upcoming Events Section -->
             <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
               <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="h4 text-dark mb-0"><i class="fas fa-hourglass-half text-info me-2"></i>Upcoming Events</h4>
+                <h4 class="h5 h4-md text-dark mb-0"><i class="fas fa-hourglass-half text-info me-2"></i>Upcoming Events</h4>
                 <router-link
                   v-if="totalUpcomingCount > maxEventsPerSection"
                   :to="{ name: 'EventsList', query: { filter: 'upcoming' } }"
@@ -78,7 +78,7 @@
             <!-- Completed Events Section -->
             <div class="section-card shadow-sm rounded-4 p-4 mb-4 animate-fade-in">
               <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="h4 text-dark mb-0"><i class="fas fa-check-circle text-success me-2"></i>Completed Events</h4>
+                <h4 class="h5 h4-md text-dark mb-0"><i class="fas fa-check-circle text-success me-2"></i>Completed Events</h4>
                 <router-link
                   v-if="totalCompletedCount > maxEventsPerSection"
                   :to="{ name: 'EventsList', query: { filter: 'completed' } }"
@@ -125,12 +125,13 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { useEvents } from '@/composables/useEvents';
+import { useEventStore } from '@/stores/eventStore'; // Changed from useEvents composable
 import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
+import { DateTime } from 'luxon';
 
 const studentStore = useProfileStore();
-const { events, fetchPublicEvents } = useEvents();
+const eventStore = useEventStore(); // Changed from useEvents to useEventStore
 const router = useRouter();
 
 // --- State ---
@@ -141,49 +142,164 @@ const showCancelled = ref<boolean>(false);
 // --- Constants ---
 const maxEventsPerSection = 6;
 
+// Helper function to convert various date formats to DateTime
+const toDateTime = (dateValue: any): DateTime | null => {
+  if (!dateValue) return null;
+  
+  try {
+    // Handle Firestore Timestamp
+    if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+      return DateTime.fromJSDate(dateValue.toDate());
+    }
+    // Handle regular Date object
+    if (dateValue instanceof Date) {
+      return DateTime.fromJSDate(dateValue);
+    }
+    // Handle ISO string
+    if (typeof dateValue === 'string') {
+      return DateTime.fromISO(dateValue);
+    }
+    return null;
+  } catch (error) {
+    console.warn('Error converting date:', error);
+    return null;
+  }
+};
+
 // --- Computed Properties ---
-const allEvents = computed<Event[]>(() => events.value || []);
+const allEvents = computed<Event[]>(() => eventStore.events || []); // Changed from events.value to eventStore.events
 const isAuthenticated = computed<boolean>(() => studentStore.isAuthenticated);
 const canRequestEvent = computed<boolean>(() => isAuthenticated.value);
 
 // Filter and sort events for display
-const upcomingEvents = computed<Event[]>(() =>
-  allEvents.value
-    .filter(e => e.status === EventStatus.Approved)
-    .sort((a, b) => (a.details?.date?.start?.toMillis() ?? 0) - (b.details?.date?.start?.toMillis() ?? 0)) // Sort ascending by start date
-    .slice(0, maxEventsPerSection)
-);
+const upcomingEvents = computed<Event[]>(() => {
+  if (!allEvents.value || allEvents.value.length === 0) return [];
+  const currentTime = DateTime.now();
+  
+  return allEvents.value
+    .filter(e => {
+      if (!e || e.status !== EventStatus.Approved) return false;
+      const start = toDateTime(e.details?.date?.start);
+      return start && start > currentTime;
+    })
+    .sort((a, b) => {
+      const dateA = toDateTime(a.details?.date?.start);
+      const dateB = toDateTime(b.details?.date?.start);
+      if (!dateA || !dateB) return 0;
+      return dateA.toMillis() - dateB.toMillis();
+    })
+    .slice(0, maxEventsPerSection);
+});
 
-const activeEvents = computed<Event[]>(() =>
-  allEvents.value
-    .filter(e => e.status === EventStatus.InProgress)
-    .sort((a, b) => (a.details?.date?.start?.toMillis() ?? 0) - (b.details?.date?.start?.toMillis() ?? 0)) // Sort ascending by start date
-    .slice(0, maxEventsPerSection)
-);
+const activeEvents = computed<Event[]>(() => {
+  if (!allEvents.value || allEvents.value.length === 0) return [];
+  const currentTime = DateTime.now();
+  
+  return allEvents.value
+    .filter(e => {
+      if (!e) return false;
+      
+      // Event is explicitly marked as InProgress
+      if (e.status === EventStatus.InProgress) return true;
+      
+      // Event is approved and within date range
+      if (e.status === EventStatus.Approved) {
+        const start = toDateTime(e.details?.date?.start);
+        const end = toDateTime(e.details?.date?.end);
+        return start && end && start <= currentTime && end >= currentTime;
+      }
+      
+      return false;
+    })
+    .sort((a, b) => {
+      const dateA = toDateTime(a.details?.date?.start);
+      const dateB = toDateTime(b.details?.date?.start);
+      if (!dateA || !dateB) return 0;
+      return dateA.toMillis() - dateB.toMillis(); // Fixed: was dateA.toMillis() - dateA.toMillis()
+    })
+    .slice(0, maxEventsPerSection);
+});
 
-const completedEvents = computed<Event[]>(() =>
-  allEvents.value
-    .filter(e => e.status === EventStatus.Completed)
-    .sort((a, b) => (b.details?.date?.end?.toMillis() ?? 0) - (a.details?.date?.end?.toMillis() ?? 0)) // Sort descending by end date
-    .slice(0, maxEventsPerSection)
-);
+const completedEvents = computed<Event[]>(() => {
+  if (!allEvents.value || allEvents.value.length === 0) return [];
+  const currentTime = DateTime.now();
+  
+  return allEvents.value
+    .filter(e => {
+      if (!e) return false;
+      
+      // Event is explicitly marked as Completed
+      if (e.status === EventStatus.Completed) return true;
+      
+      // Event is approved but past its end date
+      if (e.status === EventStatus.Approved) {
+        const end = toDateTime(e.details?.date?.end);
+        return end && end < currentTime;
+      }
+      
+      return false;
+    })
+    .sort((a, b) => {
+      const dateA = toDateTime(a.details?.date?.end || a.details?.date?.start);
+      const dateB = toDateTime(b.details?.date?.end || b.details?.date?.start);
+      if (!dateA || !dateB) return 0;
+      return dateB.toMillis() - dateA.toMillis();
+    })
+    .slice(0, maxEventsPerSection);
+});
 
-const cancelledEvents = computed<Event[]>(() =>
-  allEvents.value
-    .filter(e => e.status === EventStatus.Cancelled)
-    .sort((a, b) => (b.details?.date?.start?.toMillis() ?? 0) - (a.details?.date?.start?.toMillis() ?? 0)) // Sort descending by start date
-);
+const cancelledEvents = computed<Event[]>(() => {
+  if (!allEvents.value || allEvents.value.length === 0) return [];
+  
+  return allEvents.value
+    .filter(e => e && e.status === EventStatus.Cancelled)
+    .sort((a, b) => {
+      const dateA = toDateTime(a.details?.date?.start);
+      const dateB = toDateTime(b.details?.date?.start);
+      if (!dateA || !dateB) return 0;
+      return dateB.toMillis() - dateA.toMillis();
+    });
+});
 
 // Calculate total counts *before* slicing for "View All" links
-const totalUpcomingCount = computed<number>(() =>
-    allEvents.value.filter(e => e.status === EventStatus.Approved).length
-);
-const totalActiveCount = computed<number>(() =>
-    allEvents.value.filter(e => e.status === EventStatus.InProgress).length
-);
-const totalCompletedCount = computed<number>(() =>
-    allEvents.value.filter(e => e.status === EventStatus.Completed).length
-);
+const totalUpcomingCount = computed<number>(() => {
+    if (!allEvents.value) return 0;
+    const currentTime = DateTime.now();
+    return allEvents.value.filter(e => {
+      if (!e || e.status !== EventStatus.Approved) return false;
+      const start = toDateTime(e.details?.date?.start);
+      return start && start > currentTime;
+    }).length;
+});
+
+const totalActiveCount = computed<number>(() => {
+    if (!allEvents.value) return 0;
+    const currentTime = DateTime.now();
+    return allEvents.value.filter(e => {
+      if (!e) return false;
+      if (e.status === EventStatus.InProgress) return true;
+      if (e.status === EventStatus.Approved) {
+        const start = toDateTime(e.details?.date?.start);
+        const end = toDateTime(e.details?.date?.end);
+        return start && end && start <= currentTime && end >= currentTime;
+      }
+      return false;
+    }).length;
+});
+
+const totalCompletedCount = computed<number>(() => {
+    if (!allEvents.value) return 0;
+    const currentTime = DateTime.now();
+    return allEvents.value.filter(e => {
+      if (!e) return false;
+      if (e.status === EventStatus.Completed) return true;
+      if (e.status === EventStatus.Approved) {
+        const end = toDateTime(e.details?.date?.end);
+        return end && end < currentTime;
+      }
+      return false;
+    }).length;
+});
 
 // nameCache Map to a plain object for props
 const nameCache = computed(() => {
@@ -203,11 +319,18 @@ onMounted(async () => {
   loading.value = true;
   error.value = null;
   try {
-    // Fetch all events using composable
-    await fetchPublicEvents();
+    // Fetch all events using event store
+    await eventStore.fetchEvents(); // Changed to use eventStore.fetchEvents()
+    
+    // Check if we actually got events
+    if (!eventStore.events || eventStore.events.length === 0) {
+      console.log('No events returned from fetchEvents');
+    } else {
+      console.log(`Loaded ${eventStore.events.length} events`);
+    }
 
-    // Only try to fetch names if authenticated and there are organizers
-    if (isAuthenticated.value) {
+    // Only try to fetch names if authenticated and there are events
+    if (isAuthenticated.value && allEvents.value && allEvents.value.length > 0) {
       const allOrganizerUids = Array.from(
         new Set(
           allEvents.value.flatMap(e => e.details?.organizers || [])
@@ -220,7 +343,6 @@ onMounted(async () => {
           await studentStore.fetchUserNamesBatch(allOrganizerUids);
         } catch (nameError) {
           console.warn("Failed to load organizer names, but events will still be displayed:", nameError);
-          // Don't set error.value here - let events display without names
         }
       }
     }

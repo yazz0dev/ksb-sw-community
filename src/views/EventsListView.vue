@@ -96,13 +96,13 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { useEvents } from '@/composables/useEvents';
+import { useEventStore } from '@/stores/eventStore'; // Changed from useEvents to useEventStore
 import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
 import { Event, EventStatus } from '@/types/event';
 
 const studentStore = useProfileStore();
-const { events, isLoading, error: eventsError, fetchPublicEvents } = useEvents();
+const eventStore = useEventStore(); // Changed from useEvents composable
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
@@ -153,52 +153,94 @@ watch(() => route.query.filter, (newFilter) => {
   }
 });
 
+// Helper function to convert various date formats to DateTime
+const toDateTime = (dateValue: any): DateTime | null => {
+  if (!dateValue) return null;
+  
+  try {
+    // Handle Firestore Timestamp
+    if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+      return DateTime.fromJSDate(dateValue.toDate());
+    }
+    // Handle regular Date object
+    if (dateValue instanceof Date) {
+      return DateTime.fromJSDate(dateValue);
+    }
+    // Handle ISO string
+    if (typeof dateValue === 'string') {
+      return DateTime.fromISO(dateValue);
+    }
+    return null;
+  } catch (error) {
+    console.warn('Error converting date:', error);
+    return null;
+  }
+};
+
 const upcomingEvents = computed<Event[]>(() => {
-    if (!isAuthenticated.value) return [];
+    if (!isAuthenticated.value || !eventStore.events) return []; // Changed from events.value to eventStore.events
     const currentTime = DateTime.now();
-    return events.value.filter((event: Event) => {
-        const start = event.details.date.start ? DateTime.fromJSDate(event.details.date.start.toDate()) : null;
-        return event.status === EventStatus.Approved && 
-               start?.isValid && start > currentTime;
+    
+    return eventStore.events.filter((event: Event) => { // Changed from events.value to eventStore.events
+        if (!event || event.status !== EventStatus.Approved) return false;
+        const start = toDateTime(event.details?.date?.start);
+        return start && start > currentTime;
     }).sort((a: Event, b: Event) => {
-        const dateA = a.details.date.start ? DateTime.fromJSDate(a.details.date.start.toDate()) : null;
-        const dateB = b.details.date.start ? DateTime.fromJSDate(b.details.date.start.toDate()) : null;
-        if (!dateA?.isValid || !dateB?.isValid) return 0;
+        const dateA = toDateTime(a.details?.date?.start);
+        const dateB = toDateTime(b.details?.date?.start);
+        if (!dateA || !dateB) return 0;
         return dateA.toMillis() - dateB.toMillis();
     });
 });
 
 const activeEvents = computed<Event[]>(() => {
-    if (!isAuthenticated.value) return [];
+    if (!isAuthenticated.value || !eventStore.events) return []; // Changed from events.value to eventStore.events
     const currentTime = DateTime.now();
-    return events.value.filter((event: Event) => {
-        const start = event.details.date.start ? DateTime.fromJSDate(event.details.date.start.toDate()) : null;
-        const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
-        return event.status === EventStatus.InProgress || 
-               (event.status === EventStatus.Approved && 
-                start?.isValid && start <= currentTime && 
-                end?.isValid && end >= currentTime);
+    
+    return eventStore.events.filter((event: Event) => { // Changed from events.value to eventStore.events
+        if (!event) return false;
+        
+        // Event is explicitly marked as InProgress
+        if (event.status === EventStatus.InProgress) return true;
+        
+        // Event is approved and within date range
+        if (event.status === EventStatus.Approved) {
+            const start = toDateTime(event.details?.date?.start);
+            const end = toDateTime(event.details?.date?.end);
+            return start && end && start <= currentTime && end >= currentTime;
+        }
+        
+        return false;
     }).sort((a: Event, b: Event) => { 
-        const dateA = a.details.date.start ? DateTime.fromJSDate(a.details.date.start.toDate()) : null;
-        const dateB = b.details.date.start ? DateTime.fromJSDate(b.details.date.start.toDate()) : null;
-        if (!dateA?.isValid || !dateB?.isValid) return 0;
+        const dateA = toDateTime(a.details?.date?.start);
+        const dateB = toDateTime(b.details?.date?.start);
+        if (!dateA || !dateB) return 0;
         return dateA.toMillis() - dateB.toMillis();
     });
 });
 
 const completedEvents = computed<Event[]>(() => {
+    if (!eventStore.events) return []; // Changed from events.value to eventStore.events
     const currentTime = DateTime.now();
-    return events.value.filter((event: Event) => {
-        const end = event.details.date.end ? DateTime.fromJSDate(event.details.date.end.toDate()) : null;
-        return event.status === EventStatus.Completed ||
-               (event.status === EventStatus.Approved && end?.isValid && end < currentTime);
+    
+    return eventStore.events.filter((event: Event) => { // Changed from events.value to eventStore.events
+        if (!event) return false;
+        
+        // Event is explicitly marked as Completed
+        if (event.status === EventStatus.Completed) return true;
+        
+        // Event is approved but past its end date
+        if (event.status === EventStatus.Approved) {
+            const end = toDateTime(event.details?.date?.end);
+            return end && end < currentTime;
+        }
+        
+        return false;
     }).sort((a: Event, b: Event) => {
-        const dateA = a.details.date.end || a.details.date.start;
-        const dateB = b.details.date.end || b.details.date.start;
-        const dtA = dateA ? DateTime.fromJSDate(dateA.toDate()) : null;
-        const dtB = dateB ? DateTime.fromJSDate(dateB.toDate()) : null;
-        if (!dtA?.isValid || !dtB?.isValid) return 0; 
-        return dtB.toMillis() - dtA.toMillis();
+        const dateA = toDateTime(a.details?.date?.end || a.details?.date?.start);
+        const dateB = toDateTime(b.details?.date?.end || b.details?.date?.start);
+        if (!dateA || !dateB) return 0; 
+        return dateB.toMillis() - dateA.toMillis();
     });
 });
 
@@ -218,14 +260,20 @@ onMounted(async () => {
   loading.value = true;
   error.value = null;
   try {
-    await fetchPublicEvents();
+    await eventStore.fetchEvents(); // Changed to use eventStore.fetchEvents()
+    
+    // Check if we actually got events
+    if (!eventStore.events || eventStore.events.length === 0) {
+      console.log('No events returned from fetchEvents');
+    } else {
+      console.log(`Loaded ${eventStore.events.length} events`);
+    }
     
     // Only try to fetch names if authenticated
-    if (isAuthenticated.value) {
-      const allEventsArr = events.value;
+    if (isAuthenticated.value && eventStore.events && eventStore.events.length > 0) {
       const allOrganizerUids = Array.from(
         new Set(
-          allEventsArr.flatMap((e: any) => Array.isArray(e.details.organizers) ? e.details.organizers : [])
+          eventStore.events.flatMap((e: Event) => Array.isArray(e.details?.organizers) ? e.details.organizers : [])
         )
       ).filter(Boolean);
       
@@ -234,7 +282,6 @@ onMounted(async () => {
           await studentStore.fetchUserNamesBatch(allOrganizerUids);
         } catch (nameError) {
           console.warn("Failed to load organizer names, but events will still be displayed:", nameError);
-          // Don't set error.value here - let events display without names
         }
       }
     }
@@ -245,20 +292,8 @@ onMounted(async () => {
     loading.value = false;
   }
 });
-
 </script>
 
 <style scoped>
-/* Removed loader style */
-
-/* Removed column height style */
-
-/* Animation */
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-in-out;
-}
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* Add any component-specific styles here */
 </style>
