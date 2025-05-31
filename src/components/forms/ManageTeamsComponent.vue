@@ -4,7 +4,6 @@
     <h5 class="h5 mb-4">Manage Teams</h5>
 
     <div v-if="teams.length > 0" class="mb-4">
-      <p class="small text-muted">(Debug: Rendering team list. Students prop length: {{ props.students.length }})</p>
       <transition-group name="fade-fast" tag="div">
         <div v-for="(team, index) in teams" :key="team.name || `team-${index}`" class="p-4 mb-4 border rounded bg-light-subtle team-box">
           <div class="d-flex justify-content-between align-items-start mb-3">
@@ -185,7 +184,7 @@ const emit = defineEmits<{
 }>();
 
 const studentStore = useProfileStore();
-const eventStore = useEventStore(); // Corrected usage
+const eventStore = useEventStore() as any; // Add type assertion here
 const teams = ref<LocalTeam[]>([]);
 const maxTeams = 8;
 const minMembersPerTeam = 2;

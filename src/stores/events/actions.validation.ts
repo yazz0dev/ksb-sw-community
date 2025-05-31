@@ -55,7 +55,7 @@ export async function checkDateConflictForRequest(
     if (!checkStartLuxon || !checkEndLuxon) {
         throw new Error('Invalid date(s) provided for conflict check.');
     }
-    if (checkEndLuxon < checkStartLuxon) {
+    if (checkEndLuxon < checkStartLuxon) { // Changed from <= to < to allow same day
         throw new Error('End date cannot be before start date.');
     }
 

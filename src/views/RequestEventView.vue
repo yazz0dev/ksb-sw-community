@@ -70,13 +70,39 @@
                 <EventBasicDetailsForm
                   v-model:details="formData.details"
                   :isSubmitting="isSubmitting"
+                  :isEditing="isEditing"
+                />
+                
+                <hr class="my-4">
+                
+                <EventCoOrganizerForm
+                  v-model:organizers="formData.details.organizers"
+                  :isSubmitting="isSubmitting"
+                  :nameCache="nameCache"
+                  :currentUserUid="profileStore.studentId"
+                  :allUsers="allUsers"
+                />
+              </div>
+            </div>
+
+            <div v-if="formData.details.format !== EventFormat.Competition" class="card shadow-sm mb-4" :key="`criteria-card-${criteriaCardNumber}`">
+              <div class="card-header bg-light">
+                <h4 class="h5 mb-0 text-dark">{{ criteriaCardNumber }}. Rating Criteria</h4>
+              </div>
+              <div class="card-body p-4 p-lg-5">
+                <EventCriteriaForm
+                  v-model:criteria="formData.criteria"
+                  :isSubmitting="isSubmitting"
+                  :eventFormat="formData.details.format"
+                  :assignableXpRoles="assignableXpRoles"
+                  :totalXP="totalXP"
                 />
               </div>
             </div>
 
             <div v-if="formData.details.format === EventFormat.Team" class="card shadow-sm mb-4" :key="`team-config-card-${2}`">
               <div class="card-header bg-light">
-                <h4 class="h5 mb-0 text-dark">2. Team Configuration</h4>
+                <h4 class="h5 mb-0 text-dark">3. Team Configuration</h4>
               </div>
               <div class="card-body p-4 p-lg-5">
                  <ManageTeamsComponent
@@ -133,17 +159,22 @@ import { useRoute, useRouter } from 'vue-router';
 import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
 import EventScheduleForm from '@/components/forms/EventScheduleForm.vue';
 import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
+import EventCoOrganizerForm from '@/components/forms/EventCoOrganizerForm.vue';
+import EventCriteriaForm from '@/components/forms/EventCriteriaForm.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
-import { EventFormat, type EventFormData, type Team } from '@/types/event'; // Added EventFormData, Team
+import { EventFormat, EventStatus, type EventFormData, type Team } from '@/types/event';
 import { useEventStore } from '@/stores/eventStore';
 import { useProfileStore } from '@/stores/profileStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { Timestamp } from 'firebase/firestore';
 import { DateTime } from 'luxon';
 
 const route = useRoute();
 const router = useRouter();
-const eventStore = useEventStore();
+// TODO: Consider using strongly typed store if possible, instead of 'as any'.
+const eventStore = useEventStore() as any;
 const profileStore = useProfileStore();
+const notificationStore = useNotificationStore();
 
 // Reactive state
 const loading = ref(true);
@@ -153,7 +184,9 @@ const hasActiveRequest = ref(false);
 const errorMessage = ref('');
 const isSubmitting = ref(false);
 const eventId = ref(route.params.eventId as string || '');
-const allUsers = ref<InstanceType<typeof ManageTeamsComponent>['students']>([]); // Match ManageTeamsComponent prop type
+const allUsers = ref<InstanceType<typeof ManageTeamsComponent>['students']>([]);
+const nameCache = ref<Record<string, string>>({});
+const assignableXpRoles = ref<readonly string[]>(['Student', 'TeamLead', 'Mentor']);
 
 // Form data structure
 const formData = ref<EventFormData>({
@@ -190,41 +223,48 @@ const isFormValid = computed(() => {
 });
 
 const scheduleCardNumber = computed(() => {
-  return formData.value.details.format === EventFormat.Team ? 3 : 2;
+  let cardNumber = 2;
+  if (formData.value.details.format !== EventFormat.Competition) cardNumber++;
+  if (formData.value.details.format === EventFormat.Team) cardNumber++;
+  return cardNumber;
+});
+
+const criteriaCardNumber = computed(() => {
+  return 2;
+});
+
+const totalXP = computed(() => {
+  return formData.value.criteria.reduce((sum, criterion) => sum + (criterion.points || 0), 0);
 });
 
 const handleSubmitForm = async () => {
   if (!isFormValid.value) {
     errorMessage.value = "Please correct the errors in the form before submitting.";
-    // Ensure user sees the specific errors from child components or validation logic.
-    // For example, date conflict errors are shown by EventScheduleForm.
-    // BasicDetailsForm might have its own internal validation displays.
     return;
   }
 
   isSubmitting.value = true;
-  errorMessage.value = ''; // Clear previous errors
+  errorMessage.value = '';
 
   try {
-    let success: boolean | string | null = false; // string for new event ID, boolean for edit
+    let success: boolean | string | null = false;
     if (isEditing.value) {
       success = await eventStore.editMyEventRequest(eventId.value, formData.value);
       if (success) {
-        eventStore.notificationStore.showNotification({ message: "Event updated successfully!", type: 'success' });
-        router.push({ name: 'EventDetails', params: { eventId: eventId.value } });
+        notificationStore.showNotification({ message: "Event updated successfully!", type: 'success' });
+        router.push({ name: 'EventDetails', params: { id: eventId.value } });
       }
     } else {
-      // Check for active request again before submitting, in case state changed
       if (await eventStore.checkExistingRequests()) {
           errorMessage.value = "You already have a pending event request. Please wait for it to be reviewed.";
-          hasActiveRequest.value = true; // Ensure UI reflects this
+          hasActiveRequest.value = true;
           isSubmitting.value = false;
           return;
       }
       success = await eventStore.requestNewEvent(formData.value);
-      if (success && typeof success === 'string') { // success here is the new eventId
-        eventStore.notificationStore.showNotification({ message: "Event request submitted successfully!", type: 'success' });
-        router.push({ name: 'EventDetails', params: { eventId: success } });
+      if (success && typeof success === 'string') {
+        notificationStore.showNotification({ message: "Event request submitted successfully!", type: 'success' });
+        router.push({ name: 'EventDetails', params: { id: success } });
       }
     }
 
@@ -233,7 +273,7 @@ const handleSubmitForm = async () => {
     }
   } catch (err: any) {
     errorMessage.value = err.message || "An unexpected error occurred.";
-    eventStore.notificationStore.showNotification({ message: errorMessage.value, type: 'error' });
+    notificationStore.showNotification({ message: errorMessage.value, type: 'error' });
   } finally {
     isSubmitting.value = false;
   }
@@ -258,8 +298,15 @@ onMounted(async () => {
 
   try {
     // Fetch all users for team management component
-    // This might need to be UserData[] depending on ManageTeamsComponent's expectation
     allUsers.value = await profileStore.fetchAllStudentProfiles();
+    
+    // Build name cache for co-organizer display
+    nameCache.value = {};
+    allUsers.value.forEach(user => {
+      if (user.uid && user.name) {
+        nameCache.value[user.uid] = user.name;
+      }
+    });
 
     if (eventId.value) {
       isEditing.value = true;
@@ -291,7 +338,10 @@ onMounted(async () => {
 
         formData.value.criteria = event.criteria || [];
         formData.value.teams = event.teams || [];
-        // Note: Event specific fields like status, votingOpen are not typically part of student edit form directly
+        // Populate status and votingOpen for editing
+        formData.value.status = event.status; // Ensure status is populated
+        formData.value.votingOpen = event.votingOpen; // Ensure votingOpen is populated
+        
       } else {
         editError.value = "Event not found or you don't have permission to edit it.";
       }

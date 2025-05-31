@@ -7,25 +7,32 @@
         <DatePicker
           v-model="localDates.start"
           :disabled="isSubmitting"
-          :min-date="minDate"
+          :min-date="minDateForStartDatePicker"
+          :view-date="initialViewDate" 
           @update:model-value="onDateChange"
           :enable-time-picker="false"
           format="yyyy-MM-dd"
           auto-apply
           :clearable="false"
+          placeholder="Select start date"
         />
+        <small class="form-text text-muted" v-if="!props.eventId">
+          Must be at least 2 days from today
+        </small>
       </div>
       <div class="col-md-6">
         <label class="form-label">End Date <span class="text-danger">*</span></label>
         <DatePicker
           v-model="localDates.end"
           :disabled="isSubmitting"
-          :min-date="localDates.start || minDate"
+          :min-date="minDateForEndDatePicker"
+          :view-date="localDates.start || initialViewDate"
           @update:model-value="onDateChange"
           :enable-time-picker="false"
           format="yyyy-MM-dd"
           auto-apply
           :clearable="false"
+          placeholder="Select end date"
         />
       </div>
     </div>
@@ -39,10 +46,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import DatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
-import { useEventStore } from '@/stores/eventStore'; // Corrected import
+import { useEventStore } from '@/stores/eventStore';
 import { DateTime } from 'luxon';
 
 interface FormDateRange {
@@ -62,7 +69,9 @@ const emit = defineEmits<{
 }>();
 
 const parseDateStringForPicker = (dateString: string | null): Date | null => {
-    return dateString ? DateTime.fromISO(dateString).toJSDate() : null;
+    if (!dateString) return null;
+    const dt = DateTime.fromISO(dateString);
+    return dt.isValid ? dt.toJSDate() : null;
 };
 
 const localDates = ref<{ start: Date | null; end: Date | null }>({
@@ -72,13 +81,33 @@ const localDates = ref<{ start: Date | null; end: Date | null }>({
 
 const dateConflictError = ref<string | null>(null);
 const nextAvailableDateISO = ref<string | null>(null);
-const minDate = ref(
-  DateTime.now()
-    .setZone('Asia/Kolkata')
-    .plus({ days: 2 })
-    .startOf('day')
-    .toJSDate()
-);
+
+// Make minDate a computed property
+const minDateForStartDatePicker = computed(() => {
+  // For new events, minimum is today + 2 days
+  // For editing, allow the original date if it's in the past
+  const today = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+  
+  if (props.eventId && props.dates.start) {
+    // Editing mode: if original date is in the past, allow it
+    const originalStartDate = DateTime.fromISO(props.dates.start).startOf('day');
+    if (originalStartDate.isValid && originalStartDate < today) {
+      return originalStartDate.toJSDate();
+    }
+  }
+  
+  // Default for new events: today + 2 days
+  return today.plus({ days: 2 }).toJSDate();
+});
+
+const minDateForEndDatePicker = computed(() => {
+  if (localDates.value.start) {
+    // If start date is selected, end date must be on or after start date
+    return DateTime.fromJSDate(localDates.value.start).startOf('day').toJSDate();
+  }
+  // If start date is not selected, end date's min is same as start date's min
+  return minDateForStartDatePicker.value;
+});
 
 const formatDateISO = (isoDateString: string | null): string => {
   if (!isoDateString) return 'N/A';
@@ -93,7 +122,10 @@ const checkAvailability = async () => {
     emit('availability-change', true); // Assuming availability if dates are not set
     return;
   }
-  const eventStore = useEventStore();
+  
+  // Add explicit type to eventStore
+  const eventStore = useEventStore() as any;
+  
   try {
     const result = await eventStore.checkDateConflict({
       startDate: localDates.value.start,
@@ -108,9 +140,6 @@ const checkAvailability = async () => {
     } else {
       dateConflictError.value = null; // Clear previous error
       nextAvailableDateISO.value = null; // Clear previous suggestion if now valid
-      // If no conflict, but there was a suggestion for next available (e.g. from a previous invalid range),
-      // we might want to show it if the current range is valid but, say, too short by other rules not checked here.
-      // For now, just clear it if no conflict.
       emit('availability-change', true);
     }
   } catch (error: any) {
@@ -120,6 +149,20 @@ const checkAvailability = async () => {
     emit('availability-change', false);
   }
 };
+
+const initialViewDate = computed(() => {
+  // If editing and we have a valid start date, use that as the initial view
+  if (props.eventId && props.dates.start) {
+    const editDate = DateTime.fromISO(props.dates.start);
+    if (editDate.isValid) {
+      return editDate.toJSDate();
+    }
+  }
+  
+  // For new events, use the minimum allowed date (today + 2 days)
+  // This ensures the calendar opens to a month with valid dates
+  return minDateForStartDatePicker.value;
+});
 
 const onDateChange = async () => {
   const datesToEmit: FormDateRange = {
@@ -138,8 +181,8 @@ const onDateChange = async () => {
       return;
     }
     
-    if (endDateTime <= startDateTime) {
-      emit('error', `End date must be after start date. Current: ${startDateTime.toISODate()} to ${endDateTime.toISODate()}`);
+    if (endDateTime < startDateTime) { // Allow same day
+      emit('error', `End date cannot be before start date. Current: ${startDateTime.toISODate()} to ${endDateTime.toISODate()}`);
       emit('availability-change', false);
       return;
     }
@@ -149,13 +192,35 @@ const onDateChange = async () => {
   await checkAvailability();
 };
 
+// Watch for external changes to dates prop
 watch(() => props.dates, (newDates) => {
-    localDates.value.start = parseDateStringForPicker(newDates.start);
-    localDates.value.end = parseDateStringForPicker(newDates.end);
-}, { deep: true });
+    // Update localDates with new values, but only if they're different
+    const newStart = parseDateStringForPicker(newDates.start);
+    const newEnd = parseDateStringForPicker(newDates.end);
+    
+    if (newStart !== localDates.value.start) {
+        localDates.value.start = newStart;
+    }
+    
+    if (newEnd !== localDates.value.end) {
+        localDates.value.end = newEnd;
+    }
+    
+    // If dates changed externally, check availability
+    if (localDates.value.start && localDates.value.end) {
+        checkAvailability();
+    }
+}, { deep: true, immediate: true });
 
 onMounted(() => {
+  // Force immediate validation on mount
   if (localDates.value.start && localDates.value.end) {
+    // If both dates are available on mount, emit them to ensure parent has the proper values
+    const datesToEmit: FormDateRange = {
+        start: DateTime.fromJSDate(localDates.value.start).toISODate(),
+        end: DateTime.fromJSDate(localDates.value.end).toISODate()
+    };
+    emit('update:dates', datesToEmit);
     checkAvailability();
   } else {
     emit('availability-change', true);

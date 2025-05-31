@@ -281,10 +281,6 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
-      if (!studentProfileStore.isAuthenticated || !studentProfileStore.studentId) {
-        throw new Error('You must be authenticated to create an event.');
-      }
-
       // Enhanced date validation with better error messages
       const startDate = formData.details.date.start;
       const endDate = formData.details.date.end;
@@ -319,9 +315,9 @@ export const useEventStore = defineStore('studentEvents', () => {
         throw new Error(`Invalid dates provided. Start: ${startDateTime.invalidReason}, End: ${endDateTime.invalidReason}`);
       }
 
-      // Compare full datetime instead of just dates to allow same-day events
-      if (endDateTime <= startDateTime) {
-        throw new Error(`Event end date and time (${endDateTime.toISO()}) must be after start date and time (${startDateTime.toISO()}).`);
+      // Compare full datetime. Allow same-day events.
+      if (endDateTime < startDateTime) {
+        throw new Error(`Event end date must be on or after the start date.`);
       }
 
       // Additional validation: ensure dates are not in the past
@@ -345,36 +341,67 @@ export const useEventStore = defineStore('studentEvents', () => {
         formData.details.organizers.push(studentProfileStore.studentId);
       }
 
-      const mappedData = mapEventDataToFirestore(formData);
-      const newEventDataForFirestore = {
-        ...mappedData,
+      // Prepare details for Firestore, ensuring optional text fields are null if empty/undefined
+      const firestoreDetails = {
+        eventName: formData.details.eventName,
+        description: formData.details.description || '', // Ensure description is at least an empty string
+        rules: formData.details.rules || null, // Convert empty/undefined to null for Firestore
+        format: formData.details.format,
+        type: formData.details.type,
+        organizers: formData.details.organizers,
+        date: {
+          start: Timestamp.fromDate(startDateTime.toJSDate()),
+          end: Timestamp.fromDate(endDateTime.toJSDate()),
+        },
+        allowProjectSubmission: formData.details.allowProjectSubmission,
+        prize: formData.details.prize || null // Convert empty/undefined to null for Firestore
+      };
+
+      // Create a properly formatted document with all required fields
+      const newEventData = {
         status: EventStatus.Pending,
         requestedBy: studentId,
-        createdAt: createTimestamp(),
-        lastUpdatedAt: createTimestamp(),
+        createdAt: Timestamp.now(),
+        lastUpdatedAt: Timestamp.now(),
         participants: [],
         votingOpen: false,
+        details: firestoreDetails, // Use the sanitized details for Firestore
+        criteria: formData.criteria || [],
+        teams: formData.teams || []
       };
-      const newEventRef = await addDoc(collection(db, 'events'), newEventDataForFirestore);
-      
-      // Ensure newEventDataForStore.details has Timestamp objects for dates
-      const detailsWithTimestampDates = convertEventDetailsDateFormat(formData.details);
 
-      const newEventDataForStore: Event = {
-        ...newEventDataForFirestore,
-        id: newEventRef.id,
-        details: detailsWithTimestampDates, 
-        criteria: formData.criteria,
-        teams: formData.teams,
-        teamMemberFlatList: [], 
-        submissions: [],        
-        bestPerformerSelections: {}, 
-        winners: {},            
-        organizerRatings: [],   
-      };
-      _updateLocalEventLists(newEventDataForStore);
-      notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
-      return newEventRef.id;
+      try {
+        const newEventRef = await addDoc(collection(db, 'events'), newEventData);
+        
+        // Create a complete Event object for local store
+        // For the local store, we can use undefined if the Event type allows it
+        const newEventDataForStore: Event = {
+          ...newEventData,
+          // If Event type expects undefined for rules/prize, adjust here or ensure newEventData matches
+          details: {
+            ...newEventData.details, // This now has null for rules/prize if they were empty
+            // If Event type needs undefined, convert null back to undefined for these fields
+            rules: newEventData.details.rules === null ? undefined : newEventData.details.rules,
+            prize: newEventData.details.prize === null ? undefined : newEventData.details.prize,
+          },
+          id: newEventRef.id,
+          teamMemberFlatList: [], 
+          submissions: [],        
+          bestPerformerSelections: {}, 
+          winners: {},            
+          organizerRatings: [],   
+        };
+        
+        _updateLocalEventLists(newEventDataForStore);
+        notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
+        return newEventRef.id;
+      } catch (error: any) {
+        console.error("Firestore addDoc error:", error);
+        if (error.code === 'permission-denied') {
+          throw new Error(`Permission denied: ${error.message}. Please check that you're logged in and have the necessary permissions.`);
+        }
+        throw error;
+      }
     } catch (err) {
       await _handleOpError('creating new event', err);
       return null;
@@ -383,6 +410,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
+  // Fix the update payload typing issue
   async function editMyEventRequest(eventId: string, formData: EventFormData): Promise<boolean> {
     actionError.value = null;
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
@@ -400,18 +428,8 @@ export const useEventStore = defineStore('studentEvents', () => {
         throw new Error('Event start and end dates are required.');
       }
 
-      // For edits, we might not need to check if the start date is in the past,
-      // but we must ensure the end date is not before the start date.
-      // If the event has already started, the start date might be in the past.
-      // However, if you want to prevent moving an event's start date to the past:
-      // const todayStartIST = DateTime.now().setZone('Asia/Kolkata').startOf('day').toJSDate();
-      // const todayStartTimestamp = Timestamp.fromDate(todayStartIST);
-      // if (startDate.toMillis() < todayStartTimestamp.toMillis() && /* check if original start date was also in past */ ) {
-      //   throw new Error('Event start date cannot be moved to the past.');
-      // }
-
-      if (endDate.toMillis() < startDate.toMillis()) { // ADDED: Allow same day
-        throw new Error('Event end date must be on or after start date.'); // ADDED: Error message
+      if (endDate.toMillis() < startDate.toMillis()) {
+        throw new Error('Event end date must be on or after start date.');
       }
       
       // Check for date conflicts, excluding the current event
@@ -425,43 +443,51 @@ export const useEventStore = defineStore('studentEvents', () => {
         throw new Error(`Date conflict with event: ${conflictingEventName}`);
       }
 
-      const eventRef = doc(db, 'events', eventId);
-      // formData.details.date has string dates.
-      // mapEventDataToFirestore converts them to Timestamps for Firestore.
-      const dataToStoreInFirestore = mapEventDataToFirestore(formData); 
-      
-      const firestoreUpdatePayload = {
-        ...dataToStoreInFirestore,
+      const existingEvent = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
+      if (!existingEvent) {
+        throw new Error("Event not found or you don't have permission to edit it.");
+      }
+
+      const teamsForPayload = existingEvent.details.format === EventFormat.Team ? (formData.teams || []) : [];
+      let newTeamMemberFlatList: string[] = [];
+      if (existingEvent.details.format === EventFormat.Team && teamsForPayload.length > 0) {
+        newTeamMemberFlatList = [...new Set(teamsForPayload.flatMap(team => team.members).filter(Boolean))];
+      } else {
+        newTeamMemberFlatList = []; 
+      }
+
+      // Create a more targeted update payload that matches what Firestore rules allow
+      const updatePayload = {
+        details: {
+          format: existingEvent.details.format, // Preserve the format
+          eventName: formData.details.eventName,
+          description: formData.details.description || '',
+          type: formData.details.type,
+          rules: formData.details.rules || null,
+          prize: formData.details.prize || null,
+          allowProjectSubmission: formData.details.allowProjectSubmission,
+          organizers: formData.details.organizers,
+          date: {
+            start: startDate,
+            end: endDate
+          }
+        },
+        criteria: formData.criteria || [],
+        teams: teamsForPayload,
+        teamMemberFlatList: newTeamMemberFlatList,
         lastUpdatedAt: serverTimestamp()
       };
-      await updateDoc(eventRef, firestoreUpdatePayload);
-
-      // For local update, simulate the data as it would be after Firestore resolves serverTimestamp
-      const dataForLocalMapping = {
-        ...dataToStoreInFirestore, // This has details.date as Timestamps
-        lastUpdatedAt: Timestamp.now() // Replace serverTimestamp with actual Timestamp
-      };
       
-      // mapFirestoreToEventData should convert Firestore-like data (with Timestamps)
-      // back to the application's Event structure (which also uses Timestamps in details.date).
-      const updatedEventPartial = mapFirestoreToEventData(eventId, dataForLocalMapping); // Pass object directly
-
-      const eventIndex = events.value.findIndex(e => e.id === eventId);
-      if (eventIndex !== -1) {
-        events.value[eventIndex] = createCompleteEvent(
-          { ...events.value[eventIndex], ...updatedEventPartial, id: eventId }, 
-          events.value[eventIndex]
-        );
+      console.log("Event update payload:", JSON.stringify(updatePayload));
+      
+      const eventRef = doc(db, 'events', eventId);
+      await updateDoc(eventRef, updatePayload);
+      
+      const updatedEvent = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
+      if (updatedEvent) {
+        _updateLocalEventLists(updatedEvent);
       }
       
-      if (viewedEventDetails.value?.id === eventId) {
-        // For the second call, also pass the object directly
-        const updatedViewedEventPartial = mapFirestoreToEventData(eventId, dataForLocalMapping);
-        viewedEventDetails.value = createCompleteEvent(
-          { ...(viewedEventDetails.value as Event), ...updatedViewedEventPartial, id: eventId },
-          viewedEventDetails.value as Event
-        );
-      }
       notificationStore.showNotification({ message: 'Event request updated successfully!', type: 'success' });
       return true;
     } catch (err) {
@@ -678,7 +704,7 @@ export const useEventStore = defineStore('studentEvents', () => {
         if (!studentProfileStore.currentStudent) throw new Error("User not authenticated."); // Use currentStudent
         await EventLifecycleActions.closeEventDocumentInFirestore(eventId, studentProfileStore.currentStudent);
 
-        const eventData = EventFetchingActions.fetchSingleEventFromFirestore(eventId) as (Event | null); // Corrected function name, ensure return type allows null
+        const eventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
         if (!eventData) throw new Error("Failed to fetch event data after closing for XP calculation.");
 
         const xpChangesMap = await EventUtils.calculateEventXP(eventData); // Use EventUtils
@@ -779,8 +805,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     try {
       return await checkExistingPendingRequestFromValidation(studentProfileStore.studentId);
     } catch (error) {
-       _handleOpError("checking existing requests", error);
-       return false;
+      await _handleOpError("checking existing requests", error);
+      return false;
     }
   }
 

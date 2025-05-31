@@ -6,15 +6,15 @@
       <label class="form-label fw-medium">Event Format <span class="text-danger">*</span></label>
       <div class="d-flex flex-wrap gap-3">
         <div class="form-check">
-          <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" :value="EventFormat.Individual" v-model="localDetails.format" :disabled="isSubmitting">
+          <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" :value="EventFormat.Individual" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatIndividual">Individual</label>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" :value="EventFormat.Team" v-model="localDetails.format" :disabled="isSubmitting">
+          <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" :value="EventFormat.Team" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatTeam">Team</label>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="radio" name="eventFormat" id="formatCompetition" :value="EventFormat.Competition" v-model="localDetails.format" :disabled="isSubmitting">
+          <input class="form-check-input" type="radio" name="eventFormat" id="formatCompetition" :value="EventFormat.Competition" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatCompetition">Competition</label>
         </div>
       </div>
@@ -131,11 +131,12 @@ import { EventFormData, EventFormat } from '@/types/event';
 interface Props {
   details: EventFormData['details'];
   isSubmitting: boolean;
+  isEditing: boolean;
 }
 
 const emit = defineEmits(['update:details']);
 const props = defineProps<Props>();
-const { details, isSubmitting } = toRefs(props);
+const { details, isSubmitting, isEditing } = toRefs(props);
 
 // Local copy for two-way binding
 const localDetails = ref<EventFormData['details']>({ ...details.value });
