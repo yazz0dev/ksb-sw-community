@@ -1,5 +1,5 @@
 // src/stores/events/actions.lifecycle.ts
-import { doc, getDoc, updateDoc, addDoc, collection, Timestamp, setDoc } from 'firebase/firestore'; // Added setDoc
+import { doc, getDoc, updateDoc, addDoc, collection, Timestamp, setDoc, serverTimestamp } from 'firebase/firestore'; // Added setDoc & serverTimestamp
 import { db } from '@/firebase';
 // Import EventStatus as a value, not just a type
 import { EventStatus, type Event, type EventFormData, type EventLifecycleTimestamps } from '@/types/event';
@@ -24,27 +24,57 @@ const now = () => Timestamp.now();
 export async function createEventRequestByStudentInFirestore(formData: EventFormData, studentId: string): Promise<string> {
     if (!studentId) throw new Error('Student ID is required to request an event.');
     if (!formData.details?.eventName?.trim()) throw new Error('Event name is required.');
-    // Add more formData validation as needed
+
+    // Date validation from createEventRequest
+    const startDateInput = formData.details.date.start;
+    const endDateInput = formData.details.date.end;
+    if (!startDateInput || !endDateInput) {
+        throw new Error('Both start and end dates are required.');
+    }
+    let startDateTime: DateTime;
+    let endDateTime: DateTime;
+    try {
+        if (typeof startDateInput === 'string') startDateTime = DateTime.fromISO(startDateInput);
+        else if (startDateInput instanceof Date) startDateTime = DateTime.fromJSDate(startDateInput);
+        else if (startDateInput && typeof (startDateInput as any).toDate === 'function') startDateTime = DateTime.fromJSDate((startDateInput as any).toDate());
+        else throw new Error('Invalid start date format');
+
+        if (typeof endDateInput === 'string') endDateTime = DateTime.fromISO(endDateInput);
+        else if (endDateInput instanceof Date) endDateTime = DateTime.fromJSDate(endDateInput);
+        else if (endDateInput && typeof (endDateInput as any).toDate === 'function') endDateTime = DateTime.fromJSDate((endDateInput as any).toDate());
+        else throw new Error('Invalid end date format');
+    } catch (error) {
+        throw new Error('Invalid date format provided for validation.');
+    }
+    if (!startDateTime.isValid || !endDateTime.isValid) {
+        throw new Error('Invalid dates provided. Please check your date selection.');
+    }
+    if (endDateTime <= startDateTime) {
+        throw new Error(`Event end date must be after start date.`);
+    }
+    // Optional: Add check for start date not in the past if desired for new requests
+    // const now = DateTime.now().setZone('Asia/Kolkata');
+    // if (startDateTime < now) {
+    //     throw new Error('Event start date cannot be in the past.');
+    // }
 
     try {
-        const newEventRef = doc(collection(db, 'events')); // Generate a new document reference
-        const newEventId = newEventRef.id; // Get the auto-generated ID
+        const newEventRef = doc(collection(db, 'events'));
+        const newEventId = newEventRef.id;
 
-        // formData.createdAt and .lastUpdatedAt are now optional (Timestamp | undefined)
-        // mapEventDataToFirestore expects only EventFormData
-        const mappedData = mapEventDataToFirestore(formData);
+        const mappedData = mapEventDataToFirestore(formData); // mapEventDataToFirestore handles its own createdAt/lastUpdatedAt
         
         const dataToSubmit: Partial<Event> = {
-            ...mappedData,
-            id: newEventId, // Include the generated ID in the document data
+            ...mappedData, // This will now carry FieldValue for createdAt, lastUpdatedAt
+            id: newEventId,
             requestedBy: studentId,
-            status: EventStatus.Pending, // EventStatus can now be used as a value
+            status: EventStatus.Pending,
             votingOpen: false,
-            organizerRatings: [], // Ensure these are initialized if not in formData/mappedData
+            organizerRatings: [],
             submissions: [],
             winners: {},
             bestPerformerSelections: {},
-            // createdAt & lastUpdatedAt are handled by mapEventDataToFirestore
+            // Explicitly do NOT set createdAt/lastUpdatedAt here, rely on mappedData
         };
         // Ensure organizers array includes the requester if not already
         if (dataToSubmit.details && !dataToSubmit.details.organizers?.includes(studentId)) {
@@ -57,7 +87,6 @@ export async function createEventRequestByStudentInFirestore(formData: EventForm
         await setDoc(newEventRef, dataToSubmit); // Use setDoc with the generated reference
         return newEventId;
     } catch (error: any) {
-        console.error('Firestore createEventRequestByStudent error:', error);
         throw new Error(`Failed to submit event request: ${error.message}`);
     }
 }
@@ -87,11 +116,11 @@ export async function updateMyEventRequestInFirestore(eventId: string, formData:
         }
 
         // mapEventDataToFirestore expects only EventFormData
-        const mappedUpdates = mapEventDataToFirestore(formData);
+        const mappedUpdates = mapEventDataToFirestore(formData); // This will set lastUpdatedAt to serverTimestamp()
 
-        const updates: Partial<Event> = { // Changed from MappedEventForFirestore
+        const updates: Partial<Event> = {
             ...mappedUpdates,
-            lastUpdatedAt: now() // mapEventDataToFirestore should also set this if !isNew
+            // lastUpdatedAt is now handled by mapEventDataToFirestore with serverTimestamp()
         };
         // Ensure student cannot change status, requester, or critical system-managed fields
         delete updates.status;
@@ -107,7 +136,6 @@ export async function updateMyEventRequestInFirestore(eventId: string, formData:
 
         await updateDoc(eventRef, updates);
     } catch (error: any) {
-        console.error(`Firestore updateMyEventRequest error for ${eventId}:`, error);
         throw new Error(`Failed to update event request: ${error.message}`);
     }
 }
@@ -140,7 +168,7 @@ export async function updateEventStatusInFirestore(
 
         const updatesToApply: Partial<Event> = {
             status: newStatus,
-            lastUpdatedAt: now(),
+            lastUpdatedAt: serverTimestamp(),
         };
         
         let notificationType: string = ''; // Define notificationType
@@ -155,7 +183,7 @@ export async function updateEventStatusInFirestore(
         if (newStatus === EventStatus.Completed) {
             updatesToApply.lifecycleTimestamps = {
                 ...(currentEvent.lifecycleTimestamps || {}), // Spread existing or empty object
-                completedAt: now(),
+                completedAt: serverTimestamp(),
             };
         }
         // Logic based on newStatus 
@@ -194,7 +222,6 @@ export async function updateEventStatusInFirestore(
         }
 
         await updateDoc(eventRef, updatesToApply);
-        console.log(`Firestore: Event ${eventId} status updated to ${newStatus}.`);
 
         // Trigger notification (assuming isSupabaseConfigured and invokePushNotification are available)
         // if (isSupabaseConfigured() && notificationType && targetUserIds.length > 0) {
@@ -210,7 +237,6 @@ export async function updateEventStatusInFirestore(
         return updatesToApply; 
 
     } catch (error: any) {
-        console.error(`Firestore updateMyEventRequest error for ${eventId}:`, error);
         throw new Error(`Failed to update event request: ${error.message}`);
     }
 }
@@ -246,14 +272,12 @@ export async function closeEventDocumentInFirestore(eventId: string, currentUser
 
          // Update Firestore status and timestamp
          await updateDoc(eventRef, {
-             status: EventStatus.Closed, // EventStatus can now be used as a value
-             closedAt: Timestamp.now(),
-             // lastUpdatedAt is handled by the Pinia store batch write
+             status: EventStatus.Closed,
+             closedAt: serverTimestamp(),
+             lastUpdatedAt: serverTimestamp()
          });
-         console.log(`Firestore: Event ${eventId} marked as Closed.`);
 
      } catch (error: any) {
-         console.error(`Firestore closeEvent error for ${eventId}:`, error);
          throw new Error(`Failed to close event document: ${error.message}`);
      }
 }
@@ -272,40 +296,72 @@ export async function createEventInFirestore(eventData: EventFormData, userId: s
     const newEventRef = doc(collection(db, 'events'));
     const newEventId = newEventRef.id;
 
+    // Use mapEventDataToFirestore for consistent data mapping, especially dates.
+    // mapEventDataToFirestore expects EventFormData, which has string dates in details.date
+    // It adds dateTimestamps (as Timestamps) and createdAt/lastUpdatedAt (as Timestamps)
+    const mappedBaseData = mapEventDataToFirestore(eventData);
+
+    // Construct the final event object for Firestore
     const eventToCreate: Event = {
+        // Spread the consistently mapped data first
+        ...mappedBaseData,
+
+        // Override or set specific fields for createEventInFirestore
         id: newEventId,
         requestedBy: userId,
-        status: eventData.status || EventStatus.Pending, // EventStatus can now be used as a value
+        status: eventData.status || EventStatus.Pending, // Allow status override, default to Pending
+
+        // Ensure details from eventData are used, mapEventDataToFirestore just copies them
+        // but we need to ensure the structure matches 'Event' type if different from 'EventFormData'
+        // mapEventDataToFirestore already includes eventData.details, so this spread is okay.
+        // The key is that `mappedBaseData.details.date` will be string dates from EventFormData.
+        // However, `mappedBaseData.dateTimestamps` contains the Timestamps.
+        // For the `Event` type, `details.date` should hold Timestamps.
+        // We need to reconcile this. The `Event` type's `details.date` should store Timestamps.
+        // `mapEventDataToFirestore` creates `dateTimestamps` for Firestore storage and keeps `details.date` as string.
+        // This is a bit confusing. Let's adjust: `details.date` in Firestore should store Timestamps.
+        // `mapEventDataToFirestore` should be modified OR we map here.
+        // For now, let's assume `mapEventDataToFirestore` correctly prepares `details.date` with Timestamps
+        // if the `Event` type expects Timestamps there.
+        // Re-checking mapEventDataToFirestore: it keeps details.date as is from EventFormData (strings)
+        // and adds a separate top-level `dateTimestamps`.
+        // This means `eventToCreate.details.date` will have strings. This is not ideal for the Event type in TS.
+        // The Event type definition itself has details.date.start/end as Timestamp | null.
+        // So, we MUST ensure Timestamps are in eventToCreate.details.date.
+
         details: {
-            eventName: eventData.details.eventName,
-            description: eventData.details.description,
-            format: eventData.details.format,
-            type: eventData.details.type || 'General', // Default type
-            date: {
-                start: eventData.details.date.start ? Timestamp.fromDate(new Date(eventData.details.date.start)) : null,
-                end: eventData.details.date.end ? Timestamp.fromDate(new Date(eventData.details.date.end)) : null,
+            ...eventData.details, // take all details from input
+            date: { // Override date with Timestamps
+                start: mappedBaseData.dateTimestamps.start,
+                end: mappedBaseData.dateTimestamps.end,
             },
-            organizers: eventData.details.organizers || [userId], // Default organizer to requester
-            allowProjectSubmission: eventData.details.allowProjectSubmission || false,
-            prize: eventData.details.prize || undefined,
-            rules: eventData.details.rules || undefined,
+            // Ensure organizers default if not provided
+            organizers: eventData.details.organizers && eventData.details.organizers.length > 0 ? eventData.details.organizers : [userId],
+            type: eventData.details.type || 'General',
         },
+
+        // Initialize arrays and default values if not present in eventData or mappedBaseData
         criteria: eventData.criteria ? eventData.criteria.map((c, i) => ({ ...c, constraintKey: c.constraintKey || `criterion_${i}`})) : [],
         teams: eventData.teams || [],
-        participants: [], 
-        submissions: [], 
-        organizerRatings: eventData.organizerRatings || [], // Corrected: organizerRatings, and use form data if present
-        votingOpen: false, 
-        createdAt: Timestamp.now(),
-        lastUpdatedAt: Timestamp.now(),
+        participants: [], // Always initialize as empty for a new event
+        submissions: [],  // Always initialize as empty
+        organizerRatings: eventData.organizerRatings || [], // Use from form if provided, else empty
+        votingOpen: false, // Default for new event
+
+        // createdAt and lastUpdatedAt are set by mapEventDataToFirestore
+        createdAt: mappedBaseData.createdAt,
+        lastUpdatedAt: mappedBaseData.lastUpdatedAt,
+
+        // Remove dateTimestamps if it's not part of the Event type definition
+        // (it's a helper for mapping, not usually part of the canonical Event model in TS)
     };
+    delete (eventToCreate as any).dateTimestamps;
+
 
     try {
         await setDoc(newEventRef, eventToCreate);
-        console.log("Firestore: Event created with ID:", newEventId);
         return newEventId;
     } catch (error: any) {
-        console.error("Error creating event in Firestore:", error);
         throw new Error(`Failed to create event: ${error.message}`);
     }
 }
@@ -329,89 +385,17 @@ export async function requestEventDeletionInFirestore(eventId: string, userId: s
     const eventRef = doc(db, 'events', eventId);
     try {
         await updateDoc(eventRef, {
-            lastUpdatedAt: Timestamp.now(),
+            lastUpdatedAt: serverTimestamp(),
             // Example: Add a specific field for deletion requests
             deletionRequest: {
                 userId,
                 reason,
-                requestedAt: Timestamp.now(),
+                requestedAt: serverTimestamp(),
             },
             // Optionally, change status to a review state if applicable
             // status: EventStatus.PendingDeletionReview 
         });
-        console.log(`Firestore: Deletion requested for event ${eventId} by user ${userId}. Reason: ${reason}`);
     } catch (error: any) {
-        console.error(`Error requesting deletion for event ${eventId}:`, error);
         throw new Error(`Failed to request event deletion: ${error.message}`);
-    }
-}
-
-/**
- * Creates a new event request document in Firestore submitted by a student.
- * @param formData - The event form data.
- * @param studentId - The UID of the student making the request.
- * @returns Promise<string> - The ID of the newly created event document.
- */
-export async function createEventRequest(formData: EventFormData, studentId: string): Promise<string> {
-    if (!formData || !studentId) {
-        throw new Error('Event form data and student ID are required.');
-    }
-
-    // Validate dates before processing
-    const startDate = formData.details.date.start;
-    const endDate = formData.details.date.end;
-    
-    if (!startDate || !endDate) {
-        throw new Error('Both start and end dates are required.');
-    }
-
-    // Convert and validate dates
-    let startDateTime: DateTime;
-    let endDateTime: DateTime;
-    
-    try {
-        if (typeof startDate === 'string') {
-            startDateTime = DateTime.fromISO(startDate);
-        } else if (startDate && typeof startDate === 'object' && (startDate as any) instanceof Date) {
-            startDateTime = DateTime.fromJSDate(startDate as Date);
-        } else if (startDate && typeof startDate === 'object' && 'toDate' in startDate) {
-            startDateTime = DateTime.fromJSDate((startDate as any).toDate());
-        } else {
-            throw new Error('Invalid start date format');
-        }
-        
-        if (typeof endDate === 'string') {
-            endDateTime = DateTime.fromISO(endDate);
-        } else if (endDate && typeof endDate === 'object' && (endDate as any) instanceof Date) {
-            endDateTime = DateTime.fromJSDate(endDate as Date);
-        } else if (endDate && typeof endDate === 'object' && 'toDate' in endDate) {
-            endDateTime = DateTime.fromJSDate((endDate as any).toDate());
-        } else {
-            throw new Error('Invalid end date format');
-        }
-    } catch (error) {
-        throw new Error('Invalid date format provided.');
-    }
-
-    if (!startDateTime.isValid || !endDateTime.isValid) {
-        throw new Error('Invalid dates provided. Please check your date selection.');
-    }
-
-    if (endDateTime <= startDateTime) {
-        throw new Error(`Event end date must be after start date.`);
-    }
-
-    try {
-        const eventRef = await addDoc(collection(db, 'events'), {
-            ...mapEventDataToFirestore(formData),
-            requestedBy: studentId,
-            createdAt: now(),
-            lastUpdatedAt: now()
-        });
-        
-        return eventRef.id;
-    } catch (error: any) {
-        console.error('Error creating event request:', error);
-        throw new Error('Failed to create event request: ' + error.message);
     }
 }

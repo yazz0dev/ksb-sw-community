@@ -1,5 +1,5 @@
 // src/stores/events/actions.submissions.ts (Conceptual Student Site Helpers)
-import { doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Event, Submission, EventStatus, EventFormat } from '@/types/event';
 import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Import mapper
@@ -38,7 +38,7 @@ export async function submitProjectByStudentInFirestore(
             link: submissionData.link.trim(),
             description: submissionData.description?.trim() || undefined,
             submittedBy: studentId,
-            submittedAt: now(),
+            submittedAt: serverTimestamp(),
         };
 
         if (eventData.details.format === EventFormat.Team) {
@@ -63,10 +63,9 @@ export async function submitProjectByStudentInFirestore(
 
         await updateDoc(eventRef, {
             submissions: arrayUnion(newSubmission),
-            lastUpdatedAt: now()
+            lastUpdatedAt: serverTimestamp()
         });
     } catch (error: any) {
-        console.error(`Firestore submitProjectByStudent error for ${eventId}:`, error);
         throw new Error(`Failed to submit project: ${error.message}`);
     }
 }

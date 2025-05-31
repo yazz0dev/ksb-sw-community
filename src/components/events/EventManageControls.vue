@@ -432,16 +432,6 @@ const toggleVoting = async (openState: boolean): Promise<void> => {
         }
         
         // Add detailed debugging for troubleshooting
-        console.log('Debug - Event data before voting toggle:', {
-            eventId: props.event.id,
-            status: props.event.status,
-            votingOpen: props.event.votingOpen,
-            isStatusValid: [EventStatus.Completed, EventStatus.InProgress].includes(props.event?.status as EventStatus),
-            organizers: props.event.details?.organizers,
-            requestedBy: props.event.requestedBy,
-            currentUserId: currentUserId.value,
-            isOrganizer: isEventOrganizer(props.event, currentUser.value?.uid)
-        });
         
         // Check if event status meets requirements from Firestore rules
         const validStatus = [EventStatus.Completed, EventStatus.InProgress].includes(props.event?.status as EventStatus);

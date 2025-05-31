@@ -156,6 +156,5 @@ export function calculateEventXP(eventData: Event): Record<string, XPData> {
     }
 
 
-    console.log("Calculated XP Changes Map:", JSON.parse(JSON.stringify(xpChangesMap))); // Deep copy for logging
     return xpChangesMap;
 }

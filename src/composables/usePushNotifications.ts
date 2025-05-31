@@ -41,7 +41,6 @@ function isPushSupported(): boolean {
 async function initializeOneSignalSdk(userId?: string | null): Promise<void> {
   try {
     if (!isOneSignalConfigured() || !isPushSupported()) {
-      console.log('OneSignal not available for push registration');
       return;
     }
 
@@ -52,7 +51,6 @@ async function initializeOneSignalSdk(userId?: string | null): Promise<void> {
     await new Promise<void>((resolve) => OneSignal.push(resolve));
     
     if (OneSignal._initCalled) { // Check if already initialized
-        console.log('OneSignal already initialized.');
     } else {
         await new Promise<void>((resolve, reject) => {
             OneSignal.push(() => {
@@ -62,12 +60,10 @@ async function initializeOneSignalSdk(userId?: string | null): Promise<void> {
                     allowLocalhostAsSecureOrigin: true,
                 })
                 .then(() => {
-                    console.log('OneSignal SDK initialized successfully via composable');
                     OneSignal._initCalled = true; // Mark as initialized
                     resolve();
                 })
                 .catch((error: any) => {
-                    console.error('OneSignal SDK initialization error:', error);
                     reject(error);
                 });
             });
@@ -77,18 +73,15 @@ async function initializeOneSignalSdk(userId?: string | null): Promise<void> {
     if (userId) {
       await new Promise<void>((resolve) => {
         OneSignal.push(() => {
-          console.log('Setting OneSignal external user ID via composable:', userId);
           OneSignal.setExternalUserId(userId)
             .then(resolve)
             .catch((error: any) => {
-              console.error('Failed to set external user ID via composable:', error);
               resolve(); // Continue
             });
         });
       });
     }
   } catch (error) {
-    console.error('OneSignal SDK initialization failed in composable:', error);
   }
 }
 
@@ -156,7 +149,6 @@ export function usePushNotifications() {
       
       // Ensure SDK is initialized before registering
       if (!OneSignal._initCalled) {
-        console.warn("OneSignal not initialized before attempting to register. Retrying init.");
         await initializeOneSignalSdk(studentStore.studentId); 
         if(!OneSignal._initCalled) throw new Error('OneSignal could not be initialized.');
       }
@@ -172,7 +164,6 @@ export function usePushNotifications() {
         }
       }
     } catch (err) {
-      console.error("Error requesting push permission:", err);
       showNotification('Failed to enable push notifications.', 'error');
     }
   }

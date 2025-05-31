@@ -40,9 +40,7 @@ const auth: Auth = getAuth(app);
 export const enableFirestoreNetwork = async (): Promise<void> => {
   try {
     await enableFirestoreNetworkFn(db);
-    console.log('Firestore network enabled via src/firebase.ts');
   } catch (error) {
-    console.error('Error enabling Firestore network via src/firebase.ts:', error);
     throw error;
   }
 };
@@ -54,9 +52,7 @@ export const enableFirestoreNetwork = async (): Promise<void> => {
 export const disableFirestoreNetwork = async (): Promise<void> => {
   try {
     await disableFirestoreNetworkFn(db);
-    console.log('Firestore network disabled via src/firebase.ts');
   } catch (error) {
-    console.error('Error disabling Firestore network via src/firebase.ts:', error);
     throw error;
   }
 };

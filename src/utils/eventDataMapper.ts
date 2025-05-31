@@ -1,5 +1,5 @@
 // src/utils/eventDataMapper.ts
-import { Timestamp, DocumentData, deleteField } from 'firebase/firestore';
+import { Timestamp, DocumentData, deleteField, serverTimestamp } from 'firebase/firestore';
 import {
     Event,
     EventStatus,
@@ -85,10 +85,13 @@ export const mapEventDataToFirestore = (data: EventFormData): any => {
     }
     
     // Add createdAt and lastUpdatedAt timestamps for new events
-    if (!firestoreData.createdAt) {
-        firestoreData.createdAt = Timestamp.now();
+    // For new documents, these will be resolved by the server.
+    // For updates, if mapEventDataToFirestore is used, ensure not to overwrite existing createdAt.
+    // The current logic in mapEventDataToFirestore is generally for new data structures.
+    if (!firestoreData.createdAt) { // Only set createdAt if it's truly a new event structure being mapped
+        firestoreData.createdAt = serverTimestamp();
     }
-    firestoreData.lastUpdatedAt = Timestamp.now();
+    firestoreData.lastUpdatedAt = serverTimestamp();
     
     return firestoreData;
 };

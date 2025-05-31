@@ -1,5 +1,5 @@
 // src/stores/events/actions.teams.ts (Conceptual Student Site Helpers - limited scope)
-import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Event, EventStatus, Team } from '@/types/event';
 import { EventFormat } from '@/types/event';
@@ -49,10 +49,9 @@ export async function requestToJoinTeamInFirestore(
         await updateDoc(eventRef, {
             teams: teams,
             teamMemberFlatList: newTeamMemberFlatList,
-            lastUpdatedAt: now()
+            lastUpdatedAt: serverTimestamp()
         });
     } catch (error: any) {
-        console.error(`Firestore requestToJoinTeam error for ${eventId}:`, error);
         throw new Error(`Failed to join team: ${error.message}`);
     }
 }
@@ -99,7 +98,7 @@ export async function leaveMyTeamInFirestore(eventId: string, studentId: string)
             await updateDoc(eventRef, {
                 teams: updatedTeams,
                 teamMemberFlatList: newTeamMemberFlatList,
-                lastUpdatedAt: now()
+                lastUpdatedAt: serverTimestamp()
             });
         } else {
             // This case should not be reached if studentTeamIndex was found.
@@ -128,7 +127,7 @@ export async function addTeamToEventInFirestore(eventId: string, teamName: strin
   
   await updateDoc(eventRef, {
     teams: updatedTeams,
-    lastUpdatedAt: Timestamp.now()
+    lastUpdatedAt: serverTimestamp()
   });
   
   return newTeam;
@@ -142,7 +141,7 @@ export async function updateEventTeamsInFirestore(eventId: string, teams: Team[]
   const eventRef = doc(db, 'events', eventId);
   await updateDoc(eventRef, {
     teams: teams,
-    lastUpdatedAt: Timestamp.now()
+    lastUpdatedAt: serverTimestamp()
   });
   
   return teams;
@@ -204,7 +203,7 @@ export async function autoGenerateEventTeamsInFirestore(
   
   await updateDoc(eventRef, {
     teams: finalTeams,
-    lastUpdatedAt: Timestamp.now()
+    lastUpdatedAt: serverTimestamp()
   });
   
   return finalTeams;

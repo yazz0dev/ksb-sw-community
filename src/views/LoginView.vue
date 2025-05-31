@@ -100,13 +100,10 @@ const processLoginSuccess = async (user: UserCredential['user']): Promise<void> 
                            (route.query.redirect as string) || 
                            '/home';
         
-        console.log('Authentication successful, user ID:', user.uid);
-        
         // Use router navigation instead of window.location
         await router.replace(redirectPath);
         
     } catch (fetchError) {
-        console.error("Error after Firebase login:", fetchError);
         errorMessage.value = 'Login successful, but failed to load profile. Please try refreshing.';
         
         // Fallback navigation
@@ -137,7 +134,6 @@ const signIn = async (): Promise<void> => {
         // Process login success after store is updated
         await processLoginSuccess(userCredential.user);
     } catch (error: any) {
-        console.error("Email/Password Sign-In Error:", error);
         switch (error.code) {
             case 'auth/invalid-email':
             case 'auth/missing-email':

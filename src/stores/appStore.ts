@@ -108,7 +108,6 @@ export const useAppStore = defineStore('studentApp', () => {
             const eventStore = useEventStore();
             await eventStore.fetchEvents();
           } catch (e) {
-            console.error("Error enabling Firestore network:", e);
           }
         }
       } else {
@@ -121,7 +120,6 @@ export const useAppStore = defineStore('studentApp', () => {
             duration: 5000
           });
         } catch (e) {
-          console.error("Error disabling Firestore network:", e);
         }
       }
 
@@ -236,7 +234,6 @@ export const useAppStore = defineStore('studentApp', () => {
           throw new Error(`Action ${action.type} not found or store not recognized.`);
         }
       } catch (err: any) {
-        console.error(`Failed to sync action ${action.type} (ID: ${action.id}):`, err);
         action.error = err.message || "Unknown sync error";
         action.retries = (action.retries || 0) + 1;
         failedActions.push(action);
@@ -255,7 +252,6 @@ export const useAppStore = defineStore('studentApp', () => {
         duration: 7000
       });
        // For simplicity, we are just logging them here.
-       console.error("Failed to sync actions:", failedActions);
        // You might want to re-queue them or provide UI to retry.
     } else if (successCount > 0) {
       notificationStore.showNotification({
@@ -264,7 +260,6 @@ export const useAppStore = defineStore('studentApp', () => {
       });
     } else if (actionsToProcess.length > 0 && successCount === 0 && failedActions.length === 0) {
         // This case should ideally not happen if actions were processed
-        console.warn("Sync process completed, but no actions were marked as success or failure.");
     }
   }
 
@@ -291,7 +286,6 @@ export const useAppStore = defineStore('studentApp', () => {
     if ('serviceWorker' in navigator) {
       // Listen for service worker updates
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('Service worker controller changed');
         if (!newAppVersionAvailable.value) {
           newAppVersionAvailable.value = true;
         }
@@ -300,7 +294,6 @@ export const useAppStore = defineStore('studentApp', () => {
       // Listen for service worker messages
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data && event.data.type === 'SW_UPDATED') {
-          console.log('Service worker updated message received');
           newAppVersionAvailable.value = true;
         }
       });
@@ -308,7 +301,6 @@ export const useAppStore = defineStore('studentApp', () => {
       // Check for waiting service worker on page load
       navigator.serviceWorker.ready.then((registration) => {
         if (registration.waiting) {
-          console.log('Service worker waiting, new version available');
           newAppVersionAvailable.value = true;
         }
       });
