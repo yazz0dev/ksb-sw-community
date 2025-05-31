@@ -129,6 +129,7 @@ import { useEventStore } from '@/stores/eventStore'; // Changed from useEvents c
 import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
 import { DateTime } from 'luxon';
+import { convertToISTDateTime } from '@/utils/dateTime';
 
 const studentStore = useProfileStore();
 const eventStore = useEventStore(); // Changed from useEvents to useEventStore
@@ -141,30 +142,6 @@ const showCancelled = ref<boolean>(false);
 
 // --- Constants ---
 const maxEventsPerSection = 6;
-
-// Helper function to convert various date formats to DateTime
-const toDateTime = (dateValue: any): DateTime | null => {
-  if (!dateValue) return null;
-  
-  try {
-    // Handle Firestore Timestamp
-    if (dateValue.toDate && typeof dateValue.toDate === 'function') {
-      return DateTime.fromJSDate(dateValue.toDate());
-    }
-    // Handle regular Date object
-    if (dateValue instanceof Date) {
-      return DateTime.fromJSDate(dateValue);
-    }
-    // Handle ISO string
-    if (typeof dateValue === 'string') {
-      return DateTime.fromISO(dateValue);
-    }
-    return null;
-  } catch (error) {
-    console.warn('Error converting date:', error);
-    return null;
-  }
-};
 
 // --- Computed Properties ---
 const allEvents = computed<Event[]>(() => eventStore.events || []); // Changed from events.value to eventStore.events
@@ -179,12 +156,12 @@ const upcomingEvents = computed<Event[]>(() => {
   return allEvents.value
     .filter(e => {
       if (!e || e.status !== EventStatus.Approved) return false;
-      const start = toDateTime(e.details?.date?.start);
+      const start = convertToISTDateTime(e.details?.date?.start);
       return start && start > currentTime;
     })
     .sort((a, b) => {
-      const dateA = toDateTime(a.details?.date?.start);
-      const dateB = toDateTime(b.details?.date?.start);
+      const dateA = convertToISTDateTime(a.details?.date?.start);
+      const dateB = convertToISTDateTime(b.details?.date?.start);
       if (!dateA || !dateB) return 0;
       return dateA.toMillis() - dateB.toMillis();
     })
@@ -204,16 +181,16 @@ const activeEvents = computed<Event[]>(() => {
       
       // Event is approved and within date range
       if (e.status === EventStatus.Approved) {
-        const start = toDateTime(e.details?.date?.start);
-        const end = toDateTime(e.details?.date?.end);
+        const start = convertToISTDateTime(e.details?.date?.start);
+        const end = convertToISTDateTime(e.details?.date?.end);
         return start && end && start <= currentTime && end >= currentTime;
       }
       
       return false;
     })
     .sort((a, b) => {
-      const dateA = toDateTime(a.details?.date?.start);
-      const dateB = toDateTime(b.details?.date?.start);
+      const dateA = convertToISTDateTime(a.details?.date?.start);
+      const dateB = convertToISTDateTime(b.details?.date?.start);
       if (!dateA || !dateB) return 0;
       return dateA.toMillis() - dateB.toMillis(); // Fixed: was dateA.toMillis() - dateA.toMillis()
     })
@@ -233,15 +210,15 @@ const completedEvents = computed<Event[]>(() => {
       
       // Event is approved but past its end date
       if (e.status === EventStatus.Approved) {
-        const end = toDateTime(e.details?.date?.end);
+        const end = convertToISTDateTime(e.details?.date?.end);
         return end && end < currentTime;
       }
       
       return false;
     })
     .sort((a, b) => {
-      const dateA = toDateTime(a.details?.date?.end || a.details?.date?.start);
-      const dateB = toDateTime(b.details?.date?.end || b.details?.date?.start);
+      const dateA = convertToISTDateTime(a.details?.date?.end || a.details?.date?.start);
+      const dateB = convertToISTDateTime(b.details?.date?.end || b.details?.date?.start);
       if (!dateA || !dateB) return 0;
       return dateB.toMillis() - dateA.toMillis();
     })
@@ -254,8 +231,8 @@ const cancelledEvents = computed<Event[]>(() => {
   return allEvents.value
     .filter(e => e && e.status === EventStatus.Cancelled)
     .sort((a, b) => {
-      const dateA = toDateTime(a.details?.date?.start);
-      const dateB = toDateTime(b.details?.date?.start);
+      const dateA = convertToISTDateTime(a.details?.date?.start);
+      const dateB = convertToISTDateTime(b.details?.date?.start);
       if (!dateA || !dateB) return 0;
       return dateB.toMillis() - dateA.toMillis();
     });
@@ -267,7 +244,7 @@ const totalUpcomingCount = computed<number>(() => {
     const currentTime = DateTime.now();
     return allEvents.value.filter(e => {
       if (!e || e.status !== EventStatus.Approved) return false;
-      const start = toDateTime(e.details?.date?.start);
+      const start = convertToISTDateTime(e.details?.date?.start);
       return start && start > currentTime;
     }).length;
 });
@@ -279,8 +256,8 @@ const totalActiveCount = computed<number>(() => {
       if (!e) return false;
       if (e.status === EventStatus.InProgress) return true;
       if (e.status === EventStatus.Approved) {
-        const start = toDateTime(e.details?.date?.start);
-        const end = toDateTime(e.details?.date?.end);
+        const start = convertToISTDateTime(e.details?.date?.start);
+        const end = convertToISTDateTime(e.details?.date?.end);
         return start && end && start <= currentTime && end >= currentTime;
       }
       return false;
@@ -294,7 +271,7 @@ const totalCompletedCount = computed<number>(() => {
       if (!e) return false;
       if (e.status === EventStatus.Completed) return true;
       if (e.status === EventStatus.Approved) {
-        const end = toDateTime(e.details?.date?.end);
+        const end = convertToISTDateTime(e.details?.date?.end);
         return end && end < currentTime;
       }
       return false;
@@ -324,9 +301,7 @@ onMounted(async () => {
     
     // Check if we actually got events
     if (!eventStore.events || eventStore.events.length === 0) {
-      console.log('No events returned from fetchEvents');
     } else {
-      console.log(`Loaded ${eventStore.events.length} events`);
     }
 
     // Only try to fetch names if authenticated and there are events
@@ -342,12 +317,10 @@ onMounted(async () => {
         try {
           await studentStore.fetchUserNamesBatch(allOrganizerUids);
         } catch (nameError) {
-          console.warn("Failed to load organizer names, but events will still be displayed:", nameError);
         }
       }
     }
   } catch (err) {
-    console.error("Failed to load events:", err);
     error.value = "Failed to load event data. Please try refreshing the page.";
   } finally {
     loading.value = false;

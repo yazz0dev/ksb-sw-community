@@ -89,21 +89,18 @@ export const useProfileStore = defineStore('studentProfile', () => {
   async function _handleAuthError(operation: string, err: unknown, uid?: string): Promise<void> {
     const message = err instanceof Error ? err.message : `An unknown error occurred during ${operation}.`;
     error.value = message; // Set general error for auth-related issues
-    console.error(`StudentProfileStore Auth Error (${operation})${uid ? ` for UID ${uid}` : ''}:`, err);
     notificationStore.showNotification({ message, type: 'error' });
   }
 
   async function _handleOpError(operation: string, err: unknown, uid?: string): Promise<void> {
     const message = err instanceof Error ? err.message : `An unknown error occurred during ${operation}.`;
     actionError.value = message;
-    console.error(`StudentProfileStore Operation Error (${operation})${uid ? ` for UID ${uid}` : ''}:`, err);
     notificationStore.showNotification({ message, type: 'error' });
   }
 
   async function _handleFetchError(operation: string, err: unknown): Promise<void> {
     const message = err instanceof Error ? err.message : `An unknown error occurred during ${operation}.`;
     fetchError.value = message;
-    console.error(`StudentProfileStore Fetch Error (${operation}):`, err);
   }
 
   async function _fetchStudentDataInternal(uid: string): Promise<EnrichedStudentData | null> {
@@ -117,7 +114,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
       ]);
 
       if (!studentSnap.exists()) {
-        console.warn(`Student profile for UID ${uid} not found in Firestore 'students' collection.`);
         return null;
       }
 
@@ -168,7 +164,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
       } else {
         await clearStudentSession(false); 
         if (auth.currentUser) { 
-             try { await firebaseSignOut(auth); } catch (e) { console.error("Error signing out after failed profile fetch:", e); }
+             try { await firebaseSignOut(auth); } catch (e) {  }
         }
         notificationStore.showNotification({ message: "Student profile not found. Please contact support if you believe this is an error.", type: 'error', duration: 7000});
       }
@@ -218,9 +214,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     if (performFirebaseSignOut && auth.currentUser) {
         try {
             await firebaseSignOut(auth);
-            console.log("Firebase sign out explicitly performed by clearStudentSession.");
         } catch (e) {
-            console.error("Error during Firebase sign out in clearStudentSession:", e);
         }
     }
     currentStudent.value = null;
@@ -228,7 +222,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
     viewedStudentProjects.value = [];
     viewedStudentEventHistory.value = [];
     currentUserPortfolioData.value = { projects: [], eventParticipationCount: 0 };
-    console.log("Student session data cleared from store.");
     hasFetched.value = false; // Reset hasFetched on session clear
   }
 
@@ -355,7 +348,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
           (a.submittedAt instanceof Timestamp ? a.submittedAt.toMillis() : 0)
       );
     } catch (err) {
-        console.error("Error fetching student projects for display:", err);
     }
   }
 
@@ -406,7 +398,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
             (a.date.start instanceof Timestamp ? a.date.start.toMillis() : 0)
         );
     } catch (err) {
-        console.error("Error fetching student event history:", err);
     }
   }
 
@@ -459,7 +450,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
       const studentsSnapshot = await getDocs(studentsCollectionRef);
 
       if (studentsSnapshot.empty) {
-        console.warn("No users found in the 'students' collection for leaderboard.");
         error.value = "No users found in the database for the leaderboard.";
         return [];
       }
@@ -553,7 +543,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
     });
     if (clearedCount > 0) {
         nameCache.value = newCache;
-        console.log(`Cleared ${clearedCount} stale entries from name cache.`);
     }
   }
 
@@ -589,7 +578,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
   if (auth) {
     unsubscribeAuthStateListener = onAuthStateChanged(auth, handleAuthStateChange);
   } else {
-    console.error("Firebase auth instance not available in profileStore for onAuthStateChanged");
   }
   
   // Expose a way to unsubscribe if needed, e.g. on app teardown.
@@ -597,7 +585,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
     if (unsubscribeAuthStateListener) {
       unsubscribeAuthStateListener();
       unsubscribeAuthStateListener = null;
-      console.log("ProfileStore auth state listener unsubscribed.");
     }
   };
 
@@ -644,7 +631,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
             const imageCompression = await import('browser-image-compression')
               .then(module => module.default)
               .catch(() => {
-                console.warn("Image compression library not available, using original file");
                 return null;
               });
               
@@ -660,10 +646,8 @@ export const useProfileStore = defineStore('studentProfile', () => {
               });
             }
           } catch (err) {
-            console.warn("Image compression failed, using original file:", err);
           }
         } catch (err) {
-          console.warn("Image compression failed, using original file:", err);
         }
       }
 

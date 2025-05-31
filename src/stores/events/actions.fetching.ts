@@ -19,7 +19,6 @@ export async function fetchPubliclyViewableEventsFromFirestore(): Promise<Event[
         const snapshot = await getDocs(q);
         return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
     } catch (error: any) {
-        console.error("Firestore fetchPubliclyViewableEvents error:", error);
         throw new Error(`Failed to fetch public events: ${error.message}`);
     }
 }
@@ -41,7 +40,6 @@ export async function fetchMyEventRequestsFromFirestore(studentId: string): Prom
         const snapshot = await getDocs(q);
         return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
     } catch (error: any) {
-        console.error(`Firestore fetchMyEventRequests error for ${studentId}:`, error);
         throw new Error(`Failed to fetch your event requests: ${error.message}`);
     }
 }
@@ -74,7 +72,6 @@ export async function fetchSingleEventForStudentFromFirestore(eventId: string, c
             throw new Error("You do not have permission to view this event's details.");
         }
     } catch (error: any) {
-        console.error(`Firestore fetchSingleEventForStudent error for ${eventId}:`, error);
         throw new Error(`Failed to fetch event details: ${error.message}`);
     }
 }
@@ -88,38 +85,11 @@ export class EventFetchingActions {
         // Assuming an eventDataToEvent function or similar to map Firestore data to Event type
         return { id: eventDocSnap.id, ...eventDocSnap.data() } as Event; // Or your specific mapping
       } else {
-        console.log("No such event document!");
         return null;
       }
     } catch (error) {
-      console.error("Error fetching single event:", error);
       return null;
     }
   }
-}
-
-/**
- * Checks if a student already has a pending event request.
- * @param studentId - The UID of the student.
- * @returns Promise<boolean> - True if the student has a pending request.
- */
-export async function checkExistingPendingRequestForStudent(studentId: string): Promise<boolean> {
-    if (!studentId) return false;
-    try {
-        const q = query(
-            collection(db, 'events'),
-            where('requestedBy', '==', studentId),
-            where('status', '==', EventStatus.Pending)
-        );
-        const querySnapshot = await getDocs(q);
-        return !querySnapshot.empty;
-    } catch (error: any) {
-        console.error("Error checking existing student requests:", error);
-        throw new Error(`Failed to check existing requests: ${error.message}`);
-    }
-}
-
-export function fetchSingleEventFromFirestore(eventId: string): Event | null {
-  throw new Error('Function not implemented.');
 }
 

@@ -90,24 +90,33 @@ const checkAvailability = async () => {
   nextAvailableDateISO.value = null;
 
   if (!localDates.value.start || !localDates.value.end) {
-    emit('availability-change', true);
+    emit('availability-change', true); // Assuming availability if dates are not set
     return;
   }
+  const eventStore = useEventStore();
   try {
-    // For now, just mark as available since eventStore might not be fully implemented
-    emit('availability-change', true);
-    
-    // TODO: Implement actual conflict checking when eventStore is ready
-    // const eventStore = useEventStore();
-    // const result = await eventStore.checkDateConflict({
-    //   startDate: localDates.value.start,
-    //   endDate: localDates.value.end,
-    //   excludeEventId: props.eventId
-    // });
+    const result = await eventStore.checkDateConflict({
+      startDate: localDates.value.start,
+      endDate: localDates.value.end,
+      excludeEventId: props.eventId
+    });
 
+    if (result.hasConflict) {
+      dateConflictError.value = `Selected dates conflict with: ${result.conflictingEventName || 'an existing event'}.`;
+      nextAvailableDateISO.value = result.nextAvailableDate;
+      emit('availability-change', false);
+    } else {
+      dateConflictError.value = null; // Clear previous error
+      nextAvailableDateISO.value = null; // Clear previous suggestion if now valid
+      // If no conflict, but there was a suggestion for next available (e.g. from a previous invalid range),
+      // we might want to show it if the current range is valid but, say, too short by other rules not checked here.
+      // For now, just clear it if no conflict.
+      emit('availability-change', true);
+    }
   } catch (error: any) {
-    console.error("Error checking date availability (component):", error);
-    dateConflictError.value = error.message || 'Failed to check date availability.';
+    // This error is from the store action itself (e.g., Firestore unavailable)
+    dateConflictError.value = error.message || 'Failed to check date availability due to a system error.';
+    nextAvailableDateISO.value = null; // Clear any previous suggestion
     emit('availability-change', false);
   }
 };

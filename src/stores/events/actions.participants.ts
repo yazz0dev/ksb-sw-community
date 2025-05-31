@@ -1,5 +1,5 @@
 // src/stores/events/actions.participants.ts (Conceptual Student Site Helpers)
-import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
 import type { Event, Team } from '@/types/event'; // Removed EventStatus from here
 import { EventFormat, EventStatus } from '@/types/event'; // Added EventStatus here
@@ -46,10 +46,9 @@ export async function joinEventByStudentInFirestore(eventId: string, studentId: 
 
         await updateDoc(eventRef, {
             participants: arrayUnion(studentId),
-            lastUpdatedAt: now()
+            lastUpdatedAt: serverTimestamp()
         });
     } catch (error: any) {
-        console.error(`Firestore joinEventByStudent error for ${eventId}:`, error);
         throw new Error(`Failed to join event: ${error.message}`);
     }
 }
@@ -76,7 +75,7 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
             throw new Error("Organizers cannot leave the event via this student action.");
         }
 
-        const updates: Partial<Event> = { lastUpdatedAt: now() }; // Changed MappedEventForFirestore to Event
+        const updates: Partial<Event> = { lastUpdatedAt: serverTimestamp() }; // Changed MappedEventForFirestore to Event
         let userFoundAndRemoved = false;
 
         if (eventData.details.format !== EventFormat.Team && eventData.participants?.includes(studentId)) {
@@ -111,7 +110,6 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
 
         await updateDoc(eventRef, updates);
     } catch (error: any) {
-        console.error(`Firestore leaveEventByStudent error for ${eventId}:`, error);
         throw new Error(`Failed to leave event: ${error.message}`);
     }
 }

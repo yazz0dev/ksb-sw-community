@@ -19,68 +19,6 @@ const BEST_PERFORMER_LABEL = 'best_performer'; // Global constant for best perfo
 
 
 /**
- * Toggle the voting open status of an event
- */
-export async function togglevotingOpenInFirestore(
-    eventId: string,
-    open: boolean, // Parameter 'open' is a boolean
-    userId: string
-): Promise<void> {
-    try {
-        console.log(`Toggling voting status for ${eventId} to ${open ? 'open' : 'closed'}`);
-        
-        const eventRef = doc(db, 'events', eventId);
-        
-        // First fetch the current event to validate permissions and status
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) {
-            throw new Error('Event not found.');
-        }
-        
-        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
-        if (!eventData) throw new Error('Failed to map event data.');
-
-        console.log('Current event data:', {
-            eventId,
-            status: eventData.status,
-            votingOpen: eventData.votingOpen,
-            organizers: eventData.details?.organizers,
-            requestedBy: eventData.requestedBy,
-            userId
-        });
-        
-        // Validate user is an organizer
-        const isOrganizer = eventData.details?.organizers?.includes(userId) || eventData.requestedBy === userId;
-        if (!isOrganizer) {
-            throw new Error('Only event organizers can modify voting status.');
-        }
-        
-        // Validate event status
-        const validStatus = [EventStatus.Completed, EventStatus.InProgress].includes(eventData.status as EventStatus);
-        if (!validStatus) {
-            throw new Error(`Invalid event status: ${eventData.status}. Must be Completed or InProgress.`);
-        }
-        
-        // Validate the voting state is changing (comparison with existing boolean value)
-        if (eventData.votingOpen === open) {
-            throw new Error(`Voting is already ${open ? 'open' : 'closed'}.`);
-        }
-        
-        // Update with the boolean value 'open'
-        await updateDoc(eventRef, {
-            votingOpen: open,
-            lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
-        });
-        
-        console.log(`Successfully set voting status for ${eventId} to ${open ? 'open' : 'closed'}`);
-    } catch (error) {
-        console.error(`Firestore togglevotingOpen error for ${eventId}:`, error);
-        console.log("Firebase permission denied. Check Firestore rules and user authentication.");
-        throw error;
-    }
-}
-
-/**
  * Submits a user's vote/selection for team event criteria in Firestore.
  * Uses dot notation to update nested maps within the 'criteria' array elements and 'bestPerformerSelections' map.
  * @param eventId - The ID of the event.
@@ -164,10 +102,7 @@ export async function submitTeamCriteriaVoteInFirestore(
             transaction.update(eventRef, updateData);
         });
 
-        console.log(`Firestore: Vote submitted by ${userId} for event ${eventId}.`);
-
     } catch (error: any) {
-        console.error(`Firestore submitTeamCriteriaVote error for ${eventId}:`, error);
         throw new Error(`Failed to submit vote: ${error.message}`);
     }
 }
@@ -214,7 +149,7 @@ export async function submitOrganizerRatingByStudentInFirestore(
                 userId: studentId,
                 rating: ratingScore,
                 feedback: feedbackText || undefined, // Use undefined for optional fields
-                ratedAt: Timestamp.now(),
+                ratedAt: serverTimestamp(),
             };
 
             if (existingRatingIndex > -1) {
@@ -228,9 +163,7 @@ export async function submitOrganizerRatingByStudentInFirestore(
                 lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
             });
         });
-        console.log(`Firestore: Organizer rating by student ${studentId} submitted for event ${eventId}.`);
     } catch (error: any) {
-        console.error(`Firestore submitOrganizerRatingByStudent error for ${eventId}:`, error);
         throw new Error(`Failed to submit organizer rating: ${error.message}`);
     }
 }
@@ -284,10 +217,7 @@ export async function submitIndividualWinnerVoteInFirestore(
             lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
         });
 
-        console.log(`Firestore: Individual winner vote by ${userId} for ${selectedWinnerId} in event ${eventId}.`);
-
     } catch (error: any) {
-        console.error(`Firestore submitIndividualWinnerVote error for ${eventId}:`, error);
         throw new Error(`Failed to submit individual winner vote: ${error.message}`);
     }
 }
@@ -334,7 +264,7 @@ export async function submitOrganizationRatingInFirestore(
             const newRating: OrganizerRating = {
                 userId,
                 rating: ratingData.score,
-                ratedAt: Timestamp.now(),
+                ratedAt: serverTimestamp(),
             };
 
             // Conditionally add feedback if provided and non-empty
@@ -351,10 +281,7 @@ export async function submitOrganizationRatingInFirestore(
             });
         });
 
-        console.log(`Firestore: Organizer rating submitted by ${userId} for event ${eventId}.`);
-
     } catch (error: any) {
-        console.error(`Firestore submitOrganizationRating error for ${eventId}:`, error);
         throw new Error(`Failed to submit organization rating: ${error.message}`);
     }
 }
@@ -380,7 +307,6 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
         eventData.criteria.forEach(criterion => {
             if (!criterion.selections || Object.keys(criterion.selections).length === 0) return;
             if (!criterion.constraintKey) { // Check if constraintKey is defined
-                console.warn(`Skipping criterion "${criterion.constraintLabel}" due to missing constraintKey.`);
                 return;
             }
 
@@ -458,10 +384,8 @@ export async function saveWinnersToFirestore(
             updatePayload.manuallySelectedBy = manuallySelectedBy;
         }
         await updateDoc(eventRef, updatePayload);
-        console.log(`Firestore: Winners saved for event ${eventId}.`);
 
     } catch (error: any) {
-        console.error(`Firestore saveWinners error for ${eventId}:`, error);
         throw new Error(`Failed to save winners: ${error.message}`);
     }
 }
@@ -547,10 +471,7 @@ export async function submitManualWinnerSelectionInFirestore(
             lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
         });
 
-        console.log(`Firestore: Manual winner selection by ${userId} for event ${eventId} saved.`);
-
     } catch (error: any) {
-        console.error(`Firestore submitManualWinnerSelection error for ${eventId}:`, error);
         throw new Error(`Failed to submit manual winner selection: ${error.message}`);
     }
 }
@@ -600,7 +521,7 @@ export async function recordOrganizerRatingInFirestore(
                 userId,
                 rating: ratingData.score, // Changed from score to rating
                 feedback: ratingData.feedback || undefined, // Changed null to undefined
-                ratedAt: Timestamp.now(), // ADDED ratedAt
+                ratedAt: serverTimestamp(), // ADDED ratedAt
             };
 
             if (existingRatingIndex > -1) {
@@ -614,9 +535,7 @@ export async function recordOrganizerRatingInFirestore(
                 lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
             });
         });
-        console.log(`Firestore: Organizer rating recorded for event ${eventId} by user ${userId}.`);
     } catch (error: any) {
-        console.error(`Error recording organizer rating for event ${eventId}:`, error);
         throw new Error(`Failed to record organizer rating: ${error.message}`);
     }
 }
@@ -687,9 +606,7 @@ export async function castVoteInFirestore(
                 lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
             });
         });
-        console.log(`Firestore: Vote cast by ${userId} for criteria ${criteriaConstraintKey} in event ${eventId}.`);
     } catch (error: any) {
-        console.error(`Error casting vote for event ${eventId}:`, error);
         throw new Error(`Failed to cast vote: ${error.message}`);
     }
 }
@@ -743,9 +660,7 @@ export async function selectBestPerformerInFirestore(
                 lastUpdatedAt: serverTimestamp() // CHANGED from Timestamp.now()
             });
         });
-        console.log(`Firestore: Best performer selection by ${userId} for ${selectedUserId} in event ${eventId}.`);
     } catch (error: any) {
-        console.error(`Error selecting best performer for event ${eventId}:`, error);
         throw new Error(`Failed to select best performer: ${error.message}`);
     }
 }
@@ -774,14 +689,19 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
             throw new Error('Only organizers can change voting status.');
         }
 
+        // Check if the voting state is actually changing
+        if (eventData.votingOpen === open) {
+            throw new Error(`Voting is already ${open ? 'open' : 'closed'}.`);
+        }
+
         // State Check: Cannot open voting for events that are not InProgress or Completed.
         // Can close voting for InProgress or Completed.
         if (open && ![EventStatus.InProgress, EventStatus.Completed].includes(eventData.status as EventStatus)) {
             throw new Error(`Cannot open voting for event in status '${eventData.status}'. Event must be InProgress or Completed.`);
         }
-        if (!open && ![EventStatus.InProgress, EventStatus.Completed].includes(eventData.status as EventStatus)) {
-             console.warn(`Voting is being closed for an event not InProgress or Completed (Status: ${eventData.status}). This is allowed but might be unusual.`);
-        }
+        // Note: The original warning for closing voting on non-InProgress/Completed events was removed in previous steps.
+        // This is acceptable as the primary concern is preventing premature opening.
+
         // Cannot toggle voting if event is Closed
         if (eventData.status === EventStatus.Closed) {
             throw new Error("Cannot change voting status for a closed event.");
@@ -791,7 +711,6 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
             votingOpen: open,
             lastUpdatedAt: serverTimestamp(), // CHANGED from Timestamp.now()
         });
-        console.log(`Firestore: Voting for event ${eventId} has been ${open ? 'opened' : 'closed'}.`);
 
         // Trigger notification
         // Ensure isSupabaseConfigured and invokePushNotification are correctly imported or defined
@@ -811,17 +730,14 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
                         eventId,
                         eventName: eventData.details.eventName || 'Event',
                         targetUserIds,
-                    }).catch((pushError: any) => console.error("Push notification failed:", pushError));
+                    }).catch((pushError: any) => {});
                 } else {
-                    console.warn("invokePushNotification function is not available.");
                 }
             }
         } else if (typeof isSupabaseConfigured !== 'function') {
-            console.warn("isSupabaseConfigured function is not available.");
         }
 
     } catch (error: any) {
-        console.error(`Error toggling voting status for event ${eventId}:`, error);
         throw new Error(`Failed to toggle voting status: ${error.message}`);
     }
 }
@@ -857,7 +773,6 @@ export async function finalizeWinnersInFirestore(eventId: string, currentUser: E
             throw new Error("Winners can only be finalized for 'Completed' events.");
         }
         if (eventData.votingOpen) {
-            console.warn(`Finalizing winners for event ${eventId} while voting is still open.`);
             // Optionally, force voting to close here, or throw an error
             // await toggleVotingStatusInFirestore(eventId, false, currentUser); // Example: force close
         }
@@ -924,7 +839,6 @@ export async function finalizeWinnersInFirestore(eventId: string, currentUser: E
         // This example doesn't implement manual winner logic beyond what `winners` captures.
 
         if (Object.keys(winners).length === 0) {
-            console.warn(`No winners could be determined for event ${eventId}. Check votes and selections.`);
             // Depending on policy, either throw an error or proceed with empty winners
             // throw new Error("No winners could be determined.");
         }
@@ -937,7 +851,6 @@ export async function finalizeWinnersInFirestore(eventId: string, currentUser: E
             // votingOpen: false 
         });
 
-        console.log(`Firestore: Winners finalized for event ${eventId}:`, winners);
 
         // Trigger notification for winners (if applicable)
         // Ensure isSupabaseConfigured and invokePushNotification are correctly imported or defined
@@ -953,20 +866,17 @@ export async function finalizeWinnersInFirestore(eventId: string, currentUser: E
                         eventName: eventData.details.eventName || 'Event',
                         targetUserIds: allWinnerIds,
                         // You might want to include more details about what they won
-                    }).catch((pushError: any) => console.error("Winner announcement notification failed:", pushError));
+                    }).catch((pushError: any) => {});
                 } else {
-                    console.warn("invokePushNotification function is not available for winner announcement.");
                 }
             }
         } else if (typeof isSupabaseConfigured !== 'function' && Object.keys(winners).length > 0) {
-             console.warn("isSupabaseConfigured function is not available for winner announcement.");
         }
 
 
         return winners;
 
     } catch (error: any) {
-        console.error(`Error finalizing winners for event ${eventId}:`, error);
         throw new Error(`Failed to finalize winners: ${error.message}`);
     }
 }

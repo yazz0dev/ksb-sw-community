@@ -3,7 +3,6 @@ import type { Notification } from '@/types/store';
 import { useNotificationStore } from '@/stores/notificationStore';
 
 export function useNotifications() {
-  const notifications = ref<Notification[]>([]);
   const notificationStore = useNotificationStore();
 
   /**
@@ -43,7 +42,6 @@ export function useNotifications() {
   };
 
   return {
-    notifications,
     showNotification,
     clearAll,
     clearById

@@ -27,15 +27,6 @@ app.use(pinia);
 app.use(router);
 app.component("AuthGuard", AuthGuard);
 
-// Network Status Management
-const updateOnlineStatus = () => {
-  const appStore = useAppStore();
-  appStore.setNetworkOnlineStatus(navigator.onLine);
-};
-
-window.addEventListener('online', updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
-
 // Initialize app stores
 const appStore = useAppStore();
 const profileStore = useProfileStore();
@@ -46,11 +37,9 @@ appStore.initAppListeners();
 // PWA Service Worker Registration
 const updateSW = registerSW({
   onNeedRefresh() {
-    console.log('New version available, showing update prompt');
     appStore.setNewAppVersionAvailable(true);
   },
   onOfflineReady() {
-    console.log('App ready to work offline');
     const notificationStore = useNotificationStore();
     notificationStore.showNotification({
       message: 'App is ready to work offline!',
@@ -59,7 +48,6 @@ const updateSW = registerSW({
     });
   },
   onRegisterError(error) {
-    console.error('SW registration error:', error);
   }
 });
 
@@ -68,16 +56,12 @@ window.__updateSW = updateSW;
 
 // Set up auth initialization
 const auth = getAuth();
-console.log('Setting up Firebase Auth State Listener...');
 
 // Mount app immediately
 app.mount('#app');
-console.log('Vue App Mounted.');
 
 // Handle auth state changes AFTER mounting
 onAuthStateChanged(auth, async (user) => {
-  console.log('Firebase Auth State Changed. User:', user ? user.uid : 'null');
-  
   try {
     if (user) {
       await profileStore.handleAuthStateChange(user);
@@ -85,12 +69,10 @@ onAuthStateChanged(auth, async (user) => {
       await profileStore.clearStudentSession(false);
     }
   } catch (error) {
-    console.error('Error during auth state change:', error);
   } finally {
     appStore.setHasFetchedInitialAuth(true);
   }
 }, (error) => {
-  console.error('Auth state change error:', error);
   appStore.setHasFetchedInitialAuth(true);
 });
 

@@ -6,10 +6,13 @@ import { useProfileStore } from '@/stores/profileStore'; // Import the user stor
 
 /**
  * This function now checks `(currentUser as any).role` against EVENT_MANAGER_ROLES.
- * Given `currentUser.role` is undefined, this will likely return `false`
- * unless `EVENT_MANAGER_ROLES` includes `undefined`, aligning with the
- * concept that general users (students) do not have global event management rights.
- * @returns boolean
+ * Checks if the current user has a role that allows general event management.
+ * Note: The `currentUser` (of type `EnrichedStudentData`) from `useProfileStore` does not typically have a `.role` property.
+ * This function will usually return `false` for standard student users because `(currentUser as any).role` will be `undefined`,
+ * and `EVENT_MANAGER_ROLES` (e.g., `['eventManager', 'moderator']`) does not include `undefined`.
+ * This implies that this permission is intended for users with specific administrative roles,
+ * potentially loaded via a different mechanism or on an admin-specific interface where user objects might include a `role`.
+ * @returns boolean - True if the user has a recognized event management role, false otherwise.
  */
 export function canManageEvents( ): boolean {
   const studentStore = useProfileStore();
@@ -19,9 +22,9 @@ export function canManageEvents( ): boolean {
     return false;
   }
 
-  // This check will be true if `EVENT_MANAGER_ROLES` includes the value `undefined`
-  // (when `undefined` is cast to the expected role type for type-checking purposes).
-  // Given `EVENT_MANAGER_ROLES` typically contains role strings, this will usually be false.
+  // Accessing .role via `as any` because EnrichedStudentData doesn't define it.
+  // This check will be true if `EVENT_MANAGER_ROLES` includes the value of `currentUser.role`.
+  // For standard students, `currentUser.role` will be undefined, leading to a false result.
   return EVENT_MANAGER_ROLES.includes((currentUser as any).role as typeof EVENT_MANAGER_ROLES[number]);
 }
 

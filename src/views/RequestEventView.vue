@@ -134,10 +134,16 @@ import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue'
 import EventScheduleForm from '@/components/forms/EventScheduleForm.vue';
 import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
-import { EventFormat } from '@/types/event';
+import { EventFormat, type EventFormData, type Team } from '@/types/event'; // Added EventFormData, Team
+import { useEventStore } from '@/stores/eventStore';
+import { useProfileStore } from '@/stores/profileStore';
+import { Timestamp } from 'firebase/firestore';
+import { DateTime } from 'luxon';
 
 const route = useRoute();
 const router = useRouter();
+const eventStore = useEventStore();
+const profileStore = useProfileStore();
 
 // Reactive state
 const loading = ref(true);
@@ -147,39 +153,93 @@ const hasActiveRequest = ref(false);
 const errorMessage = ref('');
 const isSubmitting = ref(false);
 const eventId = ref(route.params.eventId as string || '');
-const allUsers = ref([]);
+const allUsers = ref<InstanceType<typeof ManageTeamsComponent>['students']>([]); // Match ManageTeamsComponent prop type
 
 // Form data structure
-const formData = ref({
+const formData = ref<EventFormData>({
   details: {
     eventName: '',
-    type: '',
+    type: '', // Assuming type is string, adjust if it's a specific set of values
     format: EventFormat.Individual,
     description: '',
     rules: '',
     prize: '',
     allowProjectSubmission: false,
-    organizers: [],
-    date: {
+    organizers: [], // Should be string[] of UIDs
+    date: {       // Dates are string | null for EventFormData
       start: null,
       end: null
     }
   },
-  teams: []
+  criteria: [], // Assuming EventCriterion[]
+  teams: [],    // Assuming Team[]
+  // Ensure all required fields from EventFormData are initialized
+  status: undefined, // Not directly set by student form, but part of EventFormData
+  votingOpen: false, // Default for new, may not be editable by student
 });
 
-const isFormValid = ref(true);
+const isDateAvailable = ref(true); // New ref for date availability
+
+const isFormValid = computed(() => {
+  const details = formData.value.details;
+  if (!details.eventName.trim() || !details.type.trim() || !details.format.trim()) return false;
+  if (!details.date.start || !details.date.end) return false;
+  if (!isDateAvailable.value) return false;
+  // Add other validation as needed, e.g., team constraints for team events
+  return true;
+});
 
 const scheduleCardNumber = computed(() => {
   return formData.value.details.format === EventFormat.Team ? 3 : 2;
 });
 
 const handleSubmitForm = async () => {
-  console.log('Form submitted', formData.value);
-  // Implementation will be added later
+  if (!isFormValid.value) {
+    errorMessage.value = "Please correct the errors in the form before submitting.";
+    // Ensure user sees the specific errors from child components or validation logic.
+    // For example, date conflict errors are shown by EventScheduleForm.
+    // BasicDetailsForm might have its own internal validation displays.
+    return;
+  }
+
+  isSubmitting.value = true;
+  errorMessage.value = ''; // Clear previous errors
+
+  try {
+    let success: boolean | string | null = false; // string for new event ID, boolean for edit
+    if (isEditing.value) {
+      success = await eventStore.editMyEventRequest(eventId.value, formData.value);
+      if (success) {
+        eventStore.notificationStore.showNotification({ message: "Event updated successfully!", type: 'success' });
+        router.push({ name: 'EventDetails', params: { eventId: eventId.value } });
+      }
+    } else {
+      // Check for active request again before submitting, in case state changed
+      if (await eventStore.checkExistingRequests()) {
+          errorMessage.value = "You already have a pending event request. Please wait for it to be reviewed.";
+          hasActiveRequest.value = true; // Ensure UI reflects this
+          isSubmitting.value = false;
+          return;
+      }
+      success = await eventStore.requestNewEvent(formData.value);
+      if (success && typeof success === 'string') { // success here is the new eventId
+        eventStore.notificationStore.showNotification({ message: "Event request submitted successfully!", type: 'success' });
+        router.push({ name: 'EventDetails', params: { eventId: success } });
+      }
+    }
+
+    if (!success) {
+      errorMessage.value = eventStore.actionError || "Failed to save event. Please try again.";
+    }
+  } catch (err: any) {
+    errorMessage.value = err.message || "An unexpected error occurred.";
+    eventStore.notificationStore.showNotification({ message: errorMessage.value, type: 'error' });
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 
-const handleTeamUpdate = (teams: any[]) => {
+const handleTeamUpdate = (teams: Team[]) => { // Corrected type
   formData.value.teams = teams;
 };
 
@@ -188,11 +248,71 @@ const handleFormError = (error: string) => {
 };
 
 const handleAvailabilityChange = (isAvailable: boolean) => {
-  // Handle availability change
+  isDateAvailable.value = isAvailable;
 };
 
 onMounted(async () => {
-  loading.value = false;
+  loading.value = true;
+  errorMessage.value = '';
+  editError.value = '';
+
+  try {
+    // Fetch all users for team management component
+    // This might need to be UserData[] depending on ManageTeamsComponent's expectation
+    allUsers.value = await profileStore.fetchAllStudentProfiles();
+
+    if (eventId.value) {
+      isEditing.value = true;
+      const event = await eventStore.fetchEventDetails(eventId.value);
+      if (event) {
+        // TODO: Add permission check - e.g., is user an organizer or the requester of a PENDING event
+        if (event.status !== EventStatus.Pending && event.status !== EventStatus.Approved) {
+            editError.value = `Events with status '${event.status}' cannot be edited.`;
+            loading.value = false;
+            return;
+        }
+        // Populate formData with event data
+        formData.value.details.eventName = event.details.eventName;
+        formData.value.details.type = event.details.type;
+        formData.value.details.format = event.details.format;
+        formData.value.details.description = event.details.description ?? '';
+        formData.value.details.rules = event.details.rules ?? '';
+        formData.value.details.prize = event.details.prize ?? '';
+        formData.value.details.allowProjectSubmission = event.details.allowProjectSubmission ?? false;
+        formData.value.details.organizers = event.details.organizers || [];
+
+        // Convert Firestore Timestamps to ISO date strings for DatePicker
+        formData.value.details.date.start = event.details.date.start instanceof Timestamp
+            ? DateTime.fromJSDate(event.details.date.start.toDate()).toISODate()
+            : null;
+        formData.value.details.date.end = event.details.date.end instanceof Timestamp
+            ? DateTime.fromJSDate(event.details.date.end.toDate()).toISODate()
+            : null;
+
+        formData.value.criteria = event.criteria || [];
+        formData.value.teams = event.teams || [];
+        // Note: Event specific fields like status, votingOpen are not typically part of student edit form directly
+      } else {
+        editError.value = "Event not found or you don't have permission to edit it.";
+      }
+    } else {
+      isEditing.value = false;
+      // For new events, check if the user already has a pending request
+      hasActiveRequest.value = await eventStore.checkExistingRequests();
+      // Initialize with current user as an organizer for new events
+      if (profileStore.studentId) {
+        formData.value.details.organizers = [profileStore.studentId];
+      }
+    }
+  } catch (err: any) {
+    if (isEditing.value) {
+        editError.value = `Failed to load event data: ${err.message}`;
+    } else {
+        errorMessage.value = `Failed to initialize form: ${err.message}`;
+    }
+  } finally {
+    loading.value = false;
+  }
 });
 </script>
 

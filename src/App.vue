@@ -132,7 +132,6 @@ const handleLogout = async (): Promise<void> => {
 watch(isOnline, (online) => {
   if (online && isAuthenticated.value) {
     // Remove any refresh logic that might cause loops
-    console.log('Back online, authenticated user detected');
   }
 });
 
@@ -140,7 +139,6 @@ onMounted(() => {
   initAppState();
   
   // Remove clearStaleNameCache call that might cause issues
-  console.log('App mounted successfully');
 });
 
 onUnmounted(() => {

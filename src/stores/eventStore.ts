@@ -14,7 +14,7 @@ import { mapEventDataToFirestore, mapFirestoreToEventData, getISTTimestamp } fro
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { deepClone, isEmpty } from '@/utils/helpers';
 import { Interval } from 'luxon';
-import { checkDateConflictForRequest } from './events/actions.validation'; // Corrected import
+import { checkDateConflictForRequest, checkExistingPendingRequestForStudent as checkExistingPendingRequestFromValidation } from './events/actions.validation'; // Corrected import & added new
 
 import * as EventFetchingActions from './events/actions.fetching';
 import * as EventLifecycleActions from './events/actions.lifecycle';
@@ -644,8 +644,9 @@ export const useEventStore = defineStore('studentEvents', () => {
   async function toggleVotingOpen({ eventId, open }: { eventId: string; open: boolean }) {
     actionError.value = null;
     try {
-        if (!studentProfileStore.studentId) throw new Error("User not authenticated.");
-        await EventVotingActions.togglevotingOpenInFirestore(eventId, open, studentProfileStore.studentId);
+        if (!studentProfileStore.currentStudent) throw new Error("User not authenticated or profile not loaded.");
+        // Call the consolidated function, passing the currentStudent object
+        await EventVotingActions.toggleVotingStatusInFirestore(eventId, open, studentProfileStore.currentStudent);
         const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: `Voting is now ${open ? 'OPEN' : 'CLOSED'}.`, type: 'success' });
@@ -776,7 +777,7 @@ export const useEventStore = defineStore('studentEvents', () => {
   async function checkExistingRequests(): Promise<boolean> {
     if (!studentProfileStore.studentId) return false;
     try {
-      return await EventFetchingActions.checkExistingPendingRequestForStudent(studentProfileStore.studentId);
+      return await checkExistingPendingRequestFromValidation(studentProfileStore.studentId);
     } catch (error) {
        _handleOpError("checking existing requests", error);
        return false;

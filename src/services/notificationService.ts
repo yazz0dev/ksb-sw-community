@@ -20,14 +20,11 @@ export const isSupabaseConfigured = (): boolean => {
  */
 export async function invokePushNotification(payload: any): Promise<Response> {
     if (!isSupabaseConfigured()) {
-        console.error('Supabase configuration missing. Cannot invoke push function.');
         throw new Error('Supabase configuration missing');
     }
 
     // Adjust the function name if you named it differently during creation
     const functionUrl = `${supabaseUrl}/functions/v1/push-notification`;
-
-    console.log(`Invoking Supabase function at ${functionUrl} with payload:`, payload);
 
     try {
         const response = await fetch(functionUrl, {
@@ -41,15 +38,12 @@ export async function invokePushNotification(payload: any): Promise<Response> {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response' }));
-            console.error(`Supabase function invocation failed (${response.status}):`, errorData);
             throw new Error(`Failed to invoke push notification function: ${errorData?.error || response.statusText}`);
         }
 
-        console.log('Supabase function invoked successfully.');
         return response; // Return the response object
 
   } catch (error) {
-        console.error('Error invoking Supabase function:', error);
         if (error instanceof Error) {
              throw error; // Re-throw the caught error
         } else {

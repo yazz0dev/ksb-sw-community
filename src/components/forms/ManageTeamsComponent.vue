@@ -198,9 +198,7 @@ interface LocalTeam {
 }
 
 watch(() => props.students, (newVal) => {
-    console.log('[ManageTeamsComponent] Students prop changed:', newVal ? newVal.length : 0);
     if (newVal && newVal.length > 0) {
-        console.log('[ManageTeamsComponent] Students prop updated. XP data will be fetched on demand for auto-generation.');
     }
 }, { immediate: true, deep: true });
 
@@ -323,25 +321,27 @@ async function simpleAutoGenerateTeams() {
   }
 
   try {
-    const studentUids = props.students.map(s => s.uid).filter(Boolean);
-    let studentXpMap: Map<string, XPData> = new Map();
+    // Fetch all users with XP data to build the XP map
+    const allEnrichedStudents = await studentStore.loadLeaderboardUsers();
+    const studentXpMap: Map<string, XPData> = new Map();
+    allEnrichedStudents.forEach(enrichedStudent => {
+      if (enrichedStudent.xpData) {
+        studentXpMap.set(enrichedStudent.uid, enrichedStudent.xpData);
+      }
+    });
 
-    if (studentUids.length > 0) {
-        // studentXpMap = await studentStore.fetchXPForUsers(studentUids); // This method needs to exist in studentStore
-        // Placeholder:
-        props.students.forEach(s => studentXpMap.set(s.uid, getDefaultXPData(s.uid)));
-    }
-
-    const sortedStudents = [...props.students].sort((a, b) => {
-        const xpDataA = studentXpMap.get(a.uid) || getDefaultXPData(a.uid);
-        const xpDataB = studentXpMap.get(b.uid) || getDefaultXPData(b.uid);
-        const totalXpA = xpDataA.totalCalculatedXp ?? 0;
-        const totalXpB = xpDataB.totalCalculatedXp ?? 0;
-        if (totalXpB !== totalXpA) return totalXpB - totalXpA;
-        const hasLaptopA = a.hasLaptop ?? false;
-        const hasLaptopB = b.hasLaptop ?? false;
-        if (hasLaptopB !== hasLaptopA) return hasLaptopB ? 1 : -1;
-        return 0.5 - Math.random();
+    // Create a list of students from props, enriched with XP data for sorting
+    const studentsWithXpForSorting = props.students.map(s => ({
+      ...s,
+      xpData: studentXpMap.get(s.uid) || getDefaultXPData(s.uid)
+    })).sort((a, b) => {
+      const totalXpA = a.xpData.totalCalculatedXp ?? 0;
+      const totalXpB = b.xpData.totalCalculatedXp ?? 0;
+      if (totalXpB !== totalXpA) return totalXpB - totalXpA;
+      const hasLaptopA = a.hasLaptop ?? false;
+      const hasLaptopB = b.hasLaptop ?? false;
+      if (hasLaptopB !== hasLaptopA) return hasLaptopB ? 1 : -1;
+      return 0.5 - Math.random(); // Fallback to random if XP and laptop status are same
     });
 
     const localTeams = teams.value;
@@ -351,28 +351,34 @@ async function simpleAutoGenerateTeams() {
         name: t.name, members: [] as string[], teamLead: '' as string,
     }));
 
-    sortedStudents.forEach((student, idx) => {
+    // Distribute sorted students into teams
+    studentsWithXpForSorting.forEach((student, idx) => {
         const teamIndexToAddTo = idx % numberOfLocalTeams;
         if (tempTeamsToPopulate[teamIndexToAddTo].members.length < maxMembersPerTeam) {
             tempTeamsToPopulate[teamIndexToAddTo].members.push(student.uid);
         }
     });
 
+    // Assign members and determine team leads
     localTeams.forEach((originalTeam, index) => {
         const populatedTeamData = tempTeamsToPopulate[index];
         originalTeam.members = populatedTeamData.members;
         if (originalTeam.members.length > 0) {
             const teamMemberDetails = originalTeam.members
                 .map(memberId => {
-                    const studentData = props.students.find(s => s.uid === memberId);
-                    if (!studentData) return null;
+                    // Get full student data (from props.students initially)
+                    const studentDataFromProps = props.students.find(s => s.uid === memberId);
+                    if (!studentDataFromProps) return null;
+                    // Get their XP data from the map
+                    const xpData = studentXpMap.get(memberId) || getDefaultXPData(memberId);
                     return {
-                        ...studentData,
-                        xpData: studentXpMap.get(memberId) || getDefaultXPData(memberId)
+                        ...studentDataFromProps, // Basic UserData
+                        xpData // Attached XPData
                     };
                 })
                 .filter(Boolean) as (UserData & { xpData: XPData })[];
 
+            // Sort members within the team by XP for lead selection
             teamMemberDetails.sort((a, b) => {
                 const totalXpA = a.xpData.totalCalculatedXp ?? 0;
                 const totalXpB = b.xpData.totalCalculatedXp ?? 0;
