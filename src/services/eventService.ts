@@ -1508,9 +1508,8 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
             if (!eventData) throw new Error("Failed to map event data.");
 
             const isOrganizer = eventData.details.organizers.includes(currentUser.uid);
-            const isAdmin = (currentUser as EnrichedStudentData).isAdmin; // Assuming EnrichedStudentData has isAdmin
 
-            if (!isOrganizer && !isAdmin) {
+            if (!isOrganizer ) {
                 throw new Error("Permission denied. Only event organizers or admins can toggle voting status.");
             }
 
@@ -1568,7 +1567,7 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
             if (criterion.votes && typeof criterion.votes === 'object' && !isEmpty(criterion.votes)) {
                 const voteCounts: Record<string, number> = {};
                 Object.values(criterion.votes).forEach(selectedEntityId => {
-                    voteCounts[selectedEntityId] = (voteCounts[selectedEntityId] || 0) + 1;
+                    vote
                 });
 
                 if (!isEmpty(voteCounts)) {
@@ -1844,8 +1843,7 @@ export async function finalizeWinnersInFirestore(
             if (!eventData) throw new Error("Failed to map event data.");
 
             const isOrganizer = eventData.details.organizers.includes(currentUser.uid);
-            const isAdmin = (currentUser as EnrichedStudentData).isAdmin; 
-            if (!isOrganizer && !isAdmin) {
+            if (!isOrganizer ) {
                 throw new Error("Permission denied. Only event organizers or admins can finalize winners.");
             }
 

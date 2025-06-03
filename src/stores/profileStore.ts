@@ -30,7 +30,6 @@ import {
     fetchStudentEventParticipationCount as fetchStudentEventParticipationCountService
 } from '@/services/profileService';
 import { fetchStudentEventRequests as fetchStudentEventRequestsService } from '@/services/eventService';
-import { uploadFile as uploadFileService, deleteFileByUrl as deleteFileByUrlService } from '@/services/storageService';
 
 const STUDENT_COLLECTION_PATH = 'students';
 const XP_COLLECTION_PATH = 'xp';
@@ -472,7 +471,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
   }
 
   async function fetchAllStudentProfiles(): Promise<UserData[]> { 
-    if (allUsers.value.length > 0 && !studentAppStore.forceRefetchAllUsers) { // Added forceRefetch check
+    if (allUsers.value.length > 0 && !(studentAppStore as any).forceRefetchAllUsers) { // Added forceRefetch check
       return allUsers.value;
     }
     isLoading.value = true;

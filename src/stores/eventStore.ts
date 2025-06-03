@@ -14,7 +14,7 @@ import { mapEventDataToFirestore, mapFirestoreToEventData, getISTTimestamp } fro
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { deepClone, isEmpty } from '@/utils/helpers';
 import { Interval } from 'luxon';
-import { checkDateConflictForRequest, checkExistingPendingRequestForStudent as checkExistingPendingRequestFromValidation } from './events/actions.validation';
+import { checkDateConflictForRequest, checkExistingPendingRequestForStudent as checkExistingPendingRequestFromValidation } from '@/services/eventService'; // Changed import path
 import { handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
 
 // import * as EventLifecycleActions from './events/actions.lifecycle';
