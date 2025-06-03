@@ -14,17 +14,33 @@ import { mapEventDataToFirestore, mapFirestoreToEventData, getISTTimestamp } fro
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { deepClone, isEmpty } from '@/utils/helpers';
 import { Interval } from 'luxon';
-import { checkDateConflictForRequest, checkExistingPendingRequestForStudent as checkExistingPendingRequestFromValidation } from './events/actions.validation'; // Corrected import & added new
+import { checkDateConflictForRequest, checkExistingPendingRequestForStudent as checkExistingPendingRequestFromValidation } from './events/actions.validation';
+import { handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
 
-import * as EventFetchingActions from './events/actions.fetching';
-import * as EventLifecycleActions from './events/actions.lifecycle';
-import * as EventParticipantActions from './events/actions.participants';
-import * as EventSubmissionActions from './events/actions.submissions';
-import * as EventTeamActions from './events/actions.teams';
-import * as EventVotingActions from './events/actions.voting';
-import * as EventUtils from './events/actions.utils';
+// import * as EventLifecycleActions from './events/actions.lifecycle';
 import { XPData, XpFirestoreFieldKey } from '@/types/xp';
 import { DateTime } from 'luxon';
+import { compareEventsForSort, mergeLifecycleTimestamps, convertEventDetailsDateFormat } from '@/utils/eventUtils';
+import { 
+  createEventRequest as createEventRequestService, 
+  updateEventRequestInService, 
+  closeEventAndAwardXP as closeEventAndAwardXPService,
+  fetchMyEventRequests as fetchMyEventRequestsService,             // Renamed import
+  fetchSingleEventForStudent as fetchSingleEventForStudentService, // Renamed import
+  fetchPubliclyViewableEvents as fetchPubliclyViewableEventsService, // Renamed import
+  updateEventStatusInFirestore as updateEventStatusService,
+  joinEventByStudentInFirestore as joinEventService, 
+  leaveEventByStudentInFirestore as leaveEventService,
+  submitProject as submitProjectService,
+  autoGenerateEventTeamsInFirestore as autoGenerateEventTeamsService,
+  submitTeamCriteriaVoteInFirestore as submitTeamCriteriaVoteService,
+  submitIndividualWinnerVoteInFirestore as submitIndividualWinnerVoteService,
+  submitOrganizationRatingInFirestore as submitOrganizationRatingService,
+  toggleVotingStatusInFirestore as toggleVotingStatusService,
+  calculateWinnersFromVotes as calculateWinnersFromVotesService,
+  saveWinnersToFirestore as saveWinnersToFirestoreService,
+  submitManualWinnerSelectionInFirestore as submitManualWinnerSelectionService
+} from '@/services/eventService';
 
 // Update the EventDetails interface to match the expected structure in EventFormData
 interface EventDetails {
@@ -46,67 +62,8 @@ interface EventDetails {
 // Fix now() function to correctly use Timestamp - renamed to avoid conflicts
 const createTimestamp = () => Timestamp.now();
 
-function compareEventsForSort(a: Event, b: Event): number {
-    const statusOrder: Record<string, number> = {
-        [EventStatus.InProgress]: 1, [EventStatus.Approved]: 2, [EventStatus.Pending]: 3,
-        [EventStatus.Completed]: 4, [EventStatus.Rejected]: 5, [EventStatus.Cancelled]: 6,
-        [EventStatus.Closed]: 7,
-    };
-    const orderA = statusOrder[a.status] ?? 99;
-    const orderB = statusOrder[b.status] ?? 99;
-    if (orderA !== orderB) return orderA - orderB;
-
-    const nowDate = convertToISTDateTime(new Date())!;
-    const getDateValue = (dateField: Timestamp | Date | string | null | undefined, fallbackDate?: Timestamp | Date | string | null | undefined): number => {
-        let dt = convertToISTDateTime(dateField);
-        if (!dt || !dt.isValid) dt = convertToISTDateTime(fallbackDate);
-        return (dt && dt.isValid ? dt : nowDate).toMillis();
-    };
-
-    if ([EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status as EventStatus)) {
-        const dateA = getDateValue(a.details?.date?.start, a.createdAt);
-        const dateB = getDateValue(b.details?.date?.start, b.createdAt);
-        return dateA - dateB;
-    } else {
-        let timeA = 0;
-        if (a.status === EventStatus.Closed) timeA = getDateValue(a.closedAt, a.lastUpdatedAt);
-        else if (a.status === EventStatus.Completed) timeA = getDateValue(a.lifecycleTimestamps?.completedAt, a.lastUpdatedAt);
-        else if (a.status === EventStatus.Rejected) timeA = getDateValue(a.lifecycleTimestamps?.rejectedAt, a.lastUpdatedAt);
-        else if (a.status === EventStatus.Cancelled) timeA = getDateValue(a.lastUpdatedAt);
-        else timeA = getDateValue(a.details?.date?.end, a.lastUpdatedAt);
-
-        let timeB = 0;
-        if (b.status === EventStatus.Closed) timeB = getDateValue(b.closedAt, b.lastUpdatedAt);
-        else if (b.status === EventStatus.Completed) timeB = getDateValue(b.lifecycleTimestamps?.completedAt, b.lastUpdatedAt);
-        else if (b.status === EventStatus.Rejected) timeB = getDateValue(b.lifecycleTimestamps?.rejectedAt, b.lastUpdatedAt);
-        else if (b.status === EventStatus.Cancelled) timeB = getDateValue(b.lastUpdatedAt);
-        else timeB = getDateValue(b.details?.date?.end, b.lastUpdatedAt);
-
-        return timeB - timeA;
-    }
-}
-
-function _mergeLifecycleTimestamps(
-    baseTimestamps: EventLifecycleTimestamps | undefined | null,
-    updates: Partial<EventLifecycleTimestamps> | undefined | null
-): EventLifecycleTimestamps | undefined {
-    if (!updates) {
-        return isEmpty(baseTimestamps) ? undefined : (baseTimestamps as EventLifecycleTimestamps);
-    }
-    const merged = { ...(baseTimestamps || {}), ...updates };
-    for (const key in updates) {
-        if (updates.hasOwnProperty(key)) {
-            const typedKey = key as keyof EventLifecycleTimestamps;
-            if (updates[typedKey] === null || (updates[typedKey] as any)?._methodName === 'delete') {
-                delete merged[typedKey];
-            }
-        }
-    }
-    return isEmpty(merged) ? undefined : (merged as EventLifecycleTimestamps);
-}
-
-
 export const useEventStore = defineStore('studentEvents', () => {
+  // Refs (State)
   const events = ref<Event[]>([]);
   const viewedEventDetails = ref<Event | null>(null);
   const myEventRequests = ref<Event[]>([]);
@@ -114,20 +71,16 @@ export const useEventStore = defineStore('studentEvents', () => {
   const actionError = ref<string | null>(null);
   const fetchError = ref<string | null>(null);
 
+  // Store instances
   const studentProfileStore = useProfileStore();
   const notificationStore = useNotificationStore();
   const appStore = useAppStore();
   const auth = useAuth();
 
-  const allPubliclyViewableEvents = computed(() =>
-    events.value.filter(event => {
-      const visibility = (event as any).settings?.visibility; 
-      if (visibility === 'public') return true;
-      if (visibility === 'students' && auth.isAuthenticated.value) return true;
-      if (visibility === 'participants' && studentProfileStore.studentId && event.participants?.includes(studentProfileStore.studentId)) return true;
-      return false;
-    })
-  );
+  // Computed (Getters)
+  const allPubliclyViewableEvents = computed(() => {
+    return events.value;
+  });
 
   const userSubmittedEvents = computed(() => {
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) return [];
@@ -163,6 +116,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     allPubliclyViewableEvents.value.filter(e => [EventStatus.Completed, EventStatus.Closed].includes(e.status))
   );
 
+  // Actions (methods)
   function _updateLocalEventLists(eventData: Event) {
     const updateList = (list: Ref<Event[]>) => {
         const index = list.value.findIndex(e => e.id === eventData.id);
@@ -204,23 +158,52 @@ export const useEventStore = defineStore('studentEvents', () => {
   }
 
   async function _handleOpError(operation: string, err: unknown, eventId?: string): Promise<void> {
-    const message = err instanceof Error ? err.message : `An unknown error occurred during ${operation}.`;
-    actionError.value = message;
-    console.error(`StudentEventStore Operation Error (${operation})${eventId ? ` for event ${eventId}` : ''}:`, err);
-    notificationStore.showNotification({ message, type: 'error' });
+    let finalMessage: string;
+    const context = eventId ? `${operation} for event ${eventId}` : operation;
+
+    if (err && typeof (err as any).code === 'string') {
+        const formattedMessage = formatFirestoreErrorUtil(err);
+        if (formattedMessage === 'An unknown error occurred.' || formattedMessage === 'The service is currently unavailable. Please try again later.') {
+            finalMessage = err instanceof Error ? `${context}: ${err.message}` : `An error occurred during ${context}. Details: ${formattedMessage}`;
+        } else {
+            finalMessage = formattedMessage;
+        }
+    } else if (err instanceof Error) {
+        finalMessage = `${context}: ${err.message}`;
+    } else {
+        finalMessage = `An unknown error occurred during ${context}.`;
+    }
+    
+    actionError.value = finalMessage;
+    console.error(`StudentEventStore Operation Error (${operation})${eventId ? ` for event ${eventId}` : ''}:`, err instanceof Error ? err.message : err);
+    notificationStore.showNotification({ message: finalMessage, type: 'error' });
   }
 
   async function _handleFetchError(operation: string, err: unknown): Promise<void> {
-    const message = err instanceof Error ? err.message : `An unknown error occurred during ${operation}.`;
-    fetchError.value = message;
-    console.error(`StudentEventStore Fetch Error (${operation}):`, err);
+    let finalMessage: string;
+
+    if (err && typeof (err as any).code === 'string') {
+        const formattedMessage = formatFirestoreErrorUtil(err);
+        if (formattedMessage === 'An unknown error occurred.' || formattedMessage === 'The service is currently unavailable. Please try again later.') {
+            finalMessage = err instanceof Error ? `${operation}: ${err.message}` : `An error occurred during ${operation}. Details: ${formattedMessage}`;
+        } else {
+            finalMessage = formattedMessage;
+        }
+    } else if (err instanceof Error) {
+        finalMessage = `${operation}: ${err.message}`;
+    } else {
+        finalMessage = `An unknown error occurred during ${operation}.`;
+    }
+
+    fetchError.value = finalMessage;
+    console.error(`StudentEventStore Fetch Error (${operation}):`, err instanceof Error ? err.message : err);
   }
 
   async function fetchEvents() {
     isLoading.value = true;
     fetchError.value = null;
     try {
-        const fetchedEvents = await EventFetchingActions.fetchPubliclyViewableEventsFromFirestore(); // Corrected function name
+        const fetchedEvents = await fetchPubliclyViewableEventsService(); 
         events.value = fetchedEvents.sort(compareEventsForSort);
     } catch (err) {
       await _handleFetchError("fetching all events", err);
@@ -238,7 +221,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     isLoading.value = true;
     fetchError.value = null;
     try {
-      const requests = await EventFetchingActions.fetchMyEventRequestsFromFirestore(studentProfileStore.studentId);
+      const requests = await fetchMyEventRequestsService(studentProfileStore.studentId);
       myEventRequests.value = requests.sort(compareEventsForSort);
     } catch (err) {
       await _handleFetchError("fetching my event requests", err);
@@ -253,7 +236,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     fetchError.value = null;
     viewedEventDetails.value = null;
     try {
-      const eventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
+      const eventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
 
       if (eventData) {
           viewedEventDetails.value = deepClone(eventData);
@@ -281,127 +264,83 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
-      // Enhanced date validation with better error messages
+      // --- Start of existing validation logic (to be kept in store) ---
       const startDate = formData.details.date.start;
       const endDate = formData.details.date.end;
-      
       if (!startDate || !endDate) {
         throw new Error('Both start and end dates are required.');
       }
-
-      // Convert to DateTime objects for proper comparison
       let startDateTime: DateTime;
       let endDateTime: DateTime;
+      try {
+        if (typeof startDate === 'string') startDateTime = DateTime.fromISO(startDate); else throw new Error('Expected string date format for start date');
+        if (typeof endDate === 'string') endDateTime = DateTime.fromISO(endDate); else throw new Error('Expected string date format for end date');
+      } catch (error) { console.error('Date parsing error:', error); throw new Error('Invalid date format provided.'); }
+      if (!startDateTime.isValid || !endDateTime.isValid) throw new Error(`Invalid dates provided. Start: ${startDateTime.invalidReason}, End: ${endDateTime.invalidReason}`);
+      if (endDateTime < startDateTime) throw new Error(`Event end date must be on or after the start date.`);
+      const nowInIST = DateTime.now().setZone('Asia/Kolkata');
+      if (startDateTime < nowInIST) throw new Error('Event start date cannot be in the past.');
+
+      // The checkDateConflict function in the store might need to be adapted if it directly uses Firestore.
+      // For now, assuming it works as is or will be refactored separately.
+      const { hasConflict, conflictingEventName } = await checkDateConflict({ startDate: startDateTime.toJSDate(), endDate: endDateTime.toJSDate() });
+      if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
+      // --- End of existing validation logic ---
+
+      // Ensure current user is in organizers list (can be part of formData preparation if service doesn't handle it)
+      // The service version already ensures requester is an organizer.
+      // if (!formData.details.organizers.includes(studentId)) {
+      //   formData.details.organizers.push(studentId);
+      // }
+
+      // Call the service function
+      // The service's mapEventDataToFirestore is expected to handle date to Timestamp conversion
+      // and setting default fields like rules/prize to null if empty.
+      const newEventId = await createEventRequestService(formData, studentId);
+
+      if (!newEventId) { // Should not happen if service throws on error
+        throw new Error("Failed to create event request via service.");
+      }
+
+      // Create a complete Event object for local store using the ID from the service
+      // We need to simulate the data that would have been written to Firestore to pass to createCompleteEvent
+      // or fetch the event data using the newEventId. Fetching is safer for consistency.
+      // For now, let's try to construct it, assuming service sets reasonable defaults.
       
-      try {
-        // Handle string dates (which is what EventFormData expects)
-        if (typeof startDate === 'string') {
-          startDateTime = DateTime.fromISO(startDate);
-        } else {
-          throw new Error('Expected string date format for start date');
-        }
-        
-        if (typeof endDate === 'string') {
-          endDateTime = DateTime.fromISO(endDate);
-        } else {
-          throw new Error('Expected string date format for end date');
-        }
-      } catch (error) {
-        console.error('Date parsing error:', error);
-        throw new Error('Invalid date format provided.');
-      }
-
-      if (!startDateTime.isValid || !endDateTime.isValid) {
-        throw new Error(`Invalid dates provided. Start: ${startDateTime.invalidReason}, End: ${endDateTime.invalidReason}`);
-      }
-
-      // Compare full datetime. Allow same-day events.
-      if (endDateTime < startDateTime) {
-        throw new Error(`Event end date must be on or after the start date.`);
-      }
-
-      // Additional validation: ensure dates are not in the past
-      const now = DateTime.now().setZone('Asia/Kolkata');
-      if (startDateTime < now) {
-        throw new Error('Event start date cannot be in the past.');
-      }
-
-      // Check for date conflicts - convert DateTime to Date for the function
-      const { hasConflict, conflictingEventName } = await checkDateConflict({
-        startDate: startDateTime.toJSDate(),
-        endDate: endDateTime.toJSDate()
-      });
-
-      if (hasConflict) {
-        throw new Error(`Date conflict with event: ${conflictingEventName}`);
-      }
-
-      // Ensure current user is in organizers list
-      if (!formData.details.organizers.includes(studentProfileStore.studentId)) {
-        formData.details.organizers.push(studentProfileStore.studentId);
-      }
-
-      // Prepare details for Firestore, ensuring optional text fields are null if empty/undefined
-      const firestoreDetails = {
-        eventName: formData.details.eventName,
-        description: formData.details.description || '', // Ensure description is at least an empty string
-        rules: formData.details.rules || null, // Convert empty/undefined to null for Firestore
-        format: formData.details.format,
-        type: formData.details.type,
-        organizers: formData.details.organizers,
+      // Construct a partial event data based on formData and known defaults set by the service
+      // to pass to createCompleteEvent. This part might need refinement based on what createCompleteEvent needs
+      // and what the service guarantees.
+      const eventDataForStoreCreation: Partial<Event> = {
+        id: newEventId,
+        details: {
+            ...formData.details,
+            // Dates in formData.details are strings, convertEventDetailsDateFormat will handle them if createCompleteEvent calls it.
+            // Or, ensure they are Timestamps if createCompleteEvent expects them directly.
+            // For now, let's assume createCompleteEvent will call convertEventDetailsDateFormat, which expects strings or Timestamps.
         date: {
-          start: Timestamp.fromDate(startDateTime.toJSDate()),
-          end: Timestamp.fromDate(endDateTime.toJSDate()),
+                start: Timestamp.fromDate(startDateTime.toJSDate()), // Convert to Timestamp for createCompleteEvent
+                end: Timestamp.fromDate(endDateTime.toJSDate())     // Convert to Timestamp for createCompleteEvent
+            },
+            rules: formData.details.rules || undefined, // Match Event type (undefined vs null)
+            prize: formData.details.prize || undefined, // Match Event type (undefined vs null)
         },
-        allowProjectSubmission: formData.details.allowProjectSubmission,
-        prize: formData.details.prize || null // Convert empty/undefined to null for Firestore
-      };
-
-      // Create a properly formatted document with all required fields
-      const newEventData = {
-        status: EventStatus.Pending,
         requestedBy: studentId,
-        createdAt: Timestamp.now(),
-        lastUpdatedAt: Timestamp.now(),
-        participants: [],
-        votingOpen: false,
-        details: firestoreDetails, // Use the sanitized details for Firestore
+        status: EventStatus.Pending, // Service sets this
+        createdAt: Timestamp.now(), // Approximate, service sets actual
+        lastUpdatedAt: Timestamp.now(), // Approximate, service sets actual
+        participants: [], // Default
+        votingOpen: false, // Default, service sets this
         criteria: formData.criteria || [],
-        teams: formData.teams || []
+        teams: formData.teams || [],
+        // Other fields like teamMemberFlatList, submissions, etc., will be defaulted by createCompleteEvent
       };
 
-      try {
-        const newEventRef = await addDoc(collection(db, 'events'), newEventData);
-        
-        // Create a complete Event object for local store
-        // For the local store, we can use undefined if the Event type allows it
-        const newEventDataForStore: Event = {
-          ...newEventData,
-          // If Event type expects undefined for rules/prize, adjust here or ensure newEventData matches
-          details: {
-            ...newEventData.details, // This now has null for rules/prize if they were empty
-            // If Event type needs undefined, convert null back to undefined for these fields
-            rules: newEventData.details.rules === null ? undefined : newEventData.details.rules,
-            prize: newEventData.details.prize === null ? undefined : newEventData.details.prize,
-          },
-          id: newEventRef.id,
-          teamMemberFlatList: [], 
-          submissions: [],        
-          bestPerformerSelections: {}, 
-          winners: {},            
-          organizerRatings: [],   
-        };
+      const newEventDataForStore: Event = createCompleteEvent(eventDataForStoreCreation);
         
         _updateLocalEventLists(newEventDataForStore);
         notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
-        return newEventRef.id;
-      } catch (error: any) {
-        console.error("Firestore addDoc error:", error);
-        if (error.code === 'permission-denied') {
-          throw new Error(`Permission denied: ${error.message}. Please check that you're logged in and have the necessary permissions.`);
-        }
-        throw error;
-      }
+      return newEventId;
+
     } catch (err) {
       await _handleOpError('creating new event', err);
       return null;
@@ -410,7 +349,6 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  // Fix the update payload typing issue
   async function editMyEventRequest(eventId: string, formData: EventFormData): Promise<boolean> {
     actionError.value = null;
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
@@ -420,70 +358,28 @@ export const useEventStore = defineStore('studentEvents', () => {
     isLoading.value = true;
 
     try {
-      // Validate event dates before mapping
       const startDate = formData.details.date.start ? getISTTimestamp(formData.details.date.start) : null;
       const endDate = formData.details.date.end ? getISTTimestamp(formData.details.date.end) : null;
-
-      if (!startDate || !endDate) {
-        throw new Error('Event start and end dates are required.');
-      }
-
-      if (endDate.toMillis() < startDate.toMillis()) {
-        throw new Error('Event end date must be on or after start date.');
-      }
-      
-      // Check for date conflicts, excluding the current event
+      if (!startDate || !endDate) throw new Error('Event start and end dates are required.');
+      if (endDate.toMillis() < startDate.toMillis()) throw new Error('Event end date must be on or after start date.');
       const { hasConflict, conflictingEventName } = await checkDateConflict({
         startDate: startDate,
         endDate: endDate,
         excludeEventId: eventId
       });
+      if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
 
-      if (hasConflict) {
-        throw new Error(`Date conflict with event: ${conflictingEventName}`);
-      }
-
-      const existingEvent = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
+      const existingEvent = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
       if (!existingEvent) {
-        throw new Error("Event not found or you don't have permission to edit it.");
+        throw new Error("Event not found or you don\'t have permission to edit it.");
+      }
+      if (existingEvent.status !== EventStatus.Pending && existingEvent.status !== EventStatus.Rejected) {
+        throw new Error(`Event in status '${existingEvent.status}' cannot be edited by the requester.`);
       }
 
-      const teamsForPayload = existingEvent.details.format === EventFormat.Team ? (formData.teams || []) : [];
-      let newTeamMemberFlatList: string[] = [];
-      if (existingEvent.details.format === EventFormat.Team && teamsForPayload.length > 0) {
-        newTeamMemberFlatList = [...new Set(teamsForPayload.flatMap(team => team.members).filter(Boolean))];
-      } else {
-        newTeamMemberFlatList = []; 
-      }
-
-      // Create a more targeted update payload that matches what Firestore rules allow
-      const updatePayload = {
-        details: {
-          format: existingEvent.details.format, // Preserve the format
-          eventName: formData.details.eventName,
-          description: formData.details.description || '',
-          type: formData.details.type,
-          rules: formData.details.rules || null,
-          prize: formData.details.prize || null,
-          allowProjectSubmission: formData.details.allowProjectSubmission,
-          organizers: formData.details.organizers,
-          date: {
-            start: startDate,
-            end: endDate
-          }
-        },
-        criteria: formData.criteria || [],
-        teams: teamsForPayload,
-        teamMemberFlatList: newTeamMemberFlatList,
-        lastUpdatedAt: serverTimestamp()
-      };
+      await updateEventRequestInService(eventId, formData, existingEvent.details.format);
       
-      console.log("Event update payload:", JSON.stringify(updatePayload));
-      
-      const eventRef = doc(db, 'events', eventId);
-      await updateDoc(eventRef, updatePayload);
-      
-      const updatedEvent = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
+      const updatedEvent = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
       if (updatedEvent) {
         _updateLocalEventLists(updatedEvent);
       }
@@ -501,9 +397,9 @@ export const useEventStore = defineStore('studentEvents', () => {
   async function updateEventStatus({ eventId, newStatus, rejectionReason }: { eventId: string; newStatus: EventStatus; rejectionReason?: string }) {
     actionError.value = null;
     try {
-        if (!studentProfileStore.currentStudent) throw new Error("User not authenticated."); // Use currentStudent from profileStore
-        const updatedFields = await EventLifecycleActions.updateEventStatusInFirestore(eventId, newStatus, studentProfileStore.currentStudent, rejectionReason);
-        // Use createCompleteEvent to ensure a full Event object
+        if (!studentProfileStore.currentStudent) throw new Error("User not authenticated.");
+        // Call the service function
+        const updatedFields = await updateEventStatusService(eventId, newStatus, studentProfileStore.currentStudent, rejectionReason);
         const existingEvent = getEventById(eventId);
         _updateLocalEventLists(createCompleteEvent({ id: eventId, ...updatedFields }, existingEvent));
         notificationStore.showNotification({ message: `Event status updated to ${newStatus}.`, type: 'success' });
@@ -511,7 +407,6 @@ export const useEventStore = defineStore('studentEvents', () => {
         await _handleOpError(`updating event status to ${newStatus}`, err, eventId);
     }
   }
-
 
   async function joinEvent(eventId: string): Promise<boolean> {
     actionError.value = null;
@@ -522,8 +417,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
-        await EventParticipantActions.joinEventByStudentInFirestore(eventId, studentId);
-        const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentId);
+        await joinEventService(eventId, studentId);
+        const updatedEventData = await fetchSingleEventForStudentService(eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Successfully joined the event!", type: 'success' });
         return true;
@@ -544,8 +439,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
-        await EventParticipantActions.leaveEventByStudentInFirestore(eventId, studentId);
-        const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentId);
+        await leaveEventService(eventId, studentId);
+        const updatedEventData = await fetchSingleEventForStudentService(eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Successfully left the event.", type: 'success' });
         return true;
@@ -566,8 +461,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
-        await EventSubmissionActions.submitProjectByStudentInFirestore(payload.eventId, studentId, payload.submissionData);
-        const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(payload.eventId, studentId);
+        await submitProjectService(payload.eventId, studentId, payload.submissionData);
+        const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Project submitted successfully!", type: 'success' });
     } catch (err) {
@@ -586,14 +481,9 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
-        // Convert constraint keys to the format expected by backend
-        const processedSelections = {
-            criteria: payload.selections.criteria, // Keep as-is, backend will handle constraint index mapping
-            bestPerformer: payload.selections.bestPerformer
-        };
-        
-        await EventVotingActions.submitTeamCriteriaVoteInFirestore(payload.eventId, studentId, processedSelections);
-        const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(payload.eventId, studentId);
+      // Service function now contains all validation and Firestore logic
+      await submitTeamCriteriaVoteService(payload.eventId, studentId, payload.selections);
+      const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Team selections submitted!", type: 'success' });
     } catch (err) {
@@ -602,6 +492,7 @@ export const useEventStore = defineStore('studentEvents', () => {
         isLoading.value = false;
     }
   }
+
   async function submitIndividualWinnerVote(payload: { eventId: string; selectedWinnerId: string }) {
     actionError.value = null;
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
@@ -611,8 +502,9 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
-        await EventVotingActions.submitIndividualWinnerVoteInFirestore(payload.eventId, studentId, payload.selectedWinnerId);
-        const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(payload.eventId, studentId);
+      // Service function now contains all validation and Firestore logic
+      await submitIndividualWinnerVoteService(payload.eventId, studentId, payload.selectedWinnerId);
+      const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Winner selection submitted!", type: 'success' });
     } catch (err) {
@@ -628,11 +520,12 @@ export const useEventStore = defineStore('studentEvents', () => {
       await _handleOpError("submitting manual winner selection", new Error("User not authenticated."), payload.eventId);
       return;
     }
-    const studentId = studentProfileStore.studentId!;
+    const studentId = studentProfileStore.studentId!; // This should be an organizer/admin ID
     isLoading.value = true;
     try {
-        await EventVotingActions.submitManualWinnerSelectionInFirestore(payload.eventId, studentId, payload.winnerSelections);
-        const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(payload.eventId, studentId);
+      // Service function contains validation (including permission check if studentId is organizer/admin)
+      await submitManualWinnerSelectionService(payload.eventId, studentId, payload.winnerSelections);
+      const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentProfileStore.studentId); // Refetch with current user's view
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Manual winner selection saved!", type: 'success' });
     } catch (err) {
@@ -641,7 +534,6 @@ export const useEventStore = defineStore('studentEvents', () => {
         isLoading.value = false;
     }
   }
-
 
   async function submitOrganizationRating(payload: { eventId: string; score: number; feedback?: string }) {
     actionError.value = null;
@@ -652,12 +544,13 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
-        // If feedback is an empty string (e.g., from trim() || ''), pass null to Firestore.
-        // Otherwise, pass the feedback string.
-        const commentToSend = (payload.feedback === '' || payload.feedback === undefined) ? null : payload.feedback;
-
-        await EventVotingActions.submitOrganizationRatingInFirestore(payload.eventId, studentId, { score: payload.score, comment: commentToSend });
-        const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(payload.eventId, studentId);
+      const ratingData = { 
+        score: payload.score, 
+        comment: (payload.feedback === '' || payload.feedback === undefined) ? null : payload.feedback 
+      };
+      // Service function contains all validation and Firestore logic
+      await submitOrganizationRatingService(payload.eventId, studentId, ratingData);
+      const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Organizer rating submitted!", type: 'success' });
     } catch (err) {
@@ -669,100 +562,87 @@ export const useEventStore = defineStore('studentEvents', () => {
 
   async function toggleVotingOpen({ eventId, open }: { eventId: string; open: boolean }) {
     actionError.value = null;
+    isLoading.value = true; // Added isLoading true
     try {
-        if (!studentProfileStore.currentStudent) throw new Error("User not authenticated or profile not loaded.");
-        // Call the consolidated function, passing the currentStudent object
-        await EventVotingActions.toggleVotingStatusInFirestore(eventId, open, studentProfileStore.currentStudent);
-        const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
+      if (!studentProfileStore.currentStudent) throw new Error("User not authenticated or profile not loaded for voting toggle.");
+      // Service function contains permission checks and Firestore logic
+      await toggleVotingStatusService(eventId, open, studentProfileStore.currentStudent);
+      const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: `Voting is now ${open ? 'OPEN' : 'CLOSED'}.`, type: 'success' });
     } catch (err) {
         await _handleOpError(`toggling voting to ${open ? 'open' : 'closed'}`, err, eventId);
+    } finally {
+      isLoading.value = false; // Added isLoading false
     }
   }
 
   async function findWinner(eventId: string) {
     actionError.value = null;
+    isLoading.value = true; // Added isLoading true
     try {
-        const calculatedWinners = await EventVotingActions.calculateWinnersFromVotes(eventId);
+      // Service function for calculation
+      const calculatedWinners = await calculateWinnersFromVotesService(eventId);
         if (Object.keys(calculatedWinners).length === 0) {
             notificationStore.showNotification({ message: "No winners could be determined based on selections.", type: 'info' });
+        isLoading.value = false; // Added isLoading false before early return
             return;
         }
-        await EventVotingActions.saveWinnersToFirestore(eventId, calculatedWinners);
-        const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
+      // Service function for saving
+      await saveWinnersToFirestoreService(eventId, calculatedWinners);
+      const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Winner(s) determined and saved.", type: 'success' });
     } catch (err) {
         await _handleOpError("finding winner", err, eventId);
+    } finally {
+      isLoading.value = false; // Added isLoading false
     }
   }
 
   async function closeEventPermanently({ eventId }: { eventId: string }) {
     actionError.value = null;
     try {
-        if (!studentProfileStore.currentStudent) throw new Error("User not authenticated."); // Use currentStudent
-        await EventLifecycleActions.closeEventDocumentInFirestore(eventId, studentProfileStore.currentStudent);
+      if (!studentProfileStore.currentStudent) {
+        throw new Error("User not authenticated or profile not loaded.");
+      }
 
-        const eventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
-        if (!eventData) throw new Error("Failed to fetch event data after closing for XP calculation.");
+      // Call the service function to handle closing and XP awarding
+      const result = await closeEventAndAwardXPService(eventId, studentProfileStore.currentStudent);
 
-        const xpChangesMap = await EventUtils.calculateEventXP(eventData); // Use EventUtils
-
-        const batch = writeBatch(db); // Use writeBatch from firebase/firestore
-
-        let totalXpAwarded = 0;
-        let usersAwardedCount = 0;
-
-        for (const [userId, xpIncrementsUntyped] of Object.entries(xpChangesMap)) {
-             const xpIncrements = xpIncrementsUntyped as Partial<Pick<XPData, XpFirestoreFieldKey | 'count_wins' | 'totalCalculatedXp'>>;
-            const xpDocRef = doc(db, 'xp', userId);
-            const updatePayload: Record<string, any> = { lastUpdatedAt: createTimestamp() };
-            let userTotalIncrement = 0;
-
-            for (const key in xpIncrements) {
-                if (key.startsWith('xp_') || key === 'count_wins' || key === 'totalCalculatedXp') {
-                    const typedKey = key as keyof typeof xpIncrements;
-                    const incrementValue = xpIncrements[typedKey];
-                    if (typeof incrementValue === 'number' && incrementValue !== 0) {
-                        updatePayload[key] = increment(incrementValue); // Use increment from firebase/firestore
-                        if (key.startsWith('xp_')) userTotalIncrement += incrementValue;
+      if (!result.success) {
+        // The service should throw on error, but as a fallback:
+        throw new Error(result.message || "Failed to close event via service.");
                     }
-                }
-            }
-            if (Object.keys(updatePayload).length > 1) {
-                batch.set(xpDocRef, updatePayload, { merge: true });
-                totalXpAwarded += userTotalIncrement;
-                if (userTotalIncrement > 0 || (xpIncrements.count_wins && xpIncrements.count_wins > 0)) {
-                    usersAwardedCount++;
-                }
-            }
-        }
-        await batch.commit();
 
-        // Create a proper Event object with all required properties
+      // Update local event state
         const existingEvent = getEventById(eventId);
-        if (!existingEvent) throw new Error("Event not found");
-        
-        // Use the helper function to create a complete Event
-        const updatedEvent = createCompleteEvent({
+      if (!existingEvent) {
+        // This case should ideally not happen if the event existed before closing
+        console.warn(`Event ${eventId} not found locally after service call to close.`);
+        // Potentially fetch it if really needed, but service interaction should be source of truth
+      }
+      // Create a representative local update. The service already updated Firestore.
+      // The service returns xpAwarded map; we primarily need to update status and timestamps locally.
+      const updatedEventForStore = createCompleteEvent({
           id: eventId,
           status: EventStatus.Closed,
-          closedAt: Timestamp.now(),
-          lastUpdatedAt: Timestamp.now()
-        }, existingEvent);
+        closedAt: Timestamp.now(), // Approximate with client time, server set actual
+        lastUpdatedAt: Timestamp.now() // Approximate
+      }, existingEvent || { id: eventId } as Event ); // Provide a minimal existing event if not found
         
-        _updateLocalEventLists(updatedEvent);
-        // appStore.setEventClosedState({ eventId, isClosed: true }); // Define in appStore if needed
+      _updateLocalEventLists(updatedEventForStore);
 
-        if (studentProfileStore.studentId && xpChangesMap[studentProfileStore.studentId]) {
+      // If current user received XP, refresh their profile
+      if (result.xpAwarded && studentProfileStore.studentId && result.xpAwarded[studentProfileStore.studentId]) {
             await studentProfileStore.fetchProfileForView(studentProfileStore.studentId);
         }
-        const successMessage = `Event closed. ${totalXpAwarded} XP awarded to ${usersAwardedCount} users.`;
-        notificationStore.showNotification({ message: successMessage, type: 'success' });
-        return { success: true, message: successMessage, xpAwarded: xpChangesMap };
+
+      notificationStore.showNotification({ message: result.message, type: 'success' });
+      return { success: true, message: result.message, xpAwarded: result.xpAwarded };
 
     } catch (err: any) {
+      // The service now throws detailed errors, so _handleOpError can use err.message
         await _handleOpError("closing event permanently", err, eventId);
         return { success: false, message: err.message || "Failed to close event." };
     }
@@ -771,32 +651,26 @@ export const useEventStore = defineStore('studentEvents', () => {
    async function autoGenerateTeams(payload: { eventId: string; minMembersPerTeam?: number; maxMembersPerTeam?: number; }) {
     const { eventId, minMembersPerTeam = 2, maxMembersPerTeam = 8 } = payload;
     actionError.value = null;
+    isLoading.value = true;
     try {
       const event = getEventById(eventId);
       if (!event) throw new Error('Event data not loaded locally. Cannot auto-generate teams.');
       if (event.details.format !== EventFormat.Team) throw new Error("Auto-generation only for 'Team' events.");
-      if (!event.teams || event.teams.length < 2) {
-        throw new Error("Auto-generation requires at least 2 teams to be pre-defined for the event.");
+
+      if (studentProfileStore.allUsers.length === 0) {
+        await studentProfileStore.fetchUserNamesBatch([]);
       }
-      const numberOfTeams = event.teams.length;
+      const studentsToPassToService = studentProfileStore.allUsers;
 
-      if ((studentProfileStore as any).allUsers.length === 0) {
-        await studentProfileStore.fetchUserNamesBatch([]); // Or appropriate fetch all students action
-      }
-      const students = (studentProfileStore as any).allUsers;
+      await autoGenerateEventTeamsService(eventId, studentsToPassToService, minMembersPerTeam, maxMembersPerTeam);
 
-      if (students.length < numberOfTeams * minMembersPerTeam) {
-        throw new Error(`Not enough students (${students.length}) available to populate ${numberOfTeams} teams with at least ${minMembersPerTeam} members each.`);
-      }
-
-      // Use the new function that combines both operations
-      await EventTeamActions.autoGenerateEventTeamsInFirestore(eventId, students, minMembersPerTeam, maxMembersPerTeam);
-
-      const updatedEventData = await EventFetchingActions.fetchSingleEventForStudentFromFirestore(eventId, studentProfileStore.studentId);
+      const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
       if (updatedEventData) _updateLocalEventLists(updatedEventData);
-      notificationStore.showNotification({ message: `Teams auto-generated successfully for ${numberOfTeams} teams.`, type: 'success' });
+      notificationStore.showNotification({ message: `Teams auto-generated successfully.`, type: 'success' });
     } catch (err) {
       await _handleOpError("auto-generating teams", err, eventId);
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -810,27 +684,10 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  async function checkDateConflict(payload: { startDate: Date | string | Timestamp | null; endDate: Date | string | Timestamp | null; excludeEventId?: string | null }): Promise<{ hasConflict: boolean; nextAvailableDate: string | null; conflictingEvent: Event | null, conflictingEventName?: string | null }> { // Added conflictingEventName
+  async function checkDateConflict(payload: { startDate: Date | string | Timestamp | null; endDate: Date | string | Timestamp | null; excludeEventId?: string | null }): Promise<{ hasConflict: boolean; nextAvailableDate: string | null; conflictingEvent: Event | null, conflictingEventName?: string | null }> {
     try {
-         const result = await checkDateConflictForRequest(payload.startDate, payload.endDate, payload.excludeEventId); // Use the corrected function
-         // The return type of checkDateConflictForRequest is { hasConflict: boolean; conflictingEventName: string | null }
-         // Need to adapt it or the calling code.
-         // For now, assuming the store action is the source of truth and will return what's needed by the component.
-         // The component uses `result.conflictingEvent?.details.eventName` which implies `conflictingEvent` is needed.
-         // `checkDateConflictForRequest` from the diff only returns `conflictingEventName`.
-         // Let's assume `checkDateConflictForRequest` in actions.validation.ts will be updated to match the structure of `checkDateConflictInFirestore`
-         // which returns { hasConflict, nextAvailableDate, conflictingEvent }
-
-         // For now, I'll adapt this to return a structure similar to what the component expects,
-         // but the actual Firestore logic is in checkDateConflictForRequest which has a different return.
-         // This is a temporary bridge:
-         return {
-            hasConflict: result.hasConflict,
-            nextAvailableDate: null, // checkDateConflictForRequest doesn't return this
-            conflictingEvent: null, // checkDateConflictForRequest doesn't return this
-            conflictingEventName: result.conflictingEventName
-         };
-
+         const result = await checkDateConflictForRequest(payload.startDate, payload.endDate, payload.excludeEventId);
+         return { hasConflict: result.hasConflict, nextAvailableDate: null, conflictingEvent: null, conflictingEventName: result.conflictingEventName };
     } catch (error: any) {
          _handleOpError("checking date conflict", error);
          notificationStore.showNotification({ message: `Date check failed: ${error.message || 'Unknown error'}`, type: 'error' });
@@ -848,8 +705,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     isLoading.value = true;
 
     try {
-      // Convert Event data to EventFormData format, ensuring dates are strings
-      const formDataForMapping: EventFormData = {
+      // Prepare EventFormData for the service call
+      const formDataForService: EventFormData = {
         details: {
           eventName: eventData.details.eventName,
           description: eventData.details.description,
@@ -857,13 +714,8 @@ export const useEventStore = defineStore('studentEvents', () => {
           type: eventData.details.type,
           organizers: eventData.details.organizers,
           date: {
-            // Ensure dates are strings for EventFormData using toISOString()
-            start: eventData.details.date.start instanceof Timestamp ? 
-                eventData.details.date.start.toDate().toISOString() : 
-                null,
-            end: eventData.details.date.end instanceof Timestamp ? 
-                eventData.details.date.end.toDate().toISOString() : 
-                null
+            start: eventData.details.date.start instanceof Timestamp ? eventData.details.date.start.toDate().toISOString() : null,
+            end: eventData.details.date.end instanceof Timestamp ? eventData.details.date.end.toDate().toISOString() : null
           },
           allowProjectSubmission: eventData.details.allowProjectSubmission,
           rules: eventData.details.rules,
@@ -871,36 +723,32 @@ export const useEventStore = defineStore('studentEvents', () => {
         },
         criteria: eventData.criteria || [],
         teams: eventData.teams || [],
-        votingOpen: eventData.votingOpen // Required field
+        votingOpen: eventData.votingOpen // This is part of EventFormData
       };
       
-      const mappedData = mapEventDataToFirestore(formDataForMapping);
+      // Call the service function
+      const newEventId = await createEventRequestService(formDataForService, currentUserId);
 
-      const newEventDataForFirestore = {
-        ...mappedData,
-        status: EventStatus.Pending,
-        requestedBy: currentUserId,
-        createdAt: createTimestamp(),
-        lastUpdatedAt: createTimestamp(),
-        participants: [],
-        votingOpen: false,
-        // Ensure other non-optional Event fields are present if not in mappedData
-      };
-
-      const newEventRef = await addDoc(collection(db, 'events'), newEventDataForFirestore);
+      if (!newEventId) { // Should not happen if service throws on error
+        throw new Error("Failed to submit event request via service.");
+      }
       
-      // Create a complete Event object with proper date formats for local update
+      // Create a complete Event object for local update
+      // Pass the original eventData (which has Timestamps if they existed) and the new ID to createCompleteEvent
       const newEventDataForStore = createCompleteEvent({
-        ...newEventDataForFirestore,
-        id: newEventRef.id,
-        // Make sure details has Timestamp objects for dates
-        details: convertEventDetailsDateFormat(eventData.details),
-        votingOpen: false
+        ...eventData, // Spread original eventData which might have Timestamps for dates
+        id: newEventId,
+        requestedBy: currentUserId,
+        status: EventStatus.Pending, // Service sets this
+        createdAt: Timestamp.now(), // Approximate, service sets actual
+        lastUpdatedAt: Timestamp.now(), // Approximate, service sets actual
+        participants: [], // Default
+        // votingOpen is part of eventData and will be carried over by spread
       });
       
       _updateLocalEventLists(newEventDataForStore);
       notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
-      return newEventRef.id;
+      return newEventId;
     } catch (err) {
       await _handleOpError("submitting event request", err);
       return null;
@@ -917,111 +765,65 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
     isLoading.value = true;
     try {
-      const eventRef = doc(db, 'events', eventId);
+      const existingEvent = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
+      if (!existingEvent) {
+        throw new Error("Event not found or you don\'t have permission to edit it.");
+      }
       
-      // Create a properly typed form data object with votingOpen included
-      let formDataForMapping: EventFormData = {
+      const formDataForService: EventFormData = {
         details: {
-          eventName: eventData.details?.eventName || '',
-          description: eventData.details?.description || '',
-          format: eventData.details?.format || EventFormat.Individual,
-          type: eventData.details?.type || '',
-          organizers: eventData.details?.organizers || [],
+          eventName: eventData.details?.eventName || existingEvent.details.eventName, 
+          description: eventData.details?.description || existingEvent.details.description, 
+          format: eventData.details?.format || existingEvent.details.format, 
+          type: eventData.details?.type || existingEvent.details.type, 
+          organizers: eventData.details?.organizers || existingEvent.details.organizers, 
           date: {
-            // Convert Timestamp to string format using toISOString()
-            start: eventData.details?.date.start instanceof Timestamp ? eventData.details.date.start.toDate().toISOString() : null,
-            end: eventData.details?.date.end instanceof Timestamp ? eventData.details.date.end.toDate().toISOString() : null
+            start: eventData.details?.date?.start instanceof Timestamp ? eventData.details.date.start.toDate().toISOString() : (existingEvent.details.date.start instanceof Timestamp ? existingEvent.details.date.start.toDate().toISOString() : null),
+            end: eventData.details?.date?.end instanceof Timestamp ? eventData.details.date.end.toDate().toISOString() : (existingEvent.details.date.end instanceof Timestamp ? existingEvent.details.date.end.toDate().toISOString() : null)
           },
-          allowProjectSubmission: eventData.details?.allowProjectSubmission || false,
-          rules: eventData.details?.rules,
-          prize: eventData.details?.prize
+          allowProjectSubmission: eventData.details?.allowProjectSubmission ?? existingEvent.details.allowProjectSubmission, 
+          rules: eventData.details?.rules !== undefined ? eventData.details.rules : existingEvent.details.rules, 
+          prize: eventData.details?.prize !== undefined ? eventData.details.prize : existingEvent.details.prize
         },
-        criteria: eventData.criteria || [],
-        teams: eventData.teams || [],
-        votingOpen: eventData.votingOpen ?? false // Add required field with default
+        criteria: eventData.criteria || existingEvent.criteria || [],
+        teams: eventData.teams || existingEvent.teams || [],
+        votingOpen: eventData.votingOpen ?? existingEvent.votingOpen ?? false
       };
       
-      // Map data using the proper formatter
-      const mappedData = mapEventDataToFirestore(formDataForMapping);
+      await updateEventRequestInService(eventId, formDataForService, existingEvent.details.format);
       
-      // Build the update payload
-      const updatePayload: any = {
-        ...mappedData,
-        lastUpdatedAt: serverTimestamp()
-      };
-      
-      // Add other fields if needed using proper type checks
-      if ('status' in eventData) updatePayload.status = (eventData as any).status;
-      if ('rejectionReason' in eventData) updatePayload.rejectionReason = (eventData as any).rejectionReason;
-      if ('lifecycleTimestamps' in eventData) updatePayload.lifecycleTimestamps = (eventData as any).lifecycleTimestamps;
-      
-      await updateDoc(eventRef, updatePayload);
-      
-      // Update local state with a properly typed Event object
-      const existingEvent = getEventById(eventId);
-      if (existingEvent) {
-        const updatedLocalEvent = createCompleteEvent({
-          ...eventData,
-          lastUpdatedAt: Timestamp.now()
-        }, existingEvent);
-        
-        _updateLocalEventLists(updatedLocalEvent);
+      const updatedEventDataFromFirestore = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
+      if (updatedEventDataFromFirestore) {
+        _updateLocalEventLists(updatedEventDataFromFirestore);
+      } else {
+        console.warn(`Failed to refetch event ${eventId} after update, local state might be stale.`);
       }
       
       notificationStore.showNotification({ message: 'Event request updated successfully!', type: 'success' });
       return true;
     } catch (err) {
-      await _handleOpError("updating event request", err);
+      await _handleOpError("updating event request", err, eventId);
       return false;
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Create a helper function to convert string dates to Timestamp objects
-  function convertEventDetailsDateFormat(details: any): import('@/types/event').EventDetails {
-    if (!details) return {} as import('@/types/event').EventDetails;
-    
-    // Create a deep copy to avoid modifying the original
-    const convertedDetails = { ...details };
-    
-    // Convert date strings to Timestamp objects if they exist
-    if (convertedDetails.date) {
-      convertedDetails.date = {
-        start: convertedDetails.date.start ? 
-          (typeof convertedDetails.date.start === 'string' ? 
-            Timestamp.fromDate(new Date(convertedDetails.date.start)) : 
-            convertedDetails.date.start) : 
-          null,
-        end: convertedDetails.date.end ? 
-          (typeof convertedDetails.date.end === 'string' ? 
-            Timestamp.fromDate(new Date(convertedDetails.date.end)) : 
-            convertedDetails.date.end) : 
-          null
-      };
-    }
-    
-    return convertedDetails as import('@/types/event').EventDetails;
-  }
-
-  // Modify the createCompleteEvent function to handle date conversions
   function createCompleteEvent(partialEvent: Partial<Event>, existingEvent?: Event): Event {
-    // Convert dates in details if they exist
-    const convertedDetails = partialEvent.details ? 
-      convertEventDetailsDateFormat(partialEvent.details) : 
-      (existingEvent?.details || {
-        eventName: '',
-        description: '',
-        format: EventFormat.Individual,
-        type: '',
-        organizers: [],
-        date: { start: null, end: null },
-        allowProjectSubmission: false
-      });
+    const detailsToConvert = partialEvent.details || existingEvent?.details;
+    const convertedDetails = detailsToConvert ? 
+      convertEventDetailsDateFormat(detailsToConvert) : // Uses imported version from eventUtils
+      { eventName: '', description: '', format: EventFormat.Individual, type: '', organizers: [], date: { start: null, end: null }, allowProjectSubmission: false };
 
     return {
-      id: partialEvent.id || '',
-      details: convertedDetails,
+      id: partialEvent.id || existingEvent?.id || '',
+      details: {
+        ...convertedDetails, // Spread converted (which now contains Timestamps)
+        // Ensure string dates from formData are not overriding Timestamps if they were passed in partialEvent.details directly
+        // This part needs care. The current convertEventDetailsDateFormat expects strings or Timestamps.
+        // If partialEvent.details.date still contains strings, they will be converted.
+        // If partialEvent.details.date contained Timestamps (like from eventDataForStoreCreation), they should be preserved.
+      },
       requestedBy: partialEvent.requestedBy || existingEvent?.requestedBy || '',
       votingOpen: partialEvent.votingOpen ?? existingEvent?.votingOpen ?? false,
       createdAt: partialEvent.createdAt || existingEvent?.createdAt || Timestamp.now(),
@@ -1035,7 +837,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       bestPerformerSelections: partialEvent.bestPerformerSelections || existingEvent?.bestPerformerSelections || {},
       winners: partialEvent.winners || existingEvent?.winners || {},
       organizerRatings: partialEvent.organizerRatings || existingEvent?.organizerRatings || [],
-      lifecycleTimestamps: partialEvent.lifecycleTimestamps || existingEvent?.lifecycleTimestamps,
+      lifecycleTimestamps: mergeLifecycleTimestamps(existingEvent?.lifecycleTimestamps, partialEvent.lifecycleTimestamps),
       closedAt: partialEvent.closedAt || existingEvent?.closedAt,
       rejectionReason: partialEvent.rejectionReason || existingEvent?.rejectionReason,
       manuallySelectedBy: partialEvent.manuallySelectedBy || existingEvent?.manuallySelectedBy
@@ -1044,7 +846,9 @@ export const useEventStore = defineStore('studentEvents', () => {
 
   return {
     events, viewedEventDetails, myEventRequests, isLoading, actionError, fetchError,
-    allPubliclyViewableEvents, getEventById, currentEventDetails, upcomingEvents, activeEvents, pastEvents,
+    allPubliclyViewableEvents, userSubmittedEvents, userParticipatingEvents, userWaitlistedEvents,
+    getEventById, currentEventDetails, upcomingEvents, activeEvents, pastEvents,
+    _updateLocalEventLists, _handleOpError, _handleFetchError,
     fetchEvents, fetchMyEventRequests, fetchEventDetails,
     requestNewEvent, editMyEventRequest, updateEventStatus,
     joinEvent, leaveEvent,
@@ -1052,7 +856,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     submitTeamCriteriaVote, submitIndividualWinnerVote, submitManualWinnerSelection, submitOrganizationRating,
     toggleVotingOpen, findWinner, closeEventPermanently, autoGenerateTeams,
     checkExistingRequests, checkDateConflict,
-    userSubmittedEvents, userParticipatingEvents, userWaitlistedEvents,
+    createCompleteEvent,
     submitEventRequest, updateEventRequest
   };
 });

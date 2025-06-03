@@ -2,9 +2,7 @@ import { FirebaseApp, initializeApp } from "firebase/app";
 // Import getFirestore and specific cache options
 import { 
     Firestore, 
-    getFirestore,
-    enableNetwork as enableFirestoreNetworkFn, // Alias to avoid naming conflict if we export enableFirestoreNetwork
-    disableNetwork as disableFirestoreNetworkFn // Alias
+    getFirestore
 } from "firebase/firestore"; 
 import { Auth, getAuth } from 'firebase/auth';
 
@@ -32,29 +30,5 @@ const db: Firestore = getFirestore(app);
 
 
 const auth: Auth = getAuth(app);
-
-/**
- * Enable Firestore network access
- * @returns Promise that resolves when network is enabled
- */
-export const enableFirestoreNetwork = async (): Promise<void> => {
-  try {
-    await enableFirestoreNetworkFn(db);
-  } catch (error) {
-    throw error;
-  }
-};
-
-/**
- * Disable Firestore network access
- * @returns Promise that resolves when network is disabled
- */
-export const disableFirestoreNetwork = async (): Promise<void> => {
-  try {
-    await disableFirestoreNetworkFn(db);
-  } catch (error) {
-    throw error;
-  }
-};
 
 export { db, auth, app }; // Export app as well

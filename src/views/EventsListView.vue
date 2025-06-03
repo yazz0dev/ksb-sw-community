@@ -52,43 +52,65 @@
             </div>
             <p v-else class="text-muted">No upcoming events.</p>
           </div>
+
+          <!-- Active Events Section (for authenticated users) -->
+          <div v-if="activeFilter === 'active'">
+            <hr v-if="upcomingEvents.length > 0 && activeFilter === 'active'" class="my-5">
+            <h2 class="h4 mb-4">Active Events</h2>
+            <div v-if="activeEvents.length > 0" class="row g-4">
+              <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
+                <EventCard :event="event" :name-cache="nameCache" />
+              </div>
+            </div>
+            <p v-else class="text-muted">No active events.</p>
+          </div>
+
+          <!-- Completed Events Section (for authenticated users) -->
+          <div v-if="activeFilter === 'completed'">
+            <hr v-if="(upcomingEvents.length > 0 || activeEvents.length > 0) && activeFilter === 'completed'" class="my-5">
+            <h2 class="h4 mb-4">Completed Events</h2>
+            <div v-if="completedEvents.length > 0" class="row g-4">
+              <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
+                <EventCard :event="event" :name-cache="nameCache" />
+              </div>
+            </div>
+            <p v-else class="text-muted">No completed events.</p>
+          </div>
         </div>
-        <!-- Logged-out User: Only show Completed Events -->
+
+        <!-- Logged-out User View: Show Upcoming, Ongoing (Approved only), and Completed Events -->
         <div v-else>
+          <!-- Upcoming Events Section -->
+          <h2 class="h4 mb-4">Upcoming Events</h2>
+          <div v-if="upcomingEvents.length > 0" class="row g-4">
+            <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
+              <EventCard :event="event" :name-cache="nameCache" />
+            </div>
+          </div>
+          <p v-else class="text-muted">No upcoming events.</p>
+
+          <!-- Ongoing (Approved) Events Section -->
+          <hr class="my-5">
+          <h2 class="h4 mb-4">Ongoing Events</h2>
+          <div v-if="activeEvents.length > 0" class="row g-4"> {/* activeEvents for unauth will only contain 'Approved' current events */}
+            <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
+              <EventCard :event="event" :name-cache="nameCache" />
+            </div>
+          </div>
+          <p v-else class="text-muted">No ongoing events currently.</p>
+          
+          <!-- Completed Events Section -->
+          <hr class="my-5">
+          <h2 class="h4 mb-4">Completed Events</h2>
           <div v-if="completedEvents.length > 0" class="row g-4">
             <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
               <EventCard :event="event" :name-cache="nameCache" />
             </div>
           </div>
-          <p v-else class="text-muted">No completed events.</p>
-        </div>
-
-          <!-- Active Events Section -->
-          <div v-if="activeFilter === 'active'">
-             <hr v-if="activeFilter === 'active'" class="my-5"> <!-- Separator if not first -->
-            <h2 class="h4 mb-4">Active Events</h2>
-            <div v-if="activeEvents.length > 0" class="row g-4">
-              <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
-                  <EventCard :event="event" :name-cache="nameCache" />
-              </div>
-            </div>
-            <p v-else class="text-muted">No active events.</p
-            >
-          </div>
-
-          <!-- Completed Events Section -->
-          <div v-if="activeFilter === 'completed'">
-            <hr v-if="activeFilter === 'completed'" class="my-5"> <!-- Separator if not first -->
-            <h2 class="h4 mb-4">Completed Events</h2>
-            <div v-if="completedEvents.length > 0" class="row g-4">
-              <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
-                  <EventCard :event="event" :name-cache="nameCache" />
-              </div>
-            </div>
-             <p v-else class="text-muted">No completed events.</p>
-          </div>
+          <p v-else class="text-muted">No completed events to display.</p>
         </div>
       </div>
+    </div>
   </section>
 </template>
 
@@ -171,13 +193,18 @@ const upcomingEvents = computed<Event[]>(() => {
 });
 
 const activeEvents = computed<Event[]>(() => {
-    if (!isAuthenticated.value || !eventStore.events) return []; // Changed from events.value to eventStore.events
+    // No change needed here if eventStore.events is correctly filtered by Firestore rules for unauthenticated users
+    // (i.e., it won't contain 'InProgress' events for them).
+    // This computed will then correctly show 'InProgress' for authenticated users
+    // and 'Approved' (current) for both authenticated and unauthenticated users.
+    if (!eventStore.events) return [];
     const currentTime = DateTime.now();
     
-    return eventStore.events.filter((event: Event) => { // Changed from events.value to eventStore.events
+    return eventStore.events.filter((event: Event) => {
         if (!event) return false;
         
-        // Event is explicitly marked as InProgress
+        // Event is explicitly marked as InProgress 
+        // (only possible if authenticated and Firestore rules allowed fetching it)
         if (event.status === EventStatus.InProgress) return true;
         
         // Event is approved and within date range

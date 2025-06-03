@@ -53,6 +53,7 @@ import { useNotificationStore } from './stores/notificationStore';
 import { usePushNotifications } from '@/composables/usePushNotifications';
 import { useAppState } from '@/composables/useAppState';
 import { useAuth } from '@/composables/useAuth';
+import { getAuth } from 'firebase/auth';
 
 import BottomNav from './components/ui/BottomNav.vue';
 import TopBar from './components/ui/TopBar.vue';
@@ -78,7 +79,9 @@ const {
 
 const { 
   logout: performLogout,
-  isAuthenticated
+  isAuthenticated,
+  refreshAuthState,
+  initializeAuthState // Get the initialization function
 } = useAuth();
 
 const userName = computed(() => studentStore.studentName);
@@ -135,10 +138,31 @@ watch(isOnline, (online) => {
   }
 });
 
-onMounted(() => {
+onMounted(async () => {
   initAppState();
   
-  // Remove clearStaleNameCache call that might cause issues
+  // Initialize auth persistence here, in the component's onMounted hook
+  await initializeAuthState();
+  
+  // Check if there's a mismatch between Firebase auth and our store
+  const firebaseAuth = getAuth();
+  const hasFirebaseUser = !!firebaseAuth.currentUser;
+  
+  if (hasFirebaseUser && !isAuthenticated.value) {
+    // We have a Firebase user but our app thinks we're not authenticated
+    // This can happen on page refreshes
+    console.log('Auth state mismatch detected on mount, refreshing auth state');
+    await refreshAuthState();
+    
+    // If we still have a mismatch, try syncing with the profile store
+    if (hasFirebaseUser && !isAuthenticated.value) {
+      try {
+        await studentStore.handleAuthStateChange(firebaseAuth.currentUser);
+      } catch (error) {
+        console.error('Error syncing auth state with profile store:', error);
+      }
+    }
+  }
 });
 
 onUnmounted(() => {

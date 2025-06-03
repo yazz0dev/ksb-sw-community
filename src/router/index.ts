@@ -56,16 +56,27 @@ router.beforeEach(async (
   const appStore = useAppStore();
   const auth = useAuth();
 
-  // Wait for initial auth check to complete
+  // Wait for initial auth check to complete with a timeout
   if (!appStore.hasFetchedInitialAuth) {
-    await new Promise<void>(resolve => {
-      const unsubscribe = watch(() => appStore.hasFetchedInitialAuth, (isFetched) => {
-        if (isFetched) {
-          unsubscribe();
-          resolve();
-        }
-      });
-    });
+    // Set a maximum wait time to avoid infinite waiting
+    const maxWaitTime = 5000; // 5 seconds
+    await Promise.race([
+      new Promise<void>(resolve => {
+        const unsubscribe = watch(() => appStore.hasFetchedInitialAuth, (isFetched) => {
+          if (isFetched) {
+            unsubscribe();
+            resolve();
+          }
+        });
+      }),
+      new Promise<void>(resolve => setTimeout(resolve, maxWaitTime))
+    ]);
+
+    // If we timed out and still haven't fetched auth, force refresh auth state
+    if (!appStore.hasFetchedInitialAuth) {
+      await auth.refreshAuthState();
+      appStore.setHasFetchedInitialAuth(true);
+    }
   }
 
   const isAuthenticated = auth.isAuthenticated.value;

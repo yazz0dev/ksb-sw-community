@@ -46,6 +46,7 @@ import { useProfileStore } from '../stores/profileStore';
 import { useAppStore } from '../stores/appStore';
 import { useRouter, useRoute } from 'vue-router';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { useAuth } from '@/composables/useAuth';
 
 interface Props {
   message?: string;
@@ -59,6 +60,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const studentStore = useProfileStore();
 const appStore = useAppStore();
+const auth = useAuth();
 const router = useRouter();
 const route = useRoute();
 
@@ -66,13 +68,15 @@ const isLoading = ref(true);
 const authAttempts = ref(0);
 const maxAttempts = props.retryCount;
 
+// Use both the auth composable and a direct check of Firebase Auth
 const isAuthenticated = computed<boolean>(() => {
   // Check Firebase auth directly as a fallback
-  const auth = getAuth();
-  const firebaseUser = auth.currentUser;
+  const firebaseAuth = getAuth();
+  const firebaseUser = firebaseAuth.currentUser;
   
-  // Return true if either the store says we're authenticated, or Firebase has a user
-  return studentStore.isAuthenticated || !!firebaseUser;
+  // Return true if either the auth composable says we're authenticated,
+  // the store says we're authenticated, or Firebase has a user
+  return auth.isAuthenticated.value || studentStore.isAuthenticated || !!firebaseUser;
 });
 
 const initialAuthAttempted = computed<boolean>(() => appStore.hasFetchedInitialAuth);
@@ -84,7 +88,7 @@ watch([isAuthenticated, initialAuthAttempted], ([newIsAuth, newInitialAuth]) => 
   }
 });
 
-// Setup a direct Firebase auth listener to ensure we catch auth state changes
+// Set up a direct Firebase auth listener to ensure we catch auth state changes
 onMounted(() => {
   // If already initialized, skip loading state
   if (initialAuthAttempted.value) {
@@ -92,10 +96,19 @@ onMounted(() => {
     return;
   }
   
+  // Maximum wait time for auth initialization
+  const maxWaitTime = 3000; // 3 seconds
+  
   // Simple timeout fallback
   const timeout = setTimeout(() => {
     isLoading.value = false;
-  }, 3000); // 3 second max wait
+    // Force refresh auth state
+    auth.refreshAuthState().then(() => {
+      if (!appStore.hasFetchedInitialAuth) {
+        appStore.setHasFetchedInitialAuth(true);
+      }
+    });
+  }, maxWaitTime);
   
   // Watch for initialization completion
   const unwatch = watch(initialAuthAttempted, (attempted) => {
@@ -103,6 +116,28 @@ onMounted(() => {
       isLoading.value = false;
       clearTimeout(timeout);
       unwatch();
+    }
+  });
+  
+  // Also set up a direct Firebase auth listener as a backup
+  const unsubscribe = onAuthStateChanged(getAuth(), (user) => {
+    if (user && !isAuthenticated.value) {
+      // We have a user but isAuthenticated is false - this indicates a sync issue
+      // Force refresh the auth state
+      auth.refreshAuthState();
+    }
+    
+    if (!initialAuthAttempted.value && (authAttempts.value >= maxAttempts)) {
+      // If we've tried enough times and still haven't marked auth as initialized,
+      // force it to be initialized
+      appStore.setHasFetchedInitialAuth(true);
+    }
+    
+    authAttempts.value++;
+    
+    // Cleanup this listener after we've resolved auth state
+    if (initialAuthAttempted.value) {
+      unsubscribe();
     }
   });
 });

@@ -18,6 +18,19 @@ import { Event, EventStatus, EventFormat } from '@/types/event'; // Added Event 
 import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Added mapFirestoreToEventData
 import type { NameCacheEntry, StudentPortfolioProject, ImageUploadOptions, ImageUploadState } from '@/types/student'; // Removed UploadStatusValue
 import { UploadStatus } from '@/types/student'; // Added UploadStatus enum
+import { handleAuthError as formatAuthErrorUtil, handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
+import { 
+    fetchStudentData as fetchStudentDataService,
+    updateStudentProfile as updateStudentProfileService,
+    fetchUserNamesBatch as fetchUserNamesBatchService,
+    fetchAllStudentProfiles as fetchAllStudentProfilesService,
+    fetchLeaderboardData as fetchLeaderboardDataService,
+    fetchStudentPortfolioProjects as fetchStudentPortfolioProjectsService,
+    fetchStudentEventHistory as fetchStudentEventHistoryService,
+    fetchStudentEventParticipationCount as fetchStudentEventParticipationCountService
+} from '@/services/profileService';
+import { fetchStudentEventRequests as fetchStudentEventRequestsService } from '@/services/eventService';
+import { uploadFile as uploadFileService, deleteFileByUrl as deleteFileByUrlService } from '@/services/storageService';
 
 const STUDENT_COLLECTION_PATH = 'students';
 const XP_COLLECTION_PATH = 'xp';
@@ -87,65 +100,60 @@ export const useProfileStore = defineStore('studentProfile', () => {
   }
 
   async function _handleAuthError(operation: string, err: unknown, uid?: string): Promise<void> {
-    const message = err instanceof Error ? err.message : `An unknown error occurred during ${operation}.`;
-    error.value = message; // Set general error for auth-related issues
-    notificationStore.showNotification({ message, type: 'error' });
+    const formattedMessage = formatAuthErrorUtil(err);
+    let finalMessage: string;
+
+    // If formatter gave its most generic message, or if it just returned err.message which was generic
+    if (formattedMessage === 'An authentication error occurred. Please try again.' || 
+        (err instanceof Error && formattedMessage === err.message && (err.message.toLowerCase().includes("unknown") || err.message.toLowerCase().includes("error occurred")))) {
+      finalMessage = err instanceof Error ? `${operation}: ${err.message}` : `An unknown error occurred during ${operation}.`;
+    } else {
+      finalMessage = formattedMessage; // Use the more specific message from the formatter
+    }
+    
+    error.value = finalMessage;
+    notificationStore.showNotification({ message: finalMessage, type: 'error' });
   }
 
   async function _handleOpError(operation: string, err: unknown, uid?: string): Promise<void> {
-    const message = err instanceof Error ? err.message : `An unknown error occurred during ${operation}.`;
-    actionError.value = message;
-    notificationStore.showNotification({ message, type: 'error' });
+    let finalMessage: string;
+
+    // Check if err has a 'code' property, suggesting it's a Firebase-related error (Firestore, Storage, etc.)
+    if (err && typeof (err as any).code === 'string') {
+        // Using formatFirestoreErrorUtil as a general formatter for Firebase errors with a 'code'
+        const formattedMessage = formatFirestoreErrorUtil(err); 
+        // Check if the message is one of the generic ones from the formatter
+        if (formattedMessage === 'An unknown error occurred.' || formattedMessage === 'The service is currently unavailable. Please try again later.') {
+            finalMessage = err instanceof Error ? `${operation}: ${err.message}` : `An error occurred during ${operation}. Details: ${formattedMessage}`;
+        } else {
+            finalMessage = formattedMessage;
+        }
+    } else if (err instanceof Error) {
+        finalMessage = `${operation}: ${err.message}`;
+    } else {
+        finalMessage = `An unknown error occurred during ${operation}.`;
+    }
+    
+    actionError.value = finalMessage;
+    notificationStore.showNotification({ message: finalMessage, type: 'error' });
   }
 
   async function _handleFetchError(operation: string, err: unknown): Promise<void> {
-    const message = err instanceof Error ? err.message : `An unknown error occurred during ${operation}.`;
-    fetchError.value = message;
-  }
+    let finalMessage: string;
 
-  async function _fetchStudentDataInternal(uid: string): Promise<EnrichedStudentData | null> {
-    try {
-      const studentDocRef = doc(db, 'students', uid);
-      const xpDocRef = doc(db, XP_COLLECTION_PATH, uid);
-
-      const [studentSnap, xpSnap] = await Promise.all([
-        getDoc(studentDocRef),
-        getDoc(xpDocRef)
-      ]);
-
-      if (!studentSnap.exists()) {
-        return null;
-      }
-
-      const firestoreDocData = studentSnap.data();
-      const studentDataFromDoc = { uid: studentSnap.id, ...firestoreDocData } as UserData; // Use UserData
-      const xpData = xpSnap.exists() ? { uid: xpSnap.id, ...xpSnap.data() } as XPData : getDefaultXPData(uid);
-
-      _updateNameCache(studentDataFromDoc.uid, studentDataFromDoc.name ?? null); 
-
-      // Construct EnrichedStudentData carefully
-      const enrichedData: EnrichedStudentData = {
-        uid: studentDataFromDoc.uid,
-        name: studentDataFromDoc.name ?? null,
-        email: studentDataFromDoc.email ?? null,
-        studentId: studentDataFromDoc.studentId,
-        batchYear: studentDataFromDoc.batchYear, // UserData.batchYear is number | undefined
-        batch: studentDataFromDoc.batch, // UserData.batch is string | undefined
-        photoURL: studentDataFromDoc.photoURL ?? null,
-        bio: studentDataFromDoc.bio,
-        skills: studentDataFromDoc.skills,
-        preferredRoles: studentDataFromDoc.preferredRoles,
-        hasLaptop: studentDataFromDoc.hasLaptop,
-        socialLinks: studentDataFromDoc.socialLinks,
-        participatedEventIDs: studentDataFromDoc.participatedEventIDs,
-        organizedEventIDs: studentDataFromDoc.organizedEventIDs,
-        xpData: deepClone(xpData)
-      };
-      return enrichedData;
-    } catch (err) {
-      await _handleAuthError("fetching student data", err, uid);
-      return null;
+    if (err && typeof (err as any).code === 'string') {
+        const formattedMessage = formatFirestoreErrorUtil(err);
+        if (formattedMessage === 'An unknown error occurred.' || formattedMessage === 'The service is currently unavailable. Please try again later.') {
+            finalMessage = err instanceof Error ? `${operation}: ${err.message}` : `An error occurred during ${operation}. Details: ${formattedMessage}`;
+        } else {
+            finalMessage = formattedMessage;
+        }
+    } else if (err instanceof Error) {
+        finalMessage = `${operation}: ${err.message}`;
+    } else {
+        finalMessage = `An unknown error occurred during ${operation}.`;
     }
+    fetchError.value = finalMessage; // No notification for this one, as per original implementation
   }
 
   // --- Public Actions ---
@@ -154,19 +162,33 @@ export const useProfileStore = defineStore('studentProfile', () => {
     error.value = null;
     actionError.value = null;
     fetchError.value = null;
-    // Removed duplicate _fetchStudentDataInternal definition that was causing the syntax error
+    
     if (firebaseUser) {
-      const enrichedData = await _fetchStudentDataInternal(firebaseUser.uid);
+      try {
+        const enrichedData = await fetchStudentDataService(firebaseUser.uid);
       if (enrichedData) {
         currentStudent.value = enrichedData;
+          _updateNameCache(enrichedData.uid, enrichedData.name ?? null);
         await fetchCurrentUserPortfolioData();
         hasFetched.value = true; // Set hasFetched to true after successful fetch
       } else {
+          // This case should ideally be handled by fetchStudentDataService returning null or throwing an error
+          // For now, assume null means not found, leading to session clearing.
         await clearStudentSession(false); 
         if (auth.currentUser) { 
-             try { await firebaseSignOut(auth); } catch (e) {  }
+               try { await firebaseSignOut(auth); } catch (e) { console.warn("Error during sign out attempt after profile not found:", e); }
         }
         notificationStore.showNotification({ message: "Student profile not found. Please contact support if you believe this is an error.", type: 'error', duration: 7000});
+          // Setting a general error might be appropriate here too
+          error.value = "Student profile not found after authentication.";
+        }
+      } catch (err) {
+        // Use _handleAuthError as this is part of the auth state change flow
+        await _handleAuthError("fetching student data after auth change", err, firebaseUser.uid);
+        await clearStudentSession(false); // Ensure session is cleared on error
+         if (auth.currentUser) { // Attempt to sign out from Firebase if a user somehow still exists
+             try { await firebaseSignOut(auth); } catch (e) { console.warn("Error signing out Firebase user after auth state change fetch error:", e); }
+         }
       }
     } else {
       await clearStudentSession(false);
@@ -176,6 +198,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
         studentAppStore.setHasFetchedInitialAuth(true);
     }
     if (currentStudent.value && allUsers.value.length === 0) {
+        // Consider if fetchAllStudentProfiles should also be protected by a try/catch
         await fetchAllStudentProfiles();
     }
   }
@@ -186,23 +209,29 @@ export const useProfileStore = defineStore('studentProfile', () => {
     userRequests.value = []; // Clear previous requests
 
     try {
-      const eventsRef = collection(db, 'events');
-      const q = query(
-        eventsRef,
-        where('requestedBy', '==', userId),
-        where('status', '==', EventStatus.Pending), // Assuming EventStatus.Pending is 'Pending'
-        orderBy('details.eventName', 'asc') // Optional: order by name or date
+      // Call the service function
+      const fetchedRequestsFromService = await fetchStudentEventRequestsService(userId);
+      
+      // The service returns Pending and Rejected, ordered by createdAt.
+      // The store previously queried for Pending only, ordered by eventName.
+      // We need to apply these transformations now if they are still required.
+      
+      const pendingRequests = fetchedRequestsFromService.filter(
+        request => request.status === EventStatus.Pending
       );
-
-      const querySnapshot = await getDocs(q);
-      const fetchedRequests: Event[] = [];
-      querySnapshot.forEach((docSnap) => {
-        // Use mapFirestoreToEventData or similar mapping if available and necessary
-        // For now, directly casting, assuming data structure matches Event type
-        fetchedRequests.push({ id: docSnap.id, ...docSnap.data() } as Event);
+      
+      // Sort by event name
+      pendingRequests.sort((a, b) => {
+        const nameA = a.details?.eventName?.toLowerCase() || '';
+        const nameB = b.details?.eventName?.toLowerCase() || '';
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
       });
-      userRequests.value = fetchedRequests;
+      
+      userRequests.value = pendingRequests;
     } catch (err) {
+      // The service function throws an error, which will be caught here.
       await _handleFetchError("fetching user event requests", err);
       userRequests.value = []; // Ensure requests are empty on error
     } finally {
@@ -249,20 +278,29 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
     isLoading.value = true; actionError.value = null;
     try {
-      const studentRef = doc(db, 'students', studentId.value);
-      const dataToUpdate: any = { ...updates, lastUpdatedAt: now() }; // Use any for dataToUpdate to match updateDoc flexibility
-      await updateDoc(studentRef, dataToUpdate);
+      // Call the service function to update the backend
+      await updateStudentProfileService(studentId.value, updates);
 
+      // If successful, update local store state
       if (currentStudent.value) {
-        // Update currentStudent.value carefully
-        currentStudent.value = { 
-            ...currentStudent.value, 
-            ...deepClone(dataToUpdate),
-            // Ensure properties not in UserData but in EnrichedStudentData are preserved or handled
-            name: dataToUpdate.name !== undefined ? dataToUpdate.name : currentStudent.value.name, // Example for name
-            photoURL: dataToUpdate.photoURL !== undefined ? dataToUpdate.photoURL : currentStudent.value.photoURL, // Example for photoURL
-        } as EnrichedStudentData; // Cast might be needed
-        if (updates.name) _updateNameCache(studentId.value, updates.name ?? null);
+        // Create a new object for currentStudent to ensure reactivity
+        const updatedStudentData = { ...currentStudent.value };
+
+        // Apply updates to the local copy
+        for (const key in updates) {
+          if (Object.prototype.hasOwnProperty.call(updates, key)) {
+            // Type assertion as updates can have various keys from UserData
+            (updatedStudentData as any)[key] = (updates as any)[key];
+          }
+        }
+        // lastUpdatedAt is handled by the service, but if we want to reflect it immediately:
+        // updatedStudentData.lastUpdatedAt = now(); // or get it from service response if available/needed
+        
+        currentStudent.value = deepClone(updatedStudentData); // Use deepClone for safety
+
+        if (updates.name !== undefined) { // Check if name was part of the updates
+          _updateNameCache(studentId.value, updates.name ?? null);
+        }
       }
       notificationStore.showNotification({ message: "Profile updated successfully!", type: 'success' });
       return true;
@@ -281,11 +319,18 @@ export const useProfileStore = defineStore('studentProfile', () => {
     viewedStudentEventHistory.value = [];
 
     try {
-      const enrichedData = await _fetchStudentDataInternal(targetStudentId);
+      const enrichedData = await fetchStudentDataService(targetStudentId);
       if (enrichedData) {
         viewedStudentProfile.value = enrichedData;
-        await _fetchStudentDisplayProjects(targetStudentId, enrichedData.participatedEventIDs, enrichedData.organizedEventIDs);
-        await _fetchStudentDisplayEventHistory(targetStudentId, enrichedData.participatedEventIDs, enrichedData.organizedEventIDs);
+        _updateNameCache(enrichedData.uid, enrichedData.name ?? null);
+
+        // Call service functions for projects and history
+        const projects = await fetchStudentPortfolioProjectsService(targetStudentId, enrichedData.participatedEventIDs, enrichedData.organizedEventIDs);
+        viewedStudentProjects.value = projects;
+
+        const history = await fetchStudentEventHistoryService(targetStudentId, enrichedData.participatedEventIDs, enrichedData.organizedEventIDs);
+        viewedStudentEventHistory.value = history;
+        
         return enrichedData;
       } else {
         fetchError.value = "Profile not found.";
@@ -300,107 +345,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
-  async function _fetchStudentDisplayProjects(
-    targetStudentId: string,
-    participatedEventIDs?: string[],
-    organizedEventIDs?: string[]
-  ) {
-    viewedStudentProjects.value = [];
-    const relevantEventIds = [...new Set([...(participatedEventIDs || []), ...(organizedEventIDs || [])])].filter(Boolean);
-    if (relevantEventIds.length === 0) return;
-
-    try {
-      const projects: StudentPortfolioProject[] = [];
-      for (let i = 0; i < relevantEventIds.length; i += 30) {
-          const batchIds = relevantEventIds.slice(i, i + 30);
-          if (batchIds.length === 0) continue;
-          const eventQuery = query(collection(db, "events"), where(documentId(), 'in', batchIds));
-          const eventSnapshot = await getDocs(eventQuery);
-
-          eventSnapshot.forEach(eventDoc => {
-              const event = eventDoc.data() as Event;
-              (event.submissions || []).forEach(sub => {
-                  let isRelevantSubmission = sub.submittedBy === targetStudentId;
-                  if (event.details.format === EventFormat.Team && sub.teamName) {
-                      const team = event.teams?.find(t => t.teamName === sub.teamName);
-                      if (team?.members.includes(targetStudentId)) {
-                          isRelevantSubmission = true;
-                      }
-                  }
-                  if (isRelevantSubmission) {
-                      projects.push({
-                          id: `${event.id}-${sub.projectName.replace(/\s+/g, '-')}`,
-                          eventId: event.id,
-                          eventName: event.details.eventName,
-                          projectName: sub.projectName,
-                          description: sub.description,
-                          link: sub.link,
-                          submittedAt: sub.submittedAt,
-                          eventFormat: event.details.format,
-                          submittedBy: sub.submittedBy
-                      });
-                  }
-              });
-          });
-      }
-      viewedStudentProjects.value = projects.sort((a, b) =>
-          (b.submittedAt instanceof Timestamp ? b.submittedAt.toMillis() : 0) -
-          (a.submittedAt instanceof Timestamp ? a.submittedAt.toMillis() : 0)
-      );
-    } catch (err) {
-    }
-  }
-
-  async function _fetchStudentDisplayEventHistory(
-    targetStudentId: string,
-    participatedEventIDs?: string[],
-    organizedEventIDs?: string[]
-  ) {
-    viewedStudentEventHistory.value = [];
-    const relevantEventIds = [...new Set([...(participatedEventIDs || []), ...(organizedEventIDs || [])])].filter(Boolean);
-    if (relevantEventIds.length === 0) return;
-
-    try {
-        const history: StudentEventHistoryItem[] = [];
-        for (let i = 0; i < relevantEventIds.length; i += 30) {
-            const batchIds = relevantEventIds.slice(i, i + 30);
-            if (batchIds.length === 0) continue;
-            const eventQuery = query(collection(db, "events"), where(documentId(), 'in', batchIds));
-            const eventSnapshot = await getDocs(eventQuery);
-
-            eventSnapshot.forEach(eventDoc => {
-                const event = eventDoc.data() as Event;
-                 if (![EventStatus.Pending, EventStatus.Rejected, EventStatus.Cancelled].includes(event.status as EventStatus) ||
-                    event.requestedBy === targetStudentId
-                ) {
-                    let roleInEvent: StudentEventHistoryItem['roleInEvent'] = 'participant';
-                    if (event.details.organizers?.includes(targetStudentId)) {
-                        roleInEvent = 'organizer';
-                    } else if (event.details.format === EventFormat.Team) {
-                        const team = event.teams?.find(t => t.members.includes(targetStudentId));
-                        if (team) {
-                            roleInEvent = team.teamLead === targetStudentId ? 'team_lead' : 'team_member';
-                        }
-                    }
-                    history.push({
-                        eventId: event.id,
-                        eventName: event.details.eventName,
-                        eventStatus: event.status,
-                        eventFormat: event.details.format,
-                        roleInEvent,
-                        date: event.details.date
-                    });
-                }
-            });
-        }
-        viewedStudentEventHistory.value = history.sort((a, b) =>
-            (b.date.start instanceof Timestamp ? b.date.start.toMillis() : 0) -
-            (a.date.start instanceof Timestamp ? a.date.start.toMillis() : 0)
-        );
-    } catch (err) {
-    }
-  }
-
   async function fetchCurrentUserPortfolioData() {
     if (!studentId.value) {
       currentUserPortfolioData.value = { projects: [], eventParticipationCount: 0 };
@@ -411,26 +355,17 @@ export const useProfileStore = defineStore('studentProfile', () => {
       const studentProfile = currentStudent.value;
       if (!studentProfile) throw new Error("Current student profile not loaded.");
 
-      await _fetchStudentDisplayProjects(studentProfile.uid, studentProfile.participatedEventIDs, studentProfile.organizedEventIDs);
-      currentUserPortfolioData.value.projects = [...viewedStudentProjects.value];
+      // Call service function for projects
+      const projects = await fetchStudentPortfolioProjectsService(
+        studentProfile.uid,
+        studentProfile.participatedEventIDs,
+        studentProfile.organizedEventIDs
+      );
+      currentUserPortfolioData.value.projects = projects;
 
-      let validParticipationCount = 0;
-      const participatedIds = studentProfile.participatedEventIDs || [];
-      if (participatedIds.length > 0) {
-          for (let i = 0; i < participatedIds.length; i += 30) {
-              const batchIds = participatedIds.slice(i, i + 30);
-              if (batchIds.length === 0) continue;
-              const eventQuery = query(collection(db, "events"), where(documentId(), 'in', batchIds));
-              const eventSnapshot = await getDocs(eventQuery);
-              eventSnapshot.forEach(eventDoc => {
-                  const event = eventDoc.data() as Event;
-                  if (![EventStatus.Cancelled, EventStatus.Rejected, EventStatus.Pending].includes(event.status as EventStatus)) {
-                      validParticipationCount++;
-                  }
-              });
-          }
-      }
-      currentUserPortfolioData.value.eventParticipationCount = validParticipationCount;
+      // Call service function for event participation count
+      const count = await fetchStudentEventParticipationCountService(studentProfile.participatedEventIDs);
+      currentUserPortfolioData.value.eventParticipationCount = count;
 
     } catch (err) {
       await _handleOpError("fetching current user portfolio data", err, studentId.value);
@@ -446,39 +381,25 @@ export const useProfileStore = defineStore('studentProfile', () => {
     fetchError.value = null;
 
     try {
-      const studentsCollectionRef = collection(db, 'students');
-      const studentsSnapshot = await getDocs(studentsCollectionRef);
-
-      if (studentsSnapshot.empty) {
-        error.value = "No users found in the database for the leaderboard.";
-        return [];
-      }
-
-      const enrichedUsers: EnrichedStudentData[] = [];
-      const studentPromises = studentsSnapshot.docs.map(async (studentDoc) => {
-        const studentData = { uid: studentDoc.id, ...studentDoc.data() } as EnrichedStudentData;
-        studentData.email = studentData.email ?? null; // Ensure email is string | null, never undefined
-        const xpDocRef = doc(db, XP_COLLECTION_PATH, studentDoc.id);
-        const xpSnap = await getDoc(xpDocRef);
-        studentData.xpData = xpSnap.exists()
-          ? ({ uid: xpSnap.id, ...xpSnap.data() } as XPData)
-          : (getDefaultXPData(studentDoc.id) as XPData);
-
-        _updateNameCache(studentData.uid, studentData.name ?? '');
-        return studentData;
-      });
-
-      const results = await Promise.all(studentPromises);
-      enrichedUsers.push(...results);
+      // Call the new service function
+      const enrichedUsers = await fetchLeaderboardDataService();
 
       if (enrichedUsers.length === 0) {
-         error.value = "Leaderboard data is currently empty or could not be fully processed.";
+        // Set a specific fetchError if no users are returned, distinct from a catched error
+        fetchError.value = "Leaderboard data is currently empty or could not be processed by the service.";
+        // Optionally, show a non-error notification or handle as needed
+        // notificationStore.showNotification({ message: fetchError.value, type: 'info' });
       }
+
+      // Update name cache from the fetched users
+      enrichedUsers.forEach(user => {
+        _updateNameCache(user.uid, user.name ?? null); // Ensure name is string | null for cache
+      });
 
       return enrichedUsers;
     } catch (err) {
       await _handleFetchError("loading leaderboard users", err);
-      return [];
+      return []; // Return empty array on error, _handleFetchError sets fetchError.value
     } finally {
       isLoading.value = false;
     }
@@ -503,27 +424,31 @@ export const useProfileStore = defineStore('studentProfile', () => {
 
     if (idsToFetchFromDB.length > 0) {
         try {
-            for (let i = 0; i < idsToFetchFromDB.length; i += 30) {
-                const batchIds = idsToFetchFromDB.slice(i, i + 30);
-                if (batchIds.length === 0) continue;
-                const usersRef = collection(db, 'students');
-                const q = query(usersRef, where(documentId(), 'in', batchIds));
-                const snapshot = await getDocs(q);
-                snapshot.forEach(docSnap => {
-                    const nameVal = docSnap.data()?.name || `Student (${docSnap.id.substring(0,5)})`;
-                    namesMap[docSnap.id] = nameVal;
-                    _updateNameCache(docSnap.id, nameVal ?? null); // Ensure name is string | null
-                });
+            // Call the service function for UIDs not found in cache
+            const serviceFetchedNames = await fetchUserNamesBatchService(idsToFetchFromDB);
+            
+            // Merge service results into namesMap and update cache
+            for (const id in serviceFetchedNames) {
+                if (Object.prototype.hasOwnProperty.call(serviceFetchedNames, id)) {
+                    const nameVal = serviceFetchedNames[id];
+                    namesMap[id] = nameVal;
+                    _updateNameCache(id, nameVal ?? null); 
+                }
             }
+            
+            // Handle any IDs that the service might not have found (it should provide placeholders)
              idsToFetchFromDB.forEach(id => {
                 if (!namesMap[id]) {
-                    const unknownName = `Student (${id.substring(0,5)})`;
-                    namesMap[id] = unknownName;
-                    _updateNameCache(id, unknownName ?? null); // Cache even if not found in DB to prevent re-fetch, ensure name is string | null
+                    // The service fetchUserNamesBatch is expected to return placeholders for unfound IDs.
+                    // If it doesn't, this line might be needed, but service should handle it.
+                    // const unknownName = `Student (${id.substring(0,5)})`;
+                    // namesMap[id] = unknownName;
+                    // _updateNameCache(id, unknownName ?? null); 
                 }
             });
         } catch (err) {
-            await _handleOpError("fetching user names batch", err); // _handleOpError sets actionError
+            await _handleOpError("fetching user names batch", err); 
+            // Provide error placeholders for UIDs that failed to fetch
              idsToFetchFromDB.forEach(id => { if (!namesMap[id]) namesMap[id] = `Error (${id.substring(0,5)})`; });
         }
     }
@@ -546,28 +471,26 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
-  async function fetchAllStudentProfiles(): Promise<UserData[]> { // Return UserData[]
-    if (allUsers.value.length > 0) {
-      // Return cached data if available and not forced to refetch
+  async function fetchAllStudentProfiles(): Promise<UserData[]> { 
+    if (allUsers.value.length > 0 && !studentAppStore.forceRefetchAllUsers) { // Added forceRefetch check
       return allUsers.value;
     }
     isLoading.value = true;
     fetchError.value = null;
     try {
-      const studentsCollectionRef = collection(db, 'students');
-      const q = query(studentsCollectionRef, orderBy('name', 'asc')); // Optional: order by name
-      const querySnapshot = await getDocs(q);
-      const fetchedUsers: UserData[] = []; // Use UserData[]
-      querySnapshot.forEach((docSnap) => {
-        const userData = { uid: docSnap.id, ...docSnap.data() } as UserData; // Use UserData
-        fetchedUsers.push(userData);
-        _updateNameCache(userData.uid, userData.name ?? null); 
-      });
+      // Call the service function
+      const fetchedUsers = await fetchAllStudentProfilesService();
+      
       allUsers.value = fetchedUsers;
+      // Update name cache from the fetched users
+      fetchedUsers.forEach(user => {
+        _updateNameCache(user.uid, user.name ?? null); 
+      });
+      studentAppStore.clearForceRefetchAllUsers(); // Reset the flag
       return fetchedUsers;
     } catch (err) {
       await _handleFetchError("fetching all student profiles", err);
-      return []; // Return empty array on error
+      return []; 
     } finally {
       isLoading.value = false;
     }
@@ -597,140 +520,93 @@ export const useProfileStore = defineStore('studentProfile', () => {
    */
   async function uploadProfileImage(file: File, options: ImageUploadOptions = {}): Promise<string> {
     if (!studentId.value) {
+      // This error should ideally be caught and handled by the caller, setting actionError if needed.
       throw new Error("You must be logged in to upload a profile image.");
     }
 
-    // Reset upload state
     imageUploadState.value = {
       status: UploadStatus.Uploading,
       progress: 0,
       error: null,
-      fileName: null,
+      fileName: file.name, // Set initial file name
       downloadURL: null
     };
 
     try {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         throw new Error("Only image files are allowed.");
       }
-
-      // Validate file size (default: 2MB)
       const maxSizeMB = options.maxSizeMB || 2;
       if (file.size > maxSizeMB * 1024 * 1024) {
         throw new Error(`File size exceeds ${maxSizeMB}MB limit.`);
       }
 
-      // Compress image if needed
       let fileToUpload = file;
       if (options.maxWidthOrHeight || options.quality) {
         try {
-          // Handle browser-image-compression library safely
-          try {
-            // Dynamic import with error handling
             const imageCompression = await import('browser-image-compression')
               .then(module => module.default)
-              .catch(() => {
-                return null;
-              });
-              
+            .catch(() => null);
             if (imageCompression) {
-              // Fix the type error by casting options to any for the imageCompression call
               fileToUpload = await imageCompression(file, {
                 maxSizeMB: options.maxSizeMB || 2,
                 maxWidthOrHeight: options.maxWidthOrHeight || 1200,
                 useWebWorker: true,
                 fileType: file.type,
-                // @ts-ignore - quality may not be in type definition but is supported
+              // @ts-ignore
                 quality: options.quality || 0.8
               });
-            }
-          } catch (err) {
+            imageUploadState.value.fileName = fileToUpload.name; // Update fileName if compressed
           }
-        } catch (err) {
+        } catch (compressionError) {
+          console.warn("Image compression failed, uploading original:", compressionError);
+          // imageUploadState.value.error = "Image compression failed. Trying original."; // Optional user feedback
         }
       }
 
-      // Create file name with timestamp to avoid cache issues
       const timestamp = Date.now();
-      const extension = file.name.split('.').pop() || 'jpg';
-      const fileName = `${studentId.value}_${timestamp}.${extension}`;
+      const extension = fileToUpload.name.split('.').pop() || 'jpg';
+      const uniqueFileName = `${studentId.value}_${timestamp}.${extension}`;
+      const storagePath = options.path || 'profile-images';
       
-      // Set storage path
-      const path = options.path || 'profile-images';
-      const fileRef = storageRef(storage, `${path}/${fileName}`);
-      
-      // Delete old profile image if it exists
+      // Delete old profile image if it exists using the service
       if (currentStudent.value?.photoURL) {
         try {
-          const oldUrl = currentStudent.value.photoURL;
-          // Only delete if it's a Firebase Storage URL
-          if (oldUrl && oldUrl.includes('firebasestorage.googleapis.com')) {
-            const oldRef = storageRef(storage, oldUrl);
-            await deleteObject(oldRef);
-          }
-        } catch (err) {
-          console.warn("Failed to delete old profile image:", err);
+          await deleteFileByUrlService(currentStudent.value.photoURL);
+        } catch (deleteError) {
+          console.warn("Failed to delete old profile image (service call):", deleteError);
+          // Non-critical, so we don't usually re-throw or fail the whole upload here
         }
       }
 
-      // Upload the file
-      const uploadTask = uploadBytesResumable(fileRef, fileToUpload);
-      
-      // Return a promise that resolves when the upload is complete
-      return new Promise((resolve, reject) => {
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            // Track upload progress
-            const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-            imageUploadState.value.progress = progress;
-          },
-          (error) => {
-            // Handle upload error
-            imageUploadState.value = {
-              status: UploadStatus.Error,
-              progress: 0,
-              error: error.message || "Upload failed",
-              fileName: file.name,
-              downloadURL: null
-            };
-            reject(error);
-          },
-          async () => {
-            // Upload complete, get download URL
-            try {
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      // Upload the file using the service
+      const downloadURL = await uploadFileService(fileToUpload, {
+        path: storagePath,
+        fileName: uniqueFileName,
+        progressCallback: (progress) => {
+          imageUploadState.value.progress = progress;
+        }
+      });
+
               imageUploadState.value = {
                 status: UploadStatus.Success,
                 progress: 100,
                 error: null,
-                fileName: file.name,
+        fileName: fileToUpload.name,
                 downloadURL
               };
-              resolve(downloadURL);
-            } catch (err: any) {
-              imageUploadState.value = {
-                status: UploadStatus.Error,
-                progress: 0,
-                error: err?.message || "Failed to get download URL",
-                fileName: file.name,
-                downloadURL: null
-              };
-              reject(err);
-            }
-          }
-        );
-      });
+      return downloadURL;
+
     } catch (err: any) {
+      // Errors from validation, compression, or uploadFileService will be caught here
       imageUploadState.value = {
         status: UploadStatus.Error,
-        progress: 0,
-        error: err?.message || "Upload failed",
-        fileName: file.name,
+        progress: imageUploadState.value.progress, // Keep existing progress if error occurs mid-upload
+        error: err?.message || "Upload failed due to an unexpected error.",
+        fileName: file.name, // Revert to original file name on error display
         downloadURL: null
       };
-      throw err;
+      throw err; // Re-throw for the caller (updateProfileImage) to handle
     }
   }
 

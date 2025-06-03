@@ -80,9 +80,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { getAuth, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
+import { UserCredential } from 'firebase/auth';
 import { useProfileStore } from '@/stores/profileStore';
-import { useAppStore } from '@/stores/appStore'; // Import useAppStore
+import { useAppStore } from '@/stores/appStore';
+import { setAuthPersistence, signInWithEmail } from '@/services/authService'; // Import from authService
 
 const email = ref<string>('');
 const password = ref<string>('');
@@ -91,7 +92,7 @@ const isLoading = ref<boolean>(false);
 const router = useRouter();
 const route = useRoute();
 const studentStore = useProfileStore();
-const appStore = useAppStore(); // Initialize appStore
+const appStore = useAppStore();
 
 const processLoginSuccess = async (user: UserCredential['user']): Promise<void> => {
     try {
@@ -120,13 +121,11 @@ const signIn = async (): Promise<void> => {
     appStore.setIsProcessingLogin(true);
     
     try {
-        const auth = getAuth();
+        // Ensure auth persistence is set before attempting to sign in
+        await setAuthPersistence();
         
-        const userCredential = await signInWithEmailAndPassword(
-            auth, 
-            email.value.trim(), 
-            password.value
-        );
+        // Use the authService signInWithEmail method instead of direct Firebase call
+        const userCredential = await signInWithEmail(email.value.trim(), password.value);
         
         // Force update store authentication state
         await studentStore.handleAuthStateChange(userCredential.user);

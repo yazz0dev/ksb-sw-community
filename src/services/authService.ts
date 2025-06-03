@@ -10,6 +10,20 @@ import { auth } from '@/firebase';
 import type { UserData } from '@/types/student';
 
 /**
+ * Initialize the auth service with persistent authentication
+ * This should be called as early as possible in the app lifecycle
+ */
+export const initializeAuth = async (): Promise<void> => {
+  try {
+    // Set persistent authentication to ensure user stays logged in across refreshes
+    await setPersistence(auth, browserLocalPersistence);
+    console.log('Auth persistence initialized with browserLocalPersistence');
+  } catch (error) {
+    console.error('Error initializing auth persistence:', error);
+  }
+};
+
+/**
  * Set persistent authentication mode
  */
 export const setAuthPersistence = async (): Promise<void> => {

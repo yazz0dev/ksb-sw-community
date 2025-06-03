@@ -1,9 +1,10 @@
-import { computed, ref } from 'vue';
+import { computed, ref } from 'vue'; // Remove onMounted
 import { getAuth, signOut, User } from 'firebase/auth';
 import { useProfileStore } from '@/stores/profileStore';
 import { useAppStore } from '@/stores/appStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useRouter } from 'vue-router';
+import { initializeAuth } from '@/services/authService';
 
 export function useAuth() {
   const firebaseAuthInstance = getAuth(); // Renamed to avoid conflict if 'auth' is used as a variable name elsewhere
@@ -12,9 +13,18 @@ export function useAuth() {
   const notificationStore = useNotificationStore();
   const router = useRouter();
 
-  const isAuthenticated = computed(() => profileStore.isAuthenticated);
+  // Create a local ref for the auth state to avoid store dependency cycles
+  const currentUser = ref<User | null>(firebaseAuthInstance.currentUser);
+
+  const isAuthenticated = computed(() => {
+    // First check Firebase auth directly
+    if (currentUser.value) return true;
+    // Then check the profile store as a backup
+    return profileStore.isAuthenticated;
+  });
+  
   // Provides direct access to the current Firebase user object
-  const authUser = computed(() => firebaseAuthInstance.currentUser as User | null); 
+  const authUser = computed(() => currentUser.value); 
   const isInitialized = computed(() => appStore.hasFetchedInitialAuth);
   // This error ref is for errors originating from actions within this composable (e.g., logout)
   const authActionError = ref<Error | null>(null);
@@ -23,6 +33,8 @@ export function useAuth() {
     authActionError.value = null; // Clear previous action error
     try {
       await signOut(firebaseAuthInstance);
+      currentUser.value = null;
+      
       // The global onAuthStateChanged listener in main.ts handles profileStore.clearStudentSession
       
       notificationStore.showNotification({
@@ -43,12 +55,19 @@ export function useAuth() {
     }
   };
 
+  // Remove the onMounted hook and replace with an explicit initialization function
+  const initializeAuthState = async (): Promise<void> => {
+    try {
+      await initializeAuth();
+    } catch (error) {
+      console.error('Failed to initialize auth persistence:', error);
+    }
+  };
+
   // This function can be used to manually re-check Firebase's current user.
-  // The global listener in main.ts is the primary mechanism for state sync.
   const refreshAuthState = async () => {
-    // The stores should be up-to-date via the global listener in main.ts.
-    // This function primarily serves to return the current user from Firebase.
-    return firebaseAuthInstance.currentUser;
+    currentUser.value = firebaseAuthInstance.currentUser;
+    return currentUser.value;
   };
 
   return {
@@ -57,6 +76,8 @@ export function useAuth() {
     authActionError, 
     isInitialized,
     logout,
-    refreshAuthState
+    refreshAuthState,
+    currentUser,
+    initializeAuthState // Expose the initialization function
   };
 }
