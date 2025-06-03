@@ -41,6 +41,7 @@ export interface EventCriterion {
   constraintIndex: number;
   constraintLabel: string;
   constraintKey?: string;
+  title?: string; // Add title property for backward compatibility
   points: number;
   role: XpCalculationRoleKey | string;
   targetRole?: string;

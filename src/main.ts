@@ -86,66 +86,52 @@ initializeAuth().then(() => {
   });
 }).catch(error => {
   console.error('Error initializing auth persistence:', error);
-  // Create and mount the app anyway
+  // Fallback: Create and mount the app anyway if auth persistence fails
   const app = createApp(App);
-  const pinia = createPinia();
+  const pinia = createPinia(); // Create a new pinia instance for the fallback app
   app.use(pinia);
   app.use(router);
   app.component("AuthGuard", AuthGuard);
 
-  // Initialize app stores
+  // Initialize app stores for the fallback app
+  // Make sure Pinia is used before initializing stores
   const appStore = useAppStore();
   const profileStore = useProfileStore();
+  const notificationStore = useNotificationStore(); // Ensure notification store is available
 
-  // Initialize app listeners
+  // Initialize app listeners for the fallback app
   appStore.initAppListeners();
 
-  // PWA Service Worker Registration
+  // PWA Service Worker Registration for the fallback app
   const updateSW = registerSW({
     onNeedRefresh() {
       appStore.setNewAppVersionAvailable(true);
     },
     onOfflineReady() {
-      const notificationStore = useNotificationStore();
+      // Use the already initialized notificationStore
       notificationStore.showNotification({
         message: 'App is ready to work offline!',
         type: 'success',
         duration: 3000
       });
     },
-    onRegisterError(error) {
+    onRegisterError(swError) { // Added swError parameter
+      console.error('Service Worker registration error in fallback:', swError);
     }
   });
 
-  // Make updateSW available globally for the reload functionality
+  // Make updateSW available globally for the reload functionality for the fallback app
   window.__updateSW = updateSW;
-
-  // Set up auth initialization
-  const auth = getAuth();
-
-  // Mount app immediately
+  
   app.mount('#app');
-
-  // Handle auth state changes AFTER mounting
-  onAuthStateChanged(auth, async (user) => {
-    try {
-      if (user) {
-        console.log('Auth state changed: User is signed in');
-        await profileStore.handleAuthStateChange(user);
-      } else {
-        console.log('Auth state changed: User is signed out');
-        await profileStore.clearStudentSession(false);
-      }
-    } catch (error) {
-      console.error('Error handling auth state change:', error);
-    } finally {
-      if (!appStore.hasFetchedInitialAuth) {
-        appStore.setHasFetchedInitialAuth(true);
-      }
-    }
-  }, (error) => {
-    console.error('Error in auth state change listener:', error);
+  
+  // Even in fallback, we need to set initial auth fetched to true to unblock UI/guards
+  // And potentially try to listen to auth changes if getAuth() is available
+  if (!appStore.hasFetchedInitialAuth) {
     appStore.setHasFetchedInitialAuth(true);
-  });
+  }
+  // Optionally, you could try to set up onAuthStateChanged here too, 
+  // but the main setup failed, so it might be problematic.
+  // For now, just ensure the app doesn't hang indefinitely on auth checks.
 });
 

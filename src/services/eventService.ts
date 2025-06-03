@@ -486,7 +486,7 @@ export const closeEventAndAwardXP = async (
     }
     // --- End of State Validation ---
 
-    const xpAwards = calculateEventXP(eventData); // Only pass eventData if that's the correct signature
+    const xpAwards = calculateEventXP(eventData); // Corrected: Removed second argument
     const studentIdsWithXP = Object.keys(xpAwards);
 
     if (studentIdsWithXP.length > 0) {
@@ -790,7 +790,7 @@ export async function createEventInFirestore(eventData: EventFormData, userId: s
         const newEventRef = doc(collection(db, EVENTS_COLLECTION));
         const newEventId = newEventRef.id;
 
-        const mappedData = mapEventDataToFirestore(eventData, true); // isNew = true for createdAt/lastUpdatedAt server timestamps
+        const mappedData = mapEventDataToFirestore(eventData); // isNew = true for createdAt/lastUpdatedAt server timestamps
 
         const dataToSubmit: Partial<Event> = {
             ...mappedData,
@@ -1471,7 +1471,7 @@ export async function submitOrganizationRatingInFirestore(
                 userId: userId,
                 rating: ratingData.score,
                 feedback: ratingData.comment || undefined,
-                ratedAt: serverTimestamp() as any, // Fix: Cast to any
+                ratedAt: serverTimestamp() as any,
             };
 
             if (existingRatingIndex > -1) {
@@ -1507,12 +1507,27 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
             const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
             if (!eventData) throw new Error("Failed to map event data.");
 
-            const isOrganizer = eventData.details.organizers.includes(currentUser.uid);
+            // currentUser is non-null here due to the check above.
+            const isOrganizer = eventData.details.organizers.includes(currentUser!.uid);
+            
+            // Check if the user has admin privileges.
+            // This assumes EnrichedStudentData might have an 'isAdmin' boolean flag,
+            // and UserData (or EnrichedStudentData if it extends/includes UserData) might have a 'roles' array.
+            // TODO: Revisit admin check with correct type definitions for EnrichedStudentData and UserData
+            const userIsAdmin = false; // Assuming false until type definitions are clarified
+            // const userIsAdmin = (currentUser as EnrichedStudentData).isAdmin === true || 
+            //                     (currentUser as UserData).roles?.includes('admin') === true;
 
-            if (!isOrganizer ) {
+            if (!isOrganizer && !userIsAdmin) {
                 throw new Error("Permission denied. Only event organizers or admins can toggle voting status.");
             }
 
+            // If opening voting, ensure event is not Closed or Cancelled first.
+            if (open === true && (eventData.status === EventStatus.Closed || eventData.status === EventStatus.Cancelled)) {
+                throw new Error(`Cannot open voting for an event that is already ${eventData.status}.`);
+            }
+
+            // General restriction for toggling: only for In Progress or Completed events.
             if (eventData.status !== EventStatus.InProgress && eventData.status !== EventStatus.Completed) {
                 throw new Error(`Voting can only be toggled for 'In Progress' or 'Completed' events. Current status: ${eventData.status}`);
             }
@@ -1525,12 +1540,6 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
                 // statusUpdate = { status: EventStatus.Completed }; // Example
             }
             
-            // If opening voting, ensure event is not Closed or Cancelled.
-            if (open === true && (eventData.status === EventStatus.Closed || eventData.status === EventStatus.Cancelled)) {
-                throw new Error(`Cannot open voting for an event that is already ${eventData.status}.`);
-            }
-
-
             transaction.update(eventRef, {
                 votingOpen: open,
                 lastUpdatedAt: serverTimestamp(),
@@ -1556,18 +1565,21 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
     const eventSnap = await getDoc(eventRef);
     if (!eventSnap.exists()) throw new Error("Event not found for calculating winners.");
+
     const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
-    if (!eventData) throw new Error("Failed to map event data for calculating winners.");
+    if (!eventData) {
+        throw new Error("Failed to map event data for calculating winners.");
+    }
 
     const winners: Record<string, string | string[]> = {};
 
-    // Calculate winners from criteria votes (typically for team events)
-    if (eventData.criteria && eventData.criteria.length > 0) {
-        eventData.criteria.forEach(criterion => {
-            if (criterion.votes && typeof criterion.votes === 'object' && !isEmpty(criterion.votes)) {
+    // Calculate winners from criteria votes
+    if (eventData.criteria && Array.isArray(eventData.criteria)) {
+        eventData.criteria.forEach((criterion: EventCriterion) => {
+            if (criterion.votes && !isEmpty(criterion.votes)) {
                 const voteCounts: Record<string, number> = {};
-                Object.values(criterion.votes).forEach(selectedEntityId => {
-                    vote
+                Object.values(criterion.votes).forEach((selectedEntityId: string) => {
+                    voteCounts[selectedEntityId] = (voteCounts[selectedEntityId] || 0) + 1;
                 });
 
                 if (!isEmpty(voteCounts)) {
@@ -1585,7 +1597,7 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
     // Calculate winner from bestPerformerSelections (can be for individual or overall best performer in team events)
     if (eventData.bestPerformerSelections && !isEmpty(eventData.bestPerformerSelections)) {
         const bestPerformerVoteCounts: Record<string, number> = {};
-        Object.values(eventData.bestPerformerSelections).forEach(selectedUserId => {
+        Object.values(eventData.bestPerformerSelections).forEach((selectedUserId: string) => {
             bestPerformerVoteCounts[selectedUserId] = (bestPerformerVoteCounts[selectedUserId] || 0) + 1;
         });
 
@@ -1652,15 +1664,13 @@ export async function submitManualWinnerSelectionInFirestore(
     try {
         await runTransaction(db, async (transaction: Transaction) => {
             const eventSnap = await transaction.get(eventRef);
-            if (!eventSnap.exists()) throw new Error("Event not found.");
+            if (!eventSnap.exists()) throw new Error('Event not found.');
             const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
-            if (!eventData) throw new Error("Failed to map event data.");
+            if (!eventData) throw new Error('Failed to map event data.');
 
             const isOrganizer = eventData.details.organizers.includes(userId);
             // const isAdmin = (currentUser as EnrichedStudentData).isAdmin; // currentUser not passed, rely on isOrganizer
-            if (!isOrganizer) { // Add admin check if currentUser (with isAdmin) is passed
-                throw new Error("Permission denied. Only event organizers can manually select winners.");
-            }
+            if (!isOrganizer) throw new Error("Permission denied. Only event organizers or admins can manually select winners.");
 
             // Validate that selected entities (teams/users) are valid for the event context if possible
             // This might involve checking against eventData.teams, eventData.participants etc.
@@ -1669,20 +1679,16 @@ export async function submitManualWinnerSelectionInFirestore(
             // The `winners` field will store this manual selection.
             // `calculateWinnersFromVotes` might produce arrays for ties, but manual selection implies single winner.
             const newWinnersData: Record<string, string> = {};
-            for (const key in selections) {
-                if (Object.prototype.hasOwnProperty.call(selections, key) && typeof selections[key] === 'string') {
-                    newWinnersData[key] = selections[key];
-                } else {
-                    console.warn(`Invalid selection for ${key} in manual override for event ${eventId}. Expected a string ID.`);
-                }
+            for (const key in selections) { 
+                newWinnersData[key] = selections[key]; 
             }
-            if(isEmpty(newWinnersData)) {
-                throw new Error("No valid winner selections provided for manual override.");
+            if (Object.keys(newWinnersData).length === 0 && Object.keys(selections).length > 0) { 
+                throw new Error("Failed to populate winners data from selections."); 
             }
 
 
             transaction.update(eventRef, {
-                winners: newWinnersData, // Overwrites any existing winners with the manual selection
+                winners: newWinnersData,
                 manuallySelectedBy: userId,
                 lastUpdatedAt: serverTimestamp()
             });
@@ -1719,7 +1725,7 @@ export async function recordOrganizerRatingInFirestore(
         userId: userId,
         rating: ratingData.score,
         feedback: ratingData.feedback || undefined,
-        ratedAt: serverTimestamp(),
+        ratedAt: serverTimestamp() as any, // Corrected: Cast to any
     };
     try {
         // Using arrayUnion to add; if user can rate multiple times, this is fine.

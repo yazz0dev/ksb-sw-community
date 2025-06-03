@@ -32,6 +32,7 @@ export const useAppStore = defineStore('studentApp', () => {
   const isFirestoreEnabled = ref<boolean>(true);
   const isProcessingLogin = ref<boolean>(false); // <-- Added property
   const redirectAfterLogin = ref<string | null>(null);
+  const forceProfileRefetch = ref<boolean>(false); // <-- New state for profile refetch
 
   const offlineQueue = ref<{
     actions: QueuedStudentAction[];
@@ -159,6 +160,14 @@ export const useAppStore = defineStore('studentApp', () => {
     setRedirectAfterLogin(null);
     // Return the path or default to '/home', avoid login page
     return (storedRedirect && storedRedirect !== '/login') ? storedRedirect : '/home';
+  }
+
+  function setForceProfileRefetch(value: boolean) {
+    forceProfileRefetch.value = value;
+  }
+
+  function clearForceProfileRefetch() {
+    forceProfileRefetch.value = false;
   }
 
   // --- Offline Queue Management ---
@@ -338,6 +347,7 @@ export const useAppStore = defineStore('studentApp', () => {
     offlineQueue,
     isProcessingLogin, // <-- Expose the new property
     redirectAfterLogin,
+    forceProfileRefetch, // Expose the state (can be readonly if preferred)
     getTheme,
     getNetworkStatus,
     getHasFetchedInitialAuth,
@@ -356,5 +366,7 @@ export const useAppStore = defineStore('studentApp', () => {
     tryQueueAction,
     syncOfflineActions,
     initAppListeners,
+    setForceProfileRefetch,
+    clearForceProfileRefetch
   };
 });

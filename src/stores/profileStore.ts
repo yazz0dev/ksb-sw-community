@@ -30,6 +30,7 @@ import {
     fetchStudentEventParticipationCount as fetchStudentEventParticipationCountService
 } from '@/services/profileService';
 import { fetchStudentEventRequests as fetchStudentEventRequestsService } from '@/services/eventService';
+import { uploadFileService, deleteFileByUrlService } from '@/services/storageService'; // Added storage service imports
 
 const STUDENT_COLLECTION_PATH = 'students';
 const XP_COLLECTION_PATH = 'xp';
@@ -485,7 +486,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
       fetchedUsers.forEach(user => {
         _updateNameCache(user.uid, user.name ?? null); 
       });
-      studentAppStore.clearForceRefetchAllUsers(); // Reset the flag
+      studentAppStore.clearForceProfileRefetch(); // Corrected action name
       return fetchedUsers;
     } catch (err) {
       await _handleFetchError("fetching all student profiles", err);
@@ -579,13 +580,13 @@ export const useProfileStore = defineStore('studentProfile', () => {
       }
 
       // Upload the file using the service
-      const downloadURL = await uploadFileService(fileToUpload, {
-        path: storagePath,
-        fileName: uniqueFileName,
-        progressCallback: (progress) => {
+      const downloadURL = await uploadFileService(
+        fileToUpload,
+        `profile-pictures/${studentId.value}/${Date.now()}_${fileToUpload.name}`,
+        (progress: number) => {
           imageUploadState.value.progress = progress;
         }
-      });
+      );
 
               imageUploadState.value = {
                 status: UploadStatus.Success,
