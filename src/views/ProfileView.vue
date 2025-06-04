@@ -39,6 +39,16 @@
         </div>
       </div>
 
+      <!-- 
+        NOTE FOR DEBUGGING "Missing required param 'id'" for 'EventDetails' route:
+        This error likely originates from within the ProfileViewContent.vue component.
+        It typically occurs when ProfileViewContent tries to render a <RouterLink>
+        to the 'EventDetails' route but the 'id' parameter is missing or undefined.
+        Check the data fetching and rendering logic inside ProfileViewContent.vue,
+        especially where it lists events or projects that link to EventDetails.
+        Ensure that any object used to generate such a link has a valid 'id' (e.g., event.id or project.eventId).
+        You might need to add a v-if to the <RouterLink> or ensure the id is always present in the data.
+      -->
       <ProfileViewContent
         ref="profileContentRef"
         v-if="targetUserId"

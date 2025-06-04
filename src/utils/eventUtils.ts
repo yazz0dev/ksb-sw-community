@@ -2,7 +2,7 @@ import { type Event, EventStatus, EventLifecycleTimestamps, type EventDetails } 
 import { Timestamp } from 'firebase/firestore';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { isEmpty } from '@/utils/helpers'; // Assuming isEmpty is in helpers
-import { type EventCriterion, EventFormat } from '@/types/event'; // Add EventCriterion, EventFormat
+import { type EventCriteria, EventFormat } from '@/types/event'; // Add EventCriteria, EventFormat
 import { XPData, XpFirestoreFieldKey, mapCalcRoleToFirestoreKey, XpCalculationRoleKey } from '@/types/xp';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 
@@ -70,14 +70,14 @@ export function compareEventsForSort(a: Event, b: Event): number {
     } else {
         // For completed/closed/etc. statuses, sort descending by a relevant end/completion/update date
         let timeA = 0;
-        if (a.status === EventStatus.Closed) timeA = getDateValue(a.closedAt, a.lastUpdatedAt, 'desc');
+        if (a.status === EventStatus.Closed) timeA = getDateValue(a.lifecycleTimestamps?.closedAt, a.lastUpdatedAt, 'desc');
         else if (a.status === EventStatus.Completed) timeA = getDateValue(a.lifecycleTimestamps?.completedAt, a.lastUpdatedAt, 'desc');
         else if (a.status === EventStatus.Rejected) timeA = getDateValue(a.lifecycleTimestamps?.rejectedAt, a.lastUpdatedAt, 'desc');
         else if (a.status === EventStatus.Cancelled) timeA = getDateValue(a.lastUpdatedAt, a.createdAt, 'desc'); // Use createdAt as fallback for cancelled if lastUpdatedAt is not set
         else timeA = getDateValue(a.details?.date?.end, a.lastUpdatedAt, 'desc');
 
         let timeB = 0;
-        if (b.status === EventStatus.Closed) timeB = getDateValue(b.closedAt, b.lastUpdatedAt, 'desc');
+        if (b.status === EventStatus.Closed) timeB = getDateValue(b.lifecycleTimestamps?.closedAt, b.lastUpdatedAt, 'desc');
         else if (b.status === EventStatus.Completed) timeB = getDateValue(b.lifecycleTimestamps?.completedAt, b.lastUpdatedAt, 'desc');
         else if (b.status === EventStatus.Rejected) timeB = getDateValue(b.lifecycleTimestamps?.rejectedAt, b.lastUpdatedAt, 'desc');
         else if (b.status === EventStatus.Cancelled) timeB = getDateValue(b.lastUpdatedAt, b.createdAt, 'desc');
@@ -172,8 +172,8 @@ function createDefaultXpData(userId?: string): XPData {
   };
 }
 
-// Extended interface for EventCriterion with the additional properties we need
-interface EventCriterionWithXP extends EventCriterion {
+// Extended interface for EventCriteria with the additional properties we need
+interface EventCriteriaWithXP extends EventCriteria {
   xpValue?: number;
   roleKey?: XpCalculationRoleKey;
 }
@@ -224,10 +224,10 @@ export function calculateEventXP(eventData: Event): Record<string, Partial<XPDat
     }
 
     const winners = eventData.winners || {};
-    const criteriaMap = new Map<string, EventCriterionWithXP>();
+    const criteriaMap = new Map<string, EventCriteriaWithXP>();
     if (Array.isArray(eventData.criteria)) {
-        eventData.criteria.forEach((c: EventCriterion) => {
-            const criterionWithXP = c as EventCriterionWithXP;
+        eventData.criteria.forEach((c: EventCriteria) => {
+            const criterionWithXP = c as EventCriteriaWithXP;
             if (criterionWithXP?.constraintKey && criterionWithXP?.xpValue) {
                 criteriaMap.set(criterionWithXP.constraintKey, criterionWithXP);
             }
@@ -269,10 +269,10 @@ export function calculateEventXP(eventData: Event): Record<string, Partial<XPDat
  * @param studentId - The UID of the student.
  * @returns boolean - True if the student has made selections.
  */
-export function hasStudentSubmittedSelections(event: Event | null, studentId: string | null): boolean {
+export function hasStudentSubmittedvotes(event: Event | null, studentId: string | null): boolean {
     if (!event || !studentId || !event.criteria) return false;
     return event.criteria.some(criterion => 
-        criterion.selections && 
-        criterion.selections[studentId] !== undefined
+        criterion.votes && 
+        criterion.votes[studentId] !== undefined
     );
 }

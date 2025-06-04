@@ -5,7 +5,7 @@ import {
   doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, Timestamp, addDoc, arrayUnion, arrayRemove, deleteField, writeBatch, increment, serverTimestamp, setDoc
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Event, EventStatus, EventFormData, Team, Submission, EventCriterion, EventLifecycleTimestamps, OrganizerRating, EventFormat } from '@/types/event';
+import { Event, EventStatus, EventFormData, Team, Submission, EventCriteria, EventLifecycleTimestamps, OrganizerRating, EventFormat } from '@/types/event';
 import { useProfileStore } from './profileStore';
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore';
@@ -25,14 +25,14 @@ import {
   createEventRequest as createEventRequestService, 
   updateEventRequestInService, 
   closeEventAndAwardXP as closeEventAndAwardXPService,
-  fetchMyEventRequests as fetchMyEventRequestsService,             // Renamed import
-  fetchSingleEventForStudent as fetchSingleEventForStudentService, // Renamed import
-  fetchPubliclyViewableEvents as fetchPubliclyViewableEventsService, // Renamed import
+  fetchMyEventRequests as fetchMyEventRequestsService,
+  fetchSingleEventForStudent as fetchSingleEventForStudentService,
+  fetchPubliclyViewableEvents as fetchPubliclyViewableEventsService,
   updateEventStatusInFirestore as updateEventStatusService,
   joinEventByStudentInFirestore as joinEventService, 
   leaveEventByStudentInFirestore as leaveEventService,
   submitProject as submitProjectService,
-  autoGenerateEventTeamsInFirestore as autoGenerateEventTeamsService,
+  autoGenerateEventTeamsInFirestore as autoGenerateEventTeamsService, // This service is used by the store action
   submitTeamCriteriaVoteInFirestore as submitTeamCriteriaVoteService,
   submitIndividualWinnerVoteInFirestore as submitIndividualWinnerVoteService,
   submitOrganizationRatingInFirestore as submitOrganizationRatingService,
@@ -61,6 +61,38 @@ interface EventDetails {
 
 // Fix now() function to correctly use Timestamp - renamed to avoid conflicts
 const createTimestamp = () => Timestamp.now();
+
+// Add createCompleteEvent function before the store definition
+function createCompleteEvent(partialEventData: Partial<Event>, existingEvent?: Event | undefined): Event {
+  // Create a complete Event object with defaults for missing fields
+  const defaultEvent: Event = {
+    id: partialEventData.id || '',
+    details: {
+      eventName: '',
+      description: '',
+      format: EventFormat.Individual,
+      type: '',
+      organizers: [],
+      date: {
+        start: null,
+        end: null
+      },
+      allowProjectSubmission: false,
+      ...(partialEventData.details || {})
+    },
+    status: EventStatus.Pending,
+    requestedBy: '',
+    votingOpen: false,
+    createdAt: Timestamp.now(),
+    lastUpdatedAt: Timestamp.now(),
+    participants: [],
+    submissions: [],
+    ...(existingEvent || {}),
+    ...partialEventData
+  };
+
+  return defaultEvent;
+}
 
 export const useEventStore = defineStore('studentEvents', () => {
   // Refs (State)
@@ -355,6 +387,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       await _handleOpError("editing event request", new Error("User not authenticated or profile not loaded."), eventId);
       return false;
     }
+    const currentStudentId = studentProfileStore.studentId; // Store studentId
     isLoading.value = true;
 
     try {
@@ -369,17 +402,18 @@ export const useEventStore = defineStore('studentEvents', () => {
       });
       if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
 
-      const existingEvent = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
+      const existingEvent = await fetchSingleEventForStudentService(eventId, currentStudentId); // Use currentStudentId
       if (!existingEvent) {
-        throw new Error("Event not found or you don\'t have permission to edit it.");
+        throw new Error("Event not found or you don't have permission to edit it.");
       }
       if (existingEvent.status !== EventStatus.Pending && existingEvent.status !== EventStatus.Rejected) {
         throw new Error(`Event in status '${existingEvent.status}' cannot be edited by the requester.`);
       }
 
-      await updateEventRequestInService(eventId, formData, existingEvent.details.format);
+      // Fix: Pass currentStudentId instead of existingEvent.details.format
+      await updateEventRequestInService(eventId, formData, currentStudentId);
       
-      const updatedEvent = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
+      const updatedEvent = await fetchSingleEventForStudentService(eventId, currentStudentId); // Use currentStudentId
       if (updatedEvent) {
         _updateLocalEventLists(updatedEvent);
       }
@@ -472,7 +506,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  async function submitTeamCriteriaVote(payload: { eventId: string; selections: { criteria: Record<string, string>; bestPerformer?: string } }) {
+  async function submitTeamCriteriaVote(payload: { eventId: string; votes: { criteria: Record<string, string>; bestPerformer?: string } }) {
     actionError.value = null;
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
       await _handleOpError("submitting team criteria vote", new Error("User not authenticated."), payload.eventId);
@@ -482,12 +516,12 @@ export const useEventStore = defineStore('studentEvents', () => {
     isLoading.value = true;
     try {
       // Service function now contains all validation and Firestore logic
-      await submitTeamCriteriaVoteService(payload.eventId, studentId, payload.selections);
+      await submitTeamCriteriaVoteService(payload.eventId, studentId, payload.votes);
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
-        notificationStore.showNotification({ message: "Team selections submitted!", type: 'success' });
+        notificationStore.showNotification({ message: "Team votes submitted!", type: 'success' });
     } catch (err) {
-        await _handleOpError("submitting team selections", err, payload.eventId);
+        await _handleOpError("submitting team votes", err, payload.eventId);
     } finally {
         isLoading.value = false;
     }
@@ -579,284 +613,124 @@ export const useEventStore = defineStore('studentEvents', () => {
 
   async function findWinner(eventId: string) {
     actionError.value = null;
-    isLoading.value = true; // Added isLoading true
-    try {
-      // Service function for calculation
-      const calculatedWinners = await calculateWinnersFromVotesService(eventId);
-        if (Object.keys(calculatedWinners).length === 0) {
-            notificationStore.showNotification({ message: "No winners could be determined based on selections.", type: 'info' });
-        isLoading.value = false; // Added isLoading false before early return
-            return;
-        }
-      // Service function for saving
-      await saveWinnersToFirestoreService(eventId, calculatedWinners);
-      const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData);
-        notificationStore.showNotification({ message: "Winner(s) determined and saved.", type: 'success' });
-    } catch (err) {
-        await _handleOpError("finding winner", err, eventId);
-    } finally {
-      isLoading.value = false; // Added isLoading false
-    }
   }
-
-  async function closeEventPermanently({ eventId }: { eventId: string }) {
-    actionError.value = null;
+  
+  async function checkDateConflict({ 
+    startDate, 
+    endDate, 
+    excludeEventId 
+  }: { 
+    startDate: Date | Timestamp; 
+    endDate: Date | Timestamp; 
+    excludeEventId?: string 
+  }): Promise<{ hasConflict: boolean; conflictingEventName: string | null; nextAvailableDate: string | null }> { // Updated return type
     try {
-      if (!studentProfileStore.currentStudent) {
-        throw new Error("User not authenticated or profile not loaded.");
-      }
+      // Convert to Timestamps if they are JS Dates
+      const startTimestamp = startDate instanceof Date ? Timestamp.fromDate(startDate) : startDate;
+      const endTimestamp = endDate instanceof Date ? Timestamp.fromDate(endDate) : endDate;
 
-      // Call the service function to handle closing and XP awarding
-      const result = await closeEventAndAwardXPService(eventId, studentProfileStore.currentStudent);
+      // Call the service function with individual arguments
+      const result = await checkDateConflictForRequest(
+        startTimestamp,
+        endTimestamp,
+        excludeEventId
+      );
 
-      if (!result.success) {
-        // The service should throw on error, but as a fallback:
-        throw new Error(result.message || "Failed to close event via service.");
-                    }
-
-      // Update local event state
-        const existingEvent = getEventById(eventId);
-      if (!existingEvent) {
-        // This case should ideally not happen if the event existed before closing
-        console.warn(`Event ${eventId} not found locally after service call to close.`);
-        // Potentially fetch it if really needed, but service interaction should be source of truth
-      }
-      // Create a representative local update. The service already updated Firestore.
-      // The service returns xpAwarded map; we primarily need to update status and timestamps locally.
-      const updatedEventForStore = createCompleteEvent({
-          id: eventId,
-          status: EventStatus.Closed,
-        closedAt: Timestamp.now(), // Approximate with client time, server set actual
-        lastUpdatedAt: Timestamp.now() // Approximate
-      }, existingEvent || { id: eventId } as Event ); // Provide a minimal existing event if not found
-        
-      _updateLocalEventLists(updatedEventForStore);
-
-      // If current user received XP, refresh their profile
-      if (result.xpAwarded && studentProfileStore.studentId && result.xpAwarded[studentProfileStore.studentId]) {
-            await studentProfileStore.fetchProfileForView(studentProfileStore.studentId);
-        }
-
-      notificationStore.showNotification({ message: result.message, type: 'success' });
-      return { success: true, message: result.message, xpAwarded: result.xpAwarded };
-
-    } catch (err: any) {
-      // The service now throws detailed errors, so _handleOpError can use err.message
-        await _handleOpError("closing event permanently", err, eventId);
-        return { success: false, message: err.message || "Failed to close event." };
-    }
-  }
-
-   async function autoGenerateTeams(payload: { eventId: string; minMembersPerTeam?: number; maxMembersPerTeam?: number; }) {
-    const { eventId, minMembersPerTeam = 2, maxMembersPerTeam = 8 } = payload;
-    actionError.value = null;
-    isLoading.value = true;
-    try {
-      const event = getEventById(eventId);
-      if (!event) throw new Error('Event data not loaded locally. Cannot auto-generate teams.');
-      if (event.details.format !== EventFormat.Team) throw new Error("Auto-generation only for 'Team' events.");
-
-      if (studentProfileStore.allUsers.length === 0) {
-        await studentProfileStore.fetchUserNamesBatch([]);
-      }
-      const studentsToPassToService = studentProfileStore.allUsers;
-
-      await autoGenerateEventTeamsService(eventId, studentsToPassToService, minMembersPerTeam, maxMembersPerTeam);
-
-      const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-      if (updatedEventData) _updateLocalEventLists(updatedEventData);
-      notificationStore.showNotification({ message: `Teams auto-generated successfully.`, type: 'success' });
-    } catch (err) {
-      await _handleOpError("auto-generating teams", err, eventId);
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function checkExistingRequests(): Promise<boolean> {
-    if (!studentProfileStore.studentId) return false;
-    try {
-      return await checkExistingPendingRequestFromValidation(studentProfileStore.studentId);
+      // Explicitly return the properties expected by the Promise type
+      return {
+        hasConflict: result.hasConflict,
+        conflictingEventName: result.conflictingEventName,
+        nextAvailableDate: result.nextAvailableDate
+        // conflictingEvent from service result is not part of this store function's promised type, so it's fine.
+      };
     } catch (error) {
-      await _handleOpError("checking existing requests", error);
-      return false;
+      console.error("Error checking date conflict:", error);
+      throw new Error(`Failed to check date conflict: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async function checkDateConflict(payload: { startDate: Date | string | Timestamp | null; endDate: Date | string | Timestamp | null; excludeEventId?: string | null }): Promise<{ hasConflict: boolean; nextAvailableDate: string | null; conflictingEvent: Event | null, conflictingEventName?: string | null }> {
-    try {
-         const result = await checkDateConflictForRequest(payload.startDate, payload.endDate, payload.excludeEventId);
-         return { hasConflict: result.hasConflict, nextAvailableDate: null, conflictingEvent: null, conflictingEventName: result.conflictingEventName };
-    } catch (error: any) {
-         _handleOpError("checking date conflict", error);
-         notificationStore.showNotification({ message: `Date check failed: ${error.message || 'Unknown error'}`, type: 'error' });
-         return { hasConflict: true, nextAvailableDate: null, conflictingEvent: null, conflictingEventName: 'an error occurred' };
-    }
-  }
-
-  async function submitEventRequest(eventData: Omit<Event, 'id' | 'createdAt' | 'lastUpdatedAt' | 'status' | 'requestedBy' | 'teamSubmissions' | 'participants' | 'waitlist'>): Promise<string | null> {
+  async function closeEventPermanently({ eventId }: { eventId: string }): Promise<void> {
     actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      notificationStore.showNotification({ message: "User not authenticated or profile not loaded.", type: 'error' });
-      return null;
+    if (!auth.isAuthenticated.value || !studentProfileStore.currentStudent) {
+      await _handleOpError("closing event permanently", new Error("User not authenticated or profile not loaded."), eventId);
+      return;
     }
-    const currentUserId = studentProfileStore.studentId!;
+    
     isLoading.value = true;
-
     try {
-      // Prepare EventFormData for the service call
-      const formDataForService: EventFormData = {
-        details: {
-          eventName: eventData.details.eventName,
-          description: eventData.details.description,
-          format: eventData.details.format,
-          type: eventData.details.type,
-          organizers: eventData.details.organizers,
-          date: {
-            start: eventData.details.date.start instanceof Timestamp ? eventData.details.date.start.toDate().toISOString() : null,
-            end: eventData.details.date.end instanceof Timestamp ? eventData.details.date.end.toDate().toISOString() : null
-          },
-          allowProjectSubmission: eventData.details.allowProjectSubmission,
-          rules: eventData.details.rules,
-          prize: eventData.details.prize
-        },
-        criteria: eventData.criteria || [],
-        teams: eventData.teams || [],
-        votingOpen: eventData.votingOpen // This is part of EventFormData
-      };
-      
+      // Service function contains all validation and Firestore logic
       // Call the service function
-      const newEventId = await createEventRequestService(formDataForService, currentUserId);
-
-      if (!newEventId) { // Should not happen if service throws on error
-        throw new Error("Failed to submit event request via service.");
+      const result = await closeEventAndAwardXPService(eventId, studentProfileStore.currentStudent);
+      
+      // Refetch the event to update local state
+      const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
+      if (updatedEventData) {
+        _updateLocalEventLists(updatedEventData);
       }
       
-      // Create a complete Event object for local update
-      // Pass the original eventData (which has Timestamps if they existed) and the new ID to createCompleteEvent
-      const newEventDataForStore = createCompleteEvent({
-        ...eventData, // Spread original eventData which might have Timestamps for dates
-        id: newEventId,
-        requestedBy: currentUserId,
-        status: EventStatus.Pending, // Service sets this
-        createdAt: Timestamp.now(), // Approximate, service sets actual
-        lastUpdatedAt: Timestamp.now(), // Approximate, service sets actual
-        participants: [], // Default
-        // votingOpen is part of eventData and will be carried over by spread
+      notificationStore.showNotification({ 
+        message: result.message || "Event closed successfully! XP has been awarded.", 
+        type: 'success' 
       });
-      
-      _updateLocalEventLists(newEventDataForStore);
-      notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
-      return newEventId;
     } catch (err) {
-      await _handleOpError("submitting event request", err);
-      return null;
+      await _handleOpError("closing event permanently", err, eventId);
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function updateEventRequest(eventId: string, eventData: Partial<Omit<Event, 'id' | 'createdAt' | 'lastUpdatedAt' | 'status' | 'requestedBy' | 'teamSubmissions' | 'participants' | 'waitlist'>>): Promise<boolean> {
+  async function autoGenerateTeams(payload: { eventId: string; studentUids: string[]; minMembers: number; maxMembers: number }): Promise<void> {
     actionError.value = null;
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      notificationStore.showNotification({ message: "User not authenticated or profile not loaded.", type: 'error' });
-      return false;
+      await _handleOpError("auto-generating teams", new Error("User not authenticated or profile not loaded."), payload.eventId);
+      return;
     }
+    
     isLoading.value = true;
     try {
-      const existingEvent = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-      if (!existingEvent) {
-        throw new Error("Event not found or you don\'t have permission to edit it.");
+      const studentsToAssign = payload.studentUids.map(uid => ({ uid }));
+      
+      const newTeams = await autoGenerateEventTeamsService(
+        payload.eventId, 
+        studentsToAssign, 
+        payload.minMembers, 
+        payload.maxMembers
+      );
+      
+      const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentProfileStore.studentId);
+      if (updatedEventData) {
+        _updateLocalEventLists(updatedEventData);
       }
       
-      const formDataForService: EventFormData = {
-        details: {
-          eventName: eventData.details?.eventName || existingEvent.details.eventName, 
-          description: eventData.details?.description || existingEvent.details.description, 
-          format: eventData.details?.format || existingEvent.details.format, 
-          type: eventData.details?.type || existingEvent.details.type, 
-          organizers: eventData.details?.organizers || existingEvent.details.organizers, 
-          date: {
-            start: eventData.details?.date?.start instanceof Timestamp ? eventData.details.date.start.toDate().toISOString() : (existingEvent.details.date.start instanceof Timestamp ? existingEvent.details.date.start.toDate().toISOString() : null),
-            end: eventData.details?.date?.end instanceof Timestamp ? eventData.details.date.end.toDate().toISOString() : (existingEvent.details.date.end instanceof Timestamp ? existingEvent.details.date.end.toDate().toISOString() : null)
-          },
-          allowProjectSubmission: eventData.details?.allowProjectSubmission ?? existingEvent.details.allowProjectSubmission, 
-          rules: eventData.details?.rules !== undefined ? eventData.details.rules : existingEvent.details.rules, 
-          prize: eventData.details?.prize !== undefined ? eventData.details.prize : existingEvent.details.prize
-        },
-        criteria: eventData.criteria || existingEvent.criteria || [],
-        teams: eventData.teams || existingEvent.teams || [],
-        votingOpen: eventData.votingOpen ?? existingEvent.votingOpen ?? false
-      };
-      
-      await updateEventRequestInService(eventId, formDataForService, existingEvent.details.format);
-      
-      const updatedEventDataFromFirestore = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-      if (updatedEventDataFromFirestore) {
-        _updateLocalEventLists(updatedEventDataFromFirestore);
-      } else {
-        console.warn(`Failed to refetch event ${eventId} after update, local state might be stale.`);
-      }
-      
-      notificationStore.showNotification({ message: 'Event request updated successfully!', type: 'success' });
-      return true;
+      notificationStore.showNotification({ 
+        message: `Teams auto-generated successfully! (${newTeams.length} teams created)`, 
+        type: 'success' 
+      });
     } catch (err) {
-      await _handleOpError("updating event request", err, eventId);
-      return false;
+      await _handleOpError("auto-generating teams", err, payload.eventId);
     } finally {
       isLoading.value = false;
     }
   }
 
-  function createCompleteEvent(partialEvent: Partial<Event>, existingEvent?: Event): Event {
-    const detailsToConvert = partialEvent.details || existingEvent?.details;
-    const convertedDetails = detailsToConvert ? 
-      convertEventDetailsDateFormat(detailsToConvert) : // Uses imported version from eventUtils
-      { eventName: '', description: '', format: EventFormat.Individual, type: '', organizers: [], date: { start: null, end: null }, allowProjectSubmission: false };
-
-    return {
-      id: partialEvent.id || existingEvent?.id || '',
-      details: {
-        ...convertedDetails, // Spread converted (which now contains Timestamps)
-        // Ensure string dates from formData are not overriding Timestamps if they were passed in partialEvent.details directly
-        // This part needs care. The current convertEventDetailsDateFormat expects strings or Timestamps.
-        // If partialEvent.details.date still contains strings, they will be converted.
-        // If partialEvent.details.date contained Timestamps (like from eventDataForStoreCreation), they should be preserved.
-      },
-      requestedBy: partialEvent.requestedBy || existingEvent?.requestedBy || '',
-      votingOpen: partialEvent.votingOpen ?? existingEvent?.votingOpen ?? false,
-      createdAt: partialEvent.createdAt || existingEvent?.createdAt || Timestamp.now(),
-      lastUpdatedAt: partialEvent.lastUpdatedAt || existingEvent?.lastUpdatedAt || Timestamp.now(),
-      status: partialEvent.status || existingEvent?.status || EventStatus.Pending,
-      participants: partialEvent.participants || existingEvent?.participants || [],
-      criteria: partialEvent.criteria || existingEvent?.criteria || [],
-      teams: partialEvent.teams || existingEvent?.teams || [],
-      teamMemberFlatList: partialEvent.teamMemberFlatList || existingEvent?.teamMemberFlatList || [],
-      submissions: partialEvent.submissions || existingEvent?.submissions || [],
-      bestPerformerSelections: partialEvent.bestPerformerSelections || existingEvent?.bestPerformerSelections || {},
-      winners: partialEvent.winners || existingEvent?.winners || {},
-      organizerRatings: partialEvent.organizerRatings || existingEvent?.organizerRatings || [],
-      lifecycleTimestamps: mergeLifecycleTimestamps(existingEvent?.lifecycleTimestamps, partialEvent.lifecycleTimestamps),
-      closedAt: partialEvent.closedAt || existingEvent?.closedAt,
-      rejectionReason: partialEvent.rejectionReason || existingEvent?.rejectionReason,
-      manuallySelectedBy: partialEvent.manuallySelectedBy || existingEvent?.manuallySelectedBy
-    } as Event;
+  /**
+   * Clear all error states (actionError, fetchError)
+   */
+  function clearError(): void {
+    actionError.value = null;
+    fetchError.value = null;
   }
-
+  
   return {
     events, viewedEventDetails, myEventRequests, isLoading, actionError, fetchError,
     allPubliclyViewableEvents, userSubmittedEvents, userParticipatingEvents, userWaitlistedEvents,
     getEventById, currentEventDetails, upcomingEvents, activeEvents, pastEvents,
-    _updateLocalEventLists, _handleOpError, _handleFetchError,
     fetchEvents, fetchMyEventRequests, fetchEventDetails,
     requestNewEvent, editMyEventRequest, updateEventStatus,
-    joinEvent, leaveEvent,
-    submitProject,
+    joinEvent, leaveEvent, submitProject,
     submitTeamCriteriaVote, submitIndividualWinnerVote, submitManualWinnerSelection, submitOrganizationRating,
-    toggleVotingOpen, findWinner, closeEventPermanently, autoGenerateTeams,
-    checkExistingRequests, checkDateConflict,
-    createCompleteEvent,
-    submitEventRequest, updateEventRequest
+    toggleVotingOpen, findWinner, closeEventPermanently, autoGenerateTeams, // Ensure autoGenerateTeams is here
+    checkDateConflict,
+    clearError
   };
 });

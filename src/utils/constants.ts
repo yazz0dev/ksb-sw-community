@@ -1,5 +1,10 @@
 // Common constants used throughout the application
 
+// --- Firestore Collection Names ---
+export const EVENTS_COLLECTION = 'events';
+export const STUDENTS_COLLECTION = 'students';
+export const XP_COLLECTION = 'xp';
+
 // --- Event Criteria Constants ---
 export const BEST_PERFORMER_LABEL = 'Best Performer';
 export const BEST_PERFORMER_POINTS = 10;

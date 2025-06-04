@@ -125,7 +125,7 @@ const handleImageError = (event: Event) => {
 // Define available roles for filtering, mapping to XPData keys
 // Key: the field in XPData, DisplayName: what's shown to the user
 const availableDisplayRoles = ref([
-  { key: 'totalCalculatedXp', displayName: 'Overall XP' },
+  { key: 'totalCalculatedXp', displayName: 'Overall' },
   { key: 'xp_developer', displayName: formatRoleName('developer') },
   { key: 'xp_presenter', displayName: formatRoleName('presenter') },
   { key: 'xp_designer', displayName: formatRoleName('designer') },

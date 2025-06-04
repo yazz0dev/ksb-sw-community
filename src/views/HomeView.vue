@@ -24,11 +24,12 @@
               <h2 class="h4 h3-md text-dark mb-0"><i class="fas fa-calendar-alt text-primary me-2"></i>Events</h2>
               <!-- Show "Request Event" button only if user is authenticated -->
               <div v-if="canRequestEvent">
+                <!-- Add d-none d-md-inline-block to hide on mobile -->
                 <router-link
                   :to="{ name: 'RequestEvent' }"
-                  class="btn btn-primary d-inline-flex align-items-center"
+                  class="btn btn-primary d-none d-md-inline-block"
                 >
-                  <i class="fas fa-calendar-plus me-2"></i>
+                  <i class="fas fa-plus me-2"></i>
                   <span>Request Event</span>
                 </router-link>
               </div>

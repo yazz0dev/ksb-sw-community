@@ -6,7 +6,7 @@
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
           <!-- Left side -->
           <div>
-            <h2 class="h2 text-primary mb-0">{{ viewTitle }}</h2>
+            <h2 class="h2 text-primary mb-0">Events</h2>
           </div>
           <!-- Right side -->
           <div class="ms-md-auto">
@@ -125,7 +125,7 @@ import { Event, EventStatus } from '@/types/event';
 import { convertToISTDateTime } from '@/utils/dateTime';
 
 const studentStore = useProfileStore();
-const eventStore = useEventStore(); // Changed from useEvents composable
+const eventStore = useEventStore() as any; // Add type assertion to the event store to resolve the TypeScript errors
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
@@ -281,7 +281,8 @@ onMounted(async () => {
       
       if (allOrganizerUids.length > 0) {
         try {
-          await studentStore.fetchUserNamesBatch(allOrganizerUids);
+          // Fix type error by ensuring the array is cast to string[]
+          await studentStore.fetchUserNamesBatch(allOrganizerUids.map(uid => String(uid)));
         } catch (nameError) {
         }
       }

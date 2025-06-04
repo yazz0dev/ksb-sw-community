@@ -1,43 +1,45 @@
 <template>
-  <div class="p-4 p-sm-5">
+  <div class="p-3 p-sm-4">
     <TransitionGroup name="fade-fast" tag="div">
       <div 
         v-for="team in teamsWithDetails"
         :key="team.teamName"
-        class="mb-4"
+        class="mb-3"
       >
         <div class="card team-card shadow-sm">
-          <div class="card-body p-4 p-sm-5">
+          <div class="card-body p-3 p-sm-4">
             <div class="d-flex justify-content-between align-items-start mb-3">
-              <h5 class="h5 text-primary mb-0">{{ team.teamName }}</h5>
-              <!-- Add any badges or right-side content here if needed -->
+              <h6 class="h6 text-primary mb-0 text-truncate me-2">{{ team.teamName }}</h6>
+              <span class="badge bg-secondary-subtle text-secondary-emphasis small">
+                {{ team.members?.length || 0 }}
+              </span>
             </div>
 
             <button
-              class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
+              class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center w-100"
               @click="toggleTeamDetails(team.teamName)"
               :aria-expanded="team.showDetails ? 'true' : 'false'"
               type="button"
             >
               <i class="fas fa-fw me-1" :class="team.showDetails ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-              <span>
-                {{ team.showDetails ? 'Hide Members' : `Show Members (${team.members?.length || 0})` }}
+              <span class="text-truncate">
+                {{ team.showDetails ? 'Hide Members' : `Show Members` }}
               </span>
             </button>
 
             <!-- Collapsible Details Section -->
             <Transition name="slide-fade">
-              <div v-if="team.showDetails" class="mt-4 pt-4 border-top" style="border-color: var(--bs-border-color) !important;">
+              <div v-if="team.showDetails" class="mt-3 pt-3 border-top" style="border-color: var(--bs-border-color) !important;">
                 <p v-if="organizerNamesLoading" class="small text-secondary fst-italic">
                   <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Loading members...
                 </p>
                 <div v-else-if="team.members && team.members.length > 0">
                   <p class="text-muted small fw-bold text-uppercase mb-2">Team Members</p>
-                  <div class="d-flex flex-column" style="gap: 0.5rem;">
+                  <div class="members-grid">
                     <div
                       v-for="memberId in team.members"
                       :key="memberId"
-                      class="d-flex align-items-center p-2 rounded transition-colors duration-150"
+                      class="member-item d-flex align-items-center p-2 rounded transition-colors duration-150 small"
                       :class="{ 'bg-primary-subtle': memberId === currentUserUid }"
                     >
                       <span class="text-secondary me-2" style="width: 1rem; text-align: center;">
@@ -45,7 +47,7 @@
                       </span>
                       <router-link
                         :to="{ name: 'PublicProfile', params: { userId: memberId } }"
-                        class="small text-primary text-truncate"
+                        class="text-primary text-truncate"
                         :class="{ 'fw-semibold': memberId === currentUserUid }"
                       >
                         {{ studentStore.getCachedStudentName(memberId) || memberId }}{{ memberId === currentUserUid ? ' (You)' : '' }}
@@ -63,7 +65,7 @@
       </div>
     </TransitionGroup>
 
-    <div v-if="!loading && teamsWithDetails.length === 0" class="alert alert-info small d-flex align-items-center mt-4" role="alert">
+    <div v-if="!loading && teamsWithDetails.length === 0" class="alert alert-info small d-flex align-items-center mt-3" role="alert">
         <i class="fas fa-info-circle me-2"></i>
         No teams have been created for this event yet.
     </div>
@@ -144,16 +146,54 @@ const toggleTeamDetails = (teamName: string): void => {
 <style scoped>
 .team-card {
   transition: box-shadow 0.2s ease-in-out;
-  overflow: hidden; /* Ensure content doesn't overflow during transitions */
+  overflow: hidden;
 }
-/* Removed hover style as Bootstrap cards have subtle hover effects or can be customized globally */
-/* .team-card:hover { ... } */
 
-/* Remove transition styles, now in global SCSS */
+.members-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.25rem;
+}
+
+.member-item {
+  transition: background-color 0.2s ease-in-out;
+  border: 1px solid transparent;
+}
+
+.member-item:hover {
+  background-color: var(--bs-light) !important;
+  border-color: var(--bs-border-color);
+}
+
 .router-link {
   text-decoration: none;
 }
 .router-link:hover {
   text-decoration: underline;
+}
+
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.slide-fade-enter-from {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-10px);
+}
+
+.slide-fade-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-10px);
+}
+
+.slide-fade-enter-to,
+.slide-fade-leave-from {
+  opacity: 1;
+  max-height: 500px;
+  transform: translateY(0);
 }
 </style>

@@ -17,6 +17,7 @@ import {
   arrayRemove
 } from 'firebase/firestore';
 import { db } from '@/firebase';
+import { DateTime } from 'luxon';
 import { 
   Event, 
   EventStatus, 
@@ -24,25 +25,17 @@ import {
   Submission,
   EventFormat,
   type EventLifecycleTimestamps,
-  type Team
-} from '@/types/event';
-import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataMapper';
-import { StudentPortfolioProject, type EnrichedStudentData, type UserData } from '@/types/student';
-import { applyXpAwardsBatch } from './xpService';
-import { calculateEventXP } from '@/utils/eventUtils';
-import { DateTime } from 'luxon';
-import { deepClone, isEmpty } from '../utils/helpers';
-import { runTransaction, type Transaction } from 'firebase/firestore';
-import { 
-  type EventCriterion,
+  type Team,
+  type EventCriteria,
   type OrganizerRating
 } from '@/types/event';
-
-const now = () => Timestamp.now();
-
-const EVENTS_COLLECTION = 'events';
-
-const BEST_PERFORMER_LABEL = 'best_performer';
+import { type EnrichedStudentData, type UserData } from '@/types/student';
+import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataMapper';
+import { deepClone, isEmpty } from '@/utils/helpers';
+import { runTransaction, type Transaction } from 'firebase/firestore';
+import { calculateEventXP } from '@/utils/eventUtils';
+import { BEST_PERFORMER_LABEL, EVENTS_COLLECTION } from '@/utils/constants';
+import { applyXpAwardsBatch } from '@/services/xpService'; // Added import
 
 /**
  * Fetch publicly viewable events
@@ -397,7 +390,7 @@ export const updateEventRequestInService = async (
     delete updatesToApply.status;
     delete updatesToApply.requestedBy; // Should remain the original requester
     delete updatesToApply.createdAt;   // Should not be changed
-    delete updatesToApply.closedAt;
+    // delete updatesToApply.closedAt; // Removed as closedAt is now in lifecycleTimestamps
     delete updatesToApply.lifecycleTimestamps; // Admins/system manage these state transitions
     delete updatesToApply.votingOpen;          // Managed by status changes or admin actions
     delete updatesToApply.winners;             // Managed by voting/admin actions
@@ -495,11 +488,11 @@ export const closeEventAndAwardXP = async (
 
     const updatePayload = {
       status: EventStatus.Closed,
-      closedAt: serverTimestamp(),
+      // closedAt: serverTimestamp(), // Removed top-level closedAt
       lastUpdatedAt: serverTimestamp(),
       lifecycleTimestamps: {
         ...(eventData.lifecycleTimestamps || {}),
-        closedAt: serverTimestamp(),
+        closedAt: serverTimestamp(), // Ensure closedAt is set here
       },
     };
     batch.update(eventRef, updatePayload as any);
@@ -1007,7 +1000,7 @@ export async function requestToJoinTeamInFirestore(
     eventId: string,
     studentId: string,
     targetTeamName: string
-): Promise<void> {
+): Promise<void> { // Removed erroneous "=>"
     if (!eventId || !studentId || !targetTeamName.trim()) throw new Error('Event ID, Student ID, and Target Team Name are required.');
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
@@ -1309,17 +1302,17 @@ export async function autoGenerateEventTeamsInFirestore(
 /**
  * Submits a user's vote/selection for team event criteria in Firestore.
  * @param eventId - The ID of the event.
- * @param userId - The UID of the student submitting selections.
- * @param selections - Object containing criteria selections and/or best performer.
+ * @param userId - The UID of the student submitting votes.
+ * @param votes - Object containing criteria votes and/or best performer.
  */
 export async function submitTeamCriteriaVoteInFirestore(
     eventId: string,
     userId: string,
-    selections: { criteria: Record<string, string>; bestPerformer?: string }
+    votes: { criteria: Record<string, string>; bestPerformer?: string }
 ): Promise<void> {
     if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
-    if (!selections || typeof selections.criteria !== 'object' || isEmpty(selections.criteria)) {
-        throw new Error("Criteria selections are required and cannot be empty.");
+    if (!votes || typeof votes.criteria !== 'object' || isEmpty(votes.criteria)) {
+        throw new Error("Criteria votes are required and cannot be empty.");
     }
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
@@ -1342,7 +1335,7 @@ export async function submitTeamCriteriaVoteInFirestore(
 
             let updatedCriteria = deepClone(currentEventData.criteria || []);
             
-            Object.entries(selections.criteria).forEach(([constraintIndexStr, selectedTeamName]) => {
+            Object.entries(votes.criteria).forEach(([constraintIndexStr, selectedTeamName]) => {
                 const constraintIndex = parseInt(constraintIndexStr);
                 const criterionIndex = updatedCriteria.findIndex(c => 
                     typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
@@ -1363,11 +1356,11 @@ export async function submitTeamCriteriaVoteInFirestore(
                 lastUpdatedAt: serverTimestamp()
             };
 
-            if (selections.bestPerformer) {
+            if (votes.bestPerformer) {
                 const currentBestPerformerSelections = currentEventData.bestPerformerSelections || {};
                 updateData.bestPerformerSelections = {
                     ...currentBestPerformerSelections,
-                    [userId]: selections.bestPerformer
+                    [userId]: votes.bestPerformer
                 };
             }
             transaction.update(eventRef, updateData);
@@ -1509,16 +1502,8 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
 
             // currentUser is non-null here due to the check above.
             const isOrganizer = eventData.details.organizers.includes(currentUser!.uid);
-            
-            // Check if the user has admin privileges.
-            // This assumes EnrichedStudentData might have an 'isAdmin' boolean flag,
-            // and UserData (or EnrichedStudentData if it extends/includes UserData) might have a 'roles' array.
-            // TODO: Revisit admin check with correct type definitions for EnrichedStudentData and UserData
-            const userIsAdmin = false; // Assuming false until type definitions are clarified
-            // const userIsAdmin = (currentUser as EnrichedStudentData).isAdmin === true || 
-            //                     (currentUser as UserData).roles?.includes('admin') === true;
 
-            if (!isOrganizer && !userIsAdmin) {
+            if (!isOrganizer) {
                 throw new Error("Permission denied. Only event organizers or admins can toggle voting status.");
             }
 
@@ -1575,9 +1560,9 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
 
     // Calculate winners from criteria votes
     if (eventData.criteria && Array.isArray(eventData.criteria)) {
-        eventData.criteria.forEach((criterion: EventCriterion) => {
+        eventData.criteria.forEach((criterion: EventCriteria) => {
             if (criterion.votes && !isEmpty(criterion.votes)) {
-                const voteCounts: Record<string, number> = {};
+                               const voteCounts: Record<string, number> = {};
                 Object.values(criterion.votes).forEach((selectedEntityId: string) => {
                     voteCounts[selectedEntityId] = (voteCounts[selectedEntityId] || 0) + 1;
                 });
@@ -1650,15 +1635,15 @@ export async function saveWinnersToFirestore(
  * Allows an organizer to manually select/override winners for an event.
  * @param eventId - The ID of the event.
  * @param userId - The UID of the organizer performing the action.
- * @param selections - Record where key is criterion title or BEST_PERFORMER_LABEL, value is the selected winner's ID (string). Assumes single winner per category for manual override.
+ * @param votes - Record where key is criterion title or BEST_PERFORMER_LABEL, value is the selected winner's ID (string). Assumes single winner per category for manual override.
  */
 export async function submitManualWinnerSelectionInFirestore(
     eventId: string,
     userId: string, 
-    selections: Record<string, string> 
+    votes: Record<string, string> 
 ): Promise<void> {
     if (!eventId || !userId) throw new Error("Event ID and User ID (organizer) are required.");
-    if (isEmpty(selections)) throw new Error("Winner selections cannot be empty for manual override.");
+    if (isEmpty(votes)) throw new Error("Winner selections cannot be empty for manual override.");
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
     try {
@@ -1674,15 +1659,15 @@ export async function submitManualWinnerSelectionInFirestore(
 
             // Validate that selected entities (teams/users) are valid for the event context if possible
             // This might involve checking against eventData.teams, eventData.participants etc.
-            // For simplicity, this example assumes selections are valid UIDs/team names.
+            // For simplicity, this example assumes votes are valid UIDs/team names.
 
             // The `winners` field will store this manual selection.
             // `calculateWinnersFromVotes` might produce arrays for ties, but manual selection implies single winner.
             const newWinnersData: Record<string, string> = {};
-            for (const key in selections) { 
-                newWinnersData[key] = selections[key]; 
+            for (const key in votes) { 
+                newWinnersData[key] = votes[key]; 
             }
-            if (Object.keys(newWinnersData).length === 0 && Object.keys(selections).length > 0) { 
+            if (Object.keys(newWinnersData).length === 0 && Object.keys(votes).length > 0) { 
                 throw new Error("Failed to populate winners data from selections."); 
             }
 

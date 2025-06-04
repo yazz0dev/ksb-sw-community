@@ -137,19 +137,23 @@
              </div>
              <ul class="list-group list-group-flush event-history-section">
                <li
-                 v-for="eventItem in sortedEventsHistory"
-                 :key="eventItem.eventId" 
+                 v-for="(eventItem, index) in sortedEventsHistory"
+                 :key="eventItem.eventId || index" 
                  class="list-group-item px-3 py-3"
                >
                  <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
                    <div class="d-flex align-items-center">
                      <i class="fas fa-calendar-alt text-primary me-2"></i>
                      <router-link
+                       v-if="eventItem.eventId"
                        :to="{ name: 'EventDetails', params: { id: eventItem.eventId } }" 
                        class="fw-semibold text-primary text-decoration-none me-2"
                      >
                        {{ eventItem.eventName || 'Unnamed Event' }} <!-- Changed from eventItem.details?.eventName -->
                      </router-link>
+                     <span v-else class="fw-semibold text-muted me-2" :title="`Event ID missing for: ${eventItem.eventName}`">
+                       {{ eventItem.eventName || 'Unnamed Event (Link unavailable)' }}
+                     </span>
                      <span v-if="eventItem.eventFormat" class="badge bg-secondary-subtle text-secondary-emphasis small ms-2"> <!-- Changed from eventItem.details?.format -->
                        <i class="fas fa-users me-1"></i>{{ formatEventFormat(eventItem.eventFormat) }}
                      </span>
@@ -200,11 +204,11 @@
                   <div class="d-flex justify-content-between align-items-start">
                     <div>
                       <h6 class="mb-1">{{ project.projectName || 'Unnamed Project' }}</h6>
-                      <small v-if="project.eventName" class="text-muted d-block mb-1">
-                        <i class="fas fa-calendar-alt me-1"></i> Event: {{ project.eventName }}
-                      </small>
-                      <small v-else-if="project.eventId" class="text-muted d-block mb-1">
-                        <i class="fas fa-calendar-alt me-1"></i> Event ID: {{ project.eventId }}
+                      <small v-if="project.eventId" class="text-muted d-block mb-1">
+                        <i class="fas fa-calendar-alt me-1"></i> Event: 
+                        <router-link :to="{ name: 'EventDetails', params: { id: project.eventId } }" class="text-decoration-none">
+                          {{ project.eventName || `View Event (ID: ${project.eventId.substring(0,6)}...)` }}
+                        </router-link>
                       </small>
                     </div>
                     <a :href="project.link" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-1" v-if="project.link">
@@ -238,10 +242,9 @@ import { formatISTDate } from '@/utils/dateTime';
 // Use the formatRoleName from user types as it handles 'xp_' prefix now
 import { formatRoleName as formatRoleNameForDisplay } from '@/utils/formatters'; // Corrected import path
 import { EnrichedUserData, type StudentEventHistoryItem } from '@/types/student'; // Import StudentEventHistoryItem
-import { EventStatus, EventFormat } from '@/types/event'; // Removed AppEvent as it's not directly used for participatedEvents
+import { EventFormat } from '@/types/event'; // Removed AppEvent as it's not directly used for participatedEvents
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useRouter } from 'vue-router';
-import { isEventOrganizer } from '@/utils/permissionHelpers';
 
 interface Props {
     userId: string;

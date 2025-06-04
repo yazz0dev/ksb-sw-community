@@ -7,9 +7,12 @@
     >
       <!-- Error Display -->
       <div v-if="initialFetchError" class="container-lg mt-3 mt-md-4">
-        <div class="alert alert-danger" role="alert">
-          <i class="fas fa-exclamation-triangle me-2"></i>
-          {{ initialFetchError }}
+        <div class="alert alert-danger d-flex align-items-start" role="alert">
+          <i class="fas fa-exclamation-triangle me-3 fs-4 text-danger"></i>
+          <div>
+            <h5 class="alert-heading mb-2">Failed to Load Event</h5>
+            <p class="mb-0">{{ initialFetchError }}</p>
+          </div>
         </div>
       </div>
 
@@ -28,31 +31,24 @@
           class="animate-fade-in"
         />
 
-        <!-- Floating Action Button for Submission (conditionally rendered) -->
-        <template v-if="canSubmitProject && event.details.allowProjectSubmission !== false">
-          <div class="d-none d-md-block text-end mb-2 mb-md-3">
-            <button
-              class="btn btn-lg btn-primary shadow submit-fab"
-              @click="triggerSubmitModalOpen"
-              title="Submit Project"
-            >
-              <i class="fas fa-upload me-2"></i> Submit Project
-            </button>
-          </div>
-          <button
-            class="btn btn-primary shadow submit-fab-mobile d-md-none"
-            @click="triggerSubmitModalOpen"
-            title="Submit Project"
+        <!-- Feedback Message -->
+        <transition name="fade-pop">
+          <div v-if="globalFeedback.message"
+            class="alert alert-sm mt-2 mt-md-3 mb-3 mb-md-4 d-flex align-items-center animate-fade-in"
+            :class="globalFeedback.type === 'success' ? 'alert-success' : 'alert-danger'"
+            role="alert"
           >
-            <i class="fas fa-upload"></i>
-          </button>
-        </template>
+            <i class="fas me-2" :class="globalFeedback.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
+            <div>{{ globalFeedback.message }}</div>
+            <button type="button" class="btn-close ms-auto" @click="clearGlobalFeedback" aria-label="Close"></button>
+          </div>
+        </transition>
 
         <div class="row g-3 g-md-4 mt-0">
           <!-- Main Content Column -->
           <div class="col-12 col-lg-8">
             <!-- Event Management Controls -->
-            <div class="mb-3 mb-md-4">
+            <div v-if="localIsCurrentUserOrganizer" class="mb-3 mb-md-4">
               <EventManageControls
                 :event="event"
                 class="mb-0 animate-fade-in"
@@ -62,45 +58,68 @@
             </div>
 
             <!-- XP/Criteria Section -->
-            <EventCriteriaDisplay v-if="event.criteria?.length" :criteria="event.criteria" />
-
-            <!-- Feedback Message -->
-            <transition name="fade-pop">
-              <div v-if="globalFeedback.message"
-                class="alert alert-sm mt-2 mt-md-3 mb-2 mb-md-3 d-flex align-items-center animate-fade-in"
-                :class="globalFeedback.type === 'success' ? 'alert-success' : 'alert-danger'"
-                role="alert"
-              >
-                <i class="fas me-2" :class="globalFeedback.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
-                <div>{{ globalFeedback.message }}</div>
-              </div>
-            </transition>
+            <EventCriteriaDisplay 
+              v-if="event.criteria?.length" 
+              :criteria="event.criteria" 
+              class="mb-3 mb-md-4"
+            />
 
             <!-- Teams/Participants Section -->
-            <div class="mt-3 mt-md-4">
+            <div class="mb-3 mb-md-4">
               <!-- Team List -->
               <div v-if="isTeamEvent" class="mb-3 mb-md-4">
                 <div class="section-header mb-3">
                   <i class="fas fa-users text-primary me-2"></i>
-                  <span class="h5 mb-0 text-primary">Teams</span>
+                  <span class="h5 mb-0 text-primary">Teams ({{ event.teams?.length || 0 }})</span>
                 </div>
-                <TeamList
-                  :teams="teams"
-                  :event-id="props.id"
-                  :votingOpen="event.votingOpen"
-                  :organizerNamesLoading="organizerNamesLoading"
-                  :currentUserUid="currentUserId"
-                  class="card team-list-box p-0 shadow-sm animate-fade-in"
-                />
+                <div class="row g-3">
+                  <div class="col-12" :class="{ 'col-lg-6': teams.length > 2 }">
+                    <TeamList
+                      :teams="teams.slice(0, Math.ceil(teams.length / 2))"
+                      :event-id="props.id"
+                      :votingOpen="event.votingOpen"
+                      :organizerNamesLoading="organizerNamesLoading"
+                      :currentUserUid="currentUserId"
+                      class="card team-list-box p-0 shadow-sm animate-fade-in"
+                    />
+                  </div>
+                  <div v-if="teams.length > 2" class="col-12 col-lg-6">
+                    <TeamList
+                      :teams="teams.slice(Math.ceil(teams.length / 2))"
+                      :event-id="props.id"
+                      :votingOpen="event.votingOpen"
+                      :organizerNamesLoading="organizerNamesLoading"
+                      :currentUserUid="currentUserId"
+                      class="card team-list-box p-0 shadow-sm animate-fade-in"
+                    />
+                  </div>
+                </div>
               </div>
               <!-- Participant List (Individual/Competition) -->
-              <EventParticipantList
-                v-else
-                :participants="event.participants ?? []"
-                :loading="loading"
-                :currentUserId="currentUserId"
-                class="mb-4"
-              />
+              <div v-else class="mb-3 mb-md-4">
+                <div class="section-header mb-3">
+                  <i class="fas fa-user-friends text-primary me-2"></i>
+                  <span class="h5 mb-0 text-primary">Participants ({{ event.participants?.length || 0 }})</span>
+                </div>
+                <div class="row g-3">
+                  <div class="col-12" :class="{ 'col-lg-6': (event.participants?.length || 0) > 8 }">
+                    <EventParticipantList
+                      :participants="participantsFirstHalf"
+                      :loading="loading"
+                      :currentUserId="currentUserId"
+                      :show-header="false"
+                    />
+                  </div>
+                  <div v-if="(event.participants?.length || 0) > 8" class="col-12 col-lg-6">
+                    <EventParticipantList
+                      :participants="participantsSecondHalf"
+                      :loading="loading"
+                      :currentUserId="currentUserId"
+                      :show-header="false"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -115,48 +134,16 @@
                 :loading="loading"
                 :getUserName="getUserNameFromCache"
                 :canSubmitProject="canSubmitProject"
-                @open-submission-modal="triggerSubmitModalOpen"
+                @submission-success="handleSubmissionSuccess"
                 class="mb-4"
               />
-              <!-- Voting Section -->
-              <EventVotingTrigger
+
+              <!-- Voting/Winner Selection Section  -->
+              <VotingCard
                 :event="event"
                 :currentUser="currentUser"
-                :isCurrentUserParticipant="localIsCurrentUserParticipant"
-                :canRateOrganizer="canRateOrganizer"
                 :loading="loading"
-                :isCurrentUserOrganizer="localIsCurrentUserOrganizer"
-                class="mb-4"
-              >
-                 <template v-if="loading">
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
-                      <span class="small text-secondary">Loading eligibility...</span>
-                    </div>
-                 </template>
-                 <template v-else-if="!currentUser">
-                    <p class="small text-secondary fst-italic">Please log in to participate.</p>
-                 </template>
-                 <template v-else-if="event.status !== EventStatus.Completed">
-                    <p class="small text-secondary fst-italic">Voting available once event is completed.</p>
-                 </template>
-                 <template v-else-if="!canVoteInThisEvent">
-                    <p class="small text-secondary fst-italic">You are not eligible to vote in this event or voting is not open.</p>
-                 </template>
-                 <template v-else-if="hasUserVoted">
-                     <p class="alert alert-success alert-sm py-2 d-flex align-items-center mb-2">
-                         <i class="fas fa-check-circle me-2"></i> You have submitted your vote.
-                     </p>
-                     <button v-if="canEditSubmission" @click="openVotingForm" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center">
-                         <i class="fas fa-edit me-1"></i> Edit Vote
-                     </button>
-                 </template>
-                 <template v-else>
-                    <button @click="openVotingForm" class="btn btn-sm btn-primary d-inline-flex align-items-center mt-2">
-                      <i class="fas fa-vote-yea me-1"></i> Vote Now
-                    </button>
-                 </template>
-              </EventVotingTrigger>
+              />
 
               <!-- Organizer Rating Form -->
               <OrganizerRatingForm
@@ -164,59 +151,8 @@
                 :event-id="event.id"
                 :current-user-id="currentUser?.uid ?? ''"
                 :existing-ratings="event.organizerRatings || []"
-                class="mt-3"
+                class="mb-4"
               />
-            </div>
-          </div>
-        </div>
-
-        <!-- Submission Modal -->
-        <div
-          class="modal fade"
-          id="submissionModal"
-          tabindex="-1"
-          aria-labelledby="submissionModalLabel"
-          aria-hidden="true"
-          ref="submissionModalRef"
-          v-if="event?.details.allowProjectSubmission !== false"
-        >
-          <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 shadow-lg animate-fade-in">
-              <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title h5" id="submissionModalLabel"><i class="fas fa-upload me-2 text-primary"></i>Submit Your Project</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body">
-                <form @submit.prevent="handleSubmitProject" id="submissionFormInternal">
-                  <div class="mb-3">
-                    <label for="projectName" class="form-label small">Project Name <span class="text-danger">*</span></label>
-                    <input type="text" id="projectName" v-model="submissionForm.projectName" required class="form-control form-control-sm">
-                  </div>
-                  <div class="mb-3">
-                    <label for="projectLink" class="form-label small">Project Link (GitHub, Demo, etc.) <span class="text-danger">*</span></label>
-                    <input type="url" id="projectLink" v-model="submissionForm.link" required placeholder="https://..." class="form-control form-control-sm">
-                  </div>
-                  <div class="mb-3">
-                    <label for="projectDescription" class="form-label small">Brief Description</label>
-                    <textarea id="projectDescription" v-model="submissionForm.description" rows="3" class="form-control form-control-sm"></textarea>
-                  </div>
-                  <div v-if="submissionError" class="form-text text-danger d-flex align-items-center small"><i class="fas fa-exclamation-circle me-1"></i> {{ submissionError }}</div>
-                </form>
-              </div>
-              <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  @click="handleSubmitProject"
-                  :disabled="isSubmittingProject || actionInProgress"
-                  class="btn btn-sm btn-primary"
-                >
-                  <span v-if="isSubmittingProject" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                  {{ isSubmittingProject ? 'Submitting...' : 'Submit Project' }}
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -229,25 +165,25 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { useEvents } from '@/composables/useEvents'; // Use composable instead of direct store
+import { useEvents } from '@/composables/useEvents';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { useEventStore } from '@/stores/eventStore'; // Keep for join/leave actions that aren't in composable yet
+import { useEventStore } from '@/stores/eventStore';
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
-import EventParticipantList from '@/components/events/EventParticipantList.vue';
+import EventParticipantList from '@/components/events/ParticipantList.vue';
 import EventSubmissionsSection from '@/components/events/EventSubmissionsSection.vue';
-import EventVotingTrigger from '@/components/events/EventVotingTrigger.vue';
 import OrganizerRatingForm from '@/components/events/OrganizerRatingForm.vue';
 import TeamList from '@/components/events/TeamList.vue';
 import EventManageControls from '@/components/events/EventManageControls.vue';
 import EventDetailsSkeleton from '@/skeletons/EventDetailsSkeleton.vue';
 import SkeletonProvider from '@/skeletons/SkeletonProvider.vue';
 import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
+import VotingCard from '@/components/events/VotingCard.vue';
 
 // Type Imports
-import { EventStatus, type Event, type Team, type Submission, EventFormat, type EventCriterion } from '@/types/event';
-import { type EnrichedStudentData } from '@/types/student'; // Import EnrichedStudentData
+import { EventStatus, type Event, type Team, EventFormat } from '@/types/event';
+import { type EnrichedStudentData } from '@/types/student';
 
 // Import utility functions
 import { hasUserSubmittedVotes } from '@/utils/eventDataUtils';
@@ -259,21 +195,11 @@ import {
 } from '@/utils/permissionHelpers';
 
 // --- Local Types & Interfaces ---
-interface SubmissionFormData {
-	projectName: string;
-	link: string;
-	description: string;
-}
 interface FeedbackState {
 	message: string;
 	type: 'success' | 'error';
 }
-interface BootstrapModal {
-  show(): void;
-  hide(): void;
-  dispose(): void;
-  handleUpdate(): void;
-}
+
 interface EventHeaderProps {
   id: string;
   status: string;
@@ -301,8 +227,8 @@ const props = defineProps<Props>();
 
 // --- Composables ---
 const studentStore = useProfileStore();
-const { fetchEventById, submitProject } = useEvents(); // Use composable for data operations
-const eventStore = useEventStore(); // Keep for join/leave actions that aren't in composable yet
+const { fetchEventById } = useEvents(); // Remove submitProject from destructuring
+const eventStore = useEventStore();
 const notificationStore = useNotificationStore();
 const router = useRouter();
 const route = useRoute();
@@ -314,20 +240,14 @@ const teams = ref<Team[]>([]);
 const initialFetchError = ref<string>('');
 const nameCache = ref<Map<string, string>>(new Map());
 const organizerNamesLoading = ref<boolean>(false);
-const submissionModalRef = ref<HTMLElement | null>(null);
-let submissionModalInstance: BootstrapModal | null = null;
-
-const submissionForm = ref<SubmissionFormData>({ projectName: '', link: '', description: '' });
-const submissionError = ref<string>('');
-const isSubmittingProject = ref<boolean>(false);
-const actionInProgress = ref<boolean>(false);
 const isJoining = ref(false);
 const isLeaving = ref(false);
 const globalFeedback = ref<FeedbackState>({ message: '', type: 'success' });
+const actionInProgress = ref<boolean>(false);
 
 // --- Computed Properties ---
-const currentUserId = computed<string | null>(() => studentStore.studentId); // Corrected to use studentId getter
-const currentUser = computed<EnrichedStudentData | null>(() => studentStore.currentStudent); // Uses EnrichedStudentData
+const currentUserId = computed<string | null>(() => studentStore.studentId);
+const currentUser = computed<EnrichedStudentData | null>(() => studentStore.currentStudent);
 
 const nameCacheRecord = computed(() => Object.fromEntries(nameCache.value));
 const isTeamEvent = computed<boolean>(() => event.value?.details.format === EventFormat.Team);
@@ -351,19 +271,19 @@ const allAssociatedUserIds = computed<string[]>(() => {
         (event.value.participants || []).forEach(id => { if (id) userIds.add(id); });
     }
     (event.value.submissions || []).forEach(sub => { if (sub.submittedBy) userIds.add(sub.submittedBy); });
-    (event.value.organizerRatings || []).forEach(rating => { if (rating.userId) userIds.add(rating.userId); }); // Corrected to organizerRatings
+    (event.value.organizerRatings || []).forEach(rating => { if (rating.userId) userIds.add(rating.userId); });
 
     return Array.from(userIds).filter(Boolean);
 });
 
 const canJoin = computed(() => {
-  if (!event.value || !currentUser.value || event.value.closedAt) return false;
+  if (!event.value || !currentUser.value) return false;
   if (localIsCurrentUserOrganizer.value || localIsCurrentUserParticipant.value) return false;
   return [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
 });
 
 const canLeave = computed(() => {
-  if (!event.value || !currentUser.value || event.value.closedAt) return false;
+  if (!event.value || !currentUser.value) return false;
   if (localIsCurrentUserOrganizer.value) return false;
   return localIsCurrentUserParticipant.value && [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
 });
@@ -372,27 +292,26 @@ const canSubmitProject = computed(() =>
   event.value && currentUser.value ? canUserSubmitToEvent(event.value, currentUser.value) : false
 );
 
-const hasUserVoted = computed(() => {
-  return hasUserSubmittedVotes(event.value, currentUser.value?.uid || null);
-});
-
-const canEditSubmission = computed(() => {
-    return hasUserVoted.value && event.value?.votingOpen === true;
-});
-
 const canRateOrganizer = computed(() => {
-  if (!event.value || !currentUser.value || event.value.closedAt) return false;
+  if (!event.value || !currentUser.value) return false;
   return localIsCurrentUserParticipant.value &&
          !localIsCurrentUserOrganizer.value &&
-         event.value.status === EventStatus.Completed; // Only allow rating for 'Completed' events
+         event.value.status === EventStatus.Completed;
 });
 
-const canVoteInThisEvent = computed(() =>
-  event.value && currentUser.value ? canUserVoteInEvent(event.value, currentUser.value) : false
-);
+// Add computed properties for splitting participants
+const participantsFirstHalf = computed(() => {
+  const participants = event.value?.participants ?? [];
+  return participants.slice(0, Math.ceil(participants.length / 2));
+});
+
+const participantsSecondHalf = computed(() => {
+  const participants = event.value?.participants ?? [];
+  return participants.slice(Math.ceil(participants.length / 2));
+});
 
 // --- Methods ---
-function setGlobalFeedback(message: string, type: 'success' | 'error' = 'success', duration: number = 4000): void {
+function setGlobalFeedback(message: string, type: 'success' | 'error' = 'success', duration: number = 5000): void {
   globalFeedback.value = { message, type };
   if (duration > 0) {
     setTimeout(clearGlobalFeedback, duration);
@@ -454,57 +373,9 @@ async function fetchData(): Promise<void> {
   }
 }
 
-const getOrCreateModalInstance = (): BootstrapModal | null => {
-    if (!submissionModalRef.value || !window.bootstrap?.Modal) return null;
-    if (!submissionModalInstance) {
-        submissionModalInstance = new window.bootstrap.Modal(submissionModalRef.value);
-    }
-    return submissionModalInstance;
-};
-
-const triggerSubmitModalOpen = (): void => {
-  submissionForm.value = { projectName: '', link: '', description: '' };
-  submissionError.value = '';
-  getOrCreateModalInstance()?.show();
-};
-
-const handleSubmitProject = async (): Promise<void> => {
-    if (!submissionForm.value.projectName || !submissionForm.value.link) {
-        submissionError.value = 'Project Name and Link are required.';
-        return;
-    }
-    if (!currentUserId.value) {
-        submissionError.value = 'You must be logged in to submit.';
-        return;
-    }
-    if (!event.value) {
-        submissionError.value = 'Event data not loaded.';
-        return;
-    }
-    try { new URL(submissionForm.value.link); } catch (_) {
-        submissionError.value = 'Please enter a valid URL (e.g., https://github.com/...).'; return;
-    }
-
-    submissionError.value = '';
-    isSubmittingProject.value = true;
-    actionInProgress.value = true;
-
-    try {
-        await submitProject(props.id, {
-            projectName: submissionForm.value.projectName.trim(),
-            link: submissionForm.value.link.trim(),
-            description: submissionForm.value.description.trim() || undefined,
-        });
-        setGlobalFeedback('Project submitted successfully!', 'success');
-        getOrCreateModalInstance()?.hide();
-        await fetchData();
-    } catch (error: any) {
-        console.error("Project submission error:", error);
-        submissionError.value = error.message || 'Failed to submit project.';
-    } finally {
-        isSubmittingProject.value = false;
-        actionInProgress.value = false;
-    }
+const handleSubmissionSuccess = (): void => {
+  setGlobalFeedback('Project submitted successfully!', 'success');
+  fetchData(); // Refresh data to show new submission
 };
 
 const handleJoin = async (): Promise<void> => {
@@ -512,7 +383,7 @@ const handleJoin = async (): Promise<void> => {
     isJoining.value = true;
     actionInProgress.value = true;
     try {
-        await eventStore.joinEvent(props.id); // Keep using store for join action
+        await eventStore.joinEvent(props.id);
         setGlobalFeedback('Successfully joined the event!', 'success');
         await fetchData();
     } catch (error: any) {
@@ -530,7 +401,7 @@ const handleLeave = async (): Promise<void> => {
     isLeaving.value = true;
     actionInProgress.value = true;
     try {
-        await eventStore.leaveEvent(props.id); // Keep using store for leave action
+        await eventStore.leaveEvent(props.id);
         setGlobalFeedback('Successfully left the event.', 'success');
         await fetchData();
     } catch (error: any) {
@@ -541,16 +412,11 @@ const handleLeave = async (): Promise<void> => {
     }
 };
 
-const openVotingForm = (): void => {
-  if (!event.value) return;
-  router.push({ name: 'SelectionForm', params: { eventId: props.id } });
-};
-
 const mapEventToHeaderProps = (evt: Event): EventHeaderProps => ({
     id: evt.id,
     status: evt.status,
     title: evt.details.eventName || evt.details.type || 'Event',
-    closed: !!evt.closedAt,
+    closed: evt.status === EventStatus.Completed || evt.status === EventStatus.Cancelled,
     teams: evt.teams,
     participants: evt.participants,
     details: {
@@ -565,25 +431,12 @@ const mapEventToHeaderProps = (evt: Event): EventHeaderProps => ({
     }
 });
 
-const modalHiddenHandler = () => {
-    submissionForm.value = { projectName: '', link: '', description: '' };
-    submissionError.value = '';
-};
-
 // --- Lifecycle Hooks ---
 onMounted(() => {
   fetchData();
-  if (submissionModalRef.value) {
-    submissionModalRef.value.addEventListener('hidden.bs.modal', modalHiddenHandler);
-  }
 });
 
 onBeforeUnmount(() => {
-  if (submissionModalRef.value) {
-    submissionModalRef.value.removeEventListener('hidden.bs.modal', modalHiddenHandler);
-  }
-  submissionModalInstance?.dispose();
-  submissionModalInstance = null;
 });
 
 watch(() => props.id, (newId, oldId) => {
@@ -603,10 +456,28 @@ defineExpose({ handleJoin, handleLeave });
   padding-top: 1rem;
   padding-bottom: 4rem;
 }
-.event-details-view { max-width: 1280px; margin-left: auto; margin-right: auto; }
-@media (max-width: 991.98px) { .event-details-view { padding-left: 1rem; padding-right: 1rem; } }
-@media (max-width: 767.98px) { .sticky-lg-top { position: static; } }
-.submit-fab { position: sticky; top: 80px; float: right; z-index: 10; }
+.event-details-view { 
+  max-width: 1280px; 
+  margin-left: auto; 
+  margin-right: auto; 
+}
+@media (max-width: 991.98px) { 
+  .event-details-view { 
+    padding-left: 1rem; 
+    padding-right: 1rem; 
+  } 
+}
+@media (max-width: 767.98px) { 
+  .sticky-lg-top { 
+    position: static; 
+  } 
+}
+.submit-fab { 
+  position: sticky; 
+  top: 80px; 
+  float: right; 
+  z-index: 10; 
+}
 .submit-fab-mobile {
   position: fixed;
   bottom: calc(64px + 1rem);
@@ -621,18 +492,83 @@ defineExpose({ handleJoin, handleLeave });
   font-size: 1.5rem;
   box-shadow: var(--bs-box-shadow-lg);
 }
-@media (min-width: 768px) { .submit-fab-mobile { display: none !important; } }
-@media (max-width: 767.98px) { .submit-fab { display: none !important; } }
-.section-header { display: flex; align-items: center; font-size: 1.1rem; font-weight: 600; gap: 0.6rem; color: var(--bs-body-color); margin-bottom: 1rem; }
-.team-list-box, .card { border-radius: var(--bs-border-radius-lg); border: 1px solid var(--bs-border-color-translucent); box-shadow: var(--bs-box-shadow-sm); overflow: hidden; background-color: var(--bs-card-bg); }
-.animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-.fade-pop-enter-active { animation: fadeIn .5s ease; }
-.fade-pop-leave-active { animation: fadeOut .3s ease forwards; }
-@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
-.modal.fade .modal-dialog { transition: transform .3s ease-out; transform: translateY(-25px); }
-.modal.show .modal-dialog { transform: none; }
-.modal-content { border-radius: var(--bs-border-radius-lg); border: none; }
-.sticky-lg-top { position: sticky; top: 80px; z-index: 5; }
-.alert-sm { padding: 0.5rem 0.75rem; font-size: 0.875em; }
+@media (min-width: 768px) { 
+  .submit-fab-mobile { 
+    display: none !important; 
+  } 
+}
+@media (max-width: 767.98px) { 
+  .submit-fab { 
+    display: none !important; 
+  } 
+}
+.section-header { 
+  display: flex; 
+  align-items: center; 
+  font-size: 1.1rem; 
+  font-weight: 600; 
+  gap: 0.6rem; 
+  color: var(--bs-body-color); 
+  margin-bottom: 1rem; 
+}
+.team-list-box, .card { 
+  border-radius: var(--bs-border-radius-lg); 
+  border: 1px solid var(--bs-border-color-translucent); 
+  box-shadow: var(--bs-box-shadow-sm); 
+  overflow: hidden; 
+  background-color: var(--bs-card-bg); 
+}
+.animate-fade-in { 
+  animation: fadeIn 0.5s ease-out forwards; 
+}
+@keyframes fadeIn { 
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  } 
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  } 
+}
+.fade-pop-enter-active { 
+  animation: fadeIn .5s ease; 
+}
+.fade-pop-leave-active { 
+  animation: fadeOut .3s ease forwards; 
+}
+@keyframes fadeOut { 
+  from { 
+    opacity: 1; 
+  } 
+  to { 
+    opacity: 0; 
+  } 
+}
+.modal.fade .modal-dialog { 
+  transition: transform .3s ease-out; 
+  transform: translateY(-25px); 
+}
+.modal.show .modal-dialog { 
+  transform: none; 
+}
+.modal-content { 
+  border-radius: var(--bs-border-radius-lg); 
+  border: none; 
+}
+.sticky-lg-top { 
+  position: sticky; 
+  top: 80px; 
+  z-index: 5; 
+}
+.alert-sm { 
+  padding: 0.5rem 0.75rem; 
+  font-size: 0.875em; 
+}
+.btn-close {
+  font-size: 0.75rem;
+}
+.card-header {
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+}
 </style>

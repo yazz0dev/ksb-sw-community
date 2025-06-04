@@ -83,7 +83,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { UserCredential } from 'firebase/auth';
 import { useProfileStore } from '@/stores/profileStore';
 import { useAppStore } from '@/stores/appStore';
-import { setAuthPersistence, signInWithEmail } from '@/services/authService'; // Import from authService
+import { signInWithEmail } from '@/services/authService'; // Import from authService
 
 const email = ref<string>('');
 const password = ref<string>('');
@@ -119,39 +119,56 @@ const signIn = async (): Promise<void> => {
     errorMessage.value = '';
     isLoading.value = true;
     appStore.setIsProcessingLogin(true);
+    studentStore.clearError(); // Clear any previous errors from profile store
     
     try {
-        // Ensure auth persistence is set before attempting to sign in
-        await setAuthPersistence();
-        
         // Use the authService signInWithEmail method instead of direct Firebase call
         const userCredential = await signInWithEmail(email.value.trim(), password.value);
         
         // Force update store authentication state
+        // This might throw an error (caught below) or complete but set studentStore.error (e.g., profile not found)
         await studentStore.handleAuthStateChange(userCredential.user);
         
-        // Process login success after store is updated
-        await processLoginSuccess(userCredential.user);
-    } catch (error: any) {
-        switch (error.code) {
-            case 'auth/invalid-email':
-            case 'auth/missing-email':
-                errorMessage.value = 'Please enter a valid email address.';
-                break;
-            case 'auth/user-disabled':
-                errorMessage.value = 'This user account has been disabled.';
-                break;
-            case 'auth/user-not-found':
-            case 'auth/wrong-password':
-            case 'auth/invalid-credential':
-                errorMessage.value = 'Invalid email or password.';
-                break;
-            default:
-                errorMessage.value = 'An error occurred during sign in. Please try again.';
+        if (studentStore.error) {
+            // Profile store handled the auth change but encountered an issue (e.g., profile not found)
+            errorMessage.value = studentStore.error;
+            appStore.setIsProcessingLogin(false); // Explicitly set false as processLoginSuccess is skipped
+        } else if (!studentStore.currentStudent) {
+            // Fallback: auth change processed, no error set from store, but student data still missing
+            errorMessage.value = "Login successful, but critical user data could not be loaded. Please contact support.";
+            appStore.setIsProcessingLogin(false); // Explicitly set false
+        } else {
+            // All good, student profile loaded, proceed to redirect logic
+            await processLoginSuccess(userCredential.user);
+            // processLoginSuccess will call appStore.setIsProcessingLogin(false) in its finally block
         }
-        appStore.setIsProcessingLogin(false); // Reset on error
+    } catch (error: any) { // Catches errors from signInWithEmail or if studentStore.handleAuthStateChange throws
+        if (studentStore.error) { // Prefer error message from studentStore if it was set during a thrown error
+            errorMessage.value = studentStore.error;
+        } else {
+            // Handle Firebase auth errors (invalid email, wrong password, etc.)
+            switch (error.code) {
+                case 'auth/invalid-email':
+                case 'auth/missing-email':
+                    errorMessage.value = 'Please enter a valid email address.';
+                    break;
+                case 'auth/user-disabled':
+                    errorMessage.value = 'This user account has been disabled.';
+                    break;
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                case 'auth/invalid-credential':
+                    errorMessage.value = 'Invalid email or password.';
+                    break;
+                default:
+                    errorMessage.value = error.message || 'An error occurred during sign in. Please try again.';
+            }
+        }
+        appStore.setIsProcessingLogin(false); // Reset on any caught error
     } finally {
         isLoading.value = false;
+        // appStore.setIsProcessingLogin(false) is now handled within the try/catch blocks
+        // or by processLoginSuccess's own finally block.
     }
 };
 </script>

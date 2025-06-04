@@ -12,7 +12,7 @@
               :id="`criterion-label-${idx}`"
               class="form-control form-control-sm"
               type="text"
-              v-model.trim="criterion.constraintLabel"
+              v-model.trim="criterion.title"
               placeholder="Enter criterion name (e.g., Code Quality, Creativity)"
               :disabled="isSubmitting || isBestPerformerCriterion(criterion)"
               required
@@ -72,7 +72,7 @@
           </div>
         </div>
         <!-- Validation message for label -->
-        <small v-if="!criterion.constraintLabel && !isBestPerformerCriterion(criterion)" class="text-danger d-block mt-1">
+        <small v-if="!criterion.title && !isBestPerformerCriterion(criterion)" class="text-danger d-block mt-1">
             Criterion name is required.
         </small>
          <!-- Validation message for role -->
@@ -103,7 +103,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, nextTick } from 'vue';
-import { EventFormat, type EventCriterion } from '@/types/event'; // Use EventCriterion
+import { EventFormat, type EventCriteria } from '@/types/event'; // Use EventCriteria
 import { formatRoleName } from '@/utils/formatters';
 import {
   BEST_PERFORMER_LABEL,
@@ -119,7 +119,7 @@ const MAX_USER_CRITERIA_CONST = MAX_USER_CRITERIA; // Expose to template
 
 // --- Props & Emits ---
 interface Props {
-  criteria: EventCriterion[]; // Use EventCriterion
+  criteria: EventCriteria[]; // Use EventCriteria
   isSubmitting: boolean;
   eventFormat: EventFormat;
   assignableXpRoles: readonly string[];
@@ -129,35 +129,38 @@ const props = defineProps<Props>();
 const emit = defineEmits(['update:criteria']);
 
 // --- State ---
-const localCriteria = ref<EventCriterion[]>([]); // Use EventCriterion
+const localCriteria = ref<EventCriteria[]>([]); // Use EventCriteria
 
 // --- Helper Functions ---
-const isBestPerformerCriterion = (criterion: EventCriterion): boolean => { // Use EventCriterion
-  return criterion.constraintLabel === BEST_PERFORMER_LABEL;
+const isBestPerformerCriterion = (criterion: EventCriteria): boolean => { // Use EventCriteria
+  return criterion.title === BEST_PERFORMER_LABEL;
 };
 
-const createBestPerformerCriterion = (): EventCriterion => ({ // Return EventCriterion
+const createBestPerformerCriterion = (): EventCriteria => ({ // Return EventCriteria
   constraintIndex: -1,
-  constraintLabel: BEST_PERFORMER_LABEL,
+  title: BEST_PERFORMER_LABEL,
   points: BEST_PERFORMER_POINTS,
   role: '',
-  selections: {} // Changed from criteriaSelections
+  votes: {} 
 });
 
-function createDefaultCriterion(): EventCriterion { // Return EventCriterion
+function createDefaultCriterion(): EventCriteria { // Return EventCriteria
   const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
   return {
     constraintIndex: uniqueId,
-    constraintLabel: DEFAULT_CRITERION_LABEL,
+    title: DEFAULT_CRITERION_LABEL,
     points: DEFAULT_CRITERION_POINTS,
     role: props.assignableXpRoles[0] || '',
-    selections: {} // Changed from criteriaSelections
+    votes: {} 
   };
 }
 
 // --- Computed Properties ---
+const userAddedCriteria = computed(() => {
+  return localCriteria.value.filter(c => !isBestPerformerCriterion(c));
+});
 const userAddedCriteriaCount = computed(() => {
-  return localCriteria.value.filter(c => !isBestPerformerCriterion(c)).length;
+  return userAddedCriteria.value.length;
 });
 
 const canAddMoreCriteria = computed(() => {
@@ -171,7 +174,7 @@ watch(
   ([newCriteria, newFormat], [oldCriteria, oldFormat]) => {
     if (isUpdatingFromProp) return;
     
-    let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as EventCriterion[];
+    let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as EventCriteria[];
 
     if (newFormat !== oldFormat) {
       if (newFormat === EventFormat.Competition) {
@@ -215,17 +218,17 @@ watch(localCriteria, (newVal) => {
 }, { deep: true });
 
 // --- Methods ---
-function getCriterionKey(criterion: EventCriterion, index: number): string | number { // Use EventCriterion
+function getCriterionKey(criterion: EventCriteria, index: number): string | number { // Use EventCriteria
   if (typeof criterion.constraintIndex === 'number' && criterion.constraintIndex !== 0) {
     return criterion.constraintIndex;
   }
-  return criterion.constraintLabel || `temp-${index}`;
+  return criterion.title || `temp-${index}`;
 }
 
 function addCriterion() {
   if (!canAddMoreCriteria.value) return;
   const newCriterion = createDefaultCriterion();
-  newCriterion.constraintLabel = '';
+  newCriterion.title = '';
   newCriterion.points = 1;
   const bestPerformerIndex = localCriteria.value.findIndex(isBestPerformerCriterion);
   const insertIndex = bestPerformerIndex !== -1 ? bestPerformerIndex : localCriteria.value.length;

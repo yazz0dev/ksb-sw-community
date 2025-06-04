@@ -81,7 +81,7 @@
 import { computed, PropType, ref, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore'; // Corrected import
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, type Event, EventFormat, type EventCriterion } from '@/types/event'; // Added EventCriterion
+import { EventStatus, type Event, EventFormat, type EventCriteria } from '@/types/event'; // Added EventCriteria
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 

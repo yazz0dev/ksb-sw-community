@@ -37,17 +37,14 @@ export interface EventDetails {
   prize?: string;
 }
 
-export interface EventCriterion {
+export interface EventCriteria {
   constraintIndex: number;
-  constraintLabel: string;
+  title: string;
   constraintKey?: string;
-  title?: string; // Add title property for backward compatibility
   points: number;
-  role: XpCalculationRoleKey | string;
+  role: XpCalculationRoleKey | 'xp_developer' | 'xp_designer' | 'xp_presenter' | 'xp_problemSolver' | string;
   targetRole?: string;
-  selections?: Record<string, string>;
-  criteriaSelections?: Record<string, string>; // Add this property for backward compatibility
-  votes?: Record<string, string>; // Add votes property for storing user votes
+  votes?: Record<string, string>; 
 }
 
 
@@ -78,8 +75,12 @@ export interface OrganizerRating {
 }
 
 export interface EventLifecycleTimestamps {
+  approvedAt?: Timestamp;
+  startedAt?: Timestamp;
   rejectedAt?: Timestamp;
   completedAt?: Timestamp;
+  cancelledAt?: Timestamp;
+  closedAt?: Timestamp;
 }
 
 export interface GalleryItem {
@@ -95,7 +96,7 @@ export interface Event {
   status: EventStatus;
   requestedBy: string;
 
-  criteria?: EventCriterion[];
+  criteria?: EventCriteria[];
   participants?: string[];
   teams?: Team[];
   teamMemberFlatList?: string[];
@@ -110,7 +111,6 @@ export interface Event {
 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
-  closedAt?: Timestamp;
   lifecycleTimestamps?: EventLifecycleTimestamps;
   rejectionReason?: string;
 }
@@ -131,7 +131,7 @@ export interface EventFormData {
     allowProjectSubmission: boolean;
     prize?: string;
   };
-  criteria: EventCriterion[];
+  criteria: EventCriteria[];
   teams?: Team[];
   status?: EventStatus;
 
@@ -150,8 +150,6 @@ export interface EventFormData {
 
   createdAt?: Timestamp;
   lastUpdatedAt?: Timestamp;
-  completedAt?: Timestamp;
-  closedAt?: Timestamp;
   rejectionReason?: string | null;
   manuallySelectedBy?: string;
 }

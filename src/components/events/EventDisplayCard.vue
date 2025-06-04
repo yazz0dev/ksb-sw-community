@@ -70,7 +70,7 @@
                    <i class="fas fa-star fa-fw"></i>
                  </span>
                  <!-- Use imported formatRoleName -->
-                 <span>{{ alloc.constraintLabel || 'Unnamed Criteria' }}: <span class="fw-medium">{{ alloc.points }} XP</span> <span class="text-muted ms-1">({{ formatRoleName(alloc.role || '') }})</span></span>
+                 <span>{{ alloc.title || 'Unnamed Criteria' }}: <span class="fw-medium">{{ alloc.points }} XP</span> <span class="text-muted ms-1">({{ formatRoleName(alloc.role || '') }})</span></span>
              </li>
          </ul>
      </div>

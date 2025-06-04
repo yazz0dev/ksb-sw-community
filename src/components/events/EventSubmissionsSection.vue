@@ -3,7 +3,7 @@
   <div class="card submissions-box shadow-sm mb-4 animate-fade-in">
     <div class="card-header d-flex justify-content-between align-items-center bg-light">
       <span class="h6 mb-0"><i class="fas fa-upload text-primary me-2"></i>Project Submissions</span>
-      <button v-if="canSubmitProject" class="btn btn-sm btn-primary" @click="$emit('open-submission-modal')">
+      <button v-if="canSubmitProject" class="btn btn-sm btn-primary" @click="openSubmissionModal">
         <i class="fas fa-plus me-1"></i>Submit
       </button>
     </div>
@@ -51,14 +51,105 @@
         </template>
       </template>
     </div>
+
+    <!-- Submission Modal -->
+    <div
+      class="modal fade"
+      id="submissionModal"
+      tabindex="-1"
+      aria-labelledby="submissionModalLabel"
+      aria-hidden="true"
+      ref="submissionModalRef"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 shadow-lg">
+          <div class="modal-header border-0 pb-2">
+            <h5 class="modal-title h5" id="submissionModalLabel">
+              <i class="fas fa-upload me-2 text-primary"></i>Submit Your Project
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="handleSubmitProject">
+              <div class="mb-3">
+                <label for="projectName" class="form-label">Project Name <span class="text-danger">*</span></label>
+                <input 
+                  type="text" 
+                  id="projectName" 
+                  v-model="submissionForm.projectName" 
+                  required 
+                  class="form-control"
+                  placeholder="Enter your project name"
+                >
+              </div>
+              <div class="mb-3">
+                <label for="projectLink" class="form-label">Project Link <span class="text-danger">*</span></label>
+                <input 
+                  type="url" 
+                  id="projectLink" 
+                  v-model="submissionForm.link" 
+                  required 
+                  placeholder="https://github.com/username/project or https://demo.example.com" 
+                  class="form-control"
+                >
+                <div class="form-text">Provide a link to your GitHub repository, demo, or project documentation.</div>
+              </div>
+              <div class="mb-3">
+                <label for="projectDescription" class="form-label">Brief Description</label>
+                <textarea 
+                  id="projectDescription" 
+                  v-model="submissionForm.description" 
+                  rows="4" 
+                  class="form-control"
+                  placeholder="Describe what your project does, technologies used, and any key features..."
+                ></textarea>
+              </div>
+              <div v-if="submissionError" class="alert alert-danger d-flex align-items-center">
+                <i class="fas fa-exclamation-circle me-2"></i> 
+                {{ submissionError }}
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer border-0 pt-2">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              Cancel
+            </button>
+            <button
+              type="button"
+              @click="handleSubmitProject"
+              :disabled="isSubmittingProject"
+              class="btn btn-primary"
+            >
+              <span v-if="isSubmittingProject" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              {{ isSubmittingProject ? 'Submitting...' : 'Submit Project' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Event, Team, Submission } from '@/types/event'; // Submission type is needed
-import { computed } from 'vue'; // Import computed
+import type { Event, Team, Submission } from '@/types/event';
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
+import { useEvents } from '@/composables/useEvents';
+import { useProfileStore } from '@/stores/profileStore';
 
-const props = defineProps<{ // props are already defined
+// Add submission form interfaces and types
+interface SubmissionFormData {
+  projectName: string;
+  link: string;
+  description: string;
+}
+
+interface BootstrapModal {
+  show(): void;
+  hide(): void;
+  dispose(): void;
+}
+
+const props = defineProps<{
   event: Event;
   teams: Team[]; 
   loading: boolean;
@@ -66,7 +157,18 @@ const props = defineProps<{ // props are already defined
   canSubmitProject: boolean;
 }>();
 
-defineEmits(['open-submission-modal']); // emit is defined
+const emit = defineEmits(['submission-success']);
+
+// Composables
+const { submitProject } = useEvents();
+const studentStore = useProfileStore();
+
+// Submission modal state
+const submissionModalRef = ref<HTMLElement | null>(null);
+let submissionModalInstance: BootstrapModal | null = null;
+const submissionForm = ref<SubmissionFormData>({ projectName: '', link: '', description: '' });
+const submissionError = ref<string>('');
+const isSubmittingProject = ref<boolean>(false);
 
 // Helper to get submissions for a specific team
 const getTeamSubmissions = (teamName: string): Submission[] => {
@@ -75,6 +177,73 @@ const getTeamSubmissions = (teamName: string): Submission[] => {
   }
   return props.event.submissions.filter(sub => sub.teamName === teamName);
 };
+
+// Modal management
+const getOrCreateModalInstance = (): BootstrapModal | null => {
+  if (!submissionModalRef.value || !window.bootstrap?.Modal) return null;
+  if (!submissionModalInstance) {
+    submissionModalInstance = new window.bootstrap.Modal(submissionModalRef.value);
+  }
+  return submissionModalInstance;
+};
+
+const openSubmissionModal = (): void => {
+  submissionForm.value = { projectName: '', link: '', description: '' };
+  submissionError.value = '';
+  getOrCreateModalInstance()?.show();
+};
+
+const handleSubmitProject = async (): Promise<void> => {
+  if (!submissionForm.value.projectName || !submissionForm.value.link) {
+    submissionError.value = 'Project Name and Link are required.';
+    return;
+  }
+  
+  try { 
+    new URL(submissionForm.value.link); 
+  } catch (_) {
+    submissionError.value = 'Please enter a valid URL (e.g., https://github.com/...).'; 
+    return;
+  }
+
+  submissionError.value = '';
+  isSubmittingProject.value = true;
+
+  try {
+    await submitProject(props.event.id, {
+      projectName: submissionForm.value.projectName.trim(),
+      link: submissionForm.value.link.trim(),
+      description: submissionForm.value.description.trim() || undefined,
+    });
+    
+    getOrCreateModalInstance()?.hide();
+    emit('submission-success');
+  } catch (error: any) {
+    console.error("Project submission error:", error);
+    submissionError.value = error.message || 'Failed to submit project.';
+  } finally {
+    isSubmittingProject.value = false;
+  }
+};
+
+const modalHiddenHandler = () => {
+  submissionForm.value = { projectName: '', link: '', description: '' };
+  submissionError.value = '';
+};
+
+onMounted(() => {
+  if (submissionModalRef.value) {
+    submissionModalRef.value.addEventListener('hidden.bs.modal', modalHiddenHandler);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (submissionModalRef.value) {
+    submissionModalRef.value.removeEventListener('hidden.bs.modal', modalHiddenHandler);
+  }
+  submissionModalInstance?.dispose();
+  submissionModalInstance = null;
+});
 </script>
 
 <style scoped>

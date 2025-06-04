@@ -1,4 +1,4 @@
-import { Event, EventCriterion, EventFormat, EventStatus } from '@/types/event';
+import { Event, EventCriteria, EventFormat, EventStatus } from '@/types/event';
 import { BEST_PERFORMER_LABEL } from '@/utils/constants';
 
 /**
@@ -23,16 +23,16 @@ export function hasUserSubmittedVotes(event: Event | null, userId: string | null
   const criteriaArray = Array.isArray(event.criteria) ? event.criteria : [];
   
   if (event.details?.format === EventFormat.Team) {
-    const criteriaVoted = criteriaArray.some((c: EventCriterion) => 
-      c.criteriaSelections && c.criteriaSelections[userId] !== undefined
+    const criteriaVoted = criteriaArray.some((c: EventCriteria) => 
+      c.votes&& c.votes[userId] !== undefined
     );
     const bestPerformerVoted = !!(event.bestPerformerSelections && 
       event.bestPerformerSelections[userId] !== undefined);
     
     return criteriaVoted || bestPerformerVoted;
   } else {
-    return criteriaArray.some((c: EventCriterion) => 
-      c.criteriaSelections && c.criteriaSelections[userId] !== undefined
+    return criteriaArray.some((c: EventCriteria) => 
+      c.votes&& c.votes[userId] !== undefined
     );
   }
 }
@@ -46,16 +46,16 @@ export function hasUserSubmittedVotes(event: Event | null, userId: string | null
 export function getValidCriteria(
   event: Event | null, 
   excludeBestPerformer: boolean = false
-): EventCriterion[] {
+): EventCriteria[] {
   if (!event || !Array.isArray(event.criteria)) return [];
   
   return event.criteria.filter(c => {
-    const hasLabel = !!c.constraintLabel;
+    const hasLabel = !!c.title;
     const hasValidPoints = typeof c.points === 'number' && c.points > 0;
     const hasValidIndex = typeof c.constraintIndex === 'number';
     
     // Skip best performer if requested
-    const isBestPerformer = c.constraintLabel === BEST_PERFORMER_LABEL;
+    const isBestPerformer = c.title === BEST_PERFORMER_LABEL;
     if (excludeBestPerformer && isBestPerformer) {
       return false;
     }
@@ -104,20 +104,20 @@ export function createTeamVotePayload(
 export function createIndividualVotePayload(
   eventId: string,
   winnerVotes: Record<string, string>
-): { eventId: string; winnerSelections: Record<string, string> } {
-  const winnerSelections: Record<string, string> = {};
+): { eventId: string; winnervotes: Record<string, string> } {
+  const winnervotes: Record<string, string> = {};
   
   Object.entries(winnerVotes).forEach(([key, value]) => {
     // Extract constraint index from keys like "constraint0" 
     const constraintIndex = key.replace('constraint', '');
     if (value) {
-      winnerSelections[constraintIndex] = value;
+      winnervotes[constraintIndex] = value;
     }
   });
   
   return {
     eventId,
-    winnerSelections
+    winnervotes
   };
 }
 
@@ -132,23 +132,49 @@ export function createManualWinnerPayload(
   eventId: string,
   manualSelections: Record<string, string>,
   bestPerformerSelection?: string
-): { eventId: string; winnerSelections: Record<string, string[]> } {
-  const winnerSelections: Record<string, string[]> = {};
+): { eventId: string; winnervotes: Record<string, string[]> } {
+  const winnervotes: Record<string, string[]> = {};
   
   Object.entries(manualSelections).forEach(([key, value]) => {
     // Extract constraint index from keys like "constraint0"
     const constraintIndex = key.replace('constraint', '');
     if (value) {
-      winnerSelections[constraintIndex] = [value];
+      winnervotes[constraintIndex] = [value];
     }
   });
   
   if (bestPerformerSelection) {
-    winnerSelections['bestPerformer'] = [bestPerformerSelection];
+    winnervotes['bestPerformer'] = [bestPerformerSelection];
   }
   
   return {
     eventId,
-    winnerSelections
+    winnervotes
   };
+}
+
+/**
+ * Checks if a student has voted for an event
+ * @param event The event object
+ * @param userId The user's ID
+ * @returns boolean indicating if the student has voted
+ */
+export function hasStudentVotedForEvent(event: Event | null, userId: string | null): boolean {
+  if (!event || !userId || !event.criteria) return false;
+  return event.criteria.some(c =>
+    c.votes && c.votes[userId] !== undefined
+  );
+}
+
+/**
+ * Gets the student's vote for a specific criterion
+ * @param event The event object
+ * @param userId The user's ID
+ * @param criterionConstraintIndex The constraint index of the criterion
+ * @returns The vote value or undefined if not voted
+ */
+export function getStudentVoteForCriterion(event: Event | null, userId: string | null, criterionConstraintIndex: number | string): string | undefined {
+  if (!event || !userId || !event.criteria) return undefined;
+  const criterion = event.criteria.find(c => c.constraintIndex === criterionConstraintIndex);
+  return criterion?.votes?.[userId];
 }

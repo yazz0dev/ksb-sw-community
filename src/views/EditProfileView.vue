@@ -180,28 +180,49 @@ async function saveProfileEdits() {
   error.value = '';
 
   try {
-    // If there's a new image but upload failed due to CORS, we'll skip image update
     let finalPhotoURL = form.value.photoURL;
     
-    // Check if the photoURL looks like a blob URL (indicating a new upload that might have failed)
     if (form.value.photoURL && form.value.photoURL.startsWith('blob:')) {
       console.warn('Image upload may have failed due to CORS. Skipping image update.');
-      finalPhotoURL = studentStore.currentStudent?.photoURL || ''; // Keep existing photo
+      finalPhotoURL = studentStore.currentStudent?.photoURL || ''; 
       notificationStore.showNotification({ 
         message: 'Note: Image upload failed due to configuration. Profile updated without new image.', 
         type: 'warning' 
       });
     }
 
+    // Prepare skills and preferredRoles as arrays
+    const skillsArray = form.value.skills
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    const preferredRolesArray = form.value.preferredRoles
+      .split(',')
+      .map(r => r.trim())
+      .filter(r => r.length > 0);
+
+    // Prepare socialLinks object
+    const newSocialLinks: EnrichedStudentData['socialLinks'] = {
+      ...(studentStore.currentStudent?.socialLinks || {}), // Preserve other links
+    };
+    newSocialLinks.portfolio = form.value.socialLink.trim(); // Update portfolio, allow empty string
+
     // Ensure `name` is not null, as the store expects string | undefined
+    // Ensure photoURL is null if empty, not an empty string, to satisfy Firestore rule regex
     const payloadForUpdate = {
-      ...form.value,
-      photoURL: finalPhotoURL,
-      name: form.value.name === null ? undefined : form.value.name,
+      name: form.value.name.trim(),
+      photoURL: finalPhotoURL ? finalPhotoURL.trim() : null,
+      bio: form.value.bio.trim(),
+      skills: skillsArray,
+      preferredRoles: preferredRolesArray,
+      hasLaptop: form.value.hasLaptop,
+      socialLinks: newSocialLinks,
     };
 
     // Cast to any to work around issues with StudentProfileData's external definition
-    const success = await studentStore.updateMyProfile(payloadForUpdate as any);
+    // The profileStore's updateMyProfile expects a subset of UserData
+    const success = await studentStore.updateMyProfile(payloadForUpdate as Partial<StudentProfileData>);
 
     if (success) {
         notificationStore.showNotification({ message: 'Profile updated successfully', type: 'success' });

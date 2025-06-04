@@ -1,26 +1,45 @@
 // src/views/RequestEventView.vue
 <template>
-  <section class="py-5 create-event-section">
+  <section class="py-4 py-md-5 create-event-section bg-light">
     <div class="container-lg">
 
-      <div v-if="loading" class="text-center py-5">
+      <!-- Back Button and Title -->
+      <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+          <h1 class="h3 text-primary mb-1">{{ pageTitle }}</h1>
+          <p class="small text-muted mb-0">{{ pageSubtitle }}</p>
+        </div>
+        <button
+          class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center"
+          @click="goBack"
+          aria-label="Go back"
+        >
+          <i class="fas fa-arrow-left me-1"></i>
+          <span>Back</span>
+        </button>
+      </div>
+      
+      <!-- Loading State -->
+      <div v-if="loading" class="text-center py-5 my-5">
         <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
           <span class="visually-hidden">Loading...</span>
         </div>
-        <p class="text-muted mt-2">Loading initial data...</p>
+        <p class="text-muted mt-3">Loading event data...</p>
       </div>
 
+      <!-- Error State for Editing -->
       <div v-else-if="editError" class="alert alert-danger p-4 shadow-sm border-danger-subtle mb-5">
         <div class="d-flex align-items-start">
           <i class="fas fa-exclamation-circle text-danger me-3 fs-4 mt-1"></i>
           <div>
             <h5 class="alert-heading mb-2">Cannot Edit Event</h5>
-            <p>{{ editError }}</p>
+            <p class="mb-2">{{ editError }}</p>
+            <p class="small text-muted">You may not have permission, or the event is not in an editable state.</p>
             <div class="mt-3">
-              <button type="button" class="btn btn-primary me-2" @click="$router.push({ name: 'Home' })">
+              <button type="button" class="btn btn-primary btn-sm me-2" @click="$router.push({ name: 'Home' })">
                 <i class="fas fa-home me-1"></i> Go to Home
               </button>
-              <button type="button" class="btn btn-outline-secondary" @click="$router.back()">
+              <button type="button" class="btn btn-outline-secondary btn-sm" @click="goBack">
                 <i class="fas fa-arrow-left me-1"></i> Go Back
               </button>
             </div>
@@ -28,53 +47,36 @@
         </div>
       </div>
 
+      <!-- Main Form Content -->
       <AuthGuard v-else :key="'auth-guard'" message="You must be logged in to request or edit events.">
-
-        <div v-if="!isEditing && hasActiveRequest" :key="'active-request-warning'" class="alert alert-warning d-flex align-items-start mb-5 shadow-sm border-warning-subtle" role="alert" style="background-color: var(--bs-warning-bg-subtle);">
+        <div v-if="!isEditing && hasActiveRequest" :key="'active-request-warning'" class="alert alert-warning d-flex align-items-start mb-4 shadow-sm border-warning-subtle" role="alert" style="background-color: var(--bs-warning-bg-subtle);">
           <i class="fas fa-exclamation-triangle text-warning me-3 fs-4 mt-1"></i>
           <div>
             <h6 class="alert-heading mb-1 fw-medium">Pending Request Active</h6>
-            <small class="text-body">You already have a pending event request. Please wait for it to be reviewed before submitting a new one, or <router-link :to="{ name: 'Profile' }" class="alert-link">view your requests</router-link>.</small>
+            <small class="text-body">You already have a pending event request. Please wait for it to be reviewed before submitting a new one, or <router-link :to="{ name: 'Profile' }" class="alert-link fw-medium">view your requests</router-link>.</small>
           </div>
         </div>
 
         <div v-else :key="'event-form-content'">
-          <div class="d-flex justify-content-between align-items-center mb-5 pb-4 border-bottom">
-            <div>
-              <h2 class="h3 text-primary mb-0">{{ isEditing ? 'Edit Event' : 'Request New Event' }}</h2>
-              <p class="small text-muted mt-1">{{ isEditing ? 'Update the details of the existing event.' : 'Submit a request for a new community event.' }}</p>
-            </div>
-            <div>
-              <button
-                class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center"
-                @click="$router.back()"
-              >
-                <i class="fas fa-arrow-left me-1"></i>
-                <span>Back</span>
-              </button>
-            </div>
-          </div>
-
           <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
             <i class="fas fa-times-circle me-2"></i>
             <div>{{ errorMessage }}</div>
             <button type="button" class="btn-close btn-sm" @click="errorMessage = ''" aria-label="Close"></button>
           </div>
 
-          <form @submit.prevent="handleSubmitForm" class="mb-5 needs-validation" novalidate>
-            <div class="card shadow-sm mb-4" key="event-details-card">
-              <div class="card-header bg-light">
-                <h4 class="h5 mb-0 text-dark">1. Event Details</h4>
+          <form @submit.prevent="handleSubmitForm" class="needs-validation" novalidate>
+            <!-- Event Basic Details Card -->
+            <div class="card shadow-sm mb-4 rounded-3 overflow-hidden">
+              <div class="card-header bg-primary-subtle text-primary-emphasis py-3">
+                <h5 class="mb-0 fw-medium"><i class="fas fa-info-circle me-2"></i>1. Event Details</h5>
               </div>
-              <div class="card-body p-4 p-lg-5">
+              <div class="card-body p-4">
                 <EventBasicDetailsForm
                   v-model:details="formData.details"
                   :isSubmitting="isSubmitting"
                   :isEditing="isEditing"
                 />
-                
                 <hr class="my-4">
-                
                 <EventCoOrganizerForm
                   v-model:organizers="formData.details.organizers"
                   :isSubmitting="isSubmitting"
@@ -85,11 +87,12 @@
               </div>
             </div>
 
-            <div v-if="formData.details.format !== EventFormat.Competition" class="card shadow-sm mb-4" :key="`criteria-card-${criteriaCardNumber}`">
-              <div class="card-header bg-light">
-                <h4 class="h5 mb-0 text-dark">{{ criteriaCardNumber }}. Rating Criteria</h4>
+            <!-- Rating Criteria Card (Conditional) -->
+            <div v-if="formData.details.format !== EventFormat.Competition" class="card shadow-sm mb-4 rounded-3 overflow-hidden">
+              <div class="card-header bg-primary-subtle text-primary-emphasis py-3">
+                <h5 class="mb-0 fw-medium"><i class="fas fa-star me-2"></i>{{ criteriaCardNumber }}. Rating Criteria & XP</h5>
               </div>
-              <div class="card-body p-4 p-lg-5">
+              <div class="card-body p-4">
                 <EventCriteriaForm
                   v-model:criteria="formData.criteria"
                   :isSubmitting="isSubmitting"
@@ -99,17 +102,18 @@
                 />
               </div>
             </div>
-
-            <div v-if="formData.details.format === EventFormat.Team" class="card shadow-sm mb-4" :key="`team-config-card-${2}`">
-              <div class="card-header bg-light">
-                <h4 class="h5 mb-0 text-dark">3. Team Configuration</h4>
+            
+            <!-- Team Configuration Card (Conditional) -->
+            <div v-if="formData.details.format === EventFormat.Team" class="card shadow-sm mb-4 rounded-3 overflow-hidden">
+              <div class="card-header bg-primary-subtle text-primary-emphasis py-3">
+                <h5 class="mb-0 fw-medium"><i class="fas fa-users-cog me-2"></i>{{ teamConfigCardNumber }}. Team Configuration</h5>
               </div>
-              <div class="card-body p-4 p-lg-5">
+              <div class="card-body p-4">
                  <ManageTeamsComponent
                   :initial-teams="formData.teams ?? []"
-                  :students="allUsers"
+                  :students="allUsers" 
                   :is-submitting="isSubmitting"
-                  :can-auto-generate="true"
+                  :can-auto-generate="true" 
                   :event-id="eventId || ''"
                   @update:teams="handleTeamUpdate"
                   @error="handleFormError"
@@ -117,11 +121,12 @@
               </div>
             </div>
 
-             <div class="card shadow-sm mb-4" :key="`schedule-card-${scheduleCardNumber}`">
-               <div class="card-header bg-light">
-                 <h4 class="h5 mb-0 text-dark">{{ scheduleCardNumber }}. Event Schedule</h4>
+            <!-- Event Schedule Card -->
+             <div class="card shadow-sm mb-4 rounded-3 overflow-hidden">
+               <div class="card-header bg-primary-subtle text-primary-emphasis py-3">
+                 <h5 class="mb-0 fw-medium"><i class="fas fa-calendar-alt me-2"></i>{{ scheduleCardNumber }}. Event Schedule</h5>
                </div>
-               <div class="card-body p-4 p-lg-5">
+               <div class="card-body p-4">
                  <EventScheduleForm
                    v-model:dates="formData.details.date"
                    :isSubmitting="isSubmitting"
@@ -133,16 +138,16 @@
              </div>
 
              <!-- Submit Button -->
-             <div class="d-flex justify-content-end gap-2 mt-4">
-               <button type="button" class="btn btn-outline-secondary" @click="$router.back()">
+             <div class="d-flex justify-content-end gap-2 mt-5 pt-4 border-top">
+               <button type="button" class="btn btn-outline-secondary" @click="goBack" :disabled="isSubmitting">
                  Cancel
                </button>
                <button 
                  type="submit" 
-                 class="btn btn-primary"
+                 class="btn btn-primary px-4"
                  :disabled="isSubmitting || !isFormValid"
                >
-                 <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1"></span>
+                 <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                  {{ isEditing ? 'Update Event' : 'Submit Request' }}
                </button>
              </div>
@@ -154,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
 import EventScheduleForm from '@/components/forms/EventScheduleForm.vue';
@@ -162,7 +167,7 @@ import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import EventCoOrganizerForm from '@/components/forms/EventCoOrganizerForm.vue';
 import EventCriteriaForm from '@/components/forms/EventCriteriaForm.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
-import { EventFormat, EventStatus, type EventFormData, type Team } from '@/types/event';
+import { EventFormat, EventStatus, type EventFormData, type Team, type EventCriteria } from '@/types/event';
 import { useEventStore } from '@/stores/eventStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -186,51 +191,77 @@ const isSubmitting = ref(false);
 const eventId = ref(route.params.eventId as string || '');
 const allUsers = ref<InstanceType<typeof ManageTeamsComponent>['students']>([]);
 const nameCache = ref<Record<string, string>>({});
-const assignableXpRoles = ref<readonly string[]>(['Student', 'TeamLead', 'Mentor']);
+const assignableXpRoles = ref<readonly string[]>(['developer', 'designer', 'presenter', 'problemSolver']);
 
 // Form data structure
 const formData = ref<EventFormData>({
   details: {
     eventName: '',
-    type: '', // Assuming type is string, adjust if it's a specific set of values
+    type: '',
     format: EventFormat.Individual,
     description: '',
     rules: '',
     prize: '',
-    allowProjectSubmission: false,
-    organizers: [], // Should be string[] of UIDs
-    date: {       // Dates are string | null for EventFormData
+    allowProjectSubmission: true, // Default to true, can be overridden by format logic
+    organizers: [], 
+    date: { // Dates are string | null (ISO YYYY-MM-DD)
       start: null,
       end: null
     }
   },
-  criteria: [], // Assuming EventCriterion[]
-  teams: [],    // Assuming Team[]
+  criteria: [] as EventCriteria[],
+  teams: [] as Team[],
+  status: EventStatus.Pending, // Default for new requests
+  votingOpen: false,
   // Ensure all required fields from EventFormData are initialized
-  status: undefined, // Not directly set by student form, but part of EventFormData
-  votingOpen: false, // Default for new, may not be editable by student
 });
 
-const isDateAvailable = ref(true); // New ref for date availability
+const isDateAvailable = ref(true);
+
+const pageTitle = computed(() => isEditing.value ? 'Edit Event' : 'Request New Event');
+const pageSubtitle = computed(() => isEditing.value ? 'Update the details of the existing event.' : 'Submit a request for a new community event.');
 
 const isFormValid = computed(() => {
   const details = formData.value.details;
-  if (!details.eventName.trim() || !details.type.trim() || !details.format.trim()) return false;
-  if (!details.date.start || !details.date.end) return false;
-  if (!isDateAvailable.value) return false;
-  // Add other validation as needed, e.g., team constraints for team events
+  if (!details.eventName.trim() || !details.type || !details.format) {
+    console.log("Validation fail: Basic details missing");
+    return false;
+  }
+  if (!details.date.start || !details.date.end) {
+    console.log("Validation fail: Dates missing");
+    return false;
+  }
+  if (!isDateAvailable.value) {
+    console.log("Validation fail: Date not available");
+    return false;
+  }
+  if (details.format === EventFormat.Team && (!formData.value.teams || formData.value.teams.length === 0)) {
+     // For team events, could add validation for at least one team, or min members per team
+     // console.log("Validation fail: Team event with no teams");
+     // return false; // Optional: enforce teams at this stage
+  }
+  if (formData.value.criteria.some(c => !c.title?.trim() || (c.points ?? 0) <= 0 || !c.role)) {
+    // console.log("Validation fail: Invalid criteria entry"); // Be more specific in EventCriteriaForm
+    // return false; // Criteria validation should ideally be handled within EventCriteriaForm
+  }
   return true;
 });
 
-const scheduleCardNumber = computed(() => {
-  let cardNumber = 2;
-  if (formData.value.details.format !== EventFormat.Competition) cardNumber++;
-  if (formData.value.details.format === EventFormat.Team) cardNumber++;
-  return cardNumber;
+const baseCardNumber = 1; // Basic Details is always 1
+
+const criteriaCardNumber = computed(() => baseCardNumber + 1);
+
+const teamConfigCardNumber = computed(() => {
+  let num = baseCardNumber + 1; // Starts after Basic Details
+  if (formData.value.details.format !== EventFormat.Competition) num++; // Criteria card shown
+  return num;
 });
 
-const criteriaCardNumber = computed(() => {
-  return 2;
+const scheduleCardNumber = computed(() => {
+  let num = baseCardNumber + 1; // Starts after Basic Details
+  if (formData.value.details.format !== EventFormat.Competition) num++; // Criteria card shown
+  if (formData.value.details.format === EventFormat.Team) num++; // Team config card shown
+  return num;
 });
 
 const totalXP = computed(() => {
@@ -239,7 +270,9 @@ const totalXP = computed(() => {
 
 const handleSubmitForm = async () => {
   if (!isFormValid.value) {
-    errorMessage.value = "Please correct the errors in the form before submitting.";
+    errorMessage.value = "Please ensure all required fields are filled correctly and dates are available.";
+    // Scroll to top to show error message
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
 
@@ -279,8 +312,8 @@ const handleSubmitForm = async () => {
   }
 };
 
-const handleTeamUpdate = (teams: Team[]) => { // Corrected type
-  formData.value.teams = teams;
+const handleTeamUpdate = (updatedTeams: Team[]) => {
+  formData.value.teams = updatedTeams;
 };
 
 const handleFormError = (error: string) => {
@@ -289,7 +322,31 @@ const handleFormError = (error: string) => {
 
 const handleAvailabilityChange = (isAvailable: boolean) => {
   isDateAvailable.value = isAvailable;
+  if (!isAvailable && !errorMessage.value.includes('date conflict')) { // Avoid duplicate messages
+    // errorMessage.value = "Selected event dates are not available. Please choose different dates.";
+  } else if (isAvailable && errorMessage.value.includes('date conflict')) {
+    // errorMessage.value = ''; // Clear date conflict message if dates become available
+  }
 };
+
+const goBack = () => {
+  if (isEditing.value && eventId.value) {
+    router.push({ name: 'EventDetails', params: { id: eventId.value } });
+  } else {
+    router.back();
+  }
+};
+
+// Watch for format changes to set default allowProjectSubmission
+watch(() => formData.value.details.format, (newFormat) => {
+  if (newFormat === EventFormat.Competition || newFormat === EventFormat.Team) {
+    formData.value.details.allowProjectSubmission = true;
+  } else if (newFormat === EventFormat.Individual) {
+     // For individual, it could be either, let's default to false or keep existing
+     // formData.value.details.allowProjectSubmission = false; // Or keep as is
+  }
+}, { immediate: true });
+
 
 onMounted(async () => {
   loading.value = true;
@@ -310,37 +367,50 @@ onMounted(async () => {
 
     if (eventId.value) {
       isEditing.value = true;
-      const event = await eventStore.fetchEventDetails(eventId.value);
+      const eventData = await eventStore.fetchEventDetails(eventId.value); // Use eventStore.currentEventDetails after fetch
+      const event = eventStore.currentEventDetails; // eventStore.currentEventDetails should be populated by fetchEventDetails
+
       if (event) {
-        // TODO: Add permission check - e.g., is user an organizer or the requester of a PENDING event
-        if (event.status !== EventStatus.Pending && event.status !== EventStatus.Approved) {
-            editError.value = `Events with status '${event.status}' cannot be edited.`;
+        // Permission check: Only requester of PENDING event or an ORGANIZER of an APPROVED event can edit.
+        const canEditPending = event.status === EventStatus.Pending && event.requestedBy === profileStore.studentId;
+        const canEditApproved = event.status === EventStatus.Approved && (event.details.organizers?.includes(profileStore.studentId ?? '') || event.requestedBy === profileStore.studentId);
+
+        if (!canEditPending && !canEditApproved) {
+            editError.value = `Events with status '${event.status}' cannot be edited by you, or editing is not allowed for this status.`;
             loading.value = false;
             return;
         }
-        // Populate formData with event data
-        formData.value.details.eventName = event.details.eventName;
-        formData.value.details.type = event.details.type;
-        formData.value.details.format = event.details.format;
-        formData.value.details.description = event.details.description ?? '';
-        formData.value.details.rules = event.details.rules ?? '';
-        formData.value.details.prize = event.details.prize ?? '';
-        formData.value.details.allowProjectSubmission = event.details.allowProjectSubmission ?? false;
-        formData.value.details.organizers = event.details.organizers || [];
-
-        // Convert Firestore Timestamps to ISO date strings for DatePicker
-        formData.value.details.date.start = event.details.date.start instanceof Timestamp
-            ? DateTime.fromJSDate(event.details.date.start.toDate()).toISODate()
-            : null;
-        formData.value.details.date.end = event.details.date.end instanceof Timestamp
-            ? DateTime.fromJSDate(event.details.date.end.toDate()).toISODate()
-            : null;
-
-        formData.value.criteria = event.criteria || [];
-        formData.value.teams = event.teams || [];
-        // Populate status and votingOpen for editing
-        formData.value.status = event.status; // Ensure status is populated
-        formData.value.votingOpen = event.votingOpen; // Ensure votingOpen is populated
+        
+        formData.value = {
+          details: {
+            eventName: event.details.eventName,
+            type: event.details.type,
+            format: event.details.format,
+            description: event.details.description ?? '',
+            rules: event.details.rules ?? '',
+            prize: event.details.prize ?? '',
+            allowProjectSubmission: event.details.allowProjectSubmission ?? (event.details.format === EventFormat.Competition || event.details.format === EventFormat.Team),
+            organizers: event.details.organizers || [],
+            date: {
+              start: event.details.date.start ? (event.details.date.start instanceof Timestamp ? DateTime.fromJSDate(event.details.date.start.toDate()).toISODate() : String(event.details.date.start)) : null,
+              end: event.details.date.end ? (event.details.date.end instanceof Timestamp ? DateTime.fromJSDate(event.details.date.end.toDate()).toISODate() : String(event.details.date.end)) : null,
+            }
+          },
+          criteria: event.criteria || [],
+          teams: event.teams || [],
+          status: event.status, // Keep existing status
+          votingOpen: event.votingOpen, // Keep existing votingOpen state
+          // Properties not in EventFormData are removed:
+          // id: event.id,
+          // requestedBy: event.requestedBy,
+          // lifecycleTimestamps: event.lifecycleTimestamps,
+          // rejectionReason: event.rejectionReason,
+          // winners: event.winners,
+          // submissions: event.submissions,
+          // bestPerformerSelections: event.bestPerformerSelections,
+          // organizerRatings: event.organizerRatings,
+          // participants: event.participants,
+        };
         
       } else {
         editError.value = "Event not found or you don't have permission to edit it.";
@@ -368,7 +438,31 @@ onMounted(async () => {
 
 <style scoped>
 .create-event-section {
-  background: var(--bs-body-bg);
-  min-height: 100vh;
+  background-color: var(--bs-gray-100); /* Light background for the whole page */
+  min-height: calc(100vh - 56px); /* Adjust based on navbar height */
+}
+.card-header {
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+
+/* Ensure form controls have consistent sizing */
+.form-control, .form-select {
+  font-size: 0.9rem; /* Slightly smaller for a denser form */
+}
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+}
+
+/* Improve spacing within cards */
+.card-body {
+  padding: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .card-body {
+    padding: 2rem;
+  }
 }
 </style>

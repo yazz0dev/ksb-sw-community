@@ -148,6 +148,5 @@ export function getXpRoleDisplayOrder(): XpFirestoreFieldKey[] {
         'xp_organizer',
         'xp_participation',
         'xp_bestPerformer',
-        // Add new roles here in their desired display order
     ];
 }

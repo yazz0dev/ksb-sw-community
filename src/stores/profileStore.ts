@@ -172,15 +172,17 @@ export const useProfileStore = defineStore('studentProfile', () => {
         await fetchCurrentUserPortfolioData();
         hasFetched.value = true; // Set hasFetched to true after successful fetch
       } else {
-          // This case should ideally be handled by fetchStudentDataService returning null or throwing an error
-          // For now, assume null means not found, leading to session clearing.
+          // Profile not found, but user is authenticated with Firebase.
+          // Clear local app session but do not sign out from Firebase.
         await clearStudentSession(false); 
-        if (auth.currentUser) { 
-               try { await firebaseSignOut(auth); } catch (e) { console.warn("Error during sign out attempt after profile not found:", e); }
-        }
-        notificationStore.showNotification({ message: "Student profile not found. Please contact support if you believe this is an error.", type: 'error', duration: 7000});
+        // Removed: if (auth.currentUser) { try { await firebaseSignOut(auth); } catch (e) { console.warn("Error during sign out attempt after profile not found:", e); } }
+        notificationStore.showNotification({ 
+            message: "Your account is authenticated, but no student profile was found. Please contact support if you believe this is an error. You remain logged in at the authentication level.", 
+            type: 'warning', // Changed from 'error' to 'warning' as user is still auth'd
+            duration: 10000 // Increased duration
+        });
           // Setting a general error might be appropriate here too
-          error.value = "Student profile not found after authentication.";
+          error.value = "Student profile not found for authenticated user.";
         }
       } catch (err) {
         // Use _handleAuthError as this is part of the auth state change flow
@@ -657,6 +659,15 @@ export const useProfileStore = defineStore('studentProfile', () => {
     };
   }
 
+  /**
+   * Clear all error states (error, actionError, fetchError)
+   */
+  function clearError(): void {
+    error.value = null;
+    actionError.value = null;
+    fetchError.value = null;
+  }
+
   return {
     currentStudent,
     isLoading,
@@ -696,6 +707,8 @@ export const useProfileStore = defineStore('studentProfile', () => {
     resetImageUploadState,
     // Expose user requests related state and actions
     userRequests,
-    fetchUserRequests
+    fetchUserRequests,
+    // Expose clearError
+    clearError
   };
 });

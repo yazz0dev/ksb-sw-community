@@ -1,7 +1,6 @@
 <template>
-  <div v-if="shouldShowControls" class="event-manage-controls p-4 border bg-light rounded shadow-sm mb-4"> <!-- Added mb-4 -->
-
-    <!-- Status Management Section (For Organizers Only) -->
+  <div class="event-manage-controls p-4 border bg-light rounded shadow-sm mb-4">
+    <!-- Status Management Section -->
     <div v-if="showStatusManagementSection" class="mb-5">
       <h3 class="h4 text-primary mb-3">Event Management</h3>
       <div class="d-flex align-items-center mb-4">
@@ -45,7 +44,7 @@
           <i v-else class="fas fa-times me-1"></i>
           <span>Cancel Event</span>
         </button>
-        <!-- Edit Event Button (Organizers only, before Completed/Cancelled/Closed) -->
+        <!-- Edit Event Button -->
         <button
           v-if="showEditButton"
           type="button"
@@ -65,8 +64,8 @@
       </p>
     </div>
 
-    <!-- Voting & Closing Section (For Organizers AND Participants) -->
-    <div v-if="showVotingClosingSection" :class="{ 'pt-5 border-top': showStatusManagementSection }"> <!-- Add border-top only if status section was shown -->
+    <!-- Voting & Closing Section -->
+    <div v-if="showVotingClosingSection" :class="{ 'pt-5 border-top': showStatusManagementSection }">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="h4 text-primary mb-0">Voting & Closing</h3>
         <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill fs-6" :class="event.votingOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
@@ -74,7 +73,7 @@
         </span>
       </div>
       <div class="d-flex flex-wrap gap-2">
-        <!-- Open Voting Button (Organizer) -->
+        <!-- Open Voting Button -->
         <button
           v-if="showOpenVotingButton"
           type="button"
@@ -86,7 +85,7 @@
           <i v-else class="fas fa-lock-open me-1"></i>
           <span>Open Voting</span>
         </button>
-         <!-- Close Voting Button (Organizer) -->
+         <!-- Close Voting Button -->
         <button
           v-if="showCloseVotingButton"
           type="button"
@@ -98,7 +97,7 @@
           <i v-else class="fas fa-lock me-1"></i>
           <span>Close Voting</span>
         </button>
-        <!-- Find Winner Button (Organizer) -->
+        <!-- Find Winner Button -->
         <button
           v-if="showFindWinnerButton"
           type="button"
@@ -113,7 +112,7 @@
         <span v-if="showFindWinnerButton && submissionCount < 10" class="small text-danger ms-2">
           At least 10 votes are required to find winners (currently {{ submissionCount }}).
         </span>
-        <!-- Manually Select Winners Button (Organizer) -->
+        <!-- Manually Select Winners Button -->
         <button
           v-if="showManualSelectWinnerButton"
           type="button"
@@ -126,7 +125,7 @@
           <i v-else class="fas fa-edit me-1"></i>
           <span>Manually Select Winners</span>
         </button>
-        <!-- Close Event Button (Organizer) -->
+        <!-- Close Event Button -->
         <button
           v-if="showCloseEventButton"
           type="button"
@@ -156,18 +155,8 @@
       <p v-if="showCloseEventButton" class="small text-secondary mt-2">
         Voting must be closed and winners selected before you can permanently close the event and award XP.
       </p>
-       <p v-if="showParticipantWinnerSelection" class="small text-secondary mt-2">
-         Voting is open! Cast your votes for the best projects/teams.
-       </p>
-       <p v-if="showParticipantOrganizerRating" class="small text-secondary mt-2">
-         The event is complete. Please rate the organizers.
-       </p>
     </div>
   </div>
-   <div v-else class="text-center text-muted small py-3">
-       <!-- Optional: Message when no controls are shown -->
-        No management actions available at this time.
-   </div>
 </template>
 
 <script setup lang="ts">
@@ -180,7 +169,7 @@ import { useEventStore } from '@/stores/eventStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { DateTime } from 'luxon';
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, type Event, EventFormat } from '@/types/event';
+import { EventStatus, type Event, EventFormat, EventCriteria } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import {
   isEventOrganizer,
@@ -189,10 +178,12 @@ import {
   // canManageEvents, // General permission, isEventOrganizer is more specific here
 } from '@/utils/permissionHelpers';
 
-// Define a custom interface to extend EventCriterion with the properties used in the component
-interface ExtendedEventCriterion {
-  criteriaSelections?: Record<string, any>;
-  [key: string]: any;
+// Define a custom interface to extend EventCriteria with the properties used in the component
+interface ExtendedEventCriteria extends EventCriteria {
+  id: string; // Or some unique identifier if constraintIndex is not suitable
+  votes?: Record<string, any>; // Changed from criteriaSelections
+  calculatedWinner?: string | string[];
+  winnerName?: string;
 }
 
 // Define props and emits
@@ -218,25 +209,6 @@ const currentUser = computed(() => studentStore.currentStudent); // For passing 
 const localIsOrganizer = computed(() => {
   return isEventOrganizer(props.event, currentUserId.value);
 });
-
-const localIsParticipant = computed(() => {
-  if (!currentUserId.value || !props.event) return false;
-  if (props.event.details.format === EventFormat.Team) {
-    return props.event.teams?.some(team => Array.isArray(team.members) && team.members.includes(currentUserId.value!));
-  }
-  return Array.isArray(props.event.participants) && props.event.participants.includes(currentUserId.value);
-});
-
-const isParticipant = computed(() => {
-  if (!currentUserId.value || !props.event) return false;
-  if (props.event.details.format === EventFormat.Team) {
-    return props.event.teams?.some(team => Array.isArray(team.members) && team.members.includes(currentUserId.value!));
-  }
-  // Use participants array for Individual/Competition
-  return Array.isArray(props.event.participants) && props.event.participants.includes(currentUserId.value);
-});
-
-const canManageEvent = computed(() => localIsOrganizer.value);
 
 // --- Event State Checks ---
 const isWithinEventDates = computed(() => {
@@ -270,128 +242,106 @@ const statusBadgeClass = computed(() => getEventStatusBadgeClass(props.event?.st
 const votingIsClosed = computed(() => !props.event?.votingOpen);
 
 // --- Submission/Winner State ---
+const localCriteria = computed(() => {
+  return (props.event?.criteria || []).map(criterion => ({
+    ...criterion,
+    votes: criterion.votes || {}
+  })) as ExtendedEventCriteria[];
+});
+
 const submissionCount = computed(() => {
-  if (!props.event) return 0;
-  const userIds = new Set<string>();
-  const criteria = Array.isArray(props.event.criteria) ? props.event.criteria : [];
-
-  criteria.forEach(criterion => {
-    // Use type assertion to access criteriaSelections
-    const extendedCriterion = criterion as ExtendedEventCriterion;
-    if (extendedCriterion.criteriaSelections) {
-      Object.keys(extendedCriterion.criteriaSelections).forEach(uid => {
-        if (extendedCriterion.criteriaSelections![uid]) userIds.add(uid);
-      });
-    }
-  });
-
-  // Also count best performer selections for Team events
-  if (props.event.details.format === EventFormat.Team && props.event.bestPerformerSelections) {
-    Object.keys(props.event.bestPerformerSelections).forEach(uid => {
-        if (props.event.bestPerformerSelections && props.event.bestPerformerSelections[uid]) userIds.add(uid);
+  const sIds = new Set<string>();
+  // Ensure localCriteria is defined and is an array before trying to access its value
+  if (localCriteria.value && Array.isArray(localCriteria.value)) {
+    (localCriteria.value as ExtendedEventCriteria[]).forEach(extendedCriterion => {
+      // @ts-ignore - Assuming votes structure is Record<string, any> and you've handled potential undefined
+      if (extendedCriterion.votes) {
+        // @ts-ignore
+        Object.keys(extendedCriterion.votes).forEach(uid => {
+          // @ts-ignore
+          if (extendedCriterion.votes![uid]) { // Check if a vote/selection exists for this user
+            sIds.add(uid);
+          }
+        });
+      }
     });
   }
-
-  return userIds.size;
+  return sIds.size;
 });
 
 const hasWinners = computed(() => !!props.event?.winners && Object.keys(props.event.winners).length > 0);
 
 // --- Button Visibility Logic ---
 const showStartButton = computed(() =>
-  isEventOrganizer(props.event, currentUser.value?.uid) &&
+  localIsOrganizer.value &&
   props.event?.status === EventStatus.Approved &&
   isWithinEventDates.value &&
-  !props.event?.closedAt
+  !props.event?.lifecycleTimestamps?.closedAt
 );
 
 const showMarkCompleteButton = computed(() =>
-  isEventOrganizer(props.event, currentUser.value?.uid) &&
+  localIsOrganizer.value &&
   props.event?.status === EventStatus.InProgress &&
-  !props.event?.closedAt
+  !props.event?.lifecycleTimestamps?.closedAt
 );
 
 const showOpenVotingButton = computed(() =>
-  isEventOrganizer(props.event, currentUser.value?.uid) &&
+  localIsOrganizer.value &&
   props.event?.status === EventStatus.Completed &&
   votingIsClosed.value &&
-  !props.event?.closedAt
+  !props.event?.lifecycleTimestamps?.closedAt
 );
 
 const showCloseVotingButton = computed(() =>
-    isEventOrganizer(props.event, currentUser.value?.uid) &&
+    localIsOrganizer.value &&
     props.event?.status === EventStatus.Completed &&
     props.event?.votingOpen === true &&
-    !props.event?.closedAt
+    !props.event?.lifecycleTimestamps?.closedAt
 );
 
 const canFindWinner = computed(() =>
-  isEventOrganizer(props.event, currentUser.value?.uid) &&
+  localIsOrganizer.value &&
   props.event?.status === EventStatus.Completed &&
   votingIsClosed.value &&
-  !props.event?.closedAt
+  !props.event?.lifecycleTimestamps?.closedAt
 );
 
 const showFindWinnerButton = canFindWinner;
 
 const showManualSelectWinnerButton = computed(() =>
-  isEventOrganizer(props.event, currentUser.value?.uid) &&
+  localIsOrganizer.value &&
   props.event?.status === EventStatus.Completed &&
-  votingIsClosed.value && // Typically, manual selection is done after voting period
-  !props.event?.closedAt
-);
-
-const showParticipantOrganizerRating = computed(() =>
-  !isEventOrganizer(props.event, currentUser.value?.uid) && // Not an organizer
-  localIsParticipant.value && // Is a participant
-  props.event?.status === EventStatus.Completed &&
-  !props.event?.closedAt
-);
-
-const showParticipantWinnerSelection = computed(() =>
-  localIsParticipant.value && // Is a participant
-  props.event?.status === EventStatus.Completed &&
-  !props.event?.closedAt &&
-  props.event?.votingOpen === true
+  votingIsClosed.value &&
+  !props.event?.lifecycleTimestamps?.closedAt
 );
 
 const showCloseEventButton = computed(() =>
-  isEventOrganizer(props.event, currentUser.value?.uid) &&
+  localIsOrganizer.value &&
   props.event?.status === EventStatus.Completed &&
   votingIsClosed.value &&
   hasWinners.value &&
-  !props.event?.closedAt
+  !props.event?.lifecycleTimestamps?.closedAt
 );
 
 const showCancelButton = computed(() =>
-  isEventOrganizer(props.event, currentUser.value?.uid) &&
+  localIsOrganizer.value &&
   [EventStatus.Approved, EventStatus.InProgress].includes(props.event?.status as EventStatus) &&
-  !props.event?.closedAt
+  !props.event?.lifecycleTimestamps?.closedAt
 );
 
 const showEditButton = computed(() =>
-  isEventOrganizer(props.event, currentUser.value?.uid) &&
-  isEventEditable(props.event?.status) && // Use helper
-  !props.event?.closedAt
-);
-
-// --- Overall Visibility ---
-const shouldShowControls = computed(() =>
-    isEventOrganizer(props.event, currentUser.value?.uid) || // If organizer, show controls relevant to them
-    showParticipantOrganizerRating.value ||
-    showParticipantWinnerSelection.value
+  localIsOrganizer.value &&
+  isEventEditable(props.event?.status) &&
+  !props.event?.lifecycleTimestamps?.closedAt
 );
 
 // --- Section Visibility ---
 const showStatusManagementSection = computed(() =>
-    canManageEvent.value &&
-    (showStartButton.value || showMarkCompleteButton.value || showCancelButton.value || showEditButton.value)
+    showStartButton.value || showMarkCompleteButton.value || showCancelButton.value || showEditButton.value
 );
 
 const showVotingClosingSection = computed(() =>
-    (canManageEvent.value && (showOpenVotingButton.value || showCloseVotingButton.value || showFindWinnerButton.value || showCloseEventButton.value || showManualSelectWinnerButton.value)) ||
-    showParticipantWinnerSelection.value ||
-    showParticipantOrganizerRating.value
+    showOpenVotingButton.value || showCloseVotingButton.value || showFindWinnerButton.value || showCloseEventButton.value || showManualSelectWinnerButton.value
 );
 
 // --- Actions ---

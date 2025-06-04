@@ -11,7 +11,7 @@ import {
     EventDetails,
     EventDate,
     GalleryItem,
-    EventCriterion,
+    EventCriteria,
     EventLifecycleTimestamps
 } from '@/types/event';
 import { DateTime } from 'luxon';
@@ -143,7 +143,7 @@ export const mapFirestoreToEventData = (id: string, firestoreData: DocumentData 
     }
     
     // For fields on Event type that are Timestamp | undefined
-    const timestampFields: (keyof Event)[] = ['createdAt', 'lastUpdatedAt', 'closedAt'];
+    const timestampFields: (keyof Event)[] = ['createdAt', 'lastUpdatedAt']; // Removed 'closedAt'
     timestampFields.forEach(field => {
         const fieldValue = firestoreData[field];
         if (fieldValue instanceof Timestamp) {
@@ -157,7 +157,7 @@ export const mapFirestoreToEventData = (id: string, firestoreData: DocumentData 
 
     if (firestoreData.lifecycleTimestamps && typeof firestoreData.lifecycleTimestamps === 'object') {
         event.lifecycleTimestamps = {};
-        const lifecycleKeys: (keyof EventLifecycleTimestamps)[] = ['rejectedAt', 'completedAt'];
+        const lifecycleKeys: (keyof EventLifecycleTimestamps)[] = ['approvedAt', 'startedAt', 'rejectedAt', 'completedAt', 'cancelledAt', 'closedAt'];
         lifecycleKeys.forEach(key => {
             const tsValue = firestoreData.lifecycleTimestamps[key];
             if (tsValue instanceof Timestamp) {
@@ -197,9 +197,9 @@ export const mapFirestoreToEventData = (id: string, firestoreData: DocumentData 
     }
 
     if (firestoreData.criteria && typeof firestoreData.criteria === 'object' && !Array.isArray(firestoreData.criteria)) {
-        event.criteria = Object.values(firestoreData.criteria) as EventCriterion[];
+        event.criteria = Object.values(firestoreData.criteria) as EventCriteria[];
     } else if (Array.isArray(firestoreData.criteria)) {
-        event.criteria = firestoreData.criteria as EventCriterion[];
+        event.criteria = firestoreData.criteria as EventCriteria[];
     } else {
         event.criteria = undefined;
     }
