@@ -1,31 +1,42 @@
 import { doc, writeBatch, increment, Timestamp, type WriteBatch } from 'firebase/firestore';
 import { db } from '@/firebase';
-import type { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Assuming types are here
+import type { XPData, XpFirestoreFieldKey } from '@/types/xp';
 
 // Helper to get current Firestore Timestamp, similar to createTimestamp in stores
 const now = () => Timestamp.now();
 
 /**
+ * Type for XP field updates when awarding XP
+ * This defines what XP fields can be incremented in a batch operation
+ */
+export type XpFieldUpdates = Partial<Pick<XPData, XpFirestoreFieldKey | 'count_wins' | 'totalCalculatedXp'>>;
+
+/**
  * Applies XP awards to student profiles using a Firestore batch write.
  *
- * @param xpChangesMap - A map where keys are student IDs and values are objects
- *                       containing XP field increments (e.g., { xp_participation: 10, count_wins: 1 }).
- * @returns The Firestore WriteBatch instance (note: it will be already committed by this function).
- * @throws Throws an error if the batch write fails.
+ * @param xpChangesMap - A map where keys are student IDs and values are XP field increments
+ * @param options - Additional options for the batch operation
+ * @returns The Firestore WriteBatch instance (will already be committed)
+ * @throws Error if the batch write fails
  */
 export const applyXpAwardsBatch = async (
-  xpChangesMap: Record<string, Partial<Pick<XPData, XpFirestoreFieldKey | 'count_wins' | 'totalCalculatedXp'>>>
+  xpChangesMap: Record<string, XpFieldUpdates>,
+  options: { skipCommit?: boolean } = {}
 ): Promise<WriteBatch> => {
   if (Object.keys(xpChangesMap).length === 0) {
-    // No XP changes to apply, can return early or an empty batch
-    // For now, let's proceed and Firestore will handle an empty batch if it occurs,
-    // though typically this means no users earned XP.
+    console.info('No XP changes to apply');
+    return writeBatch(db); // Return empty batch
   }
 
   const batch = writeBatch(db);
   let operationsInBatch = 0;
 
   for (const [userId, xpIncrements] of Object.entries(xpChangesMap)) {
+    if (!userId) {
+      console.warn('Skipping XP update for empty user ID');
+      continue;
+    }
+    
     const xpDocRef = doc(db, 'xp', userId);
     const updatePayload: Record<string, any> = { lastUpdatedAt: now() };
     let userHasUpdates = false;
@@ -49,15 +60,32 @@ export const applyXpAwardsBatch = async (
   }
 
   try {
-    if (operationsInBatch > 0) {
-        await batch.commit();
+    if (operationsInBatch > 0 && !options.skipCommit) {
+      await batch.commit();
+      console.info(`Successfully applied XP updates for ${operationsInBatch} users`);
     }
-    // Even if no operations, returning the batch object might be consistent for callers
-    // though it won't have done anything.
     return batch; 
   } catch (error) {
-    console.error("Error committing XP awards batch:", error);
-    // Re-throw to allow the calling service/store to handle it
-    throw new Error(`Failed to apply XP awards: ${error instanceof Error ? error.message : String(error)}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to apply XP awards: ${errorMessage}`, error);
+    throw new Error(`Failed to apply XP awards: ${errorMessage}`);
   }
-}; 
+};
+
+/**
+ * Creates an XP update object for a single role
+ * @param role The XP role to update
+ * @param amount The amount to increment
+ * @returns An XpFieldUpdates object with the role and total XP updated
+ */
+export function createXpUpdate(role: XpFirestoreFieldKey, amount: number): XpFieldUpdates {
+  if (amount <= 0) {
+    console.warn(`Ignoring non-positive XP amount: ${amount} for role: ${role}`);
+    return {};
+  }
+  
+  return {
+    [role]: amount,
+    totalCalculatedXp: amount // Also update the total
+  };
+}

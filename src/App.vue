@@ -38,10 +38,8 @@
       </router-view>
     </main>
 
-    <BottomNav
-      v-if="isAuthenticated"
-      class="d-lg-none bottom-nav"
-    />
+    <!-- Always show BottomNav on mobile when authenticated -->
+    <BottomNav v-if="isAuthenticated" />
   </div>
 </template>
 
@@ -175,15 +173,18 @@ onUnmounted(() => {
   min-height: 100vh;
   background-color: var(--bs-light);
   color: var(--bs-body-color);
-  font-size: 1rem; /* Ensure base font size */
+  font-size: 1rem;
+  position: relative;
 }
 
 .app-main-content {
   padding-top: 60px;
+  min-height: calc(100vh - 60px);
 }
 
 .app-main-content.has-bottom-nav {
-  padding-bottom: calc(4rem + max(0.5rem, env(safe-area-inset-bottom, 0)));
+  /* Only apply bottom padding on mobile when BottomNav is visible */
+  padding-bottom: 0;
 }
 
 .app-main-content.is-offline {
@@ -201,9 +202,24 @@ onUnmounted(() => {
   border-radius: 0;
 }
 
+/* Mobile-specific styles */
 @media (max-width: 991.98px) {
   .app-main-content {
     padding-top: 56px;
+    min-height: calc(100vh - 56px);
+  }
+  
+  .app-main-content.has-bottom-nav {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 16px));
+    min-height: calc(100vh - 56px - 64px - env(safe-area-inset-bottom, 16px));
+  }
+}
+
+/* Desktop-specific styles - ensure no bottom padding */
+@media (min-width: 992px) {
+  .app-main-content.has-bottom-nav {
+    padding-bottom: 0;
+    min-height: calc(100vh - 60px);
   }
 }
 
@@ -220,7 +236,7 @@ onUnmounted(() => {
 .update-banner,
 .push-prompt-banner {
   position: fixed;
-  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  bottom: 1rem;
   left: 1rem;
   right: 1rem;
   z-index: 1050;
@@ -229,9 +245,12 @@ onUnmounted(() => {
   transition: bottom 0.3s ease-in-out;
 }
 
-.app-wrapper:has(.bottom-nav:not(.nav-hidden)) .update-banner,
-.app-wrapper:has(.bottom-nav:not(.nav-hidden)) .push-prompt-banner {
-  bottom: calc(4rem + 1rem + env(safe-area-inset-bottom, 0px));
+/* Adjust banner position when bottom nav is present */
+@media (max-width: 991.98px) {
+  .app-wrapper:has(.bottom-nav) .update-banner,
+  .app-wrapper:has(.bottom-nav) .push-prompt-banner {
+    bottom: calc(64px + 1rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 @media (min-width: 992px) {
@@ -240,6 +259,8 @@ onUnmounted(() => {
     left: auto;
     right: 1.5rem;
     max-width: 500px;
+    /* Ensure banners don't account for bottom nav on desktop */
+    bottom: 1rem;
   }
 }
 </style>

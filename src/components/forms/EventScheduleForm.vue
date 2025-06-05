@@ -15,7 +15,7 @@
           required
         />
         <small class="form-text text-muted" v-if="!props.eventId">
-          Must be at least 2 days from today.
+          Events can start today or any future date.
         </small>
       </div>
       <div class="col-md-6">
@@ -80,8 +80,8 @@ const minDateForStartDatePicker = computed<string>(() => {
       return originalStartDate.toISODate() as string; 
     }
   }
-  // today.plus({ days: 2 }) is valid, so toISODate() will return string
-  return (today.plus({ days: 2 }).toISODate()) as string;
+  // Allow events starting today instead of requiring 2 days
+  return today.toISODate() as string;
 });
 
 const minDateForEndDatePicker = computed<string>(() => {
@@ -112,20 +112,23 @@ const checkAvailability = async () => {
   const eventStore = useEventStore() as any;
   
   try {
-    // Ensure dates are passed as Date objects or compatible format if store expects it
-    // For now, assuming store can handle ISO strings or we convert them
-    const startDateForStore = DateTime.fromISO(localDates.value.start).toJSDate();
-    const endDateForStore = DateTime.fromISO(localDates.value.end).toJSDate();
+    // Convert ISO strings to DateTime objects for validation
+    const startDateTime = DateTime.fromISO(localDates.value.start);
+    const endDateTime = DateTime.fromISO(localDates.value.end);
+    
+    if (!startDateTime.isValid || !endDateTime.isValid) {
+      throw new Error('Invalid date format selected.');
+    }
 
     const result = await eventStore.checkDateConflict({
-      startDate: startDateForStore,
-      endDate: endDateForStore,
+      startDate: localDates.value.start, // Pass ISO strings directly
+      endDate: localDates.value.end,     // Pass ISO strings directly
       excludeEventId: props.eventId
     });
 
     if (result.hasConflict) {
       dateConflictError.value = `Selected dates conflict with: ${result.conflictingEventName || 'an existing event'}.`;
-      nextAvailableDateISO.value = result.nextAvailableDate; // Assuming this is an ISO string
+      nextAvailableDateISO.value = result.nextAvailableDate;
       emit('availability-change', false);
     } else {
       dateConflictError.value = null;
@@ -155,11 +158,12 @@ const onDateChange = async () => {
       return;
     }
     
+    // Allow same-day events: end date can be equal to start date
     if (endDateTime < startDateTime) {
       emit('error', `End date cannot be before start date.`);
       emit('availability-change', false);
-      // Reset end date if invalid
-      localDates.value.end = localDates.value.start; 
+      // Set end date to start date if end is before start
+      localDates.value.end = localDates.value.start;
       // Re-emit the corrected dates
       emit('update:dates', { start: localDates.value.start, end: localDates.value.start });
       await checkAvailability(); // Re-check with corrected date

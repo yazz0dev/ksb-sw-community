@@ -142,7 +142,7 @@ const config: UserConfig = {
       output: {
         manualChunks: {
           'firebase-essentials': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          'ui-components': ['@vuepic/vue-datepicker', 'luxon'],
+          'ui-components': [ 'luxon'],
           'pdf-libs': ['jspdf', 'jspdf-autotable'], // Correctly group jspdf and its plugin
           vendor: ['vue', 'vue-router', 'dompurify', 'marked']
         },

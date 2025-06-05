@@ -1,56 +1,59 @@
 <template>
-  <nav class="bottom-nav navbar fixed-bottom navbar-light bg-white shadow-lg d-flex d-lg-none">
-    <div class="container-fluid d-flex justify-content-between align-items-center px-0">
+  <nav class="bottom-nav fixed-bottom bg-white shadow-lg d-flex d-lg-none">
+    <div class="container-fluid d-flex justify-content-between align-items-stretch px-0">
       <router-link
         to="/"
-        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill text-secondary nav-link-transition"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center flex-fill"
         active-class="active"
+        aria-label="Home"
       >
-        <span class="fs-4 mb-1"><i class="fas fa-home"></i></span>
-        <span class="small">Home</span> <!-- Changed from fs-7 -->
+        <span class="nav-icon mb-1"><i class="fas fa-home"></i></span>
+        <span class="nav-text">Home</span>
       </router-link>
 
       <!-- Event Request Link  -->
       <router-link
         v-if="isAuthenticated"
         to="/request-event"
-        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill text-secondary nav-link-transition"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center flex-fill"
         active-class="active"
+        aria-label="Request Event"
       >
-        <span class="fs-4 mb-1"><i class="fas fa-calendar-plus"></i></span>
-        <span class="small">Request</span> <!-- Changed from fs-7 -->
+        <span class="nav-icon mb-1"><i class="fas fa-calendar-plus"></i></span>
+        <span class="nav-text">Request</span>
       </router-link>
 
       <!-- Leaderboard -->
       <router-link
         to="/leaderboard"
-        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill text-secondary nav-link-transition"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center flex-fill"
         active-class="active"
+        aria-label="Leaderboard"
       >
-        <span class="fs-4 mb-1"><i class="fas fa-trophy"></i></span>
-        <span class="small">Leaderboard</span> <!-- Changed from fs-7 -->
+        <span class="nav-icon mb-1"><i class="fas fa-trophy"></i></span>
+        <span class="nav-text">Leaderboard</span>
       </router-link>
 
       <!-- Profile (User Only) -->
       <router-link
         v-if="typeof isAuthenticated === 'boolean'"
         to="/profile"
-        class="nav-link d-flex flex-column align-items-center justify-content-center text-center px-1 py-1 flex-fill text-secondary nav-link-transition"
+        class="nav-link d-flex flex-column align-items-center justify-content-center text-center flex-fill"
         active-class="active"
+        aria-label="Profile"
       >
         <!-- Profile Pic or Icon -->
-        <figure v-if="userProfilePicUrl && !imgError" class="mb-1 profile-pic-figure">
+        <div class="nav-icon mb-1">
           <img
-            class="rounded-circle border"
+            v-if="userProfilePicUrl && !imgError"
+            class="profile-pic rounded-circle"
             :src="userProfilePicUrl"
             :alt="userName || 'Profile'"
-            width="28"
-            height="28"
             @error="handleImageError"
           />
-        </figure>
-        <span v-else class="fs-4 mb-1"><i class="fas fa-user-circle"></i></span>
-        <span class="small">Profile</span> <!-- Changed from fs-7 -->
+          <i v-else class="fas fa-user-circle"></i>
+        </div>
+        <span class="nav-text">Profile</span>
       </router-link>
     </div>
   </nav>
@@ -74,116 +77,105 @@ const handleImageError = (): void => {
 </script>
 
 <style scoped>
-.bottom-navbar {
-  position: fixed !important;
-  bottom: 0 !important;
-  left: 0;
-  right: 0;
-  width: 100%;
+.bottom-nav {
   height: 64px;
   z-index: 1040;
-  background-color: var(--bs-body-bg);
   border-top: 1px solid var(--bs-border-color);
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-  padding: 0;
-  margin: 0;
-  transform: translateY(0);
-  transition: transform 0.3s ease-in-out;
-  will-change: transform;
+  padding-bottom: env(safe-area-inset-bottom);
+  background-color: var(--bs-white) !important;
 }
 
-.nav-link-transition {
-  transition: color 0.2s ease-in-out;
+/* Ensure BottomNav is completely hidden on desktop */
+@media (min-width: 992px) {
+  .bottom-nav {
+    display: none !important;
+  }
 }
 
-img.rounded-circle {
-  object-fit: cover;
-}
-
-.navbar {
-  position: fixed !important; /* Override any other position values */
-  bottom: 0 !important;
-  left: 0;
-  right: 0;
-  height: 64px;
-  z-index: 1040; /* Higher than other elements */
-  background-color: var(--bs-body-bg);
-  border-top: 1px solid var(--bs-border-color);
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-  margin: 0; /* Reset any margins */
-  padding: 0; /* Reset padding and handle it in the nav items */
-}
-
-/* Ensure content doesn't get hidden behind the nav */
 .nav-link {
-  border-top: 3px solid transparent; /* Reserve space for active indicator */
-  /* padding adjusted via flex properties */
-  height: 100%; /* Ensure links fill height */
-  cursor: pointer;
-  user-select: none;
+  color: var(--bs-secondary);
+  text-decoration: none;
+  padding: 0.5rem 0.25rem;
+  border-top: 3px solid transparent;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+  min-height: 64px;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
 }
 
 .nav-link:hover,
 .nav-link:focus {
-    color: var(--bs-primary) !important; /* Bootstrap primary color on hover/focus */
-    background-color: transparent !important; /* Prevent background */
-    border-top-color: transparent;
-    outline: none;
+  color: var(--bs-primary);
+  text-decoration: none;
+  outline: none;
 }
 
 .nav-link.active {
+  color: var(--bs-primary);
   border-top-color: var(--bs-primary);
-  color: var(--bs-primary) !important;
-  font-weight: 500; /* Bootstrap medium weight */
-  background-color: transparent !important;
+  font-weight: 500;
 }
 
-/* Icon and text color for active state */
-.nav-link.active .fas,
-.nav-link.active span {
-    color: var(--bs-primary) !important; /* Ensure icons/text also use primary color */
-}
-
-/* Ensure secondary color is used for non-active icons/text */
-.nav-link:not(.active) .fas,
-.nav-link:not(.active) span {
-    color: var(--bs-secondary);
-}
-.nav-link:hover .fas,
-.nav-link:hover span {
-    color: var(--bs-primary);
-}
-
-/* Specific style for profile image container */
-.profile-pic-figure {
-  width: 28px;
-  height: 28px;
-  display: flex; /* Use flex to center the image if it's smaller */
+.nav-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  display: flex;
   align-items: center;
   justify-content: center;
+  height: 28px;
+  width: 28px;
 }
 
-.fs-7 {
-    font-size: 0.875rem !important; /* Increased from 0.75rem */
+.nav-text {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  font-weight: 400;
 }
 
-/* Add transition for scroll hiding */
-.bottom-nav {
-  transition: transform 0.3s ease-in-out;
-  will-change: transform;
+.nav-link.active .nav-text {
+  font-weight: 500;
 }
 
-.nav-hidden {
-  transform: translateY(100%) !important;
+.profile-pic {
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+  border: 2px solid var(--bs-border-color);
 }
 
-/* Add iOS safe area support */
-@supports (padding: max(0px)) {
-  .bottom-navbar {
-    height: calc(64px + env(safe-area-inset-bottom));
-    padding-bottom: env(safe-area-inset-bottom);
+.nav-link.active .profile-pic {
+  border-color: var(--bs-primary);
+}
+
+/* iOS safe area support - only on mobile */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  @media (max-width: 991.98px) {
+    .bottom-nav {
+      height: calc(64px + env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .nav-link {
+    padding: 0.4rem 0.2rem;
+  }
+  
+  .nav-icon {
+    font-size: 1.1rem;
+    height: 24px;
+    width: 24px;
+  }
+  
+  .nav-text {
+    font-size: 0.7rem;
+  }
+  
+  .profile-pic {
+    width: 20px;
+    height: 20px;
   }
 }
 </style>

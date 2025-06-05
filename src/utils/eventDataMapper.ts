@@ -2,15 +2,7 @@
 import { Timestamp, DocumentData, deleteField, serverTimestamp } from 'firebase/firestore';
 import {
     Event,
-    EventStatus,
-    EventFormat,
-    Team,
-    Submission,
-    OrganizerRating,
     EventFormData,
-    EventDetails,
-    EventDate,
-    GalleryItem,
     EventCriteria,
     EventLifecycleTimestamps
 } from '@/types/event';

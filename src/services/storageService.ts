@@ -5,7 +5,6 @@ import {
   getDownloadURL,
   deleteObject,
 } from 'firebase/storage';
-import { db } from '@/firebase'; // db might not be needed here, but storage is initialized with the app
 
 const storage = getStorage();
 

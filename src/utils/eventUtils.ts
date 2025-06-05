@@ -3,7 +3,7 @@ import { Timestamp } from 'firebase/firestore';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { isEmpty } from '@/utils/helpers'; // Assuming isEmpty is in helpers
 import { type EventCriteria, EventFormat } from '@/types/event'; // Add EventCriteria, EventFormat
-import { XPData, XpFirestoreFieldKey, mapCalcRoleToFirestoreKey, XpCalculationRoleKey } from '@/types/xp';
+import { XPData, mapCalcRoleToFirestoreKey, XpCalculationRoleKey } from '@/types/xp';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 
 /**

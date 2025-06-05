@@ -151,7 +151,7 @@ import { Event, EventFormat, EventStatus, Team, EventCriteria } from '@/types/ev
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 
 // Import the utility functions
-import { createTeamVotePayload, createIndividualVotePayload, createManualWinnerPayload, getValidCriteria } from '@/utils/eventDataUtils';
+import {  createIndividualVotePayload, createManualWinnerPayload, getValidCriteria } from '@/utils/eventDataUtils';
 import { 
   isEventOrganizer, 
   isEventParticipant, 
@@ -383,10 +383,6 @@ const canFindWinner = computed(() => {
 });
 
 
-// --- Helper Functions ---
-const getTeamNameForMember = (memberId: string): string => {
-  return teamMemberMap.value[memberId] || 'Unknown Team';
-};
 
 // Event handlers for form components
 const updateTeamVoting = (newVoting: TeamVoting) => {

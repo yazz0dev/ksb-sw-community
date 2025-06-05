@@ -1,26 +1,20 @@
 // src/stores/studentEventStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
-import {
-  doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, Timestamp, addDoc, arrayUnion, arrayRemove, deleteField, writeBatch, increment, serverTimestamp, setDoc
-} from 'firebase/firestore';
-import { db } from '@/firebase';
-import { Event, EventStatus, EventFormData, Team, Submission, EventCriteria, EventLifecycleTimestamps, OrganizerRating, EventFormat } from '@/types/event';
+import { Timestamp} from 'firebase/firestore';
+import { Event, EventStatus, EventFormData, Submission, EventFormat } from '@/types/event';
 import { useProfileStore } from './profileStore';
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore';
 import { useAuth } from '@/composables/useAuth';
-import { mapEventDataToFirestore, mapFirestoreToEventData, getISTTimestamp } from '@/utils/eventDataMapper';
+import {  getISTTimestamp } from '@/utils/eventDataMapper';
 import { convertToISTDateTime } from '@/utils/dateTime';
-import { deepClone, isEmpty } from '@/utils/helpers';
-import { Interval } from 'luxon';
-import { checkDateConflictForRequest, checkExistingPendingRequestForStudent as checkExistingPendingRequestFromValidation } from '@/services/eventService'; // Changed import path
+import { deepClone } from '@/utils/helpers';
+import { checkDateConflictForRequest, checkExistingPendingRequestForStudent } from '@/services/eventService'; // Changed import alias
 import { handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
 
-// import * as EventLifecycleActions from './events/actions.lifecycle';
-import { XPData, XpFirestoreFieldKey } from '@/types/xp';
 import { DateTime } from 'luxon';
-import { compareEventsForSort, mergeLifecycleTimestamps, convertEventDetailsDateFormat } from '@/utils/eventUtils';
+import { compareEventsForSort } from '@/utils/eventUtils';
 import { 
   createEventRequest as createEventRequestService, 
   updateEventRequestInService, 
@@ -37,30 +31,8 @@ import {
   submitIndividualWinnerVoteInFirestore as submitIndividualWinnerVoteService,
   submitOrganizationRatingInFirestore as submitOrganizationRatingService,
   toggleVotingStatusInFirestore as toggleVotingStatusService,
-  calculateWinnersFromVotes as calculateWinnersFromVotesService,
-  saveWinnersToFirestore as saveWinnersToFirestoreService,
   submitManualWinnerSelectionInFirestore as submitManualWinnerSelectionService
 } from '@/services/eventService';
-
-// Update the EventDetails interface to match the expected structure in EventFormData
-interface EventDetails {
-  eventName: string;
-  description: string;
-  rules?: string;
-  format: EventFormat;
-  type: string;
-  organizers: string[];
-  date: {
-    // Match EventFormData's expected type (string | null)
-    start: string | null;
-    end: string | null;
-  };
-  allowProjectSubmission: boolean;
-  prize?: string;
-}
-
-// Fix now() function to correctly use Timestamp - renamed to avoid conflicts
-const createTimestamp = () => Timestamp.now();
 
 // Add createCompleteEvent function before the store definition
 function createCompleteEvent(partialEventData: Partial<Event>, existingEvent?: Event | undefined): Event {
@@ -309,13 +281,15 @@ export const useEventStore = defineStore('studentEvents', () => {
         if (typeof endDate === 'string') endDateTime = DateTime.fromISO(endDate); else throw new Error('Expected string date format for end date');
       } catch (error) { console.error('Date parsing error:', error); throw new Error('Invalid date format provided.'); }
       if (!startDateTime.isValid || !endDateTime.isValid) throw new Error(`Invalid dates provided. Start: ${startDateTime.invalidReason}, End: ${endDateTime.invalidReason}`);
-      if (endDateTime < startDateTime) throw new Error(`Event end date must be on or after the start date.`);
+      if (endDateTime <= startDateTime) throw new Error(`Event end date must be after start date.`);
       const nowInIST = DateTime.now().setZone('Asia/Kolkata');
       if (startDateTime < nowInIST) throw new Error('Event start date cannot be in the past.');
 
-      // The checkDateConflict function in the store might need to be adapted if it directly uses Firestore.
-      // For now, assuming it works as is or will be refactored separately.
-      const { hasConflict, conflictingEventName } = await checkDateConflict({ startDate: startDateTime.toJSDate(), endDate: endDateTime.toJSDate() });
+      // Fix: Pass JS Date objects and remove undefined eventId parameter
+      const { hasConflict, conflictingEventName } = await checkDateConflict({ 
+        startDate: startDateTime.toJSDate(), 
+        endDate: endDateTime.toJSDate() 
+      });
       if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
       // --- End of existing validation logic ---
 
@@ -394,10 +368,12 @@ export const useEventStore = defineStore('studentEvents', () => {
       const startDate = formData.details.date.start ? getISTTimestamp(formData.details.date.start) : null;
       const endDate = formData.details.date.end ? getISTTimestamp(formData.details.date.end) : null;
       if (!startDate || !endDate) throw new Error('Event start and end dates are required.');
-      if (endDate.toMillis() < startDate.toMillis()) throw new Error('Event end date must be on or after start date.');
+      if (endDate.toMillis() <= startDate.toMillis()) throw new Error('Event end date must be after start date.');
+      
+      // Fix: Use correct type conversion for Timestamp to JS Date
       const { hasConflict, conflictingEventName } = await checkDateConflict({
-        startDate: startDate,
-        endDate: endDate,
+        startDate: startDate.toDate(),
+        endDate: endDate.toDate(),
         excludeEventId: eventId
       });
       if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
@@ -615,37 +591,56 @@ export const useEventStore = defineStore('studentEvents', () => {
     actionError.value = null;
   }
   
-  async function checkDateConflict({ 
-    startDate, 
-    endDate, 
-    excludeEventId 
-  }: { 
-    startDate: Date | Timestamp; 
-    endDate: Date | Timestamp; 
-    excludeEventId?: string 
-  }): Promise<{ hasConflict: boolean; conflictingEventName: string | null; nextAvailableDate: string | null }> { // Updated return type
+  async function checkDateConflict(params: { startDate: string | Date; endDate: string | Date; excludeEventId?: string }): Promise<{ hasConflict: boolean; conflictingEventName?: string; nextAvailableDate?: string }> {
     try {
-      // Convert to Timestamps if they are JS Dates
-      const startTimestamp = startDate instanceof Date ? Timestamp.fromDate(startDate) : startDate;
-      const endTimestamp = endDate instanceof Date ? Timestamp.fromDate(endDate) : endDate;
-
-      // Call the service function with individual arguments
+      // Convert input dates to consistent format
+      let startDateTime: DateTime;
+      let endDateTime: DateTime;
+      
+      if (typeof params.startDate === 'string') {
+        startDateTime = DateTime.fromISO(params.startDate);
+      } else {
+        startDateTime = DateTime.fromJSDate(params.startDate);
+      }
+      
+      if (typeof params.endDate === 'string') {
+        endDateTime = DateTime.fromISO(params.endDate);
+      } else {
+        endDateTime = DateTime.fromJSDate(params.endDate);
+      }
+      
+      if (!startDateTime.isValid || !endDateTime.isValid) {
+        throw new Error('Invalid date(s) provided for conflict check.');
+      }
+      
       const result = await checkDateConflictForRequest(
-        startTimestamp,
-        endTimestamp,
-        excludeEventId
+        startDateTime.toJSDate(),
+        endDateTime.toJSDate(),
+        params.excludeEventId
       );
-
-      // Explicitly return the properties expected by the Promise type
+      
+      // Map the service result to match the expected return type
       return {
         hasConflict: result.hasConflict,
-        conflictingEventName: result.conflictingEventName,
-        nextAvailableDate: result.nextAvailableDate
-        // conflictingEvent from service result is not part of this store function's promised type, so it's fine.
+        conflictingEventName: result.conflictingEventName || undefined,
+        nextAvailableDate: result.nextAvailableDate || undefined
       };
     } catch (error) {
-      console.error("Error checking date conflict:", error);
-      throw new Error(`Failed to check date conflict: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error checking date conflict:', error);
+      throw error;
+    }
+  }
+
+  async function checkExistingRequests(studentId: string): Promise<boolean> {
+    if (!studentId) {
+      return false;
+    }
+    
+    try {
+      return await checkExistingPendingRequestForStudent(studentId);
+    } catch (error) {
+      console.error("Error checking existing requests:", error);
+      throw new Error(`Failed to check existing requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -729,8 +724,9 @@ export const useEventStore = defineStore('studentEvents', () => {
     requestNewEvent, editMyEventRequest, updateEventStatus,
     joinEvent, leaveEvent, submitProject,
     submitTeamCriteriaVote, submitIndividualWinnerVote, submitManualWinnerSelection, submitOrganizationRating,
-    toggleVotingOpen, findWinner, closeEventPermanently, autoGenerateTeams, // Ensure autoGenerateTeams is here
+    toggleVotingOpen, findWinner, closeEventPermanently, autoGenerateTeams,
     checkDateConflict,
+    checkExistingRequests,
     clearError
   };
 });

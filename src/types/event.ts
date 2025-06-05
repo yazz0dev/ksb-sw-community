@@ -62,7 +62,7 @@ export interface Team {
   id?: string;
   teamName: string;
   members: string[];
-  teamLead: string;
+  teamLead: string; // Add this property to fix the missing teamLead issue
 }
 
 export type EventWinners = Record<string, string[]>;

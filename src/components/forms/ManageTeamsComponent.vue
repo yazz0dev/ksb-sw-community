@@ -26,6 +26,12 @@
               <i class="fas fa-trash"></i>
             </button>
           </div>
+          <div class="mb-2">
+            <label class="form-label small text-primary fw-medium mb-1">
+              <i class="fas fa-user-tie me-1"></i> Team Lead
+              <span class="text-danger">*</span>
+            </label>
+          </div>
           <TeamMemberSelect
             :selected-members="team.members"
             :available-students="availableStudentsForTeam(teamIndex)"
@@ -38,8 +44,8 @@
           <small v-if="team.members.length < minMembersPerTeam" class="text-danger d-block mt-1">
             Requires at least {{ minMembersPerTeam }} members.
           </small>
-           <small v-if="team.members.length > 0 && !team.teamLead" class="text-warning d-block mt-1">
-            Please select a team lead.
+           <small v-if="team.members.length > 0 && !team.teamLead" class="text-danger d-block mt-1">
+            <i class="fas fa-exclamation-circle me-1"></i>Every team requires a team lead.
           </small>
         </div>
       </transition-group>
@@ -70,20 +76,11 @@
 
       <div v-if="props.canAutoGenerate" class="my-2">
           <div v-if="props.students.length > 0" class="d-flex flex-wrap align-items-center gap-2">
-            <input 
-              type="number" 
-              class="form-control form-control-sm" 
-              style="width: 80px;"
-              v-model.number="numberOfTeamsToGenerate" 
-              min="1" 
-              :max="Math.min(maxTeams, props.students.length)"
-              :disabled="props.isSubmitting"
-            />
             <button 
               type="button" 
               class="btn btn-sm btn-success d-inline-flex align-items-center"
               @click="autoGenerateTeams"
-              :disabled="props.isSubmitting || numberOfTeamsToGenerate <= 0 || numberOfTeamsToGenerate > Math.min(maxTeams, props.students.length)"
+              :disabled="props.isSubmitting"
             >
               <i class="fas fa-cogs me-1"></i>
               <span>Auto-generate</span>
@@ -104,13 +101,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, PropType, nextTick } from 'vue';
+import { ref, computed, watch, PropType, nextTick } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
-// import { useEventStore } from '@/stores/eventStore'; // Not directly used here now
-import TeamMemberSelect from './TeamMemberSelect.vue'; // Assuming this component exists and is correctly implemented
+import TeamMemberSelect from './TeamMemberSelect.vue'; 
 import { Team as EventTeamType } from '@/types/event';
 import { UserData } from '@/types/student';
-// import { XPData, getDefaultXPData } from '@/types/xp'; // Not used in this snippet
 
 const props = defineProps({
   initialTeams: {
@@ -137,7 +132,6 @@ const teams = ref<LocalTeam[]>([]);
 const maxTeams = 8;
 const minMembersPerTeam = 1; // Adjusted for flexibility, can be 2
 const maxMembersPerTeam = 8; // Example, adjust as needed
-const numberOfTeamsToGenerate = ref(2);
 
 interface LocalTeam {
   id?: string; // Keep original ID if editing
@@ -183,6 +177,34 @@ watch(() => props.students, (newVal) => {
     }
 }, { immediate: true, deep: true });
 
+const emitTeamsUpdate = () => {
+  const eventTeams: EventTeamType[] = teams.value.map(lt => ({
+    id: lt.id, // Include original ID if it exists
+    teamName: lt.teamName.trim() || `Team ${teams.value.indexOf(lt) + 1}`,
+    members: lt.members,
+    teamLead: lt.teamLead,
+    // submissions: props.initialTeams.find(it => it.teamName === lt.teamName)?.submissions || [] // Preserve submissions if any
+  }));
+  emit('update:teams', eventTeams);
+  ensureMemberNamesAreFetched(teams.value);
+};
+
+const ensureMemberNamesAreFetched = async (currentTeams: LocalTeam[]) => {
+    const allMemberIds = new Set<string>();
+    currentTeams.forEach(team => {
+        (team.members || []).forEach(id => { if (id) allMemberIds.add(id); });
+        if (team.teamLead) allMemberIds.add(team.teamLead);
+    });
+    const idsToFetch = Array.from(allMemberIds).filter(id => id && !studentStore.getCachedStudentName(id));
+    if (idsToFetch.length > 0) {
+        try { 
+            await studentStore.fetchUserNamesBatch(idsToFetch); 
+            // Force re-render or update computed props if necessary after names are fetched
+            // This might involve a dummy ref change or specific logic if TeamMemberSelect relies on it.
+        }
+        catch (error) { emit('error', 'Failed to load some member names.'); }
+    }
+};
 
 const initializeTeams = () => {
   teams.value = (props.initialTeams || []).map(team => ({
@@ -251,9 +273,11 @@ const updateTeamLead = (teamIndex: number, teamLeadId: string) => {
 const autoGenerateTeams = () => {
   if (props.isSubmitting || !props.canAutoGenerate || props.students.length === 0) return;
   
-  const numTeams = Math.max(1, Math.min(numberOfTeamsToGenerate.value, maxTeams, props.students.length));
-  if (numTeams <= 0) {
-    emit('error', "Number of teams must be greater than 0.");
+  // Use current team count or default to 2 if no teams exist
+  const numTeams = teams.value.length > 0 ? teams.value.length : 2;
+  
+  if (numTeams <= 0 || numTeams > maxTeams) {
+    emit('error', `Number of teams must be between 1 and ${maxTeams}.`);
     return;
   }
 
@@ -286,38 +310,15 @@ const autoGenerateTeams = () => {
   nextTick(emitTeamsUpdate);
 };
 
+// Add this computed property to check if all teams have a team lead
+const allTeamsHaveTeamLead = computed(() => {
+  if (teams.value.length === 0) return true;
+  return teams.value.every(team => team.members.length === 0 || team.teamLead);
+});
 
-const emitTeamsUpdate = () => {
-  const eventTeams: EventTeamType[] = teams.value.map(lt => ({
-    id: lt.id, // Include original ID if it exists
-    teamName: lt.teamName.trim() || `Team ${teams.value.indexOf(lt) + 1}`,
-    members: lt.members,
-    teamLead: lt.teamLead,
-    // submissions: props.initialTeams.find(it => it.teamName === lt.teamName)?.submissions || [] // Preserve submissions if any
-  }));
-  emit('update:teams', eventTeams);
-  ensureMemberNamesAreFetched(teams.value);
-};
-
-const ensureMemberNamesAreFetched = async (currentTeams: LocalTeam[]) => {
-    const allMemberIds = new Set<string>();
-    currentTeams.forEach(team => {
-        (team.members || []).forEach(id => { if (id) allMemberIds.add(id); });
-        if (team.teamLead) allMemberIds.add(team.teamLead);
-    });
-    const idsToFetch = Array.from(allMemberIds).filter(id => id && !studentStore.getCachedStudentName(id));
-    if (idsToFetch.length > 0) {
-        try { 
-            await studentStore.fetchUserNamesBatch(idsToFetch); 
-            // Force re-render or update computed props if necessary after names are fetched
-            // This might involve a dummy ref change or specific logic if TeamMemberSelect relies on it.
-        }
-        catch (error) { emit('error', 'Failed to load some member names.'); }
-    }
-};
-
-onMounted(() => {
-  initializeTeams();
+// Make this property available to parent component
+defineExpose({
+  allTeamsHaveTeamLead
 });
 
 </script>

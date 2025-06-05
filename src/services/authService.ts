@@ -7,7 +7,6 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth';
 import { auth } from '@/firebase';
-import type { UserData } from '@/types/student';
 
 /**
  * Initialize the auth service with persistent authentication

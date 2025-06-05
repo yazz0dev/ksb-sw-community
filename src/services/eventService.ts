@@ -9,7 +9,6 @@ import {
   Timestamp,
   updateDoc,
   arrayUnion,
-  addDoc,
   setDoc,
   deleteField,
   serverTimestamp,
@@ -648,11 +647,6 @@ export async function updateEventStatusInFirestore(
             status: newStatus,
             lastUpdatedAt: serverTimestamp(),
         };
-        
-        // Retain original notification logic placeholders, but they are commented out
-        let notificationType: string = ''; 
-        let targetUserIds: string[] = [];  
-        let eventNameForNotification: string = currentEvent.details?.eventName || 'Event';
 
         if (newStatus === EventStatus.Rejected && rejectionReason) {
             updatesToApply.rejectionReason = rejectionReason;
@@ -837,11 +831,11 @@ export async function requestEventDeletionInFirestore(eventId: string, userId: s
         if (!eventSnap.exists()) {
             throw new Error('Event not found.');
         }
-        // Optional: Add permission checks here, e.g., only requester or admin can request deletion.
-        // const eventData = eventSnap.data();
-        // if (eventData.requestedBy !== userId && !userIsAdmin(userId)) { // Assuming a userIsAdmin check
-        //    throw new Error('Permission denied to request deletion for this event.');
-        // }
+        // Optional: Add permission checks here, e.g., only requester can request deletion.
+         const eventData = eventSnap.data();
+         if (eventData.requestedBy !== userId) { 
+            throw new Error('Permission denied to request deletion for this event.');
+         }
 
         const deletionRequest = {
             requestedBy: userId,
@@ -947,7 +941,6 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
         } else if (eventData.details.format === EventFormat.Team && eventData.teams) {
             const originalTeams = eventData.teams || [];
             const newTeams: Team[] = [];
-            let teamMemberFlatListUpdatesNeeded = false;
 
             for (const team of originalTeams) {
                 const originalMemberCount = team.members.length;
@@ -955,7 +948,6 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
                 
                 if (filteredMembers.length < originalMemberCount) {
                     userFoundAndRemoved = true;
-                    teamMemberFlatListUpdatesNeeded = true;
                     team.members = filteredMembers;
                     if (team.teamLead === studentId) {
                         team.teamLead = team.members.length > 0 ? team.members[0] : ''; // Assign new lead or clear
@@ -1000,11 +992,11 @@ export async function requestToJoinTeamInFirestore(
     eventId: string,
     studentId: string,
     targetTeamName: string
-): Promise<void> { // Removed erroneous "=>"
+): Promise<void> { 
     if (!eventId || !studentId || !targetTeamName.trim()) throw new Error('Event ID, Student ID, and Target Team Name are required.');
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
-    const MAX_TEAM_MEMBERS = 5; // Example limit, can be made configurable per event if needed.
+    const MAX_TEAM_MEMBERS = 8; // Example limit, can be made configurable per event if needed.
 
     try {
         const eventSnap = await getDoc(eventRef);
@@ -1458,7 +1450,7 @@ export async function submitOrganizationRatingInFirestore(
             }
 
             let organizerRatings = deepClone(eventData.organizerRatings || []);
-            const existingRatingIndex = organizerRatings.findIndex((r: OrganizerRating) => r.userId === userId);
+            const existingRatingIndex = organizerRatings.findIndex(rating => rating.userId === userId);
 
             const newRating: OrganizerRating = {
                 userId: userId,
@@ -1562,7 +1554,7 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
     if (eventData.criteria && Array.isArray(eventData.criteria)) {
         eventData.criteria.forEach((criterion: EventCriteria) => {
             if (criterion.votes && !isEmpty(criterion.votes)) {
-                               const voteCounts: Record<string, number> = {};
+                const voteCounts: Record<string, number> = {};
                 Object.values(criterion.votes).forEach((selectedEntityId: string) => {
                     voteCounts[selectedEntityId] = (voteCounts[selectedEntityId] || 0) + 1;
                 });
@@ -1575,9 +1567,9 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
                     const criterionKey = criterion.title?.trim() || `criterion_${criterion.constraintIndex || 'unknown'}`;
                     winners[criterionKey] = criterionWinners.length === 1 ? criterionWinners[0] : criterionWinners;
                 }
-            }
-        });
-    }
+            } // This closes 'if (criterion.votes && !isEmpty(criterion.votes))'
+        }); // This closes 'eventData.criteria.forEach'
+    } // This closes 'if (eventData.criteria && Array.isArray(eventData.criteria))'
 
     // Calculate winner from bestPerformerSelections (can be for individual or overall best performer in team events)
     if (eventData.bestPerformerSelections && !isEmpty(eventData.bestPerformerSelections)) {

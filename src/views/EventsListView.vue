@@ -118,7 +118,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { useEventStore } from '@/stores/eventStore'; // Changed from useEvents to useEventStore
+import { useEventStore } from '@/stores/eventStore'; 
 import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
 import { Event, EventStatus } from '@/types/event';

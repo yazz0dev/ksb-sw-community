@@ -15,13 +15,13 @@ export interface StudentProfileData {
   photoURL?: string | null;
   bio?: string;
   skills?: string[];          // Self-reported
-  preferredRoles?: string[];  // For event participation
   hasLaptop?: boolean;        // Default to false if not set
 
   socialLinks?: {
-    linkedin?: string;
-    github?: string;
-    portfolio?: string; // Personal portfolio website
+    linkedin?: string;        // Full LinkedIn profile URL
+    github?: string;          // Full GitHub profile URL
+    portfolio?: string;       // Primary portfolio/website URL
+    instagram?: string;       // Instagram username without @ prefix
   };
 
   // Arrays of Event IDs.
@@ -93,17 +93,18 @@ export interface UserData {
   studentId?: string;     // College/University ID
   bio?: string;
   skills?: string[];
-  preferredRoles?: string[]; // e.g., ['developer', 'designer']
   hasLaptop?: boolean;
   
   // Social & Professional Links
-  socialLink?: string;    // A generic social media link (e.g., personal website, Behance)
-  github?: string;        // GitHub username or profile URL
-  linkedin?: string;      // LinkedIn profile URL
-  socialLinks?: {         // Structured social links
-    linkedin?: string;
-    github?: string;
-    portfolio?: string;
+  socialLink?: string;    // Legacy field: A generic social media link (e.g., personal website, Behance)
+  github?: string;        // Legacy field: GitHub username or profile URL
+  linkedin?: string;      // Legacy field: LinkedIn profile URL
+  socialLinks?: {         // Structured social links (preferred over legacy fields)
+    linkedin?: string;    // Full LinkedIn profile URL
+    github?: string;      // Full GitHub profile URL
+    portfolio?: string;   // Primary portfolio/website URL
+    instagram?: string;   // Instagram username without @ prefix
+    other?: string;       // Secondary portfolio/project URL
   };
 
   // Event participation

@@ -126,7 +126,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { useEventStore } from '@/stores/eventStore'; // Changed from useEvents composable
+import { useEventStore } from '@/stores/eventStore'; 
 import { EventStatus, Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
 import { DateTime } from 'luxon';

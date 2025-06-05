@@ -117,7 +117,6 @@ import { useRouter } from 'vue-router';
 const props = defineProps<{
   isAuthenticated: boolean;
   userName: string;
-  // showNavbar?: boolean; // Removed: Topbar will now always be visible
 }>();
 
 const emit = defineEmits<{

@@ -70,27 +70,22 @@
                 </thead>
                 <tbody>
                   <tr v-for="(user, index) in filteredUsers" :key="user.uid" class="align-middle">
-                    <td>
-                      <div v-if="index < 3" :class="['rank-badge', `rank-${index + 1}`]">
-                        {{ index + 1 }}
-                      </div>
-                      <span v-else class="rank-number">{{ index + 1 }}</span>
+                    <td class="rank-cell">
+                      <!-- Rank number is displayed by StudentCard with variant='ranked' -->
                     </td>
                     <td>
-                      <div class="d-flex align-items-center">
-                        <img
-                          :src="user.photoURL || defaultAvatarUrl"
-                          :alt="user.name || 'User'"
-                          @error="handleImageError"
-                          class="leaderboard-avatar me-2"
-                        />
-                        <router-link
-                          :to="{ name: 'PublicProfile', params: { userId: user.uid } }"
-                          class="user-link"
-                        >
-                          {{ user.name || `User ${user.uid.substring(0, 6)}` }}
-                        </router-link>
-                      </div>
+                      <!-- Using StudentCard component instead of inline display -->
+                      <StudentCard 
+                        :userId="user.uid"
+                        :photoURL="user.photoURL"
+                        :variant="'ranked'"
+                        :rank="index + 1"
+                        :displayValue="user.displayValue"
+                        :showXp="false"
+                        :showAvatar="true"
+                        :linkToProfile="true"
+                        class="leaderboard-student-card"
+                      />
                     </td>
                     <td class="text-end">
                       <span class="xp-value">{{ user.displayValue }} XP</span>
@@ -108,10 +103,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useProfileStore } from '@/stores/profileStore'; // Changed useProfileStore
-import { formatRoleName } from '@/utils/formatters'; // Assuming this handles display names
-import { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Import XP types
-import { EnrichedStudentData } from '@/types/student'; // Changed EnrichedUserData
+import { useProfileStore } from '@/stores/profileStore'; 
+import { formatRoleName } from '@/utils/formatters';
+import { XPData, XpFirestoreFieldKey } from '@/types/xp';
+import { EnrichedStudentData } from '@/types/student';
+import StudentCard from '@/components/user/StudentCard.vue'; 
 
 const defaultAvatarUrl: string = '/default-avatar.png';
 
@@ -379,66 +375,13 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => 
   border-bottom: 1px solid var(--bs-border-color-translucent);
 }
 
-.rank-badge {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  color: white;
-  font-size: 1rem;
-  position: relative;
-  overflow: hidden;
+.rank-cell {
+  width: 60px;
+  padding-right: 0 !important;
 }
 
-.rank-badge::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
-  transform: rotate(45deg);
-  transition: all 0.6s;
-  opacity: 0;
-}
-
-.rank-badge:hover::before {
-  opacity: 1;
-  transform: rotate(45deg) translate(50%, 50%);
-}
-
-.rank-badge.rank-1 {
-  background: linear-gradient(135deg, #ffd700, #ffa500, #ff8c00);
-  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
-  border: 2px solid #ffed4e;
-}
-
-.rank-badge.rank-2 {
-  background: linear-gradient(135deg, #e8e8e8, #c0c0c0, #a9a9a9);
-  box-shadow: 0 4px 12px rgba(192, 192, 192, 0.4);
-  border: 2px solid #f0f0f0;
-}
-
-.rank-badge.rank-3 {
-  background: linear-gradient(135deg, #daa520, #cd7f32, #8b4513);
-  box-shadow: 0 4px 12px rgba(205, 127, 50, 0.4);
-  border: 2px solid #f4a460;
-}
-
-.rank-number {
-  font-weight: 500;
-  color: var(--bs-secondary);
-}
-
-.user-link {
-  color: var(--bs-primary);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s ease;
+.leaderboard-student-card {
+  padding: 0 !important;
 }
 
 .xp-value {
@@ -449,14 +392,6 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => 
 .loader-container {
   text-align: center;
   padding: 3rem;
-}
-
-.leaderboard-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid var(--bs-border-color-translucent);
 }
 
 @media (max-width: 768px) {

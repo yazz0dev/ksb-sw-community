@@ -10,6 +10,7 @@ import {
   updateDoc, 
   Timestamp
 } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { db } from '@/firebase';
 import type { EnrichedStudentData, UserData, NameCacheEntry } from '@/types/student';
 import type { XPData } from '@/types/xp';
@@ -55,7 +56,6 @@ export const fetchStudentData = async (uid: string): Promise<EnrichedStudentData
       photoURL: studentData.photoURL ?? null,
       bio: studentData.bio,
       skills: studentData.skills,
-      preferredRoles: studentData.preferredRoles,
       hasLaptop: studentData.hasLaptop,
       socialLinks: studentData.socialLinks,
       participatedEventIDs: studentData.participatedEventIDs,
@@ -80,12 +80,32 @@ export const updateStudentProfile = async (
   updates: Partial<Omit<UserData, 'uid' | 'email' | 'batchYear' | 'createdAt' | 'participatedEventIDs' | 'organizedEventIDs'>>
 ): Promise<void> => {
   try {
+    // Ensure the current user is authenticated
+    const auth = getAuth();
+    if (!auth.currentUser) {
+      throw new Error('You must be authenticated to update your profile');
+    }
+
+    // Error('User ID is required for profile updates');
+    if (!uid) {
+      throw new Error('User ID is required for profile updates');
+    }
+
+    if (auth.currentUser.uid !== uid) {
+      throw new Error('You do not have permission to update this profile. Please try logging out and back in.');
+    }
+
     const studentRef = doc(db, 'students', uid);
     const dataToUpdate = { ...updates, lastUpdatedAt: now() };
     await updateDoc(studentRef, dataToUpdate);
-  } catch (err) {
-    console.error("Error updating student profile:", err);
-    throw err;
+  } catch (err: any) {
+    // More specific error handling for permission issues
+    if (err.code === 'permission-denied') {
+      throw new Error('You do not have permission to update this profile. Please try logging out and back in.');
+    } else {
+      console.error("Error updating student profile:", err);
+      throw err;
+    }
   }
 };
 
@@ -97,11 +117,11 @@ export const updateStudentProfile = async (
 export const fetchUserNamesBatch = async (uids: string[]): Promise<Record<string, string>> => {
   const uniqueUids = [...new Set(uids.filter(Boolean))];
   const namesMap: Record<string, string> = {};
-  
+
   if (uniqueUids.length === 0) {
     return namesMap;
   }
-  
+
   try {
     for (let i = 0; i < uniqueUids.length; i += 30) {
       const batchIds = uniqueUids.slice(i, i + 30);
@@ -116,14 +136,14 @@ export const fetchUserNamesBatch = async (uids: string[]): Promise<Record<string
         namesMap[docSnap.id] = nameVal;
       });
     }
-    
+
     // Add placeholders for missing IDs
     uniqueUids.forEach(id => {
       if (!namesMap[id]) {
         namesMap[id] = `Student (${id.substring(0, 5)})`;
       }
     });
-    
+
     return namesMap;
   } catch (err) {
     console.error("Error fetching user names batch:", err);
@@ -134,7 +154,7 @@ export const fetchUserNamesBatch = async (uids: string[]): Promise<Record<string
 /**
  * Fetch all student profiles
  * @returns Promise that resolves with an array of user data
- */
+ */   
 export const fetchAllStudentProfiles = async (): Promise<UserData[]> => {
   try {
     const studentsCollectionRef = collection(db, 'students');
@@ -146,7 +166,6 @@ export const fetchAllStudentProfiles = async (): Promise<UserData[]> => {
       const userData = { uid: docSnap.id, ...docSnap.data() } as UserData;
       fetchedUsers.push(userData);
     });
-    
     return fetchedUsers;
   } catch (err) {
     console.error("Error fetching all student profiles:", err);
@@ -162,7 +181,7 @@ export const fetchLeaderboardData = async (): Promise<EnrichedStudentData[]> => 
   try {
     const studentsCollectionRef = collection(db, STUDENT_COLLECTION_PATH);
     const studentsSnapshot = await getDocs(studentsCollectionRef);
-
+    
     if (studentsSnapshot.empty) {
       return []; // No students found
     }
@@ -186,12 +205,11 @@ export const fetchLeaderboardData = async (): Promise<EnrichedStudentData[]> => 
         photoURL: studentData.photoURL ?? null,
         bio: studentData.bio,
         skills: studentData.skills,
-        preferredRoles: studentData.preferredRoles,
         hasLaptop: studentData.hasLaptop,
         socialLinks: studentData.socialLinks,
         participatedEventIDs: studentData.participatedEventIDs,
         organizedEventIDs: studentData.organizedEventIDs,
-        xpData: deepClone(xpData) // Assuming deepClone is available or imported
+        xpData: deepClone(xpData)
       } as EnrichedStudentData;
     });
 
@@ -203,6 +221,7 @@ export const fetchLeaderboardData = async (): Promise<EnrichedStudentData[]> => 
   }
 };
 
+/**
 /**
  * Fetch student's projects for portfolio display based on event participation.
  * @param targetStudentId The UID of the student.
@@ -217,7 +236,7 @@ export const fetchStudentPortfolioProjects = async (
 ): Promise<StudentPortfolioProject[]> => {
   const relevantEventIds = [...new Set([...(participatedEventIDs || []), ...(organizedEventIDs || [])])].filter(Boolean);
   if (relevantEventIds.length === 0) return [];
-
+  
   try {
     const projects: StudentPortfolioProject[] = [];
     // Firestore 'in' query supports up to 30 elements in the array, so batch if necessary.
@@ -225,10 +244,10 @@ export const fetchStudentPortfolioProjects = async (
     for (let i = 0; i < relevantEventIds.length; i += 30) {
         const batchIds = relevantEventIds.slice(i, i + 30);
         if (batchIds.length === 0) continue;
-
+        
         const eventQuery = query(collection(db, "events"), where(documentId(), 'in', batchIds));
         const eventSnapshot = await getDocs(eventQuery);
-
+        
         eventSnapshot.forEach(eventDoc => {
             const event = eventDoc.data() as Event; // Assuming Event type is correctly defined and imported
             (event.submissions || []).forEach(sub => {
@@ -281,17 +300,17 @@ export const fetchStudentEventHistory = async (
 ): Promise<StudentEventHistoryItem[]> => {
   const relevantEventIds = [...new Set([...(participatedEventIDs || []), ...(organizedEventIDs || [])])].filter(Boolean);
   if (relevantEventIds.length === 0) return [];
-
+  
   try {
     const history: StudentEventHistoryItem[] = [];
     // Batching for Firestore 'in' query (max 30 per query)
     for (let i = 0; i < relevantEventIds.length; i += 30) {
         const batchIds = relevantEventIds.slice(i, i + 30);
         if (batchIds.length === 0) continue;
-
+        
         const eventQuery = query(collection(db, "events"), where(documentId(), 'in', batchIds));
         const eventSnapshot = await getDocs(eventQuery);
-
+        
         eventSnapshot.forEach(eventDoc => {
             const event = eventDoc.data() as Event;
             // Include event if it's not in a preliminary/rejected state, OR if the student requested it (even if pending/rejected)
@@ -310,7 +329,7 @@ export const fetchStudentEventHistory = async (
                 // If still 'participant', ensure they were actually a participant if participants list exists and is used
                 // This part of logic might need refinement based on how participation is tracked (e.g. explicit participants array vs. submission)
                 // For now, if not organizer or specific team role, default to participant if they were involved.
-
+                
                 history.push({
                     eventId: event.id,
                     eventName: event.details.eventName,
@@ -344,7 +363,7 @@ export const fetchStudentEventParticipationCount = async (
   if (!participatedEventIDs || participatedEventIDs.length === 0) {
     return 0;
   }
-
+  
   let validParticipationCount = 0;
   try {
     // Firestore 'in' query limit is 30; batching if necessary.

@@ -4,10 +4,6 @@ import { ref, computed, watch } from 'vue';
 import { db } from '@/firebase'; // For Firestore network toggle
 import { enableNetwork, disableNetwork } from 'firebase/firestore';
 import { useNotificationStore } from './notificationStore';
-// Import studentEventStore for replaying actions.
-// This creates a slight circular dependency if studentEventStore also imports studentAppStore
-// for offline handling. This is usually manageable in Pinia.
-// Alternatively, pass the event store instance to syncOfflineChanges if needed.
 import { useEventStore } from './eventStore';
 
 

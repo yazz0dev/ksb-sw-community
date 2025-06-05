@@ -74,9 +74,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useRouter } from 'vue-router'; // Import if needed for routing
 import { db } from '@/firebase';
 // Import the Event type from the store's perspective
-import type { Event as StoreEvent, EventStatus } from '@/types/event';
-import type { UserData } from '@/types/student'; // For currentStudent type
-import type { Ref } from 'vue'; // For Ref type
+import type { Event as StoreEvent } from '@/types/event';
 
 // Local interface for the component's needs
 interface Request {

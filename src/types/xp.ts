@@ -103,6 +103,7 @@ export function formatRoleName(roleKey: string): string {
 
 /**
  * Formats role keys (either `XpCalculationRoleKey` or `XpFirestoreFieldKey`) for display in the UI.
+ * Provides more detailed formatting than the basic formatRoleName function.
  * @param roleKey The role key string (e.g., "developer", "xp_problemSolver", "totalCalculatedXp").
  * @returns A user-friendly display name (e.g., "Developer", "Problem Solver XP", "Total XP").
  */

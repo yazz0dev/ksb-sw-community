@@ -1,6 +1,6 @@
 // src/views/EventDetails.vue
 <template>
-  <div class="event-details-view container-fluid px-2 px-md-3 event-details-bg">
+  <div class="event-details-view px-2 px-md-3 event-details-bg">
     <SkeletonProvider
       :loading="loading"
       :skeleton-component="EventDetailsSkeleton"
@@ -18,141 +18,143 @@
 
       <!-- Event Content (Render only if event data is loaded successfully) -->
       <template v-if="event && !initialFetchError">
-        <!-- Event Header -->
-        <EventDetailsHeader
-          :event="mapEventToHeaderProps(event)"
-          :canJoin="canJoin"
-          :canLeave="canLeave"
-          :isJoining="isJoining"
-          :isLeaving="isLeaving"
-          :name-cache="nameCacheRecord"
-          @join="handleJoin"
-          @leave="handleLeave"
-          class="animate-fade-in"
-        />
+        <div class="container-lg">
+          <!-- Event Header -->
+          <EventDetailsHeader
+            :event="mapEventToHeaderProps(event)"
+            :canJoin="canJoin"
+            :canLeave="canLeave"
+            :isJoining="isJoining"
+            :isLeaving="isLeaving"
+            :name-cache="nameCacheRecord"
+            @join="handleJoin"
+            @leave="handleLeave"
+            class="animate-fade-in"
+          />
 
-        <!-- Feedback Message -->
-        <transition name="fade-pop">
-          <div v-if="globalFeedback.message"
-            class="alert alert-sm mt-2 mt-md-3 mb-3 mb-md-4 d-flex align-items-center animate-fade-in"
-            :class="globalFeedback.type === 'success' ? 'alert-success' : 'alert-danger'"
-            role="alert"
-          >
-            <i class="fas me-2" :class="globalFeedback.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
-            <div>{{ globalFeedback.message }}</div>
-            <button type="button" class="btn-close ms-auto" @click="clearGlobalFeedback" aria-label="Close"></button>
-          </div>
-        </transition>
-
-        <div class="row g-3 g-md-4 mt-0">
-          <!-- Main Content Column -->
-          <div class="col-12 col-lg-8">
-            <!-- Event Management Controls -->
-            <div v-if="localIsCurrentUserOrganizer" class="mb-3 mb-md-4">
-              <EventManageControls
-                :event="event"
-                class="mb-0 animate-fade-in"
-                @update="fetchData"
-                :key="`manage-controls-${event.id}-${event.status}-${String(event.votingOpen)}`"
-              />
+          <!-- Feedback Message -->
+          <transition name="fade-pop">
+            <div v-if="globalFeedback.message"
+              class="alert alert-sm mt-2 mt-md-3 mb-3 mb-md-4 d-flex align-items-center animate-fade-in"
+              :class="globalFeedback.type === 'success' ? 'alert-success' : 'alert-danger'"
+              role="alert"
+            >
+              <i class="fas me-2" :class="globalFeedback.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
+              <div>{{ globalFeedback.message }}</div>
+              <button type="button" class="btn-close ms-auto" @click="clearGlobalFeedback" aria-label="Close"></button>
             </div>
+          </transition>
 
-            <!-- XP/Criteria Section -->
-            <EventCriteriaDisplay 
-              v-if="event.criteria?.length" 
-              :criteria="event.criteria" 
-              class="mb-3 mb-md-4"
-            />
+          <div class="row g-3 g-md-4 mt-0">
+            <!-- Main Content Column -->
+            <div class="col-12 col-lg-8">
+              <!-- Event Management Controls -->
+              <div v-if="localIsCurrentUserOrganizer" class="mb-3 mb-md-4">
+                <EventManageControls
+                  :event="event"
+                  class="mb-0 animate-fade-in"
+                  @update="fetchData"
+                  :key="`manage-controls-${event.id}-${event.status}-${String(event.votingOpen)}`"
+                />
+              </div>
 
-            <!-- Teams/Participants Section -->
-            <div class="mb-3 mb-md-4">
-              <!-- Team List -->
-              <div v-if="isTeamEvent" class="mb-3 mb-md-4">
-                <div class="section-header mb-3">
-                  <i class="fas fa-users text-primary me-2"></i>
-                  <span class="h5 mb-0 text-primary">Teams ({{ event.teams?.length || 0 }})</span>
-                </div>
-                <div class="row g-3">
-                  <div class="col-12" :class="{ 'col-lg-6': teams.length > 2 }">
-                    <TeamList
-                      :teams="teams.slice(0, Math.ceil(teams.length / 2))"
-                      :event-id="props.id"
-                      :votingOpen="event.votingOpen"
-                      :organizerNamesLoading="organizerNamesLoading"
-                      :currentUserUid="currentUserId"
-                      class="card team-list-box p-0 shadow-sm animate-fade-in"
-                    />
+              <!-- XP/Criteria Section -->
+              <EventCriteriaDisplay 
+                v-if="event.criteria?.length" 
+                :criteria="event.criteria" 
+                class="mb-3 mb-md-4"
+              />
+
+              <!-- Teams/Participants Section -->
+              <div class="mb-3 mb-md-4">
+                <!-- Team List -->
+                <div v-if="isTeamEvent" class="mb-3 mb-md-4">
+                  <div class="section-header mb-3">
+                    <i class="fas fa-users text-primary me-2"></i>
+                    <span class="h5 mb-0 text-primary">Teams ({{ event.teams?.length || 0 }})</span>
                   </div>
-                  <div v-if="teams.length > 2" class="col-12 col-lg-6">
-                    <TeamList
-                      :teams="teams.slice(Math.ceil(teams.length / 2))"
-                      :event-id="props.id"
-                      :votingOpen="event.votingOpen"
-                      :organizerNamesLoading="organizerNamesLoading"
-                      :currentUserUid="currentUserId"
-                      class="card team-list-box p-0 shadow-sm animate-fade-in"
-                    />
+                  <div class="row g-3">
+                    <div class="col-12" :class="{ 'col-lg-6': teams.length > 2 }">
+                      <TeamList
+                        :teams="teams.slice(0, Math.ceil(teams.length / 2))"
+                        :event-id="props.id"
+                        :votingOpen="event.votingOpen"
+                        :organizerNamesLoading="organizerNamesLoading"
+                        :currentUserUid="currentUserId"
+                        class="card team-list-box p-0 shadow-sm animate-fade-in"
+                      />
+                    </div>
+                    <div v-if="teams.length > 2" class="col-12 col-lg-6">
+                      <TeamList
+                        :teams="teams.slice(Math.ceil(teams.length / 2))"
+                        :event-id="props.id"
+                        :votingOpen="event.votingOpen"
+                        :organizerNamesLoading="organizerNamesLoading"
+                        :currentUserUid="currentUserId"
+                        class="card team-list-box p-0 shadow-sm animate-fade-in"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <!-- Participant List (Individual/Competition) -->
+                <div v-else class="mb-3 mb-md-4">
+                  <div class="section-header mb-3">
+                    <i class="fas fa-user-friends text-primary me-2"></i>
+                    <span class="h5 mb-0 text-primary">Participants ({{ event.participants?.length || 0 }})</span>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-12" :class="{ 'col-lg-6': (event.participants?.length || 0) > 8 }">
+                      <EventParticipantList
+                        :participants="participantsFirstHalf"
+                        :loading="loading"
+                        :currentUserId="currentUserId"
+                        :show-header="false"
+                      />
+                    </div>
+                    <div v-if="(event.participants?.length || 0) > 8" class="col-12 col-lg-6">
+                      <EventParticipantList
+                        :participants="participantsSecondHalf"
+                        :loading="loading"
+                        :currentUserId="currentUserId"
+                        :show-header="false"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-              <!-- Participant List (Individual/Competition) -->
-              <div v-else class="mb-3 mb-md-4">
-                <div class="section-header mb-3">
-                  <i class="fas fa-user-friends text-primary me-2"></i>
-                  <span class="h5 mb-0 text-primary">Participants ({{ event.participants?.length || 0 }})</span>
-                </div>
-                <div class="row g-3">
-                  <div class="col-12" :class="{ 'col-lg-6': (event.participants?.length || 0) > 8 }">
-                    <EventParticipantList
-                      :participants="participantsFirstHalf"
-                      :loading="loading"
-                      :currentUserId="currentUserId"
-                      :show-header="false"
-                    />
-                  </div>
-                  <div v-if="(event.participants?.length || 0) > 8" class="col-12 col-lg-6">
-                    <EventParticipantList
-                      :participants="participantsSecondHalf"
-                      :loading="loading"
-                      :currentUserId="currentUserId"
-                      :show-header="false"
-                    />
-                  </div>
-                </div>
-              </div>
             </div>
-          </div>
 
-          <!-- Sidebar Column: Submissions & Voting -->
-          <div class="col-12 col-lg-4">
-            <div class="sticky-lg-top" style="top: 80px;">
-              <!-- Submission Section -->
-              <EventSubmissionsSection
-                v-if="event.details.allowProjectSubmission !== false"
-                :event="event"
-                :teams="teams"
-                :loading="loading"
-                :getUserName="getUserNameFromCache"
-                :canSubmitProject="canSubmitProject"
-                @submission-success="handleSubmissionSuccess"
-                class="mb-4"
-              />
+            <!-- Sidebar Column: Submissions & Voting -->
+            <div class="col-12 col-lg-4">
+              <div class="sticky-lg-top" style="top: 80px;">
+                <!-- Submission Section -->
+                <EventSubmissionsSection
+                  v-if="event.details.allowProjectSubmission !== false"
+                  :event="event"
+                  :teams="teams"
+                  :loading="loading"
+                  :getUserName="getUserNameFromCache"
+                  :canSubmitProject="canSubmitProject"
+                  @submission-success="handleSubmissionSuccess"
+                  class="mb-4"
+                />
 
-              <!-- Voting/Winner Selection Section  -->
-              <VotingCard
-                :event="event"
-                :currentUser="currentUser"
-                :loading="loading"
-              />
+                <!-- Voting/Winner Selection Section  -->
+                <VotingCard
+                  :event="event"
+                  :currentUser="currentUser"
+                  :loading="loading"
+                />
 
-              <!-- Organizer Rating Form -->
-              <OrganizerRatingForm
-                v-if="canRateOrganizer"
-                :event-id="event.id"
-                :current-user-id="currentUser?.uid ?? ''"
-                :existing-ratings="event.organizerRatings || []"
-                class="mb-4"
-              />
+                <!-- Organizer Rating Form -->
+                <OrganizerRatingForm
+                  v-if="canRateOrganizer"
+                  :event-id="event.id"
+                  :current-user-id="currentUser?.uid ?? ''"
+                  :existing-ratings="event.organizerRatings || []"
+                  class="mb-4"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -186,12 +188,10 @@ import { EventStatus, type Event, type Team, EventFormat } from '@/types/event';
 import { type EnrichedStudentData } from '@/types/student';
 
 // Import utility functions
-import { hasUserSubmittedVotes } from '@/utils/eventDataUtils';
 import {
   isEventOrganizer,
   isEventParticipant,
   canUserSubmitToEvent,
-  canUserVoteInEvent
 } from '@/utils/permissionHelpers';
 
 // --- Local Types & Interfaces ---
@@ -229,9 +229,6 @@ const props = defineProps<Props>();
 const studentStore = useProfileStore();
 const { fetchEventById } = useEvents(); // Remove submitProject from destructuring
 const eventStore = useEventStore();
-const notificationStore = useNotificationStore();
-const router = useRouter();
-const route = useRoute();
 
 // --- Refs and Reactive State ---
 const loading = ref<boolean>(true);
@@ -455,18 +452,24 @@ defineExpose({ handleJoin, handleLeave });
   min-height: calc(100vh - 56px);
   padding-top: 1rem;
   padding-bottom: 4rem;
+  width: 100%;
+  overflow-x: hidden;
 }
+
 .event-details-view { 
-  max-width: 1280px; 
-  margin-left: auto; 
-  margin-right: auto; 
+  width: 100%;
+  margin: 0;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
-@media (max-width: 991.98px) { 
-  .event-details-view { 
-    padding-left: 1rem; 
-    padding-right: 1rem; 
-  } 
+
+@media (min-width: 768px) {
+  .event-details-view {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
+
 @media (max-width: 767.98px) { 
   .sticky-lg-top { 
     position: static; 

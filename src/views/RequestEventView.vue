@@ -104,7 +104,10 @@
             </div>
             
             <!-- Team Configuration Card (Conditional) -->
-            <div v-if="formData.details.format === EventFormat.Team" class="card shadow-sm mb-4 rounded-3 overflow-hidden">
+            <div 
+              v-if="formData.details.format === EventFormat.Team && teamsComponentReady" 
+              class="card shadow-sm mb-4 rounded-3 overflow-hidden"
+            >
               <div class="card-header bg-primary-subtle text-primary-emphasis py-3">
                 <h5 class="mb-0 fw-medium"><i class="fas fa-users-cog me-2"></i>{{ teamConfigCardNumber }}. Team Configuration</h5>
               </div>
@@ -171,7 +174,6 @@ import { EventFormat, EventStatus, type EventFormData, type Team, type EventCrit
 import { useEventStore } from '@/stores/eventStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { Timestamp } from 'firebase/firestore';
 import { DateTime } from 'luxon';
 
 const route = useRoute();
@@ -192,6 +194,7 @@ const eventId = ref(route.params.eventId as string || '');
 const allUsers = ref<InstanceType<typeof ManageTeamsComponent>['students']>([]);
 const nameCache = ref<Record<string, string>>({});
 const assignableXpRoles = ref<readonly string[]>(['developer', 'designer', 'presenter', 'problemSolver']);
+const teamsComponentReady = ref(true); // Add this line to define the missing property
 
 // Form data structure
 const formData = ref<EventFormData>({
@@ -337,6 +340,25 @@ const goBack = () => {
   }
 };
 
+const convertTimestampToISOString = (timestamp: any): string | null => {
+  if (!timestamp) return null;
+  try {
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      return DateTime.fromJSDate(timestamp.toDate()).toISODate();
+    }
+    if (timestamp instanceof Date) {
+      return DateTime.fromJSDate(timestamp).toISODate();
+    }
+    if (typeof timestamp === 'string') {
+      const dt = DateTime.fromISO(timestamp);
+      return dt.isValid ? dt.toISODate() : null;
+    }
+  } catch (error) {
+    console.error('Error converting timestamp to ISO string:', error);
+  }
+  return null;
+};
+
 // Watch for format changes to set default allowProjectSubmission
 watch(() => formData.value.details.format, (newFormat) => {
   if (newFormat === EventFormat.Competition || newFormat === EventFormat.Team) {
@@ -392,8 +414,8 @@ onMounted(async () => {
             allowProjectSubmission: event.details.allowProjectSubmission ?? (event.details.format === EventFormat.Competition || event.details.format === EventFormat.Team),
             organizers: event.details.organizers || [],
             date: {
-              start: event.details.date.start ? (event.details.date.start instanceof Timestamp ? DateTime.fromJSDate(event.details.date.start.toDate()).toISODate() : String(event.details.date.start)) : null,
-              end: event.details.date.end ? (event.details.date.end instanceof Timestamp ? DateTime.fromJSDate(event.details.date.end.toDate()).toISODate() : String(event.details.date.end)) : null,
+              start: convertTimestampToISOString(event.details.date.start),
+              end: convertTimestampToISOString(event.details.date.end)
             }
           },
           criteria: event.criteria || [],
@@ -447,22 +469,6 @@ onMounted(async () => {
 
 /* Ensure form controls have consistent sizing */
 .form-control, .form-select {
-  font-size: 0.9rem; /* Slightly smaller for a denser form */
-}
-.form-label {
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin-bottom: 0.3rem;
-}
-
-/* Improve spacing within cards */
-.card-body {
-  padding: 1.5rem;
-}
-
-@media (min-width: 768px) {
-  .card-body {
-    padding: 2rem;
-  }
+  font-size: 0.9rem; /* Slightly smaller font for better density */
 }
 </style>
