@@ -29,11 +29,12 @@ import {
     fetchStudentEventHistory as fetchStudentEventHistoryService,
     fetchStudentEventParticipationCount as fetchStudentEventParticipationCountService
 } from '@/services/profileService';
-import { fetchStudentEventRequests as fetchStudentEventRequestsService } from '@/services/eventService';
+import { fetchMyEventRequests as fetchStudentEventRequestsService } from '@/services/eventService';
 import { uploadFileService, deleteFileByUrlService } from '@/services/storageService'; // Added storage service imports
+import { STUDENTS_COLLECTION, XP_COLLECTION } from '@/utils/constants'; // Added import
 
-const STUDENT_COLLECTION_PATH = 'students';
-const XP_COLLECTION_PATH = 'xp';
+// const STUDENT_COLLECTION_PATH = 'students';
+// const XP_COLLECTION_PATH = 'xp';
 
 // Get storage reference from the existing Firebase app
 const storage = getStorage();
@@ -666,6 +667,16 @@ export const useProfileStore = defineStore('studentProfile', () => {
     error.value = null;
     actionError.value = null;
     fetchError.value = null;
+  }
+
+  async function initNewStudentProfile(userId: string, email: string, displayName: string | null, photoURL: string | null, batchYr?: number, studentIdent?: string) {
+    const studentRef = doc(db, STUDENTS_COLLECTION, userId); // Ensure this uses imported constant
+    const xpRef = doc(db, XP_COLLECTION, userId); // Ensure this uses imported constant
+    const batch = writeBatch(db);
+
+    const initialXPData = getDefaultXPData(userId);
+
+    // ... existing code ...
   }
 
   return {

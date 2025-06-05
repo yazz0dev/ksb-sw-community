@@ -1,18 +1,20 @@
 // src/stores/studentEventStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
-import { Timestamp} from 'firebase/firestore';
-import { Event, EventStatus, EventFormData, Submission, EventFormat } from '@/types/event';
+import {
+  doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, Timestamp, addDoc, arrayUnion, arrayRemove, deleteField, writeBatch, increment, serverTimestamp, setDoc
+} from 'firebase/firestore';
+import { db } from '@/firebase';
+import { Event, EventStatus, EventFormData, Team, Submission, EventCriteria, EventLifecycleTimestamps, OrganizerRating, EventFormat } from '@/types/event';
 import { useProfileStore } from './profileStore';
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore';
 import { useAuth } from '@/composables/useAuth';
-import {  getISTTimestamp } from '@/utils/eventDataMapper';
+import { getISTTimestamp } from '@/utils/eventDataMapper';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { deepClone } from '@/utils/helpers';
-import { checkDateConflictForRequest, checkExistingPendingRequestForStudent } from '@/services/eventService'; // Changed import alias
+import { checkDateConflictForRequest } from '@/services/eventService'; // Changed import path
 import { handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
-
 import { DateTime } from 'luxon';
 import { compareEventsForSort } from '@/utils/eventUtils';
 import { 
@@ -33,6 +35,7 @@ import {
   toggleVotingStatusInFirestore as toggleVotingStatusService,
   submitManualWinnerSelectionInFirestore as submitManualWinnerSelectionService
 } from '@/services/eventService';
+
 
 // Add createCompleteEvent function before the store definition
 function createCompleteEvent(partialEventData: Partial<Event>, existingEvent?: Event | undefined): Event {
@@ -78,7 +81,6 @@ export const useEventStore = defineStore('studentEvents', () => {
   // Store instances
   const studentProfileStore = useProfileStore();
   const notificationStore = useNotificationStore();
-  const appStore = useAppStore();
   const auth = useAuth();
 
   // Computed (Getters)
@@ -281,15 +283,15 @@ export const useEventStore = defineStore('studentEvents', () => {
         if (typeof endDate === 'string') endDateTime = DateTime.fromISO(endDate); else throw new Error('Expected string date format for end date');
       } catch (error) { console.error('Date parsing error:', error); throw new Error('Invalid date format provided.'); }
       if (!startDateTime.isValid || !endDateTime.isValid) throw new Error(`Invalid dates provided. Start: ${startDateTime.invalidReason}, End: ${endDateTime.invalidReason}`);
-      if (endDateTime <= startDateTime) throw new Error(`Event end date must be after start date.`);
-      const nowInIST = DateTime.now().setZone('Asia/Kolkata');
-      if (startDateTime < nowInIST) throw new Error('Event start date cannot be in the past.');
+      if (endDateTime < startDateTime) throw new Error(`Event end date must be on or after the start date.`);
+      
+      // FIX: Normalize to start of day for comparison
+      const nowInIST = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+      if (startDateTime.startOf('day') < nowInIST) throw new Error('Event start date cannot be in the past.');
 
-      // Fix: Pass JS Date objects and remove undefined eventId parameter
-      const { hasConflict, conflictingEventName } = await checkDateConflict({ 
-        startDate: startDateTime.toJSDate(), 
-        endDate: endDateTime.toJSDate() 
-      });
+      // The checkDateConflict function in the store might need to be adapted if it directly uses Firestore.
+      // For now, assuming it works as is or will be refactored separately.
+      const { hasConflict, conflictingEventName } = await checkDateConflict({ startDate: startDateTime.toJSDate(), endDate: endDateTime.toJSDate() });
       if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
       // --- End of existing validation logic ---
 
@@ -322,7 +324,6 @@ export const useEventStore = defineStore('studentEvents', () => {
             ...formData.details,
             // Dates in formData.details are strings, convertEventDetailsDateFormat will handle them if createCompleteEvent calls it.
             // Or, ensure they are Timestamps if createCompleteEvent expects them directly.
-            // For now, let's assume createCompleteEvent will call convertEventDetailsDateFormat, which expects strings or Timestamps.
         date: {
                 start: Timestamp.fromDate(startDateTime.toJSDate()), // Convert to Timestamp for createCompleteEvent
                 end: Timestamp.fromDate(endDateTime.toJSDate())     // Convert to Timestamp for createCompleteEvent
@@ -368,12 +369,10 @@ export const useEventStore = defineStore('studentEvents', () => {
       const startDate = formData.details.date.start ? getISTTimestamp(formData.details.date.start) : null;
       const endDate = formData.details.date.end ? getISTTimestamp(formData.details.date.end) : null;
       if (!startDate || !endDate) throw new Error('Event start and end dates are required.');
-      if (endDate.toMillis() <= startDate.toMillis()) throw new Error('Event end date must be after start date.');
-      
-      // Fix: Use correct type conversion for Timestamp to JS Date
+      if (endDate.toMillis() < startDate.toMillis()) throw new Error('Event end date must be on or after start date.');
       const { hasConflict, conflictingEventName } = await checkDateConflict({
-        startDate: startDate.toDate(),
-        endDate: endDate.toDate(),
+        startDate: startDate,
+        endDate: endDate,
         excludeEventId: eventId
       });
       if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
@@ -413,7 +412,7 @@ export const useEventStore = defineStore('studentEvents', () => {
         const existingEvent = getEventById(eventId);
         _updateLocalEventLists(createCompleteEvent({ id: eventId, ...updatedFields }, existingEvent));
         notificationStore.showNotification({ message: `Event status updated to ${newStatus}.`, type: 'success' });
-    } catch (err) {
+    }  catch (err) {
         await _handleOpError(`updating event status to ${newStatus}`, err, eventId);
     }
   }
@@ -545,7 +544,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  async function submitOrganizationRating(payload: { eventId: string; score: number; feedback?: string }) {
+  async function submitOrganizationRating(payload: { eventId: string; score: number; feedback?: string | null }) {
     actionError.value = null;
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
       await _handleOpError("submitting organization rating", new Error("User not authenticated."), payload.eventId);
@@ -554,19 +553,33 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
-      const ratingData = { 
-        score: payload.score, 
-        comment: (payload.feedback === '' || payload.feedback === undefined) ? null : payload.feedback 
-      };
-      // Service function contains all validation and Firestore logic
-      await submitOrganizationRatingService(payload.eventId, studentId, ratingData);
-      const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData);
-        notificationStore.showNotification({ message: "Organizer rating submitted!", type: 'success' });
+      // The service function now expects the user ID to create a map-based entry
+      await submitOrganizationRatingService({ ...payload, userId: studentProfileStore.studentId });
+
+      // Optimistically update the local state to reflect the change
+      const eventToUpdate = viewedEventDetails.value;
+      if (eventToUpdate) {
+        if (!eventToUpdate.organizerRatings) {
+          eventToUpdate.organizerRatings = {}; // Initialize as a map if it doesn't exist
+        }
+        // This is a client-side representation, so we use a client timestamp for immediate feedback.
+        // The server will have the authoritative serverTimestamp.
+        eventToUpdate.organizerRatings[studentProfileStore.studentId] = {
+          userId: studentProfileStore.studentId,
+          rating: payload.score,
+          feedback: payload.feedback || '',
+          ratedAt: new Date() // Use client-side date for optimistic update
+        };
+        _updateLocalEventLists(eventToUpdate);
+      }
+      notificationStore.showNotification({
+        message: 'Organization rating submitted successfully!',
+        type: 'success',
+      });
     } catch (err) {
-        await _handleOpError("submitting organization rating", err, payload.eventId);
+      await _handleOpError('submitting organization rating', err, payload.eventId);
     } finally {
-        isLoading.value = false;
+      isLoading.value = false;
     }
   }
 
@@ -591,56 +604,37 @@ export const useEventStore = defineStore('studentEvents', () => {
     actionError.value = null;
   }
   
-  async function checkDateConflict(params: { startDate: string | Date; endDate: string | Date; excludeEventId?: string }): Promise<{ hasConflict: boolean; conflictingEventName?: string; nextAvailableDate?: string }> {
+  async function checkDateConflict({ 
+    startDate, 
+    endDate, 
+    excludeEventId 
+  }: { 
+    startDate: Date | Timestamp; 
+    endDate: Date | Timestamp; 
+    excludeEventId?: string 
+  }): Promise<{ hasConflict: boolean; conflictingEventName: string | null; nextAvailableDate: string | null }> { // Updated return type
     try {
-      // Convert input dates to consistent format
-      let startDateTime: DateTime;
-      let endDateTime: DateTime;
-      
-      if (typeof params.startDate === 'string') {
-        startDateTime = DateTime.fromISO(params.startDate);
-      } else {
-        startDateTime = DateTime.fromJSDate(params.startDate);
-      }
-      
-      if (typeof params.endDate === 'string') {
-        endDateTime = DateTime.fromISO(params.endDate);
-      } else {
-        endDateTime = DateTime.fromJSDate(params.endDate);
-      }
-      
-      if (!startDateTime.isValid || !endDateTime.isValid) {
-        throw new Error('Invalid date(s) provided for conflict check.');
-      }
-      
+      // Convert to Timestamps if they are JS Dates
+      const startTimestamp = startDate instanceof Date ? Timestamp.fromDate(startDate) : startDate;
+      const endTimestamp = endDate instanceof Date ? Timestamp.fromDate(endDate) : endDate;
+
+      // Call the service function with individual arguments
       const result = await checkDateConflictForRequest(
-        startDateTime.toJSDate(),
-        endDateTime.toJSDate(),
-        params.excludeEventId
+        startTimestamp,
+        endTimestamp,
+        excludeEventId
       );
-      
-      // Map the service result to match the expected return type
+
+      // Explicitly return the properties expected by the Promise type
       return {
         hasConflict: result.hasConflict,
-        conflictingEventName: result.conflictingEventName || undefined,
-        nextAvailableDate: result.nextAvailableDate || undefined
+        conflictingEventName: result.conflictingEventName,
+        nextAvailableDate: result.nextAvailableDate
+        // conflictingEvent from service result is not part of this store function's promised type, so it's fine.
       };
     } catch (error) {
-      console.error('Error checking date conflict:', error);
-      throw error;
-    }
-  }
-
-  async function checkExistingRequests(studentId: string): Promise<boolean> {
-    if (!studentId) {
-      return false;
-    }
-    
-    try {
-      return await checkExistingPendingRequestForStudent(studentId);
-    } catch (error) {
-      console.error("Error checking existing requests:", error);
-      throw new Error(`Failed to check existing requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Error checking date conflict:", error);
+      throw new Error(`Failed to check date conflict: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -724,9 +718,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     requestNewEvent, editMyEventRequest, updateEventStatus,
     joinEvent, leaveEvent, submitProject,
     submitTeamCriteriaVote, submitIndividualWinnerVote, submitManualWinnerSelection, submitOrganizationRating,
-    toggleVotingOpen, findWinner, closeEventPermanently, autoGenerateTeams,
+    toggleVotingOpen, findWinner, closeEventPermanently, autoGenerateTeams, // Ensure autoGenerateTeams is here
     checkDateConflict,
-    checkExistingRequests,
     clearError
   };
 });

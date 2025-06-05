@@ -78,8 +78,7 @@ const {
 const { 
   logout: performLogout,
   isAuthenticated,
-  refreshAuthState,
-  initializeAuthState // Get the initialization function
+  refreshAuthState
 } = useAuth();
 
 const userName = computed(() => studentStore.studentName);
@@ -138,9 +137,6 @@ watch(isOnline, (online) => {
 
 onMounted(async () => {
   initAppState();
-  
-  // Initialize auth persistence here, in the component's onMounted hook
-  await initializeAuthState();
   
   // Check if there's a mismatch between Firebase auth and our store
   const firebaseAuth = getAuth();

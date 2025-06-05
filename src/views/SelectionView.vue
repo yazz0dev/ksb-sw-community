@@ -151,7 +151,7 @@ import { Event, EventFormat, EventStatus, Team, EventCriteria } from '@/types/ev
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 
 // Import the utility functions
-import {  createIndividualVotePayload, createManualWinnerPayload, getValidCriteria } from '@/utils/eventDataUtils';
+import { createManualWinnerPayload, getValidCriteria } from '@/utils/eventDataUtils';
 import { 
   isEventOrganizer, 
   isEventParticipant, 
@@ -702,26 +702,17 @@ const submitSelection = async (): Promise<void> => {
       
       await eventStore.submitTeamCriteriaVote(teamVotePayload);
     } else {
-      // Use the utility function to create a consistent payload
-      const individualPayload = createIndividualVotePayload(
-        props.eventId,
-        individualVoting
-      );
-
-      // Check what type of structure the store method expects and transform accordingly
-      // If individualPayload has winnervotes structure, transform it
-      if ('winnervotes' in individualPayload) {
-        // Assuming we need to submit each vote separately or modify the structure
-        // Based on the error, it seems the method expects a single winnerId, not multiple
-        // This might need adjusting based on the actual requirements
-        await eventStore.submitIndividualWinnerVote({
-          eventId: individualPayload.eventId,
-          selectedWinnerId: Object.values(individualPayload.winnervotes)[0] // Take the first vote as a simple approach
-        });
-      } else {
-        // If the structure is already correct, pass it through
-        await eventStore.submitIndividualWinnerVote(individualPayload as any);
-      }
+      // For individual events, the payload structure is similar, but without a 'bestPerformer'.
+      const individualVotePayload = {
+        eventId: props.eventId,
+        votes: {
+          criteria: individualVoting,
+          bestPerformer: undefined,
+        },
+      };
+      // Re-use the team criteria vote submission logic which is generic enough
+      // to handle individual votes (where bestPerformer is undefined).
+      await eventStore.submitTeamCriteriaVote(individualVotePayload as any);
     }
 
     notificationStore.showNotification({

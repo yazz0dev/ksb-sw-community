@@ -82,7 +82,7 @@ async function submitRating() {
     await eventStore.submitOrganizationRating({
       eventId: props.eventId,
       score: rating.value,
-      feedback: feedback.value.trim() || '' // Pass empty string if feedback is empty or whitespace
+      feedback: feedback.value.trim() || null // Change empty string to null explicitly
     });
     hasRated.value = true;
   } catch (err: any) {

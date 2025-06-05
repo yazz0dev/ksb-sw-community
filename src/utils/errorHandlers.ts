@@ -1,3 +1,5 @@
+import { ERROR_MESSAGES } from './constants';
+
 /**
  * Handles Firestore errors by translating them into user-friendly messages
  * @param error The error object from Firestore
@@ -5,7 +7,7 @@
  */
 export function handleFirestoreError(error: any): string {
   if (error?.code === 'permission-denied') {
-    return 'Permission denied. You might not have access to this resource.';
+    return ERROR_MESSAGES.PERMISSION_DENIED;
   }
   
   if (error?.code === 'not-found') {
@@ -13,7 +15,7 @@ export function handleFirestoreError(error: any): string {
   }
   
   if (error?.code === 'unavailable') {
-    return 'The service is currently unavailable. Please try again later.';
+    return ERROR_MESSAGES.SERVICE_UNAVAILABLE;
   }
   
   if (typeof error?.message === 'string') {

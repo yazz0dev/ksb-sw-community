@@ -6,7 +6,6 @@ export function useAppState() {
   const isOnline = ref(navigator.onLine);
   const currentTheme = ref<'light' | 'dark'>(appStore.currentTheme || 'light');
   const newVersionAvailable = ref(appStore.newAppVersionAvailable);
-  const hasFetchedInitialAuth = ref(appStore.hasFetchedInitialAuth);
 
   /**
    * Initialize the app state
@@ -74,7 +73,6 @@ export function useAppState() {
     isOnline,
     currentTheme,
     newVersionAvailable,
-    hasFetchedInitialAuth,
     initAppState,
     setNetworkStatus,
     setTheme,

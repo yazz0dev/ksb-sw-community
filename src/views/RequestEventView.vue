@@ -291,7 +291,7 @@ const handleSubmitForm = async () => {
         router.push({ name: 'EventDetails', params: { id: eventId.value } });
       }
     } else {
-      if (await eventStore.checkExistingRequests()) {
+      if (await eventStore.checkExistingPendingRequest()) {
           errorMessage.value = "You already have a pending event request. Please wait for it to be reviewed.";
           hasActiveRequest.value = true;
           isSubmitting.value = false;
@@ -422,16 +422,6 @@ onMounted(async () => {
           teams: event.teams || [],
           status: event.status, // Keep existing status
           votingOpen: event.votingOpen, // Keep existing votingOpen state
-          // Properties not in EventFormData are removed:
-          // id: event.id,
-          // requestedBy: event.requestedBy,
-          // lifecycleTimestamps: event.lifecycleTimestamps,
-          // rejectionReason: event.rejectionReason,
-          // winners: event.winners,
-          // submissions: event.submissions,
-          // bestPerformerSelections: event.bestPerformerSelections,
-          // organizerRatings: event.organizerRatings,
-          // participants: event.participants,
         };
         
       } else {
@@ -440,7 +430,7 @@ onMounted(async () => {
     } else {
       isEditing.value = false;
       // For new events, check if the user already has a pending request
-      hasActiveRequest.value = await eventStore.checkExistingRequests();
+      hasActiveRequest.value = await eventStore.checkExistingPendingRequest();
       // Initialize with current user as an organizer for new events
       if (profileStore.studentId) {
         formData.value.details.organizers = [profileStore.studentId];

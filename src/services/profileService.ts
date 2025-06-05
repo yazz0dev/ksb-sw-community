@@ -14,12 +14,12 @@ import { getAuth } from 'firebase/auth';
 import { db } from '@/firebase';
 import type { EnrichedStudentData, UserData, NameCacheEntry } from '@/types/student';
 import type { XPData } from '@/types/xp';
-import { getDefaultXPData, XP_COLLECTION_PATH } from '@/types/xp';
+import { getDefaultXPData } from '@/types/xp';
 import { deepClone } from '@/utils/helpers';
 import { Event, EventFormat, EventStatus } from '@/types/event';
 import type { StudentPortfolioProject, StudentEventHistoryItem } from '@/types/student';
+import { STUDENTS_COLLECTION, XP_COLLECTION } from '@/utils/constants';
 
-const STUDENT_COLLECTION_PATH = 'students'; // Define if not already defined at service level
 const now = () => Timestamp.now();
 
 /**
@@ -29,8 +29,8 @@ const now = () => Timestamp.now();
  */
 export const fetchStudentData = async (uid: string): Promise<EnrichedStudentData | null> => {
   try {
-    const studentDocRef = doc(db, 'students', uid);
-    const xpDocRef = doc(db, XP_COLLECTION_PATH, uid);
+    const studentDocRef = doc(db, STUDENTS_COLLECTION, uid);
+    const xpDocRef = doc(db, XP_COLLECTION, uid);
 
     const [studentSnap, xpSnap] = await Promise.all([
       getDoc(studentDocRef),
@@ -95,7 +95,7 @@ export const updateStudentProfile = async (
       throw new Error('You do not have permission to update this profile. Please try logging out and back in.');
     }
 
-    const studentRef = doc(db, 'students', uid);
+    const studentRef = doc(db, STUDENTS_COLLECTION, uid);
     const dataToUpdate = { ...updates, lastUpdatedAt: now() };
     await updateDoc(studentRef, dataToUpdate);
   } catch (err: any) {
@@ -127,7 +127,7 @@ export const fetchUserNamesBatch = async (uids: string[]): Promise<Record<string
       const batchIds = uniqueUids.slice(i, i + 30);
       if (batchIds.length === 0) continue;
       
-      const usersRef = collection(db, 'students');
+      const usersRef = collection(db, STUDENTS_COLLECTION);
       const q = query(usersRef, where(documentId(), 'in', batchIds));
       const snapshot = await getDocs(q);
       
@@ -157,7 +157,7 @@ export const fetchUserNamesBatch = async (uids: string[]): Promise<Record<string
  */   
 export const fetchAllStudentProfiles = async (): Promise<UserData[]> => {
   try {
-    const studentsCollectionRef = collection(db, 'students');
+    const studentsCollectionRef = collection(db, STUDENTS_COLLECTION);
     const q = query(studentsCollectionRef, orderBy('name', 'asc'));
     const querySnapshot = await getDocs(q);
     
@@ -179,7 +179,7 @@ export const fetchAllStudentProfiles = async (): Promise<UserData[]> => {
  */
 export const fetchLeaderboardData = async (): Promise<EnrichedStudentData[]> => {
   try {
-    const studentsCollectionRef = collection(db, STUDENT_COLLECTION_PATH);
+    const studentsCollectionRef = collection(db, STUDENTS_COLLECTION);
     const studentsSnapshot = await getDocs(studentsCollectionRef);
     
     if (studentsSnapshot.empty) {
@@ -188,7 +188,7 @@ export const fetchLeaderboardData = async (): Promise<EnrichedStudentData[]> => 
 
     const leaderboardUsersPromises = studentsSnapshot.docs.map(async (studentDoc) => {
       const studentData = { uid: studentDoc.id, ...studentDoc.data() } as UserData;
-      const xpDocRef = doc(db, XP_COLLECTION_PATH, studentDoc.id);
+      const xpDocRef = doc(db, XP_COLLECTION, studentDoc.id);
       const xpSnap = await getDoc(xpDocRef);
       const xpData = xpSnap.exists()
         ? ({ uid: xpSnap.id, ...xpSnap.data() } as XPData)

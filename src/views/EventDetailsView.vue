@@ -151,7 +151,7 @@
                   v-if="canRateOrganizer"
                   :event-id="event.id"
                   :current-user-id="currentUser?.uid ?? ''"
-                  :existing-ratings="event.organizerRatings || []"
+                  :existing-ratings="organizerRatingsAsArray"
                   class="mb-4"
                 />
               </div>
@@ -268,7 +268,7 @@ const allAssociatedUserIds = computed<string[]>(() => {
         (event.value.participants || []).forEach(id => { if (id) userIds.add(id); });
     }
     (event.value.submissions || []).forEach(sub => { if (sub.submittedBy) userIds.add(sub.submittedBy); });
-    (event.value.organizerRatings || []).forEach(rating => { if (rating.userId) userIds.add(rating.userId); });
+    Object.keys(event.value.organizerRatings || {}).forEach(userId => { if (userId) userIds.add(userId); });
 
     return Array.from(userIds).filter(Boolean);
 });
@@ -294,6 +294,16 @@ const canRateOrganizer = computed(() => {
   return localIsCurrentUserParticipant.value &&
          !localIsCurrentUserOrganizer.value &&
          event.value.status === EventStatus.Completed;
+});
+
+// Convert organizerRatings map to an array for the form component
+const organizerRatingsAsArray = computed(() => {
+  if (!event.value?.organizerRatings) return [];
+  // The ratings are now a map, not an array. We convert it for the prop.
+  return Object.entries(event.value.organizerRatings).map(([userId, rating]) => ({
+    ...rating,
+    userId: userId,
+  }));
 });
 
 // Add computed properties for splitting participants

@@ -40,16 +40,28 @@ export const applyXpAwardsBatch = async (
     const xpDocRef = doc(db, 'xp', userId);
     const updatePayload: Record<string, any> = { lastUpdatedAt: now() };
     let userHasUpdates = false;
+    let totalXpIncrementForThisUser = 0;
 
     for (const key in xpIncrements) {
-      if (key.startsWith('xp_') || key === 'count_wins' || key === 'totalCalculatedXp') {
-        const typedKey = key as keyof typeof xpIncrements;
-        const incrementValue = xpIncrements[typedKey];
-        if (typeof incrementValue === 'number' && incrementValue !== 0) {
+      const typedKey = key as keyof XpFieldUpdates;
+      const incrementValue = xpIncrements[typedKey];
+
+      if (typeof incrementValue === 'number' && incrementValue !== 0) {
+        if (key.startsWith('xp_')) {
+          updatePayload[key] = increment(incrementValue);
+          totalXpIncrementForThisUser += incrementValue;
+          userHasUpdates = true;
+        } else if (key === 'count_wins') {
           updatePayload[key] = increment(incrementValue);
           userHasUpdates = true;
-        }
+        } 
+        // totalCalculatedXp from input is ignored, it's calculated from xp_ fields.
       }
+    }
+
+    if (totalXpIncrementForThisUser !== 0) {
+      updatePayload.totalCalculatedXp = increment(totalXpIncrementForThisUser);
+      userHasUpdates = true; // Ensure this is true if only totalXpIncrement changes (e.g. if other fields were 0)
     }
 
     // Only add to batch if there are actual increments for the user
@@ -76,7 +88,7 @@ export const applyXpAwardsBatch = async (
  * Creates an XP update object for a single role
  * @param role The XP role to update
  * @param amount The amount to increment
- * @returns An XpFieldUpdates object with the role and total XP updated
+ * @returns An XpFieldUpdates object with the role updated
  */
 export function createXpUpdate(role: XpFirestoreFieldKey, amount: number): XpFieldUpdates {
   if (amount <= 0) {
@@ -86,6 +98,6 @@ export function createXpUpdate(role: XpFirestoreFieldKey, amount: number): XpFie
   
   return {
     [role]: amount,
-    totalCalculatedXp: amount // Also update the total
+    // totalCalculatedXp: amount // REMOVED: applyXpAwardsBatch will handle this
   };
 }

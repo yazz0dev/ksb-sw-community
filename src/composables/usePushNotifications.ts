@@ -82,6 +82,7 @@ async function initializeOneSignalSdk(userId?: string | null): Promise<void> {
       });
     }
   } catch (error) {
+    console.error("OneSignal SDK Initialization Error:", error);
   }
 }
 
@@ -147,12 +148,6 @@ export function usePushNotifications() {
         throw new Error('OneSignal not available after initialization');
       }
       
-      // Ensure SDK is initialized before registering
-      if (!OneSignal._initCalled) {
-        await initializeOneSignalSdk(studentStore.studentId); 
-        if(!OneSignal._initCalled) throw new Error('OneSignal could not be initialized.');
-      }
-
       await OneSignal.registerForPushNotifications();
 
       if (typeof OneSignal.getNotificationPermission === 'function') {
@@ -204,7 +199,5 @@ export function usePushNotifications() {
     showPushPermissionPrompt,
     requestPushPermission,
     dismissPushPrompt,
-    checkPushPermissionState, // Expose if needed externally, though mostly internal
-    initializeOneSignalSdk // Expose for potential explicit initialization elsewhere, e.g., after login
   };
 }

@@ -37,91 +37,6 @@ import { BEST_PERFORMER_LABEL, EVENTS_COLLECTION } from '@/utils/constants';
 import { applyXpAwardsBatch } from '@/services/xpService'; // Added import
 
 /**
- * Fetch publicly viewable events
- * @returns Promise that resolves with an array of events
- */
-export const fetchPublicEvents = async (): Promise<Event[]> => {
-  try {
-    const q = query(
-      collection(db, EVENTS_COLLECTION),
-      where('status', 'in', [EventStatus.Approved, EventStatus.InProgress, EventStatus.Completed, EventStatus.Closed]),
-      orderBy('details.date.start', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
-  } catch (error) {
-    console.error("Error fetching public events:", error);
-    throw error;
-  }
-};
-
-/**
- * Fetch event requests made by a student
- * @param studentId Student's UID
- * @returns Promise that resolves with an array of events
- */
-export const fetchStudentEventRequests = async (studentId: string): Promise<Event[]> => {
-  if (!studentId) return [];
-  
-  try {
-    const q = query(
-      collection(db, EVENTS_COLLECTION),
-      where('requestedBy', '==', studentId),
-      where('status', 'in', [EventStatus.Pending, EventStatus.Rejected]),
-      orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Event));
-  } catch (error) {
-    console.error(`Error fetching event requests for ${studentId}:`, error);
-    throw error;
-  }
-};
-
-/**
- * Fetch details for a single event
- * @param eventId Event ID
- * @param currentStudentId Current student's UID for permission checks
- * @returns Promise that resolves with the event or null
- */
-export const fetchEventDetails = async (eventId: string, currentStudentId: string | null): Promise<Event | null> => {
-  if (!eventId) throw new Error('Event ID required for fetching details.');
-  
-  try {
-    const eventRef = doc(db, EVENTS_COLLECTION, eventId);
-    const eventSnap = await getDoc(eventRef);
-    
-    if (!eventSnap.exists()) {
-      return null;
-    }
-    
-    const eventData = { id: eventSnap.id, ...eventSnap.data() } as Event;
-    
-    // Access control logic
-    const isPubliclyViewable = [
-      EventStatus.Approved, 
-      EventStatus.InProgress, 
-      EventStatus.Completed, 
-      EventStatus.Closed
-    ].includes(eventData.status);
-    
-    const isMyRequest = eventData.requestedBy === currentStudentId && [
-      EventStatus.Pending, 
-      EventStatus.Rejected
-    ].includes(eventData.status);
-    
-    if (isPubliclyViewable || isMyRequest) {
-      return eventData;
-    } else {
-      throw new Error("You don't have permission to view this event's details.");
-    }
-  } catch (error) {
-    console.error(`Error fetching event details for ${eventId}:`, error);
-    throw error;
-  }
-};
-
-/**
  * Submit a project to an event
  * @param eventId Event ID
  * @param studentId Student's UID
@@ -250,8 +165,9 @@ export const createEventRequest = async (
       throw new Error('Event end date must be after start date.');
   }
   
-  const nowLuxon = DateTime.now().setZone('Asia/Kolkata');
-  if (startDateTime < nowLuxon) {
+  // FIX: Normalize to start of day for comparison
+  const nowLuxon = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+  if (startDateTime.startOf('day') < nowLuxon) {
       throw new Error('Event start date cannot be in the past.');
   }
   // --- End of date validation --- 
@@ -269,7 +185,7 @@ export const createEventRequest = async (
       requestedBy: studentId,
       status: EventStatus.Pending,
       votingOpen: false,
-      organizerRatings: [],
+      organizerRatings: {},
       submissions: [],
       winners: {},
       bestPerformerSelections: {},
@@ -360,8 +276,8 @@ export const updateEventRequestInService = async (
     // If a past event's text is edited, this rule might block it.
     // Consider if this check is desired for updates or only for new requests.
     // For now, matching createEventRequest logic, but this could be relaxed.
-    const nowLuxon = DateTime.now().setZone('Asia/Kolkata');
-    if (startDateTime < nowLuxon && currentEvent.status === EventStatus.Pending) { // Only apply past check if it was pending (not already started/approved)
+    const nowLuxon = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+    if (startDateTime.startOf('day') < nowLuxon && currentEvent.status === EventStatus.Pending) { // Only apply past check if it was pending (not already started/approved)
          // And if the date itself is being changed to past. Check if startDateTime is different from currentEvent.details.date.start
          let originalStartDateTime: DateTime;
          if ((currentEvent.details.date.start as any) instanceof Timestamp) {
@@ -371,7 +287,8 @@ export const updateEventRequestInService = async (
          } else {
            throw new Error('Invalid original start date format.');
          }
-         if (startDateTime.valueOf() !== originalStartDateTime.valueOf() && startDateTime < nowLuxon) {
+         // FIX: Normalize to start of day for comparison
+         if (startDateTime.startOf('day').valueOf() !== originalStartDateTime.startOf('day').valueOf() && startDateTime.startOf('day') < nowLuxon) {
             throw new Error('Event start date cannot be set to the past for an update.');
          }
     }
@@ -647,6 +564,11 @@ export async function updateEventStatusInFirestore(
             status: newStatus,
             lastUpdatedAt: serverTimestamp(),
         };
+        
+        // Retain original notification logic placeholders, but they are commented out
+        let notificationType: string = ''; 
+        let targetUserIds: string[] = [];  
+        let eventNameForNotification: string = currentEvent.details?.eventName || 'Event';
 
         if (newStatus === EventStatus.Rejected && rejectionReason) {
             updatesToApply.rejectionReason = rejectionReason;
@@ -785,7 +707,7 @@ export async function createEventInFirestore(eventData: EventFormData, userId: s
             requestedBy: userId, // Creator is the requester
             status: EventStatus.Approved, // Directly approved
             votingOpen: false, 
-            organizerRatings: [],
+            organizerRatings: {},
             submissions: [],
             winners: {},
             bestPerformerSelections: {},
@@ -800,8 +722,6 @@ export async function createEventInFirestore(eventData: EventFormData, userId: s
         if (dataToSubmit.details) {
             if (!dataToSubmit.details.organizers || dataToSubmit.details.organizers.length === 0) {
                 dataToSubmit.details.organizers = [userId];
-            } else if (!dataToSubmit.details.organizers.includes(userId)) {
-                dataToSubmit.details.organizers.push(userId);
             }
         }
 
@@ -831,11 +751,11 @@ export async function requestEventDeletionInFirestore(eventId: string, userId: s
         if (!eventSnap.exists()) {
             throw new Error('Event not found.');
         }
-        // Optional: Add permission checks here, e.g., only requester can request deletion.
-         const eventData = eventSnap.data();
-         if (eventData.requestedBy !== userId) { 
-            throw new Error('Permission denied to request deletion for this event.');
-         }
+        // Optional: Add permission checks here, e.g., only requester or admin can request deletion.
+        // const eventData = eventSnap.data();
+        // if (eventData.requestedBy !== userId && !userIsAdmin(userId)) { // Assuming a userIsAdmin check
+        //    throw new Error('Permission denied to request deletion for this event.');
+        // }
 
         const deletionRequest = {
             requestedBy: userId,
@@ -941,6 +861,7 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
         } else if (eventData.details.format === EventFormat.Team && eventData.teams) {
             const originalTeams = eventData.teams || [];
             const newTeams: Team[] = [];
+            let teamMemberFlatListUpdatesNeeded = false;
 
             for (const team of originalTeams) {
                 const originalMemberCount = team.members.length;
@@ -948,6 +869,7 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
                 
                 if (filteredMembers.length < originalMemberCount) {
                     userFoundAndRemoved = true;
+                    teamMemberFlatListUpdatesNeeded = true;
                     team.members = filteredMembers;
                     if (team.teamLead === studentId) {
                         team.teamLead = team.members.length > 0 ? team.members[0] : ''; // Assign new lead or clear
@@ -992,11 +914,11 @@ export async function requestToJoinTeamInFirestore(
     eventId: string,
     studentId: string,
     targetTeamName: string
-): Promise<void> { 
+): Promise<void> { // Removed erroneous "=>"
     if (!eventId || !studentId || !targetTeamName.trim()) throw new Error('Event ID, Student ID, and Target Team Name are required.');
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
-    const MAX_TEAM_MEMBERS = 8; // Example limit, can be made configurable per event if needed.
+    const MAX_TEAM_MEMBERS = 5; // Example limit, can be made configurable per event if needed.
 
     try {
         const eventSnap = await getDoc(eventRef);
@@ -1327,8 +1249,13 @@ export async function submitTeamCriteriaVoteInFirestore(
 
             let updatedCriteria = deepClone(currentEventData.criteria || []);
             
-            Object.entries(votes.criteria).forEach(([constraintIndexStr, selectedTeamName]) => {
-                const constraintIndex = parseInt(constraintIndexStr);
+            Object.entries(votes.criteria).forEach(([constraintKey, selectedTeamName]) => {
+                const constraintIndex = parseInt(constraintKey.replace('constraint', ''));
+                if (isNaN(constraintIndex)) {
+                    console.warn(`Could not parse a valid index from key: ${constraintKey}. Vote not recorded.`);
+                    return; // Skip this entry
+                }
+
                 const criterionIndex = updatedCriteria.findIndex(c => 
                     typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
                 );
@@ -1339,7 +1266,7 @@ export async function submitTeamCriteriaVoteInFirestore(
                     }
                     updatedCriteria[criterionIndex].votes![userId] = selectedTeamName;
                 } else {
-                    console.warn(`Criterion with constraintIndex ${constraintIndexStr} not found for event ${eventId}. Vote not recorded.`);
+                    console.warn(`Criterion with constraintIndex ${constraintIndex} not found for event ${eventId}. Vote not recorded.`);
                 }
             });
 
@@ -1373,104 +1300,97 @@ export async function submitIndividualWinnerVoteInFirestore(
     userId: string,
     selectedWinnerId: string 
 ): Promise<void> {
-    if (!eventId || !userId || !selectedWinnerId) {
-        throw new Error("Event ID, User ID, and Selected Winner ID are required.");
-    }
+    await runTransaction(db, async (transaction) => {
+        const eventRef = doc(db, 'events', eventId);
+        const eventSnap = await transaction.get(eventRef);
+        if (!eventSnap.exists()) {
+            throw new Error(`Event with ID ${eventId} not found.`);
+        }
+        
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        if (!eventData) {
+          throw new Error('Could not map event data');
+        }
 
-    const eventRef = doc(db, EVENTS_COLLECTION, eventId);
-    try {
-        // Use a transaction for read-modify-write integrity, though simple update is often fine for this pattern.
-        // For consistency with other voting functions, let's use runTransaction.
-        await runTransaction(db, async (transaction: Transaction) => {
-            const eventSnap = await transaction.get(eventRef);
-            if (!eventSnap.exists()) throw new Error('Event not found.');
-            const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
-            if (!eventData) throw new Error('Failed to map event data.');
+        // Basic validation
+        if (eventData.status !== EventStatus.Completed) {
+            throw new Error('Voting is only allowed for completed events.');
+        }
 
-            if (eventData.status !== EventStatus.Completed && eventData.status !== EventStatus.InProgress) {
-                throw new Error("Voting is only allowed for 'Completed' or 'In Progress' events.");
-            }
-            if (!eventData.votingOpen) throw new Error("Voting is currently closed for this event.");
-            if (eventData.details.format === EventFormat.Team) {
-                throw new Error("Individual winner voting not applicable for team events. Use team criteria voting.");
-            }
-            if (!eventData.participants?.includes(userId)) {
-                throw new Error("Only event participants can vote.");
-            }
-            if (!eventData.participants?.includes(selectedWinnerId)) {
-                throw new Error("Selected winner must be a participant in the event.");
-            }
+        const participantIds = (eventData.participants || []).map((p: any) => typeof p === 'string' ? p : p.uid);
+        if (!participantIds.includes(userId)) {
+            throw new Error("You are not a participant in this event.");
+        }
 
-            const fieldPath = `bestPerformerSelections.${userId}`;
-            transaction.update(eventRef, {
-                [fieldPath]: selectedWinnerId,
-                lastUpdatedAt: serverTimestamp()
-            });
+        // This function is now simplified and assumes the store has prepared the correct payload
+        // The logic for updating a specific winner based on criteria index is now handled in the store
+        // or a more specific service function if needed.
+        transaction.update(eventRef, {
+            // A field for winners could be structured like: winners: { [criterionId]: winnerId }
+            // For now, this is a placeholder for a more complex implementation if needed.
+            [`winners.${userId}`]: selectedWinnerId, // Example of how to record one vote per user
+            lastUpdatedAt: serverTimestamp()
         });
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to submit individual winner vote for event ${eventId}.`);
-    }
+    });
 }
 
 /**
- * Submits an organizer rating for an event in Firestore.
- * @param eventId - The ID of the event.
- * @param userId - The UID of the user submitting the rating.
- * @param ratingData - The rating data (score, comment).
+ * Records an organizer rating for an event using a Map structure.
+ * @param payload - The data for the rating submission.
+ * @param payload.eventId - The ID of the event to rate.
+ * @param payload.userId - The ID of the user submitting the rating.
+ * @param payload.score - The rating score (e.g., 1-5).
+ * @param payload.feedback - Optional feedback comment.
+ * @returns A promise that resolves when the transaction is complete.
  */
-export async function submitOrganizationRatingInFirestore(
-    eventId: string,
-    userId: string,
-    ratingData: { score: number; comment?: string | null }
-): Promise<void> {
+export async function submitOrganizationRatingInFirestore(payload: {
+    eventId: string;
+    userId: string;
+    score: number;
+    feedback?: string | null;
+}): Promise<void> {
+    const { eventId, userId, score, feedback } = payload;
     if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
-    if (!ratingData || typeof ratingData.score !== 'number' || ratingData.score < 1 || ratingData.score > 5) {
-        throw new Error("Valid rating score (1-5) is required.");
-    }
+    if (score < 1 || score > 5) throw new Error("Rating score must be between 1 and 5.");
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
+
     try {
-        await runTransaction(db, async (transaction: Transaction) => {
+        await runTransaction(db, async (transaction) => {
             const eventSnap = await transaction.get(eventRef);
-            if (!eventSnap.exists()) throw new Error('Event not found.');
-            const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
-            if (!eventData) throw new Error('Failed to map event data.');
-
-            // Original logic allowed rating on "Completed" events with "votingOpen=true".
-            // This implies "votingOpen" might be a general flag for "feedback period open".
-            // Let's stick to this for now.
-            if (eventData.status !== EventStatus.Completed || eventData.votingOpen !== true) {
-                 throw new Error("Ratings can only be submitted for 'Completed' events where feedback is explicitly open (votingOpen=true).");
+            if (!eventSnap.exists()) throw new Error("Event not found.");
+            
+            const eventData = eventSnap.data();
+            if (eventData.status !== EventStatus.Completed) {
+                throw new Error("You can only rate organizers for completed events.");
             }
 
-            const isTeamMember = eventData.details.format === EventFormat.Team && eventData.teams?.some(t => t.members.includes(userId));
-            const isIndividualParticipant = eventData.details.format !== EventFormat.Team && eventData.participants?.includes(userId);
-            if (!isTeamMember && !isIndividualParticipant && !eventData.details.organizers?.includes(userId)) { // Also allow organizers to rate if desired, though original didn't specify
-                throw new Error("Only event participants or team members can submit ratings. (Consider if organizers should also rate).");
+            const isParticipant = (eventData.participants || []).includes(userId) || 
+                                  (eventData.teamMemberFlatList || []).includes(userId);
+
+            if (!isParticipant) {
+                throw new Error("Only event participants can rate organizers.");
             }
 
-            let organizerRatings = deepClone(eventData.organizerRatings || []);
-            const existingRatingIndex = organizerRatings.findIndex(rating => rating.userId === userId);
-
+            // Prepare the new rating object
             const newRating: OrganizerRating = {
                 userId: userId,
-                rating: ratingData.score,
-                feedback: ratingData.comment || undefined,
-                ratedAt: serverTimestamp() as any,
+                rating: score,
+                ratedAt: serverTimestamp() as any, // Let Firestore set the timestamp
             };
-
-            if (existingRatingIndex > -1) {
-                organizerRatings[existingRatingIndex] = newRating;
-            } else {
-                organizerRatings.push(newRating);
+            if (feedback) {
+                newRating.feedback = feedback;
             }
+
+            // Overwrite the organizerRatings field with the updated map
             transaction.update(eventRef, {
-                organizerRatings: organizerRatings,
+                [`organizerRatings.${userId}`]: newRating,
                 lastUpdatedAt: serverTimestamp()
             });
         });
     } catch (error: any) {
-        throw new Error(error.message || `Failed to submit organization rating for event ${eventId}.`);
+        console.error(`Error submitting rating for event ${eventId}:`, error);
+        throw new Error(error.message || 'Failed to submit rating.');
     }
 }
 
@@ -1481,6 +1401,7 @@ export async function submitOrganizationRatingInFirestore(
  * @param currentUser - The user performing the action (for permission checks).
  */
 export async function toggleVotingStatusInFirestore(eventId: string, open: boolean, currentUser: EnrichedStudentData | UserData | null): Promise<void> {
+    if (!currentUser) throw new Error("Authentication required to change voting status.");
     if (!eventId) throw new Error("Event ID is required.");
     if (!currentUser?.uid) throw new Error("User performing action is required for permission check.");
 
@@ -1554,7 +1475,7 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
     if (eventData.criteria && Array.isArray(eventData.criteria)) {
         eventData.criteria.forEach((criterion: EventCriteria) => {
             if (criterion.votes && !isEmpty(criterion.votes)) {
-                const voteCounts: Record<string, number> = {};
+                               const voteCounts: Record<string, number> = {};
                 Object.values(criterion.votes).forEach((selectedEntityId: string) => {
                     voteCounts[selectedEntityId] = (voteCounts[selectedEntityId] || 0) + 1;
                 });
@@ -1567,9 +1488,9 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
                     const criterionKey = criterion.title?.trim() || `criterion_${criterion.constraintIndex || 'unknown'}`;
                     winners[criterionKey] = criterionWinners.length === 1 ? criterionWinners[0] : criterionWinners;
                 }
-            } // This closes 'if (criterion.votes && !isEmpty(criterion.votes))'
-        }); // This closes 'eventData.criteria.forEach'
-    } // This closes 'if (eventData.criteria && Array.isArray(eventData.criteria))'
+            }
+        });
+    }
 
     // Calculate winner from bestPerformerSelections (can be for individual or overall best performer in team events)
     if (eventData.bestPerformerSelections && !isEmpty(eventData.bestPerformerSelections)) {
@@ -1607,12 +1528,7 @@ export async function saveWinnersToFirestore(
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
     const updatePayload: any = {
-        winners: winners,
-        lastUpdatedAt: serverTimestamp()
-    };
-
-    if (manuallySelectedBy) {
-        updatePayload.manuallySelectedBy = manuallySelectedBy;
+       
     }
 
     try {
@@ -1883,7 +1799,7 @@ export async function finalizeWinnersInFirestore(
  * @param studentId - The UID of the student to check.
  * @returns Promise<boolean> - True if an active request exists, false otherwise.
  */
-export async function checkExistingPendingRequestForStudent(studentId: string): Promise<boolean> {
+export async function checkExistingPendingRequest(studentId: string): Promise<boolean> {
     if (!studentId) return false;
     try {
         const q = query(

@@ -55,15 +55,6 @@ export function useAuth() {
     }
   };
 
-  // Remove the onMounted hook and replace with an explicit initialization function
-  const initializeAuthState = async (): Promise<void> => {
-    try {
-      await initializeAuth();
-    } catch (error) {
-      console.error('Failed to initialize auth persistence:', error);
-    }
-  };
-
   // This function can be used to manually re-check Firebase's current user.
   const refreshAuthState = async () => {
     currentUser.value = firebaseAuthInstance.currentUser;
@@ -77,7 +68,6 @@ export function useAuth() {
     isInitialized,
     logout,
     refreshAuthState,
-    currentUser,
-    initializeAuthState // Expose the initialization function
+    currentUser
   };
 }

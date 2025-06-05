@@ -2,7 +2,7 @@
 import { Timestamp } from 'firebase/firestore';
 
 // Collection path for XP data in Firestore
-export const XP_COLLECTION_PATH = 'xp';
+// export const XP_COLLECTION_PATH = 'xp';
 
 // --- XP Calculation Role Keys ---
 // These are internal keys used for logic before mapping to Firestore fields.
