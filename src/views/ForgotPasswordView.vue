@@ -140,7 +140,7 @@ import {
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   verifyPasswordResetCode,
   confirmPasswordReset,
-  AuthError
+  type AuthError
 } from 'firebase/auth';
 
 const route = useRoute();

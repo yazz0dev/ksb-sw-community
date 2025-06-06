@@ -92,9 +92,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { EnrichedUserData, type StudentEventHistoryItem } from '@/types/student';
+import type { EnrichedUserData, StudentEventHistoryItem } from '@/types/student';
 
 // Component imports
 import UserProfileHeader from '@/components/user/UserProfileHeader.vue';
@@ -129,7 +128,6 @@ const emit = defineEmits<{
 }>();
 
 const isCurrentUser = ref<boolean>(props.isCurrentUserProp);
-const router = useRouter();
 const studentStore = useProfileStore();
 
 const user = ref<EnrichedUserData | null>(null);

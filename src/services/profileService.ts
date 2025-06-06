@@ -12,11 +12,11 @@ import {
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from '@/firebase';
-import type { EnrichedStudentData, UserData, NameCacheEntry } from '@/types/student';
+import type { EnrichedStudentData, UserData } from '@/types/student';
 import type { XPData } from '@/types/xp';
 import { getDefaultXPData } from '@/types/xp';
 import { deepClone } from '@/utils/helpers';
-import { Event, EventFormat, EventStatus } from '@/types/event';
+import { type Event, EventFormat, EventStatus } from '@/types/event';
 import type { StudentPortfolioProject, StudentEventHistoryItem } from '@/types/student';
 import { STUDENTS_COLLECTION, XP_COLLECTION } from '@/utils/constants';
 

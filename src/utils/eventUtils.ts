@@ -1,9 +1,9 @@
-import { type Event, EventStatus, EventLifecycleTimestamps, type EventDetails } from '@/types/event';
+import { type Event, EventStatus, type EventLifecycleTimestamps, type EventDetails } from '@/types/event';
 import { Timestamp } from 'firebase/firestore';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { isEmpty } from '@/utils/helpers'; // Assuming isEmpty is in helpers
 import { type EventCriteria, EventFormat } from '@/types/event'; // Add EventCriteria, EventFormat
-import { XPData, mapCalcRoleToFirestoreKey, XpCalculationRoleKey } from '@/types/xp';
+import { type XPData, mapCalcRoleToFirestoreKey, type XpCalculationRoleKey } from '@/types/xp';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 
 /**

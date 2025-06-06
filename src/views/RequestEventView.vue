@@ -389,7 +389,6 @@ onMounted(async () => {
 
     if (eventId.value) {
       isEditing.value = true;
-      const eventData = await eventStore.fetchEventDetails(eventId.value); // Use eventStore.currentEventDetails after fetch
       const event = eventStore.currentEventDetails; // eventStore.currentEventDetails should be populated by fetchEventDetails
 
       if (event) {

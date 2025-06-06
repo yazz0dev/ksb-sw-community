@@ -40,7 +40,7 @@
               v-model="selectedMemberToAddPerTeam[teamIndex]"
                 class="form-select form-select-sm user-select"
               :disabled="props.isSubmitting || team.members.length >= maxMembersPerTeam"
-              @change="addMember(teamIndex, selectedMemberToAddPerTeam[teamIndex])"
+              @change="selectedMemberToAddPerTeam[teamIndex] && addMember(teamIndex, selectedMemberToAddPerTeam[teamIndex]!)"
             >
                 <option value="" disabled>{{ availableStudentsForTeam(teamIndex).length ? 'Select a student to add...' : 'No available students' }}</option>
               <option
@@ -81,11 +81,10 @@
               {{ studentNameCache[memberId] || `User (${memberId.substring(0,5)}...)` }}
               <button
                  type="button"
-                 class="btn-close btn-close-sm ms-1"
+                 class="btn-close btn-close-sm ms-1 remove-member-btn"
                  aria-label="Remove member"
                  @click="removeMember(teamIndex, memberId)"
                  :disabled="props.isSubmitting || team.members.length <= minMembersPerTeam"
-                 class="remove-member-btn"
                ></button>
             </span>
           </div>
@@ -152,10 +151,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, PropType, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, type PropType, nextTick } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
-import { Team as EventTeamType } from '@/types/event';
-import { UserData } from '@/types/student';
+import { type Team as EventTeamType } from '@/types/event';
+import { type UserData } from '@/types/student';
 
 const props = defineProps({
   initialTeams: {
@@ -184,13 +183,13 @@ const minMembersPerTeam = 2; // Fixed: Minimum 2 members per team
 const maxMembersPerTeam = 8; // Fixed: Maximum 8 members per team
 
 // State for the member selection dropdowns (one per team)
-const selectedMemberToAddPerTeam = ref<string[]>([]);
+const selectedMemberToAddPerTeam = ref<(string | undefined)[]>([]); // Allow undefined for reset
 
 interface LocalTeam {
-  id?: string; // Keep original ID if editing
+  id: string | undefined; // Explicitly allow undefined
   teamName: string;
   members: string[]; // Array of student UIDs
-  teamLead: string;   // UID of team lead
+  teamLead: string | undefined;   // UID of team lead, allow undefined
 }
 
 const studentNameCache = computed(() => {
@@ -224,7 +223,7 @@ watch(() => props.students, (newVal) => {
     if (newVal && newVal.length > 0) {
         const idsToFetch = newVal.map(s => s.uid).filter(uid => uid && !studentStore.getCachedStudentName(uid));
         if (idsToFetch.length > 0) {
-            studentStore.fetchUserNamesBatch(idsToFetch).catch(err => emit('error', 'Failed to fetch some student names.'));
+            studentStore.fetchUserNamesBatch(idsToFetch).catch(_err => emit('error', 'Failed to fetch some student names.'));
         }
     }
 }, { immediate: true, deep: true });
@@ -250,18 +249,18 @@ const ensureMemberNamesAreFetched = async (currentTeams: LocalTeam[]) => {
 // Initializes `teams` and `selectedMemberToAddPerTeam` on component mount or `initialTeams` prop change
 const initializeTeams = () => {
   teams.value = (props.initialTeams || []).map(team => ({
-    id: team.id,
+    id: team.id, // Directly use, as it's string | undefined
     teamName: team.teamName || '',
     members: Array.isArray(team.members) ? [...team.members] : [],
-    teamLead: team.teamLead || ''
+    teamLead: team.teamLead // Directly use, as it's string | undefined
   }));
   // If creating a new event (no eventId) and no initial teams, add two default teams
   if (!props.eventId && teams.value.length === 0) {
-     teams.value.push({ teamName: `Team 1`, members: [], teamLead: '' });
-     teams.value.push({ teamName: `Team 2`, members: [], teamLead: '' });
+     teams.value.push({ id: undefined, teamName: `Team 1`, members: [], teamLead: undefined });
+     teams.value.push({ id: undefined, teamName: `Team 2`, members: [], teamLead: undefined });
   }
   // Initialize dropdown selections for each team
-  selectedMemberToAddPerTeam.value = teams.value.map(() => '');
+  selectedMemberToAddPerTeam.value = teams.value.map(() => undefined); // Use undefined for reset
   ensureMemberNamesAreFetched(teams.value);
 };
 
@@ -279,11 +278,12 @@ watch(teams, (newTeams, oldTeams) => {
 const addTeam = () => {
   if (teams.value.length < maxTeams && !props.isSubmitting) {
     teams.value.push({
+      id: undefined,
       teamName: `Team ${teams.value.length + 1}`,
       members: [],
-      teamLead: ''
+      teamLead: undefined // Use undefined for unassigned lead
     });
-    selectedMemberToAddPerTeam.value.push(''); // Add a new empty selection for the new team
+    selectedMemberToAddPerTeam.value.push(undefined); // Add a new empty selection for the new team
     nextTick(emitTeamsUpdate);
   }
 };
@@ -312,7 +312,7 @@ const addMember = (teamIndex: number, memberId: string) => {
         emit('error', `Maximum team members (${maxMembersPerTeam}) reached for ${team.teamName}.`);
     }
   }
-  selectedMemberToAddPerTeam.value[teamIndex] = ''; // Reset dropdown
+  selectedMemberToAddPerTeam.value[teamIndex] = undefined; // Reset dropdown to undefined
 };
 
 // Removes a member from a specific team
@@ -328,9 +328,9 @@ const removeMember = (teamIndex: number, memberId: string) => {
 
     const newMembers = team.members.filter(m => m !== memberId);
     team.members = newMembers;
-    // If the removed member was the lead, clear lead (logic below ensures lead is valid)
+    // If the removed member was the lead, clear lead or set to first member
     if (team.teamLead === memberId) {
-        team.teamLead = team.members.length > 0 ? team.members[0] : '';
+        team.teamLead = team.members.length > 0 ? team.members[0] : undefined; // Use undefined
     }
     nextTick(emitTeamsUpdate);
 };
@@ -348,7 +348,7 @@ const autoGenerateTeams = () => {
   const teamsToPopulate: LocalTeam[] = teams.value.map(team => ({
     ...team,
     members: [], // Clear existing members
-    teamLead: '' // Clear existing lead
+    teamLead: undefined // Clear existing lead, use undefined
   }));
 
   shuffledStudents.forEach((student, index) => {
@@ -372,10 +372,10 @@ const autoGenerateTeams = () => {
 // Emits the updated teams array to the parent component
 const emitTeamsUpdate = () => {
   const eventTeams: EventTeamType[] = teams.value.map(lt => ({
-    id: lt.id,
+    id: lt.id, // Directly use, as it's string | undefined
     teamName: lt.teamName.trim() || `Team ${teams.value.indexOf(lt) + 1}`,
     members: lt.members,
-    teamLead: lt.teamLead,
+    teamLead: lt.teamLead, // Directly use, as it's string | undefined
   }));
   emit('update:teams', eventTeams);
   ensureMemberNamesAreFetched(teams.value);

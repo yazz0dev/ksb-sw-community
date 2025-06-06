@@ -110,8 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, PropType } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, watch, computed, type PropType } from 'vue';
 import { Timestamp } from 'firebase/firestore';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
@@ -161,7 +160,6 @@ const emit = defineEmits<{
   (e: 'leave'): void;
 }>();
 
-const router = useRouter();
 
 const renderedDescriptionHtml = ref('');
 const renderedRulesHtml = ref(''); // Added ref for rules HTML

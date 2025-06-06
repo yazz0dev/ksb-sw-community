@@ -1,11 +1,7 @@
 import { 
   signInWithEmailAndPassword, 
-  signOut, 
   setPersistence, 
-  browserLocalPersistence,
-  onAuthStateChanged,
-  type User as FirebaseUser
-} from 'firebase/auth';
+  browserLocalPersistence} from 'firebase/auth';
 import { auth } from '@/firebase';
 
 /**

@@ -85,8 +85,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, PropType } from 'vue';
-import { UserData } from '@/types/student'; // Correctly import UserData
+import { ref, computed, watch, type PropType } from 'vue';
+import type { UserData } from '@/types/student'; // Correctly import UserData
+ // Correctly import UserData
 
 const props = defineProps({
   organizers: {

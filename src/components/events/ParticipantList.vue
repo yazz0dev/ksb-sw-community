@@ -15,7 +15,7 @@
       </div>
       <div v-else class="participants-grid">
         <div
-          v-for="(participantId, index) in event.participants"
+          v-for="(participantId, index) in participants"
           :key="participantId"
           class="d-flex align-items-center py-1"
         >
@@ -25,9 +25,9 @@
           <router-link
             :to="{ name: 'PublicProfile', params: { userId: participantId } }"
             class="text-primary text-truncate"
-            :class="{ 'fw-semibold': participantId === currentUserUid }"
+            :class="{ 'fw-semibold': participantId === currentUserId }"
           >
-            {{ getName(participantId) }}{{ participantId === currentUserUid ? ' (You)' : '' }}
+            {{ getName(participantId) }}{{ participantId === currentUserId ? ' (You)' : '' }}
           </router-link>
         </div>
       </div>
@@ -37,17 +37,16 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useProfileStore } from '@/stores/profileStore';
 
-defineProps<{
+const props = defineProps<{
   participants: string[];
   loading: boolean;
   currentUserId: string | null;
   showHeader?: boolean;
+  getName: (uid: string) => string; // Add missing prop
 }>();
 
 const showParticipants = ref(true);
-const studentStore = useProfileStore();
 </script>
 
 <style scoped>

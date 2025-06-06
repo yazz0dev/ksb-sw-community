@@ -6,6 +6,7 @@ import router from "./router";
 import AuthGuard from "@/components/AuthGuard.vue";
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { initializeAuth } from '@/services/authService'; // Import the initialization function
+import { MotionPlugin } from '@vueuse/motion';
 
 // Import stores only once
 import { useAppStore } from "@/stores/appStore";
@@ -28,6 +29,7 @@ initializeAuth().then(() => {
   const app = createApp(App);
   app.use(pinia);
   app.use(router);
+  app.use(MotionPlugin);
   app.component("AuthGuard", AuthGuard);
 
   // Initialize app stores
@@ -50,7 +52,7 @@ initializeAuth().then(() => {
         duration: 3000
       });
     },
-    onRegisterError(error) {
+    onRegisterError(_error) {
     }
   });
 
@@ -91,12 +93,12 @@ initializeAuth().then(() => {
   const pinia = createPinia(); // Create a new pinia instance for the fallback app
   app.use(pinia);
   app.use(router);
+  app.use(MotionPlugin);
   app.component("AuthGuard", AuthGuard);
 
   // Initialize app stores for the fallback app
   // Make sure Pinia is used before initializing stores
   const appStore = useAppStore();
-  const profileStore = useProfileStore();
   const notificationStore = useNotificationStore(); // Ensure notification store is available
 
   // Initialize app listeners for the fallback app

@@ -124,17 +124,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore'; 
-import { EventStatus, Event } from '@/types/event';
+import { EventStatus, type Event } from '@/types/event';
 import EventCard from '../components/events/EventCard.vue';
 import { DateTime } from 'luxon';
 import { convertToISTDateTime } from '@/utils/dateTime';
 
 const studentStore = useProfileStore();
 const eventStore = useEventStore(); // Changed from useEvents to useEventStore
-const router = useRouter();
 
 // --- State ---
 const loading = ref<boolean>(true);

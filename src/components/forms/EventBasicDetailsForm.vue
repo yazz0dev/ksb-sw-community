@@ -126,7 +126,7 @@
 
 <script setup lang="ts">
 import { ref, watch, toRefs, computed } from 'vue';
-import { EventFormData, EventFormat } from '@/types/event';
+import { type EventFormData, EventFormat } from '@/types/event';
 
 interface Props {
   details: EventFormData['details'];

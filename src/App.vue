@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useProfileStore } from './stores/profileStore';
 import { useNotificationStore } from './stores/notificationStore';
@@ -64,7 +64,6 @@ const route = useRoute();
 const { 
   isOnline, 
   newVersionAvailable: newVersionAvailableComputed,
-  reloadApp: reloadAppOriginal,
   setNewVersionAvailable,
   initAppState
 } = useAppState();
@@ -82,7 +81,6 @@ const {
 } = useAuth();
 
 const userName = computed(() => studentStore.studentName);
-const userProfilePicUrl = computed<string | null>(() => studentStore.currentStudentPhotoURL ?? null);
 
 const mainContentClasses = computed(() => ({
   'has-bottom-nav': isAuthenticated.value,

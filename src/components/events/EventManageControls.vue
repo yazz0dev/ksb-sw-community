@@ -232,7 +232,7 @@ import { useEventStore } from '@/stores/eventStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { DateTime } from 'luxon';
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, type Event, EventFormat, EventCriteria } from '@/types/event';
+import { EventStatus, type Event, type EventCriteria } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import {
   isEventOrganizer,

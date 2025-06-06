@@ -65,7 +65,7 @@
         </ul>
 
         <ul class="navbar-nav ms-auto align-items-lg-center">
-          <template v-if="!isAuthenticated">
+          <template v-if="!isAuthenticated && !isLandingOrLoginPage">
             <li class="nav-item">
               <router-link
                 class="btn btn-primary btn-sm"
@@ -112,7 +112,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 const props = defineProps<{
   isAuthenticated: boolean;
@@ -124,6 +124,12 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+const route = useRoute();
+
+// Check if current route is Landing or Login page
+const isLandingOrLoginPage = computed(() => {
+  return route.name === 'Landing' || route.path === '/login' || route.name === 'Login';
+});
 
 // Compute button class based on variant
 const brandLinkTarget = computed(() => {

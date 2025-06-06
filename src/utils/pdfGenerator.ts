@@ -3,7 +3,8 @@
 import type { jsPDF } from 'jspdf';
 import type { UserOptions } from 'jspdf-autotable';
 import { formatRoleName } from './formatters'; // Assuming this correctly formats display names
-import { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Import XP types
+import type { XPData, XpFirestoreFieldKey } from '@/types/xp'; // Import XP types
+
 
 // Updated UserData interface to match the structure passed from PortfolioGeneratorButton
 interface UserDataForPDF {

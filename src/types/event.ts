@@ -28,16 +28,17 @@ export interface EventDate {
 export interface EventDetails {
   eventName: string;
   description: string;
-  rules?: string;
+  rules?: string | undefined;
   format: EventFormat;
   type: string;
   organizers: string[];
   date: EventDate;
   allowProjectSubmission: boolean;
-  prize?: string;
+  prize?: string | undefined;
 }
 
 export interface EventCriteria {
+  description?: any; // Make optional
   constraintIndex: number;
   title: string;
   constraintKey?: string;
@@ -47,22 +48,21 @@ export interface EventCriteria {
   votes?: Record<string, string>; 
 }
 
-
 export interface Submission {
   projectName: string;
   link: string;
   submittedBy: string;
   submittedAt: Timestamp;
-  description?: string | null;
+  description?: string | null | undefined; // Allow undefined
   participantId?: string | null;
   teamName?: string;
 }
 
 export interface Team {
-  id?: string;
+  id: string | undefined; // Make explicit to handle exactOptionalPropertyTypes
   teamName: string;
   members: string[];
-  teamLead: string; // Add this property to fix the missing teamLead issue
+  teamLead: string | undefined; // Allow undefined for team lead
 }
 
 export type EventWinners = Record<string, string[]>;
@@ -70,7 +70,7 @@ export type EventWinners = Record<string, string[]>;
 export interface OrganizerRating {
   userId: string;
   rating: number;
-  feedback?: string;
+  feedback?: string | undefined; // Allow undefined
   ratedAt: Timestamp;
 }
 

@@ -1,21 +1,13 @@
 // src/stores/studentProfileStore.ts
 import { defineStore } from 'pinia';
-import { ref, computed, type Ref } from 'vue';
-import {
-  doc, getDoc, updateDoc, collection, query, where, getDocs, Timestamp,
-  writeBatch, serverTimestamp, increment, arrayUnion, arrayRemove, orderBy, limit, startAfter, FieldPath, documentId
-} from 'firebase/firestore';
-import type { User as FirebaseUser, AuthError as FirebaseAuthError } from 'firebase/auth'; // Added AuthError
+import { ref, computed } from 'vue';
+import type { User as FirebaseUser } from 'firebase/auth'; // Added AuthError
 import { getAuth, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth'; // Added getAuth, signOut, onAuthStateChanged
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'; // Added Firebase Storage imports
-import { db } from '@/firebase';
-import { deepClone, now, isEmpty } from '@/utils/helpers'; // Added now, isEmpty
+import { deepClone, isEmpty } from '@/utils/helpers'; // Added now, isEmpty
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore'; // Renamed to studentAppStore for clarity in this file
-import type { EnrichedStudentData, StudentPortfolioGenerationData, StudentEventHistoryItem, UserData, XPData } from '@/types/student'; // Adjusted imports: Removed StudentData, Changed StudentPortfolioData
-import { getDefaultXPData } from '@/types/xp';
-import { Event, EventStatus, EventFormat } from '@/types/event'; // Added Event and EventStatus, EventFormat
-import { mapFirestoreToEventData } from '@/utils/eventDataMapper'; // Added mapFirestoreToEventData
+import type { EnrichedStudentData, StudentEventHistoryItem, UserData } from '@/types/student'; // Adjusted imports: Removed StudentData, Changed StudentPortfolioData
+import { type Event, EventStatus } from '@/types/event'; // Added Event and EventStatus, EventFormat
 import type { NameCacheEntry, StudentPortfolioProject, ImageUploadOptions, ImageUploadState } from '@/types/student'; // Removed UploadStatusValue
 import { UploadStatus } from '@/types/student'; // Added UploadStatus enum
 import { handleAuthError as formatAuthErrorUtil, handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
@@ -31,13 +23,11 @@ import {
 } from '@/services/profileService';
 import { fetchMyEventRequests as fetchStudentEventRequestsService } from '@/services/eventService';
 import { uploadFileService, deleteFileByUrlService } from '@/services/storageService'; // Added storage service imports
-import { STUDENTS_COLLECTION, XP_COLLECTION } from '@/utils/constants'; // Added import
 
 // const STUDENT_COLLECTION_PATH = 'students';
 // const XP_COLLECTION_PATH = 'xp';
 
 // Get storage reference from the existing Firebase app
-const storage = getStorage();
 
 const NAME_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
@@ -100,7 +90,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
-  async function _handleAuthError(operation: string, err: unknown, uid?: string): Promise<void> {
+  async function _handleAuthError(operation: string, err: unknown, _uid?: string): Promise<void> {
     const formattedMessage = formatAuthErrorUtil(err);
     let finalMessage: string;
 
@@ -116,7 +106,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     notificationStore.showNotification({ message: finalMessage, type: 'error' });
   }
 
-  async function _handleOpError(operation: string, err: unknown, uid?: string): Promise<void> {
+  async function _handleOpError(operation: string, err: unknown, _uid?: string): Promise<void> {
     let finalMessage: string;
 
     // Check if err has a 'code' property, suggesting it's a Firebase-related error (Firestore, Storage, etc.)
@@ -567,10 +557,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
         }
       }
 
-      const timestamp = Date.now();
-      const extension = fileToUpload.name.split('.').pop() || 'jpg';
-      const uniqueFileName = `${studentId.value}_${timestamp}.${extension}`;
-      const storagePath = options.path || 'profile-images';
       
       // Delete old profile image if it exists using the service
       if (currentStudent.value?.photoURL) {
@@ -669,15 +655,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
     fetchError.value = null;
   }
 
-  async function initNewStudentProfile(userId: string, email: string, displayName: string | null, photoURL: string | null, batchYr?: number, studentIdent?: string) {
-    const studentRef = doc(db, STUDENTS_COLLECTION, userId); // Ensure this uses imported constant
-    const xpRef = doc(db, XP_COLLECTION, userId); // Ensure this uses imported constant
-    const batch = writeBatch(db);
-
-    const initialXPData = getDefaultXPData(userId);
-
-    // ... existing code ...
-  }
 
   return {
     currentStudent,

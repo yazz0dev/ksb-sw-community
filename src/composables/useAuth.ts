@@ -1,10 +1,9 @@
 import { computed, ref } from 'vue'; // Remove onMounted
-import { getAuth, signOut, User } from 'firebase/auth';
+import { getAuth, signOut, type User } from 'firebase/auth';
 import { useProfileStore } from '@/stores/profileStore';
 import { useAppStore } from '@/stores/appStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useRouter } from 'vue-router';
-import { initializeAuth } from '@/services/authService';
 
 export function useAuth() {
   const firebaseAuthInstance = getAuth(); // Renamed to avoid conflict if 'auth' is used as a variable name elsewhere

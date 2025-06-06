@@ -8,26 +8,26 @@ import type { Timestamp } from 'firebase/firestore';
 // --- Base Student Data Interface (Represents the object stored under students/{studentUid}) ---
 export interface StudentProfileData { 
   name: string | null;        // Should be required, with fallback for display
-  studentId?: string;         // College student ID (Optional)
-  batchYear?: number;         // Numeric batch year (e.g., 2023, 2024) - Now a field
-  batch?: string;             // String batch year (e.g., "2023") - Now a field
+  studentId?: string | undefined;         // College student ID (Optional)
+  batchYear?: number | undefined;         // Numeric batch year (e.g., 2023, 2024) - Now a field
+  batch?: string | undefined;             // String batch year (e.g., "2023") - Now a field
 
-  photoURL?: string | null;
-  bio?: string;
-  skills?: string[];          // Self-reported
-  hasLaptop?: boolean;        // Default to false if not set
+  photoURL?: string | null | undefined;
+  bio?: string | undefined;
+  skills?: string[] | undefined;          // Self-reported
+  hasLaptop?: boolean | undefined;        // Default to false if not set
 
   socialLinks?: {
-    primary?: string;       // Primary social/website URL
-    linkedin?: string;        // Full LinkedIn profile URL
-    github?: string;          // Full GitHub profile URL
-    portfolio?: string;       // Primary portfolio/website URL
-    instagram?: string;       // Instagram username without @ prefix
-  };
+  primary?: string; // Primary social/website URL
+  linkedin?: string; // Full LinkedIn profile URL
+  github?: string; // Full GitHub profile URL
+  portfolio?: string; // Primary portfolio/website URL
+  instagram?: string; // Instagram username without @ prefix
+} | undefined;
 
   // Arrays of Event IDs.
-  participatedEventIDs?: string[];
-  organizedEventIDs?: string[];
+  participatedEventIDs?: string[] | undefined;
+  organizedEventIDs?: string[] | undefined;
 
   // Fields like uid, email, createdAt, lastUpdatedAt are not stored in this nested object.
   // uid is the document ID (students/{uid})
@@ -40,7 +40,7 @@ export interface EnrichedStudentData extends StudentProfileData {
   uid: string; // Document ID from students/{uid}
   email: string | null; // From Auth
   // batchYear is part of StudentProfileData now
-  xpData?: XPData | null; // XP data from separate collection
+  xpData?: XPData | null | undefined; // XP data from separate collection
   // If you need createdAt/lastUpdatedAt for the student's record itself (not the parent doc),
   // they would be added here, potentially fetched from a different source or managed differently.
 }

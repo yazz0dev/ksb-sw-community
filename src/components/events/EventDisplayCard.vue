@@ -77,11 +77,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, PropType } from 'vue';
+import { computed, type PropType } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import type { StudentProfileGetters } from '@/types/store'; // Import StudentProfileGetters
 import { formatRoleName } from '@/utils/formatters'; // Import formatRoleName
-import { Event, EventFormat } from '@/types/event'; // Import EventFormat
+import { type Event, EventFormat } from '@/types/event'; // Import EventFormat
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
 

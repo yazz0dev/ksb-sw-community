@@ -81,6 +81,7 @@
                         :votingOpen="event.votingOpen"
                         :organizerNamesLoading="organizerNamesLoading"
                         :currentUserUid="currentUserId"
+                        :getName="getUserNameFromCache"
                         class="card team-list-box p-0 shadow-sm animate-fade-in"
                       />
                     </div>
@@ -91,6 +92,7 @@
                         :votingOpen="event.votingOpen"
                         :organizerNamesLoading="organizerNamesLoading"
                         :currentUserUid="currentUserId"
+                        :getName="getUserNameFromCache"
                         class="card team-list-box p-0 shadow-sm animate-fade-in"
                       />
                     </div>
@@ -109,6 +111,7 @@
                         :loading="loading"
                         :currentUserId="currentUserId"
                         :show-header="false"
+                        :getName="getUserNameFromCache"
                       />
                     </div>
                     <div v-if="(event.participants?.length || 0) > 8" class="col-12 col-lg-6">
@@ -117,6 +120,7 @@
                         :loading="loading"
                         :currentUserId="currentUserId"
                         :show-header="false"
+                        :getName="getUserNameFromCache"
                       />
                     </div>
                   </div>
@@ -176,10 +180,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEvents } from '@/composables/useEvents';
-import { useNotificationStore } from '@/stores/notificationStore';
 import { useEventStore } from '@/stores/eventStore';
 
 // Component Imports
@@ -446,14 +448,14 @@ const mapEventToHeaderProps = (evt: Event): EventHeaderProps => ({
     teams: evt.teams,
     participants: evt.participants,
     details: {
-        eventName: evt.details.eventName,
-        type: evt.details.type,
+        eventName: evt.details.eventName || undefined,
+        type: evt.details.type || undefined,
         format: evt.details.format,
         date: { start: evt.details.date.start, end: evt.details.date.end },
         description: evt.details.description,
         organizers: evt.details.organizers,
-        prize: evt.details.prize,
-        rules: evt.details.rules,
+        prize: evt.details.prize || undefined,
+        rules: evt.details.rules || undefined,
     }
 });
 

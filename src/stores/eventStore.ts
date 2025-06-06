@@ -2,15 +2,12 @@
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
 import {
-  doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, Timestamp, addDoc, arrayUnion, arrayRemove, deleteField, writeBatch, increment, serverTimestamp, setDoc
-} from 'firebase/firestore';
-import { db } from '@/firebase';
-import { Event, EventStatus, EventFormData, Team, Submission, EventCriteria, EventLifecycleTimestamps, OrganizerRating, EventFormat } from '@/types/event';
+  Timestamp} from 'firebase/firestore';
+import { type Event, EventStatus, type EventFormData, type Submission, EventFormat } from '@/types/event';
 import { useProfileStore } from './profileStore';
 import { useNotificationStore } from './notificationStore';
-import { useAppStore } from './appStore';
 import { useAuth } from '@/composables/useAuth';
-import { getISTTimestamp } from '@/utils/eventDataMapper';
+import { getISTTimestamp } from '@/utils/eventDataUtils';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { deepClone } from '@/utils/helpers';
 import { checkDateConflictForRequest } from '@/services/eventService'; // Changed import path
@@ -550,7 +547,6 @@ export const useEventStore = defineStore('studentEvents', () => {
       await _handleOpError("submitting organization rating", new Error("User not authenticated."), payload.eventId);
       return;
     }
-    const studentId = studentProfileStore.studentId!;
     isLoading.value = true;
     try {
       // The service function now expects the user ID to create a map-based entry
@@ -600,7 +596,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  async function findWinner(eventId: string) {
+  async function findWinner(id: string) {
     actionError.value = null;
   }
   

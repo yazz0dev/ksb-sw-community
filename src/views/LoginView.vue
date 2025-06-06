@@ -80,7 +80,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { UserCredential } from 'firebase/auth';
+import { type UserCredential } from 'firebase/auth';
 import { useProfileStore } from '@/stores/profileStore';
 import { useAppStore } from '@/stores/appStore';
 import { signInWithEmail } from '@/services/authService'; // Import from authService
@@ -94,7 +94,7 @@ const route = useRoute();
 const studentStore = useProfileStore();
 const appStore = useAppStore();
 
-const processLoginSuccess = async (user: UserCredential['user']): Promise<void> => {
+const processLoginSuccess = async (_user: UserCredential['user']): Promise<void> => {
     try {
         // Get redirect path from appStore, fallback to query param, then to /home
         const redirectPath = appStore.getRedirectAfterLogin() || 

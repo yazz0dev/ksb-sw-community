@@ -48,7 +48,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { generatePortfolioPDF } from '@/utils/pdfGenerator';
-import { XPData } from '@/types/xp'; // Import XPData for user prop
+import type { XPData } from '@/types/xp'; // Import XPData for user prop
+ // Import XPData for user prop
 
 interface Project {
   projectName: string;

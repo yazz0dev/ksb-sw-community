@@ -121,7 +121,7 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore'; 
 import EventCard from '@/components/events/EventCard.vue';
 import { DateTime } from 'luxon';
-import { Event, EventStatus } from '@/types/event';
+import { type Event, EventStatus } from '@/types/event';
 import { convertToISTDateTime } from '@/utils/dateTime';
 
 const studentStore = useProfileStore();
@@ -151,11 +151,6 @@ const activeFilter = ref<FilterValue>(getDefaultFilter());
 
 const isAuthenticated = computed<boolean>(() => studentStore.isAuthenticated);
 
-const viewTitle = computed(() => {
-  if (!isAuthenticated.value) return 'Completed Events';
-  const filter = filters.find(f => f.value === activeFilter.value);
-  return filter ? `${filter.label} Events` : 'Events';
-});
 
 const setActiveFilter = (filterValue: FilterValue) => {
   activeFilter.value = filterValue;

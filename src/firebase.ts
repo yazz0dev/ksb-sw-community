@@ -1,10 +1,10 @@
-import { FirebaseApp, initializeApp } from "firebase/app";
+import { type FirebaseApp, initializeApp } from "firebase/app";
 // Import getFirestore and specific cache options
 import { 
     Firestore, 
     getFirestore
 } from "firebase/firestore"; 
-import { Auth, getAuth } from 'firebase/auth';
+import { type Auth, getAuth } from 'firebase/auth';
 
 interface FirebaseConfig {
     apiKey: string;

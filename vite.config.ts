@@ -3,6 +3,7 @@ import type { UserConfig, Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { VitePWA } from 'vite-plugin-pwa';
 import type { VitePWAOptions } from 'vite-plugin-pwa';
+import imagemin from 'vite-plugin-imagemin';
 import { resolve } from 'path';
 import { fileURLToPath, URL } from 'url';
 
@@ -40,6 +41,33 @@ const config: UserConfig = {
   },
   plugins: [
     vue(),
+    imagemin({
+      gifsicle: {
+        optimizationLevel: 7,
+        interlaced: false
+      },
+      optipng: {
+        optimizationLevel: 7
+      },
+      mozjpeg: {
+        quality: 20
+      },
+      pngquant: {
+        quality: [0.8, 0.9],
+        speed: 4
+      },
+      svgo: {
+        plugins: [
+          {
+            name: 'removeViewBox'
+          },
+          {
+            name: 'removeEmptyAttrs',
+            active: false
+          }
+        ]
+      }
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'sitemap.xml', 'logo.png', 'OneSignalSDKWorker.js'],
@@ -142,9 +170,8 @@ const config: UserConfig = {
       output: {
         manualChunks: {
           'firebase-essentials': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          'ui-components': [ 'luxon'],
           'pdf-libs': ['jspdf', 'jspdf-autotable'], // Correctly group jspdf and its plugin
-          vendor: ['vue', 'vue-router', 'dompurify', 'marked']
+          vendor: ['vue', 'vue-router', 'pinia', 'luxon', 'dompurify', 'marked', 'bootstrap']
         },
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',

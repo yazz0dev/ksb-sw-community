@@ -26,15 +26,15 @@
     <!-- Platform Features Section -->
     <section class="features-section py-4 py-md-5">
       <div class="container-lg px-3 px-md-4">
-        <transition-group name="fade-slide-up" tag="div" class="row g-3 g-md-4 justify-content-center">
-          <div class="col-md-4" v-for="(feature, index) in features" :key="feature.icon">
+        <transition-group name="fade-slide-up" tag="div" class="row g-2 g-md-4 justify-content-center">
+          <div class="col-6 col-md-4" v-for="(feature, index) in features" :key="feature.icon">
             <div class="card h-100 shadow-sm feature-card animate-pop" :style="{ animationDelay: `${index * 80}ms` }">
-              <div class="card-body text-center p-3 p-md-4">
+              <div class="card-body text-center p-2 p-sm-3 p-md-4">
                 <span :class="['feature-icon', getIconColorClass(feature.color)]">
                   <i :class="['fas', feature.icon]" aria-hidden="true"></i>
                 </span>
-                <h5 class="card-title mt-3 mb-2 fw-semibold">{{ feature.title }}</h5>
-                <p class="card-text text-secondary">{{ feature.text }}</p> <!-- Removed small class -->
+                <h5 class="card-title mt-2 mb-1 mt-md-3 mb-md-2 fw-semibold mobile-title">{{ feature.title }}</h5>
+                <p class="card-text text-secondary mobile-text">{{ feature.text }}</p>
               </div>
             </div>
           </div>
@@ -43,46 +43,129 @@
     </section>
 
     <!-- About & Info Section -->
-    <section class="about-section py-4 py-md-5">
+    <section class="about-section py-3 py-md-5">
       <div class="container-lg px-3 px-md-4">
-        <div class="row g-4 g-md-5 align-items-center">
-          <div class="col-lg-6">
-            <transition name="fade-slide-left">
-              <div>
-                <h2 class="fw-bold text-primary mb-3">About <span class="brand-highlight">KSB Tech Community</span></h2>
-                <p class="lead text-secondary mb-3 mb-md-4">
-                  The KSB Tech Community is a collaborative platform for MCA students at KMCT School Of Business to learn, build, and grow together through real-world software projects and events.
-                </p>
-                <ul class="list-unstyled mb-3 mb-md-4">
-                  <li class="mb-2"><i class="fas fa-lightbulb text-warning me-2" aria-hidden="true"></i> Foster practical software development experience</li>
-                  <li class="mb-2"><i class="fas fa-users text-info me-2" aria-hidden="true"></i> Encourage peer learning and mentorship</li>
-                  <li class="mb-2"><i class="fas fa-folder-open text-success me-2" aria-hidden="true"></i> Build a portfolio of real-world projects</li>
-                  <li class="mb-2"><i class="fas fa-rocket text-primary me-2" aria-hidden="true"></i> Develop professional and technical skills</li>
-                </ul>
+        <div class="row g-3 g-lg-5 align-items-stretch">
+          <div class="col-lg-5 order-1 order-lg-2">
+            <transition name="fade-slide-right">
+              <div class="about-visual-section">
+                <div class="about-image-container mb-4">
+                  <img 
+                    src="https://images.unsplash.com/photo-1531482615713-2afd69097998?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80"
+                    alt="Students collaborating on tech projects" 
+                    class="img-fluid rounded-3 shadow-lg"
+                    onerror="this.src='https://placehold.co/600x400/e9ecef/0d6efd?text=Tech+Collaboration&font=open-sans';this.onerror=null;"
+                  />
+                </div>
+                
+                <div class="info-cards">
+                  <div class="card info-card mb-3 animate-pop" style="animation-delay: 200ms;">
+                    <div class="card-body p-3">
+                      <h6 class="card-title text-primary mb-2">
+                        <i class="fas fa-rocket me-2"></i>What We Offer
+                      </h6>
+                      <ul class="list-unstyled small mb-0">
+                        <li class="mb-1"><i class="fas fa-check-circle text-success me-2"></i>Hackathons & coding challenges</li>
+                        <li class="mb-1"><i class="fas fa-check-circle text-success me-2"></i>Industry-focused workshops</li>
+                        <li class="mb-1"><i class="fas fa-check-circle text-success me-2"></i>Peer code reviews & feedback</li>
+                        <li><i class="fas fa-check-circle text-success me-2"></i>Portfolio generation tools</li>
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  <div class="card info-card animate-pop" style="animation-delay: 400ms;">
+                    <div class="card-body p-3">
+                      <h6 class="card-title text-primary mb-2">
+                        <i class="fas fa-map-signs me-2"></i>Your Journey
+                      </h6>
+                      <div class="journey-steps">
+                        <div class="step-item d-flex align-items-center mb-2">
+                          <span class="step-number">1</span>
+                          <span class="step-text small">Sign in with your student account</span>
+                        </div>
+                        <div class="step-item d-flex align-items-center mb-2">
+                          <span class="step-number">2</span>
+                          <span class="step-text small">Join events or request new ones</span>
+                        </div>
+                        <div class="step-item d-flex align-items-center mb-2">
+                          <span class="step-number">3</span>
+                          <span class="step-text small">Collaborate and build projects</span>
+                        </div>
+                        <div class="step-item d-flex align-items-center">
+                          <span class="step-number">4</span>
+                          <span class="step-text small">Earn XP and showcase your work</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </transition>
           </div>
-          <div class="col-lg-6">
-            <transition name="fade-slide-right">
-              <div>
-                <div class="card shadow-sm about-card animate-pop">
-                  <div class="card-body">
-                    <h5 class="h5 text-primary mb-3"><i class="fas fa-gift me-2" aria-hidden="true"></i> What We Offer</h5>
-                    <ul class="list-unstyled mb-3">
-                      <li class="mb-2"><i class="fas fa-calendar-alt text-primary me-2" aria-hidden="true"></i> Regular events and hackathons</li>
-                      <li class="mb-2"><i class="fas fa-users text-secondary me-2" aria-hidden="true"></i> Team-based and individual projects</li>
-                      <li class="mb-2"><i class="fas fa-star text-warning me-2" aria-hidden="true"></i> XP and rating system for recognition</li>
-                      <li class="mb-2"><i class="fas fa-book text-success me-2" aria-hidden="true"></i> Curated resources and learning materials</li>
-                      <li class="mb-2"><i class="fas fa-trophy text-danger me-2" aria-hidden="true"></i> Leaderboards and portfolio generation</li>
-                    </ul>
-                    <h6 class="fw-semibold text-primary mb-2 mt-4"><i class="fas fa-hands-helping me-2" aria-hidden="true"></i> How to Get Involved</h6>
-                    <ol class="mb-0 ps-3">
-                      <li>Log in with your student account</li>
-                      <li>Participate in events or request new ones</li>
-                      <li>Collaborate, submit projects, and earn XP</li>
-                      <li>Rate peers and provide feedback</li>
-                      <li>Track your progress and build your portfolio</li>
-                    </ol>
+          
+          <div class="col-lg-7 order-2 order-lg-1">
+            <transition name="fade-slide-left">
+              <div class="about-content h-100 d-flex flex-column justify-content-center">
+                <div class="about-header mb-4">
+                  <h2 class="display-6 fw-bold text-primary mb-3">
+                    Empowering <span class="brand-highlight">MCA Students</span> Through Technology
+                  </h2>
+                  <p class="lead text-secondary mb-4">
+                    The KSB Tech Community is where innovation meets education. We bridge the gap between academic learning and industry demands through hands-on projects, collaborative events, and peer-to-peer growth.
+                  </p>
+                </div>
+                
+                <div class="about-pillars row g-2 g-md-3 mb-4">
+                  <div class="col-6 col-lg-6">
+                    <div class="pillar-card h-100 p-2 p-sm-3 rounded border">
+                      <div class="pillar-icon mb-1 mb-md-2">
+                        <i class="fas fa-code text-primary"></i>
+                      </div>
+                      <h5 class="h6 fw-bold mb-1 mb-md-2 mobile-title">Real-World Experience</h5>
+                      <p class="small text-secondary mb-0 mobile-text">Build production-ready applications with cutting-edge technologies.</p>
+                    </div>
+                  </div>
+                  <div class="col-6 col-lg-6">
+                    <div class="pillar-card h-100 p-2 p-sm-3 rounded border">
+                      <div class="pillar-icon mb-1 mb-md-2">
+                        <i class="fas fa-users text-info"></i>
+                      </div>
+                      <h5 class="h6 fw-bold mb-1 mb-md-2">Collaborative Growth</h5>
+                      <p class="small text-secondary mb-0">Learn from peers, share knowledge, and develop essential teamwork skills through guided mentorship.</p>
+                    </div>
+                  </div>
+                  <div class="col-6 col-lg-6">
+                    <div class="pillar-card h-100 p-2 p-sm-3 rounded border">
+                      <div class="pillar-icon mb-1 mb-md-2">
+                        <i class="fas fa-briefcase text-success"></i>
+                      </div>
+                      <h5 class="h6 fw-bold mb-1 mb-md-2">Career Readiness</h5>
+                      <p class="small text-secondary mb-0">Build a compelling portfolio and develop skills that employers actively seek in the tech industry.</p>
+                    </div>
+                  </div>
+                  <div class="col-6 col-lg-6">
+                    <div class="pillar-card h-100 p-2 p-sm-3 rounded border">
+                      <div class="pillar-icon mb-1 mb-md-2">
+                        <i class="fas fa-trophy text-warning"></i>
+                      </div>
+                      <h5 class="h6 fw-bold mb-1 mb-md-2">Recognition System</h5>
+                      <p class="small text-secondary mb-0">Earn XP, climb leaderboards, and receive recognition for your contributions and achievements.</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="about-stats d-flex flex-wrap gap-3">
+                  <div class="stat-item">
+                    <div class="stat-number text-primary fw-bold">30+</div>
+                    <div class="stat-label small text-secondary">Active Students</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-number text-info fw-bold">5+</div>
+                    <div class="stat-label small text-secondary">Projects Completed</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-number text-success fw-bold">5+</div>
+                    <div class="stat-label small text-secondary">Events Hosted</div>
                   </div>
                 </div>
               </div>
@@ -169,7 +252,6 @@ const features = ref<Feature[]>([
   { icon: 'fa-plus-circle', color: 'info', title: 'Request Events', text: 'Request new events and activities.' },
   { icon: 'fa-users', color: 'secondary', title: 'Teamwork', text: 'Participate in team-based events.' },
   { icon: 'fa-star', color: 'warning', title: 'Feedback', text: 'Rate projects and provide feedback.' },
-  { icon: 'fa-book', color: 'success', title: 'Resources', text: 'Access a library of shared resources.' },
   { icon: 'fa-trophy', color: 'primary', title: 'Leaderboards', text: 'View leaderboards based on XP.' },
   { icon: 'fa-file-pdf', color: 'danger', title: 'Portfolio', text: 'Generate a portfolio of your achievements.' }
 ]);
@@ -193,15 +275,41 @@ const getIconColorClass = (color: Feature['color']): string => {
   background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
   min-height: 100vh;
   overflow-x: hidden; 
+  padding-top: 0; /* Added to remove any default padding */
 }
 
 /* Welcome Section */
 .welcome-section {
-  min-height: 60vh;
+  min-height: 70vh;
   background: linear-gradient(120deg, var(--bs-primary-bg-subtle) 0%, var(--bs-light) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1rem 0 2rem; /* Reduced top padding */
+}
+
+@media (max-width: 767.98px) {
+  .welcome-section {
+    min-height: 45vh; /* Further reduced from 50vh */
+    padding: 0 0 0.5rem; /* Removed top padding completely */
+  }
+  
+  .welcome-section h1 {
+    font-size: 1.75rem !important;
+    line-height: 1.3;
+    margin-bottom: 0.75rem !important; /* Reduced from 1rem */
+  }
+  
+  .welcome-section .lead {
+    font-size: 1rem;
+    margin-bottom: 1.25rem !important; /* Reduced from 1.5rem */
+  }
+  
+  .welcome-section .btn-lg {
+    font-size: 0.95rem;
+    padding: 0.6rem 1.25rem; /* Reduced from 0.75rem 1.5rem */
+    gap: 0.5rem;
+  }
 }
 
 .text-gradient {
@@ -235,10 +343,19 @@ const getIconColorClass = (color: Feature['color']): string => {
 .features-section {
   background: var(--bs-white);
   border-radius: var(--bs-border-radius-xl);
-  margin-top: -3rem;
+  margin-top: -2rem;
   box-shadow: var(--bs-box-shadow-lg);
-  padding-top: 3rem;
-  padding-bottom: 3rem;
+  padding-top: 2.5rem;
+  padding-bottom: 2.5rem;
+}
+
+@media (max-width: 767.98px) {
+  .features-section {
+    margin-top: -1rem; /* Reduced from -1.5rem */
+    padding-top: 1.5rem; /* Reduced from 2rem */
+    padding-bottom: 1.5rem; /* Reduced from 2rem */
+    border-radius: var(--bs-border-radius-lg);
+  }
 }
 
 .feature-card {
@@ -251,6 +368,20 @@ const getIconColorClass = (color: Feature['color']): string => {
 .feature-card:hover {
   transform: translateY(-6px) scale(1.03);
   box-shadow: var(--bs-box-shadow-lg);
+}
+
+@media (max-width: 767.98px) {
+  .feature-card {
+    margin-bottom: 1rem;
+  }
+  
+  .feature-card .card-body {
+    padding: 1.5rem 1rem;
+  }
+  
+  .feature-card:hover {
+    transform: translateY(-3px) scale(1.01);
+  }
 }
 
 .feature-icon {
@@ -266,16 +397,214 @@ const getIconColorClass = (color: Feature['color']): string => {
   box-shadow: var(--bs-box-shadow-sm);
 }
 
+@media (max-width: 767.98px) {
+  .feature-icon {
+    font-size: 2rem;
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
 /* About Section */
 .about-section {
   background: linear-gradient(120deg, var(--bs-light) 60%, var(--bs-primary-bg-subtle) 100%);
   border-radius: var(--bs-border-radius-xl);
   margin-top: 2rem;
+  overflow: hidden;
 }
 
-.about-card {
+@media (max-width: 767.98px) {
+  .about-section {
+    margin-top: 1rem; /* Reduced from 1.5rem */
+    border-radius: var(--bs-border-radius-lg);
+    padding: 1.5rem 0 !important; /* Reduced from 2rem */
+  }
+  
+  .about-section .display-6 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+    text-align: center;
+  }
+  
+  .about-section .lead {
+    font-size: 0.95rem;
+    text-align: center;
+    margin-bottom: 2rem !important;
+  }
+  
+  .about-section .about-pillars {
+    margin-bottom: 1.5rem !important; /* Reduced from 2rem */
+  }
+  
+  .about-section .pillar-card {
+    text-align: center;
+    padding: 1.25rem !important;
+  }
+  
+  .about-section .about-stats {
+    justify-content: center;
+    margin-bottom: 1rem !important; /* Reduced from 2rem */
+  }
+}
+
+.about-content {
+  @media (max-width: 991.98px) {
+    text-align: center;
+  }
+}
+
+.about-header .display-6 {
+  @media (max-width: 767.98px) {
+    font-size: 1.5rem;
+  }
+}
+
+.pillar-card {
   background: var(--bs-white);
-  border-radius: var(--bs-border-radius-lg);
+  border: 1px solid var(--bs-border-color);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    border-color: var(--bs-primary);
+    box-shadow: var(--bs-box-shadow-sm);
+    transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .pillar-card {
+    margin-bottom: 0.75rem;
+  }
+  
+  .pillar-card h5 {
+    font-size: 0.95rem;
+  }
+  
+  .pillar-card .small {
+    font-size: 0.8rem;
+  }
+}
+
+.pillar-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bs-light);
+  border-radius: 50%;
+}
+
+@media (max-width: 767.98px) {
+  .pillar-icon {
+    margin: 0 auto 0.75rem auto;
+  }
+}
+
+.about-stats {
+  @media (max-width: 991.98px) {
+    justify-content: center;
+  }
+  
+  .stat-item {
+    text-align: center;
+    min-width: 80px;
+    
+    .stat-number {
+      font-size: 1.5rem;
+      line-height: 1.2;
+    }
+  }
+}
+
+@media (max-width: 575.98px) {
+  .about-stats .stat-item {
+    min-width: 70px;
+    
+    .stat-number {
+      font-size: 1.25rem;
+    }
+    
+    .stat-label {
+      font-size: 0.75rem;
+    }
+  }
+}
+
+.about-image-container {
+  position: relative;
+  overflow: hidden;
+  
+  img {
+    transition: transform 0.3s ease;
+    
+    &:hover {
+      transform: scale(1.02);
+    }
+  }
+}
+
+@media (max-width: 991.98px) {
+  .about-image-container {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .about-image-container {
+    max-width: 100%;
+    margin-bottom: 2rem !important;
+  }
+}
+
+.info-cards .info-card {
+  background: var(--bs-white);
+  border: 1px solid var(--bs-border-color);
+  
+  .step-number {
+    width: 24px;
+    height: 24px;
+    background: var(--bs-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+  }
+  
+  .step-text {
+    line-height: 1.4;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .info-cards {
+    max-width: 400px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .info-cards {
+    max-width: 100%;
+  }
+  
+  .info-cards .info-card {
+    font-size: 0.9rem;
+  }
+  
+  .info-cards .step-number {
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+    margin-right: 0.5rem;
+  }
 }
 
 /* Sponsor Section */
@@ -285,13 +614,23 @@ const getIconColorClass = (color: Feature['color']): string => {
   margin-top: 2rem;
 }
 
-.bg-gradient-light {
-  background: linear-gradient(120deg, var(--bs-light) 60%, var(--bs-primary-bg-subtle) 100%);
-}
-
-.contact-card {
-  border-radius: var(--bs-border-radius-lg);
-  background: var(--bs-white);
+@media (max-width: 767.98px) {
+  .sponsor-section {
+    margin-top: 1rem; /* Reduced from 1.5rem */
+    border-radius: var(--bs-border-radius-lg);
+    padding: 1.5rem 0 !important; /* Reduced from 2rem */
+  }
+  
+  .sponsor-section h3 {
+    font-size: 1.25rem;
+    text-align: center;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  .sponsor-section p {
+    font-size: 0.9rem;
+    text-align: center;
+  }
 }
 
 /* Footer */
@@ -301,6 +640,23 @@ const getIconColorClass = (color: Feature['color']): string => {
   box-shadow: var(--bs-box-shadow-sm);
   margin-top: 1.5rem;
   padding-bottom: 0.5rem;
+}
+
+@media (max-width: 767.98px) {
+  .landing-footer {
+    border-radius: var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 0;
+    padding: 1rem 0 0.75rem 0 !important; /* Reduced from 1.5rem 0 1rem 0 */
+    margin-top: 0.75rem; /* Reduced from 1rem */
+  }
+  
+  .landing-footer .small {
+    font-size: 0.75rem;
+  }
+  
+  .landing-footer p:last-child {
+    font-size: 0.7rem;
+    margin-top: 0.75rem !important; /* Reduced from 1rem */
+  }
 }
 
 /* Animations */

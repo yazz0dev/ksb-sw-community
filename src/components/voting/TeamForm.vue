@@ -102,8 +102,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, PropType, watch } from 'vue';
-import { Team, EventCriteria } from '@/types/event';
+import { computed, reactive, ref, type PropType, watch } from 'vue';
+import type { Team, EventCriteria } from '@/types/event';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 import { formatRoleName } from '@/utils/formatters';
 

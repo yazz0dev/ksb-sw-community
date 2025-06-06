@@ -76,10 +76,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, PropType, ref, watch } from 'vue';
+import { computed, type PropType, ref, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore'; // Corrected import
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, type Event, EventFormat, type EventCriteria } from '@/types/event'; // Added EventCriteria
+import { EventStatus, type Event, EventFormat } from '@/types/event'; // Added EventCriteria
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 

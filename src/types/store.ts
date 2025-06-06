@@ -1,8 +1,7 @@
 // src/types/store.ts
 
-import type { EnrichedStudentData, StudentPortfolioGenerationData, NameCacheMap, StudentEventHistoryItem, UserData } from './student';
-import type { Event, EventStatus, Submission, EventFormData } from './event';
-import type { XPData } from './xp';
+import type { EnrichedStudentData, StudentPortfolioGenerationData, NameCacheMap, UserData } from './student';
+import type { Event, EventFormData } from './event';
 
 // --- Notification Interface ---
 export interface Notification {

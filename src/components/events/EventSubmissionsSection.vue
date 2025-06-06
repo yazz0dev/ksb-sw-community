@@ -181,9 +181,8 @@
 
 <script setup lang="ts">
 import type { Event, Team, Submission } from '@/types/event';
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useEvents } from '@/composables/useEvents';
-import { useProfileStore } from '@/stores/profileStore';
 
 // Add submission form interfaces and types
 interface SubmissionFormData {
@@ -210,7 +209,6 @@ const emit = defineEmits(['submission-success']);
 
 // Composables
 const { submitProject } = useEvents();
-const studentStore = useProfileStore();
 
 // Submission modal state
 const submissionModalRef = ref<HTMLElement | null>(null);

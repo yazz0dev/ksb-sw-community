@@ -123,7 +123,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import type { StudentProfileData, EnrichedStudentData } from '@/types/student';
@@ -131,7 +131,6 @@ import ProfileImageUploader from '@/components/ui/ProfileImageUploader.vue';
 import { serverTimestamp } from 'firebase/firestore';
 
 const router = useRouter();
-const route = useRoute();
 const studentStore = useProfileStore();
 const notificationStore = useNotificationStore();
 

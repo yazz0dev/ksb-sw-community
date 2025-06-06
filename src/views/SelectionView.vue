@@ -147,7 +147,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { Event, EventFormat, EventStatus, Team, EventCriteria } from '@/types/event';
+import { type Event, EventFormat, EventStatus, type Team, type EventCriteria } from '@/types/event';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 
 // Import the utility functions
@@ -575,8 +575,6 @@ const initializeTeamEventForm = async (eventDetails: Event, currentUserId: strin
   // Ensure 'bestPerformer' key exists before assigning
   if (teamVoting.hasOwnProperty('bestPerformer')) {
       if (bestPerformerSelection) {
-          const currentUserTeamName = teamMemberMap.value[currentUserId];
-          const bestPerformerTeamName = teamMemberMap.value[bestPerformerSelection];
           // Allow selecting a performer from the same team if the user is an organizer in manual mode,
           // but for voting mode, it should be different.
           // However, this form initialization is for voting mode or pre-filling for manual.

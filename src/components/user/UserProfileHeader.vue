@@ -8,6 +8,7 @@
             :src="user.photoURL || defaultAvatarUrl"
             :alt="user.name || 'Profile Photo'"
             class="profile-photo img-fluid border border-3 border-primary shadow-sm"
+            loading="lazy"
             @error="handleImageError"
             ref="profileImageRef"
           />
@@ -150,8 +151,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { formatRoleName as formatRoleNameForDisplay } from '@/utils/formatters';
-import { EnrichedUserData } from '@/types/student';
+import { type EnrichedUserData } from '@/types/student';
 
 interface Props {
   user: EnrichedUserData;

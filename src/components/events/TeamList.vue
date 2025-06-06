@@ -67,8 +67,6 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
-import { useRouter } from 'vue-router';
-import { useProfileStore } from '@/stores/profileStore';
 
 interface Team {
   teamName: string;
@@ -82,12 +80,11 @@ interface Props {
   votingOpen: boolean;
   organizerNamesLoading: boolean;
   currentUserUid: string | null;
+  getName: (uid: string) => string; // Add missing prop
 }
 
 const props = defineProps<Props>();
 
-const studentStore = useProfileStore();
-const router = useRouter();
 
 const teamsWithDetails = ref<Team[]>([]);
 const loading = ref<boolean>(true);
@@ -97,6 +94,9 @@ let unwatchTeams: (() => void) | null = null;
 onMounted(() => {
   updateLocalTeams(props.teams);
   loading.value = false;
+  if (unwatchTeams) {
+    unwatchTeams();
+  }
   unwatchTeams = watch(() => props.teams, (newTeams) => {
     updateLocalTeams(newTeams);
   }, { deep: true });
@@ -128,8 +128,11 @@ function updateLocalTeams(teamsFromProps: Team[]): void {
 
 const toggleTeamDetails = (teamName: string): void => {
   const teamIndex = teamsWithDetails.value.findIndex(t => t.teamName === teamName);
-  if (teamIndex !== -1) {
-    teamsWithDetails.value[teamIndex].showDetails = !teamsWithDetails.value[teamIndex].showDetails;
+  if (teamIndex !== -1 && teamsWithDetails.value[teamIndex]) {
+    const team = teamsWithDetails.value[teamIndex];
+    if (team) {
+      team.showDetails = !team.showDetails;
+    }
   } else {
     console.warn(`Could not find team ${teamName} to toggle details.`);
   }

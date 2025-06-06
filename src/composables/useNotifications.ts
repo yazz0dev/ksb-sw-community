@@ -1,5 +1,3 @@
-import { ref } from 'vue';
-import type { Notification } from '@/types/store';
 import { useNotificationStore } from '@/stores/notificationStore';
 
 export function useNotifications() {

@@ -18,10 +18,10 @@ import {
 import { db } from '@/firebase';
 import { DateTime } from 'luxon';
 import { 
-  Event, 
+  type Event, 
   EventStatus, 
-  EventFormData, 
-  Submission,
+  type EventFormData, 
+  type Submission,
   EventFormat,
   type EventLifecycleTimestamps,
   type Team,
@@ -29,7 +29,7 @@ import {
   type OrganizerRating
 } from '@/types/event';
 import { type EnrichedStudentData, type UserData } from '@/types/student';
-import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataMapper';
+import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataUtils';
 import { deepClone, isEmpty } from '@/utils/helpers';
 import { runTransaction, type Transaction } from 'firebase/firestore';
 import { calculateEventXP } from '@/utils/eventUtils';
@@ -566,9 +566,6 @@ export async function updateEventStatusInFirestore(
         };
         
         // Retain original notification logic placeholders, but they are commented out
-        let notificationType: string = ''; 
-        let targetUserIds: string[] = [];  
-        let eventNameForNotification: string = currentEvent.details?.eventName || 'Event';
 
         if (newStatus === EventStatus.Rejected && rejectionReason) {
             updatesToApply.rejectionReason = rejectionReason;
@@ -792,7 +789,7 @@ export async function joinEventByStudentInFirestore(eventId: string, studentId: 
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) throw new Error('Event not found.');
         
-        // Use the already imported mapFirestoreToEventData from eventDataMapper
+        // Use the already imported mapFirestoreToEventData from eventDataUtils
         const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
         if (!eventData) throw new Error('Failed to map event data.');
 
@@ -861,7 +858,6 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
         } else if (eventData.details.format === EventFormat.Team && eventData.teams) {
             const originalTeams = eventData.teams || [];
             const newTeams: Team[] = [];
-            let teamMemberFlatListUpdatesNeeded = false;
 
             for (const team of originalTeams) {
                 const originalMemberCount = team.members.length;
@@ -869,10 +865,9 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
                 
                 if (filteredMembers.length < originalMemberCount) {
                     userFoundAndRemoved = true;
-                    teamMemberFlatListUpdatesNeeded = true;
                     team.members = filteredMembers;
                     if (team.teamLead === studentId) {
-                        team.teamLead = team.members.length > 0 ? team.members[0] : ''; // Assign new lead or clear
+                        team.teamLead = team.members.length > 0 ? team.members[0] : '';
                     }
                 }
                 // Keep the team if it still has members after potential removal
@@ -940,14 +935,17 @@ export async function requestToJoinTeamInFirestore(
         const teamIndex = teams.findIndex(t => t.teamName.toLowerCase() === targetTeamName.trim().toLowerCase());
 
         if (teamIndex === -1) throw new Error(`Team "${targetTeamName.trim()}" not found.`);
-        if (teams[teamIndex].members.length >= MAX_TEAM_MEMBERS) throw new Error(`Team "${targetTeamName.trim()}" is full.`);
-        if (teams[teamIndex].members.includes(studentId)) {
+        const targetTeam = teams[teamIndex];
+        if (!targetTeam) throw new Error("Team data is corrupted.");
+        
+        if (targetTeam.members.length >= MAX_TEAM_MEMBERS) throw new Error(`Team "${targetTeamName.trim()}" is full.`);
+        if (targetTeam.members.includes(studentId)) {
              // This case should be caught by the earlier check (eventData.teams?.some(...))
              // but adding belt-and-suspenders here within the cloned `teams` array manipulation.
              throw new Error(`You are already a member of team "${targetTeamName.trim()}".`);
         }
 
-        teams[teamIndex].members.push(studentId);
+        targetTeam.members.push(studentId);
         const newTeamMemberFlatList = [...new Set(teams.flatMap(team => team.members).filter(Boolean))];
 
         await updateDoc(eventRef, {
@@ -989,13 +987,15 @@ export async function leaveMyTeamInFirestore(eventId: string, studentId: string)
 
         if (studentTeamIndex === -1) throw new Error("You are not currently in any team for this event.");
         
-        studentFoundInTeam = true; // if studentTeamIndex is not -1, student is in a team
+        studentFoundInTeam = true;
         const teamToLeave = teams[studentTeamIndex];
+        if (!teamToLeave) throw new Error("Team data is corrupted.");
+        
         const originalMemberCount = teamToLeave.members.length;
         teamToLeave.members = teamToLeave.members.filter(m => m !== studentId);
 
         if (teamToLeave.members.length < originalMemberCount) {
-            teamModified = true; // Member was actually removed
+            teamModified = true;
             if (teamToLeave.teamLead === studentId) {
                 teamToLeave.teamLead = teamToLeave.members.length > 0 ? teamToLeave.members[0] : '';
             }
@@ -1066,8 +1066,9 @@ export async function addTeamToEventInFirestore(
         }
 
         const newTeam: Team = {
+            id: `team_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
             teamName: teamName.trim(),
-            members: Array.isArray(members) ? [...new Set(members)] : [], // Ensure unique members
+            members: Array.isArray(members) ? [...new Set(members)] : [],
             teamLead: teamLead || (members && members.length > 0 ? members[0] : '')
         };
 
@@ -1167,6 +1168,7 @@ export async function autoGenerateEventTeamsInFirestore(
 
     // Initialize teams to populate based on existing team shells (names only, members will be new)
     const teamsToPopulate: Team[] = eventData.teams.map(shell => ({
+      id: shell.id || `team_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       teamName: shell.teamName, // Use the predefined name
       members: [],
       teamLead: '',
@@ -1243,7 +1245,8 @@ export async function submitTeamCriteriaVoteInFirestore(
             }
             if (!currentEventData.votingOpen) throw new Error("Voting is currently closed for this event.");
             if (currentEventData.details.format !== EventFormat.Team) throw new Error("Team criteria voting only for team events.");
-            if (!currentEventData.participants?.includes(userId) && !currentEventData.teams?.some(t => t.members.includes(userId))) {
+            if (!currentEventData.participants?.includes(userId) && 
+                !currentEventData.teamMemberFlatList?.includes(userId)) {
                 throw new Error("Only event participants or team members can vote.");
             }
 
@@ -1486,7 +1489,10 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
                     
                     // If criterion.title is undefined or empty, use a generic key or index
                     const criterionKey = criterion.title?.trim() || `criterion_${criterion.constraintIndex || 'unknown'}`;
-                    winners[criterionKey] = criterionWinners.length === 1 ? criterionWinners[0] : criterionWinners;
+                    const winnerValue = criterionWinners.length === 1 ? criterionWinners[0] : criterionWinners;
+                    if (winnerValue) {
+                        winners[criterionKey] = winnerValue;
+                    }
                 }
             }
         });
@@ -1502,7 +1508,10 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
         if (!isEmpty(bestPerformerVoteCounts)) {
             const maxVotes = Math.max(...Object.values(bestPerformerVoteCounts));
             const bestPerformers = Object.keys(bestPerformerVoteCounts).filter(id => bestPerformerVoteCounts[id] === maxVotes);
-            winners[BEST_PERFORMER_LABEL] = bestPerformers.length === 1 ? bestPerformers[0] : bestPerformers;
+            const bestPerformerValue = bestPerformers.length === 1 ? bestPerformers[0] : bestPerformers;
+            if (bestPerformerValue) {
+                winners[BEST_PERFORMER_LABEL] = bestPerformerValue;
+            }
         }
     }
     return winners;
@@ -1516,9 +1525,7 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
  */
 export async function saveWinnersToFirestore(
     eventId: string, 
-    winners: Record<string, string | string[]>, 
-    manuallySelectedBy?: string
-): Promise<void> {
+    winners: Record<string, string | string[]>): Promise<void> {
     if (!eventId) throw new Error("Event ID required.");
     if (isEmpty(winners)) {
         // console.warn(`No winners data provided to save for event ${eventId}. Skipping update.`);
@@ -1550,8 +1557,6 @@ export async function submitManualWinnerSelectionInFirestore(
     userId: string, 
     votes: Record<string, string> 
 ): Promise<void> {
-    if (!eventId || !userId) throw new Error("Event ID and User ID (organizer) are required.");
-    if (isEmpty(votes)) throw new Error("Winner selections cannot be empty for manual override.");
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
     try {

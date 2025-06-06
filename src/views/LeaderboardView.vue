@@ -26,6 +26,7 @@
             class="role-btn"
             :class="{ active: selectedRoleKey === role.key }"
           >
+            <span class="role-icon">{{ getRoleIcon(role.key) }}</span>
             {{ role.displayName }}
           </button>
         </div>
@@ -89,45 +90,192 @@
             </span>
           </div>
 
-          <!-- Responsive Table Container -->
-          <div class="table-responsive">
-            <table class="table table-hover leaderboard-table">
-              <thead class="table-light">
-                <tr>
-                  <th scope="col" class="rank-column">
-                    <i class="fas fa-hashtag text-muted"></i>
-                  </th>
-                  <th scope="col">User</th>
-                  <th scope="col" class="text-end">XP</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(user, index) in filteredUsers" :key="user.uid" class="leaderboard-row">
-                  <td class="rank-cell">
-                    <!-- Rank number is displayed by StudentCard with variant='ranked' -->
-                  </td>
-                  <td class="user-cell">
+          <!-- Top 3 Podium (Desktop) -->
+          <div v-if="topThreeUsers.length > 0" class="top-three-container d-none d-md-block mb-5">
+            <div class="row justify-content-center">
+              <div class="col-12">
+                <div class="podium-row d-flex justify-content-center align-items-end gap-4">
+                  <!-- 2nd Place -->
+                  <div v-if="topThreeUsers[1]" class="podium-item podium-second">
+                    <div class="podium-rank-badge rank-2">2</div>
                     <StudentCard 
-                      :userId="user.uid"
-                      :photoURL="user.photoURL"
+                      :userId="topThreeUsers[1].uid"
+                      :photoURL="topThreeUsers[1].photoURL || null"
                       :variant="'ranked'"
-                      :rank="index + 1"
-                      :displayValue="user.displayValue"
-                      :showXp="false"
+                      :rank="2"
+                      :displayValue="topThreeUsers[1].displayValue"
+                      :showXp="true"
                       :showAvatar="true"
                       :linkToProfile="true"
-                      class="leaderboard-student-card"
+                      class="podium-student-card"
                     />
-                  </td>
-                  <td class="xp-cell text-end">
-                    <div class="xp-container">
-                      <span class="xp-value">{{ user.displayValue }}</span>
-                      <span class="xp-label text-muted d-none d-sm-inline">XP</span>
+                  </div>
+                  
+                  <!-- 1st Place (Center, Tallest) -->
+                  <div v-if="topThreeUsers[0]" class="podium-item podium-first">
+                    <div class="podium-rank-badge rank-1">
+                      <i class="fas fa-crown"></i>
                     </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    <StudentCard 
+                      :userId="topThreeUsers[0].uid"
+                      :photoURL="topThreeUsers[0].photoURL || null"
+                      :variant="'ranked'"
+                      :rank="1"
+                      :displayValue="topThreeUsers[0].displayValue"
+                      :showXp="true"
+                      :showAvatar="true"
+                      :linkToProfile="true"
+                      class="podium-student-card"
+                    />
+                  </div>
+                  
+                  <!-- 3rd Place -->
+                  <div v-if="topThreeUsers[2]" class="podium-item podium-third">
+                    <div class="podium-rank-badge rank-3">3</div>
+                    <StudentCard 
+                      :userId="topThreeUsers[2].uid"
+                      :photoURL="topThreeUsers[2].photoURL || null"
+                      :variant="'ranked'"
+                      :rank="3"
+                      :displayValue="topThreeUsers[2].displayValue"
+                      :showXp="true"
+                      :showAvatar="true"
+                      :linkToProfile="true"
+                      class="podium-student-card"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile: Show top 3 users prominently -->
+          <div v-if="topThreeUsers.length > 0" class="d-md-none mb-4">
+            <h4 class="h6 text-muted mb-4 text-center">
+              <i class="fas fa-trophy text-warning me-2"></i>
+              Top Rankings
+            </h4>
+            <div class="mobile-top-rankings">
+              <div 
+                v-for="(user, index) in topThreeUsers" 
+                :key="user.uid" 
+                class="mobile-top-item mb-3"
+                :class="{
+                  'mobile-rank-1': index === 0,
+                  'mobile-rank-2': index === 1,
+                  'mobile-rank-3': index === 2
+                }"
+                v-motion
+                :initial="{ opacity: 0, scale: 0.8, y: 20 }"
+                :enter="{ opacity: 1, scale: 1, y: 0, transition: { delay: index * 200, type: 'spring', stiffness: 200 } }"
+              >
+                <!-- Remove the mobile-rank-indicator div -->
+                <div class="mobile-card-content">
+                  <StudentCard 
+                    :userId="user.uid"
+                    :photoURL="user.photoURL || null"
+                    :variant="'ranked'"
+                    :rank="index + 1"
+                    :displayValue="user.displayValue"
+                    :showXp="true"
+                    :showAvatar="true"
+                    :linkToProfile="true"
+                    class="mobile-top-student-card"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Remaining Users (Desktop 2-column, Mobile single column) -->
+          <div v-if="remainingUsers.length > 0">
+            <h4 class="h6 text-muted mb-3 text-center text-md-start">
+              {{ topThreeUsers.length > 0 ? 'Other Rankings' : 'Rankings' }}
+            </h4>
+            
+            <!-- Desktop 2-column layout -->
+            <div class="d-none d-md-block">
+              <div class="row">
+                <div class="col-md-6" v-for="(user, index) in remainingUsers" :key="user.uid">
+                  <div 
+                    class="leaderboard-row-card mb-3"
+                    v-motion
+                    :initial="{ opacity: 0, y: 30 }"
+                    :enter="{ opacity: 1, y: 0, transition: { delay: index * 50 } }"
+                  >
+                    <StudentCard 
+                      :userId="user.uid"
+                      :photoURL="user.photoURL || null"
+                      :variant="'ranked'"
+                      :rank="user.actualRank"
+                      :displayValue="user.displayValue"
+                      :showXp="true"
+                      :showAvatar="true"
+                      :linkToProfile="true"
+                      class="remaining-student-card"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile single column layout -->
+            <div class="d-md-none">
+              <div class="mobile-remaining-rankings">
+                <div 
+                  v-for="(user, index) in remainingUsers" 
+                  :key="user.uid"
+                  class="mobile-remaining-item mb-3"
+                  v-motion
+                  :initial="{ opacity: 0, x: -30 }"
+                  :enter="{ opacity: 1, x: 0, transition: { delay: index * 100, type: 'spring' } }"
+                >
+                  <!-- Remove the mobile-rank-badge div -->
+                  <div class="mobile-remaining-content">
+                    <StudentCard 
+                      :userId="user.uid"
+                      :photoURL="user.photoURL || null"
+                      :variant="'ranked'"
+                      :rank="user.actualRank"
+                      :displayValue="user.displayValue"
+                      :showXp="true"
+                      :showAvatar="true"
+                      :linkToProfile="true"
+                      class="remaining-student-card"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile: Show all users in single column when no remaining users (less than 4 total users) -->
+          <div v-else-if="topThreeUsers.length === 0" class="d-md-none">
+            <div class="mobile-simple-list">
+              <div 
+                v-for="(user, index) in filteredUsers" 
+                :key="user.uid"
+                class="mobile-simple-item mb-3"
+                v-motion
+                :initial="{ opacity: 0, y: 30 }"
+                :enter="{ opacity: 1, y: 0, transition: { delay: index * 150 } }"
+              >
+                <!-- Remove the rank-indicator div -->
+                <div class="user-content">
+                  <StudentCard 
+                    :userId="user.uid"
+                    :photoURL="user.photoURL || null"
+                    :variant="'ranked'"
+                    :rank="index + 1"
+                    :displayValue="user.displayValue"
+                    :showXp="true"
+                    :showAvatar="true"
+                    :linkToProfile="true"
+                    class="leaderboard-student-card"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -139,18 +287,9 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore'; 
 import { formatRoleName } from '@/utils/formatters';
-import { XPData, XpFirestoreFieldKey } from '@/types/xp';
-import { EnrichedStudentData } from '@/types/student';
+import type { XPData, XpFirestoreFieldKey } from '@/types/xp';
+import type { EnrichedStudentData } from '@/types/student';
 import StudentCard from '@/components/user/StudentCard.vue'; 
-
-const defaultAvatarUrl: string = '/default-avatar.png';
-
-const handleImageError = (event: Event) => {
-  const imgElement = event.target as HTMLImageElement;
-  if (imgElement) {
-    imgElement.src = defaultAvatarUrl;
-  }
-};
 
 // Define available roles for filtering, mapping to XPData keys
 // Key: the field in XPData, DisplayName: what's shown to the user
@@ -295,6 +434,7 @@ onMounted(async () => {
 // Define an interface for the user object after adding displayValue
 interface UserWithDisplayValue extends EnrichedStudentData {
   displayValue: number;
+  actualRank: number;
 }
 
 const filteredUsers = computed(() => {
@@ -310,7 +450,7 @@ const filteredUsers = computed(() => {
                     displayValue = (userXpData as any)[selectedRoleKey.value as XpFirestoreFieldKey] || 0;
                 }
             }
-            return { ...user, displayValue };
+            return { ...user, displayValue, actualRank: 0 }; // Initialize actualRank, will be set below
         })
         // Show all users regardless of XP value (including 0 XP)
         .sort((a: UserWithDisplayValue, b: UserWithDisplayValue) => {
@@ -318,182 +458,328 @@ const filteredUsers = computed(() => {
                 return b.displayValue - a.displayValue;
             }
             return ((a.name || a.uid) || '').localeCompare((b.name || b.uid) || '');
-        });
+        })
+        .map((user, index) => ({ ...user, actualRank: index + 1 })); // Set actual rank based on sorted position
 });
 
 const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => {
   selectedRoleKey.value = roleKey;
 };
+
+// Computed properties for top 3 users and remaining users
+const topThreeUsers = computed(() => {
+  return filteredUsers.value.slice(0, 3);
+});
+
+const remainingUsers = computed(() => {
+  return filteredUsers.value.slice(3);
+});
+
+// Add role icon helper function
+const getRoleIcon = (roleKey: string): string => {
+  const iconMap: Record<string, string> = {
+    'totalCalculatedXp': '🏆',
+    'xp_developer': '💻',
+    'xp_presenter': '🎤',
+    'xp_designer': '🎨',
+    'xp_problemSolver': '🧩',
+    'xp_organizer': '📋'
+  };
+  return iconMap[roleKey] || '🏆';
+};
 </script>
 
 <style scoped>
-/* Use consistent section styling */
-.section-card {
-  background: var(--bs-card-bg);
-  border: 1px solid var(--bs-border-color);
-}
-
-/* Role Filter Grid */
-.role-filter-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.role-btn {
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--bs-primary);
-  background: transparent;
-  color: var(--bs-primary);
-  border-radius: var(--bs-border-radius-lg);
-  transition: all 0.2s ease;
-  font-weight: 500;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  text-align: center;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.role-btn:hover {
-  background: var(--bs-primary-bg-subtle);
-  transform: translateY(-1px);
-  box-shadow: var(--bs-box-shadow);
-}
-
-.role-btn.active {
-  background: var(--bs-primary);
-  color: white;
-  box-shadow: var(--bs-box-shadow);
-}
-
-/* Leaderboard Table */
-.leaderboard-table {
-  margin-bottom: 0;
-}
-
-.leaderboard-table th {
-  border-top: none;
-  font-weight: 600;
-  color: var(--bs-secondary);
-  text-transform: uppercase;
-  font-size: 0.875rem;
-  padding: 1rem 0.75rem;
-  border-bottom: 2px solid var(--bs-border-color-translucent);
-}
-
-.leaderboard-table td {
-  padding: 1rem 0.75rem;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--bs-border-color-translucent);
-}
-
-.leaderboard-row:hover {
-  background-color: var(--bs-light);
-}
-
-.rank-column {
-  width: 60px;
+/* Minimal scoped styles - main styling handled in main.scss */
+.leaderboard-student-card {
+  padding: 0 !important;
 }
 
 .rank-cell {
   padding-right: 0 !important;
 }
 
-.user-cell {
-  min-width: 200px;
+/* Role Filter Improvements */
+.role-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.75rem;
+  margin: 0 auto;
+  max-width: 900px;
 }
 
-.leaderboard-student-card {
-  padding: 0 !important;
-}
-
-.xp-container {
+.role-btn {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--bs-border-color);
+  background: white;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  min-height: 3rem;
 }
 
-.xp-value {
-  font-weight: 600;
-  font-size: 1.1rem;
-  color: var(--bs-dark);
+.role-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--bs-primary);
 }
 
-.xp-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.role-btn.active {
+  background: var(--bs-primary);
+  border-color: var(--bs-primary);
+  color: white;
+  transform: translateY(-1px);
 }
 
-/* Responsive Design */
+.role-icon {
+  font-size: 1.2rem;
+}
+
+/* Mobile Styles - Updated to match desktop cards */
+.mobile-top-rankings {
+  padding: 0;
+}
+
+.mobile-top-item {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 250, 0.9));
+  border-radius: 16px;
+  padding: 0;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  border: 2px solid transparent;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.mobile-top-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--bs-primary), var(--bs-secondary));
+  opacity: 0.3;
+}
+
+.mobile-top-item:active {
+  transform: scale(0.98);
+}
+
+.mobile-rank-1 {
+  border-color: #ffd700;
+  background: linear-gradient(135deg, #fff9e6, #fef3cd);
+}
+
+.mobile-rank-1::before {
+  background: linear-gradient(90deg, #ffd700, #ffed4e);
+  opacity: 1;
+}
+
+.mobile-rank-2 {
+  border-color: #c0c0c0;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+}
+
+.mobile-rank-2::before {
+  background: linear-gradient(90deg, #c0c0c0, #d4d4d4);
+  opacity: 1;
+}
+
+.mobile-rank-3 {
+  border-color: #cd7f32;
+  background: linear-gradient(135deg, #fdf6f0, #f4e4d6);
+}
+
+.mobile-rank-3::before {
+  background: linear-gradient(90deg, #cd7f32, #deb887);
+  opacity: 1;
+}
+
+/* Remove mobile rank indicator styles since we're using desktop layout */
+.mobile-card-content {
+  margin: 0;
+}
+
+.mobile-remaining-rankings {
+  padding: 0;
+}
+
+.mobile-remaining-item {
+  position: relative;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.mobile-remaining-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--bs-primary);
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+}
+
+.mobile-remaining-item:hover::before {
+  opacity: 1;
+}
+
+.mobile-remaining-item:active {
+  background: rgba(255, 255, 255, 0.95);
+  transform: scale(0.98);
+}
+
+/* Remove mobile rank badge styles */
+.mobile-remaining-content {
+  margin: 0;
+}
+
+/* Simple list for when no top 3 */
+.mobile-simple-list {
+  padding: 0;
+}
+
+.mobile-simple-item {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  gap: 0;
+  overflow: hidden;
+}
+
+.mobile-simple-item:active {
+  transform: scale(0.98);
+  background: rgba(255, 255, 255, 1);
+}
+
+/* Remove rank indicator styles since using desktop layout */
+.mobile-top-student-card,
+.remaining-student-card {
+  margin: 0;
+}
+
+/* Responsive table improvements */
 @media (max-width: 768px) {
   .role-filter-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 0.5rem;
-    max-width: 400px;
+    max-width: 100%;
+  }
+  
+  .role-btn {
+    padding: 0.625rem 0.5rem;
+    font-size: 0.875rem;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-height: 4rem;
+  }
+  
+  .role-icon {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .role-filter-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
   }
   
   .role-btn {
     padding: 0.625rem 0.75rem;
-    font-size: 0.8rem;
-    min-height: 40px;
-  }
-  
-  .leaderboard-table th,
-  .leaderboard-table td {
-    padding: 0.75rem 0.5rem;
-  }
-  
-  .xp-value {
-    font-size: 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .role-filter-grid {
-    grid-template-columns: 1fr;
-    max-width: 300px;
-  }
-  
-  .role-btn {
-    padding: 0.5rem;
-    font-size: 0.75rem;
-    min-height: 36px;
-  }
-  
-  .leaderboard-table th,
-  .leaderboard-table td {
-    padding: 0.5rem 0.25rem;
     font-size: 0.875rem;
   }
   
-  .xp-value {
-    font-size: 0.9rem;
+  .role-icon {
+    font-size: 1rem;
   }
   
-  .user-cell {
-    min-width: auto;
+  .leaderboard-table {
+    font-size: 0.875rem;
+  }
+  
+  .rank-badge {
+    background: var(--bs-primary);
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin: 0 auto;
+  }
+  
+  .xp-value {
+    font-weight: 600;
+    color: var(--bs-primary);
+  }
+  
+  .mobile-top-item {
+    margin-bottom: 1rem;
+  }
+  
+  .mobile-remaining-item {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (max-width: 375px) {
+  .role-filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .role-btn {
+    font-size: 0.8rem;
+    padding: 0.5rem 0.5rem;
+  }
+  
+  .mobile-top-item {
+    margin-bottom: 1rem;
+  }
+  
+  .mobile-remaining-item {
+    margin-bottom: 1rem;
   }
 }
 
 /* Animation */
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.6s ease-out forwards;
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Podium Styles */
+.top-three-container {
+  /* Add any podium-specific styles here */
 }
 </style>

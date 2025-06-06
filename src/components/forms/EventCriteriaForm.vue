@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, nextTick } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { EventFormat, type EventCriteria } from '@/types/event'; // Use EventCriteria
 import { formatRoleName } from '@/utils/formatters';
 import {
@@ -171,7 +171,7 @@ const canAddMoreCriteria = computed(() => {
 let isUpdatingFromProp = false;
 watch(
   [() => props.criteria, () => props.eventFormat],
-  ([newCriteria, newFormat], [oldCriteria, oldFormat]) => {
+  ([newCriteria, newFormat], [, oldFormat]) => {
     if (isUpdatingFromProp) return;
     
     let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as EventCriteria[];

@@ -4,7 +4,8 @@
     :class="{ 
       'student-card-simple': variant === 'simple',
       'student-card-leaderboard': variant === 'leaderboard',
-      'student-card-ranked': variant === 'ranked'
+      'student-card-ranked': variant === 'ranked',
+      'student-card-interactive': linkToProfile
     }"
   >
     <!-- Simple Variant (minimal) -->
@@ -17,56 +18,60 @@
           {{ name || `User (${userId.substring(0, 5)}...)` }}
         </p>
       </div>
-      <span v-if="showXp && displayValue !== null" class="xp-badge badge bg-light text-dark border rounded-pill">
+      <span v-if="showXp && displayValue !== null && displayValue !== undefined" class="xp-badge badge bg-light text-dark border rounded-pill">
         <i class="fas fa-star me-1 text-warning"></i>
-        {{ displayValue }} XP
+        {{ formatXP(displayValue) }}
       </span>
     </div>
 
     <!-- Leaderboard/Ranked Variant (enhanced) -->
-    <div v-else class="enhanced-content d-flex align-items-center p-3">
-      <!-- Rank Badge (if ranked) -->
-      <div v-if="variant === 'ranked'" class="rank-container me-3">
-        <div v-if="rank !== null && rank <= 3" :class="['rank-badge', `rank-${rank}`]">
-          <span class="rank-number">{{ rank }}</span>
-          <div class="rank-shine"></div>
+    <div v-else class="enhanced-content">
+      <!-- Unified layout for both desktop and mobile -->
+      <div class="unified-layout d-flex align-items-center p-3">
+        <!-- Rank Badge -->
+        <div v-if="variant === 'ranked'" class="rank-container me-3">
+          <div v-if="rank !== null && rank !== undefined && rank <= 3" :class="['rank-badge', `rank-${rank}`]">
+            <span class="rank-number">{{ rank }}</span>
+            <div class="rank-shine"></div>
+          </div>
+          <div v-else-if="rank !== null && rank !== undefined" class="rank-display">
+            <span class="rank-text">#{{ rank }}</span>
+          </div>
         </div>
-        <div v-else-if="rank !== null" class="rank-display">
-          <span class="rank-text">#{{ rank }}</span>
-        </div>
-      </div>
 
-      <!-- User Info -->
-      <div class="user-content d-flex align-items-center flex-grow-1">
-        <!-- Avatar -->
-        <div v-if="showAvatar" class="avatar-container me-3">
-          <img
-            :src="photoURL || defaultAvatarUrl"
-            :alt="name || 'User'"
-            @error="handleImageError"
-            class="user-avatar"
-          />
-          <div class="avatar-status"></div>
-        </div>
-        
-        <!-- User Details -->
-        <div class="user-details flex-grow-1">
-          <div class="user-name-section mb-1">
-            <router-link
-              v-if="linkToProfile"
-              :to="{ name: 'PublicProfile', params: { userId } }"
-              class="user-link fw-semibold text-decoration-none"
-            >
-              {{ name || `User ${userId.substring(0, 6)}` }}
-            </router-link>
-            <span v-else class="user-name fw-semibold text-dark">
-              {{ name || `User ${userId.substring(0, 6)}` }}
-            </span>
+        <!-- User Info -->
+        <div class="user-content d-flex align-items-center flex-grow-1">
+          <!-- Avatar -->
+          <div v-if="showAvatar" class="avatar-container me-3">
+            <img
+              :src="photoURL || defaultAvatarUrl"
+              :alt="name || 'User'"
+              @error="handleImageError"
+              class="user-avatar"
+              loading="lazy"
+            />
+            <div class="avatar-status"></div>
           </div>
           
-          <div v-if="showXp && displayValue !== null" class="xp-section">
-            <span class="xp-label text-muted small me-1">XP:</span>
-            <span class="xp-value fw-semibold text-primary">{{ displayValue }}</span>
+          <!-- User Details -->
+          <div class="user-details flex-grow-1">
+            <div class="user-name-section mb-1">
+              <router-link
+                v-if="linkToProfile"
+                :to="{ name: 'PublicProfile', params: { userId } }"
+                class="user-link fw-semibold text-decoration-none"
+              >
+                {{ name || `User ${userId.substring(0, 6)}` }}
+              </router-link>
+              <span v-else class="user-name fw-semibold text-dark">
+                {{ name || `User ${userId.substring(0, 6)}` }}
+              </span>
+            </div>
+            
+            <div v-if="showXp && displayValue !== null && displayValue !== undefined" class="xp-section">
+              <span class="xp-label text-muted small me-1">XP:</span>
+              <span class="xp-value fw-semibold text-primary">{{ formatXP(displayValue) }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -75,14 +80,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 
 interface Props {
   userId: string;
   variant?: 'simple' | 'leaderboard' | 'ranked';
-  rank?: number | null;
-  displayValue?: number | null;
+  rank?: number | null | undefined;
+  displayValue?: number | null | undefined;
   showXp?: boolean;
   showAvatar?: boolean;
   linkToProfile?: boolean;
@@ -118,6 +123,17 @@ const handleImageError = () => {
   imgError.value = true;
 };
 
+// Add XP formatting function
+const formatXP = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) return '0';
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(1)}M`;
+  } else if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)}K`;
+  }
+  return value.toString();
+};
+
 onMounted(fetchUserData);
 </script>
 
@@ -127,13 +143,18 @@ onMounted(fetchUserData);
   border-radius: var(--bs-border-radius-lg);
   background: var(--bs-white);
   border: 1px solid var(--bs-border-color-translucent);
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
+  position: relative;
 }
 
-.student-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--bs-box-shadow-sm);
+.student-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.student-card:active {
+  transform: translateY(0);
 }
 
 /* Simple Variant */
@@ -203,6 +224,11 @@ onMounted(fetchUserData);
 }
 
 .enhanced-content {
+  min-height: 4rem;
+}
+
+/* Unified Layout */
+.unified-layout {
   min-height: 4rem;
 }
 
@@ -360,7 +386,7 @@ onMounted(fetchUserData);
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .enhanced-content {
+  .unified-layout {
     padding: 0.75rem !important;
   }
   
@@ -403,24 +429,16 @@ onMounted(fetchUserData);
 }
 
 @media (max-width: 480px) {
-  .simple-content,
-  .enhanced-content {
+  .simple-content {
     padding: 0.625rem !important;
   }
   
-  .enhanced-content {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 0.75rem;
+  .unified-layout {
+    padding: 0.625rem !important;
   }
   
   .rank-container {
-    align-self: flex-end;
-    margin: 0 !important;
-  }
-  
-  .user-content {
-    width: 100%;
+    margin-right: 0.75rem !important;
   }
   
   .user-link,
@@ -436,5 +454,69 @@ onMounted(fetchUserData);
     font-size: 0.75rem;
     padding: 0.3rem 0.6rem;
   }
+  
+  /* Ensure rank badges are visible and consistent */
+  .rank-badge {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+  
+  .rank-display {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  
+  .rank-text {
+    font-size: 0.75rem;
+  }
+  
+  /* Ensure avatar is visible but not too large */
+  .user-avatar {
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
+/* Accessibility improvements */
+.student-card:focus-within {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.user-link:focus {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Loading state */
+.student-card.loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.student-card.loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Performance optimizations */
+.student-card * {
+  will-change: auto;
+}
+
+.student-card:hover * {
+  will-change: transform;
 }
 </style>

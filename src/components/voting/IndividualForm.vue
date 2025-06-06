@@ -63,8 +63,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, PropType, watch } from 'vue';
-import { EventCriteria } from '@/types/event';
+import { computed, reactive, type PropType, watch } from 'vue';
+import type { EventCriteria } from '@/types/event';
 import { formatRoleName } from '@/utils/formatters';
 
 interface IndividualVoting {
