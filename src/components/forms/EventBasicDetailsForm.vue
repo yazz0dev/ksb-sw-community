@@ -200,3 +200,30 @@ watch(localDetails, (newVal) => {
   }, 0);
 }, { deep: true });
 </script>
+
+<style scoped>
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+.form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+.input-group-text {
+  background-color: var(--bs-tertiary-bg);
+  border-color: var(--bs-border-color);
+  color: var(--bs-secondary);
+}
+
+.form-text {
+  color: var(--bs-secondary);
+}
+
+.invalid-feedback {
+  color: var(--bs-danger);
+}
+</style>

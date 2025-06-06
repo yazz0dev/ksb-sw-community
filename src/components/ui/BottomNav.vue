@@ -78,7 +78,7 @@ const handleImageError = (): void => {
 
 <style scoped>
 .bottom-nav {
-  height: 64px;
+  height: var(--bottom-nav-height-mobile);
   z-index: 1040;
   border-top: 1px solid var(--bs-border-color);
   padding-bottom: env(safe-area-inset-bottom);
@@ -97,9 +97,9 @@ const handleImageError = (): void => {
   text-decoration: none;
   padding: 0.5rem 0.25rem;
   border-top: 3px solid transparent;
-  transition: all 0.2s ease-in-out;
+  transition: color 0.2s ease, border-color 0.2s ease;
   position: relative;
-  min-height: 64px;
+  min-height: var(--bottom-nav-height-mobile);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -114,34 +114,40 @@ const handleImageError = (): void => {
 .nav-link.active {
   color: var(--bs-primary);
   border-top-color: var(--bs-primary);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .nav-icon {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 28px;
   width: 28px;
+  transition: transform 0.2s ease;
+}
+
+.nav-link.active .nav-icon {
+  transform: translateY(-2px);
 }
 
 .nav-text {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   line-height: 1.2;
-  font-weight: 400;
-}
-
-.nav-link.active .nav-text {
   font-weight: 500;
 }
 
+.nav-link.active .nav-text {
+  font-weight: 600;
+}
+
 .profile-pic {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   object-fit: cover;
   border: 2px solid var(--bs-border-color);
+  transition: border-color 0.2s ease;
 }
 
 .nav-link.active .profile-pic {
@@ -152,30 +158,23 @@ const handleImageError = (): void => {
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   @media (max-width: 991.98px) {
     .bottom-nav {
-      height: calc(64px + env(safe-area-inset-bottom));
+      height: calc(var(--bottom-nav-height-mobile) + env(safe-area-inset-bottom));
     }
   }
 }
 
-/* Responsive adjustments */
-@media (max-width: 576px) {
+/* Responsive adjustments for very small screens */
+@media (max-width: 360px) {
   .nav-link {
-    padding: 0.4rem 0.2rem;
+    padding: 0.4rem 0.1rem;
   }
   
   .nav-icon {
-    font-size: 1.1rem;
-    height: 24px;
-    width: 24px;
+    font-size: 1.15rem;
   }
   
   .nav-text {
-    font-size: 0.7rem;
-  }
-  
-  .profile-pic {
-    width: 20px;
-    height: 20px;
+    font-size: 0.75rem;
   }
 }
 </style>

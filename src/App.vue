@@ -166,26 +166,15 @@ onUnmounted(() => {
 
 <style scoped>
 .app-wrapper {
-  min-height: 100vh;
   background-color: var(--bs-light);
   color: var(--bs-body-color);
-  font-size: 1rem;
+  /* font-size is inherited from body now */
   position: relative;
+  overflow-x: hidden; /* Prevent horizontal scroll on the main wrapper */
 }
 
-.app-main-content {
-  padding-top: 60px;
-  min-height: calc(100vh - 60px);
-}
-
-.app-main-content.has-bottom-nav {
-  /* Only apply bottom padding on mobile when BottomNav is visible */
-  padding-bottom: 0;
-}
-
-.app-main-content.is-offline {
-  opacity: 0.8;
-}
+/* .app-main-content styles are now handled globally in main.scss */
+/* This ensures consistency across all views */
 
 .offline-banner {
   position: fixed;
@@ -199,25 +188,7 @@ onUnmounted(() => {
 }
 
 /* Mobile-specific styles */
-@media (max-width: 991.98px) {
-  .app-main-content {
-    padding-top: 56px;
-    min-height: calc(100vh - 56px);
-  }
-  
-  .app-main-content.has-bottom-nav {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 16px));
-    min-height: calc(100vh - 56px - 64px - env(safe-area-inset-bottom, 16px));
-  }
-}
-
-/* Desktop-specific styles - ensure no bottom padding */
-@media (min-width: 992px) {
-  .app-main-content.has-bottom-nav {
-    padding-bottom: 0;
-    min-height: calc(100vh - 60px);
-  }
-}
+/* Media queries for .app-main-content are now in main.scss */
 
 .fade-enter-active,
 .fade-leave-active {
@@ -245,7 +216,7 @@ onUnmounted(() => {
 @media (max-width: 991.98px) {
   .app-wrapper:has(.bottom-nav) .update-banner,
   .app-wrapper:has(.bottom-nav) .push-prompt-banner {
-    bottom: calc(64px + 1rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--bottom-nav-height-mobile) + 1rem + env(safe-area-inset-bottom, 0px));
   }
 }
 

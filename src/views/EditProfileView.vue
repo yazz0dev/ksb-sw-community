@@ -180,9 +180,9 @@ async function loadUserData() {
       name: userData.name || '', // Fallback to empty string if name is null
       photoURL: userData.photoURL || '',
       bio: userData.bio || '',
-      socialLink: userData.socialLinks?.portfolio || '', // Primary portfolio link
+      socialLink: userData.socialLinks?.primary || '', // Correctly map to 'primary'
       instagramLink: userData.socialLinks?.instagram || '', // Instagram username
-      portfolio: userData.socialLinks?.portfolio || '', // Secondary portfolio link (previously otherLink)
+      portfolio: userData.socialLinks?.portfolio || '', // Correctly map to 'portfolio'
       skills: Array.isArray(userData.skills) ? userData.skills.join(', ') : '',
       hasLaptop: userData.hasLaptop || false
     };
@@ -254,13 +254,11 @@ async function saveProfileEdits() {
     const newSocialLinks: EnrichedStudentData['socialLinks'] = {
       ...(studentStore.currentStudent?.socialLinks || {}), // Preserve other links
     };
-    newSocialLinks.portfolio = form.value.socialLink.trim(); // Primary portfolio link
     
-    // Save Instagram username directly (without URL)
-    newSocialLinks.instagram = form.value.instagramLink.trim().replace('@', ''); // Remove @ if user included it
-    
-    // Store secondary portfolio link in the 'other' field
-    newSocialLinks.portfolio = form.value.portfolio.trim(); // Secondary portfolio link (renamed from otherLink)
+    // Consistently map form fields to socialLinks properties, trimming whitespace.
+    newSocialLinks.primary = form.value.socialLink.trim();
+    newSocialLinks.instagram = form.value.instagramLink.trim().replace('@', '');
+    newSocialLinks.portfolio = form.value.portfolio.trim();
 
     const payloadForUpdate = {
       name: form.value.name.trim(),
@@ -304,13 +302,7 @@ onMounted(() => {
   margin-left: 0.2rem;
 }
 
-.min-vh-100-subtract-nav {
-  min-height: calc(100vh - var(--navbar-height-desktop, 4.5rem) - var(--bottom-nav-height-mobile, 0rem));
-}
+/* The .min-vh-100-subtract-nav class is now defined globally in main.scss */
+/* This ensures consistency and uses the correct CSS variables for navbar heights. */
 
-@media (max-width: 991.98px) {
-  .min-vh-100-subtract-nav {
-    min-height: calc(100vh - var(--navbar-height-mobile, 4rem) - var(--bottom-nav-height-mobile, 4rem));
-  }
-}
 </style>

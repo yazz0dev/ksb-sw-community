@@ -4,9 +4,8 @@
     v-if="event?.id"
     class="card event-card h-100 shadow-sm border"
     :class="{ 'bg-light opacity-75': isCancelledOrRejected }"
-    style="border-radius: var(--bs-border-radius-lg); overflow: hidden; transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;"
   >
-    <div class="card-body d-flex flex-column p-3 p-md-4"> <!-- Adjusted padding -->
+    <div class="card-body d-flex flex-column p-3 p-md-4">
       <!-- Header: Name & Status -->
       <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
         <h5
@@ -21,14 +20,13 @@
         <span
           class="badge rounded-pill fs-7 flex-shrink-0"
           :class="getEventStatusBadgeClass(event.status)"
-          style="font-size: 0.7rem;"
         >
           {{ event.status }}
         </span>
       </div>
 
       <!-- Meta Info: Type, Format, Date, Prize -->
-      <div class="d-flex small text-secondary mb-3 flex-wrap" style="gap: 0.5rem 1rem;"> <!-- Adjusted gap -->
+      <div class="d-flex small text-secondary mb-3 flex-wrap event-meta">
         <!-- Type -->
         <div class="d-flex align-items-center" title="Event Type">
             <i class="fas fa-tag fa-fw me-1 text-muted"></i>{{ event.details?.type || 'N/A' }}
@@ -40,7 +38,7 @@
          <!-- Prize (if Competition) -->
         <div v-if="event.details?.format === EventFormat.Competition && event.details?.prize" class="d-flex align-items-center" title="Prize">
             <i class="fas fa-trophy fa-fw me-1 text-warning"></i>
-            <span class="text-truncate" style="max-width: 150px;">{{ event.details.prize }}</span>
+            <span class="text-truncate prize-text">{{ event.details.prize }}</span>
         </div>
          <!-- Date -->
         <div class="d-flex align-items-center" title="Date Range">
@@ -49,7 +47,7 @@
       </div>
 
       <!-- Organizers -->
-      <div v-if="event.details?.organizers?.length" class="d-flex small text-secondary mb-3" style="gap: 0.5rem;" title="Organizers">
+      <div v-if="event.details?.organizers?.length" class="d-flex small text-secondary mb-3 organizers-info" title="Organizers">
         <i class="fas fa-user-shield fa-fw text-muted"></i>
         <div class="text-truncate">
           {{ formatOrganizers }}
@@ -153,20 +151,44 @@ const formatOrganizers = computed(() => {
 
 <style scoped>
 .event-card {
-  border-color: var(--bs-border-color-translucent);
+  border-radius: var(--bs-border-radius-lg);
+  border-color: var(--bs-border-color);
+  background-color: var(--bs-card-bg);
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
 }
+
 .event-card:hover {
   transform: translateY(-4px) scale(1.02);
   box-shadow: var(--bs-box-shadow-lg);
 }
+
+.event-meta {
+  gap: 0.5rem 1rem;
+}
+
+.organizers-info {
+  gap: 0.5rem;
+}
+
+.prize-text {
+  max-width: 150px;
+}
+
+.badge {
+  font-size: 0.7rem;
+}
+
 .rendered-markdown :deep(p:last-child) {
     margin-bottom: 0;
 }
+
 .rendered-markdown :deep(ul),
 .rendered-markdown :deep(ol) {
     margin-bottom: 0;
     padding-left: 1.2rem;
 }
+
 .text-break {
    overflow-wrap: break-word;
    word-wrap: break-word;

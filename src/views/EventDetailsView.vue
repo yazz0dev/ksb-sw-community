@@ -28,7 +28,7 @@
             :isLeaving="isLeaving"
             :name-cache="nameCacheRecord"
             @join="handleJoin"
-            @leave="handleLeave"
+            @leave="showLeaveModal"
             class="animate-fade-in"
           />
 
@@ -160,6 +160,17 @@
         </div>
       </template> <!-- End v-if="event && !initialFetchError" -->
     </SkeletonProvider>
+
+    <!-- Leave Event Confirmation Modal -->
+    <ConfirmationModal
+      modal-id="leaveEventModal"
+      title="Leave Event"
+      message="Are you sure you want to leave this event? You can rejoin later if the event is still accepting participants."
+      confirm-text="Leave Event"
+      cancel-text="Stay"
+      variant="warning"
+      @confirm="handleLeave"
+    />
   </div>
 </template>
 
@@ -182,6 +193,7 @@ import EventDetailsSkeleton from '@/skeletons/EventDetailsSkeleton.vue';
 import SkeletonProvider from '@/skeletons/SkeletonProvider.vue';
 import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
 import VotingCard from '@/components/events/VotingCard.vue';
+import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
 
 // Type Imports
 import { EventStatus, type Event, type Team, EventFormat } from '@/types/event';
@@ -401,9 +413,16 @@ const handleJoin = async (): Promise<void> => {
     }
 };
 
+const showLeaveModal = (): void => {
+    const modal = document.getElementById('leaveEventModal');
+    if (modal && window.bootstrap?.Modal) {
+        const modalInstance = new window.bootstrap.Modal(modal);
+        modalInstance.show();
+    }
+};
+
 const handleLeave = async (): Promise<void> => {
     if (!event.value || !currentUserId.value || isLeaving.value || actionInProgress.value) return;
-    if (!window.confirm('Are you sure you want to leave this event?')) return;
 
     isLeaving.value = true;
     actionInProgress.value = true;
@@ -459,11 +478,17 @@ defineExpose({ handleJoin, handleLeave });
 <style scoped>
 .event-details-bg {
   background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - var(--navbar-height-mobile));
   padding-top: 1rem;
   padding-bottom: 4rem;
   width: 100%;
   overflow-x: hidden;
+}
+
+@media (min-width: 992px) {
+  .event-details-bg {
+    min-height: calc(100vh - var(--navbar-height-desktop));
+  }
 }
 
 .event-details-view { 
@@ -485,15 +510,17 @@ defineExpose({ handleJoin, handleLeave });
     position: static; 
   } 
 }
+
 .submit-fab { 
   position: sticky; 
   top: 80px; 
   float: right; 
   z-index: 10; 
 }
+
 .submit-fab-mobile {
   position: fixed;
-  bottom: calc(64px + 1rem);
+  bottom: calc(var(--bottom-nav-height-mobile) + 1rem);
   right: 1rem;
   z-index: 1045;
   border-radius: 50%;
@@ -505,16 +532,19 @@ defineExpose({ handleJoin, handleLeave });
   font-size: 1.5rem;
   box-shadow: var(--bs-box-shadow-lg);
 }
+
 @media (min-width: 768px) { 
   .submit-fab-mobile { 
     display: none !important; 
   } 
 }
+
 @media (max-width: 767.98px) { 
   .submit-fab { 
     display: none !important; 
   } 
 }
+
 .section-header { 
   display: flex; 
   align-items: center; 
@@ -524,16 +554,19 @@ defineExpose({ handleJoin, handleLeave });
   color: var(--bs-body-color); 
   margin-bottom: 1rem; 
 }
+
 .team-list-box, .card { 
   border-radius: var(--bs-border-radius-lg); 
-  border: 1px solid var(--bs-border-color-translucent); 
+  border: 1px solid var(--bs-border-color); 
   box-shadow: var(--bs-box-shadow-sm); 
   overflow: hidden; 
   background-color: var(--bs-card-bg); 
 }
+
 .animate-fade-in { 
   animation: fadeIn 0.5s ease-out forwards; 
 }
+
 @keyframes fadeIn { 
   from { 
     opacity: 0; 
@@ -544,12 +577,15 @@ defineExpose({ handleJoin, handleLeave });
     transform: translateY(0); 
   } 
 }
+
 .fade-pop-enter-active { 
   animation: fadeIn .5s ease; 
 }
+
 .fade-pop-leave-active { 
   animation: fadeOut .3s ease forwards; 
 }
+
 @keyframes fadeOut { 
   from { 
     opacity: 1; 
@@ -558,30 +594,37 @@ defineExpose({ handleJoin, handleLeave });
     opacity: 0; 
   } 
 }
+
 .modal.fade .modal-dialog { 
   transition: transform .3s ease-out; 
   transform: translateY(-25px); 
 }
+
 .modal.show .modal-dialog { 
   transform: none; 
 }
+
 .modal-content { 
   border-radius: var(--bs-border-radius-lg); 
   border: none; 
 }
+
 .sticky-lg-top { 
   position: sticky; 
   top: 80px; 
   z-index: 5; 
 }
+
 .alert-sm { 
   padding: 0.5rem 0.75rem; 
-  font-size: 0.875em; 
+  font-size: 0.875rem; 
 }
+
 .btn-close {
   font-size: 0.75rem;
 }
+
 .card-header {
-  border-bottom: 1px solid var(--bs-border-color-translucent);
+  border-bottom: 1px solid var(--bs-border-color);
 }
 </style>

@@ -35,13 +35,14 @@
                 ({{ team.members.length }}/{{ maxMembersPerTeam }} selected)
               </span>
             </label>
+            <div class="col-auto">
             <select
-              class="form-select form-select-sm"
               v-model="selectedMemberToAddPerTeam[teamIndex]"
+                class="form-select form-select-sm user-select"
               :disabled="props.isSubmitting || team.members.length >= maxMembersPerTeam"
               @change="addMember(teamIndex, selectedMemberToAddPerTeam[teamIndex])"
             >
-              <option value="" disabled selected>Select a student to add...</option>
+                <option value="" disabled>{{ availableStudentsForTeam(teamIndex).length ? 'Select a student to add...' : 'No available students' }}</option>
               <option
                 v-for="student in availableStudentsForTeam(teamIndex)"
                 :key="student.uid"
@@ -50,6 +51,7 @@
                 {{ student.name || `UID: ${student.uid.substring(0,6)}...` }}
               </option>
             </select>
+            </div>
           </div>
 
           <div v-if="team.members.length > 0" class="mt-2">
@@ -83,7 +85,7 @@
                  aria-label="Remove member"
                  @click="removeMember(teamIndex, memberId)"
                  :disabled="props.isSubmitting || team.members.length <= minMembersPerTeam"
-                 style="filter: brightness(0) invert(1);"
+                 class="remove-member-btn"
                ></button>
             </span>
           </div>
@@ -401,5 +403,30 @@ onMounted(() => {
 }
 .badge .btn-close-sm:hover {
    filter: brightness(0) saturate(100%) invert(18%) sepia(88%) saturate(4792%) hue-rotate(348deg) brightness(96%) contrast(95%);
+}
+.user-select {
+  max-width: 250px;
+}
+
+.remove-member-btn {
+  filter: brightness(0) invert(1);
+}
+
+.slide-down-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-down-leave-active {
+  transition: all 0.3s ease-in;
+}
+
+.slide-down-enter-from {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+.slide-down-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
 }
 </style>

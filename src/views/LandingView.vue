@@ -190,7 +190,7 @@ const getIconColorClass = (color: Feature['color']): string => {
 <style scoped>
 /* General Layout */
 .landing-section {
-  background: linear-gradient(135deg, #f8fafc 0%, #e9f0fb 100%);
+  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
   min-height: 100vh;
   overflow-x: hidden; 
 }
@@ -198,48 +198,61 @@ const getIconColorClass = (color: Feature['color']): string => {
 /* Welcome Section */
 .welcome-section {
   min-height: 60vh;
-  background: linear-gradient(120deg, #e0e7ff 0%, #f8fafc 100%);
+  background: linear-gradient(120deg, var(--bs-primary-bg-subtle) 0%, var(--bs-light) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 .text-gradient {
-  background: linear-gradient(90deg, #2563eb 30%, #14b8a6 100%);
+  background: linear-gradient(90deg, var(--bs-primary) 30%, var(--bs-info) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
 .brand-highlight {
-  color: #2563eb;
+  color: var(--bs-primary);
   font-weight: 700;
 }
+
 .animate-pop {
   animation: pop-in 0.7s cubic-bezier(.23,1.01,.32,1) both;
 }
+
 @keyframes pop-in {
-  0% { opacity: 0; transform: scale(0.95);}
-  100% { opacity: 1; transform: scale(1);}
+  0% { 
+    opacity: 0; 
+    transform: scale(0.95);
+  }
+  100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
 }
 
 /* Features Section */
 .features-section {
-  background: #fff;
-  border-radius: 1.5rem;
+  background: var(--bs-white);
+  border-radius: var(--bs-border-radius-xl);
   margin-top: -3rem;
-  box-shadow: 0 4px 32px 0 rgba(37,99,235,0.07);
+  box-shadow: var(--bs-box-shadow-lg);
   padding-top: 3rem;
   padding-bottom: 3rem;
 }
+
 .feature-card {
   border: none;
-  border-radius: 1rem;
-  transition: transform 0.2s, box-shadow 0.2s;
-  background: #f9fafb;
+  border-radius: var(--bs-border-radius-lg);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: var(--bs-light);
 }
+
 .feature-card:hover {
   transform: translateY(-6px) scale(1.03);
-  box-shadow: 0 8px 32px 0 rgba(37,99,235,0.12);
+  box-shadow: var(--bs-box-shadow-lg);
 }
+
 .feature-icon {
   display: inline-flex;
   align-items: center;
@@ -248,43 +261,44 @@ const getIconColorClass = (color: Feature['color']): string => {
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
-  background: #e0e7ff;
+  background: var(--bs-primary-bg-subtle);
   margin-bottom: 0.5rem;
-  box-shadow: 0 2px 8px 0 rgba(37,99,235,0.08);
+  box-shadow: var(--bs-box-shadow-sm);
 }
 
 /* About Section */
 .about-section {
-  background: linear-gradient(120deg, #f8fafc 60%, #e0e7ff 100%);
-  border-radius: 1.5rem;
+  background: linear-gradient(120deg, var(--bs-light) 60%, var(--bs-primary-bg-subtle) 100%);
+  border-radius: var(--bs-border-radius-xl);
   margin-top: 2rem;
 }
+
 .about-card {
-  background: #fff;
-  border-radius: 1rem;
-  /* box-shadow removed, shadow-sm class will handle it */
+  background: var(--bs-white);
+  border-radius: var(--bs-border-radius-lg);
 }
 
 /* Sponsor Section */
 .sponsor-section {
-  background: linear-gradient(120deg, #e0e7ff 0%, #f8fafc 100%);
-  border-radius: 1.5rem;
+  background: linear-gradient(120deg, var(--bs-primary-bg-subtle) 0%, var(--bs-light) 100%);
+  border-radius: var(--bs-border-radius-xl);
   margin-top: 2rem;
 }
+
 .bg-gradient-light {
-  background: linear-gradient(120deg, #f8fafc 60%, #e0e7ff 100%);
+  background: linear-gradient(120deg, var(--bs-light) 60%, var(--bs-primary-bg-subtle) 100%);
 }
+
 .contact-card {
-  border-radius: 1rem;
-  background: #fff;
-  /* box-shadow removed, shadow-sm class will handle it */
+  border-radius: var(--bs-border-radius-lg);
+  background: var(--bs-white);
 }
 
 /* Footer */
 .landing-footer {
-  background: #fff;
-  border-radius: 1.5rem 1.5rem 0 0;
-  box-shadow: 0 -2px 16px 0 rgba(37,99,235,0.05);
+  background: var(--bs-white);
+  border-radius: var(--bs-border-radius-xl) var(--bs-border-radius-xl) 0 0;
+  box-shadow: var(--bs-box-shadow-sm);
   margin-top: 1.5rem;
   padding-bottom: 0.5rem;
 }
@@ -296,22 +310,27 @@ const getIconColorClass = (color: Feature['color']): string => {
 .fade-slide-right-enter-active {
   transition: all 0.7s cubic-bezier(.23,1.01,.32,1);
 }
+
 .fade-slide-down-enter-from {
   opacity: 0;
   transform: translateY(-40px);
 }
+
 .fade-slide-up-enter-from {
   opacity: 0;
   transform: translateY(40px);
 }
+
 .fade-slide-left-enter-from {
   opacity: 0;
   transform: translateX(-40px);
 }
+
 .fade-slide-right-enter-from {
   opacity: 0;
   transform: translateX(40px);
 }
+
 .fade-slide-down-enter-to,
 .fade-slide-up-enter-to,
 .fade-slide-left-enter-to,

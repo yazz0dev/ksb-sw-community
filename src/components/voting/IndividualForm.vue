@@ -137,3 +137,34 @@ const getUserName = (userId: string): string => {
   return props.getUserNameFn(userId);
 };
 </script>
+
+<style scoped>
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+.card {
+  background-color: var(--bs-card-bg);
+  border: 1px solid var(--bs-border-color);
+}
+
+.card-header {
+  background-color: var(--bs-tertiary-bg);
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.form-label {
+  color: var(--bs-dark);
+  font-weight: 500;
+}
+
+.text-muted {
+  color: var(--bs-secondary) !important;
+}
+
+.form-select-sm {
+  font-size: 0.875rem;
+}
+</style>

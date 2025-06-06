@@ -180,19 +180,21 @@ const signIn = async (): Promise<void> => {
   position: fixed;
   top: 0;
   left: 0;
-  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle, #e0e7ff) 100%);
+  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
+
 .login-card {
-  border-radius: var(--bs-border-radius-xl, 1rem);
-  background: var(--bs-card-bg, #fff);
+  border-radius: var(--bs-border-radius-xl);
+  background: var(--bs-card-bg);
   box-shadow: var(--bs-box-shadow-lg);
-  max-height: 95vh; 
-  overflow-y: auto; 
+  max-height: 95vh;
+  overflow-y: auto;
 }
+
 .login-icon {
   display: flex;
   justify-content: center;
@@ -204,7 +206,17 @@ const signIn = async (): Promise<void> => {
   margin: 0 auto 0.5rem auto;
   box-shadow: var(--bs-box-shadow-sm);
 }
+
 .text-decoration-underline-hover:hover {
   text-decoration: underline;
+}
+
+.form-control:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+.input-group-text {
+  border-color: var(--bs-border-color);
 }
 </style>

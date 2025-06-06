@@ -110,18 +110,26 @@ const getIconClass = (type: ResourceItem['type']): string => {
 
 <style scoped>
 .resources-section {
-    background-color: var(--bs-body-bg); /* Use Bootstrap body background variable */
+    background-color: var(--bs-body-bg);
+    min-height: calc(100vh - var(--navbar-height-mobile));
+    padding: 2rem 0 4rem 0;
+}
+
+@media (min-width: 992px) {
+    .resources-section {
+        min-height: calc(100vh - var(--navbar-height-desktop));
+    }
 }
 
 .resource-card {
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     background-color: var(--bs-card-bg);
     border: 1px solid var(--bs-border-color);
-    box-shadow: 0 2px 3px rgba(10, 10, 10, 0.05); /* Keep specific shadow */
+    box-shadow: var(--bs-box-shadow-sm);
 }
 
 .resource-card:hover {
-    box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1); /* Keep specific shadow */
+    box-shadow: var(--bs-box-shadow);
     transform: translateY(-2px);
 }
 
@@ -131,17 +139,18 @@ const getIconClass = (type: ResourceItem['type']): string => {
 }
 
 .resource-link {
-    color: var(--bs-secondary); /* Use Bootstrap secondary color variable */
+    color: var(--bs-secondary);
     text-decoration: none;
+    transition: color 0.15s ease;
 }
 
 .resource-link:hover {
-    color: var(--bs-primary); /* Use Bootstrap primary color variable */
+    color: var(--bs-primary);
 }
 
 .external-link-icon {
     opacity: 0;
-    transition: opacity 0.15s;
+    transition: opacity 0.15s ease;
 }
 
 .resource-link:hover .external-link-icon {

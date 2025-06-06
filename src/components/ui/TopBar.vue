@@ -193,83 +193,81 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.app-navbar {
-  border-bottom: 1px solid var(--bs-border-color-translucent);
-  transition: transform 0.3s ease-in-out;
-  will-change: transform;
+.navbar {
+  /* Use CSS vars defined in main.scss for height */
+  min-height: var(--navbar-height-mobile);
+  border-bottom: 1px solid var(--bs-border-color);
+  transition: background-color 0.3s ease-in-out;
 }
 
-.navbar-hidden {
-  transform: translateY(-100%);
+@media (min-width: 992px) {
+  .navbar {
+    min-height: var(--navbar-height-desktop);
+  }
 }
 
 @media (max-width: 991.98px) {
-  /* Styles for the collapsed mobile menu */
+  /* Styles for the collapsed mobile menu container */
   #navbarNav.collapse.show,
   #navbarNav.collapsing {
-    background-color: var(--bs-primary);
-    padding: 0.75rem 1rem;
+    /* Use a clean, light background for consistency */
+    background-color: var(--bs-white); 
+    padding: 0.75rem;
     margin-top: 0.5rem;
-    border-top: 1px solid var(--bs-border-color-translucent);
-    border-radius: var(--bs-border-radius-sm);
-    box-shadow: var(--bs-box-shadow);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    box-shadow: var(--bs-box-shadow-lg);
   }
 
   #navbarNav .nav-item {
-    margin-bottom: 0.125rem;
+    margin-bottom: 0.25rem;
   }
 
   #navbarNav .nav-link {
-    color: rgba(255, 255, 255, 0.85);
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-    border-radius: var(--bs-border-radius-sm); /* for hover indication */
-    font-size: 1rem; /* Ensure consistent font size */
+    color: var(--bs-dark); /* Dark text for readability on light background */
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--bs-border-radius-sm);
+    font-weight: 500; /* Medium weight for clarity */
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   #navbarNav .nav-link:hover,
   #navbarNav .nav-link:focus {
-    color: var(--bs-white);
-    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--bs-primary);
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
   }
 
-  /* Ensure router-link-active styles are applied correctly for visibility */
   #navbarNav .nav-link.router-link-active.router-link-exact-active,
-  #navbarNav .nav-link.active { /* This targets Bootstrap's .active and Vue Router's active class */
-    color: var(--bs-white) !important; /* Ensure high contrast for active text */
-    font-weight: 600; /* Corresponds to fw-semibold or Bootstrap's bold for active nav items */
-    background-color: rgba(255, 255, 255, 0.15); /* Slightly more prominent active background */
+  #navbarNav .nav-link.active {
+    color: var(--bs-primary);
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    font-weight: 600; /* Bolder for active link */
   }
 
-  .navbar-nav {
+  /* Adjustments for the authentication button inside the mobile menu */
+  .navbar-nav .btn-primary {
     width: 100%;
+    margin-top: 0.5rem;
+  }
+  
+  /* Make sure dropdown menu inside mobile nav looks good */
+  #navbarNav .dropdown-menu {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin-top: 0.5rem;
+  }
+  
+  #navbarNav .dropdown-item {
+    color: var(--bs-dark);
   }
 }
 
+/* Ensure dropdown appears nicely on desktop too */
 .dropdown-menu {
   margin-top: 0.5rem;
-  box-shadow: var(--bs-box-shadow-sm);
-  border-color: var(--bs-border-color-translucent);
-}
-.dropdown-item {
-    font-size: 1rem; /* Changed from 0.9rem */
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-}
-.dropdown-item i {
-    color: var(--bs-secondary);
-}
-
-.navbar-profile-pic {
-  width: 28px;
-  height: 28px;
-  object-fit: cover;
+  border-radius: var(--bs-border-radius);
+  box-shadow: var(--bs-box-shadow-lg);
   border: 1px solid var(--bs-border-color);
-}
-
-.nav-link, .dropdown-item, .navbar-brand {
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
 }
 </style>

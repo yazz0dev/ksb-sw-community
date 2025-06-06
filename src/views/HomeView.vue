@@ -331,30 +331,46 @@ onMounted(async () => {
 
 <style scoped>
 .home-section {
-  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%); /* Use Bootstrap vars */
+  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
   min-height: 100vh;
   padding-top: 1rem;
   padding-bottom: 4rem;
 }
+
 .section-card {
-  background: var(--bs-card-bg); /* Use BS var */
-  border-radius: 1rem;
-  border: 1px solid var(--bs-border-color-translucent); /* Subtle border */
-  box-shadow: var(--bs-box-shadow-sm); /* Use BS var */
+  background: var(--bs-card-bg);
+  border-radius: var(--bs-border-radius-lg);
+  border: 1px solid var(--bs-border-color);
+  box-shadow: var(--bs-box-shadow-sm);
   margin-bottom: 2rem;
-  /* Ensure content doesn't overlap during animation */
   overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
+.section-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--bs-box-shadow);
+}
+
 .animate-fade-in {
   animation: fadeInSection 0.6s ease-out forwards;
 }
+
 @keyframes fadeInSection {
-  from { opacity: 0; transform: translateY(15px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { 
+    opacity: 0; 
+    transform: translateY(15px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
 }
+
 .btn-link.text-decoration-none {
   text-decoration: none !important;
 }
+
 .btn-link:hover {
   text-decoration: underline !important;
 }
@@ -364,6 +380,7 @@ onMounted(async () => {
 .fade-fast-leave-active {
   transition: opacity 0.2s ease;
 }
+
 .fade-fast-enter-from,
 .fade-fast-leave-to {
   opacity: 0;

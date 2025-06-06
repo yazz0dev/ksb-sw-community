@@ -843,7 +843,14 @@ const platformVersion = ref('2.1.0');
 <style scoped>
 .transparency-section {
   background-color: var(--bs-body-bg);
-  min-height: 100vh;
+  min-height: calc(100vh - var(--navbar-height-mobile));
+  padding: 2rem 0 4rem 0;
+}
+
+@media (min-width: 992px) {
+  .transparency-section {
+    min-height: calc(100vh - var(--navbar-height-desktop));
+  }
 }
 
 .timeline {
@@ -872,7 +879,7 @@ const platformVersion = ref('2.1.0');
   top: 0;
   width: 2rem;
   height: 2rem;
-  background: white;
+  background: var(--bs-card-bg);
   border: 2px solid var(--bs-success);
   border-radius: 50%;
   display: flex;
@@ -883,8 +890,13 @@ const platformVersion = ref('2.1.0');
 .timeline-content {
   background: var(--bs-light);
   padding: 1rem;
-  border-radius: 0.5rem;
+  border-radius: var(--bs-border-radius);
   border-left: 3px solid var(--bs-success);
+}
+
+.card {
+  background-color: var(--bs-card-bg);
+  border: 1px solid var(--bs-border-color);
 }
 
 .card-header {
@@ -899,6 +911,7 @@ const platformVersion = ref('2.1.0');
 .list-group-item {
   border: none;
   padding: 1rem 0;
+  background-color: transparent;
 }
 
 .list-group-item:not(:last-child) {

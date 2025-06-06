@@ -1,13 +1,23 @@
 <!-- .\views\LeaderboardView.vue-->
 <template>
-  <section class="leaderboard-section">
-    <div class="container-lg py-4 py-md-5">
-      <h1 class="h2 h1-lg fw-bold text-primary mb-4 text-center">Leaderboard</h1>
+  <div class="leaderboard-section">
+    <div class="container-lg px-3 px-md-4">
+      <!-- Page Header -->
+      <div class="text-center mb-4 mb-md-5">
+        <h1 class="h2 h1-lg fw-bold text-dark mb-2">
+          <i class="fas fa-trophy text-primary me-2"></i>
+          Leaderboard
+        </h1>
+        <p class="text-secondary mb-0">See who's leading in different roles and overall XP</p>
+      </div>
 
-      <!-- Role Filter -->
-      <div class="filter-section mb-4 mb-md-5">
-        <label class="form-label text-secondary mb-3 text-center d-block">Select Role to Rank By</label>
-        <div class="role-filter-group justify-content-center">
+      <!-- Role Filter Section -->
+      <div class="section-card shadow-sm rounded-4 p-3 p-md-4 mb-4 mb-md-5 animate-fade-in">
+        <h3 class="h5 h4-md mb-3 text-center">
+          <i class="fas fa-filter text-primary me-2"></i>
+          Filter by Role
+        </h3>
+        <div class="role-filter-grid">
           <button
             v-for="role in availableDisplayRoles"
             :key="role.key"
@@ -22,83 +32,107 @@
       </div>
 
       <!-- Loading State -->
-      <div v-if="loading" class="loader-container">
-         <div class="spinner-border text-primary" role="status">
-             <span class="visually-hidden">Loading...</span>
-         </div>
-         <p class="text-secondary mt-3">Loading leaderboard...</p>
+      <div v-if="loading" class="section-card shadow-sm rounded-4 p-4 p-md-5 text-center animate-fade-in">
+        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-secondary mb-0">Loading leaderboard...</p>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="alert alert-danger">
+      <div v-else-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
         <i class="fas fa-exclamation-triangle me-2"></i>
-        <strong>Error loading leaderboard:</strong> {{ error }}
+        <div class="flex-grow-1">
+          <strong>Error loading leaderboard:</strong> {{ error }}
+        </div>
         <button @click="retryLoading" class="btn btn-sm btn-outline-danger ms-3">
           <i class="fas fa-sync-alt me-1"></i> Retry
         </button>
       </div>
 
       <!-- Leaderboard Content -->
-      <div v-else>
-        <div v-if="!filteredUsers || filteredUsers.length === 0" class="alert alert-info">
-          <i class="fas fa-info-circle me-2"></i>
-          <span v-if="isFirstLoad">
-            Leaderboard is currently empty. Participate in events to earn XP!
-          </span>
-          <span v-else>
-            No users found for the selected role or leaderboard is empty.
-          </span>
-          <button @click="retryLoading" class="btn btn-sm btn-outline-primary ms-3">
+      <div v-else class="section-card shadow-sm rounded-4 p-3 p-md-4 animate-fade-in">
+        <!-- Empty State -->
+        <div v-if="!filteredUsers || filteredUsers.length === 0" class="text-center py-4 py-md-5">
+          <i class="fas fa-info-circle text-info fs-1 mb-3"></i>
+          <h4 class="h5 text-secondary mb-3">
+            <span v-if="isFirstLoad">
+              Leaderboard is currently empty
+            </span>
+            <span v-else>
+              No users found for {{ currentRoleDisplayName }}
+            </span>
+          </h4>
+          <p class="text-muted mb-3">
+            <span v-if="isFirstLoad">
+              Participate in events to earn XP and appear on the leaderboard!
+            </span>
+            <span v-else>
+              Try selecting a different role or check back later.
+            </span>
+          </p>
+          <button @click="retryLoading" class="btn btn-primary">
             <i class="fas fa-sync-alt me-1"></i> Refresh
           </button>
         </div>
 
-        <div v-else class="leaderboard-content">
-          <p class="text-secondary mb-2 text-center">
-            Showing {{ filteredUsers.length }} users ranked by {{ currentRoleDisplayName }} XP.
-          </p>
+        <!-- Leaderboard Table -->
+        <div v-else>
+          <!-- Stats Header -->
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
+            <h3 class="h5 h4-md mb-0 text-dark">
+              <i class="fas fa-ranking-star text-primary me-2"></i>
+              {{ currentRoleDisplayName }} Rankings
+            </h3>
+            <span class="badge bg-primary-subtle text-primary-emphasis fs-6">
+              {{ filteredUsers.length }} {{ filteredUsers.length === 1 ? 'user' : 'users' }}
+            </span>
+          </div>
 
-          <div class="leaderboard-table-container">
-            <div class="leaderboard-table">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
-                    <th style="width: 60px;">#</th>
-                    <th>User</th>
-                    <th class="text-end">XP</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(user, index) in filteredUsers" :key="user.uid" class="align-middle">
-                    <td class="rank-cell">
-                      <!-- Rank number is displayed by StudentCard with variant='ranked' -->
-                    </td>
-                    <td>
-                      <!-- Using StudentCard component instead of inline display -->
-                      <StudentCard 
-                        :userId="user.uid"
-                        :photoURL="user.photoURL"
-                        :variant="'ranked'"
-                        :rank="index + 1"
-                        :displayValue="user.displayValue"
-                        :showXp="false"
-                        :showAvatar="true"
-                        :linkToProfile="true"
-                        class="leaderboard-student-card"
-                      />
-                    </td>
-                    <td class="text-end">
-                      <span class="xp-value">{{ user.displayValue }} XP</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <!-- Responsive Table Container -->
+          <div class="table-responsive">
+            <table class="table table-hover leaderboard-table">
+              <thead class="table-light">
+                <tr>
+                  <th scope="col" class="rank-column">
+                    <i class="fas fa-hashtag text-muted"></i>
+                  </th>
+                  <th scope="col">User</th>
+                  <th scope="col" class="text-end">XP</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(user, index) in filteredUsers" :key="user.uid" class="leaderboard-row">
+                  <td class="rank-cell">
+                    <!-- Rank number is displayed by StudentCard with variant='ranked' -->
+                  </td>
+                  <td class="user-cell">
+                    <StudentCard 
+                      :userId="user.uid"
+                      :photoURL="user.photoURL"
+                      :variant="'ranked'"
+                      :rank="index + 1"
+                      :displayValue="user.displayValue"
+                      :showXp="false"
+                      :showAvatar="true"
+                      :linkToProfile="true"
+                      class="leaderboard-student-card"
+                    />
+                  </td>
+                  <td class="xp-cell text-end">
+                    <div class="xp-container">
+                      <span class="xp-value">{{ user.displayValue }}</span>
+                      <span class="xp-label text-muted d-none d-sm-inline">XP</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -293,14 +327,19 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => 
 </script>
 
 <style scoped>
-/* .leaderboard-section styles removed - handled by global styles/variables */
-.role-filter-group {
+/* Use consistent section styling */
+.section-card {
+  background: var(--bs-card-bg);
+  border: 1px solid var(--bs-border-color);
+}
+
+/* Role Filter Grid */
+.role-filter-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
   max-width: 600px;
   margin: 0 auto;
-  justify-content: center;
 }
 
 .role-btn {
@@ -308,7 +347,7 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => 
   border: 2px solid var(--bs-primary);
   background: transparent;
   color: var(--bs-primary);
-  border-radius: 2rem;
+  border-radius: var(--bs-border-radius-lg);
   transition: all 0.2s ease;
   font-weight: 500;
   font-size: 0.875rem;
@@ -321,83 +360,80 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => 
 }
 
 .role-btn:hover {
-  background: var(--bs-primary-subtle);
+  background: var(--bs-primary-bg-subtle);
   transform: translateY(-1px);
+  box-shadow: var(--bs-box-shadow);
 }
 
 .role-btn.active {
   background: var(--bs-primary);
   color: white;
-  box-shadow: 0 2px 8px rgba(var(--bs-primary-rgb), 0.3);
+  box-shadow: var(--bs-box-shadow);
 }
 
-.leaderboard-content {
-  max-width: 900px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.leaderboard-table-container {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  padding: 0 1rem;
-}
-
+/* Leaderboard Table */
 .leaderboard-table {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
-  padding: 2rem;
-  width: 100%;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.table {
   margin-bottom: 0;
-  width: 100%;
 }
 
-.table th {
+.leaderboard-table th {
   border-top: none;
   font-weight: 600;
   color: var(--bs-secondary);
   text-transform: uppercase;
   font-size: 0.875rem;
-  padding: 1.25rem 1rem;
+  padding: 1rem 0.75rem;
   border-bottom: 2px solid var(--bs-border-color-translucent);
 }
 
-.table td {
-  padding: 1.25rem 1rem;
+.leaderboard-table td {
+  padding: 1rem 0.75rem;
   vertical-align: middle;
   border-bottom: 1px solid var(--bs-border-color-translucent);
 }
 
-.rank-cell {
+.leaderboard-row:hover {
+  background-color: var(--bs-light);
+}
+
+.rank-column {
   width: 60px;
+}
+
+.rank-cell {
   padding-right: 0 !important;
+}
+
+.user-cell {
+  min-width: 200px;
 }
 
 .leaderboard-student-card {
   padding: 0 !important;
 }
 
+.xp-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
 .xp-value {
   font-weight: 600;
   font-size: 1.1rem;
+  color: var(--bs-dark);
 }
 
-.loader-container {
-  text-align: center;
-  padding: 3rem;
+.xp-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
+/* Responsive Design */
 @media (max-width: 768px) {
-  .role-filter-group {
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(2, 1fr);
+  .role-filter-grid {
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.5rem;
     max-width: 400px;
   }
@@ -408,56 +444,56 @@ const selectRoleFilter = (roleKey: keyof XPData | 'totalCalculatedXp'): void => 
     min-height: 40px;
   }
   
-  .table th, .table td {
-    padding: 1rem 0.75rem;
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.75rem 0.5rem;
   }
   
-  .leaderboard-table {
-    padding: 1.5rem;
-  }
-  
-  .leaderboard-table-container {
-    padding: 0 0.5rem;
-  }
-  
-  .rank-badge {
-    width: 2.25rem;
-    height: 2.25rem;
-    font-size: 0.9rem;
+  .xp-value {
+    font-size: 1rem;
   }
 }
 
 @media (max-width: 480px) {
-  .role-filter-group {
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(2, 1fr);
-    gap: 0.4rem;
-    max-width: 350px;
+  .role-filter-grid {
+    grid-template-columns: 1fr;
+    max-width: 300px;
   }
   
   .role-btn {
-    padding: 0.4rem 0.5rem;
-    font-size: 0.7rem;
-    min-height: 32px;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    min-height: 36px;
   }
   
-  .table th, .table td {
-    padding: 0.75rem 0.5rem;
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.5rem 0.25rem;
     font-size: 0.875rem;
   }
   
-  .leaderboard-table {
-    padding: 1rem;
+  .xp-value {
+    font-size: 0.9rem;
   }
   
-  .leaderboard-table-container {
-    padding: 0 0.25rem;
+  .user-cell {
+    min-width: auto;
   }
-  
-  .rank-badge {
-    width: 2rem;
-    height: 2rem;
-    font-size: 0.8rem;
+}
+
+/* Animation */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>

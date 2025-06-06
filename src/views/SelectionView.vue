@@ -1,5 +1,5 @@
 <template>
-  <div class="py-5">
+  <div class="selection-view">
     <div class="container-lg">
       <button
         class="btn btn-sm btn-outline-secondary mb-4 d-inline-flex align-items-center"
@@ -68,7 +68,7 @@
         </div>
 
         <!-- Main Form -->
-        <div v-if="canShowForm" class="card shadow-sm" style="background-color: var(--bs-card-bg); border: 1px solid var(--bs-border-color);">
+        <div v-if="canShowForm" class="card shadow-sm">
           <div class="card-body p-4 p-lg-5">
             <form @submit.prevent="isManualModeActive ? submitManualSelection() : submitSelection()">
               <div class="d-flex flex-column gap-4">
@@ -912,27 +912,47 @@ onMounted(fetchEventDetails);
 </script>
 
 <style scoped>
-.card {
-  border-radius: 0.75rem;
+.selection-view {
+  background-color: var(--bs-body-bg);
+  min-height: calc(100vh - var(--navbar-height-mobile));
+  padding: 2rem 0 4rem 0;
 }
+
+@media (min-width: 992px) {
+  .selection-view {
+    min-height: calc(100vh - var(--navbar-height-desktop));
+  }
+}
+
+.card {
+  border-radius: var(--bs-border-radius-lg);
+  background-color: var(--bs-card-bg);
+  border: 1px solid var(--bs-border-color);
+}
+
 .card-header {
   background-color: var(--bs-light);
-  border-bottom: 1px solid var(--bs-border-color-translucent);
+  border-bottom: 1px solid var(--bs-border-color);
   padding: 1rem 1.5rem;
 }
+
 .card-body {
   padding: 1.5rem;
 }
+
 /* Style for list items in stats */
 .list-unstyled li:not(:last-child) {
     margin-bottom: 0.3rem;
 }
+
 .last-of-type\:border-bottom-0:last-of-type {
     border-bottom: 0 !important;
 }
+
 .last-of-type\:pb-0:last-of-type {
     padding-bottom: 0 !important;
 }
+
 .last-of-type\:mb-0:last-of-type {
     margin-bottom: 0 !important;
 }

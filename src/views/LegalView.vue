@@ -118,15 +118,29 @@
 
 <style scoped>
 .legal-view {
-  max-width: 900px; /* Limit width for better readability */
+  max-width: 900px;
   margin: auto;
+  min-height: calc(100vh - var(--navbar-height-mobile));
+  padding: 2rem 0 4rem 0;
 }
 
-.legal-view h1, .legal-view h2, .legal-view h3, .legal-view h4, .legal-view h5, .legal-view h6 {
-  font-weight: 500; /* Consistent font weight for headings */
+@media (min-width: 992px) {
+  .legal-view {
+    min-height: calc(100vh - var(--navbar-height-desktop));
+  }
 }
 
-.legal-view p, .legal-view li {
+.legal-view h1, 
+.legal-view h2, 
+.legal-view h3, 
+.legal-view h4, 
+.legal-view h5, 
+.legal-view h6 {
+  font-weight: 500;
+}
+
+.legal-view p, 
+.legal-view li {
   line-height: 1.7;
   font-size: 0.95rem;
 }
@@ -142,6 +156,8 @@
 }
 
 .card {
-  border: none; /* Remove default card border if shadow is enough */
+  border: none;
+  background-color: var(--bs-card-bg);
+  box-shadow: var(--bs-box-shadow-sm);
 }
 </style>

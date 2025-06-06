@@ -67,11 +67,18 @@
             <h5 class="h6 text-secondary mb-3"><i class="fas fa-gavel me-2"></i>Event Rules & Guidelines</h5>
             <div v-html="renderedRulesHtml"></div>
           </div>
+
+          <div class="alert alert-warning d-flex align-items-center rounded-pill alert-voting-open">
+            <i class="fas fa-clock me-2"></i>
+            <span class="small">
+              <strong>Voting Open:</strong> Submit your ratings for participants and teams
+            </span>
+          </div>
         </div>
 
         <!-- Right Column: Action Buttons -->
         <div class="col-md-auto mt-4 mt-md-0">
-          <div class="d-flex flex-column gap-2 align-items-stretch" style="min-width: 170px;"> <!-- Adjusted min-width -->
+          <div class="d-flex flex-column gap-2 align-items-stretch action-buttons-container">
             <!-- Join Event -->
             <button
               v-if="canJoin"
@@ -318,5 +325,26 @@ const formatOrganizerName = (uid: string): string => {
 .badge.lh-1 {
     padding-top: 0.4em; /* Adjust padding for line-height 1 */
     padding-bottom: 0.4em;
+}
+
+.alert-voting-open {
+  max-width: fit-content;
+}
+
+.action-buttons-container {
+  min-width: 170px;
+}
+
+.event-header {
+  background-color: var(--bs-body-bg);
+}
+
+.card {
+  background-color: var(--bs-card-bg);
+  border: 1px solid var(--bs-border-color);
+}
+
+.btn:focus {
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
 }
 </style>

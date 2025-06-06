@@ -437,7 +437,7 @@ onMounted(async () => {
   position: fixed;
   top: 0;
   left: 0;
-  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle, #e0e7ff) 100%);
+  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -446,8 +446,8 @@ onMounted(async () => {
 }
 
 .signup-card {
-  border-radius: var(--bs-border-radius-xl, 1rem);
-  background: var(--bs-card-bg, #fff);
+  border-radius: var(--bs-border-radius-xl);
+  background: var(--bs-card-bg);
   box-shadow: var(--bs-box-shadow-lg);
   max-height: 95vh;
   overflow-y: auto;

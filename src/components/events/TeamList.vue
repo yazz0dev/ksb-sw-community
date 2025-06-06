@@ -29,29 +29,22 @@
 
             <!-- Collapsible Details Section -->
             <Transition name="slide-fade">
-              <div v-if="team.showDetails" class="mt-3 pt-3 border-top" style="border-color: var(--bs-border-color) !important;">
+              <div v-if="team.showDetails" class="mt-3 pt-3 border-top team-details-border">
                 <p v-if="organizerNamesLoading" class="small text-secondary fst-italic">
                   <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Loading members...
                 </p>
                 <div v-else-if="team.members && team.members.length > 0">
-                  <p class="text-muted small fw-bold text-uppercase mb-2">Team Members</p>
-                  <div class="members-grid">
+                  <h6 class="small fw-medium text-muted mb-2">Team Members:</h6>
+                  <div class="ps-2">
                     <div
-                      v-for="memberId in team.members"
-                      :key="memberId"
-                      class="member-item d-flex align-items-center p-2 rounded transition-colors duration-150 small"
-                      :class="{ 'bg-primary-subtle': memberId === currentUserUid }"
+                      v-for="(member, memberIndex) in team.members"
+                      :key="member"
+                      class="d-flex align-items-center py-1"
                     >
-                      <span class="text-secondary me-2" style="width: 1rem; text-align: center;">
-                        <i class="fas fa-user"></i>
+                      <span class="text-secondary me-2 member-index">
+                        {{ memberIndex + 1 }}.
                       </span>
-                      <router-link
-                        :to="{ name: 'PublicProfile', params: { userId: memberId } }"
-                        class="text-primary text-truncate"
-                        :class="{ 'fw-semibold': memberId === currentUserUid }"
-                      >
-                        {{ studentStore.getCachedStudentName(memberId) || memberId }}{{ memberId === currentUserUid ? ' (You)' : '' }}
-                      </router-link>
+                      <span class="text-dark">{{ getName(member) }}</span>
                     </div>
                   </div>
                 </div>
@@ -172,28 +165,26 @@ const toggleTeamDetails = (teamName: string): void => {
   text-decoration: underline;
 }
 
-.slide-fade-enter-active,
+.team-details-border {
+  border-color: var(--bs-border-color) !important;
+}
+
+.member-index {
+  width: 1rem;
+  text-align: center;
+}
+
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
 .slide-fade-leave-active {
-  transition: all 0.3s ease;
-  overflow: hidden;
+  transition: all 0.3s cubic-bezier(1.0, 0.5, 0.8, 1.0);
 }
 
-.slide-fade-enter-from {
-  opacity: 0;
-  max-height: 0;
-  transform: translateY(-10px);
-}
-
+.slide-fade-enter-from,
 .slide-fade-leave-to {
-  opacity: 0;
-  max-height: 0;
   transform: translateY(-10px);
-}
-
-.slide-fade-enter-to,
-.slide-fade-leave-from {
-  opacity: 1;
-  max-height: 500px;
-  transform: translateY(0);
+  opacity: 0;
 }
 </style>

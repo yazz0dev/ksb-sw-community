@@ -169,8 +169,8 @@ onMounted(() => {
   width: 120px;
   height: 120px;
   object-fit: cover;
-  border: 3px solid #f8f9fa;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border: 3px solid var(--bs-light);
+  box-shadow: var(--bs-box-shadow-sm);
   transition: filter 0.3s ease;
 }
 
@@ -186,7 +186,7 @@ onMounted(() => {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.4);
   border-radius: 50%;
-  color: white;
+  color: var(--bs-white);
 }
 
 .image-preview {

@@ -461,4 +461,37 @@ onMounted(async () => {
 .form-control, .form-select {
   font-size: 0.9rem; /* Slightly smaller font for better density */
 }
+
+.request-event-section {
+  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
+  min-height: calc(100vh - var(--navbar-height-mobile));
+  padding-top: 1rem;
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 992px) {
+  .request-event-section {
+    min-height: calc(100vh - var(--navbar-height-desktop));
+  }
+}
+
+.required::after {
+  content: "*";
+  color: var(--bs-danger);
+  margin-left: 0.2rem;
+}
+
+.form-section-card {
+  background: var(--bs-white);
+  border-radius: var(--bs-border-radius-lg);
+  border: 1px solid var(--bs-border-color);
+  box-shadow: var(--bs-box-shadow-sm);
+  margin-bottom: 2rem;
+}
+
+.step-indicator {
+  background: var(--bs-primary-bg-subtle);
+  border-radius: var(--bs-border-radius);
+  padding: 0.5rem 1rem;
+}
 </style>

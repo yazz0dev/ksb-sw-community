@@ -18,6 +18,7 @@ export interface StudentProfileData {
   hasLaptop?: boolean;        // Default to false if not set
 
   socialLinks?: {
+    primary?: string;       // Primary social/website URL
     linkedin?: string;        // Full LinkedIn profile URL
     github?: string;          // Full GitHub profile URL
     portfolio?: string;       // Primary portfolio/website URL
@@ -100,6 +101,7 @@ export interface UserData {
   github?: string;        // Legacy field: GitHub username or profile URL
   linkedin?: string;      // Legacy field: LinkedIn profile URL
   socialLinks?: {         // Structured social links (preferred over legacy fields)
+    primary?: string;     // Primary social/website URL
     linkedin?: string;    // Full LinkedIn profile URL
     github?: string;      // Full GitHub profile URL
     portfolio?: string;   // Primary portfolio/website URL

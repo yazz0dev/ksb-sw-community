@@ -1,68 +1,144 @@
 <template>
-  <div class="user-requests-container bg-light p-4 rounded border shadow-sm">
-    <div v-if="loadingRequests" class="text-center py-5">
-      <div class="spinner-border text-primary mb-2" role="status">
-        <span class="visually-hidden">Loading...</span>
+  <div class="user-requests-container">
+    <!-- Loading State -->
+    <div v-if="loadingRequests" class="loading-section animate-fade-in">
+      <div class="section-card shadow-sm rounded-4">
+        <div class="loading-content text-center py-5">
+          <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-secondary fw-medium">Loading requests...</p>
+        </div>
       </div>
-      <p class="text-secondary">Loading requests...</p>
     </div>
 
+    <!-- Empty State -->
     <div
       v-else-if="requests.length === 0 && !errorMessage"
-      class="alert alert-info text-center small p-3"
-      role="alert"
+      class="empty-section animate-fade-in"
     >
-      <div class="mb-2 text-info-emphasis">
-        <i class="fas fa-calendar-times fa-2x"></i>
+      <div class="section-card shadow-sm rounded-4">
+        <div class="empty-state text-center p-5">
+          <div class="empty-icon mb-4">
+            <i class="fas fa-calendar-times fa-3x text-muted opacity-50"></i>
+          </div>
+          <h6 class="empty-title text-secondary fw-semibold mb-2">No Pending Requests</h6>
+          <p class="empty-description text-muted mb-0">You don't have any pending event requests at the moment.</p>
+        </div>
       </div>
-      <p class="mb-0" style="font-style: italic;">No pending requests found.</p>
     </div>
 
-    <transition name="fade">
-      <div v-if="!loadingRequests && requests.length > 0">
-        <!-- Use request.id for key which is guaranteed unique -->
-        <div v-for="(request, index) in requests" :key="request.id" class="py-3 request-item">
-          <h6 class="h6 text-primary mb-1 d-flex align-items-center">
-            <i class="fas fa-clipboard-list text-muted me-2"></i>
-            <!-- Link should still work as request.id maps correctly -->
-            <router-link :to="{ name: 'EventDetails', params: { id: request.id } }" class="text-decoration-none">
-              <!-- Use request.eventName from the mapped structure -->
-              {{ request.eventName }}
-            </router-link>
-          </h6>
-          <div class="d-flex align-items-center mb-2">
-            <small class="text-secondary me-2">Status:</small>
-            <!-- Use request.status from the mapped structure -->
-            <span :class="['badge rounded-pill', getStatusClass(request.status)]">
-              {{ request.status }}
-            </span>
+    <!-- Requests List -->
+    <div v-if="!loadingRequests && requests.length > 0" class="requests-section animate-fade-in">
+      <div class="section-card shadow-sm rounded-4">
+        <!-- Header -->
+        <div class="section-header bg-primary-subtle text-primary-emphasis rounded-top-4 p-4 border-bottom">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="header-content d-flex align-items-center">
+              <div class="header-icon me-3">
+                <i class="fas fa-clipboard-list fa-lg"></i>
+              </div>
+              <div>
+                <h5 class="section-title mb-1 fw-semibold">Event Requests</h5>
+                <p class="section-subtitle text-muted small mb-0">{{ requests.length }} pending request{{ requests.length === 1 ? '' : 's' }}</p>
+              </div>
+            </div>
+            <div class="header-badge">
+              <span class="badge bg-primary text-white rounded-pill px-3 py-2">
+                {{ requests.length }}
+              </span>
+            </div>
           </div>
-          <div v-if="request.status === 'Pending'" class="d-flex gap-2">
-            <button
-              class="btn btn-sm btn-outline-primary"
-              @click="editRequest(request)"
-            >
-              <i class="fas fa-edit me-1"></i>
-              Edit Request
-            </button>
-            <button
-              class="btn btn-sm btn-outline-danger"
-              :disabled="request._deleting"
-              @click="deleteRequest(request, index)"
-            >
-              <span v-if="request._deleting" class="spinner-border spinner-border-sm me-1" role="status"></span>
-              <i v-else class="fas fa-trash me-1"></i>
-              Delete Request
-            </button>
+        </div>
+
+        <!-- Requests Content -->
+        <div class="requests-list">
+          <div 
+            v-for="(request, index) in requests" 
+            :key="request.id" 
+            class="request-item"
+            :class="{ 'border-bottom': index < requests.length - 1 }"
+          >
+            <!-- Request Header -->
+            <div class="request-header mb-3">
+              <div class="d-flex align-items-center mb-2">
+                <div class="request-icon me-3">
+                  <i class="fas fa-file-alt text-primary"></i>
+                </div>
+                <div class="request-title-container flex-grow-1">
+                  <router-link 
+                    :to="{ name: 'EventDetails', params: { id: request.id } }" 
+                    class="request-title text-decoration-none fw-semibold text-dark hover-primary"
+                  >
+                    {{ request.eventName }}
+                  </router-link>
+                </div>
+              </div>
+              
+              <!-- Request Status -->
+              <div class="request-status-section">
+                <div class="d-flex align-items-center mb-3" style="margin-left: 3.5rem;">
+                  <span class="status-label text-muted small me-2">Status:</span>
+                  <span :class="['status-badge badge rounded-pill', getStatusClass(request.status)]">
+                    <i class="fas fa-circle me-1" style="font-size: 0.5rem;"></i>
+                    {{ request.status }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Request Actions -->
+            <div v-if="request.status === 'Pending'" class="request-actions" style="margin-left: 3.5rem;">
+              <div class="actions-grid">
+                <button
+                  class="btn btn-outline-primary btn-sm-mobile d-inline-flex align-items-center action-btn"
+                  @click="editRequest(request)"
+                >
+                  <i class="fas fa-edit me-2"></i>Edit Request
+                </button>
+                
+                <button
+                  class="btn btn-outline-danger btn-sm-mobile d-inline-flex align-items-center action-btn"
+                  :disabled="request._deleting"
+                  @click="deleteRequest(request, index)"
+                >
+                  <span v-if="request._deleting" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                  <i v-else class="fas fa-trash me-2"></i>
+                  {{ request._deleting ? 'Deleting...' : 'Delete Request' }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </transition>
-
-    <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show mt-4" role="alert">
-      {{ errorMessage }}
-      <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close"></button>
     </div>
+
+    <!-- Error Alert -->
+    <div v-if="errorMessage" class="error-section animate-fade-in">
+      <div class="alert alert-danger alert-dismissible fade show shadow-sm rounded-4" role="alert">
+        <div class="d-flex align-items-center">
+          <div class="alert-icon me-3">
+            <i class="fas fa-exclamation-triangle fa-lg"></i>
+          </div>
+          <div class="alert-content flex-grow-1">
+            <h6 class="alert-heading mb-1">Error</h6>
+            <p class="mb-0">{{ errorMessage }}</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close"></button>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmationModal
+      modal-id="deleteRequestModal"
+      title="Delete Request"
+      message="Are you sure you want to delete this pending event request? This action cannot be undone."
+      confirm-text="Delete"
+      cancel-text="Cancel"
+      variant="danger"
+      @confirm="confirmDeleteRequest"
+    />
   </div>
 </template>
 
@@ -73,6 +149,7 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useAppStore } from '@/stores/appStore';
 import { useRouter } from 'vue-router'; // Import if needed for routing
 import { db } from '@/firebase';
+import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
 // Import the Event type from the store's perspective
 import type { Event as StoreEvent } from '@/types/event';
 
@@ -93,6 +170,7 @@ const router = useRouter(); // Initialize router from the imported useRouter
 const requests = ref<Request[]>([]); // Use the local Request interface
 const loadingRequests = ref<boolean>(true);
 const errorMessage = ref<string>('');
+const pendingDeleteRequest = ref<{ request: Request; index: number } | null>(null);
 
 const getStatusClass = (status: Request['status']): string => {
     switch (status) {
@@ -138,8 +216,24 @@ const fetchRequestsInternal = async (uid: string): Promise<void> => {
 const deleteRequest = async (request: Request, index: number) => {
   // Ensure _deleting doesn't cause type issues
   if (request._deleting) return;
-  if (!confirm('Are you sure you want to delete this pending event request?')) return;
+  
+  // Show confirmation modal instead of native confirm
+  const modal = document.getElementById('deleteRequestModal');
+  if (modal && window.bootstrap?.Modal) {
+    const modalInstance = new window.bootstrap.Modal(modal);
+    modalInstance.show();
+    
+    // Store the request and index for the confirmation handler
+    pendingDeleteRequest.value = { request, index };
+  }
+};
+
+const confirmDeleteRequest = async () => {
+  if (!pendingDeleteRequest.value) return;
+  
+  const { request, index } = pendingDeleteRequest.value;
   request._deleting = true; // Add temporary state
+  
   try {
     await deleteDoc(doc(db, 'events', request.id));
     requests.value.splice(index, 1); // Remove from local array
@@ -149,6 +243,8 @@ const deleteRequest = async (request: Request, index: number) => {
     if (requests.value[index]) { // Check if element still exists
         requests.value[index]._deleting = false;
     }
+  } finally {
+    pendingDeleteRequest.value = null;
   }
   // No finally needed here as _deleting is removed with splice on success
 };
@@ -177,18 +273,264 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.5s ease;
+/* Container */
+.user-requests-container {
+  margin: 1.5rem 0;
 }
 
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+/* Loading Section */
+.loading-content {
+  background: linear-gradient(135deg, var(--bs-light), rgba(var(--bs-primary-rgb), 0.05));
 }
 
-.request-item + .request-item {
-    border-top: 1px solid var(--bs-border-color); /* Use Bootstrap border color */
+/* Empty State */
+.empty-state {
+  background: linear-gradient(135deg, var(--bs-light), rgba(var(--bs-primary-rgb), 0.05));
 }
 
+.empty-icon {
+  opacity: 0.6;
+}
+
+.empty-title {
+  font-size: 1.1rem;
+}
+
+.empty-description {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Section Header */
+.section-header {
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+
+.header-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: rgba(var(--bs-primary-rgb), 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  color: var(--bs-primary-emphasis);
+}
+
+.section-subtitle {
+  color: var(--bs-secondary);
+}
+
+.header-badge .badge {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Requests List */
+.requests-list {
+  padding: 0;
+}
+
+.request-item {
+  padding: 1.5rem;
+  transition: background-color 0.3s ease;
+  position: relative;
+}
+
+.request-item:hover {
+  background-color: var(--bs-light);
+}
+
+.request-item:last-child {
+  border-radius: 0 0 var(--bs-border-radius-lg) var(--bs-border-radius-lg);
+}
+
+/* Request Content */
+.request-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--bs-primary-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.request-title {
+  font-size: 1.1rem;
+  line-height: 1.4;
+  transition: color 0.3s ease;
+}
+
+.request-title.hover-primary:hover {
+  color: var(--bs-primary) !important;
+}
+
+/* Status Section */
+.status-label {
+  font-weight: 500;
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  font-weight: 500;
+}
+
+/* Actions */
+.request-actions {
+  margin-top: 1rem;
+}
+
+.actions-grid {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.action-btn {
+  transition: all 0.3s ease;
+  border-width: 1.5px;
+  font-weight: 500;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--bs-box-shadow-sm);
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error Section */
+.error-section {
+  margin-top: 1.5rem;
+}
+
+.alert {
+  border: none;
+  border-left: 4px solid var(--bs-danger);
+}
+
+.alert-icon {
+  color: var(--bs-danger);
+  opacity: 0.8;
+}
+
+.alert-content .alert-heading {
+  color: var(--bs-danger-emphasis);
+  font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .user-requests-container {
+    margin: 1rem 0;
+  }
+  
+  .section-header {
+    padding: 1rem !important;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.5rem;
+  }
+  
+  .header-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-right: 0.75rem !important;
+  }
+  
+  .section-title {
+    font-size: 1.1rem;
+  }
+  
+  .request-item {
+    padding: 1rem;
+  }
+  
+  .request-icon {
+    width: 2rem;
+    height: 2rem;
+    margin-right: 0.75rem !important;
+  }
+  
+  .request-title {
+    font-size: 1rem;
+  }
+  
+  .request-status-section,
+  .request-actions {
+    margin-left: 2.75rem !important;
+  }
+  
+  .actions-grid {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-header .d-flex {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 1rem;
+  }
+  
+  .header-badge {
+    align-self: flex-end;
+  }
+  
+  .request-item {
+    padding: 0.75rem;
+  }
+  
+  .request-header .d-flex {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.5rem;
+  }
+  
+  .request-icon {
+    margin-right: 0 !important;
+  }
+  
+  .request-status-section,
+  .request-actions {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+  
+  .empty-state {
+    padding: 2rem !important;
+  }
+  
+  .empty-icon .fa-3x {
+    font-size: 2rem !important;
+  }
+  
+  .alert {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+  
+  .alert-icon {
+    margin: 0 !important;
+  }
+}
 </style>

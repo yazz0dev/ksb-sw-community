@@ -1,5 +1,5 @@
 <template>
-  <section class="py-5" style="background-color: var(--bs-body-bg); min-height: calc(100vh - 8rem);">
+  <section class="events-list-section">
     <div class="container-lg">
       <!-- Header with filtering -->
       <div class="mb-5">
@@ -296,5 +296,15 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Add any component-specific styles here */
+.events-list-section {
+  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
+  min-height: calc(100vh - var(--navbar-height-mobile));
+  padding: 2rem 0 4rem 0;
+}
+
+@media (min-width: 992px) {
+  .events-list-section {
+    min-height: calc(100vh - var(--navbar-height-desktop));
+  }
+}
 </style>

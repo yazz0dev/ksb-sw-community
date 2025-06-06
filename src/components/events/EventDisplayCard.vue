@@ -1,12 +1,12 @@
 <template>
-  <div class="event-display-card p-3 border rounded bg-light-subtle mb-3"> <!-- Added padding and bg -->
-     <h5 class="h5 text-primary mb-2"> <!-- Changed h4 to h5 -->
+  <div class="event-display-card">
+     <h5 class="h5 text-primary mb-2">
          {{ event.details.eventName }}
          <span class="fw-normal text-secondary small">({{ event.details.type }})</span>
      </h5>
 
      <!-- Details Section -->
-     <div class="row g-1 text-secondary mb-2"> <!-- Removed fs-7 -->
+     <div class="row g-1 text-secondary mb-2">
          <div class="col-md-6 col-12 py-1 d-flex align-items-center">
              <i class="fas fa-user-edit fa-fw me-2 text-muted"></i>
              <strong class="fw-medium text-dark me-1">Requested by:</strong> {{ studentStore.getCachedUserName(event.requestedBy) || '(Name unavailable)' }}
@@ -33,7 +33,7 @@
      </div>
 
      <!-- Co-Organizers -->
-     <p v-if="event.details.organizers && event.details.organizers.length > 0" class="text-secondary mt-1 mb-2 d-flex align-items-start"> <!-- Removed fs-7 -->
+     <p v-if="event.details.organizers && event.details.organizers.length > 0" class="text-secondary mt-1 mb-2 d-flex align-items-start">
          <i class="fas fa-user-shield fa-fw me-2 text-muted mt-1"></i>
          <div>
               <strong class="fw-medium text-dark">Co-Organizers:</strong>
@@ -46,7 +46,7 @@
      <!-- Rejection Reason -->
      <div
        v-if="showStatus && event.status === 'Rejected' && event.rejectionReason"
-       class="alert alert-danger alert-sm border-danger-subtle mt-2 p-2 d-flex align-items-center"
+       class="alert alert-danger alert-sm mt-2"
        role="alert"
      >
        <i class="fas fa-exclamation-triangle fa-fw me-2"></i>
@@ -56,20 +56,19 @@
      </div>
 
      <!-- Description -->
-     <div class="pt-2 mt-2 border-top"> <!-- Added border-top -->
-         <strong class="d-block fw-medium text-dark mb-1">Description:</strong> <!-- Removed fs-7 -->
-         <p class="text-secondary mb-0 description-text">{{ event.details.description }}</p> <!-- Removed fs-7 -->
+     <div class="pt-2 mt-2 border-top">
+         <strong class="d-block fw-medium text-dark mb-1">Description:</strong>
+         <p class="text-secondary mb-0 description-text">{{ event.details.description }}</p>
      </div>
 
      <!-- XP/Constraint Info -->
      <div v-if="event.criteria && event.criteria.length > 0" class="mt-3 pt-3 border-top">
-         <strong class="d-block fw-medium text-dark mb-2">Rating Criteria & XP:</strong> <!-- Removed fs-7 -->
-         <ul class="list-unstyled text-secondary mb-0"> <!-- Removed fs-7 -->
+         <strong class="d-block fw-medium text-dark mb-2">Rating Criteria & XP:</strong>
+         <ul class="list-unstyled text-secondary mb-0">
              <li v-for="(alloc, index) in event.criteria" :key="index" class="d-flex align-items-center mb-1">
-                 <span class="text-warning me-2" style="font-size: 0.8em;">
+                 <span class="text-warning me-2 criteria-icon">
                    <i class="fas fa-star fa-fw"></i>
                  </span>
-                 <!-- Use imported formatRoleName -->
                  <span>{{ alloc.title || 'Unnamed Criteria' }}: <span class="fw-medium">{{ alloc.points }} XP</span> <span class="text-muted ms-1">({{ formatRoleName(alloc.role || '') }})</span></span>
              </li>
          </ul>
@@ -113,21 +112,33 @@ defineExpose({ EventFormat });
 </script>
 
 <style scoped>
-.fs-7 {
-  font-size: 0.875rem !important; /* Increased from 0.85rem */
-}
-.alert-sm {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.8em;
-}
-.description-text {
-  line-height: 1.6; /* Improve readability */
-  white-space: pre-wrap; /* Respect line breaks in description */
-}
 .event-display-card {
+  padding: 1rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-tertiary-bg);
+  margin-bottom: 1rem;
   transition: box-shadow 0.2s ease-in-out;
 }
+
 .event-display-card:hover {
   box-shadow: var(--bs-box-shadow-sm);
+}
+
+.alert-sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--bs-border-color);
+  display: flex;
+  align-items: center;
+}
+
+.description-text {
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.criteria-icon {
+  font-size: 0.8em;
 }
 </style>

@@ -243,12 +243,8 @@ onMounted(async () => {
   background-color: var(--bs-tertiary-bg);
   border-bottom: 1px solid var(--bs-border-color);
 }
-.min-vh-100-subtract-nav {
-  min-height: calc(100vh - var(--navbar-height-desktop, 4.5rem) - var(--bottom-nav-height-mobile, 0rem));
-}
-@media (max-width: 991.98px) {
-  .min-vh-100-subtract-nav {
-    min-height: calc(100vh - var(--navbar-height-mobile, 4rem) - var(--bottom-nav-height-mobile, 4rem));
-  }
-}
+
+/* The .min-vh-100-subtract-nav class is now defined globally in main.scss */
+/* This ensures consistency and uses the correct CSS variables for navbar heights. */
+
 </style>

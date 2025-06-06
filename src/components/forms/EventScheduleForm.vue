@@ -1,29 +1,38 @@
 // src/components/forms/EventScheduleForm.vue
 <template>
-  <div>
-    <div class="row g-3">
+  <div class="event-schedule-form">
+    <div class="row g-3 g-md-4">
       <div class="col-md-6">
-        <label for="eventStartDate" class="form-label">Start Date <span class="text-danger">*</span></label>
+        <label for="eventStartDate" class="form-label fw-medium">
+          <i class="fas fa-calendar-plus text-primary me-1"></i>
+          Start Date 
+          <span class="text-danger">*</span>
+        </label>
         <input
           type="date"
           id="eventStartDate"
-          class="form-control form-control-sm"
+          class="form-control"
           v-model="localDates.start"
           :disabled="isSubmitting"
           :min="minDateForStartDatePicker"
           @change="onDateChange"
           required
         />
-        <small class="form-text text-muted" v-if="!props.eventId">
+        <div v-if="!props.eventId" class="form-text">
+          <i class="fas fa-info-circle text-info me-1"></i>
           Events can start today or any future date.
-        </small>
+        </div>
       </div>
       <div class="col-md-6">
-        <label for="eventEndDate" class="form-label">End Date <span class="text-danger">*</span></label>
+        <label for="eventEndDate" class="form-label fw-medium">
+          <i class="fas fa-calendar-check text-primary me-1"></i>
+          End Date 
+          <span class="text-danger">*</span>
+        </label>
         <input
           type="date"
           id="eventEndDate"
-          class="form-control form-control-sm"
+          class="form-control"
           v-model="localDates.end"
           :disabled="isSubmitting"
           :min="minDateForEndDatePicker"
@@ -32,11 +41,26 @@
         />
       </div>
     </div>
-    <div v-if="dateConflictError" class="alert alert-danger mt-3 small py-2">
-      {{ dateConflictError }} <span v-if="nextAvailableDateISO">Next available: {{ formatDateISO(nextAvailableDateISO) }}</span>
+    
+    <!-- Date Conflict Alert -->
+    <div v-if="dateConflictError" class="alert alert-danger d-flex align-items-start mt-3" role="alert">
+      <i class="fas fa-exclamation-triangle text-danger me-2 mt-1 flex-shrink-0"></i>
+      <div class="flex-grow-1">
+        <div class="fw-medium">Date Conflict</div>
+        <div class="small">{{ dateConflictError }}</div>
+        <div v-if="nextAvailableDateISO" class="small mt-1">
+          <strong>Next available:</strong> {{ formatDateISO(nextAvailableDateISO) }}
+        </div>
+      </div>
     </div>
-    <div v-else-if="nextAvailableDateISO && !dateConflictError" class="alert alert-info mt-3 small py-2">
-      Next available date: {{ formatDateISO(nextAvailableDateISO) }}
+    
+    <!-- Next Available Date Info -->
+    <div v-else-if="nextAvailableDateISO && !dateConflictError" class="alert alert-info d-flex align-items-start mt-3" role="alert">
+      <i class="fas fa-calendar-alt text-info me-2 mt-1 flex-shrink-0"></i>
+      <div class="flex-grow-1">
+        <div class="fw-medium">Availability Info</div>
+        <div class="small">Next available date: {{ formatDateISO(nextAvailableDateISO) }}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -200,12 +224,62 @@ onMounted(() => {
 
 </script>
 
-<style>
-/* Remove vue-datepicker specific styles */
-/* Standard Bootstrap form-control styles will apply */
+<style scoped>
+.event-schedule-form {
+  background: var(--bs-card-bg);
+}
+
 .form-control[type="date"] {
-  /* Add any specific overrides for date inputs if needed */
-  padding: 0.375rem 0.75rem; /* Bootstrap's default sm padding */
+  font-size: 0.95rem;
+  padding: 0.75rem;
+  border: 1px solid var(--bs-input-border-color);
+  border-radius: var(--bs-border-radius);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control[type="date"]:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+.form-control[type="date"]:disabled {
+  background-color: var(--bs-secondary-bg);
+  opacity: 0.65;
+}
+
+.form-label {
+  color: var(--bs-body-color);
+  margin-bottom: 0.5rem;
+}
+
+.form-text {
   font-size: 0.875rem;
+  color: var(--bs-secondary);
+  margin-top: 0.25rem;
+}
+
+.alert {
+  border-radius: var(--bs-border-radius);
+  font-size: 0.9rem;
+}
+
+.alert .fw-medium {
+  font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .form-control[type="date"] {
+    font-size: 0.875rem;
+    padding: 0.625rem;
+  }
+  
+  .form-text {
+    font-size: 0.8rem;
+  }
+  
+  .alert {
+    font-size: 0.85rem;
+  }
 }
 </style>

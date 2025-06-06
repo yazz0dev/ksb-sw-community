@@ -1,9 +1,11 @@
 // --- src/styles/main.scss ---
 
 // Layout variables for consistent spacing
-$navbar-height-mobile: 4rem;
-$navbar-height-desktop: 4.5rem;
-$bottom-nav-height: 4rem;
+:root {
+  --navbar-height-mobile: 4rem;
+  --navbar-height-desktop: 4.5rem;
+  --bottom-nav-height-mobile: 4rem; // For mobile only
+}
 
 // 1. Import custom variables first using @use
 @use 'variables' as v;
@@ -32,6 +34,7 @@ $input-bg: v.$input-bg;
 $input-border-color: v.$input-border-color;
 
 $font-family-sans-serif: v.$font-family-sans-serif;
+$font-weight-light: v.$font-weight-light;
 $font-weight-normal: v.$font-weight-normal;
 $font-weight-medium: v.$font-weight-medium;
 $font-weight-bold: v.$font-weight-bold;
@@ -44,6 +47,21 @@ $border-radius-xl: v.$border-radius-xl; // Uncommented for use
 $box-shadow-sm: v.$box-shadow-sm;
 $box-shadow: v.$box-shadow;
 $box-shadow-lg: v.$box-shadow-lg;
+
+// Typography overrides
+$font-size-base: v.$font-size-base;
+$h1-font-size: v.$h1-font-size;
+$h2-font-size: v.$h2-font-size;
+$h3-font-size: v.$h3-font-size;
+$h4-font-size: v.$h4-font-size;
+$h5-font-size: v.$h5-font-size;
+$h6-font-size: v.$h6-font-size;
+$headings-font-weight: v.$headings-font-weight;
+$headings-line-height: v.$headings-line-height;
+$headings-color: v.$headings-color;
+
+// Enable responsive font sizes for automatic scaling
+$enable-responsive-font-sizes: true;
 
 // NOTE: If Font Awesome is imported via SCSS, add the import here.
 // The $fa-font-formats variable in _variables.scss only affects SCSS imports.
@@ -92,139 +110,116 @@ $box-shadow-lg: v.$box-shadow-lg;
 // --- Your Customizations ---
 
 // 9. Your custom global styles
+html {
+  font-size: 100%; // Base for rem units
+}
+
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
-  background-color: $body-bg;
-  color: $body-color;
-  font-family: $font-family-sans-serif;
+  background-color: var(--bs-body-bg); // Use CSS var
+  color: var(--bs-body-color); // Use CSS var
+  font-family: v.$font-family-sans-serif;
+  font-weight: v.$font-weight-normal;
+  line-height: 1.6; // Improved readability
 }
 
-// Custom spacing classes for navbar spacing - using variables
+// Consistent Heading Styles
+h1, .h1,
+h2, .h2,
+h3, .h3,
+h4, .h4,
+h5, .h5,
+h6, .h6 {
+  font-family: v.$font-family-sans-serif;
+  font-weight: v.$headings-font-weight;
+  color: v.$headings-color;
+  line-height: v.$headings-line-height;
+  margin-bottom: 0.75rem; // Consistent margin
+}
+
+// Custom spacing classes for navbar spacing - using CSS variables for dynamic access
 .app-main-content {
-  padding-top: $navbar-height-mobile; // Using variable instead of hardcoded value
-  // Default padding-bottom for mobile, primarily for safe area.
-  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0)); // Better safe area handling
-  overflow-x: hidden; // Prevent horizontal scroll
+  // Default for mobile
+  padding-top: var(--navbar-height-mobile); 
+  // Add a little space at the bottom, plus safe area for notches
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0)); 
+  overflow-x: hidden;
 
-  // When .has-bottom-nav is present (meaning BottomNav is active and visible on mobile)
+  // When .has-bottom-nav is present on mobile
   &.has-bottom-nav {
-    // This padding accounts for bottom nav height + safe area
-    padding-bottom: calc(#{$bottom-nav-height} + max(0.5rem, env(safe-area-inset-bottom, 0)));
+    padding-bottom: calc(var(--bottom-nav-height-mobile) + 1rem + env(safe-area-inset-bottom, 0));
   }
 
+  // Desktop view
   @include media-breakpoint-up(lg) {
-    padding-top: $navbar-height-desktop;
-    padding-bottom: 0; // Reset for large screens
+    padding-top: var(--navbar-height-desktop);
+    padding-bottom: 2rem; // Give some breathing room at the bottom on desktop
+    
+    // No bottom nav on desktop, so no extra padding needed
+    &.has-bottom-nav {
+      padding-bottom: 2rem;
+    }
   }
 }
 
-// Custom viewport height classes - using variables
+// Custom viewport height classes - using CSS variables
 .min-vh-100-subtract-nav {
-  min-height: calc(100vh - #{$navbar-height-mobile} - #{$bottom-nav-height}); // Using variables
+  // Mobile calculation
+  min-height: calc(100vh - var(--navbar-height-mobile) - var(--bottom-nav-height-mobile));
+
+  // Desktop calculation
   @include media-breakpoint-up(lg) {
-    min-height: calc(100vh - #{$navbar-height-desktop}); // Using variable
+    min-height: calc(100vh - var(--navbar-height-desktop));
   }
 }
 
-// Responsive typography utilities
-.h1-lg {
-  @include media-breakpoint-up(lg) {
-    font-size: 2rem !important; // Reduced from 2.5rem
-  }
-}
-
-.h1-md {
-  @include media-breakpoint-up(md) {
-    font-size: 2rem !important; // Reduced from 2.5rem
-  }
-}
-
-.h2-md {
-  @include media-breakpoint-up(md) {
-    font-size: 1.75rem !important; // Reduced from 2rem
-  }
-}
-
-.h3-md {
-  @include media-breakpoint-up(md) {
-    font-size: 1.5rem !important; // Reduced from 1.75rem
-  }
-}
-
-.display-md-3 {
-  @include media-breakpoint-up(md) {
-    font-size: calc(2.5rem + 0.5vw) !important; // Reduced from calc(3.5rem + 1.5vw)
-  }
-}
-
-// Responsive spacing utilities
-.py-md-5 {
-  @include media-breakpoint-up(md) {
-    padding-top: 3rem !important;
-    padding-bottom: 3rem !important;
-  }
-}
-
-.px-md-4 {
-  @include media-breakpoint-up(md) {
-    padding-left: 1.5rem !important;
-    padding-right: 1.5rem !important;
-  }
-}
-
-.mb-md-4 {
-  @include media-breakpoint-up(md) {
-    margin-bottom: 1.5rem !important;
-  }
-}
-
-.mb-md-5 {
-  @include media-breakpoint-up(md) {
-    margin-bottom: 3rem !important;
-  }
-}
-
-.g-md-4 {
-  @include media-breakpoint-up(md) {
-    --bs-gutter-x: 1.5rem;
-    --bs-gutter-y: 1.5rem;
-  }
-}
-
-.g-md-5 {
-  @include media-breakpoint-up(md) {
-    --bs-gutter-x: 3rem;
-    --bs-gutter-y: 3rem;
-  }
-}
-
-// Apply hover styles using Bootstrap variables - removed !important
+// General style refinements for UI consistency
 .card {
+  border: 1px solid var(--bs-border-color);
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--bs-box-shadow-lg); // Using CSS variable instead of !important
+    transform: translateY(-3px);
+    box-shadow: var(--bs-box-shadow-lg);
   }
 }
 
 .btn {
+  font-weight: v.$font-weight-medium;
   transition: all 0.2s ease-in-out;
-  &:hover { transform: translateY(-1px); }
-  &:active { transform: translateY(0); }
+  &:hover { 
+    transform: translateY(-2px);
+    box-shadow: var(--bs-box-shadow);
+  }
+  &:active { 
+    transform: translateY(0); 
+    box-shadow: none;
+  }
+}
+
+.form-control, .form-select {
+  font-size: 0.95rem;
+  &:focus {
+    border-color: v.$primary;
+    box-shadow: 0 0 0 0.25rem rgba(v.$primary, 0.25);
+  }
+}
+
+.form-label {
+  font-weight: v.$font-weight-medium;
+  margin-bottom: 0.5rem;
 }
 
 .badge {
-  font-weight: $font-weight-medium;
+  font-weight: v.$font-weight-medium;
+  padding: 0.4em 0.65em; // Slightly larger for better readability
 }
 
 // Your custom utility classes (if needed beyond Bootstrap)
-// Removed custom .fs-7 class - use Bootstrap's utilities instead
 .text-decoration-underline-hover:hover {
   text-decoration: underline !important;
 }
-// Removed custom gap-* classes - use Bootstrap's gap utilities
 
 .shadow-hover {
   transition: box-shadow 0.2s ease-in-out;
@@ -253,8 +248,8 @@ body {
 
 // Custom small alert (consider using Bootstrap's default alert with utility classes)
 .alert-sm {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875em;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
 }
 
 // ADDED: Responsive list group styles (moved from _animations.scss)
@@ -269,5 +264,19 @@ body {
     .badge {
       font-size: 0.75rem;
     }
+  }
+}
+
+.g-md-4 {
+  @include media-breakpoint-up(md) {
+    --bs-gutter-x: 1.5rem;
+    --bs-gutter-y: 1.5rem;
+  }
+}
+
+.g-md-5 {
+  @include media-breakpoint-up(md) {
+    --bs-gutter-x: 3rem;
+    --bs-gutter-y: 3rem;
   }
 }

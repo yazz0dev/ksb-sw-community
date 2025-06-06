@@ -1,32 +1,37 @@
 <template>
-  <div class="container d-flex align-items-center justify-content-center" style="min-height: calc(100vh - 70px);">
+  <div class="not-found-section">
+    <div class="container d-flex align-items-center justify-content-center">
     <div class="text-center">
-      <h1 class="display-1 text-primary mb-4">404</h1>
-      <h2 class="h3 text-dark mb-4">Page Not Found</h2>
-      <p class="text-secondary mb-5">Sorry, we couldn't find the page you're looking for.</p>
-      
-      <div class="d-flex justify-content-center gap-2">
-        <router-link to="/" class="btn btn-primary d-inline-flex align-items-center">
-          <i class="fas fa-home me-2"></i>
-          <span>Go Home</span>
+        <h1 class="display-4 text-primary mb-4">404</h1>
+        <h2 class="h3 mb-3">Page Not Found</h2>
+        <p class="lead mb-4">The page you're looking for doesn't exist.</p>
+        <router-link to="/" class="btn btn-primary">
+          <i class="fas fa-home me-2"></i>Go Home
         </router-link>
-        <button type="button" @click="goBack" class="btn btn-outline-secondary d-inline-flex align-items-center">
-          <i class="fas fa-arrow-left me-2"></i>
-          <span>Go Back</span>
-        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
-
-const router = useRouter();
-
-const goBack = (): void => {
-  router.back();
-};
+// No script needed for this simple component
 </script>
+
+<style scoped>
+.not-found-section {
+  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
+  min-height: calc(100vh - var(--navbar-height-mobile));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+@media (min-width: 992px) {
+  .not-found-section {
+    min-height: calc(100vh - var(--navbar-height-desktop));
+  }
+}
+</style>
 
 

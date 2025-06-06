@@ -10,7 +10,6 @@
         aria-live="assertive"
         aria-atomic="true"
         :class="getToastClass(notification.type)"
-        style="width: 20rem;"
       >
         <div class="toast-header" :class="getToastHeaderClass(notification.type)">
           <span class="me-2">
@@ -103,14 +102,58 @@ const getTypeIcon = (type: AppNotification['type']): string => {
 .notification-container {
   z-index: 1100;
 }
-.notification-enter-active { transition: all 0.3s ease-out; }
-.notification-enter-from { opacity: 0; transform: translateX(30px); }
-.notification-enter-to { opacity: 1; transform: translateX(0); }
-.notification-leave-active { transition: all 0.2s ease-in; position: absolute; width: 100%; }
-.notification-leave-to { opacity: 0; transform: translateY(-20px); }
-.notification-move { transition: transform 0.3s ease; }
-.toast.show { opacity: 1; }
-.toast-header .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
+
+.toast {
+  width: 20rem;
+  background-color: var(--bs-card-bg);
+  border: 1px solid var(--bs-border-color);
+  box-shadow: var(--bs-box-shadow);
+}
+
+.toast.show {
+  opacity: 1;
+}
+
+.toast-header {
+  background-color: var(--bs-tertiary-bg);
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.toast-header .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
 .bg-warning-subtle .btn-close,
-.bg-info-subtle .btn-close { filter: none; }
+.bg-info-subtle .btn-close {
+  filter: none;
+}
+
+.notification-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.notification-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.notification-enter-to {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.notification-leave-active {
+  transition: all 0.2s ease-in;
+  position: absolute;
+  width: 100%;
+}
+
+.notification-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.notification-move {
+  transition: transform 0.3s ease;
+}
 </style>

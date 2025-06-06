@@ -1,161 +1,224 @@
 <template>
-  <div class="event-manage-controls p-4 border bg-light rounded shadow-sm mb-4">
+  <div class="event-manage-controls">
     <!-- Status Management Section -->
-    <div v-if="showStatusManagementSection" class="mb-5">
-      <h3 class="h4 text-primary mb-3">Event Management</h3>
-      <div class="d-flex align-items-center mb-4">
-        <span class="small fw-medium text-secondary me-3">Current Status:</span>
-        <span class="badge rounded-pill fs-6" :class="statusBadgeClass">{{ event.status }}</span>
+    <div v-if="showStatusManagementSection" class="section-card shadow-sm rounded-4 p-3 p-md-4 mb-4 animate-fade-in">
+      <div class="section-header mb-4">
+        <h3 class="h5 h4-md text-dark mb-2">
+          <i class="fas fa-cogs text-primary me-2"></i>
+          Event Management
+        </h3>
+        <div class="d-flex align-items-center gap-3">
+          <span class="text-secondary small fw-medium">Current Status:</span>
+          <span class="badge rounded-pill fs-6" :class="statusBadgeClass">{{ event.status }}</span>
+        </div>
       </div>
-      <div class="d-flex flex-wrap gap-2">
+      
+      <div class="action-buttons-grid">
         <!-- Start Event Button -->
         <button
           v-if="showStartButton"
           type="button"
-          class="btn btn-sm btn-primary d-inline-flex align-items-center"
+          class="btn btn-primary action-btn"
           :disabled="isActionLoading(EventStatus.InProgress)"
           @click="updateStatus(EventStatus.InProgress)"
         >
-          <span v-if="isActionLoading(EventStatus.InProgress)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-play me-1"></i>
+          <span v-if="isActionLoading(EventStatus.InProgress)" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-play me-2"></i>
           <span>Start Event</span>
         </button>
+        
         <!-- Mark Complete Button -->
         <button
           v-if="showMarkCompleteButton"
           type="button"
-          class="btn btn-sm btn-success d-inline-flex align-items-center"
+          class="btn btn-success action-btn"
           :disabled="isActionLoading(EventStatus.Completed)"
           @click="updateStatus(EventStatus.Completed)"
         >
-          <span v-if="isActionLoading(EventStatus.Completed)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-check me-1"></i>
+          <span v-if="isActionLoading(EventStatus.Completed)" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-check me-2"></i>
           <span>Mark Complete</span>
         </button>
+        
         <!-- Cancel Event Button -->
         <button
           v-if="showCancelButton"
           type="button"
-          class="btn btn-sm btn-outline-danger d-inline-flex align-items-center"
+          class="btn btn-outline-danger action-btn"
           :disabled="isActionLoading(EventStatus.Cancelled)"
-          @click="confirmCancel"
+          @click="showCancelModal"
         >
-          <span v-if="isActionLoading(EventStatus.Cancelled)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-times me-1"></i>
+          <span v-if="isActionLoading(EventStatus.Cancelled)" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-times me-2"></i>
           <span>Cancel Event</span>
         </button>
+        
         <!-- Edit Event Button -->
         <button
           v-if="showEditButton"
           type="button"
-          class="btn btn-sm btn-outline-primary d-inline-flex align-items-center"
+          class="btn btn-outline-primary action-btn"
           @click="goToEditEvent"
         >
-          <i class="fas fa-edit me-1"></i>
+          <i class="fas fa-edit me-2"></i>
           <span>Edit Event</span>
         </button>
       </div>
-      <!-- Info Text for Start Button -->
-      <p v-if="showStartButton && !isWithinEventDates" class="small text-danger mt-2">
-        Event can only be started between {{ formattedStartDate }} and {{ formattedEndDate }}.
-      </p>
-      <p v-if="showStartButton && isWithinEventDates" class="small text-success mt-2">
-        Ready to start the event.
-      </p>
+      
+      <!-- Info Messages -->
+      <div v-if="showStartButton" class="info-section mt-4">
+        <div v-if="!isWithinEventDates" class="alert alert-warning d-flex align-items-center">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          <div>
+            <strong>Date Restriction:</strong>
+            Event can only be started between {{ formattedStartDate }} and {{ formattedEndDate }}.
+          </div>
+        </div>
+        <div v-else class="alert alert-success d-flex align-items-center">
+          <i class="fas fa-check-circle me-2"></i>
+          <div><strong>Ready to start</strong> - Event is within the scheduled date range.</div>
+        </div>
+      </div>
     </div>
 
     <!-- Voting & Closing Section -->
-    <div v-if="showVotingClosingSection" :class="{ 'pt-5 border-top': showStatusManagementSection }">
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="h4 text-primary mb-0">Voting & Closing</h3>
-        <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill fs-6" :class="event.votingOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
-          Voting: {{ event.votingOpen ? 'Open' : 'Closed' }}
-        </span>
+    <div v-if="showVotingClosingSection" class="section-card shadow-sm rounded-4 p-3 p-md-4 mb-4 animate-fade-in">
+      <div class="section-header mb-4">
+        <div class="d-flex justify-content-between align-items-start align-items-md-center flex-column flex-md-row gap-2">
+          <h3 class="h5 h4-md text-dark mb-0">
+            <i class="fas fa-vote-yea text-primary me-2"></i>
+            Voting & Closing
+          </h3>
+          <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill fs-6" 
+                :class="event.votingOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
+            <i :class="event.votingOpen ? 'fas fa-lock-open' : 'fas fa-lock'" class="me-1"></i>
+            Voting: {{ event.votingOpen ? 'Open' : 'Closed' }}
+          </span>
+        </div>
       </div>
-      <div class="d-flex flex-wrap gap-2">
+      
+      <div class="action-buttons-grid">
         <!-- Open Voting Button -->
         <button
           v-if="showOpenVotingButton"
           type="button"
-          class="btn btn-sm btn-success d-inline-flex align-items-center"
+          class="btn btn-success action-btn"
           :disabled="isActionLoading('openVoting')"
           @click="toggleVoting(true)"
         >
-          <span v-if="isActionLoading('openVoting')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-lock-open me-1"></i>
+          <span v-if="isActionLoading('openVoting')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-lock-open me-2"></i>
           <span>Open Voting</span>
         </button>
-         <!-- Close Voting Button -->
+        
+        <!-- Close Voting Button -->
         <button
           v-if="showCloseVotingButton"
           type="button"
-          class="btn btn-sm btn-warning d-inline-flex align-items-center"
+          class="btn btn-warning action-btn"
           :disabled="isActionLoading('closeVoting')"
           @click="toggleVoting(false)"
         >
-          <span v-if="isActionLoading('closeVoting')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-lock me-1"></i>
+          <span v-if="isActionLoading('closeVoting')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-lock me-2"></i>
           <span>Close Voting</span>
         </button>
+        
         <!-- Find Winner Button -->
         <button
           v-if="showFindWinnerButton"
           type="button"
-          class="btn btn-sm btn-primary d-inline-flex align-items-center"
+          class="btn btn-primary action-btn"
           :disabled="submissionCount < 10 || isActionLoading('findWinner')"
           @click="findWinnerAction"
         >
-          <span v-if="isActionLoading('findWinner')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-trophy me-1"></i>
+          <span v-if="isActionLoading('findWinner')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-trophy me-2"></i>
           <span>Find Winner</span>
         </button>
-        <span v-if="showFindWinnerButton && submissionCount < 10" class="small text-danger ms-2">
-          At least 10 votes are required to find winners (currently {{ submissionCount }}).
-        </span>
+        
         <!-- Manually Select Winners Button -->
         <button
           v-if="showManualSelectWinnerButton"
           type="button"
-          class="btn btn-sm btn-info d-inline-flex align-items-center"
+          class="btn btn-info action-btn"
           :disabled="isActionLoading('manualSelectWinner')"
           @click="goToManualSelectWinner"
           title="Manually set or override winners"
         >
-          <span v-if="isActionLoading('manualSelectWinner')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-edit me-1"></i>
-          <span>Manually Select Winners</span>
+          <span v-if="isActionLoading('manualSelectWinner')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-edit me-2"></i>
+          <span>Manual Selection</span>
         </button>
+        
         <!-- Close Event Button -->
         <button
           v-if="showCloseEventButton"
           type="button"
-          class="btn btn-sm btn-outline-danger d-inline-flex align-items-center"
+          class="btn btn-outline-danger action-btn"
           :disabled="isClosingEvent || isActionLoading('closeEvent')"
-          @click="confirmCloseEvent"
+          @click="showCloseEventModal"
           title="Permanently close event and award XP"
         >
-          <span v-if="isClosingEvent || isActionLoading('closeEvent')" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-archive me-1"></i>
-          <span>{{ isClosingEvent ? 'Closing...' : 'Close Event Permanently' }}</span>
+          <span v-if="isClosingEvent || isActionLoading('closeEvent')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-archive me-2"></i>
+          <span>{{ isClosingEvent ? 'Closing...' : 'Close Permanently' }}</span>
         </button>
       </div>
-       <!-- Info Texts -->
-      <p v-if="showOpenVotingButton" class="small text-secondary mt-2">
-        Open Voting to allow participants to vote for projects/teams and select winners.
-      </p>
-      <p v-if="showCloseVotingButton" class="small text-secondary mt-2">
-        Close Voting once all selections/feedback are submitted. Required before permanently closing event.
-      </p>
-      <p v-if="showFindWinnerButton" class="small text-secondary mt-2">
-        Requires Voting to be closed and at least 10 submissions (currently {{ submissionCount }}) to find winners.
-      </p>
-      <p v-if="showManualSelectWinnerButton" class="small text-secondary mt-2">
-        Manually set or override the winners for each criterion. This is useful if vote-based calculation is not desired or needs adjustment.
-      </p>
-      <p v-if="showCloseEventButton" class="small text-secondary mt-2">
-        Voting must be closed and winners selected before you can permanently close the event and award XP.
-      </p>
+      
+      <!-- Info Messages -->
+      <div class="info-section mt-4">
+        <div v-if="showFindWinnerButton && submissionCount < 10" class="alert alert-warning d-flex align-items-center">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          <div>
+            <strong>Insufficient submissions:</strong>
+            At least 10 votes are required to find winners (currently {{ submissionCount }}).
+          </div>
+        </div>
+        
+        <div v-if="showOpenVotingButton" class="info-card">
+          <i class="fas fa-info-circle text-info me-2"></i>
+          <span class="text-secondary">Open voting to allow participants to vote for projects/teams and select winners.</span>
+        </div>
+        
+        <div v-if="showCloseVotingButton" class="info-card">
+          <i class="fas fa-info-circle text-info me-2"></i>
+          <span class="text-secondary">Close voting once all selections/feedback are submitted. Required before permanently closing event.</span>
+        </div>
+        
+        <div v-if="showManualSelectWinnerButton" class="info-card">
+          <i class="fas fa-info-circle text-info me-2"></i>
+          <span class="text-secondary">Manually set or override the winners for each criterion. Useful if vote-based calculation needs adjustment.</span>
+        </div>
+        
+        <div v-if="showCloseEventButton" class="info-card">
+          <i class="fas fa-info-circle text-info me-2"></i>
+          <span class="text-secondary">Voting must be closed and winners selected before permanently closing the event and awarding XP.</span>
+        </div>
+      </div>
     </div>
+
+    <!-- Cancel Event Confirmation Modal -->
+    <ConfirmationModal
+      modal-id="cancelEventModal"
+      title="Cancel Event"
+      message="Are you sure you want to cancel this event? This action cannot be undone and all participants will be notified."
+      confirm-text="Cancel Event"
+      cancel-text="Keep Event"
+      variant="danger"
+      @confirm="confirmCancel"
+    />
+
+    <!-- Close Event Confirmation Modal -->
+    <ConfirmationModal
+      modal-id="closeEventModal"
+      title="Close Event Permanently"
+      message="Are you sure you want to permanently close this event and award XP? This action cannot be reopened."
+      confirm-text="Close & Award XP"
+      cancel-text="Keep Open"
+      variant="warning"
+      @confirm="confirmCloseEvent"
+    />
   </div>
 </template>
 
@@ -177,6 +240,7 @@ import {
   isEventEditable,
   // canManageEvents, // General permission, isEventOrganizer is more specific here
 } from '@/utils/permissionHelpers';
+import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
 
 // Define a custom interface to extend EventCriteria with the properties used in the component
 interface ExtendedEventCriteria extends EventCriteria {
@@ -409,16 +473,28 @@ const toggleVoting = async (openState: boolean): Promise<void> => {
     }
 };
 
+const showCancelModal = (): void => {
+  const modal = document.getElementById('cancelEventModal');
+  if (modal && window.bootstrap?.Modal) {
+    const modalInstance = new window.bootstrap.Modal(modal);
+    modalInstance.show();
+  }
+};
+
 const confirmCancel = async (): Promise<void> => {
-  if (window.confirm('Are you sure you want to cancel this event? This action cannot be undone.')) {
-    await updateStatus(EventStatus.Cancelled);
+  await updateStatus(EventStatus.Cancelled);
+};
+
+const showCloseEventModal = (): void => {
+  const modal = document.getElementById('closeEventModal');
+  if (modal && window.bootstrap?.Modal) {
+    const modalInstance = new window.bootstrap.Modal(modal);
+    modalInstance.show();
   }
 };
 
 const confirmCloseEvent = (): void => {
-  if (window.confirm('Are you sure you want to permanently close this event and award XP? This action cannot be reopened.')) {
-    closeEventAction();
-  }
+  closeEventAction();
 };
 
 const closeEventAction = async (): Promise<void> => {
@@ -472,12 +548,147 @@ const goToManualSelectWinner = (): void => {
 
 <style scoped>
 .event-manage-controls {
-  max-width: 900px; /* Slightly wider if needed */
-  margin: 0 auto; /* Center it */
+  max-width: 1000px;
+  margin: 0 auto;
 }
-/* Ensure badges have enough contrast and padding */
+
+/* Section Styling */
+.section-card {
+  background: var(--bs-card-bg);
+  border: 1px solid var(--bs-border-color);
+}
+
+.section-header {
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem !important;
+}
+
+/* Action Buttons Grid */
+.action-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  border-radius: var(--bs-border-radius);
+  transition: all 0.2s ease;
+  min-height: 2.75rem;
+  white-space: nowrap;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--bs-box-shadow);
+}
+
+.action-btn:disabled {
+  opacity: 0.65;
+  transform: none;
+}
+
+/* Info Section */
+.info-section {
+  border-top: 1px solid var(--bs-border-color-translucent);
+  padding-top: 1rem;
+}
+
+.info-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--bs-light);
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.info-card:last-child {
+  margin-bottom: 0;
+}
+
+/* Badge Styling */
 .badge {
-    padding: 0.4em 0.8em;
+  padding: 0.4em 0.8em;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Alert Styling */
+.alert {
+  border-radius: var(--bs-border-radius);
+  margin-bottom: 0.75rem;
+}
+
+.alert:last-child {
+  margin-bottom: 0;
+}
+
+/* Animation */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .action-buttons-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .action-btn {
+    padding: 0.625rem 0.875rem;
     font-size: 0.85rem;
+    min-height: 2.5rem;
+  }
+  
+  .section-header {
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem !important;
+  }
+  
+  .info-card {
+    padding: 0.625rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-header .d-flex {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem;
+  }
+  
+  .action-btn {
+    font-size: 0.8rem;
+    padding: 0.5rem 0.75rem;
+    min-height: 2.25rem;
+  }
+  
+  .info-card {
+    flex-direction: column;
+    gap: 0.375rem;
+  }
 }
 </style>

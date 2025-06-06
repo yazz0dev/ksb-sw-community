@@ -13,11 +13,15 @@
         <div class="mb-3">
           <label class="form-label">Your Rating</label>
           <div class="rating-stars">
-            <i v-for="star in 5" :key="star" class="fas fa-star"
-               :class="star <= rating ? 'text-warning' : 'text-secondary'"
-               @click="setRating(star)"
-               style="cursor:pointer;font-size:1.5rem;"
-            ></i>
+            <span
+              v-for="(_, idx) in Array(5)"
+              :key="idx"
+              @click="setRating(idx + 1)"
+              class="star-rating"
+              :class="{ 'text-warning': idx < rating, 'text-muted': idx >= rating }"
+            >
+              <i class="fas fa-star"></i>
+            </span>
           </div>
         </div>
         <div class="mb-3">
@@ -98,6 +102,22 @@ async function submitRating() {
   max-width: 500px;
   margin: 0 auto;
 }
+
+.star-rating {
+  cursor: pointer;
+  font-size: 1.5rem;
+  transition: color 0.2s ease;
+}
+
+.star-rating:hover {
+  color: var(--bs-warning) !important;
+}
+
+.rating-stars {
+  display: flex;
+  gap: 0.25rem;
+}
+
 .rating-stars .fa-star {
   transition: color 0.15s;
 }

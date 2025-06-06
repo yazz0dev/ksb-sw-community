@@ -15,18 +15,20 @@
       </div>
       <div v-else class="participants-grid">
         <div
-          v-for="uid in participants"
-          :key="uid"
-          class="participant-item d-flex align-items-center p-2 rounded mb-2"
-          :class="{ 'bg-primary-subtle': uid === currentUserId }"
+          v-for="(participantId, index) in event.participants"
+          :key="participantId"
+          class="d-flex align-items-center py-1"
         >
-          <span class="text-secondary me-2" style="width: 1rem; text-align: center;">
-            <i class="fas fa-user"></i>
+          <span class="text-secondary me-2 participant-index">
+            {{ index + 1 }}.
           </span>
-          <span class="small text-truncate">
-            {{ studentStore.getCachedStudentName(uid) || uid }}
-            <span v-if="uid === currentUserId" class="badge bg-primary ms-2 small">You</span>
-          </span>
+          <router-link
+            :to="{ name: 'PublicProfile', params: { userId: participantId } }"
+            class="text-primary text-truncate"
+            :class="{ 'fw-semibold': participantId === currentUserUid }"
+          >
+            {{ getName(participantId) }}{{ participantId === currentUserUid ? ' (You)' : '' }}
+          </router-link>
         </div>
       </div>
     </div>
@@ -84,5 +86,10 @@ const studentStore = useProfileStore();
     opacity: 1; 
     transform: translateY(0); 
   } 
+}
+
+.participant-index {
+  width: 1rem;
+  text-align: center;
 }
 </style>

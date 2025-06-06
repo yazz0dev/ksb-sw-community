@@ -37,7 +37,7 @@
                 :disabled="isSubmitting"
                 @input="handlePointsInput(idx)"
               />
-              <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill" style="min-width: 50px; text-align: center;">{{ criterion.points }} XP</span>
+              <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill xp-badge">{{ criterion.points }} XP</span>
             </div>
           </div>
 
@@ -280,5 +280,19 @@ function handlePointsInput(idx: number) {
 .badge {
     font-size: 0.8em;
     padding: 0.4em 0.6em;
+}
+.xp-badge {
+  min-width: 50px;
+  text-align: center;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+.invalid-feedback {
+  color: var(--bs-danger);
 }
 </style>
