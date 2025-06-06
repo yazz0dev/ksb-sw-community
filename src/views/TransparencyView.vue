@@ -3,10 +3,10 @@
     <div class="container-lg py-3 py-md-4"> <!-- Reduced from py-4 py-md-5 -->
       <!-- Header Section -->
       <header class="text-center mb-3 mb-md-4"> <!-- Reduced from mb-4 mb-md-5 -->
-        <h1 class="h2 fw-bold text-primary mb-3">
+        <h1 class="h1 text-gradient-primary mb-3">
           <i class="fas fa-eye me-2"></i>Community Transparency
         </h1>
-        <p class="lead text-secondary mx-auto" style="max-width: 700px;">
+        <p class="text-subtitle mx-auto" style="max-width: 700px;">
           Understanding how our platform works and serves the KSB MCA community
         </p>
       </header>
@@ -30,7 +30,7 @@
           <div class="col-12 col-md-6 d-flex">
             <div class="content-card w-100 d-flex flex-column">
               <div class="content-header">
-                <h2 class="h4 text-primary mb-3">
+                <h2 class="h4 text-gradient-primary mb-3">
                   <i class="fas fa-info-circle me-2"></i>What We Do
                 </h2>
               </div>
@@ -57,7 +57,7 @@
           <div class="col-12 col-md-6 d-flex">
             <div class="content-card w-100 d-flex flex-column">
               <div class="content-header">
-                <h2 class="h4 text-primary mb-3">
+                <h2 class="h4 text-gradient-primary mb-3">
                   <i class="fas fa-cogs me-2"></i>How It Works
                 </h2>
               </div>
@@ -67,7 +67,7 @@
                       v-for="(step, index) in processSteps" :key="step.title">
                     <div class="step-number">{{ index + 1 }}</div>
                     <div class="step-content">
-                      <h3 class="h6 mb-1">{{ step.title }}</h3>
+                      <p class="fw-bold mb-1">{{ step.title }}</p>
                       <p class="small text-secondary mb-0">{{ step.description }}</p>
                     </div>
                   </li>
@@ -80,7 +80,7 @@
           <div class="col-12 col-md-6 d-flex">
             <div class="content-card w-100 d-flex flex-column">
               <div class="content-header">
-                <h2 class="h4 text-info mb-3">
+                <h2 class="h4 text-gradient-primary mb-3">
                   <i class="fas fa-calendar-check me-2"></i>Event Types
                 </h2>
               </div>
@@ -92,7 +92,7 @@
                 
                 <!-- Event Types -->
                 <div class="event-types">
-                  <h3 class="small fw-bold text-info mb-2">Event Types & Formats:</h3>
+                  <h3 class="fw-bold text-info mb-2 small">Event Types & Formats:</h3>
                   <ul class="list-unstyled mb-0">
                     <li class="event-type-item" v-for="eventType in eventTypes.slice(0, 3)" :key="eventType.name">
                       <div class="d-flex flex-column flex-sm-row align-items-start mb-3">
@@ -101,7 +101,7 @@
                         <div class="flex-grow-1">
                           <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center 
                                       justify-content-sm-between mb-1 gap-1">
-                            <h4 class="small fw-bold mb-0">{{ eventType.name }}</h4>
+                            <h4 class="fw-bold mb-0 small">{{ eventType.name }}</h4>
                             <span class="badge bg-info text-white align-self-start align-self-sm-center">
                               {{ eventType.duration }}
                             </span>
@@ -128,7 +128,7 @@
           <div class="col-12 col-md-6 d-flex">
             <div class="content-card w-100 d-flex flex-column">
               <div class="content-header">
-                <h2 class="h4 text-info mb-3">
+                <h2 class="h4 text-gradient-primary mb-3">
                   <i class="fas fa-users me-2"></i>Event Participation
                 </h2>
               </div>
@@ -148,7 +148,7 @@
                         <div class="flex-grow-1">
                           <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center 
                                       justify-content-sm-between mb-1 gap-1">
-                            <h4 class="small fw-bold mb-0">{{ eventType.name }}</h4>
+                            <h4 class="fw-bold mb-0 small">{{ eventType.name }}</h4>
                             <span class="badge bg-info text-white align-self-start align-self-sm-center">
                               {{ eventType.duration }}
                             </span>
@@ -175,7 +175,7 @@
           <div class="col-12">
             <div class="content-card">
               <div class="content-header">
-                <h2 class="h4 text-info mb-3">
+                <h2 class="h4 text-gradient-primary mb-3">
                   <i class="fas fa-clipboard-check me-2"></i>How Students Engage
                 </h2>
               </div>
@@ -183,7 +183,7 @@
                 <div class="row">
                   <div class="col-md-6">
                     <!-- Event Participation -->
-                    <h3 class="small fw-bold text-info mb-2">Participation Methods:</h3>
+                    <h3 class="fw-bold text-info mb-2 small">Participation Methods:</h3>
                     <ul class="participation-modes list-unstyled">
                       <li class="participation-item d-flex flex-column flex-sm-row align-items-start mb-2">
                         <i class="fas fa-user text-success me-sm-2 mb-1 mb-sm-0"></i>
@@ -210,7 +210,7 @@
                   </div>
                   <div class="col-md-6">
                     <!-- Event Lifecycle -->
-                    <h3 class="small fw-bold text-info mb-2">Event Lifecycle:</h3>
+                    <h3 class="fw-bold text-info mb-2 small">Event Lifecycle:</h3>
                     <ol class="lifecycle-steps list-unstyled small text-secondary">
                       <li class="lifecycle-step d-flex flex-column flex-sm-row align-items-start mb-2">
                         <span class="lifecycle-number me-sm-2 mb-1 mb-sm-0">1</span>
@@ -251,7 +251,7 @@
           <div class="col-12 col-md-6 d-flex">
             <div class="content-card w-100 d-flex flex-column">
               <div class="content-header">
-                <h2 class="h4 text-warning mb-3">
+                <h2 class="h4 text-gradient-warning mb-3">
                   <i class="fas fa-star me-2"></i>XP & Recognition
                 </h2>
               </div>
@@ -281,7 +281,7 @@
           <div class="col-12 col-md-6 d-flex">
             <div class="content-card w-100 d-flex flex-column">
               <div class="content-header">
-                <h2 class="h4 text-success mb-3">
+                <h2 class="h4 text-gradient-success mb-3">
                   <i class="fas fa-shield-alt me-2"></i>Technology & Privacy
                 </h2>
               </div>

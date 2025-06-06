@@ -9,29 +9,42 @@ import { useNotificationStore } from './notificationStore';
 import { useAuth } from '@/composables/useAuth';
 import { getISTTimestamp } from '@/utils/eventDataUtils';
 import { convertToISTDateTime } from '@/utils/dateTime';
-import { deepClone } from '@/utils/helpers';
-import { checkDateConflictForRequest } from '@/services/eventService'; // Changed import path
+import { deepClone } from '@/utils/eventUtils';
+import { checkDateConflictForRequest } from '@/services/eventService/eventValidation';
 import { handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
 import { DateTime } from 'luxon';
 import { compareEventsForSort } from '@/utils/eventUtils';
 import { 
   createEventRequest as createEventRequestService, 
   updateEventRequestInService, 
+} from '@/services/eventService/eventCreation';
+import {
   closeEventAndAwardXP as closeEventAndAwardXPService,
+  updateEventStatusInFirestore as updateEventStatusService,
+  deleteEventRequestInFirestore as deleteEventRequestService,
+} from '@/services/eventService/eventManagement';
+import {
   fetchMyEventRequests as fetchMyEventRequestsService,
   fetchSingleEventForStudent as fetchSingleEventForStudentService,
   fetchPubliclyViewableEvents as fetchPubliclyViewableEventsService,
-  updateEventStatusInFirestore as updateEventStatusService,
+  hasPendingRequest,
+} from '@/services/eventService/eventQueries';
+import {
   joinEventByStudentInFirestore as joinEventService, 
   leaveEventByStudentInFirestore as leaveEventService,
   submitProject as submitProjectService,
-  autoGenerateEventTeamsInFirestore as autoGenerateEventTeamsService, // This service is used by the store action
+} from '@/services/eventService/eventParticipation';
+import {
+  autoGenerateEventTeamsInFirestore as autoGenerateEventTeamsService,
+} from '@/services/eventService/eventTeams';
+import {
   submitTeamCriteriaVoteInFirestore as submitTeamCriteriaVoteService,
   submitIndividualWinnerVoteInFirestore as submitIndividualWinnerVoteService,
   submitOrganizationRatingInFirestore as submitOrganizationRatingService,
   toggleVotingStatusInFirestore as toggleVotingStatusService,
   submitManualWinnerSelectionInFirestore as submitManualWinnerSelectionService
-} from '@/services/eventService';
+} from '@/services/eventService/eventVoting';
+import type { UserData } from '@/types/student';
 
 
 // Add createCompleteEvent function before the store definition
@@ -123,10 +136,11 @@ export const useEventStore = defineStore('studentEvents', () => {
   function _updateLocalEventLists(eventData: Event) {
     const updateList = (list: Ref<Event[]>) => {
         const index = list.value.findIndex(e => e.id === eventData.id);
+        const existingEvent = index !== -1 ? list.value[index] : null;
         const updatedEvent: Event = {
-            ...(index !== -1 ? list.value[index] : {}),
+            ...(existingEvent || {}),
             ...deepClone(eventData),
-            lastUpdatedAt: eventData.lastUpdatedAt || (index !==-1 ? list.value[index].lastUpdatedAt : undefined) || Timestamp.now()
+            lastUpdatedAt: eventData.lastUpdatedAt || (existingEvent?.lastUpdatedAt || Timestamp.now())
         } as Event;
 
         if (index !== -1) {
@@ -242,6 +256,15 @@ export const useEventStore = defineStore('studentEvents', () => {
       const eventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
 
       if (eventData) {
+          // Manually convert date objects to Timestamps if they aren't already.
+          // This can happen if data comes from a source that loses the class instance (e.g., deepClone, some state management).
+          if (eventData.details.date?.start && typeof eventData.details.date.start === 'object' && 'seconds' in eventData.details.date.start) {
+            eventData.details.date.start = new Timestamp((eventData.details.date.start as any).seconds, (eventData.details.date.start as any).nanoseconds);
+          }
+          if (eventData.details.date?.end && typeof eventData.details.date.end === 'object' && 'seconds' in eventData.details.date.end) {
+            eventData.details.date.end = new Timestamp((eventData.details.date.end as any).seconds, (eventData.details.date.end as any).nanoseconds);
+          }
+          
           viewedEventDetails.value = deepClone(eventData);
           _updateLocalEventLists(eventData);
           return viewedEventDetails.value;
@@ -286,22 +309,11 @@ export const useEventStore = defineStore('studentEvents', () => {
       const nowInIST = DateTime.now().setZone('Asia/Kolkata').startOf('day');
       if (startDateTime.startOf('day') < nowInIST) throw new Error('Event start date cannot be in the past.');
 
-      // The checkDateConflict function in the store might need to be adapted if it directly uses Firestore.
-      // For now, assuming it works as is or will be refactored separately.
       const { hasConflict, conflictingEventName } = await checkDateConflict({ startDate: startDateTime.toJSDate(), endDate: endDateTime.toJSDate() });
       if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
       // --- End of existing validation logic ---
 
-      // Ensure current user is in organizers list (can be part of formData preparation if service doesn't handle it)
-      // The service version already ensures requester is an organizer.
-      // if (!formData.details.organizers.includes(studentId)) {
-      //   formData.details.organizers.push(studentId);
-      // }
-
-      // Call the service function
-      // The service's mapEventDataToFirestore is expected to handle date to Timestamp conversion
-      // and setting default fields like rules/prize to null if empty.
-      const newEventId = await createEventRequestService(formData, studentId);
+      const newEventId = await createEventRequestService(deepClone(formData), studentId);
 
       if (!newEventId) { // Should not happen if service throws on error
         throw new Error("Failed to create event request via service.");
@@ -383,7 +395,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       }
 
       // Fix: Pass currentStudentId instead of existingEvent.details.format
-      await updateEventRequestInService(eventId, formData, currentStudentId);
+      await updateEventRequestInService(eventId, deepClone(formData), currentStudentId);
       
       const updatedEvent = await fetchSingleEventForStudentService(eventId, currentStudentId); // Use currentStudentId
       if (updatedEvent) {
@@ -400,12 +412,45 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
+  async function deleteEventRequest(eventId: string): Promise<boolean> {
+    actionError.value = null;
+    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
+      await _handleOpError("deleting event request", new Error("User not authenticated."), eventId);
+      return false;
+    }
+    const studentId = studentProfileStore.studentId;
+    isLoading.value = true;
+    try {
+      await deleteEventRequestService(eventId, studentId);
+
+      // Remove from local lists
+      myEventRequests.value = myEventRequests.value.filter(e => e.id !== eventId);
+      events.value = events.value.filter(e => e.id !== eventId);
+      if (viewedEventDetails.value?.id === eventId) {
+          viewedEventDetails.value = null;
+      }
+
+      notificationStore.showNotification({ message: 'Event request deleted successfully!', type: 'success' });
+      return true;
+    } catch (err) {
+      await _handleOpError("deleting event request", err, eventId);
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   async function updateEventStatus({ eventId, newStatus, rejectionReason }: { eventId: string; newStatus: EventStatus; rejectionReason?: string }) {
     actionError.value = null;
     try {
         if (!studentProfileStore.currentStudent) throw new Error("User not authenticated.");
+        // Ensure photoURL is not undefined to match UserData type
+        const currentUser: UserData = {
+            ...studentProfileStore.currentStudent,
+            photoURL: studentProfileStore.currentStudent.photoURL || null
+        };
         // Call the service function
-        const updatedFields = await updateEventStatusService(eventId, newStatus, studentProfileStore.currentStudent, rejectionReason);
+        const updatedFields = await updateEventStatusService(eventId, newStatus, currentUser, rejectionReason);
         const existingEvent = getEventById(eventId);
         _updateLocalEventLists(createCompleteEvent({ id: eventId, ...updatedFields }, existingEvent));
         notificationStore.showNotification({ message: `Event status updated to ${newStatus}.`, type: 'success' });
@@ -556,7 +601,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       const eventToUpdate = viewedEventDetails.value;
       if (eventToUpdate) {
         if (!eventToUpdate.organizerRatings) {
-          eventToUpdate.organizerRatings = {}; // Initialize as a map if it doesn't exist
+          eventToUpdate.organizerRatings = {};
         }
         // This is a client-side representation, so we use a client timestamp for immediate feedback.
         // The server will have the authoritative serverTimestamp.
@@ -564,7 +609,7 @@ export const useEventStore = defineStore('studentEvents', () => {
           userId: studentProfileStore.studentId,
           rating: payload.score,
           feedback: payload.feedback || '',
-          ratedAt: new Date() // Use client-side date for optimistic update
+          ratedAt: Timestamp.now() // Use Timestamp instead of Date for consistency
         };
         _updateLocalEventLists(eventToUpdate);
       }
@@ -581,25 +626,24 @@ export const useEventStore = defineStore('studentEvents', () => {
 
   async function toggleVotingOpen({ eventId, open }: { eventId: string; open: boolean }) {
     actionError.value = null;
-    isLoading.value = true; // Added isLoading true
+    isLoading.value = true;
     try {
       if (!studentProfileStore.currentStudent) throw new Error("User not authenticated or profile not loaded for voting toggle.");
-      // Service function contains permission checks and Firestore logic
-      await toggleVotingStatusService(eventId, open, studentProfileStore.currentStudent);
+      const currentUser: UserData = {
+        ...studentProfileStore.currentStudent,
+        photoURL: studentProfileStore.currentStudent.photoURL || null
+      };
+      await toggleVotingStatusService(eventId, open, currentUser);
       const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData);
-        notificationStore.showNotification({ message: `Voting is now ${open ? 'OPEN' : 'CLOSED'}.`, type: 'success' });
+      if (updatedEventData) _updateLocalEventLists(updatedEventData);
+      notificationStore.showNotification({ message: `Voting is now ${open ? 'OPEN' : 'CLOSED'}.`, type: 'success' });
     } catch (err) {
-        await _handleOpError(`toggling voting to ${open ? 'open' : 'closed'}`, err, eventId);
+      await _handleOpError(`toggling voting to ${open ? 'open' : 'closed'}`, err, eventId);
     } finally {
-      isLoading.value = false; // Added isLoading false
+      isLoading.value = false;
     }
   }
 
-  async function findWinner(id: string) {
-    actionError.value = null;
-  }
-  
   async function checkDateConflict({ 
     startDate, 
     endDate, 
@@ -643,9 +687,14 @@ export const useEventStore = defineStore('studentEvents', () => {
     
     isLoading.value = true;
     try {
+      // Ensure photoURL is not undefined to match UserData type
+      const currentUser: UserData = {
+        ...studentProfileStore.currentStudent,
+        photoURL: studentProfileStore.currentStudent.photoURL || null
+      };
       // Service function contains all validation and Firestore logic
       // Call the service function
-      const result = await closeEventAndAwardXPService(eventId, studentProfileStore.currentStudent);
+      const result = await closeEventAndAwardXPService(eventId, currentUser);
       
       // Refetch the event to update local state
       const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
@@ -698,6 +747,19 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
+  async function checkExistingPendingRequest(): Promise<boolean> {
+    if (!studentProfileStore.studentId) {
+      console.warn("checkExistingPendingRequest called but user is not logged in.");
+      return false;
+    }
+    try {
+      return await hasPendingRequest(studentProfileStore.studentId);
+    } catch (err) {
+      await _handleOpError("checking for existing pending request", err);
+      return false; // Assume no request on error to avoid blocking user.
+    }
+  }
+
   /**
    * Clear all error states (actionError, fetchError)
    */
@@ -712,10 +774,13 @@ export const useEventStore = defineStore('studentEvents', () => {
     getEventById, currentEventDetails, upcomingEvents, activeEvents, pastEvents,
     fetchEvents, fetchMyEventRequests, fetchEventDetails,
     requestNewEvent, editMyEventRequest, updateEventStatus,
+    deleteEventRequest,
     joinEvent, leaveEvent, submitProject,
     submitTeamCriteriaVote, submitIndividualWinnerVote, submitManualWinnerSelection, submitOrganizationRating,
-    toggleVotingOpen, findWinner, closeEventPermanently, autoGenerateTeams, // Ensure autoGenerateTeams is here
+    toggleVotingOpen,
     checkDateConflict,
+    checkExistingPendingRequest,
+    closeEventPermanently, autoGenerateTeams,
     clearError
   };
 });

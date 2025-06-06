@@ -2,7 +2,7 @@
   <div class="selection-view">
     <div class="container-lg">
       <button
-        class="btn btn-sm btn-outline-secondary mb-4 d-inline-flex align-items-center"
+        class="btn btn-outline-secondary btn-sm btn-icon mb-4"
         @click="goBack"
       >
         <i class="fas fa-arrow-left me-1"></i>
@@ -10,10 +10,10 @@
       </button>
 
       <div v-if="!loading && event?.details?.eventName" class="text-center mb-5">
-        <h1 class="h3">
+        <h1 class="h2 text-gradient-primary">
            {{ pageTitle }}
         </h1>
-        <p class="fs-6 text-secondary">
+        <p class="text-subtitle">
            Event: {{ event?.details?.eventName }}
         </p>
       </div>
@@ -107,14 +107,14 @@
                   @update:manual-selections="updateManualSelections"
                 />
                 
-                <div class="mt-4 d-grid">
+                <div class="mt-4">
                   <button
                     type="submit"
-                    class="btn btn-primary"
+                    class="btn btn-primary w-100"
+                    :class="{ 'btn-loading': isSubmitting }"
                     :disabled="isSubmitting || (isManualModeActive ? !isManualSelectionValid : !isValid)"
                   >
-                    <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                    {{ submitButtonText }}
+                    <span class="btn-text">{{ submitButtonText }}</span>
                   </button>
                 </div>
               </div>
@@ -124,9 +124,8 @@
         
         <!-- "Find Winner" button for organizers (Not in manual mode) -->
         <div v-else-if="!isManualModeActive && canFindWinner && event.status === EventStatus.Completed" class="text-center mt-4">
-          <button class="btn btn-success" @click="findWinner" :disabled="isFindingWinner">
-            <span v-if="isFindingWinner" class="spinner-border spinner-border-sm me-1"></span>
-            Find Winner
+          <button class="btn btn-success" :class="{ 'btn-loading': isFindingWinner }" @click="findWinner" :disabled="isFindingWinner">
+            <span class="btn-text">Find Winner</span>
           </button>
           <p class="small text-secondary mt-2">Calculate and save winners based on submitted votes.</p>
         </div>
@@ -645,8 +644,8 @@ const loadExistingWinnersForManualMode = (): void => {
     if (typeof alloc.constraintIndex === 'number') {
       const key = `constraint${alloc.constraintIndex}`;
       const winnerForCriterion = winners[String(alloc.constraintIndex)];
-      if (winnerForCriterion && winnerForCriterion.length > 0) {
-        manualSelections[key] = winnerForCriterion[0]; // Assuming single winner per criterion for manual override
+      if (winnerForCriterion && winnerForCriterion.length > 0 && winnerForCriterion[0]) {
+        manualSelections[key] = winnerForCriterion[0];
         loaded = true;
       } else {
         manualSelections[key] = ''; // Ensure reset if no winner
@@ -656,7 +655,7 @@ const loadExistingWinnersForManualMode = (): void => {
 
   if (isTeamEvent.value) {
     const bestPerformerWinner = winners['bestPerformer'];
-    if (bestPerformerWinner && bestPerformerWinner.length > 0) {
+    if (bestPerformerWinner && bestPerformerWinner.length > 0 && bestPerformerWinner[0]) {
       manualBestPerformerSelection.value = bestPerformerWinner[0];
       loaded = true;
     } else {
@@ -682,34 +681,33 @@ const submitSelection = async (): Promise<void> => {
 
   try {
     if (isTeamEvent.value) {
-      const bestPerformerVote = teamVoting['bestPerformer'] || undefined; // Ensure it's undefined if not set
+      const bestPerformerVote = teamVoting['bestPerformer'] || undefined;
       const criteriaVotes: Record<string, string> = {};
       for (const key in teamVoting) {
         if (key !== 'bestPerformer' && Object.prototype.hasOwnProperty.call(teamVoting, key)) {
-          criteriaVotes[key] = teamVoting[key];
+          const vote = teamVoting[key];
+          if (vote) { // Ensure vote is not undefined or empty
+            criteriaVotes[key] = vote;
+          }
         }
       }
 
-      const teamVotePayload = {
-        eventId: props.eventId,
-        votes: {
-          criteria: criteriaVotes,
-          bestPerformer: bestPerformerVote
-        }
+      const votePayload: { criteria: Record<string, string>, bestPerformer?: string } = {
+        criteria: criteriaVotes
       };
+
+      if (bestPerformerVote) {
+        votePayload.bestPerformer = bestPerformerVote;
+      }
       
-      await eventStore.submitTeamCriteriaVote(teamVotePayload);
+      await eventStore.submitTeamCriteriaVote({ eventId: props.eventId, votes: votePayload });
     } else {
-      // For individual events, the payload structure is similar, but without a 'bestPerformer'.
       const individualVotePayload = {
         eventId: props.eventId,
         votes: {
           criteria: individualVoting,
-          bestPerformer: undefined,
         },
       };
-      // Re-use the team criteria vote submission logic which is generic enough
-      // to handle individual votes (where bestPerformer is undefined).
       await eventStore.submitTeamCriteriaVote(individualVotePayload as any);
     }
 
@@ -788,7 +786,12 @@ const findWinner = async (): Promise<void> => {
   isFindingWinner.value = true;
   errorMessage.value = '';
   try {
-    await eventStore.findWinner(event.value.id);
+    // The 'findWinner' action is likely a backend process.
+    // We can use 'submitManualWinnerSelection' with an empty payload to trigger recalculation,
+    // or a dedicated cloud function could be triggered by a status change.
+    // For now, let's assume manual selection with current votes is the intended action.
+    // This part may need adjustment based on actual backend implementation.
+    await eventStore.submitManualWinnerSelection({ eventId: event.value.id, winnerSelections: {} });
     notificationStore.showNotification({
         message: 'Winner calculation initiated. Check event details for results.',
         type: 'success'

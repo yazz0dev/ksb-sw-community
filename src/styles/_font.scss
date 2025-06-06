@@ -1,0 +1,530 @@
+// _font.scss - Comprehensive Typography Styles
+
+// Typography Base
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+}
+
+// Heading Styles
+h1, .h1,
+h2, .h2,
+h3, .h3,
+h4, .h4,
+h5, .h5,
+h6, .h6 {
+  font-family: var(--bs-font-sans-serif);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  margin-bottom: 1rem;
+  color: var(--bs-headings-color);
+  
+  // Gradient text effect for headings
+  &.gradient-text {
+    background: linear-gradient(135deg, var(--bs-primary), var(--bs-success));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  // Shadow text effect
+  &.shadow-text {
+    text-shadow: 0 2px 4px rgba(var(--bs-dark-rgb), 0.1);
+  }
+}
+
+h1, .h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+h2, .h2 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+h3, .h3 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+h4, .h4 {
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  font-weight: 600;
+}
+
+h5, .h5 {
+  font-size: clamp(1.1rem, 2vw, 1.25rem);
+  font-weight: 600;
+}
+
+h6, .h6 {
+  font-size: clamp(1rem, 1.5vw, 1.1rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+// Body Text
+p {
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  color: var(--bs-body-color);
+}
+
+// Lead Text
+.lead {
+  font-size: clamp(1.1rem, 2.5vw, 1.25rem);
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--bs-secondary);
+}
+
+// Small Text
+small, .small {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+// Font Weight Utilities
+.fw-100 { font-weight: 100; }
+.fw-200 { font-weight: 200; }
+.fw-300 { font-weight: 300; }
+.fw-400 { font-weight: 400; }
+.fw-500 { font-weight: 500; }
+.fw-600 { font-weight: 600; }
+.fw-700 { font-weight: 700; }
+.fw-800 { font-weight: 800; }
+.fw-900 { font-weight: 900; }
+
+// Font Style Utilities
+.fst-normal { font-style: normal; }
+.fst-italic { font-style: italic; }
+.fst-oblique { font-style: oblique; }
+
+// Text Transform Utilities
+.text-lowercase { text-transform: lowercase; }
+.text-uppercase { text-transform: uppercase; }
+.text-capitalize { text-transform: capitalize; }
+
+// Letter Spacing Utilities
+.letter-spacing-tight { letter-spacing: -0.05em; }
+.letter-spacing-normal { letter-spacing: 0; }
+.letter-spacing-wide { letter-spacing: 0.05em; }
+.letter-spacing-wider { letter-spacing: 0.1em; }
+.letter-spacing-widest { letter-spacing: 0.25em; }
+
+// Line Height Utilities
+.lh-1 { line-height: 1; }
+.lh-sm { line-height: 1.25; }
+.lh-base { line-height: 1.5; }
+.lh-lg { line-height: 1.75; }
+.lh-xl { line-height: 2; }
+
+// Text Color Utilities with Enhanced Variations
+.text-primary-light { color: color-mix(in srgb, var(--bs-primary) 70%, white); }
+.text-primary-dark { color: color-mix(in srgb, var(--bs-primary) 85%, black); }
+.text-secondary-light { color: color-mix(in srgb, var(--bs-secondary) 70%, white); }
+.text-secondary-dark { color: color-mix(in srgb, var(--bs-secondary) 85%, black); }
+.text-success-light { color: color-mix(in srgb, var(--bs-success) 70%, white); }
+.text-success-dark { color: color-mix(in srgb, var(--bs-success) 85%, black); }
+.text-danger-light { color: color-mix(in srgb, var(--bs-danger) 70%, white); }
+.text-danger-dark { color: color-mix(in srgb, var(--bs-danger) 85%, black); }
+.text-warning-light { color: color-mix(in srgb, var(--bs-warning) 70%, white); }
+.text-warning-dark { color: color-mix(in srgb, var(--bs-warning) 85%, black); }
+.text-info-light { color: color-mix(in srgb, var(--bs-info) 70%, white); }
+.text-info-dark { color: color-mix(in srgb, var(--bs-info) 85%, black); }
+
+// Gradient Text Utilities
+.text-gradient-primary {
+  background: linear-gradient(135deg, var(--bs-primary), var(--bs-success));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-secondary {
+  background: linear-gradient(135deg, var(--bs-secondary), var(--bs-info));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-success {
+  background: linear-gradient(135deg, var(--bs-success), var(--bs-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-warning {
+  background: linear-gradient(135deg, var(--bs-warning), var(--bs-danger));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// Text Shadow Utilities
+.text-shadow-none { text-shadow: none; }
+.text-shadow-sm { text-shadow: 0 1px 2px rgba(var(--bs-dark-rgb), 0.1); }
+.text-shadow { text-shadow: 0 2px 4px rgba(var(--bs-dark-rgb), 0.15); }
+.text-shadow-lg { text-shadow: 0 4px 8px rgba(var(--bs-dark-rgb), 0.2); }
+.text-shadow-xl { text-shadow: 0 8px 16px rgba(var(--bs-dark-rgb), 0.25); }
+
+// Text Decoration Utilities
+.text-decoration-underline-offset {
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  text-decoration-thickness: 2px;
+}
+
+.text-decoration-underline-hover {
+  text-decoration: none;
+  transition: text-decoration 0.3s ease;
+  
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+  }
+}
+
+// Typography Variants
+.text-display {
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+}
+
+.text-hero {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.text-subtitle {
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--bs-secondary);
+}
+
+.text-caption {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--bs-secondary);
+}
+
+.text-overline {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--bs-secondary);
+  margin-bottom: 0.5rem;
+}
+
+// Code and Monospace
+code, kbd, samp, pre {
+  font-family: var(--bs-font-monospace);
+  font-size: 0.875em;
+}
+
+code {
+  background: rgba(var(--bs-secondary-rgb), 0.1);
+  padding: 0.125rem 0.25rem;
+  border-radius: var(--bs-border-radius-sm);
+  color: var(--bs-danger);
+  font-weight: 500;
+}
+
+kbd {
+  background: var(--bs-dark);
+  color: var(--bs-white);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--bs-border-radius-sm);
+  font-size: 0.75em;
+  font-weight: 600;
+  box-shadow: 
+    0 2px 0 rgba(var(--bs-dark-rgb), 0.8),
+    0 0 0 1px rgba(var(--bs-white-rgb), 0.1);
+}
+
+pre {
+  background: var(--bs-light);
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  padding: 1rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+// Blockquote Styling
+blockquote {
+  border-left: 4px solid var(--bs-primary);
+  padding-left: 1.5rem;
+  margin: 2rem 0;
+  font-style: italic;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--bs-secondary);
+  
+  footer {
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+    margin-top: 0.5rem;
+    
+    &::before {
+      content: "— ";
+    }
+  }
+}
+
+// List Styling
+ul, ol {
+  padding-left: 1.5rem;
+  
+  li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+  }
+}
+
+.list-unstyled {
+  padding-left: 0;
+  list-style: none;
+}
+
+.list-inline {
+  padding-left: 0;
+  list-style: none;
+  
+  li {
+    display: inline-block;
+    margin-right: 0.5rem;
+    margin-bottom: 0;
+  }
+}
+
+// Custom List Styles
+.list-checkmark {
+  list-style: none;
+  padding-left: 0;
+  
+  li {
+    position: relative;
+    padding-left: 2rem;
+    margin-bottom: 0.75rem;
+    
+    &::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: var(--bs-success);
+      font-weight: 700;
+      font-size: 1.1em;
+    }
+  }
+}
+
+.list-arrow {
+  list-style: none;
+  padding-left: 0;
+  
+  li {
+    position: relative;
+    padding-left: 2rem;
+    margin-bottom: 0.75rem;
+    
+    &::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: var(--bs-primary);
+      font-weight: 700;
+    }
+  }
+}
+
+// Text Alignment with Responsive Breakpoints
+@each $breakpoint in map-keys($grid-breakpoints) {
+  @include media-breakpoint-up($breakpoint) {
+    $infix: breakpoint-infix($breakpoint, $grid-breakpoints);
+    
+    .text#{$infix}-start { text-align: left; }
+    .text#{$infix}-end { text-align: right; }
+    .text#{$infix}-center { text-align: center; }
+    .text#{$infix}-justify { text-align: justify; }
+  }
+}
+
+// Reading Experience Enhancements
+.text-readable {
+  max-width: 65ch;
+  line-height: 1.7;
+  font-size: 1.1rem;
+}
+
+.text-article {
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: var(--bs-dark);
+  
+  p {
+    margin-bottom: 1.5rem;
+  }
+  
+  h2, h3, h4, h5, h6 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+}
+
+// Truncation Utilities
+.text-truncate-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.text-truncate-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Animation Classes for Text
+.text-animate-fade-in {
+  animation: textFadeIn 0.6s ease-out forwards;
+}
+
+.text-animate-slide-up {
+  animation: textSlideUp 0.8s ease-out forwards;
+}
+
+.text-animate-bounce {
+  animation: textBounce 1s ease-out;
+}
+
+@keyframes textFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes textSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes textBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+}
+
+// Responsive Typography
+@media (max-width: 768px) {
+  h1, .h1 { font-size: 2rem; }
+  h2, .h2 { font-size: 1.75rem; }
+  h3, .h3 { font-size: 1.5rem; }
+  
+  .text-display { font-size: 3rem; }
+  .text-hero { font-size: 2.5rem; }
+  
+  .text-readable {
+    font-size: 1rem;
+  }
+  
+  .text-article {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+}
+
+@media (max-width: 576px) {
+  h1, .h1 { font-size: 1.75rem; }
+  h2, .h2 { font-size: 1.5rem; }
+  h3, .h3 { font-size: 1.25rem; }
+  
+  .text-display { font-size: 2.5rem; }
+  .text-hero { font-size: 2rem; }
+  
+  blockquote {
+    font-size: 1rem;
+    padding-left: 1rem;
+    border-left-width: 3px;
+  }
+}
+
+// Accessibility
+@media (prefers-reduced-motion: reduce) {
+  .text-animate-fade-in,
+  .text-animate-slide-up,
+  .text-animate-bounce {
+    animation: none;
+  }
+}
+
+// High contrast mode
+@media (prefers-contrast: high) {
+  .text-gradient-primary,
+  .text-gradient-secondary,
+  .text-gradient-success,
+  .text-gradient-warning {
+    background: none;
+    -webkit-background-clip: unset;
+    -webkit-text-fill-color: unset;
+    background-clip: unset;
+    color: var(--bs-primary);
+  }
+  
+  .text-shadow,
+  .text-shadow-sm,
+  .text-shadow-lg,
+  .text-shadow-xl {
+    text-shadow: none;
+  }
+}

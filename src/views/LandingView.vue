@@ -5,7 +5,7 @@
       <div class="container-xl text-center px-3 px-md-4">
         <transition name="fade-slide-down">
           <div>
-            <h1 class="display-4 display-md-3 fw-bold text-gradient mb-3 mb-md-4">
+            <h1 class="text-hero fw-bolder text-gradient-primary mb-3 mb-md-4">
               Welcome to the <span class="brand-highlight">KSB Tech Community!</span>
             </h1>
             <p class="lead text-secondary mb-3 mb-md-4 mx-auto" style="max-width: 40rem;">
@@ -13,7 +13,7 @@
             </p>
             <router-link
               to="/login"
-              class="btn btn-lg btn-primary px-4 px-md-5 py-2 shadow animate-pop d-inline-flex align-items-center justify-content-center gap-2"
+              class="btn btn-primary btn-lg btn-icon animate-pop"
             >
               <i class="fas fa-sign-in-alt"></i>
               <span>Log In to Get Started</span>
@@ -33,7 +33,7 @@
                 <span :class="['feature-icon', getIconColorClass(feature.color)]">
                   <i :class="['fas', feature.icon]" aria-hidden="true"></i>
                 </span>
-                <h5 class="card-title mt-2 mb-1 mt-md-3 mb-md-2 fw-semibold mobile-title">{{ feature.title }}</h5>
+                <h5 class="card-title mt-2 mb-1 mt-md-3 mb-md-2 mobile-title">{{ feature.title }}</h5>
                 <p class="card-text text-secondary mobile-text">{{ feature.text }}</p>
               </div>
             </div>
@@ -61,9 +61,9 @@
                 <div class="info-cards">
                   <div class="card info-card mb-3 animate-pop" style="animation-delay: 200ms;">
                     <div class="card-body p-3">
-                      <h6 class="card-title text-primary mb-2">
+                      <p class="fw-bold text-primary mb-2">
                         <i class="fas fa-rocket me-2"></i>What We Offer
-                      </h6>
+                      </p>
                       <ul class="list-unstyled small mb-0">
                         <li class="mb-1"><i class="fas fa-check-circle text-success me-2"></i>Hackathons & coding challenges</li>
                         <li class="mb-1"><i class="fas fa-check-circle text-success me-2"></i>Industry-focused workshops</li>
@@ -75,9 +75,9 @@
                   
                   <div class="card info-card animate-pop" style="animation-delay: 400ms;">
                     <div class="card-body p-3">
-                      <h6 class="card-title text-primary mb-2">
+                      <p class="fw-bold text-primary mb-2">
                         <i class="fas fa-map-signs me-2"></i>Your Journey
-                      </h6>
+                      </p>
                       <div class="journey-steps">
                         <div class="step-item d-flex align-items-center mb-2">
                           <span class="step-number">1</span>
@@ -107,7 +107,7 @@
             <transition name="fade-slide-left">
               <div class="about-content h-100 d-flex flex-column justify-content-center">
                 <div class="about-header mb-4">
-                  <h2 class="display-6 fw-bold text-primary mb-3">
+                  <h2 class="h2 fw-bold text-primary mb-3">
                     Empowering <span class="brand-highlight">MCA Students</span> Through Technology
                   </h2>
                   <p class="lead text-secondary mb-4">
@@ -121,7 +121,7 @@
                       <div class="pillar-icon mb-1 mb-md-2">
                         <i class="fas fa-code text-primary"></i>
                       </div>
-                      <h5 class="h6 fw-bold mb-1 mb-md-2 mobile-title">Real-World Experience</h5>
+                      <h5 class="fw-bold mb-1 mb-md-2 mobile-title">Real-World Experience</h5>
                       <p class="small text-secondary mb-0 mobile-text">Build production-ready applications with cutting-edge technologies.</p>
                     </div>
                   </div>
@@ -130,7 +130,7 @@
                       <div class="pillar-icon mb-1 mb-md-2">
                         <i class="fas fa-users text-info"></i>
                       </div>
-                      <h5 class="h6 fw-bold mb-1 mb-md-2">Collaborative Growth</h5>
+                      <h5 class="fw-bold mb-1 mb-md-2">Collaborative Growth</h5>
                       <p class="small text-secondary mb-0">Learn from peers, share knowledge, and develop essential teamwork skills through guided mentorship.</p>
                     </div>
                   </div>
@@ -139,7 +139,7 @@
                       <div class="pillar-icon mb-1 mb-md-2">
                         <i class="fas fa-briefcase text-success"></i>
                       </div>
-                      <h5 class="h6 fw-bold mb-1 mb-md-2">Career Readiness</h5>
+                      <h5 class="fw-bold mb-1 mb-md-2">Career Readiness</h5>
                       <p class="small text-secondary mb-0">Build a compelling portfolio and develop skills that employers actively seek in the tech industry.</p>
                     </div>
                   </div>
@@ -148,7 +148,7 @@
                       <div class="pillar-icon mb-1 mb-md-2">
                         <i class="fas fa-trophy text-warning"></i>
                       </div>
-                      <h5 class="h6 fw-bold mb-1 mb-md-2">Recognition System</h5>
+                      <h5 class="fw-bold mb-1 mb-md-2">Recognition System</h5>
                       <p class="small text-secondary mb-0">Earn XP, climb leaderboards, and receive recognition for your contributions and achievements.</p>
                     </div>
                   </div>
@@ -209,7 +209,7 @@
                       <i class="fab fa-github fa-lg"></i>
                     </a>
                   </div>
-                  <router-link to="/transparency" class="btn btn-outline-primary btn-sm">
+                  <router-link to="/transparency" class="btn btn-outline-primary btn-sm btn-icon">
                     <i class="fas fa-eye me-2"></i> Community Transparency
                   </router-link>
                 </div>
@@ -695,9 +695,6 @@ const getIconColorClass = (color: Feature['color']): string => {
   transform: none;
 }
 
-/* Utility */
-.text-decoration-underline-hover:hover {
-  text-decoration: underline;
-}
+/* Utility .text-decoration-underline-hover:hover is defined globally in main.scss */
 </style>
 

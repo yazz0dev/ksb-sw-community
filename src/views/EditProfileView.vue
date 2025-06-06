@@ -5,7 +5,7 @@
       <!-- Back Button - Styled like ProfileView -->
       <div class="mb-4">
         <button
-          class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
+          class="btn btn-outline-secondary btn-sm btn-icon"
           @click="router.back()"
         >
           <i class="fas fa-arrow-left me-1"></i>
@@ -16,7 +16,7 @@
       <!-- Header -->
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-4 border-bottom">
         <div>
-          <h2 class="h2 text-primary mb-2 d-inline-flex align-items-center">
+          <h2 class="h2 text-gradient-primary mb-2 d-inline-flex align-items-center">
             <i class="fas fa-edit me-2"></i>Edit Profile
           </h2>
         </div>
@@ -106,10 +106,10 @@
                   <button
                     type="submit"
                     class="btn btn-primary"
+                    :class="{ 'btn-loading': loading }"
                     :disabled="loading || !isFormValid"
                   >
-                    <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
-                    {{ loading ? 'Saving...' : 'Save Changes' }}
+                    <span class="btn-text">Save Changes</span>
                   </button>
                 </div>
               </form>
@@ -209,6 +209,13 @@ async function saveProfileEdits() {
   error.value = '';
 
   try {
+    // Debug authentication state
+    console.log('=== Profile Update Debug Info ===');
+    console.log('studentStore.studentId:', studentStore.studentId);
+    console.log('studentStore.isAuthenticated:', studentStore.isAuthenticated);
+    console.log('studentStore.currentStudent?.uid:', studentStore.currentStudent?.uid);
+    console.log('studentStore.currentStudent:', studentStore.currentStudent);
+
     // Ensure user is authenticated
     if (!studentStore.studentId) {
       throw new Error('You must be logged in to update your profile');
@@ -291,17 +298,506 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Main Container */
 .profile-section {
-  background-color: var(--bs-body-bg);
+  background: linear-gradient(135deg, 
+    var(--bs-body-tertiary-bg) 0%, 
+    rgba(var(--bs-primary-rgb), 0.02) 50%,
+    var(--bs-body-bg) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(var(--bs-primary-rgb), 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(var(--bs-success-rgb), 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container-lg {
+  position: relative;
+  z-index: 1;
+}
+
+/* Header Section */
+.border-bottom {
+  border-color: rgba(var(--bs-border-color-translucent), 0.6) !important;
+  position: relative;
+}
+
+.border-bottom::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--bs-primary), var(--bs-success));
+  border-radius: 2px;
+  animation: slideInLeft 0.6s ease-out;
+}
+
+.h2 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--bs-primary), var(--bs-success));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  position: relative;
+}
+
+/* Error Alert */
+.alert-danger {
+  background: linear-gradient(135deg, 
+    rgba(var(--bs-danger-rgb), 0.08) 0%, 
+    rgba(var(--bs-danger-rgb), 0.04) 100%);
+  border: none;
+  border-left: 4px solid var(--bs-danger);
+  border-radius: var(--bs-border-radius-lg);
+  box-shadow: 0 4px 15px rgba(var(--bs-danger-rgb), 0.1);
+  animation: slideInDown 0.5s ease-out;
+}
+
+/* Card Styling */
+.card {
+  background: linear-gradient(145deg, 
+    var(--bs-white) 0%, 
+    rgba(var(--bs-light-rgb), 0.3) 100%);
+  border: 1px solid rgba(var(--bs-border-color-translucent), 0.6);
+  border-radius: var(--bs-border-radius-xl);
+  box-shadow: 
+    0 10px 30px rgba(var(--bs-dark-rgb), 0.08),
+    0 4px 8px rgba(var(--bs-dark-rgb), 0.04);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+  animation: slideInUp 0.6s ease-out;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, 
+    var(--bs-primary) 0%, 
+    var(--bs-success) 50%, 
+    var(--bs-info) 100%);
+  opacity: 0.8;
+}
+
+.card-body {
+  background: rgba(var(--bs-white-rgb), 0.9);
+  backdrop-filter: blur(20px);
+}
+
+/* Form Elements */
+.form-label {
+  font-weight: 600;
+  color: var(--bs-dark);
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+  position: relative;
+  transition: color 0.3s ease;
 }
 
 .required::after {
   content: "*";
   color: var(--bs-danger);
-  margin-left: 0.2rem;
+  margin-left: 0.25rem;
+  font-weight: 700;
+  animation: pulse 2s infinite;
 }
 
-/* The .min-vh-100-subtract-nav class is now defined globally in main.scss */
-/* This ensures consistency and uses the correct CSS variables for navbar heights. */
+.form-control, 
+.form-select {
+  border: 2px solid rgba(var(--bs-border-color-translucent), 0.6);
+  border-radius: var(--bs-border-radius-lg);
+  padding: 0.875rem 1rem;
+  font-size: 0.95rem;
+  background: rgba(var(--bs-white-rgb), 0.8);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
 
+.form-control:focus, 
+.form-select:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 
+    0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.15),
+    0 4px 12px rgba(var(--bs-primary-rgb), 0.1);
+  background: var(--bs-white);
+  transform: translateY(-2px);
+}
+
+.form-control:hover:not(:focus):not(:disabled),
+.form-select:hover:not(:focus):not(:disabled) {
+  border-color: rgba(var(--bs-primary-rgb), 0.6);
+  transform: translateY(-1px);
+}
+
+.form-control::placeholder {
+  color: var(--bs-secondary);
+  font-style: italic;
+  transition: opacity 0.3s ease;
+}
+
+.form-control:focus::placeholder {
+  opacity: 0.7;
+}
+
+/* Input Group Styling */
+.input-group-text {
+  background: linear-gradient(135deg, 
+    var(--bs-light) 0%, 
+    rgba(var(--bs-primary-rgb), 0.05) 100%);
+  border: 2px solid rgba(var(--bs-border-color-translucent), 0.6);
+  border-right: none;
+  color: var(--bs-primary);
+  font-weight: 600;
+  border-radius: var(--bs-border-radius-lg) 0 0 var(--bs-border-radius-lg);
+}
+
+.input-group .form-control {
+  border-left: none;
+  border-radius: 0 var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0;
+}
+
+.input-group:focus-within .input-group-text {
+  border-color: var(--bs-primary);
+  background: linear-gradient(135deg, 
+    rgba(var(--bs-primary-rgb), 0.1) 0%, 
+    rgba(var(--bs-primary-rgb), 0.05) 100%);
+}
+
+/* Form Text */
+.form-text {
+  font-size: 0.85rem;
+  color: var(--bs-secondary);
+  margin-top: 0.5rem;
+  font-style: italic;
+  transition: color 0.3s ease;
+}
+
+.form-control:focus + .form-text,
+.input-group:focus-within + .form-text {
+  color: var(--bs-primary);
+}
+
+/* Checkbox Styling */
+.form-check {
+  padding: 1rem;
+  background: rgba(var(--bs-light-rgb), 0.4);
+  border-radius: var(--bs-border-radius-lg);
+  border: 1px solid rgba(var(--bs-border-color-translucent), 0.3);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.form-check:hover {
+  background: rgba(var(--bs-primary-rgb), 0.05);
+  border-color: rgba(var(--bs-primary-rgb), 0.3);
+}
+
+.form-check-input {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--bs-border-color);
+  transition: all 0.3s ease;
+}
+
+.form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+.form-check-label {
+  font-weight: 500;
+  margin-left: 0.5rem;
+  color: var(--bs-dark);
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.form-check:hover .form-check-label {
+  color: var(--bs-primary);
+}
+
+/* Button Styling */
+.btn {
+  border-radius: var(--bs-border-radius-lg);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.75rem 2rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  border-width: 2px;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.2), 
+    transparent);
+  transition: left 0.5s ease;
+  z-index: 1;
+}
+
+.btn:hover::before {
+  left: 100%;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, 
+    var(--bs-primary) 0%, 
+    var(--bs-primary-dark, var(--bs-primary)) 100%);
+  border-color: var(--bs-primary);
+  box-shadow: 0 4px 15px rgba(var(--bs-primary-rgb), 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(var(--bs-primary-rgb), 0.4);
+  background: linear-gradient(135deg, 
+    var(--bs-primary-dark, var(--bs-primary)) 0%, 
+    var(--bs-primary) 100%);
+}
+
+.btn-light {
+  background: linear-gradient(135deg, 
+    var(--bs-light) 0%, 
+    rgba(var(--bs-secondary-rgb), 0.1) 100%);
+  border-color: var(--bs-border-color);
+  color: var(--bs-dark);
+  box-shadow: 0 2px 8px rgba(var(--bs-dark-rgb), 0.1);
+}
+
+.btn-light:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(var(--bs-dark-rgb), 0.15);
+  background: linear-gradient(135deg, 
+    rgba(var(--bs-secondary-rgb), 0.1) 0%, 
+    var(--bs-light) 100%);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  transform: none;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn:disabled::before {
+  display: none;
+}
+
+/* Spinner */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15em;
+}
+
+/* Button Gap */
+.gap-2 {
+  gap: 1rem !important;
+}
+
+/* Back Button */
+.btn-outline-secondary {
+  border-color: rgba(var(--bs-secondary-rgb), 0.5);
+  color: var(--bs-secondary);
+  background: rgba(var(--bs-white-rgb), 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.btn-outline-secondary:hover {
+  background: var(--bs-secondary);
+  border-color: var(--bs-secondary);
+  color: var(--bs-white);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--bs-secondary-rgb), 0.3);
+}
+
+/* Validation States */
+.is-invalid {
+  border-color: var(--bs-danger) !important;
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-danger-rgb), 0.15) !important;
+  animation: shake 0.5s ease-in-out;
+}
+
+.invalid-feedback {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-top: 0.5rem;
+  animation: slideInUp 0.3s ease-out;
+}
+
+/* Animations */
+@keyframes slideInLeft {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 60px;
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .card-body {
+    padding: 1.5rem !important;
+  }
+  
+  .btn {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .gap-2 {
+    gap: 0.75rem !important;
+  }
+  
+  .form-control, 
+  .form-select {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.9rem;
+  }
+  
+  .h2 {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .profile-section {
+    padding: 1rem 0 3rem 0 !important;
+  }
+  
+  .card-body {
+    padding: 1rem !important;
+  }
+  
+  .btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  
+  .d-flex.justify-content-end {
+    flex-direction: column-reverse;
+  }
+  
+  .gap-2 {
+    gap: 0.5rem !important;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .btn,
+  .form-control,
+  .form-select,
+  .form-check {
+    transition: none;
+  }
+  
+  .btn:hover,
+  .form-control:focus,
+  .form-control:hover {
+    transform: none;
+  }
+  
+  @keyframes slideInLeft,
+  @keyframes slideInDown,
+  @keyframes slideInUp,
+  @keyframes pulse,
+  @keyframes shake {
+    animation: none;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .card {
+    border: 2px solid var(--bs-dark);
+  }
+  
+  .form-control,
+  .form-select {
+    border: 2px solid var(--bs-dark);
+  }
+  
+  .btn {
+    border-width: 2px;
+  }
+}
 </style>

@@ -1,21 +1,21 @@
 <template>
-  <div class="d-flex align-items-center justify-content-center py-5" style="min-height: calc(100vh - 120px);">
+  <div class="d-flex align-items-center justify-content-center py-5 forgot-password-bg">
     <div class="container container-sm">
       <div class="text-center mb-5">
-        <h2 class="h2 fw-bold text-primary">
+        <h2 class="h2 fw-bold text-gradient-primary">
           {{ viewState === 'reset' ? 'Reset Your Password' : 'Forgot Your Password?' }}
         </h2>
       </div>
 
-      <div class="card shadow-sm border-0" style="max-width: 450px; margin: 0 auto; background-color: var(--bs-tertiary-bg);">
+      <div class="card shadow-sm border-0" style="max-width: 450px; margin: 0 auto;">
          <div class="card-body p-4 p-md-5">
-            <p v-if="viewState === 'request'" class="small text-center text-secondary mb-4">
+            <p v-if="viewState === 'request'" class="text-subtitle text-center mb-4">
               Enter your email address and we will send you a link to reset your password.
             </p>
-            <p v-if="viewState === 'reset'" class="small text-center text-secondary mb-4">
+            <p v-if="viewState === 'reset'" class="text-subtitle text-center mb-4">
               Enter your new password below.
             </p>
-            <p v-if="viewState === 'success'" class="small text-center text-secondary mb-4">
+            <p v-if="viewState === 'success'" class="text-subtitle text-center mb-4">
               Your password has been successfully reset.
             </p>
 
@@ -26,7 +26,7 @@
             <!-- Request Reset Form -->
             <form @submit.prevent="handleSendResetEmail" v-if="viewState === 'request'">
               <div class="mb-3">
-                <label for="email" class="form-label small">Email Address</label>
+                <label for="email" class="form-label">Email Address</label>
                 <div class="input-group">
                   <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                   <input
@@ -41,14 +41,14 @@
                 </div>
               </div>
 
-              <div class="d-grid mt-4">
+              <div class="mt-4">
                 <button
                   type="submit"
-                  class="btn btn-primary"
+                  class="btn btn-primary w-100"
+                  :class="{ 'btn-loading': isLoading }"
                   :disabled="isLoading"
                 >
-                  <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                  {{ isLoading ? 'Sending...' : 'Send Reset Link' }}
+                  <span class="btn-text">{{ isLoading ? 'Sending...' : 'Send Reset Link' }}</span>
                 </button>
               </div>
             </form>
@@ -56,7 +56,7 @@
             <!-- Reset Password Form -->
             <form @submit.prevent="handleResetPassword" v-if="viewState === 'reset'">
               <div class="mb-3">
-                <label for="newPassword" class="form-label small">New Password</label>
+                <label for="newPassword" class="form-label">New Password</label>
                 <div class="input-group has-validation">
                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
                   <input
@@ -77,7 +77,7 @@
               </div>
 
               <div class="mb-3">
-                <label for="confirmPassword" class="form-label small">Confirm Password</label>
+                <label for="confirmPassword" class="form-label">Confirm Password</label>
                  <div class="input-group has-validation">
                     <span class="input-group-text"><i class="fas fa-lock"></i></span>
                     <input
@@ -96,14 +96,14 @@
                 </div>
               </div>
 
-              <div class="d-grid mt-4">
+              <div class="mt-4">
                 <button
                   type="submit"
-                  class="btn btn-primary"
+                  class="btn btn-primary w-100"
+                  :class="{ 'btn-loading': isLoading }"
                   :disabled="isLoading || newPassword !== confirmPassword || newPassword.length < 6"
                 >
-                  <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                  {{ isLoading ? 'Resetting...' : 'Reset Password' }}
+                  <span class="btn-text">{{ isLoading ? 'Resetting...' : 'Reset Password' }}</span>
                 </button>
               </div>
             </form>
@@ -113,7 +113,7 @@
               <router-link
                 v-if="viewState !== 'success'"
                 to="/login"
-                class="btn btn-link btn-sm text-secondary text-decoration-none"
+                class="btn btn-link btn-sm text-secondary text-decoration-none btn-icon"
               >
                  <i class="fas fa-arrow-left me-1"></i>
                  <span>Back to Login</span>
@@ -282,4 +282,11 @@ const handleResetPassword = async () => {
   }
 };
 </script>
+
+<style scoped>
+.forgot-password-bg {
+  min-height: 100vh;
+  background-color: var(--bs-light);
+}
+</style>
 

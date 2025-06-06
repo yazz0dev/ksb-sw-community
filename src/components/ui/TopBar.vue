@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-2 px-3 fixed-top">
+  <nav ref="navbarRef" class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-2 px-3 fixed-top">
     <div class="container-fluid">
       <router-link class="navbar-brand fw-bold text-primary" :to="brandLinkTarget">
         <span>KSB Tech Community</span>
@@ -17,7 +17,7 @@
         <span class="navbar-toggler-icon"></span>
       </button>
 
-      <div class="collapse navbar-collapse" id="navbarNav">
+      <div class="collapse navbar-collapse" id="navbarNav" ref="navbarCollapseRef">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item" v-if="isAuthenticated">
             <router-link class="nav-link" :to="{ name: 'Home' }" @click="closeNavbar">Home</router-link>
@@ -79,7 +79,7 @@
 
           <template v-if="isAuthenticated">
             <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <a ref="userDropdownRef" class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="fas fa-user-circle me-1"></i>
                 <span>{{ userName }}</span>
               </a>
@@ -111,8 +111,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { Collapse } from 'bootstrap';
 
 const props = defineProps<{
   isAuthenticated: boolean;
@@ -126,30 +127,28 @@ const emit = defineEmits<{
 const router = useRouter();
 const route = useRoute();
 
+// Template refs
+const navbarRef = ref<HTMLElement | null>(null);
+const navbarCollapseRef = ref<HTMLElement | null>(null);
+const userDropdownRef = ref<HTMLAnchorElement | null>(null);
+
+// Bootstrap instances
+let collapseInstance: Collapse | null = null;
+
 // Check if current route is Landing or Login page
 const isLandingOrLoginPage = computed(() => {
   return route.name === 'Landing' || route.path === '/login' || route.name === 'Login';
 });
 
-// Compute button class based on variant
+// Compute brand link target based on auth state
 const brandLinkTarget = computed(() => {
   return props.isAuthenticated ? { name: 'Home' } : { name: 'Landing' };
 });
 
 const closeNavbar = () => {
-  try {
-    const toggler = document.querySelector('.navbar-toggler') as HTMLElement | null;
-    if (toggler && window.getComputedStyle(toggler).display !== 'none') {
-      toggler.click();
-    } else {
-      const navbarContent = document.getElementById('navbarNav');
-      if (navbarContent?.classList.contains('show') && window.bootstrap?.Collapse) {
-        const bsCollapse = window.bootstrap.Collapse.getInstance(navbarContent);
-        bsCollapse?.hide();
-      }
-    }
-  } catch (error) {
-    // Optionally handle or log the error differently if needed
+  // Check if the collapse instance exists and the element is currently shown
+  if (collapseInstance && navbarCollapseRef.value?.classList.contains('show')) {
+    collapseInstance.hide();
   }
 };
 
@@ -159,41 +158,55 @@ const handleLogout = () => {
 };
 
 onMounted(() => {
-  const collapseEl = document.getElementById('navbarNav');
-  const toggler = document.querySelector('.navbar-toggler');
-  if (!collapseEl || !toggler || !window.bootstrap?.Collapse) return;
-  
-  const bsCollapse = window.bootstrap.Collapse.getInstance(collapseEl)
-    || new window.bootstrap.Collapse(collapseEl, { toggle: false });
+  // Initialize collapse instance from the imported module
+  if (navbarCollapseRef.value) {
+    collapseInstance = new Collapse(navbarCollapseRef.value, {
+      toggle: false,
+    });
+  }
 
-  const outsideClickHandler = (e: MouseEvent | TouchEvent) => {
-    if (window.innerWidth < 992 && collapseEl.classList.contains('show')
-      && !collapseEl.contains(e.target as Node)
-      && !toggler.contains(e.target as Node)) {
-      bsCollapse.hide();
+  // Initialize dropdown instance from the imported module
+  if (userDropdownRef.value) {
+  }
+
+  // --- Event Listeners for reliably closing the mobile navbar ---
+
+  // 1. Close on outside click. Using capture phase to catch clicks before they are stopped.
+  const handleDocumentClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (navbarCollapseRef.value?.classList.contains('show')) {
+      // If click is outside the entire navbar component, close it.
+      if (!navbarRef.value?.contains(target)) {
+        closeNavbar();
+      }
     }
   };
-  document.addEventListener('mousedown', outsideClickHandler, true);
-  document.addEventListener('touchstart', outsideClickHandler, true);
 
-  const escapeKeyHandler = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && window.innerWidth < 992 && collapseEl.classList.contains('show')) {
+  // 2. Close on 'Escape' key press
+  const handleEscapeKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && navbarCollapseRef.value?.classList.contains('show')) {
       closeNavbar();
     }
   };
-  document.addEventListener('keydown', escapeKeyHandler, true);
 
+  // 3. Close on route change
   const removeAfterEach = router.afterEach(() => {
-    if (window.innerWidth < 992 && collapseEl.classList.contains('show')) {
-      bsCollapse.hide();
-    }
+    closeNavbar();
   });
 
+  // Add event listeners
+  document.addEventListener('click', handleDocumentClick, true);
+  document.addEventListener('keydown', handleEscapeKey, true);
+
   onUnmounted(() => {
-    document.removeEventListener('mousedown', outsideClickHandler, true);
-    document.removeEventListener('touchstart', outsideClickHandler, true);
-    document.removeEventListener('keydown', escapeKeyHandler, true);
+    // Clean up event listeners to prevent memory leaks
+    document.removeEventListener('click', handleDocumentClick, true);
+    document.removeEventListener('keydown', handleEscapeKey, true);
     removeAfterEach();
+
+    // It is generally not recommended to dispose bootstrap instances in Vue,
+    // as it can interfere with HMR and Vue's patching algorithm.
+    // Removing event listeners is the most crucial part of cleanup.
   });
 });
 </script>

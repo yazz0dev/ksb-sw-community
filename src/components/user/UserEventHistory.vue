@@ -48,18 +48,16 @@
               <div class="event-title-container flex-grow-1">
                 <router-link
                   v-if="eventItem.eventId"
-                  :to="{ name: 'EventDetails', params: { id: eventItem.eventId } }" 
+                  :to="`/event/${eventItem.eventId}`" 
                   class="event-title text-decoration-none fw-semibold text-dark hover-primary"
                 >
                   {{ eventItem.eventName || 'Unnamed Event' }}
                 </router-link>
                 <span 
                   v-else 
-                  class="event-title text-muted fw-semibold" 
-                  :title="`Event ID missing for: ${eventItem.eventName}`"
+                  class="event-title fw-semibold text-dark"
                 >
                   {{ eventItem.eventName || 'Unnamed Event' }}
-                  <small class="text-secondary">(Link unavailable)</small>
                 </span>
               </div>
             </div>
@@ -73,15 +71,6 @@
               class="meta-badge badge bg-secondary-subtle text-secondary-emphasis rounded-pill"
             >
               <i class="fas fa-users me-1"></i>{{ formatEventFormat(eventItem.eventFormat) }}
-            </span>
-            
-            <!-- Event Status -->
-            <span
-              class="status-badge badge rounded-pill"
-              :class="getEventStatusBadgeClass(eventItem.eventStatus)" 
-            >
-              <i class="fas fa-circle me-1" style="font-size: 0.5rem;"></i>
-              {{ eventItem.eventStatus }}
             </span>
             
             <!-- Organizer Badge -->
@@ -117,7 +106,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { formatISTDate } from '@/utils/dateTime';
-import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { EventFormat } from '@/types/event';
 import { type StudentEventHistoryItem } from '@/types/student';
 

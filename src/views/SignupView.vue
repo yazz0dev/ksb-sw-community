@@ -10,8 +10,8 @@
                   <div class="signup-icon mb-2">
                     <i class="fas fa-user-plus fa-3x text-primary"></i>
                   </div>
-                  <h2 class="h3 fw-bold text-primary mb-1">Student Registration</h2>
-                  <p class="text-secondary small mb-0">
+                  <h2 class="h3 fw-bold gradient-text mb-1">Student Registration</h2>
+                  <p class="text-subtitle mb-0">
                     Join KSB Tech Community - Batch {{ batchYear || 'Unknown' }}
                   </p>
                 </div>
@@ -35,16 +35,16 @@
                   <i class="fas fa-exclamation-triangle me-2"></i>
                   <strong>Invalid Registration Link</strong>
                   <p class="mb-0 mt-2 small">
-                    This registration link is invalid or has expired. Please contact your administrator for a new link.
+                    This registration link is invalid or has expired. Please contact your admin for a new link.
                   </p>
                 </div>
 
                 <!-- Registration Form -->
                 <form v-if="!submissionSuccess && !invalidLink" @submit.prevent="submitRegistration" autocomplete="on">
                   <div class="mb-3">
-                    <label for="fullName" class="form-label small">Full Name <span class="text-danger">*</span></label>
+                    <label for="fullName" class="form-label">Full Name <span class="text-danger">*</span></label>
                     <div class="input-group">
-                      <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
+                      <span class="input-group-text"><i class="fas fa-user"></i></span>
                       <input
                         id="fullName"
                         class="form-control"
@@ -59,9 +59,9 @@
                   </div>
 
                   <div class="mb-3">
-                    <label for="email" class="form-label small">Email Address <span class="text-danger">*</span></label>
+                    <label for="email" class="form-label">Email Address <span class="text-danger">*</span></label>
                     <div class="input-group">
-                      <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
+                      <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                       <input
                         id="email"
                         class="form-control"
@@ -76,9 +76,9 @@
                   </div>
 
                   <div class="mb-3">
-                    <label for="studentId" class="form-label small">Student ID <span class="text-danger">*</span></label>
+                    <label for="studentId" class="form-label">Student ID <span class="text-danger">*</span></label>
                     <div class="input-group">
-                      <span class="input-group-text bg-light"><i class="fas fa-id-card"></i></span>
+                      <span class="input-group-text"><i class="fas fa-id-card"></i></span>
                       <input
                         id="studentId"
                         class="form-control"
@@ -93,9 +93,9 @@
                   </div>
 
                   <div class="mb-3">
-                    <label for="batchYearConfirm" class="form-label small">Batch Year Confirmation <span class="text-danger">*</span></label>
+                    <label for="batchYearConfirm" class="form-label">Batch Year Confirmation <span class="text-danger">*</span></label>
                     <div class="input-group">
-                      <span class="input-group-text bg-light"><i class="fas fa-calendar"></i></span>
+                      <span class="input-group-text"><i class="fas fa-calendar"></i></span>
                       <input
                         id="batchYearConfirm"
                         class="form-control"
@@ -114,7 +114,7 @@
                   </div>
 
                   <div class="mb-3">
-                    <label for="hasLaptop" class="form-label small">Do you have a laptop? <span class="text-danger">*</span></label>
+                    <label for="hasLaptop" class="form-label">Do you have a laptop? <span class="text-danger">*</span></label>
                     <div class="form-check">
                       <input
                         id="hasLaptopYes"
@@ -148,9 +148,9 @@
                   </div>
 
                   <div class="mb-3">
-                    <label for="skills" class="form-label small">Skills (Optional)</label>
+                    <label for="skills" class="form-label">Skills (Optional)</label>
                     <div class="input-group">
-                      <span class="input-group-text bg-light"><i class="fas fa-code"></i></span>
+                      <span class="input-group-text"><i class="fas fa-code"></i></span>
                       <input
                         id="skills"
                         class="form-control"
@@ -166,7 +166,7 @@
                   </div>
 
                   <div class="mb-3">
-                    <label for="bio" class="form-label small">Bio (Optional)</label>
+                    <label for="bio" class="form-label">Bio (Optional)</label>
                     <textarea
                       id="bio"
                       class="form-control"
@@ -191,7 +191,7 @@
                         required
                         :disabled="isLoading"
                       />
-                      <label class="form-check-label small" for="agreeTerms">
+                      <label class="form-check-label" for="agreeTerms">
                         I agree to the 
                         <router-link to="/legal" target="_blank" class="text-primary">
                           Terms of Service and Privacy Policy
@@ -201,14 +201,14 @@
                     </div>
                   </div>
 
-                  <div class="d-grid mt-4">
+                  <div class="mt-4">
                     <button
                       type="submit"
-                      class="btn btn-primary btn-lg rounded-pill shadow-sm"
+                      class="btn btn-primary btn-lg w-100"
+                      :class="{ 'btn-loading': isLoading }"
                       :disabled="isLoading || !isFormValid"
                     >
-                      <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                      {{ isLoading ? 'Submitting...' : 'Submit Registration' }}
+                      <span class="btn-text">{{ isLoading ? 'Submitting...' : 'Submit Registration' }}</span>
                     </button>
                   </div>
                 </form>
@@ -217,7 +217,7 @@
                 <div v-if="submissionSuccess || invalidLink" class="mt-4 text-center">
                   <router-link
                     to="/"
-                    class="btn btn-outline-primary"
+                    class="btn btn-outline-primary btn-icon"
                   >
                     <i class="fas fa-home me-1"></i>
                     Back to Home
@@ -238,7 +238,7 @@ import { useRoute } from 'vue-router';
 import { collection, addDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase';
 import type { RegistrationFormData, signup } from '@/types/signup';
-import { validateSignupToken, isValidBatchYear, isBatchSignupActive, getBatchRegistrationsPath, incrementBatchRegistrationCount } from '@/utils/signupUtils';
+import { validateSignupToken, isValidBatchYear, isBatchSignupActive, incrementBatchRegistrationCount } from '@/utils/signupUtils';
 
 const route = useRoute();
 
@@ -327,23 +327,37 @@ const checkExistingRegistration = async (email: string, studentId: string): Prom
       return false;
     }
 
-    const batchRegistrationsPath = getBatchRegistrationsPath(batchYear.value);
-    const pendingRef = collection(db, batchRegistrationsPath);
+    // Check registrations in the main signup collection (not nested)
+    const signupRef = collection(db, 'signup');
     
-    // Check email within this batch
-    const emailQuery = query(pendingRef, where('email', '==', email.toLowerCase()));
+    // Check email across all student registrations (non-batch config docs)
+    const emailQuery = query(
+      signupRef, 
+      where('email', '==', email.toLowerCase()),
+      where('batchYear', '==', batchYear.value)
+    );
     const emailSnapshot = await getDocs(emailQuery);
     
-    if (!emailSnapshot.empty) {
+    // Filter out batch config documents
+    const emailRegistrations = emailSnapshot.docs.filter(doc => !doc.id.match(/^[0-9]{4}$/));
+    
+    if (emailRegistrations.length > 0) {
       errorMessage.value = 'An account with this email address has already been registered for this batch.';
       return false;
     }
 
-    // Check student ID within this batch
-    const studentIdQuery = query(pendingRef, where('studentId', '==', studentId.toUpperCase()));
+    // Check student ID across all student registrations (non-batch config docs)
+    const studentIdQuery = query(
+      signupRef,
+      where('studentId', '==', studentId.toUpperCase()),
+      where('batchYear', '==', batchYear.value)
+    );
     const studentIdSnapshot = await getDocs(studentIdQuery);
     
-    if (!studentIdSnapshot.empty) {
+    // Filter out batch config documents
+    const studentIdRegistrations = studentIdSnapshot.docs.filter(doc => !doc.id.match(/^[0-9]{4}$/));
+    
+    if (studentIdRegistrations.length > 0) {
       errorMessage.value = 'An account with this student ID has already been registered for this batch.';
       return false;
     }
@@ -400,13 +414,11 @@ const submitRegistration = async () => {
         userAgent: navigator.userAgent,
         referrer: document.referrer || null
       }
-      // notes, photoURL, processedAt, processedBy, rejectionReason are optional and omitted here
     };
 
-    // Submit to Firestore using the new collection structure
-    const batchRegistrationsPath = getBatchRegistrationsPath(batchYear.value!);
-    const pendingRef = collection(db, batchRegistrationsPath);
-    await addDoc(pendingRef, registrationData);
+    // Submit to Firestore using the flat collection structure
+    const signupRef = collection(db, 'signup');
+    await addDoc(signupRef, registrationData);
 
     // Increment the batch registration count
     await incrementBatchRegistrationCount(batchYear.value!);
@@ -434,7 +446,7 @@ onMounted(async () => {
 .signup-bg {
   min-height: 100vh;
   width: 100vw;
-  position: fixed;
+  position: relative;
   top: 0;
   left: 0;
   background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
@@ -449,8 +461,7 @@ onMounted(async () => {
   border-radius: var(--bs-border-radius-xl);
   background: var(--bs-card-bg);
   box-shadow: var(--bs-box-shadow-lg);
-  max-height: 95vh;
-  overflow-y: auto;
+  width: 100%;
 }
 
 .signup-icon {
@@ -497,7 +508,7 @@ onMounted(async () => {
 }
 
 .input-group-text {
-  border-color: var(--bs-border-color);
+  background-color: transparent;
 }
 
 .form-control:focus {
@@ -506,10 +517,10 @@ onMounted(async () => {
 }
 
 @media (max-width: 576px) {
-  .signup-bg {
-    padding: 1rem 0;
+  .signup-card {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
   }
-  
   .card-body {
     padding: 1.5rem !important;
   }

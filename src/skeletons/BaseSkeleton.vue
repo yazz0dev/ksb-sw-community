@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-type SkeletonType = 'text' | 'block' | 'circle' | 'image';
+type SkeletonType = 'text' | 'block' | 'circle' | 'image' | 'avatar';
 
 interface Props {
   type: SkeletonType;
@@ -26,19 +26,19 @@ interface Props {
   className?: string;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   type: 'block',
   width: '100%',
   height: '1rem',
   animated: true,
-  borderRadius: '0.25rem',
+  borderRadius: 'var(--bs-border-radius-sm)', // Use Bootstrap variable
   className: ''
 });
 </script>
 
 <style scoped>
 .skeleton-loader {
-  background: var(--bs-gray-200);
+  background: var(--bs-secondary-bg); /* Updated background */
   position: relative;
   overflow: hidden;
 }
@@ -71,11 +71,15 @@ const props = withDefaults(defineProps<Props>(), {
   border-radius: 50%;
 }
 
+.skeleton-avatar {
+  border-radius: 50%; /* Similar to circle, or adjust as needed */
+}
+
 .skeleton-image {
-  border-radius: 0.5rem;
+  border-radius: var(--bs-border-radius); /* Use Bootstrap variable */
 }
 
 .skeleton-text {
-  border-radius: 0.25rem;
+  border-radius: var(--bs-border-radius-sm); /* Use Bootstrap variable */
 }
 </style>

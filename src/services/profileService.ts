@@ -15,7 +15,7 @@ import { db } from '@/firebase';
 import type { EnrichedStudentData, UserData } from '@/types/student';
 import type { XPData } from '@/types/xp';
 import { getDefaultXPData } from '@/types/xp';
-import { deepClone } from '@/utils/helpers';
+import { deepClone } from '@/utils/eventUtils';
 import { type Event, EventFormat, EventStatus } from '@/types/event';
 import type { StudentPortfolioProject, StudentEventHistoryItem } from '@/types/student';
 import { STUDENTS_COLLECTION, XP_COLLECTION } from '@/utils/constants';
@@ -249,7 +249,7 @@ export const fetchStudentPortfolioProjects = async (
         const eventSnapshot = await getDocs(eventQuery);
         
         eventSnapshot.forEach(eventDoc => {
-            const event = eventDoc.data() as Event; // Assuming Event type is correctly defined and imported
+            const event = { id: eventDoc.id, ...eventDoc.data() } as Event; // Assuming Event type is correctly defined and imported
             (event.submissions || []).forEach(sub => {
                 let isRelevantSubmission = sub.submittedBy === targetStudentId;
                 // If it's a team event, check if the student was part of the submitting team
@@ -312,7 +312,7 @@ export const fetchStudentEventHistory = async (
         const eventSnapshot = await getDocs(eventQuery);
         
         eventSnapshot.forEach(eventDoc => {
-            const event = eventDoc.data() as Event;
+            const event = { id: eventDoc.id, ...eventDoc.data() } as Event;
             // Include event if it's not in a preliminary/rejected state, OR if the student requested it (even if pending/rejected)
             if (![EventStatus.Pending, EventStatus.Rejected, EventStatus.Cancelled].includes(event.status as EventStatus) || 
                 event.requestedBy === targetStudentId
@@ -375,7 +375,7 @@ export const fetchStudentEventParticipationCount = async (
       const eventSnapshot = await getDocs(eventQuery);
       
       eventSnapshot.forEach(eventDoc => {
-        const event = eventDoc.data() as Event; // Assuming Event type includes 'status'
+        const event = { id: eventDoc.id, ...eventDoc.data() } as Event; // Assuming Event type includes 'status'
         // Count as valid if the event status is not Cancelled, Rejected, or Pending
         if (![EventStatus.Cancelled, EventStatus.Rejected, EventStatus.Pending].includes(event.status as EventStatus)) {
           validParticipationCount++;

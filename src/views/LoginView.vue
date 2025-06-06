@@ -10,17 +10,17 @@
                   <div class="login-icon mb-2">
                     <i class="fas fa-user-circle fa-3x text-primary"></i>
                   </div>
-                  <h2 class="h3 fw-bold text-primary mb-1">Sign In</h2>
-                  <p class="text-secondary small mb-0">Access your KSB Tech Community account</p>
+                  <h2 class="h3 fw-bold gradient-text mb-1">Sign In</h2>
+                  <p class="text-subtitle mb-0">Access your KSB Tech Community account</p>
                 </div>
                 <div v-if="errorMessage" class="alert alert-danger small p-2 text-center" role="alert">
                   {{ errorMessage }}
                 </div>
                 <form @submit.prevent="signIn" autocomplete="on">
                   <div class="mb-3">
-                    <label for="email" class="form-label small">Email address</label>
+                    <label for="email" class="form-label">Email address</label>
                     <div class="input-group">
-                      <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
+                      <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                       <input
                         id="email"
                         class="form-control"
@@ -35,7 +35,7 @@
                   </div>
                   <div class="mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                      <label for="password" class="form-label small mb-0">Password</label>
+                      <label for="password" class="form-label mb-0">Password</label>
                       <router-link
                         to="/forgot-password"
                         class="small text-primary text-decoration-underline-hover"
@@ -44,7 +44,7 @@
                       </router-link>
                     </div>
                     <div class="input-group">
-                      <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
+                      <span class="input-group-text"><i class="fas fa-lock"></i></span>
                       <input
                         id="password"
                         class="form-control"
@@ -57,14 +57,14 @@
                       />
                     </div>
                   </div>
-                  <div class="d-grid mt-4">
+                  <div class="mt-4">
                     <button
                       type="submit"
-                      class="btn btn-primary btn-lg rounded-pill shadow-sm"
+                      class="btn btn-primary btn-lg w-100"
                       :disabled="isLoading"
                     >
                       <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                      {{ isLoading ? 'Signing In...' : 'Sign In' }}
+                      <span class="btn-text">{{ isLoading ? 'Signing In...' : 'Sign In' }}</span>
                     </button>
                   </div>
                 </form>
@@ -207,16 +207,8 @@ const signIn = async (): Promise<void> => {
   box-shadow: var(--bs-box-shadow-sm);
 }
 
-.text-decoration-underline-hover:hover {
-  text-decoration: underline;
-}
-
-.form-control:focus {
-  border-color: var(--bs-primary);
-  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
-}
-
 .input-group-text {
-  border-color: var(--bs-border-color);
+  background-color: transparent;
 }
+
 </style>

@@ -1,7 +1,7 @@
 <template>
     <section class="py-5 resources-section">
-        <div class="container-xxl">
-            <h1 class="h1 text-primary mb-4 mb-md-5">
+        <div class="container-lg">
+            <h1 class="h1 text-gradient-primary mb-4 mb-md-5 text-center">
                 <i class="fas fa-book-open me-2"></i>Learning Resources
             </h1>
 
@@ -18,7 +18,7 @@
                         <div class="card-header resource-card-header">
                             <div class="d-flex align-items-center">
                                 <i :class="getCategoryIcon(category.title)" class="me-2 text-primary category-icon"></i>
-                                <h2 class="card-title h6 text-primary mb-0">{{ category.title }}</h2>
+                                <h2 class="card-title h5 text-gradient-secondary mb-0">{{ category.title }}</h2>
                             </div>
                         </div>
                         <div class="list-group list-group-flush">
@@ -152,65 +152,44 @@ const getCategoryIcon = (title: string): string => {
 <style scoped>
 .resources-section {
     background-color: var(--bs-body-bg);
-    min-height: calc(100vh - var(--navbar-height-mobile));
-    padding: 2rem 0 4rem 0;
-}
-
-@media (min-width: 992px) {
-    .resources-section {
-        min-height: calc(100vh - var(--navbar-height-desktop));
-    }
-}
-
-.resource-card-wrapper {
-    transition: transform 0.3s ease;
 }
 
 .resource-card {
     transition: all 0.3s ease;
-    background-color: var(--bs-card-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: var(--bs-border-radius);
-    box-shadow: var(--bs-box-shadow-sm);
+    border-radius: var(--bs-border-radius-lg);
     overflow: hidden;
 }
 
 .resource-card:hover {
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    transform: translateY(-3px);
+    transform: translateY(-5px);
+    box-shadow: var(--bs-box-shadow-lg) !important;
 }
 
 .resource-card-header {
-    background-color: rgba(var(--bs-primary-rgb), 0.05);
+    background-color: transparent;
     border-bottom: 1px solid var(--bs-border-color);
     padding: 1rem 1.25rem;
 }
 
 .category-icon {
-    font-size: 1.1rem;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    font-size: 1.2rem;
 }
 
-.resource-link {
-    color: var(--bs-body-color);
-    text-decoration: none;
+.list-group-item-action {
     transition: all 0.2s ease;
-    padding: 0.8rem 1.25rem;
-    border-left: 3px solid transparent;
+    border-left: 4px solid transparent;
+    border-radius: 0 !important;
 }
 
-.resource-link:hover {
+.list-group-item-action:hover {
+    background-color: var(--bs-light);
+    border-left-color: var(--bs-primary);
     color: var(--bs-primary);
-    background-color: rgba(var(--bs-primary-rgb), 0.03);
-    border-left: 3px solid var(--bs-primary);
+    transform: translateX(2px);
 }
 
 .resource-title-wrapper {
-    gap: 10px;
+    gap: 1rem;
     min-width: 0;
     flex: 1;
 }
@@ -223,24 +202,12 @@ const getCategoryIcon = (title: string): string => {
 }
 
 .resource-type-icon {
+    font-size: 0.9rem;
     color: var(--bs-secondary);
-    transition: color 0.2s ease;
 }
 
-.resource-link:hover .resource-type-icon {
+.list-group-item-action:hover .resource-type-icon {
     color: var(--bs-primary);
-}
-
-.resource-type-download {
-    color: var(--bs-success);
-}
-
-.resource-type-guide {
-    color: var(--bs-info);
-}
-
-.resource-type-link {
-    color: var(--bs-secondary);
 }
 
 .resource-title {
@@ -249,15 +216,11 @@ const getCategoryIcon = (title: string): string => {
 
 .external-link-icon {
     opacity: 0;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    color: var(--bs-secondary);
-    margin-left: 8px;
+    transition: opacity 0.2s ease;
 }
 
-.resource-link:hover .external-link-icon {
+.list-group-item-action:hover .external-link-icon {
     opacity: 1;
-    transform: translateX(2px);
-    color: var(--bs-primary);
 }
 
 .empty-category {

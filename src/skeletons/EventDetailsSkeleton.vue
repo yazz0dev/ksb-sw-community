@@ -1,55 +1,86 @@
 <template>
-  <div class="event-details-skeleton">
-    <div class="row g-4">
-      <!-- Left Column -->
-      <div class="col-lg-5">
-        <div class="card shadow-sm p-4">
-          <BaseSkeleton type="text" width="70%" height="2rem" class="mb-3" />
-          <BaseSkeleton type="text" width="40%" height="1.25rem" class="mb-4" />
-          <div class="d-flex gap-2 mb-3">
-            <BaseSkeleton type="text" width="100px" height="1rem" />
-            <BaseSkeleton type="text" width="120px" height="1rem" />
+  <div class="event-details-skeleton-wrapper">
+    <div class="container-lg">
+      <!-- Skeleton for EventDetailsHeader -->
+      <div class="card event-header-skeleton mb-4">
+        <div class="card-body">
+          <div class="d-flex flex-column flex-md-row justify-content-between">
+            <div class="header-main-content">
+              <BaseSkeleton type="text" width="60%" height="2.5rem" class="mb-3" />
+              <BaseSkeleton type="text" width="80%" height="1rem" class="mb-2" />
+              <BaseSkeleton type="text" width="70%" height="1rem" class="mb-3" />
+              <div class="d-flex flex-wrap gap-2">
+                <BaseSkeleton type="text" width="80px" height="24px" :rounded="true" />
+                <BaseSkeleton type="text" width="120px" height="24px" :rounded="true" />
+                <BaseSkeleton type="text" width="100px" height="24px" :rounded="true" />
+              </div>
+            </div>
+            <div class="header-actions mt-3 mt-md-0">
+              <BaseSkeleton type="text" width="120px" height="48px" :rounded="true" />
+            </div>
           </div>
-          <BaseSkeleton type="text" width="90%" height="4rem" />
         </div>
       </div>
-      
-      <!-- Right Column -->
-      <div class="col-lg-7">
-        <div class="card shadow-sm p-4 mb-4">
-          <BaseSkeleton type="text" width="200px" height="1.5rem" class="mb-4" />
-          <div class="row g-3">
-            <div v-for="i in 3" :key="i" class="col-md-6">
-              <BaseSkeleton type="text" width="90%" height="3rem" />
+
+      <div class="row g-3 g-md-4 mt-0">
+        <!-- Main Content Column -->
+        <div class="col-12 col-lg-8">
+          <!-- Criteria Skeleton -->
+          <div class="card mb-4">
+            <div class="card-body p-4">
+              <BaseSkeleton type="text" width="200px" height="1.75rem" class="mb-4" />
+              <div class="row g-3">
+                <div v-for="i in 4" :key="`criteria-${i}`" class="col-12 col-md-6">
+                  <div class="d-flex align-items-center gap-3 p-3 border rounded-3">
+                    <BaseSkeleton type="avatar" size="40px" />
+                    <div class="flex-grow-1">
+                      <BaseSkeleton type="text" width="80%" height="1rem" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Participants/Teams Skeleton -->
+          <div class="card">
+            <div class="card-body p-4">
+              <BaseSkeleton type="text" width="250px" height="1.75rem" class="mb-4" />
+              <div class="row g-3">
+                <div v-for="i in 8" :key="`participant-${i}`" class="col-12 col-md-6">
+                   <div class="d-flex align-items-center gap-3 p-2">
+                    <BaseSkeleton type="avatar" size="32px" />
+                    <div class="flex-grow-1">
+                      <BaseSkeleton type="text" width="70%" height="1rem" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-        
-        <div class="card shadow-sm p-4">
-          <BaseSkeleton type="text" width="150px" height="1.5rem" class="mb-4" />
-          <div class="d-flex flex-column gap-3">
-            <BaseSkeleton v-for="i in 2" :key="i" type="text" width="100%" height="2rem" />
-          </div>
-        </div>
-        
-        <!-- Add Ratings Section -->
-        <div class="card shadow-sm p-4 mt-4">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <BaseSkeleton type="text" width="120px" height="1.5rem" />
-            <BaseSkeleton type="text" width="80px" height="1.5rem" />
-          </div>
-          <div class="ratings-grid">
-            <div v-for="i in 4" :key="i" class="rating-item p-3 border rounded">
-              <BaseSkeleton type="text" width="60%" height="1rem" class="mb-2" />
-              <BaseSkeleton type="text" width="40%" height="1rem" />
+
+        <!-- Sidebar Column Skeleton -->
+        <div class="col-12 col-lg-4">
+          <div class="sticky-lg-top" style="top: 80px;">
+            <!-- Submissions Skeleton -->
+            <div class="card mb-4">
+              <div class="card-body p-4">
+                <BaseSkeleton type="text" width="180px" height="1.75rem" class="mb-3" />
+                <BaseSkeleton type="text" width="100%" height="40px" :rounded="true" class="mb-3" />
+                <BaseSkeleton type="text" width="90%" height="1rem" class="mb-2" />
+                 <BaseSkeleton type="text" width="70%" height="1rem" />
+              </div>
             </div>
-            <div class="rating-item p-3 border rounded">
-              <BaseSkeleton type="text" width="70%" height="1rem" class="mb-2" />
-              <BaseSkeleton type="text" width="50%" height="1rem" />
-            </div>
-            <div class="rating-item p-3 border rounded">
-              <BaseSkeleton type="text" width="50%" height="1rem" class="mb-2" />
-              <BaseSkeleton type="text" width="30%" height="1rem" />
+
+            <!-- Voting Skeleton -->
+            <div class="card">
+               <div class="card-body p-4">
+                <BaseSkeleton type="text" width="150px" height="1.75rem" class="mb-3" />
+                <BaseSkeleton type="text" width="100%" height="1rem" class="mb-2" />
+                <BaseSkeleton type="text" width="80%" height="1rem" class="mb-3" />
+                <BaseSkeleton type="text" width="100%" height="48px" :rounded="true" />
+              </div>
             </div>
           </div>
         </div>
@@ -63,9 +94,20 @@ import BaseSkeleton from './BaseSkeleton.vue';
 </script>
 
 <style scoped>
-.ratings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
+.event-details-skeleton-wrapper {
+  padding-top: 1rem;
+  padding-bottom: 4rem;
+}
+.card {
+  background: rgba(var(--bs-white-rgb), 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: var(--bs-border-radius-lg); 
+  border: 1px solid rgba(var(--bs-primary-rgb), 0.08);
+  box-shadow: 
+    0 4px 20px rgba(var(--bs-dark-rgb), 0.08),
+    0 1px 3px rgba(var(--bs-dark-rgb), 0.06);
+}
+.event-header-skeleton .card-body {
+  padding: 2rem;
 }
 </style>

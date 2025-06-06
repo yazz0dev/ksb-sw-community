@@ -1,6 +1,5 @@
 // src/router/index.ts
 import { createRouter, createWebHistory, type RouteRecordRaw, type NavigationGuardNext, type RouteLocationNormalized } from 'vue-router';
-import { useProfileStore } from '@/stores/profileStore';
 import { useAppStore } from '@/stores/appStore';
 import { useAuth } from '@/composables/useAuth';
 import { watch } from 'vue';
@@ -138,7 +137,10 @@ router.afterEach((to) => {
       document.head.appendChild(element);
     }
     Object.keys(attrs).forEach(attr => {
-      (element as HTMLMetaElement).setAttribute(attr, attrs[attr]);
+      const value = attrs[attr];
+      if (value) {
+        (element as HTMLMetaElement).setAttribute(attr, value);
+      }
     });
   };
   
@@ -149,7 +151,10 @@ router.afterEach((to) => {
       document.head.appendChild(element);
     }
      Object.keys(attrs).forEach(attr => {
-      (element as HTMLLinkElement).setAttribute(attr, attrs[attr]);
+      const value = attrs[attr];
+      if (value) {
+        (element as HTMLLinkElement).setAttribute(attr, value);
+      }
     });
   };
 

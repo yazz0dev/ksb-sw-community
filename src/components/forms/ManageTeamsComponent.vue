@@ -354,7 +354,10 @@ const autoGenerateTeams = () => {
   shuffledStudents.forEach((student, index) => {
     if (student.uid) {
       const teamIndex = index % teamsToPopulate.length;
-      teamsToPopulate[teamIndex].members.push(student.uid);
+      const team = teamsToPopulate[teamIndex];
+      if (team) {
+        team.members.push(student.uid);
+      }
     }
   });
 

@@ -86,38 +86,38 @@ export interface StudentPortfolioGenerationData {
 // It's based on properties observed in ManageUsersView.vue and common user profile fields.
 export interface UserData {
   uid: string;
-  name?: string | null;
-  email?: string | null;
-  photoURL?: string | null; // Allow null to match EnrichedStudentData and widen compatibility
-  batch?: string;         // e.g., "2023", "2024" - Stored as a field
-  batchYear?: number;     // Numeric batch year (e.g., 2023, 2024) - Stored as a field
-  studentId?: string;     // College/University ID
-  bio?: string;
-  skills?: string[];
-  hasLaptop?: boolean;
+  name?: string | null | undefined;
+  email?: string | null | undefined;
+  photoURL?: string | null | undefined;
+  batch?: string | undefined;
+  batchYear?: number | undefined;
+  studentId?: string | undefined;
+  bio?: string | undefined;
+  skills?: string[] | undefined;
+  hasLaptop?: boolean | undefined;
   
   // Social & Professional Links
-  socialLink?: string;    // Legacy field: A generic social media link (e.g., personal website, Behance)
-  github?: string;        // Legacy field: GitHub username or profile URL
-  linkedin?: string;      // Legacy field: LinkedIn profile URL
-  socialLinks?: {         // Structured social links (preferred over legacy fields)
-    primary?: string;     // Primary social/website URL
-    linkedin?: string;    // Full LinkedIn profile URL
-    github?: string;      // Full GitHub profile URL
-    portfolio?: string;   // Primary portfolio/website URL
-    instagram?: string;   // Instagram username without @ prefix
-    other?: string;       // Secondary portfolio/project URL
-  };
+  socialLink?: string | undefined;
+  github?: string | undefined;
+  linkedin?: string | undefined;
+  socialLinks?: {
+    primary?: string | undefined;
+    linkedin?: string | undefined;
+    github?: string | undefined;
+    portfolio?: string | undefined;
+    instagram?: string | undefined;
+    other?: string | undefined;
+  } | undefined;
 
   // Event participation
-  participatedEventIDs?: string[];
-  organizedEventIDs?: string[];
+  participatedEventIDs?: string[] | undefined;
+  organizedEventIDs?: string[] | undefined;
 
   // Timestamps
-  createdAt?: Timestamp;
-  lastLogin?: Timestamp;
-  profileUpdatedAt?: Timestamp;
-  lastUpdatedAt?: Timestamp;
+  createdAt?: Timestamp | undefined;
+  lastLogin?: Timestamp | undefined;
+  profileUpdatedAt?: Timestamp | undefined;
+  lastUpdatedAt?: Timestamp | undefined;
 }
 
 // This interface extends UserData with additional information,

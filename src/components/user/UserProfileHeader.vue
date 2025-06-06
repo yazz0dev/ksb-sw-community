@@ -1,8 +1,8 @@
 <template>
   <div class="section-card shadow-sm rounded-4 animate-fade-in">
-    <div class="card-body text-center p-4 p-md-5">
+    <div class="card-body p-3 p-md-4">
       <!-- Profile Photo Section -->
-      <div class="mb-4">
+      <div class="text-center mb-4">
         <div class="profile-photo-container position-relative d-inline-block">
           <img
             :src="user.photoURL || defaultAvatarUrl"
@@ -12,20 +12,18 @@
             @error="handleImageError"
             ref="profileImageRef"
           />
-          <div class="photo-overlay">
-            <i class="fas fa-user-circle"></i>
-          </div>
+          <div class="photo-overlay rounded-circle"></div>
         </div>
       </div>
 
       <!-- User Name & Edit Button -->
-      <div class="mb-4">
-        <h1 class="h3 fw-semibold text-dark mb-3">{{ user.name || 'User Profile' }}</h1>
-        
+      <div class="text-center mb-4">
+        <h1 class="h4 fw-bold text-dark mb-2">{{ user.name || 'User Profile' }}</h1>
+
         <button
           v-if="isCurrentUser"
           @click="emitEditProfile"
-          class="btn btn-outline-primary btn-sm-mobile d-inline-flex align-items-center mb-3"
+          class="btn btn-outline-primary btn-sm d-inline-flex align-items-center"
         >
           <i class="fas fa-edit me-2"></i>Edit Profile
         </button>
@@ -33,100 +31,104 @@
 
       <!-- Social Links Section -->
       <div v-if="hasSocialLinks" class="social-links-section mb-4">
-        <div class="social-links-grid">
-          <a 
-            v-if="user.socialLinks?.portfolio" 
-            :href="user.socialLinks.portfolio" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            class="btn btn-sm btn-outline-info d-inline-flex align-items-center social-link"
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+          <a
+            v-if="user.socialLinks?.portfolio"
+            :href="user.socialLinks.portfolio"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-sm btn-light border flex-grow-1 flex-md-grow-0 d-inline-flex align-items-center justify-content-center social-link"
           >
             <i :class="['fab', socialLinkDetails.icon, 'me-2']" v-if="socialLinkDetails.isFontAwesomeBrand"></i>
             <i :class="['fas', socialLinkDetails.icon, 'me-2']" v-else></i>
-            {{ socialLinkDetails.name }}
+            <span>{{ socialLinkDetails.name }}</span>
           </a>
 
-          <a 
-            v-if="user.socialLinks?.instagram" 
-            :href="instagramUrl" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            class="btn btn-sm btn-outline-danger d-inline-flex align-items-center social-link"
+          <a
+            v-if="user.socialLinks?.instagram"
+            :href="instagramUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-sm btn-light border flex-grow-1 flex-md-grow-0 d-inline-flex align-items-center justify-content-center social-link"
           >
-            <i class="fab fa-instagram me-2"></i>@{{ user.socialLinks.instagram }}
+            <i class="fab fa-instagram me-2"></i><span>{{ user.socialLinks.instagram }}</span>
           </a>
-          
-          <a 
-            v-if="user.socialLinks?.other" 
-            :href="user.socialLinks.other" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center social-link"
+
+          <a
+            v-if="user.socialLinks?.other"
+            :href="user.socialLinks.other"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-sm btn-light border flex-grow-1 flex-md-grow-0 d-inline-flex align-items-center justify-content-center social-link"
           >
-            <i class="fas fa-briefcase me-2"></i>Portfolio
+            <i class="fas fa-briefcase me-2"></i><span>Portfolio</span>
           </a>
         </div>
       </div>
 
       <!-- Bio Section -->
-      <div class="bio-section mb-4">
-        <div class="bio-container">
-          <i class="fas fa-quote-left text-secondary me-2"></i>
-          <span v-if="user.bio" class="text-secondary">{{ user.bio }}</span>
-          <span v-else class="text-muted fst-italic">No bio provided.</span>
+      <div class="bio-section mb-4 text-center">
+        <div class="bio-container d-inline-block text-start p-3 bg-light rounded-3">
+          <i class="fas fa-quote-left text-secondary me-1 opacity-50"></i>
+          <span v-if="user.bio" class="text-secondary small">{{ user.bio }}</span>
+          <span v-else class="text-muted small fst-italic">No bio provided.</span>
         </div>
       </div>
 
-      <!-- Skills Section -->
-      <div v-if="user.skills && user.skills.length > 0" class="skills-section mb-4">
-        <div class="info-section-header mb-3">
-          <i class="fas fa-code text-primary me-2"></i>
-          <span class="fw-semibold text-dark">Skills</span>
-        </div>
-        <div class="skills-container">
-          <span 
-            v-for="skill in user.skills" 
-            :key="skill" 
-            class="skill-badge badge bg-light text-dark border me-2 mb-2"
-          >
-            {{ skill }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Equipment Section -->
-      <div class="equipment-section mb-4">
-        <div class="info-section-header mb-3">
-          <i class="fas fa-laptop text-primary me-2"></i>
-          <span class="fw-semibold text-dark">Equipment</span>
-        </div>
-        <div class="equipment-status">
-          <span 
-            class="equipment-badge badge border" 
-            :class="user.hasLaptop ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'"
-          >
-            <i :class="['fas', user.hasLaptop ? 'fa-check-circle' : 'fa-times-circle', 'me-2']"></i>
-            {{ user.hasLaptop ? 'Has Laptop' : 'No Laptop' }}
-          </span>
+      <!-- Skills & Equipment -->
+      <div class="border-top border-bottom py-3 my-4">
+        <div class="row g-3">
+            <!-- Skills Section -->
+            <div v-if="user.skills && user.skills.length > 0" class="col-12 col-md-6 border-end-md">
+                <div class="info-section-header mb-2 text-center text-md-start">
+                  <i class="fas fa-code text-primary me-2"></i>
+                  <span class="fw-semibold text-dark small text-uppercase">Skills</span>
+                </div>
+                <div class="skills-container text-center text-md-start">
+                  <span
+                    v-for="skill in user.skills"
+                    :key="skill"
+                    class="skill-badge badge bg-primary-subtle text-primary-emphasis border-0 me-1 mb-1"
+                  >
+                    {{ skill }}
+                  </span>
+                </div>
+            </div>
+             <!-- Equipment Section -->
+            <div :class="user.skills && user.skills.length > 0 ? 'col-12 col-md-6' : 'col-12'">
+                <div class="info-section-header mb-2 text-center text-md-start">
+                  <i class="fas fa-laptop text-primary me-2"></i>
+                  <span class="fw-semibold text-dark small text-uppercase">Equipment</span>
+                </div>
+                <div class="equipment-status text-center text-md-start">
+                  <span
+                    class="equipment-badge badge border"
+                    :class="user.hasLaptop ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'"
+                  >
+                    <i :class="['fas', user.hasLaptop ? 'fa-check-circle' : 'fa-times-circle', 'me-1']"></i>
+                    {{ user.hasLaptop ? 'Has Laptop' : 'No Laptop' }}
+                  </span>
+                </div>
+            </div>
         </div>
       </div>
 
       <!-- Stats Section -->
       <div class="stats-section mb-4">
         <div class="stats-grid">
-          <div class="stat-item">
+          <div class="stat-item text-center">
             <div class="stat-value bg-primary-subtle text-primary-emphasis rounded-3 p-3 mb-2">
               <span class="h4 fw-semibold mb-0">{{ stats.participatedCount }}</span>
             </div>
             <small class="stat-label text-muted text-uppercase fw-medium">Participated</small>
           </div>
-          <div class="stat-item">
+          <div class="stat-item text-center">
             <div class="stat-value bg-primary-subtle text-primary-emphasis rounded-3 p-3 mb-2">
               <span class="h4 fw-semibold mb-0">{{ stats.organizedCount }}</span>
             </div>
             <small class="stat-label text-muted text-uppercase fw-medium">Organized</small>
           </div>
-          <div class="stat-item">
+          <div class="stat-item text-center">
             <div class="stat-value bg-warning-subtle text-warning-emphasis rounded-3 p-3 mb-2">
               <span class="h4 fw-semibold mb-0">{{ user.xpData?.count_wins ?? stats.wonCount }}</span>
             </div>
@@ -141,7 +143,7 @@
           <i class="fas fa-star text-warning me-2"></i>
           <span class="fw-semibold text-secondary">Total XP Earned</span>
         </div>
-        <div class="xp-value-container">
+        <div class="xp-value-container text-center">
           <span class="xp-value display-5 text-primary fw-bold">{{ user.xpData?.totalCalculatedXp ?? 0 }}</span>
         </div>
       </div>
@@ -247,18 +249,9 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(var(--bs-primary-rgb), 0.1);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background-color: rgba(0,0,0,0.1);
   opacity: 0;
   transition: opacity 0.3s ease;
-}
-
-.photo-overlay i {
-  font-size: 1.5rem;
-  color: var(--bs-primary);
 }
 
 .profile-photo-container:hover .photo-overlay {
@@ -274,8 +267,7 @@ onMounted(() => {
 }
 
 .social-link {
-  transition: all 0.3s ease;
-  border-width: 1.5px;
+  transition: all 0.2s ease-in-out;
 }
 
 .social-link:hover {
@@ -343,28 +335,20 @@ onMounted(() => {
 /* Stats Grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 1rem;
-  margin-bottom: 1.5rem;
 }
 
-.stat-item {
-  text-align: center;
+.stat-item .stat-value {
+  transition: transform 0.2s ease-in-out;
 }
 
-.stat-value {
-  transition: all 0.3s ease;
-  border: 1px solid var(--bs-border-color-translucent);
-}
-
-.stat-value:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--bs-box-shadow-sm);
+.stat-item:hover .stat-value {
+  transform: translateY(-5px);
 }
 
 .stat-label {
-  font-size: 0.75rem;
-  letter-spacing: 0.5px;
+  font-size: 0.65rem;
 }
 
 /* XP Section */
@@ -391,24 +375,28 @@ onMounted(() => {
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
   .profile-photo {
     width: 100px;
     height: 100px;
   }
   
-  .social-links-grid {
-    flex-direction: column;
-    align-items: center;
+  .card-body {
+    padding: 1rem;
   }
   
-  .social-link {
-    width: 100%;
-    max-width: 250px;
+  .h4 {
+    font-size: 1.25rem;
+  }
+  
+  .social-links-section .btn {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.6rem;
   }
   
   .stats-grid {
-    gap: 0.75rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
   }
   
   .stat-value {
@@ -416,39 +404,45 @@ onMounted(() => {
   }
   
   .stat-value .h4 {
-    font-size: 1.25rem;
+    font-size: 1.25rem !important;
   }
   
   .xp-value {
-    font-size: 2rem;
+    font-size: 2.5rem;
   }
 }
 
-@media (max-width: 480px) {
-  .card-body {
-    padding: 1.5rem !important;
+@media (max-width: 991.98px) {
+  .border-end-md {
+    border-right: 0 !important;
   }
-  
-  .stats-grid {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  
-  .stat-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    text-align: left;
-  }
-  
-  .stat-value {
-    padding: 0.5rem 1rem !important;
-    margin-bottom: 0 !important;
-  }
-  
-  .stat-value .h4 {
-    font-size: 1.1rem;
-    margin-bottom: 0;
-  }
+}
+
+.profile-sidebar {
+  top: 7rem; /* Adjust based on your navbar height */
+  bottom: 0;
+  background: rgba(var(--bs-primary-rgb), 0.1);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.profile-photo-container:hover .photo-overlay {
+  opacity: 1;
+}
+
+.social-link {
+  transition: all 0.2s ease-in-out;
+}
+
+.social-link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--bs-box-shadow-sm);
+}
+
+@media (min-width: 768px) {
+    .border-end-md {
+        border-right: 1px solid var(--bs-border-color);
+    }
 }
 </style>

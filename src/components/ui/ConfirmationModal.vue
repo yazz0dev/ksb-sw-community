@@ -1,11 +1,15 @@
 <!-- src/components/ui/ConfirmationModal.vue -->
 <template>
+  <Teleport to="body">
     <div 
-        class="modal fade" 
+        ref="modalEl"
+        class="modal fade confirmation-modal" 
         :id="modalId" 
         tabindex="-1" 
         :aria-labelledby="`${modalId}Label`"
         role="dialog"
+        data-bs-backdrop="static"
+        data-bs-keyboard="false"
     >
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content rounded-4 shadow-lg border-0">
@@ -16,7 +20,7 @@
                     </h5>
                     <button 
                         type="button" 
-                        class="btn-close btn-close-lg" 
+                        class="btn-close" 
                         data-bs-dismiss="modal" 
                         aria-label="Close"
                     ></button>
@@ -47,10 +51,12 @@
             </div>
         </div>
     </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue';
+import { onMounted, onUnmounted, computed, ref } from 'vue';
+import { Modal } from 'bootstrap';
 
 const props = defineProps<{
     modalId: string;
@@ -64,6 +70,8 @@ const props = defineProps<{
 const emit = defineEmits<{
     (e: 'confirm'): void;
 }>();
+
+const modalEl = ref<HTMLElement | null>(null);
 
 // Compute button class based on variant
 const confirmButtonClass = computed(() => {
@@ -94,7 +102,7 @@ const confirmIcon = computed(() => {
 const confirmText = props.confirmText || 'Confirm';
 const cancelText = props.cancelText || 'Cancel';
 
-let modalInstance: any = null;
+let modalInstance: Modal | null = null;
 
 const handleConfirm = () => {
     if (modalInstance) {
@@ -104,58 +112,94 @@ const handleConfirm = () => {
 };
 
 onMounted(() => {
-    // Initialize Bootstrap modal if Bootstrap is available
-    const Modal: any = window.bootstrap && window.bootstrap.Modal;
-    if (Modal) {
-        const modalEl = document.getElementById(props.modalId);
-        if (modalEl) {
-            modalInstance = new Modal(modalEl, {
-                backdrop: 'static',
-                keyboard: false
-            });
-
-            // Handle modal cleanup when hidden
-            modalEl.addEventListener('hidden.bs.modal', () => {
-                document.body.classList.remove('modal-open');
-                const backdrop = document.querySelector('.modal-backdrop');
-                if (backdrop) {
-                    backdrop.remove();
-                }
-            });
-        }
+    if (modalEl.value) {
+        modalInstance = new Modal(modalEl.value, {
+            backdrop: 'static',
+            keyboard: false,
+            focus: true
+        });
+        
+        // Ensure modal appears on top of everything
+        modalEl.value.addEventListener('shown.bs.modal', () => {
+            modalEl.value?.style.setProperty('z-index', '1060', 'important');
+            // Find and set backdrop z-index
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.style.setProperty('z-index', '1059', 'important');
+            }
+        });
+    } else {
+        console.error(`[${props.modalId}] Could not find modal element to initialize.`);
     }
 });
 
 onUnmounted(() => {
-    if (modalInstance && typeof modalInstance.dispose === 'function') {
+    if (modalInstance) {
         modalInstance.dispose();
     }
+    modalInstance = null;
 });
 
 // Expose show/hide methods to parent
 defineExpose({
-    show: () => modalInstance?.show(),
-    hide: () => modalInstance?.hide()
+    show: () => {
+        if (modalInstance) {
+            modalInstance.show();
+            // Force focus and z-index
+            setTimeout(() => {
+                if (modalEl.value) {
+                    modalEl.value.style.setProperty('z-index', '1060', 'important');
+                    modalEl.value.focus();
+                }
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.style.setProperty('z-index', '1059', 'important');
+                }
+            }, 50);
+        } else {
+            console.error(`[${props.modalId}] show() called, but modal instance is not initialized.`);
+        }
+    },
+    hide: () => {
+        if (modalInstance) {
+            modalInstance.hide();
+        } else {
+            console.error(`[${props.modalId}] hide() called, but modal instance is not initialized.`);
+        }
+    }
 });
 </script>
 
-<style scoped>
-.modal-content {
-    background: var(--bs-card-bg);
-    border: 1px solid var(--bs-border-color);
+<style>
+/* Use global styles to override any scoped conflicts */
+.confirmation-modal {
+    z-index: 1060 !important;
 }
 
-.btn-close-lg {
+.confirmation-modal .modal-backdrop {
+    z-index: 1059 !important;
+    background-color: rgba(0, 0, 0, 0.6) !important;
+    opacity: 1 !important;
+}
+
+.confirmation-modal .modal-content {
+    background: var(--bs-card-bg);
+    border: 1px solid var(--bs-border-color);
+    z-index: 1061 !important;
+    position: relative;
+}
+
+.confirmation-modal .btn-close {
     font-size: 1.1rem;
     opacity: 0.6;
     transition: opacity 0.2s ease;
 }
 
-.btn-close-lg:hover {
+.confirmation-modal .btn-close:hover {
     opacity: 1;
 }
 
-.modal-footer {
+.confirmation-modal .modal-footer {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -164,23 +208,23 @@ defineExpose({
 
 /* Responsive button sizing */
 @media (max-width: 576px) {
-    .btn-sm-mobile {
+    .confirmation-modal .btn-sm-mobile {
         font-size: 0.875rem;
         padding: 0.5rem 1rem;
     }
     
-    .modal-footer {
+    .confirmation-modal .modal-footer {
         flex-direction: column-reverse;
         gap: 0.5rem !important;
     }
     
-    .modal-footer .btn {
+    .confirmation-modal .modal-footer .btn {
         width: 100%;
     }
 }
 
 @media (min-width: 577px) {
-    .btn-sm-mobile {
+    .confirmation-modal .btn-sm-mobile {
         font-size: 0.9rem;
         padding: 0.5rem 1.25rem;
     }

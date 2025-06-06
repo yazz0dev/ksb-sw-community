@@ -61,34 +61,36 @@
           >
             <!-- Request Header -->
             <div class="request-header mb-3">
-              <div class="d-flex align-items-center mb-2">
-                <div class="request-icon me-3">
-                  <i class="fas fa-file-alt text-primary"></i>
+              <div class="d-flex align-items-center mb-2 flex-wrap">
+                <div class="d-flex align-items-center me-3 mb-2">
+                  <div class="request-icon me-2">
+                    <i class="fas fa-file-alt text-primary"></i>
+                  </div>
+                  <div class="request-title-container flex-grow-1">
+                    <router-link 
+                      :to="{ name: 'EventDetails', params: { id: request.id } }" 
+                      class="request-title text-decoration-none fw-semibold text-dark hover-primary"
+                    >
+                      {{ request.eventName }}
+                    </router-link>
+                  </div>
                 </div>
-                <div class="request-title-container flex-grow-1">
-                  <router-link 
-                    :to="{ name: 'EventDetails', params: { id: request.id } }" 
-                    class="request-title text-decoration-none fw-semibold text-dark hover-primary"
-                  >
-                    {{ request.eventName }}
-                  </router-link>
-                </div>
-              </div>
-              
-              <!-- Request Status -->
-              <div class="request-status-section">
-                <div class="d-flex align-items-center mb-3" style="margin-left: 3.5rem;">
-                  <span class="status-label text-muted small me-2">Status:</span>
-                  <span :class="['status-badge badge rounded-pill', getStatusClass(request.status)]">
-                    <i class="fas fa-circle me-1" style="font-size: 0.5rem;"></i>
-                    {{ request.status }}
-                  </span>
+
+                <!-- Request Status -->
+                <div class="request-status-section ms-md-auto mb-2">
+                  <div class="d-flex align-items-center">
+                    <span class="status-label text-muted small me-2">Status:</span>
+                    <span :class="['status-badge badge rounded-pill', getStatusClass(request.status)]">
+                      <i class="fas fa-circle me-1" style="font-size: 0.5rem;"></i>
+                      {{ request.status }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
             <!-- Request Actions -->
-            <div v-if="request.status === 'Pending'" class="request-actions" style="margin-left: 3.5rem;">
+            <div v-if="request.status === 'Pending'" class="request-actions">
               <div class="actions-grid">
                 <button
                   class="btn btn-outline-primary btn-sm-mobile d-inline-flex align-items-center action-btn"
@@ -131,9 +133,10 @@
 
     <!-- Delete Confirmation Modal -->
     <ConfirmationModal
+      ref="deleteConfirmationModal"
       modal-id="deleteRequestModal"
       title="Delete Request"
-      message="Are you sure you want to delete this pending event request? This action cannot be undone."
+      message="Are you sure you want to delete this pending event request? This action cannot be undone and the request will be permanently removed."
       confirm-text="Delete"
       cancel-text="Cancel"
       variant="danger"
@@ -144,13 +147,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watchEffect } from 'vue';
-import { doc, deleteDoc } from 'firebase/firestore';
 import { useProfileStore } from '@/stores/profileStore';
+import { useEventStore } from '@/stores/eventStore';
 import { useAppStore } from '@/stores/appStore';
-import { useRouter } from 'vue-router'; // Import if needed for routing
-import { db } from '@/firebase';
+import { useRouter } from 'vue-router';
 import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
-// Import the Event type from the store's perspective
 import type { Event as StoreEvent } from '@/types/event';
 
 // Local interface for the component's needs
@@ -164,13 +165,15 @@ interface Request {
 }
 
 // Explicitly type studentStore using ReturnType
-const studentStore = useProfileStore(); // No need for complex typing if store is correctly defined
+const studentStore = useProfileStore();
+const eventStore = useEventStore();
 const appStore = useAppStore();
 const router = useRouter(); // Initialize router from the imported useRouter
 const requests = ref<Request[]>([]); // Use the local Request interface
 const loadingRequests = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const pendingDeleteRequest = ref<{ request: Request; index: number } | null>(null);
+const deleteConfirmationModal = ref<InstanceType<typeof ConfirmationModal> | null>(null);
 
 const getStatusClass = (status: Request['status']): string => {
     switch (status) {
@@ -213,40 +216,40 @@ const fetchRequestsInternal = async (uid: string): Promise<void> => {
     }
 };
 
-const deleteRequest = async (request: Request, index: number) => {
-  // Ensure _deleting doesn't cause type issues
+const deleteRequest = (request: Request, index: number) => {
+  console.log('deleteRequest called for:', request.id);
   if (request._deleting) return;
-  
-  // Show confirmation modal instead of native confirm
-  const modal = document.getElementById('deleteRequestModal');
-  if (modal && window.bootstrap?.Modal) {
-    const modalInstance = new window.bootstrap.Modal(modal);
-    modalInstance.show();
-    
-    // Store the request and index for the confirmation handler
-    pendingDeleteRequest.value = { request, index };
-  }
+  pendingDeleteRequest.value = { request, index };
+  console.log('Pending delete request set:', pendingDeleteRequest.value);
+  console.log('Attempting to show modal. Ref:', deleteConfirmationModal.value);
+  deleteConfirmationModal.value?.show();
 };
 
 const confirmDeleteRequest = async () => {
   if (!pendingDeleteRequest.value) return;
   
   const { request, index } = pendingDeleteRequest.value;
-  request._deleting = true; // Add temporary state
+  request._deleting = true;
   
   try {
-    await deleteDoc(doc(db, 'events', request.id));
-    requests.value.splice(index, 1); // Remove from local array
+    const success = await eventStore.deleteEventRequest(request.id);
+    if (success) {
+      requests.value.splice(index, 1);
+    } else {
+      // Error is handled and notified by the store, but we need to reset the button state
+      errorMessage.value = 'Failed to delete the request. Please check notifications for details.';
+      if (requests.value[index]) {
+          requests.value[index]._deleting = false;
+      }
+    }
   } catch (error) {
-    errorMessage.value = 'Failed to delete the request.';
-    // Reset temporary state on error
-    if (requests.value[index]) { // Check if element still exists
+    errorMessage.value = 'An unexpected error occurred while deleting the request.';
+    if (requests.value[index]) {
         requests.value[index]._deleting = false;
     }
   } finally {
     pendingDeleteRequest.value = null;
   }
-  // No finally needed here as _deleting is removed with splice on success
 };
 
 const editRequest = (request: Request): void => {
@@ -396,6 +399,7 @@ onMounted(() => {
   transition: all 0.3s ease;
   border-width: 1.5px;
   font-weight: 500;
+  flex-grow: 1;
 }
 
 .action-btn:hover:not(:disabled) {
@@ -432,6 +436,11 @@ onMounted(() => {
 @media (max-width: 768px) {
   .user-requests-container {
     margin: 1rem 0;
+  }
+  
+  .request-header .d-flex.flex-wrap {
+    flex-direction: column;
+    align-items: flex-start !important;
   }
   
   .section-header {

@@ -6,11 +6,11 @@
       <!-- Back Button and Title -->
       <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
         <div>
-          <h1 class="h3 text-primary mb-1">{{ pageTitle }}</h1>
-          <p class="small text-muted mb-0">{{ pageSubtitle }}</p>
+          <h1 class="h2 text-gradient-primary mb-1">{{ pageTitle }}</h1>
+          <p class="text-subtitle mb-0">{{ pageSubtitle }}</p>
         </div>
         <button
-          class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center"
+          class="btn btn-outline-secondary btn-sm btn-icon"
           @click="goBack"
           aria-label="Go back"
         >
@@ -36,10 +36,10 @@
             <p class="mb-2">{{ editError }}</p>
             <p class="small text-muted">You may not have permission, or the event is not in an editable state.</p>
             <div class="mt-3">
-              <button type="button" class="btn btn-primary btn-sm me-2" @click="$router.push({ name: 'Home' })">
+              <button type="button" class="btn btn-primary btn-sm btn-icon me-2" @click="$router.push({ name: 'Home' })">
                 <i class="fas fa-home me-1"></i> Go to Home
               </button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" @click="goBack">
+              <button type="button" class="btn btn-outline-secondary btn-sm btn-icon" @click="goBack">
                 <i class="fas fa-arrow-left me-1"></i> Go Back
               </button>
             </div>
@@ -145,13 +145,13 @@
                <button type="button" class="btn btn-outline-secondary" @click="goBack" :disabled="isSubmitting">
                  Cancel
                </button>
-               <button 
-                 type="submit" 
+               <button
+                 type="submit"
                  class="btn btn-primary px-4"
+                 :class="{ 'btn-loading': isSubmitting }"
                  :disabled="isSubmitting || !isFormValid"
                >
-                 <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                 {{ isEditing ? 'Update Event' : 'Submit Request' }}
+                 <span class="btn-text">{{ isEditing ? 'Update Event' : 'Submit Request' }}</span>
                </button>
              </div>
           </form>
@@ -250,32 +250,95 @@ const isFormValid = computed(() => {
   return true;
 });
 
-const baseCardNumber = 1; // Basic Details is always 1
-
-const criteriaCardNumber = computed(() => baseCardNumber + 1);
-
-const teamConfigCardNumber = computed(() => {
-  let num = baseCardNumber + 1; // Starts after Basic Details
-  if (formData.value.details.format !== EventFormat.Competition) num++; // Criteria card shown
-  return num;
-});
+const totalXP = computed(() => formData.value.criteria.reduce((sum, c) => sum + (c.points || 0), 0));
 
 const scheduleCardNumber = computed(() => {
-  let num = baseCardNumber + 1; // Starts after Basic Details
-  if (formData.value.details.format !== EventFormat.Competition) num++; // Criteria card shown
-  if (formData.value.details.format === EventFormat.Team) num++; // Team config card shown
+  let num = 2;
+  if (formData.value.details.format !== EventFormat.Competition) num++;
+  if (formData.value.details.format === EventFormat.Team) num++;
   return num;
 });
 
-const totalXP = computed(() => {
-  return formData.value.criteria.reduce((sum, criterion) => sum + (criterion.points || 0), 0);
-});
+const teamConfigCardNumber = computed(() => (formData.value.details.format !== EventFormat.Competition) ? 3 : 2);
+const criteriaCardNumber = 2;
 
-const handleSubmitForm = async () => {
+function goBack() {
+  if (window.history.length > 1) {
+    router.go(-1);
+  } else {
+    router.push({ name: 'Home' });
+  }
+}
+
+function handleTeamUpdate(newTeams: Team[]) {
+  formData.value.teams = newTeams;
+}
+
+function handleFormError(msg: string) {
+  errorMessage.value = msg;
+  setTimeout(() => errorMessage.value = '', 5000);
+}
+
+function handleAvailabilityChange(isAvailable: boolean) {
+  isDateAvailable.value = isAvailable;
+}
+
+function populateFormData(event: any) {
+  // Deep copy to avoid mutating store state directly
+  const eventData = JSON.parse(JSON.stringify(event));
+
+  formData.value.details.eventName = eventData.details?.eventName || '';
+  formData.value.details.type = eventData.details?.type || '';
+  formData.value.details.format = eventData.details?.format || EventFormat.Individual;
+  formData.value.details.description = eventData.details?.description || '';
+  formData.value.details.rules = eventData.details?.rules || '';
+  formData.value.details.prize = eventData.details?.prize || '';
+  formData.value.details.allowProjectSubmission = eventData.details?.allowProjectSubmission ?? true;
+  formData.value.details.organizers = eventData.details?.organizers || [];
+
+  const toYYYYMMDD = (ts: any) => {
+    if (!ts) return null;
+    return DateTime.fromSeconds(ts.seconds).toFormat('yyyy-MM-dd');
+  };
+
+  formData.value.details.date.start = toYYYYMMDD(eventData.details?.date?.start);
+  formData.value.details.date.end = toYYYYMMDD(eventData.details?.date?.end);
+
+  formData.value.criteria = eventData.criteria || [];
+  formData.value.teams = eventData.teams || [];
+  formData.value.status = eventData.status || EventStatus.Pending;
+  formData.value.votingOpen = eventData.votingOpen || false;
+}
+
+async function initializeFormForEdit(id: string) {
+  loading.value = true;
+  editError.value = '';
+  try {
+    let event = eventStore.getEventById(id);
+    if (!event) {
+      event = await eventStore.fetchEventDetails(id);
+    }
+    
+    if (!event) {
+      throw new Error("Event not found or you don't have permission to edit it.");
+    }
+    
+    const canEdit = (event.requestedBy === profileStore.studentId && [EventStatus.Pending, EventStatus.Rejected].includes(event.status));
+    if (!canEdit) {
+      throw new Error(`You cannot edit this event. It is currently in '${event.status}' status.`);
+    }
+    
+    populateFormData(event);
+  } catch (err: any) {
+    editError.value = err.message || 'An unknown error occurred while fetching event data.';
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function handleSubmitForm() {
   if (!isFormValid.value) {
-    errorMessage.value = "Please ensure all required fields are filled correctly and dates are available.";
-    // Scroll to top to show error message
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    errorMessage.value = "Please fill out all required fields and correct any errors.";
     return;
   }
 
@@ -283,214 +346,92 @@ const handleSubmitForm = async () => {
   errorMessage.value = '';
 
   try {
-    let success: boolean | string | null = false;
+    let success = false;
+    let newEventId = '';
+
     if (isEditing.value) {
       success = await eventStore.editMyEventRequest(eventId.value, formData.value);
-      if (success) {
-        notificationStore.showNotification({ message: "Event updated successfully!", type: 'success' });
-        router.push({ name: 'EventDetails', params: { id: eventId.value } });
-      }
     } else {
-      if (await eventStore.checkExistingPendingRequest()) {
-          errorMessage.value = "You already have a pending event request. Please wait for it to be reviewed.";
-          hasActiveRequest.value = true;
-          isSubmitting.value = false;
-          return;
-      }
-      success = await eventStore.requestNewEvent(formData.value);
-      if (success && typeof success === 'string') {
-        notificationStore.showNotification({ message: "Event request submitted successfully!", type: 'success' });
-        router.push({ name: 'EventDetails', params: { id: success } });
-      }
+      newEventId = await eventStore.requestNewEvent(formData.value);
+      success = !!newEventId;
     }
 
-    if (!success) {
-      errorMessage.value = eventStore.actionError || "Failed to save event. Please try again.";
+    if (success) {
+      notificationStore.showNotification({
+        message: `Event ${isEditing.value ? 'updated' : 'requested'} successfully!`,
+        type: 'success',
+      });
+      router.push({ name: 'EventDetails', params: { id: isEditing.value ? eventId.value : newEventId } });
     }
-  } catch (err: any) {
-    errorMessage.value = err.message || "An unexpected error occurred.";
-    notificationStore.showNotification({ message: errorMessage.value, type: 'error' });
+  } catch (error: any) {
+    errorMessage.value = error.message || `An unknown error occurred.`;
   } finally {
     isSubmitting.value = false;
   }
-};
-
-const handleTeamUpdate = (updatedTeams: Team[]) => {
-  formData.value.teams = updatedTeams;
-};
-
-const handleFormError = (error: string) => {
-  errorMessage.value = error;
-};
-
-const handleAvailabilityChange = (isAvailable: boolean) => {
-  isDateAvailable.value = isAvailable;
-  if (!isAvailable && !errorMessage.value.includes('date conflict')) { // Avoid duplicate messages
-    // errorMessage.value = "Selected event dates are not available. Please choose different dates.";
-  } else if (isAvailable && errorMessage.value.includes('date conflict')) {
-    // errorMessage.value = ''; // Clear date conflict message if dates become available
-  }
-};
-
-const goBack = () => {
-  if (isEditing.value && eventId.value) {
-    router.push({ name: 'EventDetails', params: { id: eventId.value } });
-  } else {
-    router.back();
-  }
-};
-
-const convertTimestampToISOString = (timestamp: any): string | null => {
-  if (!timestamp) return null;
-  try {
-    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-      return DateTime.fromJSDate(timestamp.toDate()).toISODate();
-    }
-    if (timestamp instanceof Date) {
-      return DateTime.fromJSDate(timestamp).toISODate();
-    }
-    if (typeof timestamp === 'string') {
-      const dt = DateTime.fromISO(timestamp);
-      return dt.isValid ? dt.toISODate() : null;
-    }
-  } catch (error) {
-    console.error('Error converting timestamp to ISO string:', error);
-  }
-  return null;
-};
-
-// Watch for format changes to set default allowProjectSubmission
-watch(() => formData.value.details.format, (newFormat) => {
-  if (newFormat === EventFormat.Competition || newFormat === EventFormat.Team) {
-    formData.value.details.allowProjectSubmission = true;
-  } else if (newFormat === EventFormat.Individual) {
-     // For individual, it could be either, let's default to false or keep existing
-     // formData.value.details.allowProjectSubmission = false; // Or keep as is
-  }
-}, { immediate: true });
-
+}
 
 onMounted(async () => {
   loading.value = true;
-  errorMessage.value = '';
-  editError.value = '';
+  isEditing.value = !!eventId.value;
 
   try {
-    // Fetch all users for team management component
     allUsers.value = await profileStore.fetchAllStudentProfiles();
-    
-    // Build name cache for co-organizer display
-    nameCache.value = {};
-    allUsers.value.forEach(user => {
-      if (user.uid && user.name) {
-        nameCache.value[user.uid] = user.name;
+    allUsers.value.forEach(u => {
+      if (u.uid && u.name) {
+        nameCache.value[u.uid] = u.name;
       }
     });
 
-    if (eventId.value) {
-      isEditing.value = true;
-      const event = eventStore.currentEventDetails; // eventStore.currentEventDetails should be populated by fetchEventDetails
-
-      if (event) {
-        // Permission check: Only requester of PENDING event or an ORGANIZER of an APPROVED event can edit.
-        const canEditPending = event.status === EventStatus.Pending && event.requestedBy === profileStore.studentId;
-        const canEditApproved = event.status === EventStatus.Approved && (event.details.organizers?.includes(profileStore.studentId ?? '') || event.requestedBy === profileStore.studentId);
-
-        if (!canEditPending && !canEditApproved) {
-            editError.value = `Events with status '${event.status}' cannot be edited by you, or editing is not allowed for this status.`;
-            loading.value = false;
-            return;
-        }
-        
-        formData.value = {
-          details: {
-            eventName: event.details.eventName,
-            type: event.details.type,
-            format: event.details.format,
-            description: event.details.description ?? '',
-            rules: event.details.rules ?? '',
-            prize: event.details.prize ?? '',
-            allowProjectSubmission: event.details.allowProjectSubmission ?? (event.details.format === EventFormat.Competition || event.details.format === EventFormat.Team),
-            organizers: event.details.organizers || [],
-            date: {
-              start: convertTimestampToISOString(event.details.date.start),
-              end: convertTimestampToISOString(event.details.date.end)
-            }
-          },
-          criteria: event.criteria || [],
-          teams: event.teams || [],
-          status: event.status, // Keep existing status
-          votingOpen: event.votingOpen, // Keep existing votingOpen state
-        };
-        
-      } else {
-        editError.value = "Event not found or you don't have permission to edit it.";
-      }
-    } else {
-      isEditing.value = false;
-      // For new events, check if the user already has a pending request
-      hasActiveRequest.value = await eventStore.checkExistingPendingRequest();
-      // Initialize with current user as an organizer for new events
-      if (profileStore.studentId) {
-        formData.value.details.organizers = [profileStore.studentId];
-      }
-    }
-  } catch (err: any) {
     if (isEditing.value) {
-        editError.value = `Failed to load event data: ${err.message}`;
+      await initializeFormForEdit(eventId.value);
     } else {
-        errorMessage.value = `Failed to initialize form: ${err.message}`;
+      hasActiveRequest.value = await eventStore.checkExistingPendingRequest();
+      formData.value.details.organizers = profileStore.studentId ? [profileStore.studentId] : [];
     }
+  } catch (error: any) {
+    errorMessage.value = "Failed to load necessary data. " + error.message;
   } finally {
     loading.value = false;
   }
 });
+
+watch(() => formData.value.details.format, (newFormat) => {
+  if (newFormat === EventFormat.Competition) {
+    formData.value.criteria = [];
+    formData.value.teams = [];
+    formData.value.details.allowProjectSubmission = false;
+  } else {
+    formData.value.details.allowProjectSubmission = true;
+  }
+
+  // A trick to force re-render ManageTeamsComponent if it was previously not shown
+  if (newFormat === EventFormat.Team) {
+    teamsComponentReady.value = false;
+    setTimeout(() => { teamsComponentReady.value = true; }, 0);
+  }
+}, { immediate: true });
 </script>
 
 <style scoped>
+/* Scoped styles here */
 .create-event-section {
-  background-color: var(--bs-gray-100); /* Light background for the whole page */
-  min-height: calc(100vh - 56px); /* Adjust based on navbar height */
+  min-height: 100vh;
 }
+
 .card-header {
-  border-bottom: 1px solid var(--bs-border-color-translucent);
+  border-bottom: 2px solid rgba(var(--bs-primary-rgb), 0.2);
 }
 
-/* Ensure form controls have consistent sizing */
-.form-control, .form-select {
-  font-size: 0.9rem; /* Slightly smaller font for better density */
+.btn:disabled {
+  cursor: not-allowed;
 }
 
-.request-event-section {
-  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
-  min-height: calc(100vh - var(--navbar-height-mobile));
-  padding-top: 1rem;
-  padding-bottom: 4rem;
+.form-floating > .form-control:not(:placeholder-shown) ~ label {
+  opacity: .65;
+  transform: scale(.85) translateY(-.5rem) translateX(.15rem);
 }
 
-@media (min-width: 992px) {
-  .request-event-section {
-    min-height: calc(100vh - var(--navbar-height-desktop));
-  }
-}
-
-.required::after {
-  content: "*";
-  color: var(--bs-danger);
-  margin-left: 0.2rem;
-}
-
-.form-section-card {
-  background: var(--bs-white);
-  border-radius: var(--bs-border-radius-lg);
-  border: 1px solid var(--bs-border-color);
-  box-shadow: var(--bs-box-shadow-sm);
-  margin-bottom: 2rem;
-}
-
-.step-indicator {
-  background: var(--bs-primary-bg-subtle);
-  border-radius: var(--bs-border-radius);
-  padding: 0.5rem 1rem;
+.form-floating > label {
+  padding: 1rem .75rem;
 }
 </style>

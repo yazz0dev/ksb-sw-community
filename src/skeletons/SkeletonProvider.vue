@@ -23,15 +23,15 @@
 import { computed } from 'vue';
 import { useAppStore } from '@/stores/appStore';
 
+// Define required props
 interface Props {
   loading: boolean;
-  skeletonComponent: object | Function;
+  skeletonComponent: any; // Use a more specific type if available
   skeletonProps?: Record<string, any>;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  skeletonProps: () => ({})
-});
+// Define props without assigning to a variable to avoid linting warnings
+defineProps<Props>();
 
 const appStore = useAppStore();
 
@@ -65,7 +65,7 @@ const statusMessage = computed((): string => {
   position: fixed;
   bottom: 1rem;
   right: 1rem;
-  z-index: 1050;
+  z-index: 1090; /* Increased z-index to be above modals and toasts */
   transition: all 0.3s ease-in-out;
 }
 

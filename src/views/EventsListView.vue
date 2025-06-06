@@ -6,7 +6,7 @@
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
           <!-- Left side -->
           <div>
-            <h2 class="h2 text-primary mb-0">Events</h2>
+            <h2 class="h2 text-gradient-primary mb-0">Events</h2>
           </div>
           <!-- Right side -->
           <div class="ms-md-auto">
@@ -16,10 +16,7 @@
                 :key="filter.value"
                 type="button"
                 class="btn"
-                :class="{ 
-                  'btn-primary active': activeFilter === filter.value, 
-                  'btn-outline-secondary': activeFilter !== filter.value 
-                }"
+                :class="activeFilter === filter.value ? 'btn-primary' : 'btn-outline-primary'"
                 @click="setActiveFilter(filter.value)"
               >
                 {{ filter.label }}
@@ -44,7 +41,7 @@
         <div v-if="isAuthenticated">
           <!-- Upcoming Events Section -->
           <div v-if="activeFilter === 'upcoming'">
-            <h2 class="h4 mb-4">Upcoming Events</h2>
+            <h2 class="h4 text-gradient-primary mb-4">Upcoming Events</h2>
             <div v-if="upcomingEvents.length > 0" class="row g-4">
               <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
                 <EventCard :event="event" :name-cache="nameCache" />
@@ -56,7 +53,7 @@
           <!-- Active Events Section (for authenticated users) -->
           <div v-if="activeFilter === 'active'">
             <hr v-if="upcomingEvents.length > 0 && activeFilter === 'active'" class="my-5">
-            <h2 class="h4 mb-4">Active Events</h2>
+            <h2 class="h4 text-gradient-primary mb-4">Active Events</h2>
             <div v-if="activeEvents.length > 0" class="row g-4">
               <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
                 <EventCard :event="event" :name-cache="nameCache" />
@@ -68,7 +65,7 @@
           <!-- Completed Events Section (for authenticated users) -->
           <div v-if="activeFilter === 'completed'">
             <hr v-if="(upcomingEvents.length > 0 || activeEvents.length > 0) && activeFilter === 'completed'" class="my-5">
-            <h2 class="h4 mb-4">Completed Events</h2>
+            <h2 class="h4 text-gradient-primary mb-4">Completed Events</h2>
             <div v-if="completedEvents.length > 0" class="row g-4">
               <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
                 <EventCard :event="event" :name-cache="nameCache" />
@@ -81,7 +78,7 @@
         <!-- Logged-out User View: Show Upcoming, Ongoing (Approved only), and Completed Events -->
         <div v-else>
           <!-- Upcoming Events Section -->
-          <h2 class="h4 mb-4">Upcoming Events</h2>
+          <h2 class="h4 text-gradient-primary mb-4">Upcoming Events</h2>
           <div v-if="upcomingEvents.length > 0" class="row g-4">
             <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
               <EventCard :event="event" :name-cache="nameCache" />
@@ -91,7 +88,7 @@
 
           <!-- Ongoing (Approved) Events Section -->
           <hr class="my-5">
-          <h2 class="h4 mb-4">Ongoing Events</h2>
+          <h2 class="h4 text-gradient-primary mb-4">Ongoing Events</h2>
           <div v-if="activeEvents.length > 0" class="row g-4"> {/* activeEvents for unauth will only contain 'Approved' current events */}
             <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
               <EventCard :event="event" :name-cache="nameCache" />
@@ -101,7 +98,7 @@
           
           <!-- Completed Events Section -->
           <hr class="my-5">
-          <h2 class="h4 mb-4">Completed Events</h2>
+          <h2 class="h4 text-gradient-primary mb-4">Completed Events</h2>
           <div v-if="completedEvents.length > 0" class="row g-4">
             <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
               <EventCard :event="event" :name-cache="nameCache" />

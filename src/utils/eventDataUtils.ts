@@ -91,6 +91,12 @@ function convertToTimestamp(dateValue: any): Timestamp | null {
 export const mapEventDataToFirestore = (data: EventFormData | Partial<Event>): any => {
     const firestoreData: any = { ...data };
     
+    // Ensure optional fields are null, not undefined
+    if (firestoreData.details) {
+        firestoreData.details.prize = firestoreData.details.prize || null;
+        firestoreData.details.rules = firestoreData.details.rules || null;
+    }
+    
     // Handle date conversion to Firestore Timestamps
     if (data.details?.date?.start || data.details?.date?.end) {
         firestoreData.details = firestoreData.details || {};
@@ -185,7 +191,7 @@ export const mapFirestoreToEventData = (id: string, firestoreData: DocumentData 
         }).filter((rating: any) => rating.ratedAt);
         
         if (filteredRatings.length > 0) {
-            event.organizerRatings = filteredRatings as Event['organizerRatings'];
+            event.organizerRatings = filteredRatings;
         }
     }
 
@@ -200,17 +206,18 @@ export const mapFirestoreToEventData = (id: string, firestoreData: DocumentData 
         }).filter((sub: any) => sub.submittedAt);
         
         if (filteredSubmissions.length > 0) {
-            event.submissions = filteredSubmissions as Event['submissions'];
+            event.submissions = filteredSubmissions;
         }
     }
 
     // Handle criteria
     if (firestoreData.criteria && typeof firestoreData.criteria === 'object' && !Array.isArray(firestoreData.criteria)) {
-        event.criteria = Object.values(firestoreData.criteria) as EventCriteria[];
-    } else if (Array.isArray(firestoreData.criteria)) {
-        event.criteria = firestoreData.criteria as EventCriteria[];
-    } else {
-        event.criteria = undefined as Event['criteria'];
+        const criteriaArray = Object.values(firestoreData.criteria) as EventCriteria[];
+        if (criteriaArray.length > 0) {
+            event.criteria = criteriaArray;
+        }
+    } else if (Array.isArray(firestoreData.criteria) && firestoreData.criteria.length > 0) {
+        event.criteria = firestoreData.criteria;
     }
 
     return event as Event;

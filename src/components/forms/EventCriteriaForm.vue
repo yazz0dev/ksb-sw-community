@@ -183,12 +183,12 @@ watch(
         if (oldFormat === EventFormat.Team) {
           workingCriteria = workingCriteria.filter(c => !isBestPerformerCriterion(c));
         }
-        if (newFormat === EventFormat.Team && !workingCriteria.some(isBestPerformerCriterion)) {
+        if (newFormat === EventFormat.Team && !workingCriteria.some(c => isBestPerformerCriterion(c))) {
           workingCriteria.push(createBestPerformerCriterion());
         }
       }
     } else {
-      const hasBestPerf = workingCriteria.some(isBestPerformerCriterion);
+      const hasBestPerf = workingCriteria.some(c => isBestPerformerCriterion(c));
       if (newFormat === EventFormat.Team && !hasBestPerf) {
         workingCriteria.push(createBestPerformerCriterion());
       } else if (newFormat !== EventFormat.Team && hasBestPerf) {
@@ -236,7 +236,8 @@ function addCriterion() {
 }
 
 function removeCriterion(idx: number) {
-  if (userAddedCriteriaCount.value <= 1 && !isBestPerformerCriterion(localCriteria.value[idx])) {
+  const criterion = localCriteria.value[idx];
+  if (userAddedCriteriaCount.value <= 1 && criterion && !isBestPerformerCriterion(criterion)) {
     console.warn("Cannot remove the last criterion.");
     return;
   }
@@ -245,7 +246,7 @@ function removeCriterion(idx: number) {
 
 function getCriterionMaxPoints(idx: number): number {
   const currentCriterion = localCriteria.value[idx];
-  if (isBestPerformerCriterion(currentCriterion)) return BEST_PERFORMER_POINTS;
+  if (!currentCriterion || isBestPerformerCriterion(currentCriterion)) return BEST_PERFORMER_POINTS;
 
   const sumOtherPoints = localCriteria.value.reduce((sum, c, i) => {
     if (i === idx || isBestPerformerCriterion(c)) {
@@ -254,14 +255,14 @@ function getCriterionMaxPoints(idx: number): number {
     return sum + (Number(c.points) || 0);
   }, 0);
 
-  const bestPerformerPoints = localCriteria.value.some(isBestPerformerCriterion) ? BEST_PERFORMER_POINTS : 0;
+  const bestPerformerPoints = localCriteria.value.some(c => isBestPerformerCriterion(c)) ? BEST_PERFORMER_POINTS : 0;
   const remainingXP = MAX_TOTAL_XP - bestPerformerPoints - sumOtherPoints;
   return Math.max(1, remainingXP);
 }
 
 function handlePointsInput(idx: number) {
   const criterion = localCriteria.value[idx];
-  if (isBestPerformerCriterion(criterion)) return;
+  if (!criterion || isBestPerformerCriterion(criterion)) return;
   const maxPoints = getCriterionMaxPoints(idx);
   criterion.points = Math.max(1, Math.min(Number(criterion.points) || 1, maxPoints));
 }

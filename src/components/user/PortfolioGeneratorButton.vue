@@ -54,17 +54,17 @@ import type { XPData } from '@/types/xp'; // Import XPData for user prop
 interface Project {
   projectName: string;
   link: string;
-  description?: string;
+  description?: string | undefined;
 }
 
 // User prop now reflects the structure where XP data is nested
 interface UserForPortfolio {
   name: string;
   uid: string; // Added UID for pdf naming
-  xpData?: Partial<XPData>; // XP data is now nested and partial to allow for cases where it might not be fully populated yet
+  xpData?: Partial<XPData> | undefined; // XP data is now nested and partial to allow for cases where it might not be fully populated yet
   // Other profile fields if needed by pdfGenerator
-  skills?: string[];
-  bio?: string;
+  skills?: string[] | undefined;
+  bio?: string | undefined;
 }
 
 const props = defineProps<{

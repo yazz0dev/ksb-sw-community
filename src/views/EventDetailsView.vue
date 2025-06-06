@@ -71,10 +71,10 @@
                 <div v-if="isTeamEvent" class="mb-3 mb-md-4">
                   <div class="section-header mb-3">
                     <i class="fas fa-users text-primary me-2"></i>
-                    <span class="h5 mb-0 text-primary">Teams ({{ event.teams?.length || 0 }})</span>
+                    <span class="h5 mb-0 text-gradient-primary">Teams ({{ event.teams?.length || 0 }})</span>
                   </div>
                   <div class="row g-3">
-                    <div class="col-12" :class="{ 'col-lg-6': teams.length > 2 }">
+                    <div class="col-12" :class="{ 'col-lg-6': teams.length > 1 }">
                       <TeamList
                         :teams="teams.slice(0, Math.ceil(teams.length / 2))"
                         :event-id="props.id"
@@ -85,7 +85,7 @@
                         class="card team-list-box p-0 shadow-sm animate-fade-in"
                       />
                     </div>
-                    <div v-if="teams.length > 2" class="col-12 col-lg-6">
+                    <div v-if="teams.length > 1" class="col-12 col-lg-6">
                       <TeamList
                         :teams="teams.slice(Math.ceil(teams.length / 2))"
                         :event-id="props.id"
@@ -102,7 +102,7 @@
                 <div v-else class="mb-3 mb-md-4">
                   <div class="section-header mb-3">
                     <i class="fas fa-user-friends text-primary me-2"></i>
-                    <span class="h5 mb-0 text-primary">Participants ({{ event.participants?.length || 0 }})</span>
+                    <span class="h5 mb-0 text-gradient-primary">Participants ({{ event.participants?.length || 0 }})</span>
                   </div>
                   <div class="row g-3">
                     <div class="col-12" :class="{ 'col-lg-6': (event.participants?.length || 0) > 8 }">
@@ -148,6 +148,7 @@
                   :event="event"
                   :currentUser="currentUser"
                   :loading="loading"
+                  class="mb-4"
                 />
 
                 <!-- Organizer Rating Form -->
@@ -181,7 +182,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
-import { useEvents } from '@/composables/useEvents';
 import { useEventStore } from '@/stores/eventStore';
 
 // Component Imports
@@ -200,6 +200,7 @@ import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
 // Type Imports
 import { EventStatus, type Event, type Team, EventFormat } from '@/types/event';
 import { type EnrichedStudentData } from '@/types/student';
+import type { EventHeaderProps } from '@/components/events/EventDetailsHeader.vue';
 
 // Import utility functions
 import {
@@ -214,25 +215,6 @@ interface FeedbackState {
 	type: 'success' | 'error';
 }
 
-interface EventHeaderProps {
-  id: string;
-  status: string;
-  title: string;
-  details: {
-    format: EventFormat;
-    date: { start: any; end: any; };
-    description: string;
-    organizers?: string[];
-    prize?: string;
-    eventName?: string;
-    type?: string;
-    rules?: string;
-  };
-  closed?: boolean;
-  teams?: Team[];
-  participants?: string[];
-}
-
 // --- Props ---
 interface Props {
   id: string;
@@ -241,7 +223,6 @@ const props = defineProps<Props>();
 
 // --- Composables ---
 const studentStore = useProfileStore();
-const { fetchEventById } = useEvents(); // Remove submitProject from destructuring
 const eventStore = useEventStore();
 
 // --- Refs and Reactive State ---
@@ -300,7 +281,7 @@ const canLeave = computed(() => {
 });
 
 const canSubmitProject = computed(() =>
-  event.value && currentUser.value ? canUserSubmitToEvent(event.value, currentUser.value) : false
+  event.value && currentUser.value ? canUserSubmitToEvent(event.value, currentUser.value as any) : false
 );
 
 const canRateOrganizer = computed(() => {
@@ -375,13 +356,20 @@ async function fetchData(): Promise<void> {
 
   try {
     if (props.id) {
-      const fetchedEvent = await fetchEventById(props.id);
+      // Use fetchEventDetails which has the correct permission logic for single events.
+      const fetchedEvent = await eventStore.fetchEventDetails(props.id);
+
       if (!fetchedEvent) {
+        // fetchEventDetails will have already set a notification, but we can set a local error too.
         throw new Error('Event not found or you do not have permission to view it.');
       }
+
+      // The store now holds the definitive state in `viewedEventDetails`.
+      // We can use it to populate our local ref.
       event.value = { ...fetchedEvent };
       teams.value = (isTeamEvent.value && Array.isArray(fetchedEvent.teams)) ? [...fetchedEvent.teams] : [];
 
+      // fetchUserNames should still be called.
       await fetchUserNames(allAssociatedUserIds.value);
     }
   } catch (error: any) {
@@ -445,17 +433,20 @@ const mapEventToHeaderProps = (evt: Event): EventHeaderProps => ({
     status: evt.status,
     title: evt.details.eventName || evt.details.type || 'Event',
     closed: evt.status === EventStatus.Completed || evt.status === EventStatus.Cancelled,
-    teams: evt.teams,
-    participants: evt.participants,
+    teams: evt.teams || undefined,
+    participants: evt.participants || undefined,
     details: {
+        format: evt.details.format,
+        date: {
+            start: evt.details.date?.start || null,
+            end: evt.details.date?.end || null
+        },
+        description: evt.details.description,
         eventName: evt.details.eventName || undefined,
         type: evt.details.type || undefined,
-        format: evt.details.format,
-        date: { start: evt.details.date.start, end: evt.details.date.end },
-        description: evt.details.description,
-        organizers: evt.details.organizers,
+        organizers: evt.details.organizers || undefined,
         prize: evt.details.prize || undefined,
-        rules: evt.details.rules || undefined,
+        rules: evt.details.rules || undefined
     }
 });
 
@@ -478,13 +469,32 @@ defineExpose({ handleJoin, handleLeave });
 </script>
 
 <style scoped>
+/* Event Details Background & Layout */
 .event-details-bg {
-  background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
+  background: linear-gradient(135deg, 
+    var(--bs-light) 0%, 
+    var(--bs-primary-bg-subtle) 50%, 
+    rgba(var(--bs-primary-rgb), 0.08) 100%);
   min-height: calc(100vh - var(--navbar-height-mobile));
   padding-top: 1rem;
   padding-bottom: 4rem;
   width: 100%;
   overflow-x: hidden;
+  position: relative;
+}
+
+.event-details-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: linear-gradient(180deg, 
+    rgba(var(--bs-primary-rgb), 0.03) 0%, 
+    transparent 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 @media (min-width: 992px) {
@@ -498,6 +508,8 @@ defineExpose({ handleJoin, handleLeave });
   margin: 0;
   padding-left: 0.5rem;
   padding-right: 0.5rem;
+  position: relative;
+  z-index: 1;
 }
 
 @media (min-width: 768px) {
@@ -507,72 +519,131 @@ defineExpose({ handleJoin, handleLeave });
   }
 }
 
-@media (max-width: 767.98px) { 
-  .sticky-lg-top { 
-    position: static; 
-  } 
-}
-
-.submit-fab { 
-  position: sticky; 
-  top: 80px; 
-  float: right; 
-  z-index: 10; 
-}
-
-.submit-fab-mobile {
-  position: fixed;
-  bottom: calc(var(--bottom-nav-height-mobile) + 1rem);
-  right: 1rem;
-  z-index: 1045;
-  border-radius: 50%;
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  box-shadow: var(--bs-box-shadow-lg);
-}
-
-@media (min-width: 768px) { 
-  .submit-fab-mobile { 
-    display: none !important; 
-  } 
-}
-
-@media (max-width: 767.98px) { 
-  .submit-fab { 
-    display: none !important; 
-  } 
-}
-
+/* Enhanced Section Headers */
 .section-header { 
+  background: rgba(var(--bs-white-rgb), 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: var(--bs-border-radius-lg);
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(var(--bs-primary-rgb), 0.1);
+  box-shadow: 0 2px 10px rgba(var(--bs-dark-rgb), 0.05);
   display: flex; 
   align-items: center; 
   font-size: 1.1rem; 
   font-weight: 600; 
-  gap: 0.6rem; 
+  gap: 0.75rem; 
   color: var(--bs-body-color); 
-  margin-bottom: 1rem; 
+  margin-bottom: 1.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
 }
 
+.section-header:hover {
+  box-shadow: 0 4px 15px rgba(var(--bs-dark-rgb), 0.08);
+  transform: translateY(-1px);
+}
+
+.section-header i {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--bs-primary-rgb), 0.1);
+  border-radius: 50%;
+  font-size: 0.875rem;
+}
+
+/* Enhanced Card Styling */
 .team-list-box, .card { 
+  background: rgba(var(--bs-white-rgb), 0.95);
+  backdrop-filter: blur(20px);
   border-radius: var(--bs-border-radius-lg); 
-  border: 1px solid var(--bs-border-color); 
-  box-shadow: var(--bs-box-shadow-sm); 
+  border: 1px solid rgba(var(--bs-primary-rgb), 0.08);
+  box-shadow: 
+    0 4px 20px rgba(var(--bs-dark-rgb), 0.08),
+    0 1px 3px rgba(var(--bs-dark-rgb), 0.06);
   overflow: hidden; 
-  background-color: var(--bs-card-bg); 
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 2;
 }
 
+.team-list-box:hover, .card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 8px 30px rgba(var(--bs-dark-rgb), 0.12),
+    0 4px 8px rgba(var(--bs-dark-rgb), 0.08);
+  border-color: rgba(var(--bs-primary-rgb), 0.15);
+}
+
+/* Participant List Enhancements */
+.participant-card {
+  background: rgba(var(--bs-white-rgb), 0.98);
+  border: 1px solid rgba(var(--bs-border-color-translucent), 0.5);
+  border-radius: var(--bs-border-radius-lg);
+  padding: 1rem;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.participant-card:hover {
+  border-color: var(--bs-primary);
+  box-shadow: var(--bs-box-shadow-sm);
+  transform: translateY(-2px);
+}
+
+.participant-item {
+  padding: 0.75rem;
+  border-radius: var(--bs-border-radius);
+  transition: all 0.2s ease;
+  margin-bottom: 0.5rem;
+}
+
+.participant-item:hover {
+  background-color: rgba(var(--bs-primary-rgb), 0.08);
+  transform: translateX(4px);
+}
+
+/* Sidebar Enhancements */
+.sidebar-card {
+  background: rgba(var(--bs-white-rgb), 0.98);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(var(--bs-primary-rgb), 0.06);
+  border-radius: var(--bs-border-radius-xl);
+  box-shadow: 
+    0 6px 25px rgba(var(--bs-dark-rgb), 0.06),
+    0 2px 6px rgba(var(--bs-dark-rgb), 0.04);
+  position: relative;
+  z-index: 2;
+}
+
+.sidebar-card .card-header {
+  background: linear-gradient(135deg, 
+    rgba(var(--bs-primary-rgb), 0.05) 0%, 
+    rgba(var(--bs-primary-rgb), 0.02) 100%);
+  border-bottom: 1px solid rgba(var(--bs-primary-rgb), 0.08);
+  border-radius: var(--bs-border-radius-xl) var(--bs-border-radius-xl) 0 0;
+}
+
+.sidebar-card .card-title {
+  color: var(--bs-primary);
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0;
+}
+
+/* Animation Classes */
 .animate-fade-in { 
-  animation: fadeIn 0.5s ease-out forwards; 
+  animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; 
 }
 
 @keyframes fadeIn { 
   from { 
     opacity: 0; 
-    transform: translateY(10px); 
+    transform: translateY(15px); 
   } 
   to { 
     opacity: 1; 
@@ -580,53 +651,137 @@ defineExpose({ handleJoin, handleLeave });
   } 
 }
 
+/* Feedback Transitions */
 .fade-pop-enter-active { 
-  animation: fadeIn .5s ease; 
+  animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
 }
 
 .fade-pop-leave-active { 
-  animation: fadeOut .3s ease forwards; 
+  animation: fadeOut 0.3s ease forwards; 
 }
 
 @keyframes fadeOut { 
   from { 
     opacity: 1; 
+    transform: translateY(0);
   } 
   to { 
     opacity: 0; 
+    transform: translateY(-10px);
   } 
 }
 
-.modal.fade .modal-dialog { 
-  transition: transform .3s ease-out; 
-  transform: translateY(-25px); 
-}
-
-.modal.show .modal-dialog { 
-  transform: none; 
-}
-
-.modal-content { 
-  border-radius: var(--bs-border-radius-lg); 
-  border: none; 
-}
-
+/* Sticky Sidebar */
 .sticky-lg-top { 
   position: sticky; 
   top: 80px; 
   z-index: 5; 
 }
 
+@media (max-width: 767.98px) { 
+  .sticky-lg-top { 
+    position: static !important; 
+  } 
+}
+
+/* Enhanced Alert Styling */
 .alert-sm { 
-  padding: 0.5rem 0.75rem; 
-  font-size: 0.875rem; 
+  padding: 0.75rem 1rem; 
+  font-size: 0.875rem;
+  border: none;
+  border-radius: var(--bs-border-radius-lg);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--bs-box-shadow-sm);
+  position: relative;
+  z-index: 3;
+}
+
+.alert-success {
+  background: linear-gradient(135deg, 
+    rgba(var(--bs-success-rgb), 0.1) 0%, 
+    rgba(var(--bs-success-rgb), 0.05) 100%);
+  border-left: 4px solid var(--bs-success);
+}
+
+.alert-danger {
+  background: linear-gradient(135deg, 
+    rgba(var(--bs-danger-rgb), 0.1) 0%, 
+    rgba(var(--bs-danger-rgb), 0.05) 100%);
+  border-left: 4px solid var(--bs-danger);
 }
 
 .btn-close {
   font-size: 0.75rem;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.btn-close:hover {
+  opacity: 1;
 }
 
 .card-header {
-  border-bottom: 1px solid var(--bs-border-color);
+  background: linear-gradient(135deg, 
+    rgba(var(--bs-primary-rgb), 0.05) 0%, 
+    rgba(var(--bs-primary-rgb), 0.02) 100%);
+  border-bottom: 1px solid rgba(var(--bs-primary-rgb), 0.08);
+  border-radius: var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 0;
+}
+
+/* Mobile Responsive Improvements */
+@media (max-width: 991.98px) {
+  .sidebar-card {
+    margin-top: 2rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .section-header {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    gap: 0.5rem;
+  }
+  
+  .section-header i {
+    width: 20px;
+    height: 20px;
+    font-size: 0.75rem;
+  }
+  
+  .team-list-box, .card {
+    margin-bottom: 1rem;
+  }
+  
+  .row.g-3 {
+    --bs-gutter-x: 0.75rem;
+    --bs-gutter-y: 0.75rem;
+  }
+  
+  .participant-card {
+    padding: 0.75rem;
+  }
+  
+  .event-details-view {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+}
+
+/* Loading States */
+.loading-placeholder {
+  background: linear-gradient(90deg, 
+    rgba(var(--bs-light-rgb), 0.8) 25%, 
+    rgba(var(--bs-light-rgb), 0.4) 50%, 
+    rgba(var(--bs-light-rgb), 0.8) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--bs-border-radius);
+  height: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 </style>

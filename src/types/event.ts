@@ -107,7 +107,7 @@ export interface Event {
 
   winners?: EventWinners;
   manuallySelectedBy?: string;
-  organizerRatings?: OrganizerRating[];
+  organizerRatings?: Record<string, OrganizerRating>;
 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;

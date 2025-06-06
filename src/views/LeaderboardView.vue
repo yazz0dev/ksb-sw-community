@@ -4,16 +4,16 @@
     <div class="container-lg px-3 px-md-4">
       <!-- Page Header -->
       <div class="text-center mb-4 mb-md-5">
-        <h1 class="h2 h1-lg fw-bold text-dark mb-2">
-          <i class="fas fa-trophy text-primary me-2"></i>
+        <h1 class="h1 text-gradient-primary mb-2">
+          <i class="fas fa-trophy me-2"></i>
           Leaderboard
         </h1>
-        <p class="text-secondary mb-0">See who's leading in different roles and overall XP</p>
+        <p class="text-subtitle mb-0">See who's leading in different roles and overall XP</p>
       </div>
 
       <!-- Role Filter Section -->
       <div class="section-card shadow-sm rounded-4 p-3 p-md-4 mb-4 mb-md-5 animate-fade-in">
-        <h3 class="h5 h4-md mb-3 text-center">
+        <h3 class="h4 mb-3 text-center">
           <i class="fas fa-filter text-primary me-2"></i>
           Filter by Role
         </h3>
@@ -23,7 +23,7 @@
             :key="role.key"
             @click="selectRoleFilter(role.key as keyof XPData | 'totalCalculatedXp')"
             type="button"
-            class="role-btn"
+            class="btn btn-outline-primary"
             :class="{ active: selectedRoleKey === role.key }"
           >
             <span class="role-icon">{{ getRoleIcon(role.key) }}</span>
@@ -46,7 +46,7 @@
         <div class="flex-grow-1">
           <strong>Error loading leaderboard:</strong> {{ error }}
         </div>
-        <button @click="retryLoading" class="btn btn-sm btn-outline-danger ms-3">
+        <button @click="retryLoading" class="btn btn-outline-danger btn-sm btn-icon ms-3">
           <i class="fas fa-sync-alt me-1"></i> Retry
         </button>
       </div>
@@ -56,7 +56,7 @@
         <!-- Empty State -->
         <div v-if="!filteredUsers || filteredUsers.length === 0" class="text-center py-4 py-md-5">
           <i class="fas fa-info-circle text-info fs-1 mb-3"></i>
-          <h4 class="h5 text-secondary mb-3">
+          <h4 class="h4 text-secondary mb-3">
             <span v-if="isFirstLoad">
               Leaderboard is currently empty
             </span>
@@ -72,7 +72,7 @@
               Try selecting a different role or check back later.
             </span>
           </p>
-          <button @click="retryLoading" class="btn btn-primary">
+          <button @click="retryLoading" class="btn btn-primary btn-icon">
             <i class="fas fa-sync-alt me-1"></i> Refresh
           </button>
         </div>
@@ -81,7 +81,7 @@
         <div v-else>
           <!-- Stats Header -->
           <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
-            <h3 class="h5 h4-md mb-0 text-dark">
+            <h3 class="h4 mb-0">
               <i class="fas fa-ranking-star text-primary me-2"></i>
               {{ currentRoleDisplayName }} Rankings
             </h3>
@@ -151,7 +151,7 @@
 
           <!-- Mobile: Show top 3 users prominently -->
           <div v-if="topThreeUsers.length > 0" class="d-md-none mb-4">
-            <h4 class="h6 text-muted mb-4 text-center">
+            <h4 class="h5 text-muted mb-4 text-center">
               <i class="fas fa-trophy text-warning me-2"></i>
               Top Rankings
             </h4>
@@ -189,7 +189,7 @@
 
           <!-- Remaining Users (Desktop 2-column, Mobile single column) -->
           <div v-if="remainingUsers.length > 0">
-            <h4 class="h6 text-muted mb-3 text-center text-md-start">
+            <h4 class="h5 text-muted mb-3 text-center text-md-start">
               {{ topThreeUsers.length > 0 ? 'Other Rankings' : 'Rankings' }}
             </h4>
             
@@ -289,7 +289,7 @@ import { useProfileStore } from '@/stores/profileStore';
 import { formatRoleName } from '@/utils/formatters';
 import type { XPData, XpFirestoreFieldKey } from '@/types/xp';
 import type { EnrichedStudentData } from '@/types/student';
-import StudentCard from '@/components/user/StudentCard.vue'; 
+import StudentCard from '@/components/shared/StudentCard.vue'; 
 
 // Define available roles for filtering, mapping to XPData keys
 // Key: the field in XPData, DisplayName: what's shown to the user
@@ -778,8 +778,4 @@ const getRoleIcon = (roleKey: string): string => {
   }
 }
 
-/* Podium Styles */
-.top-three-container {
-  /* Add any podium-specific styles here */
-}
 </style>

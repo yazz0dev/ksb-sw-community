@@ -47,7 +47,7 @@
             <div class="d-flex align-items-center text-secondary">
               <i class="fas fa-calendar-alt fa-fw me-2"></i>
               <small>
-                {{ formatISTDate(event?.details?.date?.start, 'dd MMM yyyy') }} - {{ formatISTDate(event?.details?.date?.end, 'dd MMM yyyy') }}
+                {{ formatDateRange(event?.details?.date?.start, event?.details?.date?.end) }}
               </small>
             </div>
             <!-- Participants -->
@@ -118,26 +118,26 @@ import { EventFormat, type Team } from '@/types/event'; // Import Team for Event
 import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
 // Define a more specific Event type for the header props
-interface EventHeaderProps {
+export interface EventHeaderProps {
   id: string;
   status: string;
-  title: string; // Combined from eventName/type
+  title: string;
   details: {
-    eventName?: string;
-    type?: string; // Added type
-    format: EventFormat; // Use enum
+    format: EventFormat;
     date: {
-        start: Timestamp | Date | string | null; // Accept various date inputs
-        end: Timestamp | Date | string | null;   // Accept various date inputs
+      start: Timestamp | null;
+      end: Timestamp | null;
     };
     description: string;
-    organizers?: string[];
-    prize?: string; // Added prize
-    rules?: string; // Added rules field
+    eventName: string | undefined;
+    type: string | undefined;
+    organizers: string[] | undefined;
+    prize: string | undefined;
+    rules: string | undefined;
   };
-  closed?: boolean;
-  teams?: Team[];
-  participants?: string[];
+  closed: boolean;
+  teams: Team[] | undefined;
+  participants: string[] | undefined;
 }
 
 const props = defineProps({
@@ -205,6 +205,18 @@ watch(() => props.event?.details?.rules, (newRules) => {
 }, { immediate: true });
 
 const statusTagClass = computed((): string => getEventStatusBadgeClass(props.event?.status));
+
+const formatDateRange = (start: any, end: any): string => {
+  try {
+    const startDate = formatISTDate(start, 'dd MMM yy');
+    const endDate = formatISTDate(end, 'dd MMM yy');
+    if (!startDate) return 'Date TBD';
+    return endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate;
+  } catch (e) {
+    console.error("Error formatting date:", e);
+    return 'Date N/A';
+  }
+};
 
 const totalParticipants = computed(() => {
   if (!props.event) return 0;

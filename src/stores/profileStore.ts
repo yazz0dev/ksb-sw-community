@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { User as FirebaseUser } from 'firebase/auth'; // Added AuthError
 import { getAuth, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth'; // Added getAuth, signOut, onAuthStateChanged
-import { deepClone, isEmpty } from '@/utils/helpers'; // Added now, isEmpty
+import { deepClone, isEmpty } from '@/utils/eventUtils'; // Added now, isEmpty
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore'; // Renamed to studentAppStore for clarity in this file
 import type { EnrichedStudentData, StudentEventHistoryItem, UserData } from '@/types/student'; // Adjusted imports: Removed StudentData, Changed StudentPortfolioData
@@ -21,7 +21,7 @@ import {
     fetchStudentEventHistory as fetchStudentEventHistoryService,
     fetchStudentEventParticipationCount as fetchStudentEventParticipationCountService
 } from '@/services/profileService';
-import { fetchMyEventRequests as fetchStudentEventRequestsService } from '@/services/eventService';
+import { fetchMyEventRequests as fetchStudentEventRequestsService } from '@/services/eventService/eventQueries';
 import { uploadFileService, deleteFileByUrlService } from '@/services/storageService'; // Added storage service imports
 
 // const STUDENT_COLLECTION_PATH = 'students';
@@ -424,8 +424,10 @@ export const useProfileStore = defineStore('studentProfile', () => {
             for (const id in serviceFetchedNames) {
                 if (Object.prototype.hasOwnProperty.call(serviceFetchedNames, id)) {
                     const nameVal = serviceFetchedNames[id];
-                    namesMap[id] = nameVal;
-                    _updateNameCache(id, nameVal ?? null); 
+                    if (nameVal) {
+                        namesMap[id] = nameVal;
+                        _updateNameCache(id, nameVal); 
+                    }
                 }
             }
             

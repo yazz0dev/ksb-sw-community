@@ -37,7 +37,7 @@
 
 .skeleton-line,
 .skeleton-circle {
-  background-color: var(--bs-gray-300); /* Use Bootstrap gray */
+  background-color: var(--bs-secondary-bg); /* Use consistent background */
   border-radius: var(--bs-border-radius-sm); /* Match Bootstrap border radius */
   margin-bottom: 0.75rem; /* Keep spacing */
 }
