@@ -133,50 +133,29 @@ const generatePDF = async () => {
   position: relative;
 }
 
-/* Button Base Styles */
+/* Portfolio Button - Extending base button styles */
 .portfolio-btn {
   min-width: 180px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  border: none;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0.3px;
-  background: linear-gradient(135deg, var(--bs-primary), var(--bs-primary-emphasis));
-  border: 1px solid var(--bs-primary);
-}
+  
+  &.btn-disabled {
+    cursor: not-allowed;
+  }
 
-/* Button States */
-.portfolio-btn.btn-success:not(:disabled):hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--bs-primary-rgb), 0.4);
-  background: linear-gradient(135deg, var(--bs-primary-emphasis), var(--bs-primary));
-}
-
-.portfolio-btn.btn-disabled {
-  background: linear-gradient(135deg, var(--bs-secondary), var(--bs-secondary-emphasis));
-  border-color: var(--bs-secondary);
-  color: var(--bs-white);
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.portfolio-btn.btn-generating {
-  background: linear-gradient(135deg, var(--bs-info), var(--bs-info-emphasis));
-  border-color: var(--bs-info);
-  cursor: progress;
-}
-
-.portfolio-btn.btn-generating::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  animation: shimmer 1.5s infinite;
+  &.btn-generating {
+    cursor: progress;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      animation: shimmer 1.5s infinite;
+      z-index: 2;
+    }
+  }
 }
 
 /* Button Icon */

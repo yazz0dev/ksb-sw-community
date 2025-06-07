@@ -4,12 +4,13 @@
     :class="[
       `skeleton-${type}`,
       animated && 'skeleton-animated',
+      rounded && 'skeleton-rounded',
       className
     ]"
     :style="{
-      width,
-      height,
-      borderRadius
+      width: type === 'avatar' ? size : width,
+      height: type === 'avatar' ? size : height,
+      borderRadius: rounded ? 'var(--bs-border-radius-pill)' : borderRadius
     }"
   ></div>
 </template>
@@ -24,6 +25,8 @@ interface Props {
   animated?: boolean;
   borderRadius?: string;
   className?: string;
+  rounded?: boolean;
+  size?: string; // For avatar/circle types
 }
 
 withDefaults(defineProps<Props>(), {
@@ -32,11 +35,13 @@ withDefaults(defineProps<Props>(), {
   height: '1rem',
   animated: true,
   borderRadius: 'var(--bs-border-radius-sm)', // Use Bootstrap variable
-  className: ''
+  className: '',
+  rounded: false,
+  size: '2rem'
 });
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .skeleton-loader {
   background: var(--bs-secondary-bg); /* Updated background */
   position: relative;
@@ -81,5 +86,27 @@ withDefaults(defineProps<Props>(), {
 
 .skeleton-text {
   border-radius: var(--bs-border-radius-sm); /* Use Bootstrap variable */
+}
+
+.skeleton-rounded {
+  border-radius: var(--bs-border-radius-pill);
+}
+
+/* Enhanced loading states and skeleton styles */
+.loading-section {
+  .skeleton-card {
+    background: linear-gradient(90deg, 
+      rgba(var(--bs-light-rgb), 0.8) 25%, 
+      rgba(var(--bs-light-rgb), 0.4) 50%, 
+      rgba(var(--bs-light-rgb), 0.8) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: var(--bs-border-radius-lg);
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
 }
 </style>

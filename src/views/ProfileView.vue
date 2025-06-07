@@ -1,5 +1,5 @@
 <template>
-  <div class="py-3 py-md-5 profile-section bg-body-tertiary min-vh-100-subtract-nav">
+  <div class="section-spacing profile-section bg-body-tertiary min-vh-100-subtract-nav">
     <div class="container-lg">
       <!-- Back Button -->
       <div v-if="!isCurrentUser" class="mb-4">
@@ -42,11 +42,8 @@
       </div>
 
       <!-- Loading State -->
-      <div v-if="loading" class="loading-container d-flex flex-column align-items-center justify-content-center py-5">
-        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="text-secondary fw-medium">Loading profile...</p>
+      <div v-if="loading">
+        <ProfileSkeleton />
       </div>
 
       <!-- Error/Not Found States -->
@@ -132,6 +129,7 @@ import UserProfileHeader from '@/components/user/UserProfileHeader.vue';
 import UserXpBreakdown from '@/components/user/UserXpBreakdown.vue';
 import UserEventHistory from '@/components/user/UserEventHistory.vue';
 import UserProjects from '@/components/user/UserProjects.vue';
+import ProfileSkeleton from '@/skeletons/ProfileSkeleton.vue';
 
 // Define a type for the portfolio component projects
 interface PortfolioProject {
@@ -349,9 +347,6 @@ watch(() => studentStore.currentStudent, (newStudent, oldStudent) => {
   border-bottom: 1px solid var(--bs-border-color);
 }
 /* Styles from UserProfile.vue */
-.loading-container {
-  min-height: 400px;
-}
 .error-container {
   margin: 2rem 0;
 }

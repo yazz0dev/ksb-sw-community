@@ -9,7 +9,7 @@
         </h3>
         <div class="d-flex align-items-center gap-3">
           <span class="text-secondary small fw-medium">Current Status:</span>
-          <span class="badge rounded-pill fs-6" :class="statusBadgeClass">{{ event.status }}</span>
+          <span class="badge rounded-pill small" :class="statusBadgeClass">{{ event.status }}</span>
         </div>
       </div>
       
@@ -89,7 +89,7 @@
             <i class="fas fa-vote-yea text-primary me-2"></i>
             Voting & Closing
           </h3>
-          <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill fs-6" 
+                      <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill small" 
                 :class="event.votingOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
             <i :class="event.votingOpen ? 'fas fa-lock-open' : 'fas fa-lock'" class="me-1"></i>
             Voting: {{ event.votingOpen ? 'Open' : 'Closed' }}

@@ -1,6 +1,6 @@
 // src/views/EditProfileView.vue
 <template>
-  <div class="py-3 py-md-5 profile-section bg-body min-vh-100-subtract-nav">
+  <div class="section-spacing profile-section bg-body min-vh-100-subtract-nav">
     <div class="container-lg">
       <!-- Back Button - Styled like ProfileView -->
       <div class="mb-4">
@@ -536,110 +536,11 @@ onMounted(() => {
   color: var(--bs-primary);
 }
 
-/* Button Styling */
-.btn {
-  border-radius: var(--bs-border-radius-lg);
-  font-weight: 600;
-  font-size: 0.95rem;
-  padding: 0.75rem 2rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-  border-width: 2px;
-}
-
-.btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, 
-    transparent, 
-    rgba(255, 255, 255, 0.2), 
-    transparent);
-  transition: left 0.5s ease;
-  z-index: 1;
-}
-
-.btn:hover::before {
-  left: 100%;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, 
-    var(--bs-primary) 0%, 
-    var(--bs-primary-dark, var(--bs-primary)) 100%);
-  border-color: var(--bs-primary);
-  box-shadow: 0 4px 15px rgba(var(--bs-primary-rgb), 0.3);
-}
-
-.btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(var(--bs-primary-rgb), 0.4);
-  background: linear-gradient(135deg, 
-    var(--bs-primary-dark, var(--bs-primary)) 0%, 
-    var(--bs-primary) 100%);
-}
-
-.btn-light {
-  background: linear-gradient(135deg, 
-    var(--bs-light) 0%, 
-    rgba(var(--bs-secondary-rgb), 0.1) 100%);
-  border-color: var(--bs-border-color);
-  color: var(--bs-dark);
-  box-shadow: 0 2px 8px rgba(var(--bs-dark-rgb), 0.1);
-}
-
-.btn-light:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(var(--bs-dark-rgb), 0.15);
-  background: linear-gradient(135deg, 
-    rgba(var(--bs-secondary-rgb), 0.1) 0%, 
-    var(--bs-light) 100%);
-}
-
-.btn:active {
-  transform: translateY(0);
-}
-
-.btn:disabled {
-  transform: none;
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn:disabled::before {
-  display: none;
-}
-
 /* Spinner */
 .spinner-border-sm {
   width: 1rem;
   height: 1rem;
   border-width: 0.15em;
-}
-
-/* Button Gap */
-.gap-2 {
-  gap: 1rem !important;
-}
-
-/* Back Button */
-.btn-outline-secondary {
-  border-color: rgba(var(--bs-secondary-rgb), 0.5);
-  color: var(--bs-secondary);
-  background: rgba(var(--bs-white-rgb), 0.8);
-  backdrop-filter: blur(10px);
-}
-
-.btn-outline-secondary:hover {
-  background: var(--bs-secondary);
-  border-color: var(--bs-secondary);
-  color: var(--bs-white);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--bs-secondary-rgb), 0.3);
 }
 
 /* Validation States */
@@ -717,15 +618,6 @@ onMounted(() => {
     padding: 1.5rem !important;
   }
   
-  .btn {
-    padding: 0.875rem 1.5rem;
-    font-size: 0.9rem;
-  }
-  
-  .gap-2 {
-    gap: 0.75rem !important;
-  }
-  
   .form-control, 
   .form-select {
     padding: 0.75rem 0.875rem;
@@ -734,6 +626,26 @@ onMounted(() => {
   
   .h2 {
     font-size: 1.75rem;
+  }
+  
+  .form-control:hover {
+    transform: none;
+  }
+  
+  @keyframes slideInLeft {
+    0%, 100% { transform: none; }
+  }
+  @keyframes slideInDown {
+    0%, 100% { transform: none; }
+  }
+  @keyframes slideInUp {
+    0%, 100% { transform: none; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: none; }
   }
 }
 
@@ -746,42 +658,64 @@ onMounted(() => {
     padding: 1rem !important;
   }
   
-  .btn {
-    width: 100%;
-    margin-bottom: 0.5rem;
-  }
-  
   .d-flex.justify-content-end {
-    flex-direction: column-reverse;
+    flex-direction: column;
   }
   
-  .gap-2 {
-    gap: 0.5rem !important;
+  .form-check {
+    transition: none;
+  }
+  
+  .form-control:focus,
+  .form-control:hover {
+    transform: none;
+  }
+  
+  @keyframes slideInLeft {
+    0%, 100% { transform: none; }
+  }
+  @keyframes slideInDown {
+    0%, 100% { transform: none; }
+  }
+  @keyframes slideInUp {
+    0%, 100% { transform: none; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: none; }
   }
 }
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
   .card,
-  .btn,
   .form-control,
   .form-select,
   .form-check {
     transition: none;
   }
   
-  .btn:hover,
   .form-control:focus,
   .form-control:hover {
     transform: none;
   }
   
-  @keyframes slideInLeft,
-  @keyframes slideInDown,
-  @keyframes slideInUp,
-  @keyframes pulse,
+  @keyframes slideInLeft {
+    0%, 100% { transform: none; }
+  }
+  @keyframes slideInDown {
+    0%, 100% { transform: none; }
+  }
+  @keyframes slideInUp {
+    0%, 100% { transform: none; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+  }
   @keyframes shake {
-    animation: none;
+    0%, 100% { transform: none; }
   }
 }
 
@@ -794,10 +728,6 @@ onMounted(() => {
   .form-control,
   .form-select {
     border: 2px solid var(--bs-dark);
-  }
-  
-  .btn {
-    border-width: 2px;
   }
 }
 </style>

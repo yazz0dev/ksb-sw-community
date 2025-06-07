@@ -1,8 +1,8 @@
 <template>
-  <main class="transparency-section">
-    <div class="container-lg py-3 py-md-4"> <!-- Reduced from py-4 py-md-5 -->
+  <main class="transparency-section section-spacing">
+    <div class="container-lg">
       <!-- Header Section -->
-      <header class="text-center mb-3 mb-md-4"> <!-- Reduced from mb-4 mb-md-5 -->
+      <header class="text-center mb-4">
         <h1 class="h1 text-gradient-primary mb-3">
           <i class="fas fa-eye me-2"></i>Community Transparency
         </h1>
@@ -12,11 +12,11 @@
       </header>
 
       <!-- Quick Stats Section -->
-      <section class="stats-section mb-3 mb-md-4"> <!-- Reduced from mb-4 mb-md-5 -->
+      <section class="stats-section mb-4">
         <div class="row g-3 g-md-4">
           <div class="col-6 col-md-3" v-for="stat in stats" :key="stat.label">
             <div class="stat-card text-center p-3 p-md-4 h-100">
-              <div class="stat-number text-primary fw-bold mb-1">{{ stat.value }}+</div>
+              <div class="stat-number h4 text-primary fw-bold mb-1">{{ stat.value }}+</div>
               <div class="stat-label small text-secondary">{{ stat.label }}</div>
             </div>
           </div>
@@ -65,7 +65,7 @@
                 <ul class="process-steps list-unstyled mb-0">
                   <li class="step-item d-flex align-items-start mb-3" 
                       v-for="(step, index) in processSteps" :key="step.title">
-                    <div class="step-number">{{ index + 1 }}</div>
+                                            <div class="step-number text-caption">{{ index + 1 }}</div>
                     <div class="step-content">
                       <p class="fw-bold mb-1">{{ step.title }}</p>
                       <p class="small text-secondary mb-0">{{ step.description }}</p>
@@ -464,7 +464,7 @@ const privacyMeasures = ref([
 const platformVersion = ref('2.1.0');
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .transparency-section {
   background-color: var(--bs-body-bg);
   min-height: calc(100vh - var(--navbar-height-mobile));
@@ -502,7 +502,6 @@ const platformVersion = ref('2.1.0');
 }
 
 .stat-number {
-  font-size: 1.25rem;
   line-height: 1.2;
 }
 
@@ -522,7 +521,6 @@ const platformVersion = ref('2.1.0');
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
   font-weight: bold;
   flex-shrink: 0;
   margin-right: 0.5rem;
@@ -549,7 +547,6 @@ const platformVersion = ref('2.1.0');
 }
 
 .badge {
-  font-size: 0.65rem;
   padding: 0.25em 0.5em;
 }
 
@@ -558,7 +555,6 @@ const platformVersion = ref('2.1.0');
   background-color: var(--bs-light);
   border-radius: var(--bs-border-radius-sm);
   border-left: 3px solid var(--bs-info);
-  font-size: 0.75rem;
 }
 
 .xp-item {
@@ -577,7 +573,6 @@ const platformVersion = ref('2.1.0');
 }
 
 .privacy-list li {
-  font-size: 0.875rem;
   margin-bottom: 0.5rem;
 }
 
@@ -585,12 +580,7 @@ const platformVersion = ref('2.1.0');
   background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-info) 100%) !important;
 }
 
-.contact-section .btn {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* Contact section buttons use base button styles */
 
 /* Animation for content cards */
 .content-card {
@@ -613,14 +603,6 @@ const platformVersion = ref('2.1.0');
   .content-card {
     padding: 1.25rem;
   }
-  
-  .badge {
-    font-size: 0.7rem;
-  }
-  
-  .stat-number {
-    font-size: 1.4rem;
-  }
 }
 
 /* Desktop and up - Adjust for equal heights */
@@ -633,9 +615,6 @@ const platformVersion = ref('2.1.0');
     padding: 1.5rem;
   }
   
-  .stat-number {
-    font-size: 1.5rem;
-  }
   
   /* Animation delays for staggered effect */
   .content-card:nth-child(2) { animation-delay: 0.1s; }
@@ -652,6 +631,74 @@ const platformVersion = ref('2.1.0');
 @media (min-width: 992px) {
   .transparency-section {
     min-height: calc(100vh - var(--navbar-height-desktop));
+  }
+}
+
+/* Enhanced transparency-specific styles */
+.transparency-section {
+  // Consistent typography across devices
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.3;
+  }
+
+  // Mobile-first flexbox improvements
+  .feature-item,
+  .step-item,
+  .participation-item,
+  .lifecycle-step {
+    display: flex;
+    flex-direction: column;
+    
+    @media (min-width: 576px) {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+  }
+  
+  // Better spacing on mobile
+  .content-card {
+    margin-bottom: 1rem;
+    
+    @media (min-width: 576px) {
+      margin-bottom: 0;
+    }
+  }
+  
+  // Improved badge sizing for readability on small screens
+  .badge {
+    font-weight: 500;
+    
+    @media (min-width: 576px) {
+      padding: 0.3em 0.6em;
+    }
+  }
+  
+  // Better contact section buttons for touch targets
+  .contact-section {
+    .btn {
+      width: 100%;
+      
+      @media (min-width: 576px) {
+        width: auto;
+        min-width: 140px;
+      }
+    }
+  }
+  
+  
+  // Refined small text for better mobile readability
+  .small {
+    line-height: 1.4;
+  }
+  
+  // Improve list readability on mobile
+  .privacy-list li,
+  .feature-list li {
+    margin-bottom: 0.75rem;
+    
+    i {
+      margin-top: 0.25rem; // Better align icons with text on mobile
+    }
   }
 }
 </style>

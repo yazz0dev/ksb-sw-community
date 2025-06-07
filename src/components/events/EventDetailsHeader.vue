@@ -8,13 +8,13 @@
         <div class="col-md">
           <!-- Status Badges -->
           <div class="d-flex gap-2 mb-3 flex-wrap"> <!-- Increased bottom margin -->
-            <span :class="['badge rounded-pill fs-6 lh-1', statusTagClass]">{{ event?.status }}</span> <!-- Added lh-1 -->
-            <span v-if="event?.closed" class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis fs-6 lh-1">Archived</span> <!-- Used subtle bg -->
-            <span class="badge rounded-pill bg-info-subtle text-info-emphasis fs-6 lh-1">{{ event?.details?.format || 'N/A' }}</span> <!-- Format badge -->
+                    <span :class="['badge rounded-pill small lh-1', statusTagClass]">{{ event?.status }}</span> <!-- Added lh-1 -->
+        <span v-if="event?.closed" class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis small lh-1">Archived</span> <!-- Used subtle bg -->
+        <span class="badge rounded-pill bg-info-subtle text-info-emphasis small lh-1">{{ event?.details?.format || 'N/A' }}</span> <!-- Format badge -->
           </div>
 
           <!-- Event Name -->
-          <h1 class="display-6 fw-bold text-primary mb-3"> <!-- Adjusted heading size -->
+                      <h1 class="text-hero fw-bold text-primary mb-3"> <!-- Adjusted heading size -->
             {{ event?.details?.eventName || 'Untitled Event' }}
           </h1>
 
@@ -328,9 +328,7 @@ const formatOrganizerName = (uid: string): string => {
     color: inherit;
 }
 
-.btn {
-  min-height: 38px; /* Ensure consistent button height */
-}
+/* Button styles are handled by base button styles from _button.scss */
 
 .badge.lh-1 {
     padding-top: 0.4em; /* Adjust padding for line-height 1 */

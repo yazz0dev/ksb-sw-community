@@ -1,0 +1,58 @@
+// _utilities.scss - Custom Utility Classes
+
+// Your custom utility classes (if needed beyond Bootstrap)
+.text-decoration-underline-hover:hover {
+  text-decoration: underline !important;
+}
+
+.shadow-hover {
+  transition: box-shadow 0.2s ease-in-out;
+  &:hover {
+    box-shadow: var(--bs-box-shadow-lg); // Using CSS variable instead of !important
+  }
+}
+
+// Using defined variables for custom text classes
+.text-vibrant {
+  color: v.$primary !important; // Use variable
+}
+
+.text-muted {
+  color: v.$secondary !important; // Use variable
+}
+
+// Using the new variables for accent colors
+.text-accent {
+  color: v.$teal-accent !important; // Using variable instead of hardcoded color
+}
+
+.text-soft {
+  color: v.$slate-soft !important; // Using variable instead of hardcoded color
+}
+
+// Custom small alert (consider using Bootstrap's default alert with utility classes)
+.alert-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+// Badge customizations
+.badge {
+  font-weight: v.$font-weight-medium;
+  padding: 0.4em 0.65em; // Slightly larger for better readability
+}
+
+// ADDED: Responsive list group styles (moved from _animations.scss)
+@media (max-width: 576px) {
+  .list-group-item {
+    .d-flex.flex-wrap {
+      margin-bottom: 0.75rem !important;
+    }
+    .ms-4 { // Consider replacing with Bootstrap's margin utilities if possible
+      margin-left: 1rem !important;
+    }
+    .badge {
+      font-size: 0.75rem;
+    }
+  }
+} 

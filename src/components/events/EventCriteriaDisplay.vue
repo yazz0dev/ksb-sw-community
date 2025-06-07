@@ -3,7 +3,7 @@
   <div class="card criteria-card shadow-sm animate-fade-in">
     <div class="card-header bg-warning-subtle border-0">
       <div class="d-flex align-items-center">
-        <i class="fas fa-star text-warning me-2 fs-5"></i>
+        <i class="fas fa-star text-warning me-2 h5"></i>
         <h5 class="mb-0 fw-semibold text-warning-emphasis">Rating Criteria</h5>
         <span class="badge bg-warning-subtle text-warning-emphasis ms-auto">
           {{ criteria.length }} {{ criteria.length === 1 ? 'criterion' : 'criteria' }}
@@ -12,7 +12,7 @@
     </div>
     <div class="card-body p-0">
       <div v-if="criteria.length === 0" class="empty-state">
-        <i class="fas fa-star text-muted fs-1 mb-3"></i>
+        <i class="fas fa-star text-muted text-display mb-3"></i>
         <p class="text-muted mb-0">No rating criteria defined for this event.</p>
       </div>
       <div v-else class="criteria-list">

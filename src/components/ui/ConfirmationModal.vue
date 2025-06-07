@@ -182,6 +182,20 @@ defineExpose({
     opacity: 1 !important;
 }
 
+/* Custom Modal Backdrop - provides darker backdrop for better focus */
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  z-index: 1050 !important;
+}
+
+.modal-backdrop.show {
+  opacity: 1 !important;
+}
+
+.modal {
+  z-index: 1055 !important;
+}
+
 .confirmation-modal .modal-content {
     background: var(--bs-card-bg);
     border: 1px solid var(--bs-border-color);
@@ -206,11 +220,10 @@ defineExpose({
     justify-content: flex-end;
 }
 
-/* Responsive button sizing */
+/* Responsive modal footer layout */
 @media (max-width: 576px) {
     .confirmation-modal .btn-sm-mobile {
         font-size: 0.875rem;
-        padding: 0.5rem 1rem;
     }
     
     .confirmation-modal .modal-footer {
@@ -226,7 +239,6 @@ defineExpose({
 @media (min-width: 577px) {
     .confirmation-modal .btn-sm-mobile {
         font-size: 0.9rem;
-        padding: 0.5rem 1.25rem;
     }
 }
 </style>

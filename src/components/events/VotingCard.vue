@@ -2,7 +2,7 @@
   <div class="card voting-card shadow-sm animate-fade-in">
     <div class="card-header bg-warning-subtle border-0">
       <div class="d-flex align-items-center">
-        <i class="fas fa-vote-yea text-warning me-2 fs-5"></i>
+        <i class="fas fa-vote-yea text-warning me-2 h5"></i>
         <h5 class="mb-0 fw-semibold text-warning-emphasis">Voting</h5>
       </div>
     </div>
@@ -252,17 +252,7 @@ const openVotingForm = (): void => {
   margin-top: 1rem;
 }
 
-.btn-action {
-  padding: 0.75rem 1.5rem;
-  font-weight: 500;
-  border-radius: var(--bs-border-radius);
-  transition: all 0.2s ease;
-}
-
-.btn-action:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--bs-box-shadow);
-}
+/* Voting action buttons extend base button styles */
 
 /* Status Badge */
 .status-badge {
@@ -327,8 +317,6 @@ const openVotingForm = (): void => {
   }
   
   .btn-action {
-    padding: 0.625rem 1.25rem;
-    font-size: 0.9rem;
     width: 100%;
   }
 }
@@ -353,8 +341,7 @@ const openVotingForm = (): void => {
   }
   
   .btn-action {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
+    width: 100%;
   }
 }
 </style>

@@ -18,7 +18,7 @@
           {{ event.details?.eventName || 'Untitled Event' }}
         </h5>
         <span
-          class="badge rounded-pill fs-7 flex-shrink-0"
+                        class="badge rounded-pill text-caption flex-shrink-0"
           :class="getEventStatusBadgeClass(event.status)"
         >
           {{ event.status }}

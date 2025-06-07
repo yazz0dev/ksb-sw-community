@@ -18,10 +18,8 @@ import { deepClone, isEmpty } from '@/utils/eventUtils';
 import { BEST_PERFORMER_LABEL, EVENTS_COLLECTION } from '@/utils/constants';
 
 /**
- * Submits a user's vote/selection for team event criteria in Firestore.
- * @param eventId - The ID of the event.
- * @param userId - The UID of the student submitting votes.
- * @param votes - Object containing criteria votes and/or best performer.
+ * Submits criteria votes and best performer selection for a team event.
+ * Uses the new data structure with separate criteriaVotes and bestPerformerSelections maps.
  */
 export async function submitTeamCriteriaVoteInFirestore(
     eventId: string,
@@ -42,47 +40,56 @@ export async function submitTeamCriteriaVoteInFirestore(
             const currentEventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
             if (!currentEventData) throw new Error('Failed to map event data in transaction.');
 
-            if (currentEventData.status !== EventStatus.Completed && currentEventData.status !== EventStatus.InProgress) {
-                throw new Error("Voting is only allowed for 'Completed' or 'In Progress' events.");
+            // Validation checks
+            if (currentEventData.status !== EventStatus.Completed) {
+                throw new Error("Voting is only allowed for 'Completed' events.");
             }
             if (!currentEventData.votingOpen) throw new Error("Voting is currently closed for this event.");
             if (currentEventData.details.format !== EventFormat.Team) throw new Error("Team criteria voting only for team events.");
-            if (!currentEventData.participants?.includes(userId) && 
-                !currentEventData.teamMemberFlatList?.includes(userId)) {
+            
+            const isParticipant = (currentEventData.participants?.includes(userId) || 
+                                   currentEventData.teamMemberFlatList?.includes(userId));
+            if (!isParticipant) {
                 throw new Error("Only event participants or team members can vote.");
             }
 
-            let updatedCriteria = deepClone(currentEventData.criteria || []);
-            
-            Object.entries(votes.criteria).forEach(([constraintKey, selectedTeamName]) => {
-                const constraintIndex = parseInt(constraintKey.replace('constraint', ''));
-                if (isNaN(constraintIndex)) {
-                    console.warn(`Could not parse a valid index from key: ${constraintKey}. Vote not recorded.`);
-                    return;
-                }
-
-                const criterionIndex = updatedCriteria.findIndex(c => 
-                    typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
-                );
-                
-                if (criterionIndex !== -1) {
-                    const criterion = updatedCriteria[criterionIndex];
-                    if (!criterion) return;
-
-                    if (!criterion.votes || typeof criterion.votes !== 'object') {
-                        criterion.votes = {};
-                    }
-                    criterion.votes[userId] = selectedTeamName;
-                } else {
-                    console.warn(`Criterion with constraintIndex ${constraintIndex} not found for event ${eventId}. Vote not recorded.`);
-                }
-            });
-
+            // Prepare update data using proper structure
             const updateData: any = {
-                criteria: updatedCriteria,
                 lastUpdatedAt: serverTimestamp()
             };
 
+            // Handle criteria votes - store in separate criteriaVotes map
+            if (votes.criteria && Object.keys(votes.criteria).length > 0) {
+                const currentCriteriaVotes = currentEventData.criteriaVotes || {};
+                const userCriteriaVotes: Record<string, string> = {};
+                
+                // Validate criteria votes against existing event criteria
+                Object.entries(votes.criteria).forEach(([constraintKey, selectedTeamName]) => {
+                    const constraintIndex = parseInt(constraintKey.replace('constraint', ''));
+                    if (isNaN(constraintIndex)) {
+                        console.warn(`Invalid constraint key: ${constraintKey}`);
+                        return;
+                    }
+
+                    // Check if criterion exists
+                    const criterionExists = currentEventData.criteria?.some(c => 
+                        typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
+                    );
+
+                    if (criterionExists) {
+                        userCriteriaVotes[constraintKey] = selectedTeamName;
+                    } else {
+                        console.warn(`Criterion with index ${constraintIndex} not found`);
+                    }
+                });
+
+                updateData.criteriaVotes = {
+                    ...currentCriteriaVotes,
+                    [userId]: userCriteriaVotes
+                };
+            }
+
+            // Handle best performer selection
             if (votes.bestPerformer) {
                 const currentBestPerformerSelections = currentEventData.bestPerformerSelections || {};
                 updateData.bestPerformerSelections = {
@@ -90,6 +97,7 @@ export async function submitTeamCriteriaVoteInFirestore(
                     [userId]: votes.bestPerformer
                 };
             }
+
             transaction.update(eventRef, updateData);
         });
     } catch (error: any) {
@@ -98,18 +106,17 @@ export async function submitTeamCriteriaVoteInFirestore(
 }
 
 /**
- * Submits a user's vote for the winner in an individual format event.
- * @param eventId - The ID of the event.
- * @param userId - The UID of the student submitting the vote.
- * @param selectedWinnerId - The UID of the selected winner.
+ * Submits individual winner votes (for individual/competition events)
  */
 export async function submitIndividualWinnerVoteInFirestore(
     eventId: string,
     userId: string,
-    selectedWinnerId: string
+    votes: { criteria: Record<string, string> }
 ): Promise<void> {
     if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
-    if (!selectedWinnerId) throw new Error("Selected winner ID is required.");
+    if (!votes || typeof votes.criteria !== 'object' || isEmpty(votes.criteria)) {
+        throw new Error("Criteria votes are required and cannot be empty.");
+    }
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
     try {
@@ -120,25 +127,54 @@ export async function submitIndividualWinnerVoteInFirestore(
             const currentEventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
             if (!currentEventData) throw new Error('Failed to map event data in transaction.');
 
-            if (currentEventData.status !== EventStatus.Completed && currentEventData.status !== EventStatus.InProgress) {
-                throw new Error("Voting is only allowed for 'Completed' or 'In Progress' events.");
+            // Validation checks
+            if (currentEventData.status !== EventStatus.Completed) {
+                throw new Error("Voting is only allowed for 'Completed' events.");
             }
             if (!currentEventData.votingOpen) throw new Error("Voting is currently closed for this event.");
-            if (currentEventData.details.format !== EventFormat.Individual) {
-                throw new Error("Individual winner voting only for individual format events.");
+            if (currentEventData.details.format === EventFormat.Team) {
+                throw new Error("Individual winner voting not for team events.");
             }
             if (!currentEventData.participants?.includes(userId)) {
                 throw new Error("Only event participants can vote for winners.");
             }
-            if (!currentEventData.participants?.includes(selectedWinnerId)) {
-                throw new Error("Selected winner must be a participant in the event.");
+
+            // Validate that selected winners are participants and not the voter themselves
+            const invalidVotes = Object.values(votes.criteria).filter(selectedUserId => 
+                !currentEventData.participants?.includes(selectedUserId) || selectedUserId === userId
+            );
+            if (invalidVotes.length > 0) {
+                throw new Error("Cannot vote for non-participants or yourself.");
             }
 
-            const currentBestPerformerSelections = currentEventData.bestPerformerSelections || {};
+            // Prepare update data
+            const currentCriteriaVotes = currentEventData.criteriaVotes || {};
+            const userCriteriaVotes: Record<string, string> = {};
+            
+            // Validate criteria votes against existing event criteria
+            Object.entries(votes.criteria).forEach(([constraintKey, selectedUserId]) => {
+                const constraintIndex = parseInt(constraintKey.replace('constraint', ''));
+                if (isNaN(constraintIndex)) {
+                    console.warn(`Invalid constraint key: ${constraintKey}`);
+                    return;
+                }
+
+                // Check if criterion exists
+                const criterionExists = currentEventData.criteria?.some(c => 
+                    typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
+                );
+
+                if (criterionExists) {
+                    userCriteriaVotes[constraintKey] = selectedUserId;
+                } else {
+                    console.warn(`Criterion with index ${constraintIndex} not found`);
+                }
+            });
+
             transaction.update(eventRef, {
-                bestPerformerSelections: {
-                    ...currentBestPerformerSelections,
-                    [userId]: selectedWinnerId
+                criteriaVotes: {
+                    ...currentCriteriaVotes,
+                    [userId]: userCriteriaVotes
                 },
                 lastUpdatedAt: serverTimestamp()
             });
@@ -150,7 +186,6 @@ export async function submitIndividualWinnerVoteInFirestore(
 
 /**
  * Records an organizer rating for an event using a Map structure.
- * @param payload - The data for the rating submission.
  */
 export async function submitOrganizationRatingInFirestore(payload: {
     eventId: string;
@@ -170,8 +205,8 @@ export async function submitOrganizationRatingInFirestore(payload: {
             if (!eventSnap.exists()) throw new Error("Event not found.");
             
             const eventData = eventSnap.data();
-            if (eventData.status !== EventStatus.Completed) {
-                throw new Error("You can only rate organizers for completed events.");
+            if (!['Completed', 'Closed'].includes(eventData.status)) {
+                throw new Error("You can only rate organizers for completed or closed events.");
             }
 
             const isParticipant = (eventData.participants || []).includes(userId) || 
@@ -181,13 +216,19 @@ export async function submitOrganizationRatingInFirestore(payload: {
                 throw new Error("Only event participants can rate organizers.");
             }
 
+            // Check if user has already rated (prevent duplicate ratings)
+            if (eventData.organizerRatings && eventData.organizerRatings[userId]) {
+                // Allow updating existing rating
+                console.log(`User ${userId} is updating their existing rating for event ${eventId}`);
+            }
+
             const newRating: OrganizerRating = {
                 userId: userId,
                 rating: score,
                 ratedAt: serverTimestamp() as any,
             };
-            if (feedback) {
-                newRating.feedback = feedback;
+            if (feedback && feedback.trim()) {
+                newRating.feedback = feedback.trim();
             }
 
             transaction.update(eventRef, {
@@ -203,9 +244,6 @@ export async function submitOrganizationRatingInFirestore(payload: {
 
 /**
  * Toggles the voting status (open/closed) for an event.
- * @param eventId - The ID of the event.
- * @param open - Boolean indicating whether to open or close voting.
- * @param currentUser - The user performing the action.
  */
 export async function toggleVotingStatusInFirestore(eventId: string, open: boolean, currentUser: EnrichedStudentData | UserData | null): Promise<void> {
     if (!currentUser) throw new Error("Authentication required to change voting status.");
@@ -221,9 +259,8 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
             if (!eventData) throw new Error("Failed to map event data.");
 
             const isOrganizer = eventData.details.organizers.includes(currentUser!.uid);
-
             if (!isOrganizer) {
-                throw new Error("Permission denied. Only event organizers or admins can toggle voting status.");
+                throw new Error("Permission denied. Only event organizers can toggle voting status.");
             }
 
             if (open === true && (eventData.status === EventStatus.Closed || eventData.status === EventStatus.Cancelled)) {
@@ -234,15 +271,9 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
                 throw new Error(`Voting can only be toggled for 'In Progress' or 'Completed' events. Current status: ${eventData.status}`);
             }
 
-            let statusUpdate = {};
-            if (open === false && eventData.status === EventStatus.InProgress) {
-                console.warn(`Voting closed for event ${eventId} while it was 'In Progress'. Consider updating event status to 'Completed'.`);
-            }
-            
             transaction.update(eventRef, {
                 votingOpen: open,
-                lastUpdatedAt: serverTimestamp(),
-                ...statusUpdate
+                lastUpdatedAt: serverTimestamp()
             });
         });
     } catch (error: any) {
@@ -251,9 +282,7 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
 }
 
 /**
- * Calculates winners from votes.
- * @param eventId - The ID of the event.
- * @returns A record where keys are criteria titles and values are winner IDs/names.
+ * Calculates winners from the new criteriaVotes structure.
  */
 export async function calculateWinnersFromVotes(eventId: string): Promise<Record<string, string | string[]>> {
     if (!eventId) throw new Error("Event ID is required.");
@@ -269,25 +298,33 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
 
     const winners: Record<string, string | string[]> = {};
 
-    // Calculate winners from criteria votes
-    if (eventData.criteria && Array.isArray(eventData.criteria)) {
-        eventData.criteria.forEach((criterion: EventCriteria) => {
-            if (criterion.votes && !isEmpty(criterion.votes)) {
-                const voteCounts: Record<string, number> = {};
-                Object.values(criterion.votes).forEach((selectedEntityId: string) => {
-                    voteCounts[selectedEntityId] = (voteCounts[selectedEntityId] || 0) + 1;
-                });
+    // Calculate winners from criteriaVotes structure
+    if (eventData.criteriaVotes && !isEmpty(eventData.criteriaVotes)) {
+        // Group all votes by criterion
+        const criterionVoteCounts: Record<string, Record<string, number>> = {};
 
-                if (!isEmpty(voteCounts)) {
-                    const maxVotes = Math.max(...Object.values(voteCounts));
-                    const criterionWinners = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
-                    
-                    const criterionKey = criterion.title?.trim() || `criterion_${criterion.constraintIndex || 'unknown'}`;
-                    const winnerValue = criterionWinners.length === 1 ? criterionWinners[0] : criterionWinners;
-                    if (winnerValue) {
-                        winners[criterionKey] = winnerValue;
-                    }
+        Object.values(eventData.criteriaVotes).forEach((userVotes: Record<string, string>) => {
+            Object.entries(userVotes).forEach(([constraintKey, selectedEntityId]) => {
+                if (!criterionVoteCounts[constraintKey]) {
+                    criterionVoteCounts[constraintKey] = {};
                 }
+                criterionVoteCounts[constraintKey][selectedEntityId] = 
+                    (criterionVoteCounts[constraintKey][selectedEntityId] || 0) + 1;
+            });
+        });
+
+        // Find winners for each criterion
+        Object.entries(criterionVoteCounts).forEach(([constraintKey, voteCounts]) => {
+            if (!isEmpty(voteCounts)) {
+                const maxVotes = Math.max(...Object.values(voteCounts));
+                const criterionWinners = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
+                
+                // Get criterion title from event data
+                const constraintIndex = parseInt(constraintKey.replace('constraint', ''));
+                const criterion = eventData.criteria?.find(c => c.constraintIndex === constraintIndex);
+                const criterionTitle = criterion?.title || `Criterion ${constraintIndex}`;
+                
+                winners[criterionTitle] = criterionWinners.length === 1 ? criterionWinners[0] : criterionWinners;
             }
         });
     }
@@ -302,26 +339,23 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
         if (!isEmpty(bestPerformerVoteCounts)) {
             const maxVotes = Math.max(...Object.values(bestPerformerVoteCounts));
             const bestPerformers = Object.keys(bestPerformerVoteCounts).filter(id => bestPerformerVoteCounts[id] === maxVotes);
-            const bestPerformerValue = bestPerformers.length === 1 ? bestPerformers[0] : bestPerformers;
-            if (bestPerformerValue) {
-                winners[BEST_PERFORMER_LABEL] = bestPerformerValue;
-            }
+            winners[BEST_PERFORMER_LABEL] = bestPerformers.length === 1 ? bestPerformers[0] : bestPerformers;
         }
     }
+
     return winners;
 }
 
 /**
  * Allows an organizer to manually select/override winners for an event.
- * @param eventId - The ID of the event.
- * @param userId - The UID of the organizer performing the action.
- * @param votes - Record where key is criterion title, value is the selected winner's ID.
  */
 export async function submitManualWinnerSelectionInFirestore(
     eventId: string,
     userId: string, 
-    votes: Record<string, string> 
+    selections: Record<string, string> 
 ): Promise<void> {
+    if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
+    if (!selections || isEmpty(selections)) throw new Error("Winner selections are required.");
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
     try {
@@ -332,20 +366,26 @@ export async function submitManualWinnerSelectionInFirestore(
             if (!eventData) throw new Error('Failed to map event data.');
 
             const isOrganizer = eventData.details.organizers.includes(userId);
-            if (!isOrganizer) throw new Error("Permission denied. Only event organizers or admins can manually select winners.");
+            if (!isOrganizer) throw new Error("Permission denied. Only event organizers can manually select winners.");
 
-            const newWinnersData: Record<string, string> = {};
-            for (const [key, value] of Object.entries(votes)) { 
-                if (typeof value === 'string') {
-                    newWinnersData[key] = value;
+            if (eventData.status !== EventStatus.Completed) {
+                throw new Error("Manual winner selection is only allowed for completed events.");
+            }
+
+            // Validate selections format
+            const validatedWinners: Record<string, string> = {};
+            for (const [key, value] of Object.entries(selections)) { 
+                if (typeof value === 'string' && value.trim()) {
+                    validatedWinners[key] = value.trim();
                 }
             }
-            if (Object.keys(newWinnersData).length === 0 && Object.keys(votes).length > 0) { 
-                throw new Error("Failed to populate winners data from selections."); 
+
+            if (isEmpty(validatedWinners)) { 
+                throw new Error("No valid winner selections provided."); 
             }
 
             transaction.update(eventRef, {
-                winners: newWinnersData,
+                winners: validatedWinners,
                 manuallySelectedBy: userId,
                 lastUpdatedAt: serverTimestamp()
             });
@@ -356,10 +396,7 @@ export async function submitManualWinnerSelectionInFirestore(
 }
 
 /**
- * Finalizes winners for an event.
- * @param eventId - The ID of the event.
- * @param currentUser - The user performing the action.
- * @returns Promise<Record<string, string | string[]>> - The determined winners.
+ * Finalizes winners for an event by calculating from votes or using existing manual selections.
  */
 export async function finalizeWinnersInFirestore(
     eventId: string, 
@@ -379,8 +416,8 @@ export async function finalizeWinnersInFirestore(
             if (!eventData) throw new Error("Failed to map event data.");
 
             const isOrganizer = eventData.details.organizers.includes(currentUser.uid);
-            if (!isOrganizer ) {
-                throw new Error("Permission denied. Only event organizers or admins can finalize winners.");
+            if (!isOrganizer) {
+                throw new Error("Permission denied. Only event organizers can finalize winners.");
             }
 
             if (eventData.status !== EventStatus.Completed) {
@@ -394,19 +431,17 @@ export async function finalizeWinnersInFirestore(
                 finalWinners = eventData.winners!;
                 console.log(`Using pre-existing winners for event ${eventId}.`);
             } else {
-                console.log(`No pre-existing winners found for event ${eventId}. Attempting to calculate from votes...`);
+                console.log(`No pre-existing winners found for event ${eventId}. Calculating from votes...`);
                 finalWinners = await calculateWinnersFromVotes(eventId);
                 if (isEmpty(finalWinners)) {
                     throw new Error("No winners could be determined from votes. Manual selection might be required.");
                 }
             }
             
-            const updatePayload: any = {
+            transaction.update(eventRef, {
                 winners: finalWinners,
                 lastUpdatedAt: serverTimestamp()
-            };
-
-            transaction.update(eventRef, updatePayload);
+            });
         });
         
         return finalWinners;

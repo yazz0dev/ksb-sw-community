@@ -37,7 +37,7 @@ h6, .h6 {
 }
 
 h1, .h1 {
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(2rem, 5vw, 2.75rem);
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1.1;
@@ -197,14 +197,14 @@ small, .small {
 
 // Typography Variants
 .text-display {
-  font-size: clamp(3rem, 8vw, 6rem);
+  font-size: clamp(2.25rem, 6vw, 2.75rem);
   font-weight: 900;
   line-height: 0.9;
   letter-spacing: -0.05em;
 }
 
 .text-hero {
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-size: clamp(2rem, 5vw, 2.75rem);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -471,8 +471,8 @@ ul, ol {
   h2, .h2 { font-size: 1.75rem; }
   h3, .h3 { font-size: 1.5rem; }
   
-  .text-display { font-size: 3rem; }
-  .text-hero { font-size: 2.5rem; }
+  .text-display { font-size: 2.25rem; }
+  .text-hero { font-size: 2rem; }
   
   .text-readable {
     font-size: 1rem;
@@ -489,8 +489,8 @@ ul, ol {
   h2, .h2 { font-size: 1.5rem; }
   h3, .h3 { font-size: 1.25rem; }
   
-  .text-display { font-size: 2.5rem; }
-  .text-hero { font-size: 2rem; }
+  .text-display { font-size: 2rem; }
+  .text-hero { font-size: 1.75rem; }
   
   blockquote {
     font-size: 1rem;

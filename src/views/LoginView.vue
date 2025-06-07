@@ -61,9 +61,9 @@
                     <button
                       type="submit"
                       class="btn btn-primary btn-lg w-100"
+                      :class="{ 'btn-loading': isLoading }"
                       :disabled="isLoading"
                     >
-                      <span v-if="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                       <span class="btn-text">{{ isLoading ? 'Signing In...' : 'Sign In' }}</span>
                     </button>
                   </div>

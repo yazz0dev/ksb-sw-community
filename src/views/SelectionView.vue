@@ -1,5 +1,5 @@
 <template>
-  <div class="selection-view">
+  <div class="selection-view section-spacing">
     <div class="container-lg">
       <button
         class="btn btn-outline-secondary btn-sm btn-icon mb-4"
@@ -552,21 +552,17 @@ const initializeTeamEventForm = async (eventDetails: Event, currentUserId: strin
   didLoadExistingRating.value = false;
   if (!currentUserId) return;
 
-  if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
-    let loadedFromCriteria = false;
-    eventDetails.criteria.forEach(alloc => {
-      // Use either votes(if exists) or votes property
-      const userSelection = alloc.votes?.[currentUserId];
-      if (typeof alloc.constraintIndex === 'number') {
-        const key = `constraint${alloc.constraintIndex}`;
-        // Check if the key exists in our reactive object before assigning
-        if (userSelection !== undefined && teamVoting.hasOwnProperty(key)) {
-          teamVoting[key] = userSelection; // Restore vote
-          loadedFromCriteria = true;
-        }
+  // Load from new criteriaVotes structure
+  if (eventDetails.criteriaVotes && eventDetails.criteriaVotes[currentUserId]) {
+    const userVotes = eventDetails.criteriaVotes[currentUserId];
+    let loadedFromCriteriaVotes = false;
+    Object.entries(userVotes).forEach(([constraintKey, selectedTeamName]) => {
+      if (teamVoting.hasOwnProperty(constraintKey)) {
+        teamVoting[constraintKey] = selectedTeamName;
+        loadedFromCriteriaVotes = true;
       }
     });
-    if (loadedFromCriteria) didLoadExistingRating.value = true;
+    if (loadedFromCriteriaVotes) didLoadExistingRating.value = true;
   }
 
   // Restore best performer selection
@@ -595,21 +591,17 @@ const initializeIndividualEventForm = async (eventDetails: Event, currentUserId:
   didLoadExistingRating.value = false;
   if (!currentUserId) return;
 
-  if (eventDetails.criteria && Array.isArray(eventDetails.criteria)) {
-    let loaded = false;
-    eventDetails.criteria.forEach(alloc => {
-      // Use either votes(if exists) or votes property
-      const winnerId = alloc.votes?.[currentUserId];
-      if (typeof alloc.constraintIndex === 'number') {
-        const key = `constraint${alloc.constraintIndex}`;
-        // Check if the key exists in our reactive object before assigning
-        if (winnerId !== undefined && individualVoting.hasOwnProperty(key)) {
-          individualVoting[key] = winnerId;
-          loaded = true;
-        }
+  // Load from new criteriaVotes structure
+  if (eventDetails.criteriaVotes && eventDetails.criteriaVotes[currentUserId]) {
+    const userVotes = eventDetails.criteriaVotes[currentUserId];
+    let loadedFromCriteriaVotes = false;
+    Object.entries(userVotes).forEach(([constraintKey, selectedUserId]) => {
+      if (individualVoting.hasOwnProperty(constraintKey)) {
+        individualVoting[constraintKey] = selectedUserId;
+        loadedFromCriteriaVotes = true;
       }
     });
-    if (loaded) didLoadExistingRating.value = true;
+    if (loadedFromCriteriaVotes) didLoadExistingRating.value = true;
   }
 };
 
@@ -708,7 +700,7 @@ const submitSelection = async (): Promise<void> => {
           criteria: individualVoting,
         },
       };
-      await eventStore.submitTeamCriteriaVote(individualVotePayload as any);
+      await eventStore.submitIndividualWinnerVote(individualVotePayload);
     }
 
     notificationStore.showNotification({
@@ -829,16 +821,17 @@ const criteriaStats = computed(() => {
     }
 
     const selectionCounts: Record<string, number> = {};
-    // Use criterion.votes property
-    const votes = criterion.votes;
-    if (votes && typeof votes === 'object') {
-        // Type assertion to fix type error in forEach
-        Object.values(votes).forEach((selectedId) => {
-            if (selectedId) {
-                const displayName = isTeamEvent.value ? selectedId : (getUserName(selectedId) || selectedId);
-                selectionCounts[displayName] = (selectionCounts[displayName] || 0) + 1;
-            }
-        });
+    
+    // Use new criteriaVotes structure
+    if (event.value?.criteriaVotes) {
+      const constraintKey = `constraint${criterion.constraintIndex}`;
+      Object.values(event.value.criteriaVotes).forEach((userVotes: Record<string, string>) => {
+        const selectedId = userVotes[constraintKey];
+        if (selectedId) {
+          const displayName = isTeamEvent.value ? selectedId : (getUserName(selectedId) || selectedId);
+          selectionCounts[displayName] = (selectionCounts[displayName] || 0) + 1;
+        }
+      });
     }
 
     const sortedvotes = Object.entries(selectionCounts).sort(([, countA], [, countB]) => countB - countA);
@@ -877,12 +870,8 @@ const showCriteriaStats = computed(() => {
     if (!event.value || !Array.isArray(event.value.criteria) || event.value.criteria.length === 0) {
         return false;
     }
-    // Check if *any* vote exists across all criteria or best performer
-    const hasCriteriaVotes = event.value.criteria.some(c => {
-        // Use c.votes property
-        const votes = c.votes;
-        return votes && Object.keys(votes).length > 0;
-    });
+    // Check if *any* vote exists in the new criteriaVotes structure or best performer
+    const hasCriteriaVotes = event.value.criteriaVotes && Object.keys(event.value.criteriaVotes).length > 0;
     const hasBestPerfselection = isTeamEvent.value && event.value.bestPerformerSelections && 
                             Object.keys(event.value.bestPerformerSelections).length > 0;
 

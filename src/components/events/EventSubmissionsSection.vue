@@ -4,7 +4,7 @@
     <div class="card-header bg-info-subtle border-0">
       <div class="d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center">
-          <i class="fas fa-code-branch text-info me-2 fs-5"></i>
+          <i class="fas fa-code-branch text-info me-2 h5"></i>
           <h5 class="mb-0 fw-semibold text-info-emphasis">Project Submissions</h5>
         </div>
         <button v-if="canSubmitProject" class="btn btn-info btn-sm" @click="openSubmissionModal">
@@ -20,7 +20,7 @@
       <template v-else>
         <!-- If no submissions at all for the event -->
         <div v-if="!event.submissions || event.submissions.length === 0" class="empty-state">
-          <i class="fas fa-code-branch text-muted fs-1 mb-3"></i>
+          <i class="fas fa-code-branch text-muted text-display mb-3"></i>
           <h6 class="text-secondary mb-2">No Submissions Yet</h6>
           <p class="text-muted small mb-0">Be the first to submit your project for this event!</p>
         </div>
@@ -427,11 +427,7 @@ onBeforeUnmount(() => {
   opacity: 1;
 }
 
-.btn-modal {
-  padding: 0.75rem 1.5rem;
-  font-weight: 500;
-  border-radius: var(--bs-border-radius);
-}
+/* Modal buttons use base button styles */
 
 .form-control {
   border: 1px solid var(--bs-input-border-color);
@@ -515,7 +511,6 @@ onBeforeUnmount(() => {
 
 @media (max-width: 480px) {
   .btn-modal {
-    padding: 0.625rem 1.25rem;
     font-size: 0.875rem;
   }
   

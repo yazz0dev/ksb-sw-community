@@ -16,7 +16,7 @@
             </div>
 
             <button
-              class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center w-100"
+              class="btn btn-sm btn-outline-secondary team-toggle-btn d-inline-flex align-items-center w-100"
               @click="toggleTeamDetails(team.teamName)"
               :aria-expanded="team.showDetails ? 'true' : 'false'"
               type="button"
@@ -139,7 +139,7 @@ const toggleTeamDetails = (teamName: string): void => {
 };
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 /* Team Card Base Styling */
 .team-card {
   background: linear-gradient(145deg, 
@@ -268,56 +268,42 @@ const toggleTeamDetails = (teamName: string): void => {
   left: 100%;
 }
 
-/* Enhanced Toggle Button */
-.btn {
-  background: linear-gradient(135deg, 
-    rgba(var(--bs-primary-rgb), 0.06) 0%, 
-    rgba(var(--bs-primary-rgb), 0.03) 100%);
-  border: 2px solid rgba(var(--bs-primary-rgb), 0.15);
-  color: var(--bs-primary);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: var(--bs-border-radius-lg);
-  padding: 0.75rem 1rem;
-  font-weight: 500;
-  position: relative;
-  overflow: hidden;
-}
+/* Team toggle button - extends base button styles */
+.team-toggle-btn {
+  &.btn {
+    background: linear-gradient(135deg, 
+      rgba(var(--bs-primary-rgb), 0.06) 0%, 
+      rgba(var(--bs-primary-rgb), 0.03) 100%);
+    border: 2px solid rgba(var(--bs-primary-rgb), 0.15);
+    color: var(--bs-primary);
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, 
+        transparent, 
+        rgba(var(--bs-primary-rgb), 0.1), 
+        transparent);
+      transition: left 0.5s ease;
+      z-index: 2;
+    }
 
-.btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, 
-    transparent, 
-    rgba(var(--bs-primary-rgb), 0.1), 
-    transparent);
-  transition: left 0.5s ease;
-}
-
-.btn:hover {
-  background: linear-gradient(135deg, 
-    rgba(var(--bs-primary-rgb), 0.12) 0%, 
-    rgba(var(--bs-primary-rgb), 0.08) 100%);
-  border-color: var(--bs-primary);
-  transform: translateY(-2px);
-  color: var(--bs-primary);
-  box-shadow: 0 4px 15px rgba(var(--bs-primary-rgb), 0.2);
-}
-
-.btn:hover::before {
-  left: 100%;
-}
-
-.btn:focus {
-  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
-  outline: none;
-}
-
-.btn:active {
-  transform: translateY(0);
+    &:hover {
+      background: linear-gradient(135deg, 
+        rgba(var(--bs-primary-rgb), 0.12) 0%, 
+        rgba(var(--bs-primary-rgb), 0.08) 100%);
+      border-color: var(--bs-primary);
+      color: var(--bs-primary);
+      
+      &::after {
+        left: 100%;
+      }
+    }
+  }
 }
 
 /* Team Details Section */
@@ -517,7 +503,6 @@ const toggleTeamDetails = (teamName: string): void => {
   
   .btn {
     font-size: 0.875rem;
-    padding: 0.625rem 0.875rem;
   }
   
   .team-details-border {
@@ -548,6 +533,104 @@ const toggleTeamDetails = (teamName: string): void => {
   
   .team-details-border {
     padding: 0.875rem 0.625rem;
+  }
+}
+
+/* Enhanced Team List specific styles */
+.team-list-section {
+  .team-card {
+    background: var(--bs-white);
+    border: 1px solid rgba(var(--bs-border-color-translucent));
+    border-radius: var(--bs-border-radius-lg);
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    &:hover {
+      border-color: var(--bs-primary);
+      box-shadow: 
+        0 6px 20px rgba(var(--bs-primary-rgb), 0.08),
+        0 2px 6px rgba(var(--bs-primary-rgb), 0.04);
+      transform: translateY(-2px);
+    }
+    
+    .card-body {
+      position: relative;
+      
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, 
+          var(--bs-primary), 
+          var(--bs-primary-rgb), 
+          var(--bs-secondary));
+        border-radius: var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 0;
+      }
+    }
+    
+    .team-header {
+      .h6 {
+        color: var(--bs-primary);
+        font-weight: 600;
+        margin-bottom: 0;
+      }
+      
+      .badge {
+        background: linear-gradient(135deg, 
+          var(--bs-primary), 
+          var(--bs-primary-dark, var(--bs-primary)));
+        color: var(--bs-white);
+        font-weight: 500;
+        padding: 0.375rem 0.75rem;
+        border-radius: var(--bs-border-radius-pill);
+      }
+    }
+    
+    .toggle-btn {
+      background: rgba(var(--bs-primary-rgb), 0.05);
+      border: 1px solid rgba(var(--bs-primary-rgb), 0.15);
+      color: var(--bs-primary);
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background: rgba(var(--bs-primary-rgb), 0.1);
+        border-color: var(--bs-primary);
+        transform: translateY(-1px);
+      }
+      
+      &:focus {
+        box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.15);
+      }
+    }
+    
+    .team-members {
+      background: rgba(var(--bs-light-rgb), 0.3);
+      border-radius: var(--bs-border-radius);
+      
+      .member-item {
+        padding: 0.5rem 0.75rem;
+        border-radius: var(--bs-border-radius-sm);
+        transition: background-color 0.2s ease;
+        
+        &:hover {
+          background: rgba(var(--bs-primary-rgb), 0.05);
+        }
+        
+        .member-index {
+          color: var(--bs-secondary);
+          font-weight: 500;
+          font-size: 0.875rem;
+        }
+        
+        .member-name {
+          color: var(--bs-dark);
+          font-weight: 500;
+        }
+      }
+    }
   }
 }
 </style>

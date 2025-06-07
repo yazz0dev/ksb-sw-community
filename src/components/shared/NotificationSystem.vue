@@ -98,7 +98,7 @@ const getTypeIcon = (type: AppNotification['type']): string => {
 };
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .notification-container {
   z-index: 1100;
 }
@@ -155,5 +155,52 @@ const getTypeIcon = (type: AppNotification['type']): string => {
 
 .notification-move {
   transition: transform 0.3s ease;
+}
+
+/* Enhanced feedback message styles */
+.feedback-section {
+  .alert {
+    border: none;
+    border-radius: var(--bs-border-radius-lg);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--bs-box-shadow-sm);
+    
+    &.alert-success {
+      background: linear-gradient(135deg, 
+        rgba(var(--bs-success-rgb), 0.1) 0%, 
+        rgba(var(--bs-success-rgb), 0.05) 100%);
+      border-left: 4px solid var(--bs-success);
+    }
+    
+    &.alert-danger {
+      background: linear-gradient(135deg, 
+        rgba(var(--bs-danger-rgb), 0.1) 0%, 
+        rgba(var(--bs-danger-rgb), 0.05) 100%);
+      border-left: 4px solid var(--bs-danger);
+    }
+    
+    &.alert-warning {
+      background: linear-gradient(135deg, 
+        rgba(var(--bs-warning-rgb), 0.1) 0%, 
+        rgba(var(--bs-warning-rgb), 0.05) 100%);
+      border-left: 4px solid var(--bs-warning);
+    }
+    
+    &.alert-info {
+      background: linear-gradient(135deg, 
+        rgba(var(--bs-info-rgb), 0.1) 0%, 
+        rgba(var(--bs-info-rgb), 0.05) 100%);
+      border-left: 4px solid var(--bs-info);
+    }
+    
+    .btn-close {
+      background-size: 0.75rem;
+      opacity: 0.7;
+      
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
 }
 </style>

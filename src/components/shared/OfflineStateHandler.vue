@@ -1,5 +1,12 @@
 // src/components/shared/OfflineStateHandler.vue
 <template>
+  <!-- Top Offline Banner -->
+  <div v-if="!isOnline" class="offline-banner alert alert-warning" role="alert">
+    <i class="fas fa-wifi-slash me-2"></i>
+    You're offline. Some features may be limited.
+  </div>
+
+  <!-- Bottom Status Bar -->
   <div 
     v-if="!isOnline || hasQueuedActions"
     class="offline-status-bar animate-slide-up"
@@ -21,6 +28,21 @@
               {{ queuedActionsCount }} action{{ queuedActionsCount === 1 ? '' : 's' }} waiting to sync
             </div>
           </div>
+        </div>
+        
+        <!-- Connection Check Button (when offline) -->
+        <div v-if="!isOnline" class="check-connection-section me-2">
+          <button
+            @click="checkConnection"
+            class="btn btn-sm btn-outline-light d-inline-flex align-items-center"
+            :disabled="isCheckingConnection"
+          >
+            <span v-if="isCheckingConnection" class="spinner-border spinner-border-sm me-2" role="status">
+              <span class="visually-hidden">Checking...</span>
+            </span>
+            <i v-else class="fas fa-network-wired me-2"></i>
+            <span>Check Connection</span>
+          </button>
         </div>
         
         <!-- Sync Button -->
@@ -49,13 +71,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useAppStore } from '@/stores/appStore';
 // QueuedAction should be imported from types/store.ts if it's shared
 // For this component, it doesn't directly use the QueuedAction type in its script,
 // but relies on appStore which uses it.
 
 const appStore = useAppStore();
+const isCheckingConnection = ref(false);
 
 const isOnline = computed<boolean>(() => appStore.isOnline);
 // Accessing the reactive ref directly from the store
@@ -84,9 +107,47 @@ const canSync = computed<boolean>(() => isOnline.value && hasQueuedActions.value
 const syncNow = (): void => {
   appStore.syncOfflineActions(); // Corrected method name
 };
+
+// New method to manually check connection
+const checkConnection = async (): Promise<void> => {
+  isCheckingConnection.value = true;
+  try {
+    // Use fetch API to check for connectivity by pinging a reliable endpoint
+    const response = await fetch('/api/health-check', { 
+      method: 'HEAD',
+      // Cache-busting to prevent cached responses
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+      cache: 'no-store'
+    });
+    
+    if (response.ok) {
+      // If fetch succeeds, we're online
+      appStore.$patch({ isOnline: true });
+      console.log('Connection restored');
+    }
+  } catch (error) {
+    // If fetch fails, we're still offline
+    console.log('Still offline', error);
+    // No need to update offline state as it's already set to false
+  } finally {
+    isCheckingConnection.value = false;
+  }
+};
 </script>
 
 <style scoped>
+/* Offline Banner */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1060;
+  margin: 0;
+  text-align: center;
+  border-radius: 0;
+}
+
 /* Offline Status Bar */
 .offline-status-bar {
   position: fixed;

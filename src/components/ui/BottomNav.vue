@@ -7,8 +7,8 @@
         active-class="active"
         aria-label="Home"
       >
-        <span class="nav-icon mb-1"><i class="fas fa-home"></i></span>
-        <span class="nav-text">Home</span>
+        <span class="nav-icon mb-1 h5"><i class="fas fa-home"></i></span>
+        <span class="nav-text text-caption">Home</span>
       </router-link>
 
       <!-- Event Request Link  -->
@@ -19,8 +19,8 @@
         active-class="active"
         aria-label="Request Event"
       >
-        <span class="nav-icon mb-1"><i class="fas fa-calendar-plus"></i></span>
-        <span class="nav-text">Request</span>
+        <span class="nav-icon mb-1 h5"><i class="fas fa-calendar-plus"></i></span>
+        <span class="nav-text text-caption">Request</span>
       </router-link>
 
       <!-- Leaderboard -->
@@ -30,8 +30,8 @@
         active-class="active"
         aria-label="Leaderboard"
       >
-        <span class="nav-icon mb-1"><i class="fas fa-trophy"></i></span>
-        <span class="nav-text">Leaderboard</span>
+        <span class="nav-icon mb-1 h5"><i class="fas fa-trophy"></i></span>
+        <span class="nav-text text-caption">Leaderboard</span>
       </router-link>
 
       <!-- Profile (User Only) -->
@@ -43,7 +43,7 @@
         aria-label="Profile"
       >
         <!-- Profile Pic or Icon -->
-        <div class="nav-icon mb-1">
+        <div class="nav-icon mb-1 h5">
           <img
             v-if="userProfilePicUrl && !imgError"
             class="profile-pic rounded-circle"
@@ -53,7 +53,7 @@
           />
           <i v-else class="fas fa-user-circle"></i>
         </div>
-        <span class="nav-text">Profile</span>
+        <span class="nav-text text-caption">Profile</span>
       </router-link>
     </div>
   </nav>
@@ -96,7 +96,7 @@ const handleImageError = (): void => {
   color: var(--bs-secondary);
   text-decoration: none;
   padding: 0.5rem 0.25rem;
-  border-top: 3px solid transparent;
+  border-top: 3px solid transparent; /* keeping transparent border for consistent spacing */
   transition: color 0.2s ease, border-color 0.2s ease;
   position: relative;
   min-height: var(--bottom-nav-height-mobile);
@@ -113,12 +113,10 @@ const handleImageError = (): void => {
 
 .nav-link.active {
   color: var(--bs-primary);
-  border-top-color: var(--bs-primary);
   font-weight: 600;
 }
 
 .nav-icon {
-  font-size: 1.3rem;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -133,7 +131,6 @@ const handleImageError = (): void => {
 }
 
 .nav-text {
-  font-size: 0.8rem;
   line-height: 1.2;
   font-weight: 500;
 }
@@ -170,11 +167,11 @@ const handleImageError = (): void => {
   }
   
   .nav-icon {
-    font-size: 1.15rem;
+    /* Use standard icon size */
   }
   
   .nav-text {
-    font-size: 0.75rem;
+    /* Use standard .text-caption class */
   }
 }
 </style>

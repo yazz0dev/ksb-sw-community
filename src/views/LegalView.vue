@@ -1,5 +1,5 @@
 <template>
-  <div class="legal-view container py-3 py-md-4"> <!-- Reduced from py-4 py-md-5 -->
+  <div class="legal-view container section-spacing">
     <div class="bg-white p-3 p-md-4 rounded">
       <h1 class="h2 text-gradient-primary mb-4 text-center border-bottom pb-2">Legal Information</h1>
 

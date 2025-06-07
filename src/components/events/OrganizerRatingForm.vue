@@ -34,7 +34,7 @@
           <textarea v-model="feedback" class="form-control" rows="2" maxlength="300" placeholder="Share your thoughts about the organizers..."></textarea>
         </div>
         <div class="d-flex align-items-center gap-2">
-          <button type="submit" class="btn btn-primary btn-sm" :disabled="isSubmitting || rating === 0">
+                        <button type="submit" class="btn btn-primary rating-submit-btn btn-sm" :disabled="isSubmitting || rating === 0">
             <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status"></span>
             Submit Rating
           </button>
@@ -100,6 +100,7 @@ async function submitRating() {
     });
     hasRated.value = true;
   } catch (err: any) {
+    console.error('Error submitting organizer rating:', err);
     errorMessage.value = err?.message || 'Failed to submit rating.';
   } finally {
     isSubmitting.value = false;
@@ -266,59 +267,41 @@ async function submitRating() {
   font-style: italic;
 }
 
-/* Button Styling */
-.btn-primary {
-  background: linear-gradient(135deg, 
-    var(--bs-primary) 0%, 
-    var(--bs-primary-dark, var(--bs-primary)) 100%);
-  border: none;
-  border-radius: var(--bs-border-radius-lg);
-  padding: 0.75rem 2rem;
-  font-weight: 600;
-  font-size: 0.95rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(var(--bs-primary-rgb), 0.3);
-}
+/* Rating form submit button - extends base button styles */
+.rating-submit-btn {
+  &.btn-primary {
+    box-shadow: 0 4px 12px rgba(var(--bs-primary-rgb), 0.3);
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.2), 
+        transparent);
+      transition: left 0.5s ease;
+      z-index: 2;
+    }
 
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, 
-    transparent, 
-    rgba(255, 255, 255, 0.2), 
-    transparent);
-  transition: left 0.5s ease;
-}
+    &:hover {
+      box-shadow: 0 6px 20px rgba(var(--bs-primary-rgb), 0.4);
+      
+      &::after {
+        left: 100%;
+      }
+    }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(var(--bs-primary-rgb), 0.4);
-  background: linear-gradient(135deg, 
-    var(--bs-primary-dark, var(--bs-primary)) 0%, 
-    var(--bs-primary) 100%);
-}
-
-.btn-primary:hover::before {
-  left: 100%;
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-}
-
-.btn-primary:disabled {
-  background: var(--bs-secondary);
-  color: var(--bs-light);
-  transform: none;
-  box-shadow: none;
-  cursor: not-allowed;
-  opacity: 0.6;
+    &:disabled {
+      background: var(--bs-secondary);
+      color: var(--bs-light);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
 }
 
 /* Spinner */
@@ -381,9 +364,8 @@ async function submitRating() {
     transform: scale(1.1) rotate(-3deg);
   }
   
-  .btn-primary {
+  .rating-submit-btn.btn-primary {
     width: 100%;
-    padding: 0.875rem 1.5rem;
   }
   
   .form-control {
@@ -411,7 +393,7 @@ async function submitRating() {
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
   .star-rating,
-  .btn-primary,
+  .rating-submit-btn,
   .organizer-rating-form {
     transition: none;
   }

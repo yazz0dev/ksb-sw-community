@@ -217,6 +217,8 @@ onMounted(() => {
   min-height: var(--navbar-height-mobile);
   border-bottom: 1px solid var(--bs-border-color);
   transition: background-color 0.3s ease-in-out;
+  padding-top: 0.25rem; /* Reduced padding */
+  padding-bottom: 0.25rem; /* Reduced padding */
 }
 
 @media (min-width: 992px) {

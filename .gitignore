@@ -15,13 +15,12 @@ dist-ssr
 *.local
 .firebaserc
 .env
-*.yaml
 *.cache
 firebase.json
 firebase-debug.log
 *.rules
 firestore.indexes.json
-
+tsconfig.tsbuildinfo
 
 # Editor directories and files
 .vscode/*

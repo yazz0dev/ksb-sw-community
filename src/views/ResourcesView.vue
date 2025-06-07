@@ -1,7 +1,7 @@
 <template>
-    <section class="py-5 resources-section">
+    <section class="section-spacing resources-section">
         <div class="container-lg">
-            <h1 class="h1 text-gradient-primary mb-4 mb-md-5 text-center">
+            <h1 class="h1 text-gradient-primary mb-5 text-center">
                 <i class="fas fa-book-open me-2"></i>Learning Resources
             </h1>
 

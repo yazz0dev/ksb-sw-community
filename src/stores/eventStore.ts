@@ -544,7 +544,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  async function submitIndividualWinnerVote(payload: { eventId: string; selectedWinnerId: string }) {
+  async function submitIndividualWinnerVote(payload: { eventId: string; votes: { criteria: Record<string, string> } }) {
     actionError.value = null;
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
       await _handleOpError("submitting individual winner vote", new Error("User not authenticated."), payload.eventId);
@@ -554,7 +554,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     isLoading.value = true;
     try {
       // Service function now contains all validation and Firestore logic
-      await submitIndividualWinnerVoteService(payload.eventId, studentId, payload.selectedWinnerId);
+      await submitIndividualWinnerVoteService(payload.eventId, studentId, payload.votes);
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
         if (updatedEventData) _updateLocalEventLists(updatedEventData);
         notificationStore.showNotification({ message: "Winner selection submitted!", type: 'success' });

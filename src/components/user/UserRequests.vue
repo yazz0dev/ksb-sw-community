@@ -81,7 +81,7 @@
                   <div class="d-flex align-items-center">
                     <span class="status-label text-muted small me-2">Status:</span>
                     <span :class="['status-badge badge rounded-pill', getStatusClass(request.status)]">
-                      <i class="fas fa-circle me-1" style="font-size: 0.5rem;"></i>
+                      <i class="fas fa-circle me-1 text-overline"></i>
                       {{ request.status }}
                     </span>
                   </div>

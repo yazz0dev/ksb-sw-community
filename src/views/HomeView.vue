@@ -1,5 +1,5 @@
 <template>
-  <div class="home-section">
+  <div class="home-section section-spacing">
     <div class="container-lg px-3 px-md-4">
       <!-- Replace loading state with SkeletonProvider -->
       <SkeletonProvider 
@@ -7,17 +7,17 @@
         :skeleton-component="HomeSkeleton"
       >
         <!-- Error State -->
-        <div v-if="error" class="alert alert-danger mt-3 mt-md-4" role="alert">
+        <div v-if="error" class="alert alert-danger mb-4" role="alert">
           <i class="fas fa-exclamation-triangle me-2"></i>
           {{ error }}
         </div>
 
         <!-- Content Area -->
         <div v-else>
-          <div class="row g-3 g-md-4 mb-3 mb-md-4 mt-1 mt-md-2">
+          <div class="row g-3 g-md-4 mb-4">
             <div class="col-12">
               <!-- Header -->
-              <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3 mb-md-4 px-lg-3">
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4 px-lg-3">
                 <h2 class="h3 text-gradient-primary mb-0"><i class="fas fa-calendar-alt me-2"></i>Events</h2>
                 <!-- Show "Request Event" button only if user is authenticated -->
                 <div v-if="canRequestEvent">

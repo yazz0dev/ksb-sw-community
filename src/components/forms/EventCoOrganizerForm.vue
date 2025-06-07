@@ -76,7 +76,7 @@
       </div>
       
       <div v-else class="empty-state">
-        <i class="fas fa-user-plus text-muted fs-2 mb-2"></i>
+                    <i class="fas fa-user-plus text-muted text-hero mb-2"></i>
         <p class="text-muted fst-italic mb-0">No co-organizers added yet.</p>
         <small class="text-secondary">Use the search above to add co-organizers.</small>
       </div>

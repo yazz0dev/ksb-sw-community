@@ -1,12 +1,6 @@
 // src/App.vue
 <template>
   <div class="app-wrapper d-flex flex-column min-vh-100 overflow-hidden">
-    <!-- Offline Banner -->
-    <div v-if="!isOnline" class="offline-banner alert alert-warning" role="alert">
-      <i class="fas fa-wifi-slash me-2"></i>
-      You're offline. Some features may be limited.
-    </div>
-
     <TopBar
       :isAuthenticated="isAuthenticated"
       :userName="userName"
@@ -40,6 +34,9 @@
 
     <!-- Always show BottomNav on mobile when authenticated -->
     <BottomNav v-if="isAuthenticated" />
+    
+    <!-- Offline State Handler Component -->
+    <OfflineStateHandler />
   </div>
 </template>
 
@@ -55,6 +52,7 @@ import { getAuth } from 'firebase/auth';
 
 import BottomNav from './components/ui/BottomNav.vue';
 import TopBar from './components/ui/TopBar.vue';
+import OfflineStateHandler from './components/shared/OfflineStateHandler.vue';
 
 const studentStore = useProfileStore();
 const notificationStore = useNotificationStore();
@@ -173,17 +171,6 @@ onUnmounted(() => {
 
 /* .app-main-content styles are now handled globally in main.scss */
 /* This ensures consistency across all views */
-
-.offline-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1060;
-  margin: 0;
-  text-align: center;
-  border-radius: 0;
-}
 
 /* Mobile-specific styles */
 /* Media queries for .app-main-content are now in main.scss */

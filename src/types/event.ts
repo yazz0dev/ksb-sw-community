@@ -45,6 +45,7 @@ export interface EventCriteria {
   points: number;
   role: XpCalculationRoleKey | 'xp_developer' | 'xp_designer' | 'xp_presenter' | 'xp_problemSolver' | string;
   targetRole?: string;
+  // votes property is deprecated - votes are now stored in separate criteriaVotes map
   votes?: Record<string, string>; 
 }
 
@@ -103,7 +104,10 @@ export interface Event {
 
   submissions?: Submission[];
   votingOpen: boolean;
-  bestPerformerSelections?: Record<string, string>;
+  
+  // New voting data structure
+  criteriaVotes?: Record<string, Record<string, string>>; // userId -> { constraintKey -> selectedEntity }
+  bestPerformerSelections?: Record<string, string>; // userId -> selectedUserId
 
   winners?: EventWinners;
   manuallySelectedBy?: string;
@@ -138,7 +142,10 @@ export interface EventFormData {
   submissions?: Submission[];
   organizerRatings?: OrganizerRating[];
   votingOpen: boolean; // Made required
-  bestPerformerSelections?: Record<string, string>;
+  
+  // New voting data structure for forms
+  criteriaVotes?: Record<string, Record<string, string>>; // userId -> { constraintKey -> selectedEntity }
+  bestPerformerSelections?: Record<string, string>; // userId -> selectedUserId
   winners?: EventWinners;
   gallery?: GalleryItem[];
 

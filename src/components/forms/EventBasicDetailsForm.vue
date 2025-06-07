@@ -5,15 +5,15 @@
     <div class="mb-4">
       <label class="form-label fw-medium">Event Format <span class="text-danger">*</span></label>
       <div class="d-flex flex-wrap gap-3">
-        <div class="form-check">
+        <div class="form-check form-check-custom">
           <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" :value="EventFormat.Individual" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatIndividual">Individual</label>
         </div>
-        <div class="form-check">
+        <div class="form-check form-check-custom">
           <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" :value="EventFormat.Team" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatTeam">Team</label>
         </div>
-        <div class="form-check">
+        <div class="form-check form-check-custom">
           <input class="form-check-input" type="radio" name="eventFormat" id="formatCompetition" :value="EventFormat.Competition" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatCompetition">Competition</label>
         </div>
@@ -106,7 +106,7 @@
 
     <!-- Allow Project Submission Toggle -->
     <div class="mb-3">
-      <div class="form-check form-switch">
+      <div class="form-check form-switch form-switch-custom">
         <input
           class="form-check-input"
           type="checkbox"
@@ -115,9 +115,9 @@
           v-model="localDetails.allowProjectSubmission"
           :disabled="isSubmitting"
         />
-        <label class="form-check-label" for="allowProjectSubmission">
+        <label class="form-check-label fw-medium" for="allowProjectSubmission">
           Allow Project Submissions
-          <span class="text-muted small ms-1">(Required for Hackathons, Ideathons, etc.)</span>
+          <span class="text-muted small ms-1 fw-normal">(Required for Hackathons, Ideathons, etc.)</span>
         </label>
       </div>
     </div>
@@ -225,5 +225,47 @@ watch(localDetails, (newVal) => {
 
 .invalid-feedback {
   color: var(--bs-danger);
+}
+
+/* Custom Form Check Enhancement */
+.form-check-custom {
+  transition: all 0.3s ease;
+}
+
+.form-check-custom:hover {
+  transform: translateY(-1px);
+}
+
+.form-check-custom .form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Switch Enhancement */
+.form-switch-custom {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.form-switch-custom:hover {
+  transform: translateY(-1px);
+}
+
+.form-switch-custom .form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .form-check-custom {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.375rem;
+  }
+  
+  .form-switch-custom {
+    padding: 0.75rem 1rem;
+  }
+  
+  .d-flex.flex-wrap.gap-3 {
+    gap: 0.5rem !important;
+  }
 }
 </style>

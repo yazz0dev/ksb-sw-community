@@ -1,14 +1,14 @@
 // src/views/EventDetails.vue
 <template>
-  <div class="event-details-view px-2 px-md-3 event-details-bg">
+  <div class="event-details-view section-spacing px-2 px-md-3 event-details-bg">
     <SkeletonProvider
       :loading="loading"
       :skeleton-component="EventDetailsSkeleton"
     >
       <!-- Error Display -->
-      <div v-if="initialFetchError" class="container-lg mt-3 mt-md-4">
+      <div v-if="initialFetchError" class="container-lg">
         <div class="alert alert-danger d-flex align-items-start" role="alert">
-          <i class="fas fa-exclamation-triangle me-3 fs-4 text-danger"></i>
+          <i class="fas fa-exclamation-triangle me-3 h4 text-danger"></i>
           <div>
             <h5 class="alert-heading mb-2">Failed to Load Event</h5>
             <p class="mb-0">{{ initialFetchError }}</p>
@@ -468,7 +468,7 @@ defineExpose({ handleJoin, handleLeave });
 
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 /* Event Details Background & Layout */
 .event-details-bg {
   background: linear-gradient(135deg, 
@@ -783,5 +783,140 @@ defineExpose({ handleJoin, handleLeave });
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+/* Enhanced Event Details - Extended styling */
+.event-details-section {
+  // Background gradient enhancement
+  .event-details-bg {
+    background: linear-gradient(135deg, 
+      var(--bs-light) 0%, 
+      var(--bs-primary-bg-subtle) 50%, 
+      rgba(var(--bs-primary-rgb), 0.08) 100%);
+    position: relative;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 200px;
+      background: linear-gradient(180deg, 
+        rgba(var(--bs-primary-rgb), 0.03) 0%, 
+        transparent 100%);
+      pointer-events: none;
+    }
+  }
+  
+  // Enhanced section headers (extends existing .section-header)
+  .section-header {
+    background: rgba(var(--bs-white-rgb), 0.8);
+    backdrop-filter: blur(10px);
+    border-radius: var(--bs-border-radius-lg);
+    padding: 1rem 1.25rem;
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.1);
+    box-shadow: 0 2px 10px rgba(var(--bs-dark-rgb), 0.05);
+    
+    .h5 {
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    
+    i {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(var(--bs-primary-rgb), 0.1);
+      border-radius: 50%;
+      font-size: 0.875rem;
+    }
+  }
+  
+  // Enhanced card styling (extends existing .team-list-box)
+  .team-list-box,
+  .content-card {
+    background: rgba(var(--bs-white-rgb), 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.08);
+    box-shadow: 
+      0 4px 20px rgba(var(--bs-dark-rgb), 0.08),
+      0 1px 3px rgba(var(--bs-dark-rgb), 0.06);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 
+        0 8px 30px rgba(var(--bs-dark-rgb), 0.12),
+        0 4px 8px rgba(var(--bs-dark-rgb), 0.08);
+      border-color: rgba(var(--bs-primary-rgb), 0.15);
+    }
+  }
+  
+  // Enhanced participant list (extends existing .participant-card)
+  .participant-card {
+    background: var(--bs-white);
+    border: 1px solid rgba(var(--bs-border-color-translucent));
+    border-radius: var(--bs-border-radius-lg);
+    padding: 1rem;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      border-color: var(--bs-primary);
+      box-shadow: var(--bs-box-shadow-sm);
+      transform: translateY(-1px);
+    }
+    
+    .participant-item {
+      padding: 0.75rem;
+      border-radius: var(--bs-border-radius);
+      transition: background-color 0.2s ease;
+      
+      &:hover {
+        background-color: var(--bs-primary-bg-subtle);
+      }
+    }
+  }
+  
+  // Responsive grid improvements (extends existing responsive rules)
+  @media (max-width: 991.98px) {
+    .sticky-lg-top {
+      position: static !important;
+      top: auto !important;
+    }
+    
+    .sidebar-card {
+      margin-top: 2rem;
+    }
+  }
+  
+  // Enhanced mobile-first responsive design
+  @media (max-width: 575.98px) {
+    .section-header {
+      padding: 0.75rem 1rem;
+      
+      .h5 {
+        font-size: 1rem;
+      }
+      
+      i {
+        width: 20px;
+        height: 20px;
+        font-size: 0.75rem;
+      }
+    }
+    
+    .team-list-box,
+    .content-card {
+      margin-bottom: 1rem;
+    }
+    
+    .row.g-3 {
+      --bs-gutter-x: 0.75rem;
+      --bs-gutter-y: 0.75rem;
+    }
+  }
 }
 </style>

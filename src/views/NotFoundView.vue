@@ -2,7 +2,7 @@
   <div class="not-found-section">
     <div class="container d-flex align-items-center justify-content-center">
       <div class="text-center not-found-content animate-fade-in">
-        <h1 class="display-1 text-gradient-primary mb-4">404</h1>
+        <h1 class="text-display text-gradient-primary mb-4">404</h1>
         <h2 class="h3 mb-3">Page Not Found</h2>
         <p class="lead mb-4">The page you're looking for doesn't exist.</p>
         <router-link to="/" class="btn btn-primary btn-lg">

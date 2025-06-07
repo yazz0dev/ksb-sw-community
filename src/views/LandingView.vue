@@ -24,7 +24,7 @@
     </section>
 
     <!-- Platform Features Section -->
-    <section class="features-section py-4 py-md-5">
+    <section class="features-section section-spacing">
       <div class="container-lg px-3 px-md-4">
         <transition-group name="fade-slide-up" tag="div" class="row g-2 g-md-4 justify-content-center">
           <div class="col-6 col-md-4" v-for="(feature, index) in features" :key="feature.icon">
@@ -33,8 +33,8 @@
                 <span :class="['feature-icon', getIconColorClass(feature.color)]">
                   <i :class="['fas', feature.icon]" aria-hidden="true"></i>
                 </span>
-                <h5 class="card-title mt-2 mb-1 mt-md-3 mb-md-2 mobile-title">{{ feature.title }}</h5>
-                <p class="card-text text-secondary mobile-text">{{ feature.text }}</p>
+                <h5 class="card-title mt-2 mb-1 mt-md-3 mb-md-2">{{ feature.title }}</h5>
+                <p class="card-text text-secondary small">{{ feature.text }}</p>
               </div>
             </div>
           </div>
@@ -43,7 +43,7 @@
     </section>
 
     <!-- About & Info Section -->
-    <section class="about-section py-3 py-md-5">
+    <section class="about-section section-spacing">
       <div class="container-lg px-3 px-md-4">
         <div class="row g-3 g-lg-5 align-items-stretch">
           <div class="col-lg-5 order-1 order-lg-2">
@@ -80,19 +80,19 @@
                       </p>
                       <div class="journey-steps">
                         <div class="step-item d-flex align-items-center mb-2">
-                          <span class="step-number">1</span>
+                          <span class="step-number text-caption">1</span>
                           <span class="step-text small">Sign in with your student account</span>
                         </div>
                         <div class="step-item d-flex align-items-center mb-2">
-                          <span class="step-number">2</span>
+                          <span class="step-number text-caption">2</span>
                           <span class="step-text small">Join events or request new ones</span>
                         </div>
                         <div class="step-item d-flex align-items-center mb-2">
-                          <span class="step-number">3</span>
+                          <span class="step-number text-caption">3</span>
                           <span class="step-text small">Collaborate and build projects</span>
                         </div>
                         <div class="step-item d-flex align-items-center">
-                          <span class="step-number">4</span>
+                          <span class="step-number text-caption">4</span>
                           <span class="step-text small">Earn XP and showcase your work</span>
                         </div>
                       </div>
@@ -121,8 +121,8 @@
                       <div class="pillar-icon mb-1 mb-md-2">
                         <i class="fas fa-code text-primary"></i>
                       </div>
-                      <h5 class="fw-bold mb-1 mb-md-2 mobile-title">Real-World Experience</h5>
-                      <p class="small text-secondary mb-0 mobile-text">Build production-ready applications with cutting-edge technologies.</p>
+                      <h5 class="fw-bold mb-1 mb-md-2">Real-World Experience</h5>
+                      <p class="small text-secondary mb-0">Build production-ready applications with cutting-edge technologies.</p>
                     </div>
                   </div>
                   <div class="col-6 col-lg-6">
@@ -156,16 +156,16 @@
                 
                 <div class="about-stats d-flex flex-wrap gap-3">
                   <div class="stat-item">
-                    <div class="stat-number text-primary fw-bold">30+</div>
-                    <div class="stat-label small text-secondary">Active Students</div>
+                    <div class="stat-number h4 text-primary fw-bold">30+</div>
+                    <div class="stat-label text-caption text-secondary">Active Students</div>
                   </div>
                   <div class="stat-item">
-                    <div class="stat-number text-info fw-bold">5+</div>
-                    <div class="stat-label small text-secondary">Projects Completed</div>
+                    <div class="stat-number h4 text-info fw-bold">5+</div>
+                    <div class="stat-label text-caption text-secondary">Projects Completed</div>
                   </div>
                   <div class="stat-item">
-                    <div class="stat-number text-success fw-bold">5+</div>
-                    <div class="stat-label small text-secondary">Events Hosted</div>
+                    <div class="stat-number h4 text-success fw-bold">5+</div>
+                    <div class="stat-label text-caption text-secondary">Events Hosted</div>
                   </div>
                 </div>
               </div>
@@ -176,7 +176,7 @@
     </section>
 
     <!-- Sponsorship & Contact Section -->
-    <section class="sponsor-section py-5 bg-gradient-light">
+    <section class="sponsor-section section-spacing bg-gradient-light">
       <div class="container-lg">
         <div class="row g-4 align-items-center">
           <div class="col-md-7">
@@ -269,7 +269,7 @@ const getIconColorClass = (color: Feature['color']): string => {
 };
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 /* General Layout */
 .landing-section {
   background: linear-gradient(135deg, var(--bs-light) 0%, var(--bs-primary-bg-subtle) 100%);
@@ -295,18 +295,15 @@ const getIconColorClass = (color: Feature['color']): string => {
   }
   
   .welcome-section h1 {
-    font-size: 1.75rem !important;
     line-height: 1.3;
     margin-bottom: 0.75rem !important; /* Reduced from 1rem */
   }
   
   .welcome-section .lead {
-    font-size: 1rem;
     margin-bottom: 1.25rem !important; /* Reduced from 1.5rem */
   }
   
   .welcome-section .btn-lg {
-    font-size: 0.95rem;
     padding: 0.6rem 1.25rem; /* Reduced from 0.75rem 1.5rem */
     gap: 0.5rem;
   }
@@ -384,22 +381,20 @@ const getIconColorClass = (color: Feature['color']): string => {
   }
 }
 
-.feature-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.5rem;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
-  background: var(--bs-primary-bg-subtle);
-  margin-bottom: 0.5rem;
-  box-shadow: var(--bs-box-shadow-sm);
-}
+  .feature-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    background: var(--bs-primary-bg-subtle);
+    margin-bottom: 0.5rem;
+    box-shadow: var(--bs-box-shadow-sm);
+  }
 
 @media (max-width: 767.98px) {
   .feature-icon {
-    font-size: 2rem;
     width: 3rem;
     height: 3rem;
   }
@@ -421,13 +416,11 @@ const getIconColorClass = (color: Feature['color']): string => {
   }
   
   .about-section .display-6 {
-    font-size: 1.5rem;
     line-height: 1.3;
     text-align: center;
   }
   
   .about-section .lead {
-    font-size: 0.95rem;
     text-align: center;
     margin-bottom: 2rem !important;
   }
@@ -477,24 +470,23 @@ const getIconColorClass = (color: Feature['color']): string => {
   }
   
   .pillar-card h5 {
-    font-size: 0.95rem;
+    /* Use standard .small class instead of custom font-size */
   }
   
   .pillar-card .small {
-    font-size: 0.8rem;
+    /* Standard .small class is sufficient */
   }
 }
 
-.pillar-icon {
-  font-size: 1.5rem;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bs-light);
-  border-radius: 50%;
-}
+    .pillar-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bs-light);
+      border-radius: 50%;
+    }
 
 @media (max-width: 767.98px) {
   .pillar-icon {
@@ -512,7 +504,6 @@ const getIconColorClass = (color: Feature['color']): string => {
     min-width: 80px;
     
     .stat-number {
-      font-size: 1.5rem;
       line-height: 1.2;
     }
   }
@@ -523,11 +514,11 @@ const getIconColorClass = (color: Feature['color']): string => {
     min-width: 70px;
     
     .stat-number {
-      font-size: 1.25rem;
+      /* Use standard h5 class */
     }
     
     .stat-label {
-      font-size: 0.75rem;
+      /* Use standard .text-caption class */
     }
   }
 }
@@ -572,7 +563,6 @@ const getIconColorClass = (color: Feature['color']): string => {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
     font-weight: bold;
     margin-right: 0.75rem;
     flex-shrink: 0;
@@ -596,13 +586,12 @@ const getIconColorClass = (color: Feature['color']): string => {
   }
   
   .info-cards .info-card {
-    font-size: 0.9rem;
+    /* Use standard .small class */
   }
   
   .info-cards .step-number {
     width: 20px;
     height: 20px;
-    font-size: 0.7rem;
     margin-right: 0.5rem;
   }
 }
@@ -622,13 +611,11 @@ const getIconColorClass = (color: Feature['color']): string => {
   }
   
   .sponsor-section h3 {
-    font-size: 1.25rem;
     text-align: center;
     margin-bottom: 1.5rem !important;
   }
   
   .sponsor-section p {
-    font-size: 0.9rem;
     text-align: center;
   }
 }
@@ -650,11 +637,10 @@ const getIconColorClass = (color: Feature['color']): string => {
   }
   
   .landing-footer .small {
-    font-size: 0.75rem;
+    /* Use standard .text-caption class */
   }
   
   .landing-footer p:last-child {
-    font-size: 0.7rem;
     margin-top: 0.75rem !important; /* Reduced from 1rem */
   }
 }
@@ -693,6 +679,95 @@ const getIconColorClass = (color: Feature['color']): string => {
 .fade-slide-right-enter-to {
   opacity: 1;
   transform: none;
+}
+
+/* About Section Enhancements */
+.about-section {
+  .about-content {
+    @media (max-width: 991.98px) {
+      text-align: center;
+    }
+  }
+  
+      .about-header {
+      .display-6 {
+        @media (max-width: 767.98px) {
+          /* Use standard h2 class */
+        }
+      }
+    }
+  
+  .pillar-card {
+    background: var(--bs-white);
+    border: 1px solid var(--bs-border-color);
+    transition: all 0.3s ease;
+    
+    &:hover {
+      border-color: var(--bs-primary);
+      box-shadow: var(--bs-box-shadow-sm);
+      transform: translateY(-2px);
+    }
+  }
+  
+  .pillar-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bs-light);
+    border-radius: 50%;
+  }
+}
+
+/* Mobile-first responsive improvements for Landing page */
+@media (max-width: 575.98px) {
+  .about-section {
+    .about-pillars .col-sm-6 {
+      flex: 0 0 100%;
+      max-width: 100%;
+    }
+  }
+  
+  // Better mobile typography
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.3;
+  }
+  
+  // Reduce excessive padding on mobile
+  .py-5 {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+  
+  .py-4 {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+  
+  // Better mobile grid spacing
+  .g-3 {
+    --bs-gutter-x: 0.75rem;
+    --bs-gutter-y: 0.75rem;
+  }
+  
+  .g-4 {
+    --bs-gutter-x: 1rem;
+    --bs-gutter-y: 1rem;
+  }
+  
+  // Improve spacing between sections
+  section {
+    margin-top: 1rem !important;
+  }
+}
+
+/* Touch-friendly improvements for landing page */
+@media (hover: none) and (pointer: coarse) {
+  .feature-card:hover,
+  .pillar-card:hover {
+    transform: none;
+  }
 }
 
 /* Utility .text-decoration-underline-hover:hover is defined globally in main.scss */

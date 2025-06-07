@@ -1,6 +1,6 @@
 // src/views/RequestEventView.vue
 <template>
-  <section class="py-4 py-md-5 create-event-section bg-light">
+  <section class="section-spacing create-event-section bg-light">
     <div class="container-lg">
 
       <!-- Back Button and Title -->
@@ -30,7 +30,7 @@
       <!-- Error State for Editing -->
       <div v-else-if="editError" class="alert alert-danger p-4 shadow-sm border-danger-subtle mb-5">
         <div class="d-flex align-items-start">
-          <i class="fas fa-exclamation-circle text-danger me-3 fs-4 mt-1"></i>
+                      <i class="fas fa-exclamation-circle text-danger me-3 h4 mt-1"></i>
           <div>
             <h5 class="alert-heading mb-2">Cannot Edit Event</h5>
             <p class="mb-2">{{ editError }}</p>
@@ -50,7 +50,7 @@
       <!-- Main Form Content -->
       <AuthGuard v-else :key="'auth-guard'" message="You must be logged in to request or edit events.">
         <div v-if="!isEditing && hasActiveRequest" :key="'active-request-warning'" class="alert alert-warning d-flex align-items-start mb-4 shadow-sm border-warning-subtle" role="alert" style="background-color: var(--bs-warning-bg-subtle);">
-          <i class="fas fa-exclamation-triangle text-warning me-3 fs-4 mt-1"></i>
+          <i class="fas fa-exclamation-triangle text-warning me-3 h4 mt-1"></i>
           <div>
             <h6 class="alert-heading mb-1 fw-medium">Pending Request Active</h6>
             <small class="text-body">You already have a pending event request. Please wait for it to be reviewed before submitting a new one, or <router-link :to="{ name: 'Profile' }" class="alert-link fw-medium">view your requests</router-link>.</small>

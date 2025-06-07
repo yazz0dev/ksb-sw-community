@@ -1,9 +1,7 @@
 // --- src/styles/main.scss ---
 
-
 // 1. Import custom variables first using @use
 @use 'variables' as v;
-// 8. Import your custom animations using @use
 @use 'animations';
 
 // 2. Import Bootstrap functions and default variables
@@ -11,13 +9,12 @@
 
 // Layout variables for consistent spacing
 :root {
-  --navbar-height-mobile: 4rem;
-  --navbar-height-desktop: 4.5rem;
-  --bottom-nav-height-mobile: 4rem; // For mobile only
+  --navbar-height-mobile: 3.25rem;
+  --navbar-height-desktop: 3.75rem;
+  --bottom-nav-height-mobile: 4rem;
 }
 
-
-// 3. --- IMPORTANT: Define Bootstrap variable overrides HERE ---
+// 3. Bootstrap variable overrides
 $primary: v.$primary;
 $secondary: v.$secondary;
 $success: v.$success;
@@ -44,7 +41,7 @@ $font-weight-bold: v.$font-weight-bold;
 $border-radius: v.$border-radius;
 $border-radius-sm: v.$border-radius-sm;
 $border-radius-lg: v.$border-radius-lg;
-$border-radius-xl: v.$border-radius-xl; // Uncommented for use
+$border-radius-xl: v.$border-radius-xl;
 
 $box-shadow-sm: v.$box-shadow-sm;
 $box-shadow: v.$box-shadow;
@@ -64,13 +61,6 @@ $headings-color: v.$headings-color;
 
 // Enable responsive font sizes for automatic scaling
 $enable-responsive-font-sizes: true;
-
-// NOTE: If Font Awesome is imported via SCSS, add the import here.
-// The $fa-font-formats variable in _variables.scss only affects SCSS imports.
-
-// Map necessary z-indices if Bootstrap requires overrides here
-// $z-index-dropdown: map-get(v.$z-indices, dropdown);
-// ... other z-indices
 
 // 4. Import remaining Bootstrap core files (using your overrides)
 @import "bootstrap/scss/variables";
@@ -109,71 +99,46 @@ $enable-responsive-font-sizes: true;
 // 7. Import Utilities API last
 @import "bootstrap/scss/utilities/api";
 
-// --- Your Customizations ---
+// --- Global Base Styles ---
 
-// 9. Your custom global styles
 html {
-  font-size: 100%; // Base for rem units
+  font-size: 100%;
 }
 
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
-  background-color: var(--bs-body-bg); // Use CSS var
-  color: var(--bs-body-color); // Use CSS var
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
   font-family: v.$font-family-sans-serif;
   font-weight: v.$font-weight-normal;
-  line-height: 1.6; // Improved readability
+  line-height: 1.6;
 }
 
-// Consistent Heading Styles
-/*
-h1, .h1,
-h2, .h2,
-h3, .h3,
-h4, .h4,
-h5, .h5,
-h6, .h6 {
-  font-family: v.$font-family-sans-serif;
-  font-weight: v.$headings-font-weight;
-  color: v.$headings-color;
-  line-height: v.$headings-line-height;
-  margin-bottom: 0.75rem; // Consistent margin
-}
-*/
-
-// Custom spacing classes for navbar spacing - using CSS variables for dynamic access
+// App layout classes - consider moving to App.vue if only used there
 .app-main-content {
-  // Default for mobile
   padding-top: var(--navbar-height-mobile); 
-  // Add a little space at the bottom, plus safe area for notches
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0)); 
   overflow-x: hidden;
 
-  // When .has-bottom-nav is present on mobile
   &.has-bottom-nav {
     padding-bottom: calc(var(--bottom-nav-height-mobile) + 1rem + env(safe-area-inset-bottom, 0));
   }
 
-  // Desktop view
   @include media-breakpoint-up(lg) {
     padding-top: var(--navbar-height-desktop);
-    padding-bottom: 2rem; // Give some breathing room at the bottom on desktop
+    padding-bottom: 2rem;
     
-    // No bottom nav on desktop, so no extra padding needed
     &.has-bottom-nav {
       padding-bottom: 2rem;
     }
   }
 }
 
-// Custom viewport height classes - using CSS variables
 .min-vh-100-subtract-nav {
-  // Mobile calculation
   min-height: calc(100vh - var(--navbar-height-mobile) - var(--bottom-nav-height-mobile));
 
-  // Desktop calculation
   @include media-breakpoint-up(lg) {
     min-height: calc(100vh - var(--navbar-height-desktop));
   }
@@ -188,34 +153,6 @@ h6, .h6 {
     box-shadow: var(--bs-box-shadow-lg);
   }
 }
-
-/*
-.btn {
-  font-weight: v.$font-weight-medium;
-  transition: all 0.2s ease-in-out;
-  &:hover { 
-    transform: translateY(-2px);
-    box-shadow: var(--bs-box-shadow);
-  }
-  &:active { 
-    transform: translateY(0); 
-    box-shadow: none;
-  }
-}
-
-.form-control, .form-select {
-  font-size: 0.95rem;
-  &:focus {
-    border-color: v.$primary;
-    box-shadow: 0 0 0 0.25rem rgba(v.$primary, 0.25);
-  }
-}
-
-.form-label {
-  font-weight: v.$font-weight-medium;
-  margin-bottom: 0.5rem;
-}
-*/
 
 .badge {
   font-weight: v.$font-weight-medium;
@@ -287,142 +224,7 @@ h6, .h6 {
   }
 }
 
-// About Section Enhancements
-.about-section {
-  .about-content {
-    @include media-breakpoint-down(lg) {
-      text-align: center;
-    }
-  }
-  
-  .about-header {
-    .display-6 {
-      @include media-breakpoint-down(md) {
-        font-size: 1.75rem;
-      }
-    }
-  }
-  
-  .pillar-card {
-    background: var(--bs-white);
-    border: 1px solid var(--bs-border-color);
-    transition: all 0.3s ease;
-    
-    &:hover {
-      border-color: var(--bs-primary);
-      box-shadow: var(--bs-box-shadow-sm);
-      transform: translateY(-2px);
-    }
-  }
-  
-  .pillar-icon {
-    font-size: 1.5rem;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bs-light);
-    border-radius: 50%;
-  }
-  
-  .about-stats {
-    @include media-breakpoint-down(lg) {
-      justify-content: center;
-    }
-    
-    .stat-item {
-      text-align: center;
-      min-width: 80px;
-      
-      .stat-number {
-        font-size: 1.5rem;
-        line-height: 1.2;
-      }
-    }
-  }
-  
-  .about-image-container {
-    position: relative;
-    overflow: hidden;
-    
-    img {
-      transition: transform 0.3s ease;
-      
-      &:hover {
-        transform: scale(1.02);
-      }
-    }
-  }
-  
-  .info-cards {
-    .info-card {
-      background: var(--bs-white);
-      border: 1px solid var(--bs-border-color);
-      
-      .step-number {
-        width: 24px;
-        height: 24px;
-        background: var(--bs-primary);
-        color: white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.75rem;
-        font-weight: bold;
-        margin-right: 0.75rem;
-        flex-shrink: 0;
-      }
-      
-      .step-text {
-        line-height: 1.4;
-      }
-    }
-  }
-}
-
-// Responsive adjustments
-@media (max-width: 991.98px) {
-  .about-section {
-    .about-visual-section {
-      max-width: 600px;
-      margin: 0 auto;
-    }
-    
-    .pillar-card {
-      text-align: center;
-    }
-    
-    .info-cards {
-      max-width: 400px;
-      margin: 0 auto;
-    }
-  }
-}
-
-@media (max-width: 575.98px) {
-  .about-section {
-    .about-pillars {
-      .col-sm-6 {
-        flex: 0 0 100%;
-        max-width: 100%;
-      }
-    }
-    
-    .about-stats {
-      .stat-item {
-        min-width: 70px;
-        
-        .stat-number {
-          font-size: 1.25rem;
-        }
-      }
-    }
-  }
-}
-
-// Mobile-first responsive improvements for Landing page
+// Mobile-first responsive improvements for general use
 @media (max-width: 575.98px) {
   .container-xl {
     padding-left: 1rem;
@@ -460,747 +262,16 @@ h6, .h6 {
   }
 }
 
-// Landing page specific mobile improvements
-.landing-section {
-  @media (max-width: 575.98px) {
-    .about-pillars .col-sm-6 {
-      flex: 0 0 100%;
-      max-width: 100%;
-    }
-    
-    .about-stats {
-      .stat-item {
-        min-width: 70px;
-        
-        .stat-number {
-          font-size: 1.25rem;
-        }
-        
-        .stat-label {
-          font-size: 0.75rem;
-        }
-      }
-    }
-    
-    // Improve spacing between sections
-    section {
-      margin-top: 1rem !important;
-    }
-    
-    // Better mobile typography
-    h1, h2, h3, h4, h5, h6 {
-      line-height: 1.3;
-    }
-    
-    // Reduce excessive padding on mobile
-    .py-5 {
-      padding-top: 2rem !important;
-      padding-bottom: 2rem !important;
-    }
-    
-    .py-4 {
-      padding-top: 1.5rem !important;
-      padding-bottom: 1.5rem !important;
-    }
-    
-    // Better mobile grid spacing
-    .g-3 {
-      --bs-gutter-x: 0.75rem;
-      --bs-gutter-y: 0.75rem;
-    }
-    
-    .g-4 {
-      --bs-gutter-x: 1rem;
-      --bs-gutter-y: 1rem;
-    }
-  }
-}
-
 // Touch-friendly improvements
 @media (hover: none) and (pointer: coarse) {
-  .feature-card:hover,
-  .pillar-card:hover,
   .card:hover {
     transform: none;
-  }
-  
-  .btn:hover {
-    transform: none;
-  }
-  
-  // Increase touch targets
-  .btn {
-    min-height: 44px;
   }
   
   .nav-link {
     min-height: 44px;
     display: flex;
     align-items: center;
-  }
-}
-
-// Transparency page specific styles - enhanced for mobile-first
-.transparency-section {
-  // Consistent typography across devices
-  h1, h2, h3, h4, h5, h6 {
-    line-height: 1.3;
-  }
-
-  // Content cards
-  .stat-card,
-  .content-card {
-    border: 1px solid var(--bs-border-color);
-    transition: all 0.2s ease;
-    overflow: hidden; // Prevent content overflow
-    
-    &:hover {
-      border-color: var(--bs-primary-bg-subtle);
-      box-shadow: var(--bs-box-shadow-sm);
-      transform: translateY(-2px);
-    }
-  }
-  
-  // Mobile-first flexbox improvements
-  .feature-item,
-  .step-item,
-  .participation-item,
-  .lifecycle-step {
-    display: flex;
-    flex-direction: column;
-    
-    @media (min-width: 576px) {
-      flex-direction: row;
-      align-items: flex-start;
-    }
-  }
-  
-  // Better spacing on mobile
-  .content-card {
-    margin-bottom: 1rem;
-    
-    @media (min-width: 576px) {
-      margin-bottom: 0;
-    }
-  }
-  
-  // Improved badge sizing for readability on small screens
-  .badge {
-    font-size: 0.65rem;
-    padding: 0.25em 0.5em;
-    font-weight: 500;
-    
-    @media (min-width: 576px) {
-      font-size: 0.7rem;
-      padding: 0.3em 0.6em;
-    }
-  }
-  
-  // Better contact section buttons for touch targets
-  .contact-section {
-    .btn {
-      width: 100%;
-      min-height: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      
-      @media (min-width: 576px) {
-        width: auto;
-        min-width: 140px;
-      }
-    }
-  }
-  
-  // More consistent headers on mobile
-  .content-header h2, .content-header h3 {
-    font-size: 1.1rem;
-    
-    @media (min-width: 576px) {
-      font-size: 1.25rem;
-    }
-  }
-  
-  // Refined small text for better mobile readability
-  .small {
-    font-size: 0.8rem;
-    line-height: 1.4;
-  }
-  
-  // Improve list readability on mobile
-  .privacy-list li,
-  .feature-list li {
-    margin-bottom: 0.75rem;
-    
-    i {
-      margin-top: 0.25rem; // Better align icons with text on mobile
-    }
-  }
-}
-
-// Leaderboard specific styles - mobile-first responsive design
-.leaderboard-section {
-  // Role Filter Grid - Mobile First Design
-  .role-filter-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr); // Mobile: 3 columns, 2 rows
-    gap: 0.5rem;
-    margin: 0 auto;
-    max-width: 100%;
-    
-    // Small mobile (320px+)
-    @media (min-width: 20rem) {
-      gap: 0.75rem;
-    }
-    
-    // Tablet (576px+)
-    @media (min-width: 576px) {
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      max-width: 500px;
-      gap: 0.75rem;
-    }
-    
-    // Desktop (768px+)
-    @media (min-width: 768px) {
-      grid-template-columns: repeat(6, 1fr); // Single row with 6 equal columns
-      max-width: 700px;
-      gap: 1rem;
-    }
-    
-    // Large desktop (992px+)
-    @media (min-width: 992px) {
-      max-width: 800px;
-      gap: 1.25rem;
-    }
-  }
-  
-  .role-btn {
-    padding: 0.5rem 0.25rem;
-    border: 2px solid var(--bs-primary);
-    background: transparent;
-    color: var(--bs-primary);
-    border-radius: var(--bs-border-radius);
-    transition: all 0.2s ease;
-    font-weight: 500;
-    font-size: 0.7rem;
-    white-space: nowrap;
-    text-align: center;
-    min-height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1.2;
-    cursor: pointer;
-    
-    // Better touch target on small screens
-    @media (max-width: 374px) {
-      font-size: 0.65rem;
-      padding: 0.4rem 0.2rem;
-      min-height: 36px;
-    }
-    
-    // Small mobile improvements
-    @media (min-width: 375px) {
-      font-size: 0.75rem;
-      padding: 0.5rem 0.375rem;
-    }
-    
-    // Tablet improvements
-    @media (min-width: 576px) {
-      font-size: 0.8rem;
-      padding: 0.625rem 0.75rem;
-      min-height: 42px;
-      border-radius: var(--bs-border-radius-lg);
-    }
-    
-    // Desktop improvements
-    @media (min-width: 768px) {
-      font-size: 0.875rem;
-      padding: 0.75rem 1rem;
-      min-height: 44px;
-    }
-    
-    &:hover {
-      background: var(--bs-primary-bg-subtle);
-      transform: translateY(-1px);
-      box-shadow: var(--bs-box-shadow);
-    }
-    
-    &.active {
-      background: var(--bs-primary);
-      color: white;
-      box-shadow: var(--bs-box-shadow);
-    }
-    
-    // Remove hover effects on touch devices
-    @media (hover: none) and (pointer: coarse) {
-      &:hover {
-        transform: none;
-        box-shadow: none;
-        background: transparent;
-      }
-      
-      &.active:hover {
-        background: var(--bs-primary);
-        box-shadow: var(--bs-box-shadow);
-      }
-    }
-  }
-  
-  // Leaderboard table responsive improvements
-  .leaderboard-table {
-    margin-bottom: 0;
-    
-    th {
-      border-top: none;
-      font-weight: 600;
-      color: var(--bs-secondary);
-      text-transform: uppercase;
-      font-size: 0.75rem;
-      padding: 0.75rem 0.5rem;
-      border-bottom: 2px solid var(--bs-border-color-translucent);
-      
-      @media (min-width: 576px) {
-        font-size: 0.875rem;
-        padding: 1rem 0.75rem;
-      }
-    }
-    
-    td {
-      padding: 0.75rem 0.5rem;
-      vertical-align: middle;
-      border-bottom: 1px solid var(--bs-border-color-translucent);
-      font-size: 0.875rem;
-      
-      @media (min-width: 576px) {
-        padding: 1rem 0.75rem;
-        font-size: 1rem;
-      }
-    }
-  }
-  
-  .leaderboard-row:hover {
-    background-color: var(--bs-light);
-  }
-  
-  .rank-column {
-    width: 50px;
-    
-    @media (min-width: 576px) {
-      width: 60px;
-    }
-  }
-  
-  .user-cell {
-    min-width: 150px;
-    
-    @media (min-width: 576px) {
-      min-width: 200px;
-    }
-  }
-  
-  .xp-container {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-  }
-  
-  .xp-value {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--bs-dark);
-    
-    @media (min-width: 576px) {
-      font-size: 1.1rem;
-    }
-  }
-  
-  .xp-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    
-    @media (min-width: 576px) {
-      font-size: 0.75rem;
-    }
-  }
-  
-  // Section card improvements for mobile
-  .section-card {
-    background: var(--bs-card-bg);
-    border: 1px solid var(--bs-border-color);
-    margin-bottom: 1rem;
-    
-    @media (min-width: 576px) {
-      margin-bottom: 1.5rem;
-    }
-  }
-  
-  // Page header responsive typography
-  .h2.h1-lg {
-    font-size: 1.5rem;
-    
-    @media (min-width: 576px) {
-      font-size: 1.75rem;
-    }
-    
-    @media (min-width: 768px) {
-      font-size: 2rem;
-    }
-  }
-  
-  .h5.h4-md {
-    font-size: 1.1rem;
-    
-    @media (min-width: 576px) {
-      font-size: 1.25rem;
-    }
-  }
-  
-  // Improved spacing for mobile
-  .mb-4.mb-md-5 {
-    margin-bottom: 1rem !important;
-    
-    @media (min-width: 768px) {
-      margin-bottom: 3rem !important;
-    }
-  }
-  
-  // Container padding adjustments
-  .container-lg {
-    padding-left: 1rem;
-    padding-right: 1rem;
-    
-    @media (min-width: 576px) {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-    
-    @media (min-width: 992px) {
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
-  }
-  
-  // Stats badge responsive sizing
-  .badge.bg-primary-subtle {
-    font-size: 0.75rem;
-    padding: 0.375rem 0.75rem;
-    
-    @media (min-width: 576px) {
-      font-size: 0.875rem;
-      padding: 0.5rem 1rem;
-    }
-  }
-}
-
-// Event Details View - Enhanced styling
-.event-details-section {
-  // Background gradient enhancement
-  .event-details-bg {
-    background: linear-gradient(135deg, 
-      var(--bs-light) 0%, 
-      var(--bs-primary-bg-subtle) 50%, 
-      rgba(var(--bs-primary-rgb), 0.08) 100%);
-    position: relative;
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 200px;
-      background: linear-gradient(180deg, 
-        rgba(var(--bs-primary-rgb), 0.03) 0%, 
-        transparent 100%);
-      pointer-events: none;
-    }
-  }
-  
-  // Enhanced section headers
-  .section-header {
-    background: rgba(var(--bs-white-rgb), 0.8);
-    backdrop-filter: blur(10px);
-    border-radius: var(--bs-border-radius-lg);
-    padding: 1rem 1.25rem;
-    border: 1px solid rgba(var(--bs-primary-rgb), 0.1);
-    box-shadow: 0 2px 10px rgba(var(--bs-dark-rgb), 0.05);
-    
-    .h5 {
-      font-weight: 600;
-      letter-spacing: -0.02em;
-    }
-    
-    i {
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(var(--bs-primary-rgb), 0.1);
-      border-radius: 50%;
-      font-size: 0.875rem;
-    }
-  }
-  
-  // Enhanced card styling
-  .team-list-box,
-  .content-card {
-    background: rgba(var(--bs-white-rgb), 0.95);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(var(--bs-primary-rgb), 0.08);
-    box-shadow: 
-      0 4px 20px rgba(var(--bs-dark-rgb), 0.08),
-      0 1px 3px rgba(var(--bs-dark-rgb), 0.06);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    
-    &:hover {
-      transform: translateY(-4px);
-      box-shadow: 
-        0 8px 30px rgba(var(--bs-dark-rgb), 0.12),
-        0 4px 8px rgba(var(--bs-dark-rgb), 0.08);
-      border-color: rgba(var(--bs-primary-rgb), 0.15);
-    }
-  }
-  
-  // Participant list enhancements
-  .participant-card {
-    background: var(--bs-white);
-    border: 1px solid rgba(var(--bs-border-color-translucent));
-    border-radius: var(--bs-border-radius-lg);
-    padding: 1rem;
-    transition: all 0.2s ease;
-    
-    &:hover {
-      border-color: var(--bs-primary);
-      box-shadow: var(--bs-box-shadow-sm);
-      transform: translateY(-1px);
-    }
-    
-    .participant-item {
-      padding: 0.75rem;
-      border-radius: var(--bs-border-radius);
-      transition: background-color 0.2s ease;
-      
-      &:hover {
-        background-color: var(--bs-primary-bg-subtle);
-      }
-    }
-  }
-  
-  // Sidebar enhancements
-  .sidebar-card {
-    background: rgba(var(--bs-white-rgb), 0.98);
-    backdrop-filter: blur(15px);
-    border: 1px solid rgba(var(--bs-primary-rgb), 0.06);
-    border-radius: var(--bs-border-radius-xl);
-    box-shadow: 
-      0 6px 25px rgba(var(--bs-dark-rgb), 0.06),
-      0 2px 6px rgba(var(--bs-dark-rgb), 0.04);
-    
-    .card-header {
-      background: linear-gradient(135deg, 
-        rgba(var(--bs-primary-rgb), 0.05) 0%, 
-        rgba(var(--bs-primary-rgb), 0.02) 100%);
-      border-bottom: 1px solid rgba(var(--bs-primary-rgb), 0.08);
-      border-radius: var(--bs-border-radius-xl) var(--bs-border-radius-xl) 0 0;
-      
-      .card-title {
-        color: var(--bs-primary);
-        font-weight: 600;
-        font-size: 1.1rem;
-        margin-bottom: 0;
-      }
-    }
-  }
-  
-  // Responsive grid improvements
-  @media (max-width: 991.98px) {
-    .sticky-lg-top {
-      position: static !important;
-      top: auto !important;
-    }
-    
-    .sidebar-card {
-      margin-top: 2rem;
-    }
-  }
-  
-  // Mobile-first responsive design
-  @media (max-width: 575.98px) {
-    .section-header {
-      padding: 0.75rem 1rem;
-      
-      .h5 {
-        font-size: 1rem;
-      }
-      
-      i {
-        width: 20px;
-        height: 20px;
-        font-size: 0.75rem;
-      }
-    }
-    
-    .team-list-box,
-    .content-card {
-      margin-bottom: 1rem;
-    }
-    
-    .row.g-3 {
-      --bs-gutter-x: 0.75rem;
-      --bs-gutter-y: 0.75rem;
-    }
-  }
-}
-
-// Team List specific enhancements
-.team-list-section {
-  .team-card {
-    background: var(--bs-white);
-    border: 1px solid rgba(var(--bs-border-color-translucent));
-    border-radius: var(--bs-border-radius-lg);
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    
-    &:hover {
-      border-color: var(--bs-primary);
-      box-shadow: 
-        0 6px 20px rgba(var(--bs-primary-rgb), 0.08),
-        0 2px 6px rgba(var(--bs-primary-rgb), 0.04);
-      transform: translateY(-2px);
-    }
-    
-    .card-body {
-      position: relative;
-      
-      &::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: linear-gradient(90deg, 
-          var(--bs-primary), 
-          var(--bs-primary-rgb), 
-          var(--bs-secondary));
-        border-radius: var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 0;
-      }
-    }
-    
-    .team-header {
-      .h6 {
-        color: var(--bs-primary);
-        font-weight: 600;
-        margin-bottom: 0;
-      }
-      
-      .badge {
-        background: linear-gradient(135deg, 
-          var(--bs-primary), 
-          var(--bs-primary-dark, var(--bs-primary)));
-        color: var(--bs-white);
-        font-weight: 500;
-        padding: 0.375rem 0.75rem;
-        border-radius: var(--bs-border-radius-pill);
-      }
-    }
-    
-    .toggle-btn {
-      background: rgba(var(--bs-primary-rgb), 0.05);
-      border: 1px solid rgba(var(--bs-primary-rgb), 0.15);
-      color: var(--bs-primary);
-      transition: all 0.2s ease;
-      
-      &:hover {
-        background: rgba(var(--bs-primary-rgb), 0.1);
-        border-color: var(--bs-primary);
-        transform: translateY(-1px);
-      }
-      
-      &:focus {
-        box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.15);
-      }
-    }
-    
-    .team-members {
-      background: rgba(var(--bs-light-rgb), 0.3);
-      border-radius: var(--bs-border-radius);
-      
-      .member-item {
-        padding: 0.5rem 0.75rem;
-        border-radius: var(--bs-border-radius-sm);
-        transition: background-color 0.2s ease;
-        
-        &:hover {
-          background: rgba(var(--bs-primary-rgb), 0.05);
-        }
-        
-        .member-index {
-          color: var(--bs-secondary);
-          font-weight: 500;
-          font-size: 0.875rem;
-        }
-        
-        .member-name {
-          color: var(--bs-dark);
-          font-weight: 500;
-        }
-      }
-    }
-  }
-}
-
-// Enhanced feedback messages
-.feedback-section {
-  .alert {
-    border: none;
-    border-radius: var(--bs-border-radius-lg);
-    backdrop-filter: blur(10px);
-    box-shadow: var(--bs-box-shadow-sm);
-    
-    &.alert-success {
-      background: linear-gradient(135deg, 
-        rgba(var(--bs-success-rgb), 0.1) 0%, 
-        rgba(var(--bs-success-rgb), 0.05) 100%);
-      border-left: 4px solid var(--bs-success);
-    }
-    
-    &.alert-danger {
-      background: linear-gradient(135deg, 
-        rgba(var(--bs-danger-rgb), 0.1) 0%, 
-        rgba(var(--bs-danger-rgb), 0.05) 100%);
-      border-left: 4px solid var(--bs-danger);
-    }
-    
-    .btn-close {
-      background-size: 0.75rem;
-      opacity: 0.7;
-      
-      &:hover {
-        opacity: 1;
-      }
-    }
-  }
-}
-
-// Loading states and skeletons
-.loading-section {
-  .skeleton-card {
-    background: linear-gradient(90deg, 
-      rgba(var(--bs-light-rgb), 0.8) 25%, 
-      rgba(var(--bs-light-rgb), 0.4) 50%, 
-      rgba(var(--bs-light-rgb), 0.8) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: var(--bs-border-radius-lg);
-  }
-  
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
   }
 }
 
@@ -1212,41 +283,9 @@ h6, .h6 {
   }
 }
 
-// 10. Import custom component styles
+// 8. Import custom shared styles
+@import 'utilities';
 @import 'font';
 @import 'button';
 @import 'form';
-
-.alert-content .alert-heading {
-  color: var(--bs-danger-emphasis);
-  font-weight: 600;
-}
-
-
-/*
- * Custom Modal Backdrop
- * Provides a darker, more prominent backdrop for modals to improve focus.
- */
-.modal-backdrop {
-  background-color: rgba(0, 0, 0, 0.6) !important;
-  z-index: 1050 !important;
-}
-
-.modal-backdrop.show {
-  opacity: 1 !important;
-}
-
-.modal {
-  z-index: 1055 !important;
-}
-
-/* Specific styling for confirmation modals to ensure proper focus */
-.confirmation-modal {
-  z-index: 1060 !important;
-}
-
-.confirmation-modal + .modal-backdrop {
-  z-index: 1059 !important;
-  background-color: rgba(0, 0, 0, 0.6) !important;
-  opacity: 1 !important;
-}
+@import 'space';

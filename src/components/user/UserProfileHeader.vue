@@ -144,7 +144,7 @@
           <span class="fw-semibold text-secondary">Total XP Earned</span>
         </div>
         <div class="xp-value-container text-center">
-          <span class="xp-value display-5 text-primary fw-bold">{{ user.xpData?.totalCalculatedXp ?? 0 }}</span>
+                      <span class="xp-value text-hero text-primary fw-bold">{{ user.xpData?.totalCalculatedXp ?? 0 }}</span>
         </div>
       </div>
     </div>
@@ -266,15 +266,6 @@ onMounted(() => {
   justify-content: center;
 }
 
-.social-link {
-  transition: all 0.2s ease-in-out;
-}
-
-.social-link:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--bs-box-shadow-sm);
-}
-
 /* Bio Section */
 .bio-container {
   display: flex;
@@ -391,7 +382,6 @@ onMounted(() => {
   
   .social-links-section .btn {
     font-size: 0.8rem;
-    padding: 0.3rem 0.6rem;
   }
   
   .stats-grid {
@@ -429,15 +419,6 @@ onMounted(() => {
 
 .profile-photo-container:hover .photo-overlay {
   opacity: 1;
-}
-
-.social-link {
-  transition: all 0.2s ease-in-out;
-}
-
-.social-link:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--bs-box-shadow-sm);
 }
 
 @media (min-width: 768px) {

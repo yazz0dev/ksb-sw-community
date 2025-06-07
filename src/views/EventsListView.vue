@@ -1,5 +1,5 @@
 <template>
-  <section class="events-list-section">
+  <section class="events-list-section section-spacing">
     <div class="container-lg">
       <!-- Header with filtering -->
       <div class="mb-5">
@@ -27,10 +27,8 @@
       </div>
 
       <!-- Loading State -->
-      <div v-if="loading" class="text-center py-5">
-        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-          <span class="visually-hidden">Loading...</span>
-        </div>
+      <div v-if="loading">
+        <EventsListSkeleton />
       </div>
 
       <!-- Events Groups -->
@@ -117,6 +115,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore'; 
 import EventCard from '@/components/events/EventCard.vue';
+import EventsListSkeleton from '@/skeletons/EventsListSkeleton.vue';
 import { DateTime } from 'luxon';
 import { type Event, EventStatus } from '@/types/event';
 import { convertToISTDateTime } from '@/utils/dateTime';
