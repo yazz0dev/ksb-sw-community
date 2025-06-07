@@ -313,9 +313,23 @@ export const useEventStore = defineStore('studentEvents', () => {
       if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
       // --- End of existing validation logic ---
 
-      const newEventId = await createEventRequestService(deepClone(formData), studentId);
+      // Ensure formData has proper structure before sending to service
+      const sanitizedFormData: EventFormData = {
+        ...formData,
+        criteria: formData.criteria || [],
+        teams: formData.teams || [],
+        votingOpen: false,
+        details: {
+          ...formData.details,
+          rules: formData.details.rules || null,
+          prize: formData.details.prize || null,
+          organizers: formData.details.organizers.length > 0 ? formData.details.organizers : [studentId]
+        }
+      };
 
-      if (!newEventId) { // Should not happen if service throws on error
+      const newEventId = await createEventRequestService(deepClone(sanitizedFormData), studentId);
+
+      if (!newEventId) {
         throw new Error("Failed to create event request via service.");
       }
 
@@ -330,25 +344,27 @@ export const useEventStore = defineStore('studentEvents', () => {
       const eventDataForStoreCreation: Partial<Event> = {
         id: newEventId,
         details: {
-            ...formData.details,
-            // Dates in formData.details are strings, convertEventDetailsDateFormat will handle them if createCompleteEvent calls it.
-            // Or, ensure they are Timestamps if createCompleteEvent expects them directly.
-        date: {
-                start: Timestamp.fromDate(startDateTime.toJSDate()), // Convert to Timestamp for createCompleteEvent
-                end: Timestamp.fromDate(endDateTime.toJSDate())     // Convert to Timestamp for createCompleteEvent
+            ...sanitizedFormData.details,
+            date: {
+                start: Timestamp.fromDate(startDateTime.toJSDate()),
+                end: Timestamp.fromDate(endDateTime.toJSDate())
             },
-            rules: formData.details.rules || undefined, // Match Event type (undefined vs null)
-            prize: formData.details.prize || undefined, // Match Event type (undefined vs null)
+            rules: sanitizedFormData.details.rules || undefined,
+            prize: sanitizedFormData.details.prize || undefined,
         },
         requestedBy: studentId,
-        status: EventStatus.Pending, // Service sets this
-        createdAt: Timestamp.now(), // Approximate, service sets actual
-        lastUpdatedAt: Timestamp.now(), // Approximate, service sets actual
-        participants: [], // Default
-        votingOpen: false, // Default, service sets this
-        criteria: formData.criteria || [],
-        teams: formData.teams || [],
-        // Other fields like teamMemberFlatList, submissions, etc., will be defaulted by createCompleteEvent
+        status: EventStatus.Pending,
+        createdAt: Timestamp.now(),
+        lastUpdatedAt: Timestamp.now(),
+        participants: [],
+        votingOpen: false,
+        criteria: sanitizedFormData.criteria || [],
+        teams: sanitizedFormData.teams || [],
+        submissions: [],
+        organizerRatings: {},
+        winners: {},
+        criteriaVotes: {},
+        bestPerformerSelections: {},
       };
 
       const newEventDataForStore: Event = createCompleteEvent(eventDataForStoreCreation);
@@ -523,7 +539,13 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  async function submitTeamCriteriaVote(payload: { eventId: string; votes: { criteria: Record<string, string>; bestPerformer?: string } }) {
+  async function submitTeamCriteriaVote(payload: { 
+    eventId: string; 
+    votes: { 
+      criteria: Record<string, string>; 
+      bestPerformer?: string 
+    } 
+  }) {
     actionError.value = null;
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
       await _handleOpError("submitting team criteria vote", new Error("User not authenticated."), payload.eventId);
@@ -594,22 +616,23 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
     isLoading.value = true;
     try {
-      // The service function now expects the user ID to create a map-based entry
-      await submitOrganizationRatingService({ ...payload, userId: studentProfileStore.studentId });
+      // This directly uses submitOrganizationRatingInFirestore from eventVoting.ts
+      await submitOrganizationRatingService({ 
+        ...payload, 
+        userId: studentProfileStore.studentId 
+      });
 
-      // Optimistically update the local state to reflect the change
+      // Optimistically update the local state
       const eventToUpdate = viewedEventDetails.value;
       if (eventToUpdate) {
         if (!eventToUpdate.organizerRatings) {
           eventToUpdate.organizerRatings = {};
         }
-        // This is a client-side representation, so we use a client timestamp for immediate feedback.
-        // The server will have the authoritative serverTimestamp.
         eventToUpdate.organizerRatings[studentProfileStore.studentId] = {
           userId: studentProfileStore.studentId,
           rating: payload.score,
           feedback: payload.feedback || '',
-          ratedAt: Timestamp.now() // Use Timestamp instead of Date for consistency
+          ratedAt: Timestamp.now()
         };
         _updateLocalEventLists(eventToUpdate);
       }

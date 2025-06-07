@@ -330,9 +330,17 @@ export function calculateEventXP(eventData: Event): Record<string, Partial<XPDat
  * @returns boolean - True if the student has made selections.
  */
 export function hasStudentSubmittedvotes(event: Event | null, studentId: string | null): boolean {
-    if (!event || !studentId || !event.criteria) return false;
-    return event.criteria.some(criterion => 
-        criterion.votes && 
-        criterion.votes[studentId] !== undefined
-    );
+    if (!event || !studentId) return false;
+    
+    // Check in the new criteriaVotes structure
+    if (event.criteriaVotes && event.criteriaVotes[studentId]) {
+        return Object.keys(event.criteriaVotes[studentId]).length > 0;
+    }
+    
+    // Check for best performer selection in team events
+    if (event.details?.format === EventFormat.Team && event.bestPerformerSelections) {
+        return event.bestPerformerSelections[studentId] !== undefined;
+    }
+    
+    return false;
 }

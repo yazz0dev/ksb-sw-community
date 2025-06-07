@@ -44,9 +44,7 @@ export interface EventCriteria {
   constraintKey?: string;
   points: number;
   role: XpCalculationRoleKey | 'xp_developer' | 'xp_designer' | 'xp_presenter' | 'xp_problemSolver' | string;
-  targetRole?: string;
-  // votes property is deprecated - votes are now stored in separate criteriaVotes map
-  votes?: Record<string, string>; 
+  targetRole?: string; 
 }
 
 export interface Submission {
@@ -124,32 +122,30 @@ export interface EventFormData {
   details: {
     eventName: string;
     description: string;
-    rules?: string;
+    rules?: string | null;
     format: EventFormat;
     type: string;
     organizers: string[];
     date: {
-      start: string | null; // Dates as strings for form compatibility
+      start: string | null;
       end: string | null;
     };
     allowProjectSubmission: boolean;
-    prize?: string;
+    prize?: string | null;
   };
-  criteria: EventCriteria[];
+  criteria?: EventCriteria[];
   teams?: Team[];
   status?: EventStatus;
 
   submissions?: Submission[];
-  organizerRatings?: OrganizerRating[];
-  votingOpen: boolean; // Made required
+  organizerRatings?: Record<string, OrganizerRating>;
+  votingOpen?: boolean;
   
-  // New voting data structure for forms
-  criteriaVotes?: Record<string, Record<string, string>>; // userId -> { constraintKey -> selectedEntity }
-  bestPerformerSelections?: Record<string, string>; // userId -> selectedUserId
+  criteriaVotes?: Record<string, Record<string, string>>;
+  bestPerformerSelections?: Record<string, string>;
   winners?: EventWinners;
   gallery?: GalleryItem[];
 
-  // Firestore timestamp storage for date operations
   dateTimestamps?: {
     start: Timestamp | null;
     end: Timestamp | null;

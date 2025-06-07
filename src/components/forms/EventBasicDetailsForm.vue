@@ -230,6 +230,23 @@ watch(localDetails, (newVal) => {
 /* Custom Form Check Enhancement */
 .form-check-custom {
   transition: all 0.3s ease;
+  padding-left: 1.5rem; /* Reduce default Bootstrap padding-left from 2rem to 1.5rem */
+}
+
+/* Position radio button closer to the left edge */
+.form-check-custom .form-check-input {
+  margin-left: -1.5rem; /* Match the reduced padding-left */
+  margin-top: 0.2rem; /* Fine-tune vertical alignment */
+}
+
+/* Reduce space between radio input and its label */
+.form-check-custom .form-check-label {
+  margin-left: 0.5rem; /* Reduce space between input and label */
+}
+
+/* Ensure radio items within the flex container use gap for all spacing */
+.d-flex.flex-wrap.gap-3 > .form-check.form-check-custom {
+  margin-bottom: 0; /* Rely on parent's gap property for all spacing */
 }
 
 .form-check-custom:hover {
@@ -240,9 +257,14 @@ watch(localDetails, (newVal) => {
   box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
 }
 
-/* Switch Enhancement */
+/* Switch Enhancement - Override to ensure proper toggle switch appearance */
 .form-switch-custom {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding-left: 4rem; /* Increased from 3rem to 4rem to move switch further right */
+}
+
+.form-switch-custom .form-check-input {
+  margin-left: -4rem; /* Adjusted to match increased padding-left */
 }
 
 .form-switch-custom:hover {
@@ -250,22 +272,56 @@ watch(localDetails, (newVal) => {
 }
 
 .form-switch-custom .form-check-input:focus {
-  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-success-rgb), 0.25);
 }
 
 /* Responsive improvements */
 @media (max-width: 768px) {
   .form-check-custom {
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.375rem;
+    padding: 0.5rem 0.75rem 0.5rem 1.25rem; /* Adjust padding: top right bottom left */
+  }
+  
+  .form-check-custom .form-check-input {
+    margin-left: -1.25rem; /* Match the reduced left padding on mobile */
   }
   
   .form-switch-custom {
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 1rem 0.75rem 3.5rem; /* Increased left padding on mobile */
   }
   
-  .d-flex.flex-wrap.gap-3 {
+  .form-switch-custom .form-check-input {
+    margin-left: -3.5rem; /* Adjusted to match mobile padding */
+  }
+  
+  /* Applies to the container of Event Format radio buttons */
+  .d-flex.flex-wrap.gap-3 { 
+    gap: 0.75rem !important; /* Slightly increase gap for better touch targets */
+  }
+}
+
+@media (max-width: 480px) {
+  /* For very small screens, reduce gap further but maintain single row */
+  .d-flex.flex-wrap.gap-3 { 
     gap: 0.5rem !important;
+  }
+  
+  .form-check-custom {
+    padding: 0.4rem 0.6rem 0.4rem 1rem;
+    font-size: 0.9rem; /* Slightly smaller text on very small screens */
+  }
+  
+  .form-check-custom .form-check-input {
+    margin-left: -1rem;
+    width: 1rem;
+    height: 1rem;
+  }
+  
+  .form-switch-custom {
+    padding: 0.4rem 0.6rem 0.4rem 3rem; /* Increased left padding for very small screens */
+  }
+  
+  .form-switch-custom .form-check-input {
+    margin-left: -3rem; /* Adjusted to match very small screen padding */
   }
 }
 </style>

@@ -141,7 +141,6 @@ const createBestPerformerCriterion = (): EventCriteria => ({ // Return EventCrit
   title: BEST_PERFORMER_LABEL,
   points: BEST_PERFORMER_POINTS,
   role: '',
-  votes: {} 
 });
 
 function createDefaultCriterion(): EventCriteria { // Return EventCriteria
@@ -151,7 +150,6 @@ function createDefaultCriterion(): EventCriteria { // Return EventCriteria
     title: DEFAULT_CRITERION_LABEL,
     points: DEFAULT_CRITERION_POINTS,
     role: props.assignableXpRoles[0] || '',
-    votes: {} 
   };
 }
 

@@ -9,12 +9,11 @@ import { db } from '@/firebase';
 import { 
   EventStatus, 
   EventFormat,
-  type EventCriteria,
   type OrganizerRating
 } from '@/types/event';
 import { type EnrichedStudentData, type UserData } from '@/types/student';
 import { mapFirestoreToEventData } from '@/utils/eventDataUtils';
-import { deepClone, isEmpty } from '@/utils/eventUtils';
+import { isEmpty } from '@/utils/eventUtils';
 import { BEST_PERFORMER_LABEL, EVENTS_COLLECTION } from '@/utils/constants';
 
 /**
@@ -324,7 +323,15 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
                 const criterion = eventData.criteria?.find(c => c.constraintIndex === constraintIndex);
                 const criterionTitle = criterion?.title || `Criterion ${constraintIndex}`;
                 
-                winners[criterionTitle] = criterionWinners.length === 1 ? criterionWinners[0] : criterionWinners;
+                // Fix: Ensure we never assign undefined by checking array length and content
+                if (criterionWinners.length === 1 && criterionWinners[0] !== undefined) {
+                    winners[criterionTitle] = criterionWinners[0];
+                } else if (criterionWinners.length > 1) {
+                    winners[criterionTitle] = criterionWinners;
+                } else {
+                    // Handle the case where there are no valid winners (empty array or undefined values)
+                    winners[criterionTitle] = [];
+                }
             }
         });
     }
@@ -339,7 +346,16 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
         if (!isEmpty(bestPerformerVoteCounts)) {
             const maxVotes = Math.max(...Object.values(bestPerformerVoteCounts));
             const bestPerformers = Object.keys(bestPerformerVoteCounts).filter(id => bestPerformerVoteCounts[id] === maxVotes);
-            winners[BEST_PERFORMER_LABEL] = bestPerformers.length === 1 ? bestPerformers[0] : bestPerformers;
+            
+            // Fix: Ensure we never assign undefined by checking array length and content
+            if (bestPerformers.length === 1 && bestPerformers[0] !== undefined) {
+                winners[BEST_PERFORMER_LABEL] = bestPerformers[0];
+            } else if (bestPerformers.length > 1) {
+                winners[BEST_PERFORMER_LABEL] = bestPerformers;
+            } else {
+                // Handle the case where there are no valid winners (empty array or undefined values)
+                winners[BEST_PERFORMER_LABEL] = [];
+            }
         }
     }
 

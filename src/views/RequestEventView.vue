@@ -11,6 +11,7 @@
         </div>
         <button
           class="btn btn-outline-secondary btn-sm btn-icon"
+          :class="{ 'd-none d-md-inline-flex': !isEditing }"
           @click="goBack"
           aria-label="Go back"
         >
@@ -94,7 +95,7 @@
               </div>
               <div class="card-body p-4">
                 <EventCriteriaForm
-                  v-model:criteria="formData.criteria"
+                  v-model:criteria="formDataCriteria"
                   :isSubmitting="isSubmitting"
                   :eventFormat="formData.details.format"
                   :assignableXpRoles="assignableXpRoles"
@@ -170,7 +171,7 @@ import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import EventCoOrganizerForm from '@/components/forms/EventCoOrganizerForm.vue';
 import EventCriteriaForm from '@/components/forms/EventCriteriaForm.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
-import { EventFormat, EventStatus, type EventFormData, type Team, type EventCriteria } from '@/types/event';
+import { EventFormat, EventStatus, type EventFormData, type Team } from '@/types/event';
 import { useEventStore } from '@/stores/eventStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -205,18 +206,17 @@ const formData = ref<EventFormData>({
     description: '',
     rules: '',
     prize: '',
-    allowProjectSubmission: true, // Default to true, can be overridden by format logic
+    allowProjectSubmission: true,
     organizers: [], 
-    date: { // Dates are string | null (ISO YYYY-MM-DD)
+    date: {
       start: null,
       end: null
     }
   },
-  criteria: [] as EventCriteria[],
-  teams: [] as Team[],
-  status: EventStatus.Pending, // Default for new requests
+  criteria: [], // Always initialize as empty array
+  teams: [],
+  status: EventStatus.Pending,
   votingOpen: false,
-  // Ensure all required fields from EventFormData are initialized
 });
 
 const isDateAvailable = ref(true);
@@ -243,14 +243,18 @@ const isFormValid = computed(() => {
      // console.log("Validation fail: Team event with no teams");
      // return false; // Optional: enforce teams at this stage
   }
-  if (formData.value.criteria.some(c => !c.title?.trim() || (c.points ?? 0) <= 0 || !c.role)) {
-    // console.log("Validation fail: Invalid criteria entry"); // Be more specific in EventCriteriaForm
+  const criteria = formData.value.criteria || [];
+  if (criteria.some(c => !c.title?.trim() || (c.points ?? 0) <= 0 || !c.role)) {
+    // console.log("Validation fail: Invalid criteria entry");
     // return false; // Criteria validation should ideally be handled within EventCriteriaForm
   }
   return true;
 });
 
-const totalXP = computed(() => formData.value.criteria.reduce((sum, c) => sum + (c.points || 0), 0));
+const totalXP = computed(() => {
+  const criteria = formData.value.criteria || [];
+  return criteria.reduce((sum, c) => sum + (c.points || 0), 0);
+});
 
 const scheduleCardNumber = computed(() => {
   let num = 2;
@@ -304,7 +308,7 @@ function populateFormData(event: any) {
   formData.value.details.date.start = toYYYYMMDD(eventData.details?.date?.start);
   formData.value.details.date.end = toYYYYMMDD(eventData.details?.date?.end);
 
-  formData.value.criteria = eventData.criteria || [];
+  formData.value.criteria = eventData.criteria || []; // Ensure it's always an array
   formData.value.teams = eventData.teams || [];
   formData.value.status = eventData.status || EventStatus.Pending;
   formData.value.votingOpen = eventData.votingOpen || false;
@@ -397,11 +401,15 @@ onMounted(async () => {
 
 watch(() => formData.value.details.format, (newFormat) => {
   if (newFormat === EventFormat.Competition) {
-    formData.value.criteria = [];
+    formData.value.criteria = []; // Set to empty array instead of undefined
     formData.value.teams = [];
     formData.value.details.allowProjectSubmission = false;
   } else {
     formData.value.details.allowProjectSubmission = true;
+    // Initialize criteria as empty array if not already set
+    if (!formData.value.criteria) {
+      formData.value.criteria = [];
+    }
   }
 
   // A trick to force re-render ManageTeamsComponent if it was previously not shown
@@ -410,6 +418,14 @@ watch(() => formData.value.details.format, (newFormat) => {
     setTimeout(() => { teamsComponentReady.value = true; }, 0);
   }
 }, { immediate: true });
+
+// Computed property to ensure criteria is always an array
+const formDataCriteria = computed({
+  get: () => formData.value.criteria || [],
+  set: (value) => {
+    formData.value.criteria = value;
+  }
+});
 </script>
 
 <style scoped>

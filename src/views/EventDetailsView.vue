@@ -82,7 +82,7 @@
                         :organizerNamesLoading="organizerNamesLoading"
                         :currentUserUid="currentUserId"
                         :getName="getUserNameFromCache"
-                        class="card team-list-box p-0 shadow-sm animate-fade-in"
+                        class="team-list-box p-0 animate-scale-in card-hover-lift"
                       />
                     </div>
                     <div v-if="teams.length > 1" class="col-12 col-lg-6">
@@ -93,7 +93,8 @@
                         :organizerNamesLoading="organizerNamesLoading"
                         :currentUserUid="currentUserId"
                         :getName="getUserNameFromCache"
-                        class="card team-list-box p-0 shadow-sm animate-fade-in"
+                        class="team-list-box p-0 animate-scale-in card-hover-lift"
+                        style="animation-delay: 0.1s;"
                       />
                     </div>
                   </div>
@@ -112,6 +113,7 @@
                         :currentUserId="currentUserId"
                         :show-header="false"
                         :getName="getUserNameFromCache"
+                        class="animate-scale-in card-hover-lift"
                       />
                     </div>
                     <div v-if="(event.participants?.length || 0) > 8" class="col-12 col-lg-6">
@@ -121,6 +123,8 @@
                         :currentUserId="currentUserId"
                         :show-header="false"
                         :getName="getUserNameFromCache"
+                        class="animate-scale-in card-hover-lift"
+                        style="animation-delay: 0.1s;"
                       />
                     </div>
                   </div>
@@ -183,6 +187,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore';
+import { Timestamp } from 'firebase/firestore'; // Import Timestamp
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
@@ -428,7 +433,24 @@ const handleLeave = async (): Promise<void> => {
     }
 };
 
-const mapEventToHeaderProps = (evt: Event): EventHeaderProps => ({
+const mapEventToHeaderProps = (evt: Event): EventHeaderProps => {
+  const convertToTimestamp = (dateVal: any): Timestamp | null => {
+    if (!dateVal) return null;
+    if (dateVal instanceof Timestamp) return dateVal;
+    // Check if it's a plain object that looks like a Firestore Timestamp
+    if (typeof dateVal === 'object' && dateVal !== null &&
+        typeof dateVal.seconds === 'number' && typeof dateVal.nanoseconds === 'number') {
+      return new Timestamp(dateVal.seconds, dateVal.nanoseconds);
+    }
+    // If it's already a JS Date object, this path won't be hit by typical Firestore data.
+    // If it's a string, formatISTDate might handle it, but EventHeaderProps expects Timestamp.
+    // For robustness, one might add string/Date parsing here if necessary,
+    // but the primary goal is to handle Firestore's plain object representation.
+    console.warn('Date value received by mapEventToHeaderProps is not a Timestamp or a plain Firestore Timestamp object:', dateVal);
+    return null; // Or handle other types if necessary and if formatISTDate supports them
+  };
+
+  return {
     id: evt.id,
     status: evt.status,
     title: evt.details.eventName || evt.details.type || 'Event',
@@ -438,8 +460,8 @@ const mapEventToHeaderProps = (evt: Event): EventHeaderProps => ({
     details: {
         format: evt.details.format,
         date: {
-            start: evt.details.date?.start || null,
-            end: evt.details.date?.end || null
+            start: convertToTimestamp(evt.details.date?.start),
+            end: convertToTimestamp(evt.details.date?.end)
         },
         description: evt.details.description,
         eventName: evt.details.eventName || undefined,
@@ -448,7 +470,8 @@ const mapEventToHeaderProps = (evt: Event): EventHeaderProps => ({
         prize: evt.details.prize || undefined,
         rules: evt.details.rules || undefined
     }
-});
+  };
+};
 
 // --- Lifecycle Hooks ---
 onMounted(() => {
@@ -521,7 +544,7 @@ defineExpose({ handleJoin, handleLeave });
 
 /* Enhanced Section Headers */
 .section-header { 
-  background: rgba(var(--bs-white-rgb), 0.9);
+  background: rgba(var(--bs-white-rgb), 0.9); // Kept for distinct section header appearance
   backdrop-filter: blur(10px);
   border-radius: var(--bs-border-radius-lg);
   padding: 1rem 1.25rem;
@@ -555,59 +578,27 @@ defineExpose({ handleJoin, handleLeave });
   font-size: 0.875rem;
 }
 
-/* Enhanced Card Styling */
-.team-list-box, .card { 
-  background: rgba(var(--bs-white-rgb), 0.95);
-  backdrop-filter: blur(20px);
+/* Simplified Card Styling for .team-list-box and other general cards in this view */
+/* Note: The very generic .card selector was removed to avoid unintended global effects.
+   If other cards in this view need this styling, they should get a specific class or be targeted more precisely.
+*/
+.team-list-box { 
+  background-color: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color-translucent);
   border-radius: var(--bs-border-radius-lg); 
-  border: 1px solid rgba(var(--bs-primary-rgb), 0.08);
-  box-shadow: 
-    0 4px 20px rgba(var(--bs-dark-rgb), 0.08),
-    0 1px 3px rgba(var(--bs-dark-rgb), 0.06);
-  overflow: hidden; 
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  z-index: 2;
-}
-
-.team-list-box:hover, .card:hover {
-  transform: translateY(-4px);
-  box-shadow: 
-    0 8px 30px rgba(var(--bs-dark-rgb), 0.12),
-    0 4px 8px rgba(var(--bs-dark-rgb), 0.08);
-  border-color: rgba(var(--bs-primary-rgb), 0.15);
-}
-
-/* Participant List Enhancements */
-.participant-card {
-  background: rgba(var(--bs-white-rgb), 0.98);
-  border: 1px solid rgba(var(--bs-border-color-translucent), 0.5);
-  border-radius: var(--bs-border-radius-lg);
-  padding: 1rem;
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 2;
-}
-
-.participant-card:hover {
-  border-color: var(--bs-primary);
   box-shadow: var(--bs-box-shadow-sm);
-  transform: translateY(-2px);
+  overflow: hidden; 
+  /* transition for hover effect is now part of card-hover-lift in _animations.scss */
+  position: relative;
+  z-index: 2; // Ensure it's above background elements
 }
 
-.participant-item {
-  padding: 0.75rem;
-  border-radius: var(--bs-border-radius);
-  transition: all 0.2s ease;
-  margin-bottom: 0.5rem;
-}
+/* .team-list-box:hover is now handled by .card-hover-lift in _animations.scss */
 
-.participant-item:hover {
-  background-color: rgba(var(--bs-primary-rgb), 0.08);
-  transform: translateX(4px);
-}
+/* Participant List Enhancements - Styles for .participant-card and .participant-item are now in ParticipantList.vue */
+/* Removed local .participant-card and .participant-item styles */
 
-/* Sidebar Enhancements */
+/* Sidebar Enhancements - Kept as is, assuming these are desired for sidebar distinctiveness */
 .sidebar-card {
   background: rgba(var(--bs-white-rgb), 0.98);
   backdrop-filter: blur(15px);
@@ -720,12 +711,13 @@ defineExpose({ handleJoin, handleLeave });
   opacity: 1;
 }
 
-.card-header {
+.card-header { // This is a general .card-header, ensure it's not too broad or make more specific
   background: linear-gradient(135deg, 
     rgba(var(--bs-primary-rgb), 0.05) 0%, 
     rgba(var(--bs-primary-rgb), 0.02) 100%);
   border-bottom: 1px solid rgba(var(--bs-primary-rgb), 0.08);
-  border-radius: var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 0;
+  // Consider if this should be var(--bs-tertiary-bg) or similar for consistency
+  // For now, leaving as is, as it might be intended for specific card headers in this view.
 }
 
 /* Mobile Responsive Improvements */
@@ -783,140 +775,5 @@ defineExpose({ handleJoin, handleLeave });
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
-}
-
-/* Enhanced Event Details - Extended styling */
-.event-details-section {
-  // Background gradient enhancement
-  .event-details-bg {
-    background: linear-gradient(135deg, 
-      var(--bs-light) 0%, 
-      var(--bs-primary-bg-subtle) 50%, 
-      rgba(var(--bs-primary-rgb), 0.08) 100%);
-    position: relative;
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 200px;
-      background: linear-gradient(180deg, 
-        rgba(var(--bs-primary-rgb), 0.03) 0%, 
-        transparent 100%);
-      pointer-events: none;
-    }
-  }
-  
-  // Enhanced section headers (extends existing .section-header)
-  .section-header {
-    background: rgba(var(--bs-white-rgb), 0.8);
-    backdrop-filter: blur(10px);
-    border-radius: var(--bs-border-radius-lg);
-    padding: 1rem 1.25rem;
-    border: 1px solid rgba(var(--bs-primary-rgb), 0.1);
-    box-shadow: 0 2px 10px rgba(var(--bs-dark-rgb), 0.05);
-    
-    .h5 {
-      font-weight: 600;
-      letter-spacing: -0.02em;
-    }
-    
-    i {
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(var(--bs-primary-rgb), 0.1);
-      border-radius: 50%;
-      font-size: 0.875rem;
-    }
-  }
-  
-  // Enhanced card styling (extends existing .team-list-box)
-  .team-list-box,
-  .content-card {
-    background: rgba(var(--bs-white-rgb), 0.95);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(var(--bs-primary-rgb), 0.08);
-    box-shadow: 
-      0 4px 20px rgba(var(--bs-dark-rgb), 0.08),
-      0 1px 3px rgba(var(--bs-dark-rgb), 0.06);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    
-    &:hover {
-      transform: translateY(-4px);
-      box-shadow: 
-        0 8px 30px rgba(var(--bs-dark-rgb), 0.12),
-        0 4px 8px rgba(var(--bs-dark-rgb), 0.08);
-      border-color: rgba(var(--bs-primary-rgb), 0.15);
-    }
-  }
-  
-  // Enhanced participant list (extends existing .participant-card)
-  .participant-card {
-    background: var(--bs-white);
-    border: 1px solid rgba(var(--bs-border-color-translucent));
-    border-radius: var(--bs-border-radius-lg);
-    padding: 1rem;
-    transition: all 0.2s ease;
-    
-    &:hover {
-      border-color: var(--bs-primary);
-      box-shadow: var(--bs-box-shadow-sm);
-      transform: translateY(-1px);
-    }
-    
-    .participant-item {
-      padding: 0.75rem;
-      border-radius: var(--bs-border-radius);
-      transition: background-color 0.2s ease;
-      
-      &:hover {
-        background-color: var(--bs-primary-bg-subtle);
-      }
-    }
-  }
-  
-  // Responsive grid improvements (extends existing responsive rules)
-  @media (max-width: 991.98px) {
-    .sticky-lg-top {
-      position: static !important;
-      top: auto !important;
-    }
-    
-    .sidebar-card {
-      margin-top: 2rem;
-    }
-  }
-  
-  // Enhanced mobile-first responsive design
-  @media (max-width: 575.98px) {
-    .section-header {
-      padding: 0.75rem 1rem;
-      
-      .h5 {
-        font-size: 1rem;
-      }
-      
-      i {
-        width: 20px;
-        height: 20px;
-        font-size: 0.75rem;
-      }
-    }
-    
-    .team-list-box,
-    .content-card {
-      margin-bottom: 1rem;
-    }
-    
-    .row.g-3 {
-      --bs-gutter-x: 0.75rem;
-      --bs-gutter-y: 0.75rem;
-    }
-  }
 }
 </style>

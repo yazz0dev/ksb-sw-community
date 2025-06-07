@@ -6,7 +6,8 @@ import type {
     Event,
     EventFormData,
     EventCriteria,
-    EventLifecycleTimestamps
+    EventLifecycleTimestamps,
+    OrganizerRating
 } from '@/types/event';
 import { EventFormat, EventStatus } from '@/types/event';
 
@@ -95,6 +96,11 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<Event>): a
     if (firestoreData.details) {
         firestoreData.details.prize = firestoreData.details.prize || null;
         firestoreData.details.rules = firestoreData.details.rules || null;
+        
+        // Ensure organizers is always an array
+        if (!firestoreData.details.organizers || !Array.isArray(firestoreData.details.organizers)) {
+            firestoreData.details.organizers = [];
+        }
     }
     
     // Handle date conversion to Firestore Timestamps
@@ -104,11 +110,41 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<Event>): a
 
         if (data.details.date.start) {
             (firestoreData.details.date as any).start = convertToTimestamp(data.details.date.start);
+        } else {
+            (firestoreData.details.date as any).start = null;
         }
         
         if (data.details.date.end) {
             (firestoreData.details.date as any).end = convertToTimestamp(data.details.date.end);
+        } else {
+            (firestoreData.details.date as any).end = null;
         }
+    }
+    
+    // Ensure arrays are properly initialized (not undefined)
+    firestoreData.criteria = firestoreData.criteria || [];
+    firestoreData.teams = firestoreData.teams || [];
+    firestoreData.participants = firestoreData.participants || [];
+    firestoreData.submissions = firestoreData.submissions || [];
+    
+    // Ensure objects are properly initialized (not undefined)
+    firestoreData.organizerRatings = firestoreData.organizerRatings || {};
+    firestoreData.winners = firestoreData.winners || {};
+    firestoreData.criteriaVotes = firestoreData.criteriaVotes || {};
+    firestoreData.bestPerformerSelections = firestoreData.bestPerformerSelections || {};
+    
+    // Ensure optional fields that can be null are explicitly set
+    if (firestoreData.rejectionReason === undefined) {
+        firestoreData.rejectionReason = null;
+    }
+    if (firestoreData.manuallySelectedBy === undefined) {
+        firestoreData.manuallySelectedBy = null;
+    }
+    if (firestoreData.gallery === undefined) {
+        firestoreData.gallery = null;
+    }
+    if (firestoreData.lifecycleTimestamps === undefined) {
+        firestoreData.lifecycleTimestamps = null;
     }
     
     // Always set/update lastUpdatedAt
@@ -182,17 +218,25 @@ export const mapFirestoreToEventData = (id: string, firestoreData: DocumentData 
 
     // Handle organizer ratings
     if (Array.isArray(firestoreData.organizerRatings)) {
-        const filteredRatings = firestoreData.organizerRatings.map((rating: any) => {
-            const ratedAtValue = rating.ratedAt;
-            return {
-                ...rating,
-                ratedAt: ratedAtValue instanceof Timestamp ? ratedAtValue : tsNullToUndefined(getISTTimestamp(ratedAtValue)),
-            };
-        }).filter((rating: any) => rating.ratedAt);
+        // Convert array to record for backward compatibility
+        const ratingsRecord: Record<string, OrganizerRating> = {};
         
-        if (filteredRatings.length > 0) {
-            event.organizerRatings = filteredRatings;
+        firestoreData.organizerRatings.forEach((rating: any) => {
+            if (rating && rating.userId) {
+                const ratedAtValue = rating.ratedAt;
+                ratingsRecord[rating.userId] = {
+                    ...rating,
+                    ratedAt: ratedAtValue instanceof Timestamp ? ratedAtValue : tsNullToUndefined(getISTTimestamp(ratedAtValue)) as Timestamp,
+                };
+            }
+        });
+        
+        if (Object.keys(ratingsRecord).length > 0) {
+            event.organizerRatings = ratingsRecord;
         }
+    } else if (firestoreData.organizerRatings && typeof firestoreData.organizerRatings === 'object') {
+        // Already in the correct format (record)
+        event.organizerRatings = firestoreData.organizerRatings;
     }
 
     // Handle submissions
@@ -241,21 +285,18 @@ export function isVotingOpen(event: Event | null): boolean {
 export function hasUserSubmittedVotes(event: Event | null, userId: string | null): boolean {
   if (!event || !userId) return false;
   
-  const criteriaArray = Array.isArray(event.criteria) ? event.criteria : [];
-  
-  if (event.details?.format === EventFormat.Team) {
-    const criteriaVoted = criteriaArray.some((c: EventCriteria) => 
-      c.votes && c.votes[userId] !== undefined
-    );
-    const bestPerformerVoted = !!(event.bestPerformerSelections && 
-      event.bestPerformerSelections[userId] !== undefined);
-    
-    return criteriaVoted || bestPerformerVoted;
-  } else {
-    return criteriaArray.some((c: EventCriteria) => 
-      c.votes && c.votes[userId] !== undefined
-    );
+  // Check if user has any votes in the criteriaVotes structure
+  if (event.criteriaVotes && event.criteriaVotes[userId]) {
+    return Object.keys(event.criteriaVotes[userId]).length > 0;
   }
+  
+  // Check for best performer selection in team events
+  if (event.details?.format === EventFormat.Team) {
+    return !!(event.bestPerformerSelections && 
+      event.bestPerformerSelections[userId] !== undefined);
+  }
+  
+  return false;
 }
 
 /**
@@ -369,10 +410,19 @@ export function createManualWinnerPayload(
  * Checks if a student has voted for an event
  */
 export function hasStudentVotedForEvent(event: Event | null, userId: string | null): boolean {
-  if (!event || !userId || !event.criteria) return false;
-  return event.criteria.some(c =>
-    c.votes && c.votes[userId] !== undefined
-  );
+  if (!event || !userId) return false;
+  
+  // Check in the new criteriaVotes structure
+  if (event.criteriaVotes && event.criteriaVotes[userId]) {
+    return Object.keys(event.criteriaVotes[userId]).length > 0;
+  }
+  
+  // Check for best performer selection in team events
+  if (event.details?.format === EventFormat.Team && event.bestPerformerSelections) {
+    return event.bestPerformerSelections[userId] !== undefined;
+  }
+  
+  return false;
 }
 
 /**
@@ -383,7 +433,14 @@ export function getStudentVoteForCriterion(
   userId: string | null, 
   criterionConstraintIndex: number | string
 ): string | undefined {
-  if (!event || !userId || !event.criteria) return undefined;
-  const criterion = event.criteria.find(c => c.constraintIndex === criterionConstraintIndex);
-  return criterion?.votes?.[userId];
+  if (!event || !userId) return undefined;
+  
+  const constraintKey = `constraint${criterionConstraintIndex}`;
+  
+  // Check in the new criteriaVotes structure
+  if (event.criteriaVotes && event.criteriaVotes[userId]) {
+    return event.criteriaVotes[userId][constraintKey];
+  }
+  
+  return undefined;
 }

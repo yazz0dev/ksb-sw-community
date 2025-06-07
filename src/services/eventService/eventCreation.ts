@@ -72,28 +72,52 @@ export const createEventRequest = async (
 
     const mappedData = mapEventDataToFirestore(formData);
     
-    const dataToSubmit: Partial<Event> = {
+    // Ensure the data structure exactly matches what Firestore rules expect
+    const dataToSubmit: any = {
       ...mappedData,
       id: newEventId,
       requestedBy: studentId,
       status: EventStatus.Pending,
       votingOpen: false,
+      // Initialize all required fields that rules validate
       organizerRatings: {},
       submissions: [],
       winners: {},
       bestPerformerSelections: {},
+      criteriaVotes: {},
+      participants: [],
+      teamMemberFlatList: [],
       createdAt: serverTimestamp(),
+      lastUpdatedAt: serverTimestamp(),
+      // Ensure optional fields are explicitly null if not provided
+      rejectionReason: null,
+      manuallySelectedBy: null,
+      gallery: null,
+      lifecycleTimestamps: null
     };
     
-    if (dataToSubmit.details && !dataToSubmit.details.organizers?.includes(studentId)) {
-      dataToSubmit.details.organizers = [studentId, ...(dataToSubmit.details.organizers || [])];
+    // Ensure organizers array includes the requestor and is properly formatted
+    if (dataToSubmit.details) {
+      if (!dataToSubmit.details.organizers || !Array.isArray(dataToSubmit.details.organizers)) {
+        dataToSubmit.details.organizers = [studentId];
+      } else if (!dataToSubmit.details.organizers.includes(studentId)) {
+        dataToSubmit.details.organizers = [studentId, ...dataToSubmit.details.organizers];
+      }
+      
+      // Ensure all detail fields match rules expectations
+      dataToSubmit.details.rules = dataToSubmit.details.rules || null;
+      dataToSubmit.details.prize = dataToSubmit.details.prize || null;
     }
+
+    // Ensure arrays are properly initialized (rules expect arrays, not undefined)
+    dataToSubmit.criteria = dataToSubmit.criteria || [];
+    dataToSubmit.teams = dataToSubmit.teams || [];
 
     await setDoc(newEventRef, dataToSubmit);
     return newEventId;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error during event creation.';
-    console.error('Error creating event request:', message);
+    console.error('Error creating event request:', message, error);
     throw new Error(`Failed to create event request: ${message}`);
   }
 };

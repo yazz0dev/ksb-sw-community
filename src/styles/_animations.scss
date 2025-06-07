@@ -183,7 +183,9 @@
 }
 
 .slide-fade-smooth-enter-to {
-  max-height: 200px;
+  max-height: 400px; /* Increased max-height */
+  opacity: 1; /* Ensure opacity is set to 1 on enter-to */
+  transform: translateY(0); /* Ensure transform is reset on enter-to */
 }
 
 // Enhanced card hover animations

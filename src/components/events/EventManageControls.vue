@@ -232,7 +232,7 @@ import { useEventStore } from '@/stores/eventStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { DateTime } from 'luxon';
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, type Event, type EventCriteria } from '@/types/event';
+import { EventStatus, type Event } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import {
   isEventOrganizer,
@@ -242,13 +242,6 @@ import {
 } from '@/utils/permissionHelpers';
 import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
 
-// Define a custom interface to extend EventCriteria with the properties used in the component
-interface ExtendedEventCriteria extends EventCriteria {
-  id: string; // Or some unique identifier if constraintIndex is not suitable
-  votes?: Record<string, any>; // Changed from criteriaSelections
-  calculatedWinner?: string | string[];
-  winnerName?: string;
-}
 
 // Define props and emits
 const props = defineProps<{
@@ -306,27 +299,14 @@ const statusBadgeClass = computed(() => getEventStatusBadgeClass(props.event?.st
 const votingIsClosed = computed(() => !props.event?.votingOpen);
 
 // --- Submission/Winner State ---
-const localCriteria = computed(() => {
-  return (props.event?.criteria || []).map(criterion => ({
-    ...criterion,
-    votes: criterion.votes || {}
-  })) as ExtendedEventCriteria[];
-});
-
 const submissionCount = computed(() => {
   const sIds = new Set<string>();
-  // Ensure localCriteria is defined and is an array before trying to access its value
-  if (localCriteria.value && Array.isArray(localCriteria.value)) {
-    (localCriteria.value as ExtendedEventCriteria[]).forEach(extendedCriterion => {
-      // @ts-ignore - Assuming votes structure is Record<string, any> and you've handled potential undefined
-      if (extendedCriterion.votes) {
-        // @ts-ignore
-        Object.keys(extendedCriterion.votes).forEach(uid => {
-          // @ts-ignore
-          if (extendedCriterion.votes![uid]) { // Check if a vote/selection exists for this user
-            sIds.add(uid);
-          }
-        });
+  if (props.event?.criteriaVotes && Object.keys(props.event.criteriaVotes).length > 0) {
+    Object.keys(props.event.criteriaVotes).forEach(uid => {
+      // Add null check before calling Object.keys
+      const userVotes = props.event.criteriaVotes![uid];
+      if (userVotes && Object.keys(userVotes).length > 0) {
+        sIds.add(uid);
       }
     });
   }
@@ -518,7 +498,11 @@ const findWinnerAction = async (): Promise<void> => {
     if (loadingAction.value) return;
     loadingAction.value = 'findWinner';
     try {
-        await eventStore.findWinner(props.event.id);
+        // Instead of calling non-existent findWinner, use finalizeWinners via manual selection
+        await eventStore.submitManualWinnerSelection({ 
+          eventId: props.event.id, 
+          winnerSelections: {} // Empty object triggers server-side calculation
+        });
         emit('update');
     } catch (error: any) {
         // Error notification handled within Pinia action

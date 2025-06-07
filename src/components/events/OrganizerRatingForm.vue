@@ -31,7 +31,7 @@
         </div>
         <div class="mb-3">
           <label class="form-label">Feedback (optional)</label>
-          <textarea v-model="feedback" class="form-control" rows="2" maxlength="300" placeholder="Share your thoughts about the organizers..."></textarea>
+          <textarea v-model="feedback" class="form-control" rows="1" maxlength="300" placeholder="Share your thoughts..."></textarea>
         </div>
         <div class="d-flex align-items-center gap-2">
                         <button type="submit" class="btn btn-primary rating-submit-btn btn-sm" :disabled="isSubmitting || rating === 0">
@@ -77,6 +77,11 @@ watch(userExistingRating, (val) => {
   }
 }, { immediate: true });
 
+// Also watch store loading and error states
+watch(() => eventStore.actionError, (val) => {
+  if (val) errorMessage.value = val;
+});
+
 function setRating(val: number) {
   if (!hasRated.value) rating.value = val;
 }
@@ -93,6 +98,7 @@ async function submitRating() {
   isSubmitting.value = true;
   errorMessage.value = '';
   try {
+    // Uses submitOrganizationRatingInFirestore from eventVoting.ts via the store
     await eventStore.submitOrganizationRating({
       eventId: props.eventId,
       score: rating.value,
@@ -104,6 +110,8 @@ async function submitRating() {
     errorMessage.value = err?.message || 'Failed to submit rating.';
   } finally {
     isSubmitting.value = false;
+    // Clear any store errors after handling
+    eventStore.clearError();
   }
 }
 </script>
@@ -120,8 +128,8 @@ async function submitRating() {
   border-radius: var(--bs-border-radius-xl);
   overflow: hidden;
   box-shadow: 
-    0 6px 20px rgba(var(--bs-dark-rgb), 0.08),
-    0 2px 6px rgba(var(--bs-dark-rgb), 0.04);
+    0 4px 15px rgba(var(--bs-dark-rgb), 0.06), /* Reduced shadow */
+    0 1px 4px rgba(var(--bs-dark-rgb), 0.03);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
@@ -153,26 +161,26 @@ async function submitRating() {
     rgba(var(--bs-warning-rgb), 0.08) 0%, 
     rgba(var(--bs-warning-rgb), 0.04) 100%);
   border-bottom: 1px solid rgba(var(--bs-warning-rgb), 0.2);
-  padding: 1.25rem 1.5rem;
+  padding: 0.75rem 1rem; /* Reduced padding */
 }
 
 .card-header i {
-  font-size: 1.25rem;
+  font-size: 1.1rem; /* Slightly smaller icon */
   color: var(--bs-warning);
   filter: drop-shadow(0 1px 2px rgba(var(--bs-warning-rgb), 0.3));
 }
 
-.h6 {
+.h6 { /* This targets the "Rate the Organizers" text */
   color: var(--bs-primary);
-  font-weight: 700;
-  font-size: 1.1rem;
+  font-weight: 600; /* Adjusted weight */
+  font-size: 1rem; /* Slightly smaller */
   margin-bottom: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: normal; /* Reset letter-spacing */
 }
 
 /* Card Body */
 .card-body {
-  padding: 1.25rem;
+  padding: 1rem; /* Reduced padding */
 }
 
 /* Success Alert */
@@ -181,46 +189,46 @@ async function submitRating() {
     rgba(var(--bs-success-rgb), 0.12) 0%, 
     rgba(var(--bs-success-rgb), 0.06) 100%);
   border: none;
-  border-left: 4px solid var(--bs-success);
+  border-left: 3px solid var(--bs-success); /* Thinner border */
   border-radius: var(--bs-border-radius-lg);
-  padding: 1rem 1.25rem;
+  padding: 0.75rem 1rem; /* Reduced padding */
   backdrop-filter: blur(10px);
-  box-shadow: 0 2px 10px rgba(var(--bs-success-rgb), 0.1);
+  box-shadow: 0 2px 8px rgba(var(--bs-success-rgb), 0.08); /* Reduced shadow */
 }
 
 .alert-success i {
   color: var(--bs-success);
-  font-size: 1.1rem;
+  font-size: 1rem; /* Smaller icon */
 }
 
 /* Form Labels */
 .form-label {
   color: var(--bs-dark);
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  font-size: 0.95rem;
+  font-weight: 500; /* Adjusted weight */
+  margin-bottom: 0.3rem; /* Reduced margin */
+  font-size: 0.9rem; /* Slightly smaller */
 }
 
 /* Star Rating System */
 .rating-stars {
   display: flex;
-  gap: 0.5rem;
-  margin: 0.5rem 0 1rem 0;
+  gap: 0.3rem; /* Reduced gap */
+  margin: 0.25rem 0 0.75rem 0; /* Adjusted margins */
   justify-content: center;
-  padding: 1rem;
-  background: rgba(var(--bs-light-rgb), 0.3);
-  border-radius: var(--bs-border-radius-lg);
-  border: 1px solid rgba(var(--bs-border-color-translucent), 0.3);
+  padding: 0.5rem; /* Reduced padding */
+  background: rgba(var(--bs-light-rgb), 0.2); /* Lighter background */
+  border-radius: var(--bs-border-radius); /* Smaller radius */
+  border: 1px solid rgba(var(--bs-border-color-translucent), 0.2);
 }
 
 .star-rating {
   cursor: pointer;
-  font-size: 1.8rem;
+  font-size: 1.5rem; /* Smaller stars */
   transition: all 0.2s ease;
   position: relative;
   display: inline-block;
   transform-origin: center;
-  padding: 0.25rem;
+  padding: 0.15rem; /* Reduced padding */
 }
 
 .star-rating i {
@@ -244,33 +252,23 @@ async function submitRating() {
 
 /* Textarea Styling */
 .form-control {
-  border: 2px solid rgba(var(--bs-border-color-translucent), 0.6);
-  border-radius: var(--bs-border-radius-lg);
-  padding: 0.75rem 1rem;
-  font-size: 0.9rem;
-  line-height: 1.4;
-  background: rgba(var(--bs-white-rgb), 0.8);
+  border: 1px solid rgba(var(--bs-border-color-translucent), 0.5); /* Thinner border */
+  border-radius: var(--bs-border-radius); /* Smaller radius */
+  padding: 0.5rem 0.75rem; /* Reduced padding */
+  font-size: 0.875rem; /* Slightly smaller font */
+  line-height: 1.3;
+  background: rgba(var(--bs-white-rgb), 0.7);
   transition: all 0.3s ease;
   resize: vertical;
-  min-height: 70px;
-}
-
-.form-control:focus {
-  border-color: var(--bs-primary);
-  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.15);
-  background: var(--bs-white);
-  outline: none;
-}
-
-.form-control::placeholder {
-  color: var(--bs-secondary);
-  font-style: italic;
+  min-height: 40px; /* Reduced min-height */
 }
 
 /* Rating form submit button - extends base button styles */
 .rating-submit-btn {
   &.btn-primary {
-    box-shadow: 0 4px 12px rgba(var(--bs-primary-rgb), 0.3);
+    box-shadow: 0 2px 8px rgba(var(--bs-primary-rgb), 0.25); /* Reduced shadow */
+    padding: 0.375rem 0.75rem; /* Ensure btn-sm padding */
+    font-size: 0.875rem; /* Ensure btn-sm font size */
     
     &::after {
       content: '';
@@ -306,21 +304,21 @@ async function submitRating() {
 
 /* Spinner */
 .spinner-border-sm {
-  width: 1rem;
-  height: 1rem;
-  border-width: 0.15em;
+  width: 0.875rem; /* Slightly smaller spinner */
+  height: 0.875rem;
+  border-width: 0.125em;
 }
 
 /* Error Message */
 .text-danger {
-  font-size: 0.875rem;
+  font-size: 0.8rem; /* Slightly smaller error text */
   font-weight: 500;
-  margin-left: 0.5rem;
+  margin-left: 0.4rem;
 }
 
 /* Action Container */
 .d-flex.align-items-center.gap-2 {
-  margin-top: 1rem;
+  margin-top: 0.75rem; /* Reduced margin */
   justify-content: center;
 }
 
@@ -343,21 +341,21 @@ async function submitRating() {
 /* Mobile Responsive */
 @media (max-width: 575.98px) {
   .organizer-rating-form {
-    margin: 0 0.5rem;
+    margin: 0 0.25rem; /* Reduced margin */
   }
   
   .card-header,
   .card-body {
-    padding: 1rem 1.25rem;
+    padding: 0.75rem 1rem; /* Adjusted padding */
   }
   
   .rating-stars {
-    gap: 0.375rem;
-    padding: 0.75rem;
+    gap: 0.25rem;
+    padding: 0.5rem;
   }
   
   .star-rating {
-    font-size: 1.75rem;
+    font-size: 1.4rem; /* Further reduce star size */
   }
   
   .star-rating:hover {
@@ -369,24 +367,24 @@ async function submitRating() {
   }
   
   .form-control {
-    font-size: 0.9rem;
-    padding: 0.75rem 0.875rem;
+    font-size: 0.85rem; /* Smaller font for textarea */
+    padding: 0.5rem 0.75rem;
   }
 }
 
 /* Extra small screens */
 @media (max-width: 374px) {
   .rating-stars {
-    gap: 0.25rem;
+    gap: 0.15rem;
   }
   
   .star-rating {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
   }
   
   .card-header,
   .card-body {
-    padding: 0.875rem 1rem;
+    padding: 0.6rem 0.75rem;
   }
 }
 

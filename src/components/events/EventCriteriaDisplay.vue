@@ -3,9 +3,10 @@
   <div class="card criteria-card shadow-sm animate-fade-in">
     <div class="card-header bg-warning-subtle border-0">
       <div class="d-flex align-items-center">
-        <i class="fas fa-star text-warning me-2 h5"></i>
-        <h5 class="mb-0 fw-semibold text-warning-emphasis">Rating Criteria</h5>
-        <span class="badge bg-warning-subtle text-warning-emphasis ms-auto">
+        <!-- Updated icon and title styling -->
+        <i class="fas fa-tasks text-primary me-2"></i>
+        <h5 class="mb-0 fw-semibold text-gradient-primary">Rating Criteria</h5>
+        <span class="badge bg-primary-subtle text-primary-emphasis ms-auto">
           {{ criteria.length }} {{ criteria.length === 1 ? 'criterion' : 'criteria' }}
         </span>
       </div>

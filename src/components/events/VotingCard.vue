@@ -2,8 +2,9 @@
   <div class="card voting-card shadow-sm animate-fade-in">
     <div class="card-header bg-warning-subtle border-0">
       <div class="d-flex align-items-center">
-        <i class="fas fa-vote-yea text-warning me-2 h5"></i>
-        <h5 class="mb-0 fw-semibold text-warning-emphasis">Voting</h5>
+        <!-- Updated icon and title styling -->
+        <i class="fas fa-vote-yea text-primary me-2"></i>
+        <h5 class="mb-0 fw-semibold text-gradient-primary">Voting</h5>
       </div>
     </div>
     <div class="card-body">
@@ -175,28 +176,40 @@ const openVotingForm = (): void => {
 }
 
 .card-header {
-  padding: 1rem 1.25rem;
+  padding: 0.75rem 1rem; /* Reduced padding */
   border-bottom: 1px solid rgba(var(--bs-warning-rgb), 0.2);
+}
+
+.card-header .h5 {
+  font-size: 1rem; /* Slightly smaller header title */
+}
+.card-header i.h5 { /* Target the icon specifically if it's also h5 */
+    font-size: 1.1rem; /* Adjust icon size if needed */
+}
+
+
+.card-body {
+  padding: 1rem; /* Reduced padding */
 }
 
 /* State Container */
 .state-container {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 2rem 1.5rem;
+  gap: 0.75rem; /* Reduced gap */
+  padding: 1rem 0.75rem; /* Reduced padding */
   text-align: left;
 }
 
 .state-icon {
   flex-shrink: 0;
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem; /* Slightly smaller icon container */
+  height: 2.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 1.25rem;
+  font-size: 1.1rem; /* Slightly smaller icon */
 }
 
 .state-content {
@@ -207,15 +220,15 @@ const openVotingForm = (): void => {
 .state-title {
   font-weight: 600;
   color: var(--bs-dark);
-  margin-bottom: 0.5rem;
-  font-size: 1rem;
+  margin-bottom: 0.25rem; /* Reduced margin */
+  font-size: 0.95rem; /* Slightly smaller title */
 }
 
 .state-text {
   color: var(--bs-secondary);
   margin-bottom: 0;
-  font-size: 0.9rem;
-  line-height: 1.4;
+  font-size: 0.85rem; /* Slightly smaller text */
+  line-height: 1.3;
 }
 
 /* State-specific styling */
@@ -249,25 +262,29 @@ const openVotingForm = (): void => {
 
 /* Action Section */
 .action-section {
-  margin-top: 1rem;
+  margin-top: 0.75rem; /* Reduced margin */
 }
 
 /* Voting action buttons extend base button styles */
+.btn-action {
+  font-size: 0.875rem; /* Ensure buttons are not too large */
+  padding: 0.375rem 0.75rem;
+}
 
 /* Status Badge */
 .status-badge {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem; /* Reduced margin */
 }
 
 .badge {
-  padding: 0.4em 0.8em;
-  font-size: 0.8rem;
+  padding: 0.3em 0.6em; /* Slightly smaller badge */
+  font-size: 0.75rem;
   font-weight: 500;
 }
 
 /* Finalized Notice */
 .finalized-notice {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem; /* Reduced margin */
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -292,56 +309,56 @@ const openVotingForm = (): void => {
 /* Responsive Design */
 @media (max-width: 768px) {
   .card-header {
-    padding: 0.875rem 1rem;
+    padding: 0.6rem 0.8rem; /* Further reduce for mobile */
   }
   
   .state-container {
     flex-direction: column;
     text-align: center;
-    padding: 1.5rem 1rem;
-    gap: 0.75rem;
+    padding: 1rem 0.75rem; /* Further reduce for mobile */
+    gap: 0.5rem;
   }
   
   .state-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    font-size: 1.1rem;
-  }
-  
-  .state-title {
-    font-size: 0.95rem;
-  }
-  
-  .state-text {
-    font-size: 0.85rem;
-  }
-  
-  .btn-action {
-    width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .state-container {
-    padding: 1.25rem 0.75rem;
-  }
-  
-  .state-icon {
-    width: 2.25rem;
+    width: 2.25rem; /* Smaller on mobile */
     height: 2.25rem;
     font-size: 1rem;
   }
   
   .state-title {
-    font-size: 0.9rem;
+    font-size: 0.9rem; /* Smaller on mobile */
   }
   
   .state-text {
-    font-size: 0.8rem;
+    font-size: 0.8rem; /* Smaller on mobile */
   }
   
   .btn-action {
     width: 100%;
+    font-size: 0.8rem; /* Smaller button text on mobile */
+    padding: 0.3rem 0.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-body {
+    padding: 0.75rem; /* Further reduce for very small screens */
+  }
+  .state-container {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .state-icon {
+    width: 2rem;
+    height: 2rem;
+  }
+  
+  .state-title {
+    font-size: 0.85rem;
+  }
+  
+  .state-text {
+    font-size: 0.75rem;
   }
 }
 </style>
