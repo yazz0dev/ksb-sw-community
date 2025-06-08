@@ -3,13 +3,13 @@
     <!-- Header -->
     <div class="section-header bg-info-subtle text-info-emphasis rounded-top-4 p-4 border-bottom">
       <div class="d-flex align-items-center justify-content-between">
-        <div class="header-content d-flex align-items-center">
-          <div class="header-icon me-3">
+        <div class="header-content">
+          <div class="header-icon bg-info-subtle">
             <i class="fas fa-folder-open fa-lg"></i>
           </div>
           <div>
-            <h5 class="section-title mb-1 fw-semibold">My Projects</h5>
-            <p class="section-subtitle text-muted small mb-0">{{ projects.length }} project{{ projects.length === 1 ? '' : 's' }} submitted</p>
+            <h5 class="section-title mb-1 text-info-emphasis">Projects</h5>
+            <p class="d-none d-sm-block section-subtitle small mb-0">{{ projects.length }} project{{ projects.length === 1 ? '' : 's' }} submitted</p>
           </div>
         </div>
         <div class="header-badge">
@@ -21,7 +21,7 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="loading-section p-4 text-center">
+    <div v-if="loading" class="loading-section">
       <div class="d-flex align-items-center justify-content-center">
         <div class="spinner-border spinner-border-sm text-info me-2" role="status">
           <span class="visually-hidden">Loading...</span>
@@ -31,11 +31,11 @@
     </div>
 
     <!-- Projects List -->
-    <div v-else class="projects-list">
+    <div v-else class="item-list">
       <div 
         v-for="(project, index) in projects" 
         :key="project.id" 
-        class="project-item"
+        class="list-item"
         :class="{ 'border-bottom': index < projects.length - 1 }"
       >
         <div class="project-content">
@@ -43,7 +43,7 @@
           <div class="project-header d-flex align-items-start justify-content-between mb-3">
             <div class="project-info flex-grow-1">
               <div class="d-flex align-items-center mb-2">
-                <div class="project-icon me-3">
+                <div class="item-icon bg-info-subtle">
                   <i class="fas fa-code-branch text-info"></i>
                 </div>
                 <h6 class="project-title mb-0 fw-semibold text-dark">
@@ -92,12 +92,12 @@
 
   <!-- Empty State -->
   <div v-else-if="!loading && initialDataLoaded" class="section-card shadow-sm rounded-4 animate-fade-in">
-    <div class="empty-state text-center p-5">
-      <div class="empty-icon mb-4">
+    <div class="empty-state">
+      <div class="empty-icon">
         <i class="fas fa-folder-plus fa-3x text-muted opacity-50"></i>
       </div>
-      <h6 class="empty-title text-secondary fw-semibold mb-2">No Projects Yet</h6>
-      <p class="empty-description text-muted mb-0">No projects have been submitted yet. Participate in events to showcase your work!</p>
+      <h6 class="empty-title">No Projects Yet</h6>
+      <p class="empty-description">No projects have been submitted yet. Participate in events to showcase your work!</p>
     </div>
   </div>
 </template>
@@ -119,7 +119,7 @@ interface Props {
   initialDataLoaded: boolean;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 </script>
 
 <style scoped>
@@ -198,6 +198,11 @@ const props = defineProps<Props>();
 /* Event Association */
 .event-association {
   margin-left: 3.5rem;
+  
+  @media (max-width: 480px) {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .event-link {
@@ -227,6 +232,11 @@ const props = defineProps<Props>();
 .project-description {
   margin-top: 1rem;
   margin-left: 3.5rem;
+  
+  @media (max-width: 480px) {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .description-container {
@@ -242,74 +252,11 @@ const props = defineProps<Props>();
   color: var(--bs-secondary);
 }
 
-/* Empty State */
-.empty-state {
-  background: linear-gradient(135deg, var(--bs-light), rgba(var(--bs-info-rgb), 0.05));
-}
-
-.empty-icon {
-  opacity: 0.6;
-}
-
-.empty-title {
-  font-size: 1.1rem;
-}
-
-.empty-description {
-  font-size: 0.95rem;
-  line-height: 1.5;
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-/* Responsive Design */
 @media (max-width: 768px) {
-  .section-header {
-    padding: 1rem !important;
-  }
-  
-  .header-content {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 0.5rem;
-  }
-  
-  .header-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    margin-right: 0.75rem !important;
-  }
-  
-  .section-title {
-    font-size: 1.1rem;
-  }
-  
-  .project-item {
-    padding: 1rem;
-  }
-  
   .project-header {
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 1rem;
-  }
-  
-  .project-icon {
-    width: 2rem;
-    height: 2rem;
-    margin-right: 0.75rem !important;
-  }
-  
-  .project-title {
-    font-size: 1rem;
-  }
-  
-  .event-association {
-    margin-left: 2.75rem;
-  }
-  
-  .project-description {
-    margin-left: 2.75rem;
   }
   
   .project-actions {
@@ -319,54 +266,6 @@ const props = defineProps<Props>();
   .project-link-btn {
     width: 100%;
     justify-content: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .section-header .d-flex {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 1rem;
-  }
-  
-  .header-badge {
-    align-self: flex-end;
-  }
-  
-  .project-item {
-    padding: 0.75rem;
-  }
-  
-  .project-header .d-flex {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 0.5rem;
-  }
-  
-  .project-icon {
-    margin-right: 0 !important;
-  }
-  
-  .event-association,
-  .project-description {
-    margin-left: 0;
-    width: 100%;
-  }
-  
-  .description-container {
-    padding: 0.75rem;
-  }
-  
-  .empty-state {
-    padding: 2rem !important;
-  }
-  
-  .empty-icon .fa-3x {
-    font-size: 2rem !important;
-  }
-  
-  .empty-description {
-    font-size: 0.9rem;
   }
 }
 </style>

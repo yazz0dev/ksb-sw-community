@@ -207,6 +207,11 @@ import { EventStatus, type Event, type Team, EventFormat } from '@/types/event';
 import { type EnrichedStudentData } from '@/types/student';
 import type { EventHeaderProps } from '@/components/events/EventDetailsHeader.vue';
 
+// Define an extension of Event that includes id
+interface EventWithId extends Event {
+  id: string;
+}
+
 // Import utility functions
 import {
   isEventOrganizer,
@@ -232,7 +237,7 @@ const eventStore = useEventStore();
 
 // --- Refs and Reactive State ---
 const loading = ref<boolean>(true);
-const event = ref<Event | null>(null);
+const event = ref<EventWithId | null>(null);
 const teams = ref<Team[]>([]);
 const initialFetchError = ref<string>('');
 const nameCache = ref<Map<string, string>>(new Map());
@@ -371,7 +376,10 @@ async function fetchData(): Promise<void> {
 
       // The store now holds the definitive state in `viewedEventDetails`.
       // We can use it to populate our local ref.
-      event.value = { ...fetchedEvent };
+      event.value = { 
+        ...fetchedEvent,
+        id: props.id  // Ensure id is set
+      } as EventWithId;
       teams.value = (isTeamEvent.value && Array.isArray(fetchedEvent.teams)) ? [...fetchedEvent.teams] : [];
 
       // fetchUserNames should still be called.
@@ -433,7 +441,7 @@ const handleLeave = async (): Promise<void> => {
     }
 };
 
-const mapEventToHeaderProps = (evt: Event): EventHeaderProps => {
+const mapEventToHeaderProps = (evt: EventWithId): EventHeaderProps => {
   const convertToTimestamp = (dateVal: any): Timestamp | null => {
     if (!dateVal) return null;
     if (dateVal instanceof Timestamp) return dateVal;

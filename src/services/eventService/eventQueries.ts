@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { 
-  type Event, 
+  type Event as EventData, 
   EventStatus
 } from '@/types/event';
 import { mapFirestoreToEventData } from '@/utils/eventDataUtils';
@@ -18,9 +18,9 @@ import { EVENTS_COLLECTION } from '@/utils/constants';
 /**
  * Fetches event requests made by a specific student.
  * @param studentId - The UID of the student.
- * @returns Promise<Event[]> - An array of the student's event requests.
+ * @returns Promise<EventData[]> - An array of the student's event requests.
  */
-export async function fetchMyEventRequests(studentId: string): Promise<Event[]> {
+export async function fetchMyEventRequests(studentId: string): Promise<EventData[]> {
     if (!studentId) return [];
     try {
         const q = query(
@@ -31,8 +31,8 @@ export async function fetchMyEventRequests(studentId: string): Promise<Event[]> 
         );
         const snapshot = await getDocs(q);
         return snapshot.docs
-            .map(docSnap => mapFirestoreToEventData(docSnap.id, docSnap.data()))
-            .filter((event): event is Event => event !== null);
+            .map(docSnap => mapFirestoreToEventData(docSnap.id, docSnap.data()) as EventData | null) // Add type assertion
+            .filter((event): event is EventData => event !== null);
     } catch (error: any) {
         console.error(`Error in fetchMyEventRequests for ${studentId}:`, error);
         throw new Error(`Failed to fetch your event requests: ${error.message}`);
@@ -43,9 +43,9 @@ export async function fetchMyEventRequests(studentId: string): Promise<Event[]> 
  * Fetches details for a single event from Firestore.
  * @param eventId - The ID of the event to fetch.
  * @param currentStudentId - The UID of the currently logged-in student.
- * @returns Promise<Event | null> - The event object or null if not found/accessible.
+ * @returns Promise<EventData | null> - The event object or null if not found/accessible.
  */
-export async function fetchSingleEventForStudent(eventId: string, currentStudentId: string | null): Promise<Event | null> {
+export async function fetchSingleEventForStudent(eventId: string, currentStudentId: string | null): Promise<EventData | null> {
     if (!eventId) throw new Error('Event ID required for fetching details.');
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
     try {
@@ -54,7 +54,7 @@ export async function fetchSingleEventForStudent(eventId: string, currentStudent
             console.log(`No event found with ID: ${eventId}`);
             return null;
         }
-        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+        const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data()) as EventData | null; // Add type assertion
 
         if (!eventData) {
             console.warn(`Failed to map event data for document ID: ${eventSnap.id} in fetchSingleEventForStudent`);
@@ -86,7 +86,7 @@ export async function fetchSingleEventForStudent(eventId: string, currentStudent
 /**
  * Fetches events that are generally viewable by unauthenticated users.
  */
-export async function fetchPubliclyViewableEvents(): Promise<Event[]> {
+export async function fetchPubliclyViewableEvents(): Promise<EventData[]> {
   try {
     const q = query(
       collection(db, EVENTS_COLLECTION),
@@ -98,9 +98,9 @@ export async function fetchPubliclyViewableEvents(): Promise<Event[]> {
       orderBy('details.date.start', 'desc')
     );
     const querySnapshot = await getDocs(q);
-    const events: Event[] = [];
+    const events: EventData[] = [];
     querySnapshot.forEach((docSnap) => {
-      const eventData = mapFirestoreToEventData(docSnap.id, docSnap.data());
+      const eventData = mapFirestoreToEventData(docSnap.id, docSnap.data()) as EventData | null; // Add type assertion
       if (eventData) {
         events.push(eventData);
       } else {

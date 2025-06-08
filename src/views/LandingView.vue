@@ -468,14 +468,6 @@ const getIconColorClass = (color: Feature['color']): string => {
   .pillar-card {
     margin-bottom: 0.75rem;
   }
-  
-  .pillar-card h5 {
-    /* Use standard .small class instead of custom font-size */
-  }
-  
-  .pillar-card .small {
-    /* Standard .small class is sufficient */
-  }
 }
 
     .pillar-icon {
@@ -512,14 +504,6 @@ const getIconColorClass = (color: Feature['color']): string => {
 @media (max-width: 575.98px) {
   .about-stats .stat-item {
     min-width: 70px;
-    
-    .stat-number {
-      /* Use standard h5 class */
-    }
-    
-    .stat-label {
-      /* Use standard .text-caption class */
-    }
   }
 }
 
@@ -585,10 +569,6 @@ const getIconColorClass = (color: Feature['color']): string => {
     max-width: 100%;
   }
   
-  .info-cards .info-card {
-    /* Use standard .small class */
-  }
-  
   .info-cards .step-number {
     width: 20px;
     height: 20px;
@@ -634,10 +614,6 @@ const getIconColorClass = (color: Feature['color']): string => {
     border-radius: var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 0;
     padding: 1rem 0 0.75rem 0 !important; /* Reduced from 1.5rem 0 1rem 0 */
     margin-top: 0.75rem; /* Reduced from 1rem */
-  }
-  
-  .landing-footer .small {
-    /* Use standard .text-caption class */
   }
   
   .landing-footer p:last-child {

@@ -676,7 +676,7 @@ textarea.form-control {
 
 // Valid/Invalid Feedback
 .valid-feedback {
-  display: block;
+  display: none;
   width: 100%;
   margin-top: 0.5rem;
   font-size: 0.875rem;
@@ -690,7 +690,7 @@ textarea.form-control {
 }
 
 .invalid-feedback {
-  display: block;
+  display: none;
   width: 100%;
   margin-top: 0.5rem;
   font-size: 0.875rem;
@@ -701,6 +701,13 @@ textarea.form-control {
     content: "⚠ ";
     font-weight: 700;
   }
+}
+
+.is-valid ~ .valid-feedback,
+.is-invalid ~ .invalid-feedback,
+.was-validated :valid ~ .valid-feedback,
+.was-validated :invalid ~ .invalid-feedback {
+  display: block;
 }
 
 // Form Search

@@ -12,15 +12,14 @@
       :disabled="isGenerating || !isEligible"
       :title="getButtonTitle"
     >
-      <!-- Button Icon -->
-      <div class="btn-icon me-2">
-        <span v-if="isGenerating" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-        <i v-else-if="!isEligible" class="fas fa-lock"></i>
-        <i v-else class="fas fa-file-pdf"></i>
-      </div>
       
       <!-- Button Text -->
       <span class="btn-text">{{ buttonText }}</span>
+      
+      <!-- Enhancement Badge -->
+      <div v-if="comprehensiveData && isEligible" class="enhancement-badge ms-2">
+        <i class="fas fa-star text-warning" title="Enhanced portfolio with comprehensive data"></i>
+      </div>
       
       <!-- Progress Indicator -->
       <div v-if="isGenerating" class="progress-indicator">
@@ -32,7 +31,7 @@
     <div v-if="!isEligible" class="eligibility-info mt-2">
       <small class="text-muted d-flex align-items-center">
         <i class="fas fa-info-circle me-1 text-info"></i>
-        Requires participation in at least {{ requiredEvents }} events
+        Requires participation in at least {{ requiredEvents }} event{{ requiredEvents === 1 ? '' : 's' }}
         <span class="text-primary ms-1">({{ eventParticipationCount }}/{{ requiredEvents }})</span>
       </small>
       <div class="progress mt-1" style="height: 4px;">
@@ -48,33 +47,23 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { generatePortfolioPDF } from '@/utils/pdfGenerator';
-import type { XPData } from '@/types/xp'; // Import XPData for user prop
- // Import XPData for user prop
+import type { StudentPortfolioGenerationData, UserForPortfolio } from '@/types/student';
 
 interface Project {
   projectName: string;
   link: string;
-  description?: string | undefined;
-}
-
-// User prop now reflects the structure where XP data is nested
-interface UserForPortfolio {
-  name: string;
-  uid: string; // Added UID for pdf naming
-  xpData?: Partial<XPData> | undefined; // XP data is now nested and partial to allow for cases where it might not be fully populated yet
-  // Other profile fields if needed by pdfGenerator
-  skills?: string[] | undefined;
-  bio?: string | undefined;
+  description?: string | null | undefined;
 }
 
 const props = defineProps<{
-  user: UserForPortfolio; // Use the updated UserForPortfolio interface
+  user: UserForPortfolio;
   projects: Project[];
   eventParticipationCount: number;
+  comprehensiveData?: StudentPortfolioGenerationData;
 }>();
 
 const isGenerating = ref(false);
-const requiredEvents = 5;
+const requiredEvents = 1; // Changed from 5 to 1
 
 const isEligible = computed(() => props.eventParticipationCount >= requiredEvents);
 
@@ -90,7 +79,7 @@ const buttonText = computed(() => {
 
 const getButtonTitle = computed(() => {
   if (!isEligible.value) {
-    return `Requires participation in at least ${requiredEvents} events. Current: ${props.eventParticipationCount}`;
+    return `Requires participation in at least ${requiredEvents} event. Current: ${props.eventParticipationCount}`;
   }
   if (isGenerating.value) return 'Generating your portfolio PDF...';
   return 'Generate and download your portfolio as a PDF';
@@ -107,19 +96,34 @@ const generatePDF = async () => {
   isGenerating.value = true;
 
   try {
-    // Adapt user data for pdfGenerator if its signature changed
-    // For now, assuming pdfGenerator can handle the UserForPortfolio structure,
-    // especially how it accesses XP (e.g., props.user.xpData?.xp_developer)
-    const pdf = await generatePortfolioPDF(props.user, props.projects);
+    const userForPDF = {
+      ...props.user,
+      xpData: props.user.xpData || {}
+    };
+    
+    const projectsForPDF = props.projects.map(project => ({
+      ...project,
+      description: project.description || ''
+    }));
+    
+    // Always call generatePortfolioPDF with comprehensive data (or undefined)
+    const pdf = await generatePortfolioPDF(userForPDF, projectsForPDF, props.comprehensiveData);
+    
     const userNameForFile = props.user.name || props.user.uid || 'user';
-    const fileName = `portfolio-${userNameForFile.toLowerCase().replace(/\s+/g, '-')}.pdf`;
+    const timestamp = new Date().toISOString().split('T')[0];
+    const fileName = `portfolio-${userNameForFile.toLowerCase().replace(/\s+/g, '-')}-${timestamp}.pdf`;
     
     pdf.save(fileName);
     
-    emit('success', 'Portfolio PDF generated successfully!');
+    // Enhanced success message based on whether comprehensive data was available
+    const successMessage = props.comprehensiveData 
+      ? 'Enhanced portfolio PDF with comprehensive data generated successfully!' 
+      : 'Portfolio PDF generated successfully!';
+    emit('success', successMessage);
   } catch (error) {
     console.error('PDF generation failed:', error);
-    emit('error', 'Failed to generate PDF. Please try again.');
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate PDF. Please try again.';
+    emit('error', errorMessage);
   } finally {
     isGenerating.value = false;
   }
@@ -217,6 +221,18 @@ const generatePDF = async () => {
 .eligibility-info .progress-bar {
   transition: width 0.6s ease;
   border-radius: 2px;
+}
+
+/* Enhancement Badge */
+.enhancement-badge {
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.portfolio-btn:hover .enhancement-badge {
+  opacity: 1;
 }
 
 /* Responsive Design */

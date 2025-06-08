@@ -25,16 +25,26 @@ export interface EventDate {
   end: Timestamp | null;
 }
 
+export interface EventGalleryItem {
+  url: string;
+  caption?: string | null;
+  uploadedBy?: string | null; // UID of uploader
+  uploadedAt?: Timestamp | null;
+}
+
 export interface EventDetails {
   eventName: string;
   description: string;
-  rules?: string | undefined;
   format: EventFormat;
-  type: string;
-  organizers: string[];
-  date: EventDate;
+  type: string; // e.g., 'Workshop', 'Competition', 'Seminar'
+  organizers: string[]; // Array of student UIDs
+  date: {
+    start: Timestamp | string | null; // Allow string for form input, convert to Timestamp for store/Firestore
+    end: Timestamp | string | null;   // Allow string for form input, convert to Timestamp for store/Firestore
+  };
+  rules?: string | null; // Optional, use null if not provided
+  prize?: string | null; // Optional, use null if not provided
   allowProjectSubmission: boolean;
-  prize?: string | undefined;
 }
 
 export interface EventCriteria {
@@ -69,17 +79,18 @@ export type EventWinners = Record<string, string[]>;
 export interface OrganizerRating {
   userId: string;
   rating: number;
-  feedback?: string | undefined; // Allow undefined
-  ratedAt: Timestamp;
+  feedback?: string | null;
+  ratedAt: Timestamp | null; // This is already correct
 }
 
 export interface EventLifecycleTimestamps {
-  approvedAt?: Timestamp;
-  startedAt?: Timestamp;
-  rejectedAt?: Timestamp;
-  completedAt?: Timestamp;
-  cancelledAt?: Timestamp;
-  closedAt?: Timestamp;
+  createdAt?: Timestamp | null | undefined;
+  approvedAt?: Timestamp | null; // Changed from Timestamp to Timestamp | null
+  startedAt?: Timestamp | null;  // Changed from Timestamp to Timestamp | null
+  rejectedAt?: Timestamp | null; // Changed from Timestamp to Timestamp | null
+  completedAt?: Timestamp | null;// Changed from Timestamp to Timestamp | null
+  cancelledAt?: Timestamp | null;// Changed from Timestamp to Timestamp | null
+  closedAt?: Timestamp | null;   // Changed from Timestamp to Timestamp | null
 }
 
 export interface GalleryItem {
@@ -93,28 +104,22 @@ export interface Event {
   id: string;
   details: EventDetails;
   status: EventStatus;
-  requestedBy: string;
-
-  criteria?: EventCriteria[];
-  participants?: string[];
-  teams?: Team[];
-  teamMemberFlatList?: string[];
-
-  submissions?: Submission[];
+  requestedBy: string; // UID of the student who requested
   votingOpen: boolean;
-  
-  // New voting data structure
-  criteriaVotes?: Record<string, Record<string, string>>; // userId -> { constraintKey -> selectedEntity }
-  bestPerformerSelections?: Record<string, string>; // userId -> selectedUserId
-
-  winners?: EventWinners;
-  manuallySelectedBy?: string;
-  organizerRatings?: Record<string, OrganizerRating>;
-
-  createdAt: Timestamp;
-  lastUpdatedAt: Timestamp;
-  lifecycleTimestamps?: EventLifecycleTimestamps;
-  rejectionReason?: string;
+  lastUpdatedAt?: Timestamp | null | undefined;
+  participants?: string[] | null | undefined;
+  submissions?: Submission[] | null | undefined;
+  criteria?: EventCriteria[] | null | undefined;
+  teams?: Team[] | null | undefined;
+  organizerRatings?: Record<string, OrganizerRating> | null | undefined; // UID to Rating
+  winners?: Record<string, string | string[]> | null | undefined; // maps criteria title/ID to winner UID(s)
+  criteriaVotes?: Record<string, Record<string, string>> | null | undefined; // { [voterUid]: { [criterionId]: selectedTeamOrParticipantUid } }
+  bestPerformerSelections?: Record<string, string> | null | undefined; // { [voterUid]: selectedParticipantUid }
+  rejectionReason?: string | null | undefined; // Reason if the event request was rejected
+  manuallySelectedBy?: string | null | undefined; // UID of admin/organizer who manually selected winners
+  gallery?: EventGalleryItem[] | null | undefined; // For event photos/videos
+  lifecycleTimestamps?: EventLifecycleTimestamps | null | undefined;
+  teamMemberFlatList?: string[] | null | undefined; // Denormalized list of all UIDs in all teams for easier querying
 }
 
 // --- EventFormData Interface (For event creation/editing forms) ---
@@ -151,7 +156,6 @@ export interface EventFormData {
     end: Timestamp | null;
   };
 
-  createdAt?: Timestamp;
   lastUpdatedAt?: Timestamp;
   rejectionReason?: string | null;
   manuallySelectedBy?: string;

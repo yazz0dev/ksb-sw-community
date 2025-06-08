@@ -12,11 +12,12 @@
           type="date"
           id="eventStartDate"
           class="form-control"
+          :class="{ 'is-invalid': !localDates.start && touched.start }"
           v-model="localDates.start"
           :disabled="isSubmitting"
           :min="minDateForStartDatePicker"
           @change="onDateChange"
-          required
+          @blur="touched.start = true"
         />
         <div v-if="!props.eventId" class="form-text">
           <i class="fas fa-info-circle text-info me-1"></i>
@@ -33,11 +34,12 @@
           type="date"
           id="eventEndDate"
           class="form-control"
+          :class="{ 'is-invalid': !localDates.end && touched.end }"
           v-model="localDates.end"
           :disabled="isSubmitting"
           :min="minDateForEndDatePicker"
           @change="onDateChange"
-          required
+          @blur="touched.end = true"
         />
       </div>
     </div>
@@ -90,6 +92,11 @@ const emit = defineEmits<{
 const localDates = ref<FormDateRange>({
     start: props.dates.start,
     end: props.dates.end
+});
+
+const touched = ref({
+    start: false,
+    end: false
 });
 
 const dateConflictError = ref<string | null>(null);
@@ -248,6 +255,7 @@ onMounted(() => {
 }
 
 .form-label {
+  font-weight: 500;
   color: var(--bs-body-color);
   margin-bottom: 0.5rem;
 }
@@ -258,9 +266,23 @@ onMounted(() => {
   margin-top: 0.25rem;
 }
 
+.is-invalid {
+  border-color: var(--bs-danger);
+}
+
+.invalid-feedback {
+    display: none;
+}
+.is-invalid ~ .invalid-feedback {
+    display: block;
+    color: var(--bs-danger);
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+}
+
 .alert {
-  border-radius: var(--bs-border-radius);
   font-size: 0.9rem;
+  padding: 0.75rem 1.25rem;
 }
 
 .alert .fw-medium {

@@ -5,6 +5,15 @@ import type { Project } from './project'; // For portfolio data
 import type { EventFormat, EventStatus } from './event';   // For event history
 import type { Timestamp } from 'firebase/firestore';
 
+// Social links interface with exact optional property types
+export interface SocialLinks {
+  primary?: string | undefined; // Allow undefined
+  linkedin?: string | undefined; // Allow undefined
+  github?: string | undefined; // Allow undefined
+  portfolio?: string | undefined; // Allow undefined
+  instagram?: string | undefined; // Allow undefined
+}
+
 // --- Base Student Data Interface (Represents the object stored under students/{studentUid}) ---
 export interface StudentProfileData { 
   name: string | null;        // Should be required, with fallback for display
@@ -17,13 +26,7 @@ export interface StudentProfileData {
   skills?: string[] | undefined;          // Self-reported
   hasLaptop?: boolean | undefined;        // Default to false if not set
 
-  socialLinks?: {
-  primary?: string; // Primary social/website URL
-  linkedin?: string; // Full LinkedIn profile URL
-  github?: string; // Full GitHub profile URL
-  portfolio?: string; // Primary portfolio/website URL
-  instagram?: string; // Instagram username without @ prefix
-} | undefined;
+  socialLinks?: SocialLinks | undefined; // Allow undefined for the object itself
 
   // Arrays of Event IDs.
   participatedEventIDs?: string[] | undefined;
@@ -56,8 +59,23 @@ export type NameCacheMap = Map<string, NameCacheEntry>;
 
 // Portfolio specific project data
 export interface StudentPortfolioProject extends Project {
-  // Inherits from Project, can add student-specific portfolio display fields if needed
-  eventFormat?: EventFormat; // To show if it was an individual or team project
+  // Inherits from Project, enhanced with additional portfolio display fields
+  eventFormat?: EventFormat | undefined; // Allow undefined
+  eventStatus?: EventStatus | undefined; // Allow undefined
+  eventDate?: {
+    start: Timestamp | null;
+    end: Timestamp | null;
+  } | undefined; // Allow undefined
+  teamName?: string | undefined; // If it was a team project
+  teamMembers?: string[] | undefined; // List of team member names
+  role?: string | undefined; // Student's specific role in the project
+  technologies?: string[] | undefined; // Technologies/skills used
+  achievements?: string[] | undefined; // Awards, recognitions, special mentions
+  githubUrl?: string | undefined; // Separate GitHub link if different from main link
+  liveUrl?: string | undefined; // Live demo URL if different from main link
+  imageUrls?: string[] | undefined; // Project screenshots/images
+  submissionRank?: number | undefined; // If the project was ranked in competition, allow undefined
+  mentorFeedback?: string | undefined; // Feedback from mentors/judges
 }
 
 // Event history item for student profile
@@ -71,15 +89,57 @@ export interface StudentEventHistoryItem {
     start: Timestamp | null;
     end: Timestamp | null;
   };
-  xpEarnedInEvent?: number; // Optional: total XP earned from this specific event (could be complex to track accurately here)
+  eventDescription?: string | undefined; // Brief description of the event
+  eventType?: string | undefined; // Type of event (hackathon, workshop, competition, etc.)
+  organizerNames?: string[] | undefined; // Names of event organizers
+  participantCount?: number | undefined; // Total number of participants
+  xpEarnedInEvent?: number | undefined;
+  projectsSubmitted?: number | undefined; // Number of projects the student submitted
+  awardsReceived?: string[] | undefined; // Any awards/recognitions received in this event
+  skillsGained?: string[] | undefined; // Skills learned/practiced in this event
+  certificateUrl?: string | undefined; // Link to participation/achievement certificate
 }
 
-// Data specifically for generating a student's portfolio PDF
+// Enhanced portfolio generation data with comprehensive student profile
 export interface StudentPortfolioGenerationData {
-  student: EnrichedStudentData; // Full student data including XP
-  projects: StudentPortfolioProject[]; // List of their notable projects
-  eventParticipationCount: number; // Count of genuinely participated events (e.g., not cancelled/rejected)
-  // Could also include skills, bio, preferred roles directly if needed by PDF generator
+  student: EnrichedStudentData;
+  projects: StudentPortfolioProject[];
+  eventHistory: StudentEventHistoryItem[];
+  eventParticipationCount: number;
+  portfolioMetrics: {
+    totalProjects: number;
+    totalEvents: number;
+    totalXP: number;
+    topSkills: string[];
+    preferredTechnologies: string[];
+    leadershipExperience: number; // Number of times as team lead or organizer
+    winRate: number; // Percentage of competitions won
+    collaborationScore: number; // Based on team participation
+    consistencyScore: number; // Based on regular participation over time
+  };
+  achievements: {
+    awards: string[];
+    certifications: string[];
+    specialRecognitions: string[];
+    topRankings: Array<{
+      eventName: string;
+      rank: number;
+      totalParticipants: number;
+    }>;
+  };
+  skillsMatrix: Array<{
+    skill: string;
+    proficiencyLevel: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
+    projectsUsed: number;
+    eventsUsed: number;
+    lastUsed: Timestamp | null;
+  }>;
+  recommendations: Array<{
+    source: string; // Event organizer, mentor, team member
+    content: string;
+    eventContext?: string | undefined; // Changed from string to string | undefined
+    date: Timestamp;
+  }>;
 }
 
 // This interface defines the core data structure for a student user.
@@ -100,14 +160,7 @@ export interface UserData {
   socialLink?: string | undefined;
   github?: string | undefined;
   linkedin?: string | undefined;
-  socialLinks?: {
-    primary?: string | undefined;
-    linkedin?: string | undefined;
-    github?: string | undefined;
-    portfolio?: string | undefined;
-    instagram?: string | undefined;
-    other?: string | undefined;
-  } | undefined;
+  socialLinks?: SocialLinks | undefined; // Explicitly allow undefined
 
   // Event participation
   participatedEventIDs?: string[] | undefined;
@@ -124,6 +177,19 @@ export interface UserData {
 // specifically XP data, often used in views that display richer user profiles.
 export interface EnrichedUserData extends UserData {
   xpData: XPData | null; // Detailed XP breakdown for the user
+  socialLinks?: SocialLinks | undefined; // Explicitly allow undefined to match UserData
+}
+
+// --- Interface for Portfolio Generation Button ---
+export interface UserForPortfolio {
+  name: string;
+  uid: string;
+  email?: string | null;
+  photoURL?: string | null;
+  xpData?: Partial<XPData> | undefined;
+  skills?: string[] | undefined;
+  bio?: string | undefined;
+  socialLinks?: SocialLinks;
 }
 
 // --- Image Upload Types ---

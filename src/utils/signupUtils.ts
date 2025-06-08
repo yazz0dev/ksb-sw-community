@@ -1,31 +1,18 @@
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, Timestamp, updateDoc, increment as firebaseIncrement } from 'firebase/firestore'; // Removed unused collection, query, where, getDocs. Added Timestamp, updateDoc, firebaseIncrement
 import { db } from '@/firebase';
-import type { SignupLinkData, BatchSignupConfig } from '@/types/signup';
+import { SIGNUP_LINKS_COLLECTION, SIGNUP_COLLECTION } from './constants';
 
-/**
- * Generate a random token for signup links
- */
-export function generateSignupToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < 32; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-/**
- * Create a signup link for a specific batch
- */
-export function createBatchSignupLink(batchYear: number, baseUrl: string = window.location.origin): string {
-  return `${baseUrl}/signup?batch=${batchYear}`;
-}
-
-/**
- * Create a token-based signup link
- */
-export function createTokenSignupLink(token: string, baseUrl: string = window.location.origin): string {
-  return `${baseUrl}/signup?token=${token}`;
+// Define BatchSignupConfig interface
+interface BatchSignupConfig {
+  batchYear: number;
+  active: boolean;
+  createdAt: Timestamp;
+  createdBy: string;
+  updatedAt: Timestamp;
+  updatedBy: string;
+  activatedAt?: Timestamp | null;
+  deactivatedAt?: Timestamp | null;
+  currentRegistrations: number;
 }
 
 /**
@@ -70,78 +57,49 @@ export function parseSignupParams(searchParams: URLSearchParams): {
 }
 
 /**
- * Create a signup link record in Firestore (for admin use)
- */
-export async function createSignupLinkRecord(
-  batchYear: number,
-  createdBy: string,
-  options: {
-    token?: string;
-    expiresAt?: Date;
-    maxUses?: number;
-    description?: string;
-  } = {}
-): Promise<string> {
-  const linkData: Omit<SignupLinkData, 'id'> = {
-    batchYear,
-    token: options.token || undefined,
-    isActive: true,
-    createdAt: Timestamp.now(),
-    createdBy,
-    expiresAt: options.expiresAt ? Timestamp.fromDate(options.expiresAt) : undefined,
-    maxUses: options.maxUses || undefined,
-    currentUses: 0,
-    description: options.description || undefined
-  };
-
-  const docRef = await addDoc(collection(db, 'signupLinks'), linkData);
-  return docRef.id;
-}
-
-/**
  * Validate a token-based signup link
  */
 export async function validateSignupToken(token: string): Promise<{
   isValid: boolean;
   batchYear?: number;
-  linkId?: string;
   error?: string;
 }> {
+  if (!token || typeof token !== 'string') {
+    return { isValid: false, error: 'Token is invalid or missing.' };
+  }
+
   try {
-    const linksRef = collection(db, 'signupLinks');
-    const q = query(
-      linksRef,
-      where('token', '==', token),
-      where('isActive', '==', true)
-    );
+    const linkDocRef = doc(db, SIGNUP_LINKS_COLLECTION, token);
+    const linkDoc = await getDoc(linkDocRef);
+
+    if (!linkDoc.exists()) { // Check if the document exists
+      return { isValid: false, error: 'Signup token not found.' };
+    }
+
+    const linkData = linkDoc.data(); // Safe to call data() now
+
+    if (!linkData.isActive) {
+      return { isValid: false, error: 'Signup token is no longer active.' };
+    }
+
+    if (linkData.expiresAt && serverTimestamp() > linkData.expiresAt) { // Compare with serverTimestamp if expiresAt is a Timestamp
+      return { isValid: false, error: 'Signup token has expired.' };
+    }
     
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-      return { isValid: false, error: 'Invalid or expired signup token' };
+    // Check if the associated batch year is active
+    if (linkData.batchYear) {
+        const batchIsActive = await isBatchSignupActive(linkData.batchYear);
+        if (!batchIsActive) {
+            return { isValid: false, error: `Signup for batch ${linkData.batchYear} (associated with this token) is not active.` };
+        }
+    } else {
+        return { isValid: false, error: 'Token is not associated with a valid batch year.' };
     }
 
-    const linkDoc = snapshot.docs[0];
-    const linkData = linkDoc.data() as SignupLinkData;
-
-    // Check if expired
-    if (linkData.expiresAt && linkData.expiresAt.toDate() < new Date()) {
-      return { isValid: false, error: 'Signup link has expired' };
-    }
-
-    // Check if max uses reached
-    if (linkData.maxUses && linkData.currentUses >= linkData.maxUses) {
-      return { isValid: false, error: 'Signup link has reached maximum uses' };
-    }
-
-    return {
-      isValid: true,
-      batchYear: linkData.batchYear,
-      linkId: linkDoc.id
-    };
+    return { isValid: true, batchYear: linkData.batchYear };
   } catch (error) {
     console.error('Error validating signup token:', error);
-    return { isValid: false, error: 'Error validating signup link' };
+    return { isValid: false, error: 'An error occurred while validating the token.' };
   }
 }
 
@@ -150,105 +108,39 @@ export async function validateSignupToken(token: string): Promise<{
  */
 export async function isBatchSignupActive(batchYear: number): Promise<boolean> {
   try {
-    const batchDocRef = doc(db, 'signup', batchYear.toString());
-    const batchDoc = await getDoc(batchDocRef);
+    const batchConfigDocRef = doc(db, SIGNUP_COLLECTION, String(batchYear));
+    const batchConfigSnap = await getDoc(batchConfigDocRef); 
     
-    if (!batchDoc.exists()) {
-      return false;
+    if (!batchConfigSnap.exists()) { 
+        console.warn(`Batch config for year ${batchYear} not found.`);
+        return false; 
     }
     
-    const batchData = batchDoc.data() as BatchSignupConfig;
-    return batchData.active === true;
+    const configData = batchConfigSnap.data() as BatchSignupConfig; // Use BatchSignupConfig type
+    return configData?.active === true; 
   } catch (error) {
-    console.error('Error checking batch signup status:', error);
-    return false;
+    console.error(`Error checking if batch signup is active for ${batchYear}:`, error);
+    return false; // Default to false on error
   }
 }
 
 /**
  * Get batch signup configuration
  */
-export async function getBatchSignupConfig(batchYear: number): Promise<BatchSignupConfig | null> {
+export async function getBatchSignupConfig(batchYear: number): Promise<(BatchSignupConfig & { id: string }) | null> {
   try {
-    const batchDocRef = doc(db, 'signup', batchYear.toString());
+    const batchDocRef = doc(db, SIGNUP_COLLECTION, batchYear.toString()); // Use SIGNUP_COLLECTION constant
     const batchDoc = await getDoc(batchDocRef);
     
     if (!batchDoc.exists()) {
       return null;
     }
     
-    return { id: batchDoc.id, ...batchDoc.data() } as BatchSignupConfig;
+    // Ensure that batchDoc.data() conforms to BatchSignupConfig and combine with id
+    return { id: batchDoc.id, ...(batchDoc.data() as BatchSignupConfig) } as (BatchSignupConfig & { id: string });
   } catch (error) {
     console.error('Error getting batch signup config:', error);
     return null;
-  }
-}
-
-/**
- * Create or update batch signup configuration (for admin use)
- */
-export async function createOrUpdateBatchConfig(
-  batchYear: number,
-  adminUserId: string,
-  options: {
-    active?: boolean;
-    maxRegistrations?: number;
-    description?: string;
-    notes?: string;
-  } = {}
-): Promise<void> {
-  try {
-    const batchDocRef = doc(db, 'signup', batchYear.toString());
-    const existingDoc = await getDoc(batchDocRef);
-    
-    if (existingDoc.exists()) {
-      // Update existing configuration
-      const updateData: Partial<BatchSignupConfig> = {};
-      
-      if (options.active !== undefined) {
-        updateData.active = options.active;
-        if (options.active) {
-          updateData.activatedAt = Timestamp.now();
-        } else {
-          updateData.deactivatedAt = Timestamp.now();
-        }
-      }
-      
-      if (options.maxRegistrations !== undefined) {
-        updateData.maxRegistrations = options.maxRegistrations;
-      }
-      
-      if (options.description !== undefined) {
-        updateData.description = options.description;
-      }
-      
-      if (options.notes !== undefined) {
-        updateData.notes = options.notes;
-      }
-      
-      await updateDoc(batchDocRef, updateData);
-    } else {
-      // Create new configuration
-      const batchData: Omit<BatchSignupConfig, 'id'> = {
-        batchYear,
-        active: options.active ?? true,
-        createdAt: Timestamp.now(),
-        createdBy: adminUserId,
-        currentRegistrations: 0,
-        maxRegistrations: options.maxRegistrations,
-        description: options.description,
-        notes: options.notes
-      };
-      
-      if (options.active !== false) {
-        batchData.activatedAt = Timestamp.now();
-      }
-      
-      await setDoc(batchDocRef, batchData);
-    }
-  } catch (error) {
-    console.error('Error creating/updating batch config:', error);
-    throw error;
   }
 }
 
@@ -260,21 +152,6 @@ export function getBatchRegistrationsPath(batchYear: number): string {
 }
 
 /**
- * Increment registration count for a batch
- */
-export async function incrementBatchRegistrationCount(batchYear: number): Promise<void> {
-  try {
-    const batchDocRef = doc(db, 'signup', batchYear.toString());
-    await updateDoc(batchDocRef, {
-      currentRegistrations: increment(1)
-    });
-  } catch (error) {
-    console.error('Error incrementing batch registration count:', error);
-    throw error;
-  }
-}
-
-/**
  * Format signup link for display
  */
 export function formatSignupLinkForDisplay(
@@ -282,8 +159,46 @@ export function formatSignupLinkForDisplay(
   token?: string,
   baseUrl: string = window.location.origin
 ): string {
+  const url = new URL(baseUrl);
+  url.pathname = `/signup/${batchYear}`;
+  
   if (token) {
-    return createTokenSignupLink(token, baseUrl);
+    url.searchParams.set('token', token);
   }
-  return createBatchSignupLink(batchYear, baseUrl);
+  
+  return url.toString();
+}
+
+/**
+ * Increments the registration count for a given batch year.
+ * @param batchYear The batch year (e.g., 2023).
+ */
+export async function incrementBatchRegistrationCount(batchYear: number): Promise<void> {
+  if (!isValidBatchYear(batchYear)) {
+    console.error(`Invalid batch year provided for incrementing count: ${batchYear}`);
+    return;
+  }
+  try {
+    const batchConfigDocRef = doc(db, SIGNUP_COLLECTION, String(batchYear));
+    // Ensure the document exists before trying to increment
+    const docSnap = await getDoc(batchConfigDocRef);
+    if (!docSnap.exists()) {
+        // Optionally, create the batch config document if it doesn't exist,
+        // or log an error and return. For now, logging error.
+        console.error(`Batch config document for year ${batchYear} does not exist. Cannot increment count.`);
+        // Or, you could initialize it here if that's the desired behavior:
+        // await setDoc(batchConfigDocRef, { /* initial BatchSignupConfig data */ });
+        return;
+    }
+
+    await updateDoc(batchConfigDocRef, {
+      currentRegistrations: firebaseIncrement(1), // Use firebaseIncrement
+      updatedAt: serverTimestamp(),
+      // updatedBy: 'SYSTEM' // Or pass the UID of the user performing the action if available
+    });
+  } catch (error) {
+    console.error(`Error incrementing registration count for batch ${batchYear}:`, error);
+    // Potentially re-throw or handle more gracefully
+    throw error;
+  }
 }

@@ -16,12 +16,27 @@ export function useNotifications() {
     duration?: number,
     title?: string
   ): void => {
-    notificationStore.showNotification({
+    // Create payload with required properties
+    const payload: {
+      message: string;
+      type: 'success' | 'error' | 'info' | 'warning';
+      duration?: number;
+      title?: string;
+    } = {
       message,
-      type,
-      duration,
-      title
-    });
+      type
+    };
+
+    // Only add optional properties if they are defined
+    if (duration !== undefined) {
+      payload.duration = duration;
+    }
+
+    if (title !== undefined) {
+      payload.title = title;
+    }
+
+    notificationStore.showNotification(payload);
   };
 
   /**

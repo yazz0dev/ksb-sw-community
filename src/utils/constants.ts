@@ -4,12 +4,18 @@
 export const EVENTS_COLLECTION = 'events';
 export const STUDENTS_COLLECTION = 'students';
 export const XP_COLLECTION = 'xp';
+export const SIGNUP_COLLECTION = 'signup'; // Added
+export const SIGNUP_LINKS_COLLECTION = 'signupLinks'; // Added
 
 // --- Event Criteria Constants ---
 export const BEST_PERFORMER_LABEL = 'Best Performer';
 export const BEST_PERFORMER_POINTS = 10;
 export const MAX_USER_CRITERIA = 5;
 export const MAX_TOTAL_XP = 50; // Maximum XP that can be allocated across criteria
+
+// --- Team Constants ---
+export const MIN_TEAM_MEMBERS = 2;  // Minimum members per team
+export const MAX_TEAM_MEMBERS = 8;  // Maximum members per team
 
 // --- Permission Constants ---
 export const EVENT_MANAGER_ROLES = [  'eventManager', 'moderator'] as const;

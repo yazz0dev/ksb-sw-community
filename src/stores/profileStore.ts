@@ -6,7 +6,7 @@ import { getAuth, signOut as firebaseSignOut, onAuthStateChanged } from 'firebas
 import { deepClone, isEmpty } from '@/utils/eventUtils'; // Added now, isEmpty
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore'; // Renamed to studentAppStore for clarity in this file
-import type { EnrichedStudentData, StudentEventHistoryItem, UserData } from '@/types/student'; // Adjusted imports: Removed StudentData, Changed StudentPortfolioData
+import type { EnrichedStudentData, StudentEventHistoryItem, UserData, StudentPortfolioGenerationData } from '@/types/student'; // Adjusted imports: Removed StudentData, Changed StudentPortfolioData
 import { type Event, EventStatus } from '@/types/event'; // Added Event and EventStatus, EventFormat
 import type { NameCacheEntry, StudentPortfolioProject, ImageUploadOptions, ImageUploadState } from '@/types/student'; // Removed UploadStatusValue
 import { UploadStatus } from '@/types/student'; // Added UploadStatus enum
@@ -16,11 +16,14 @@ import {
     updateStudentProfile as updateStudentProfileService,
     fetchUserNamesBatch as fetchUserNamesBatchService,
     fetchAllStudentProfiles as fetchAllStudentProfilesService,
-    fetchLeaderboardData as fetchLeaderboardDataService,
+    fetchLeaderboardData as fetchLeaderboardDataService
+} from '@/services/profileService';
+import {
     fetchStudentPortfolioProjects as fetchStudentPortfolioProjectsService,
     fetchStudentEventHistory as fetchStudentEventHistoryService,
-    fetchStudentEventParticipationCount as fetchStudentEventParticipationCountService
-} from '@/services/profileService';
+    fetchStudentEventParticipationCount as fetchStudentEventParticipationCountService,
+    fetchComprehensivePortfolioData as fetchComprehensivePortfolioDataService
+} from '@/services/portfolioService'; // Added import for portfolio services
 import { fetchMyEventRequests as fetchStudentEventRequestsService } from '@/services/eventService/eventQueries';
 import { uploadFileService, deleteFileByUrlService } from '@/services/storageService'; // Added storage service imports
 
@@ -42,7 +45,14 @@ export const useProfileStore = defineStore('studentProfile', () => {
   const viewedStudentProfile = ref<EnrichedStudentData | null>(null);
   const viewedStudentProjects = ref<StudentPortfolioProject[]>([]); // Explicitly type if possible
   const viewedStudentEventHistory = ref<StudentEventHistoryItem[]>([]);
-  const currentUserPortfolioData = ref<{ projects: StudentPortfolioProject[]; eventParticipationCount: number; }>({ projects: [], eventParticipationCount: 0 }); // Adjusted type
+  const currentUserPortfolioData = ref<{ 
+    projects: StudentPortfolioProject[]; 
+    eventParticipationCount: number;
+    comprehensiveData?: StudentPortfolioGenerationData;
+  }>({ 
+    projects: [], 
+    eventParticipationCount: 0 
+  });
   const allUsers = ref<UserData[]>([]);
   const nameCache = ref<Map<string, NameCacheEntry>>(new Map()); // Changed to Map
   const isLoading = ref<boolean>(false);
@@ -193,6 +203,41 @@ export const useProfileStore = defineStore('studentProfile', () => {
     if (currentStudent.value && allUsers.value.length === 0) {
         // Consider if fetchAllStudentProfiles should also be protected by a try/catch
         await fetchAllStudentProfiles();
+    }
+  }
+
+  async function fetchMyProfile(): Promise<EnrichedStudentData | null> {
+    if (!studentId.value) {
+      // Not authenticated, or studentId not yet available from currentStudent
+      error.value = "User not authenticated. Cannot fetch profile.";
+      // notificationStore.showNotification({ message: error.value, type: 'warning' }); // Optional: notify if called when not expected
+      currentStudent.value = null; // Ensure local state is cleared
+      return null;
+    }
+    isLoading.value = true;
+    error.value = null; // Clear previous general errors
+    actionError.value = null; // Clear previous action errors
+    try {
+      const enrichedData = await fetchStudentDataService(studentId.value);
+      if (enrichedData) {
+        currentStudent.value = deepClone(enrichedData);
+        _updateNameCache(enrichedData.uid, enrichedData.name ?? null);
+        // Optionally, trigger related data fetches if needed, e.g., portfolio
+        // await fetchCurrentUserPortfolioData(); 
+        hasFetched.value = true;
+        return currentStudent.value;
+      } else {
+        error.value = "Failed to fetch profile data. Profile not found for UID: " + studentId.value;
+        notificationStore.showNotification({ message: error.value, type: 'error' });
+        currentStudent.value = null; // Clear profile if not found
+        return null;
+      }
+    } catch (err) {
+      await _handleOpError("fetching own profile", err, studentId.value);
+      currentStudent.value = null; // Clear profile on error
+      return null;
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -363,6 +408,33 @@ export const useProfileStore = defineStore('studentProfile', () => {
     } catch (err) {
       await _handleOpError("fetching current user portfolio data", err, studentId.value);
       currentUserPortfolioData.value = { projects: [], eventParticipationCount: 0 };
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  async function fetchCurrentUserComprehensivePortfolioData(): Promise<StudentPortfolioGenerationData | null> {
+    if (!studentId.value) {
+      return null;
+    }
+    isLoading.value = true;
+    try {
+      const studentProfile = currentStudent.value;
+      if (!studentProfile) throw new Error("Current student profile not loaded.");
+
+      // Fetch comprehensive portfolio data
+      const comprehensiveData = await fetchComprehensivePortfolioDataService(
+        studentProfile.uid,
+        studentProfile.participatedEventIDs,
+        studentProfile.organizedEventIDs
+      );
+      
+      currentUserPortfolioData.value.comprehensiveData = comprehensiveData;
+      return comprehensiveData;
+
+    } catch (err) {
+      await _handleOpError("fetching comprehensive portfolio data", err, studentId.value);
+      return null;
     } finally {
       isLoading.value = false;
     }
@@ -678,11 +750,13 @@ export const useProfileStore = defineStore('studentProfile', () => {
     isAuthenticated, // Add this to the returned object
     getCachedStudentName,
     handleAuthStateChange,
+    fetchMyProfile, // Add fetchMyProfile here
     studentSignOut,
     clearStudentSession,
     updateMyProfile,
     fetchProfileForView,
     fetchCurrentUserPortfolioData,
+    fetchCurrentUserComprehensivePortfolioData,
     loadLeaderboardUsers,
     fetchUserNamesBatch,
     clearStaleNameCache,

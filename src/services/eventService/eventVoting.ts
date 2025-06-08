@@ -9,7 +9,8 @@ import { db } from '@/firebase';
 import { 
   EventStatus, 
   EventFormat,
-  type OrganizerRating
+  type OrganizerRating,
+  type EventCriteria // Add EventCriteria here
 } from '@/types/event';
 import { type EnrichedStudentData, type UserData } from '@/types/student';
 import { mapFirestoreToEventData } from '@/utils/eventDataUtils';
@@ -71,7 +72,7 @@ export async function submitTeamCriteriaVoteInFirestore(
                     }
 
                     // Check if criterion exists
-                    const criterionExists = currentEventData.criteria?.some(c => 
+                    const criterionExists = currentEventData.criteria?.some((c: EventCriteria) => 
                         typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
                     );
 
@@ -159,7 +160,7 @@ export async function submitIndividualWinnerVoteInFirestore(
                 }
 
                 // Check if criterion exists
-                const criterionExists = currentEventData.criteria?.some(c => 
+                const criterionExists = currentEventData.criteria?.some((c: EventCriteria) => 
                     typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
                 );
 
@@ -320,7 +321,7 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
                 
                 // Get criterion title from event data
                 const constraintIndex = parseInt(constraintKey.replace('constraint', ''));
-                const criterion = eventData.criteria?.find(c => c.constraintIndex === constraintIndex);
+                const criterion = eventData.criteria?.find((c: EventCriteria) => c.constraintIndex === constraintIndex);
                 const criterionTitle = criterion?.title || `Criterion ${constraintIndex}`;
                 
                 // Fix: Ensure we never assign undefined by checking array length and content

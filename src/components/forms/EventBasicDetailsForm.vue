@@ -26,11 +26,12 @@
       <input
         id="eventName"
         class="form-control"
+        :class="{ 'is-invalid': !localDetails.eventName && touched.eventName }"
+        @blur="touched.eventName = true"
         type="text"
         v-model.trim="localDetails.eventName"
         :disabled="isSubmitting"
         placeholder="Enter a clear and concise event name"
-        required
         maxlength="100"
       />
       <div class="invalid-feedback">Event name is required.</div>
@@ -44,9 +45,10 @@
         <select
           id="eventType"
           class="form-select"
+          :class="{ 'is-invalid': !localDetails.type && touched.type }"
+          @blur="touched.type = true"
           v-model="localDetails.type"
           :disabled="isSubmitting || !localDetails.format"
-          required
         >
           <option value="" disabled>Select type...</option>
           <option
@@ -80,11 +82,12 @@
       <textarea
         id="eventDescription"
         class="form-control"
+        :class="{ 'is-invalid': !localDetails.description && touched.description }"
+        @blur="touched.description = true"
         rows="5"
         v-model="localDetails.description"
         :disabled="isSubmitting"
         placeholder="Provide a detailed description of the event, including goals, rules, and expected outcomes. Markdown is supported."
-        required
       ></textarea>
       <small class="form-text text-muted">Use Markdown for formatting (e.g., **bold**, *italic*, lists).</small>
        <div class="invalid-feedback">Description is required.</div>
@@ -140,6 +143,12 @@ const { details, isSubmitting, isEditing } = toRefs(props);
 
 // Local copy for two-way binding
 const localDetails = ref<EventFormData['details']>({ ...details.value });
+
+const touched = ref({
+  eventName: false,
+  type: false,
+  description: false,
+});
 
 // Event types based on format
 const individualEventTypes = [
@@ -225,6 +234,11 @@ watch(localDetails, (newVal) => {
 
 .invalid-feedback {
   color: var(--bs-danger);
+  display: none; /* Hide by default */
+}
+
+.is-invalid ~ .invalid-feedback {
+    display: block; /* Show only when input is invalid */
 }
 
 /* Custom Form Check Enhancement */

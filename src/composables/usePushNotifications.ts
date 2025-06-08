@@ -75,7 +75,7 @@ async function initializeOneSignalSdk(userId?: string | null): Promise<void> {
         OneSignal.push(() => {
           OneSignal.setExternalUserId(userId)
             .then(resolve)
-            .catch((error: any) => {
+            .catch((_error: any) => {
               resolve(); // Continue
             });
         });

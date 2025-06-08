@@ -37,6 +37,9 @@
     
     <!-- Offline State Handler Component -->
     <OfflineStateHandler />
+
+    <!-- Notification System -->
+    <NotificationSystem />
   </div>
 </template>
 
@@ -53,6 +56,7 @@ import { getAuth } from 'firebase/auth';
 import BottomNav from './components/ui/BottomNav.vue';
 import TopBar from './components/ui/TopBar.vue';
 import OfflineStateHandler from './components/shared/OfflineStateHandler.vue';
+import NotificationSystem from './components/shared/NotificationSystem.vue'; // Added import
 
 const studentStore = useProfileStore();
 const notificationStore = useNotificationStore();

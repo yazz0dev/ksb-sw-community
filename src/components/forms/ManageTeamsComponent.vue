@@ -9,10 +9,11 @@
             <input
               type="text"
               class="form-control form-control-sm d-inline-block me-2"
+              :class="{ 'is-invalid': !team.teamName && team.touched?.teamName }"
               style="max-width: 250px;"
               v-model="team.teamName"
               :placeholder="`Team ${teamIndex + 1} Name`"
-              @blur="emitTeamsUpdate"
+              @blur="team.touched && (team.touched.teamName = true); emitTeamsUpdate();"
               :disabled="props.isSubmitting"
             />
             <button
@@ -41,6 +42,7 @@
                 class="form-select form-select-sm user-select"
               :disabled="props.isSubmitting || team.members.length >= maxMembersPerTeam"
               @change="selectedMemberToAddPerTeam[teamIndex] && addMember(teamIndex, selectedMemberToAddPerTeam[teamIndex]!)"
+              @blur="team.touched && (team.touched.members = true)"
             >
                 <option value="" disabled>{{ availableStudentsForTeam(teamIndex).length ? 'Select a student to add...' : 'No available students' }}</option>
               <option
@@ -60,9 +62,11 @@
             </label>
             <select
                 class="form-select form-select-sm"
+                :class="{ 'is-invalid': !team.teamLead && team.touched?.teamLead }"
                 v-model="team.teamLead"
                 :disabled="props.isSubmitting || team.members.length === 0"
                 @change="emitTeamsUpdate"
+                @blur="team.touched && (team.touched.teamLead = true)"
             >
                 <option value="" disabled selected>Select a team lead...</option>
                 <option
@@ -90,10 +94,13 @@
           </div>
           <!-- End Team Member Selection -->
 
-          <small v-if="team.members.length < minMembersPerTeam" class="text-danger d-block mt-1">
+          <small v-if="!team.teamName && team.touched?.teamName" class="text-danger d-block mt-1">
+            Team name is required.
+          </small>
+          <small v-if="team.members.length < minMembersPerTeam && team.touched?.members" class="text-danger d-block mt-1">
             Requires at least {{ minMembersPerTeam }} members.
           </small>
-           <small v-if="team.members.length > 0 && !team.teamLead" class="text-warning d-block mt-1">
+           <small v-if="team.members.length > 0 && !team.teamLead && team.touched?.teamLead" class="text-warning d-block mt-1">
             Please select a team lead.
           </small>
         </div>
@@ -190,6 +197,11 @@ interface LocalTeam {
   teamName: string;
   members: string[]; // Array of student UIDs
   teamLead: string | undefined;   // UID of team lead, allow undefined
+  touched?: {
+    teamName: boolean;
+    members: boolean;
+    teamLead: boolean;
+  };
 }
 
 const studentNameCache = computed(() => {
@@ -246,21 +258,51 @@ const ensureMemberNamesAreFetched = async (currentTeams: LocalTeam[]) => {
     }
 };
 
+// Define createDefaultTeam before it's used in initializeTeams
+const createDefaultTeam = (index?: number): LocalTeam => {
+  return {
+    id: `team-${Math.random().toString(36).substr(2, 9)}`, // Always generate an ID, never undefined
+    teamName: index !== undefined ? `Team ${index + 1}` : '', // Use sequential naming if index provided
+    members: [],
+    teamLead: undefined,
+    touched: { teamName: false, members: false, teamLead: false },
+  };
+};
+
 // Initializes `teams` and `selectedMemberToAddPerTeam` on component mount or `initialTeams` prop change
 const initializeTeams = () => {
-  teams.value = (props.initialTeams || []).map(team => ({
-    id: team.id, // Directly use, as it's string | undefined
-    teamName: team.teamName || '',
-    members: Array.isArray(team.members) ? [...team.members] : [],
-    teamLead: team.teamLead // Directly use, as it's string | undefined
+  const newTeams = props.initialTeams.map((t, index) => ({
+    ...t,
+    id: t.id || `team-${Math.random().toString(36).substr(2, 9)}`,
+    teamName: t.teamName || `Team ${index + 1}`, // Use sequential naming if no name provided
+    members: t.members || [],
+    teamLead: t.teamLead || undefined,
+    touched: { teamName: false, members: false, teamLead: false },
   }));
-  // If creating a new event (no eventId) and no initial teams, add two default teams
-  if (!props.eventId && teams.value.length === 0) {
-     teams.value.push({ id: undefined, teamName: `Team 1`, members: [], teamLead: undefined });
-     teams.value.push({ id: undefined, teamName: `Team 2`, members: [], teamLead: undefined });
+  
+  if (newTeams.length === 0 && props.students.length > 0) {
+    // Start with two default teams if none exist
+    newTeams.push(createDefaultTeam(0) as {
+      id: string;
+      teamName: string;
+      members: string[];
+      teamLead: string | undefined;
+      touched: { teamName: boolean; members: boolean; teamLead: boolean; };
+    });
+    newTeams.push(createDefaultTeam(1) as {
+      id: string;
+      teamName: string;
+      members: string[];
+      teamLead: string | undefined;
+      touched: { teamName: boolean; members: boolean; teamLead: boolean; };
+    });
   }
-  // Initialize dropdown selections for each team
-  selectedMemberToAddPerTeam.value = teams.value.map(() => undefined); // Use undefined for reset
+  
+  teams.value = newTeams;
+
+  // Initialize dropdown models
+  selectedMemberToAddPerTeam.value = new Array(teams.value.length).fill(undefined);
+  
   ensureMemberNamesAreFetched(teams.value);
 };
 
@@ -276,15 +318,18 @@ watch(teams, (newTeams, oldTeams) => {
 
 // Adds a new empty team
 const addTeam = () => {
-  if (teams.value.length < maxTeams && !props.isSubmitting) {
-    teams.value.push({
-      id: undefined,
-      teamName: `Team ${teams.value.length + 1}`,
-      members: [],
-      teamLead: undefined // Use undefined for unassigned lead
+  if (teams.value.length < maxTeams) {
+    // Use next index for sequential naming
+    teams.value.push(createDefaultTeam(teams.value.length));
+    selectedMemberToAddPerTeam.value.push(undefined);
+    nextTick(() => {
+      const teamInputs = document.querySelectorAll('.list-group-item .form-control');
+      const lastTeamInput = teamInputs[teamInputs.length - 1] as HTMLInputElement;
+      lastTeamInput?.focus();
     });
-    selectedMemberToAddPerTeam.value.push(undefined); // Add a new empty selection for the new team
-    nextTick(emitTeamsUpdate);
+    emitTeamsUpdate();
+  } else {
+    emit('error', `Cannot add more than ${maxTeams} teams.`);
   }
 };
 
@@ -344,92 +389,75 @@ const autoGenerateTeams = () => {
     return;
   }
 
-  const shuffledStudents = [...props.students].sort(() => 0.5 - Math.random());
+  // Create new team structures based on current teams, clearing members and leads
   const teamsToPopulate: LocalTeam[] = teams.value.map(team => ({
-    ...team,
-    members: [], // Clear existing members
-    teamLead: undefined // Clear existing lead, use undefined
+    ...team, // Preserves teamName, id, and touched status
+    members: [],
+    teamLead: undefined,
   }));
 
-  shuffledStudents.forEach((student, index) => {
-    if (student.uid) {
-      const teamIndex = index % teamsToPopulate.length;
-      const team = teamsToPopulate[teamIndex];
+  // Shuffle all available students (props.students contains UserData objects)
+  const shuffledStudents = [...props.students].sort(() => 0.5 - Math.random());
+
+  let studentIdx = 0;
+  // Distribute students in a round-robin fashion
+  // Continue as long as there are students to assign
+  while (studentIdx < shuffledStudents.length) {
+    let studentAssignedInThisRound = false;
+    for (let i = 0; i < teamsToPopulate.length; i++) {
+      if (studentIdx >= shuffledStudents.length) break; // All students assigned
+
+      const team = teamsToPopulate[i];
+      // Add a check for team to satisfy TypeScript, though it should theoretically not be undefined
       if (team) {
-        team.members.push(student.uid);
+        if (team.members.length < maxMembersPerTeam) {
+          const studentToAdd = shuffledStudents[studentIdx];
+          if (studentToAdd && studentToAdd.uid) {
+            team.members.push(studentToAdd.uid);
+            if (team.members.length === 1) { // Set first member as lead
+              team.teamLead = studentToAdd.uid;
+            }
+            studentIdx++;
+            studentAssignedInThisRound = true;
+          }
+        }
       }
     }
-  });
-
-  // Assign team leads (first member of each team for simplicity)
-  teamsToPopulate.forEach(team => {
-    if (team.members.length > 0) {
-      team.teamLead = team.members[0];
+    // If no student could be assigned in a full pass (e.g., all teams full), break to prevent infinite loop
+    if (!studentAssignedInThisRound && studentIdx < shuffledStudents.length) {
+        emit('error', `Not all students could be assigned. Some teams might be full (max ${maxMembersPerTeam} members).`);
+        break;
     }
-  });
-  
-  teams.value = teamsToPopulate; // Update local state
-  nextTick(emitTeamsUpdate); // Emit changes to parent
+  }
+
+  // Update the main teams ref with the newly populated teams
+  teams.value = teamsToPopulate;
+
+  nextTick(emitTeamsUpdate);
 };
 
-// Emits the updated teams array to the parent component
+// Emits the updated teams to the parent component
 const emitTeamsUpdate = () => {
-  const eventTeams: EventTeamType[] = teams.value.map(lt => ({
-    id: lt.id, // Directly use, as it's string | undefined
-    teamName: lt.teamName.trim() || `Team ${teams.value.indexOf(lt) + 1}`,
-    members: lt.members,
-    teamLead: lt.teamLead, // Directly use, as it's string | undefined
-  }));
-  emit('update:teams', eventTeams);
-  ensureMemberNamesAreFetched(teams.value);
+  emit('update:teams', teams.value);
 };
 
-// Lifecycle hook to initialize teams on component mount
-onMounted(() => {
-  initializeTeams();
-});
+// Initialize teams on mount
+onMounted(initializeTeams);
 </script>
 
 <style scoped>
 .list-group-item {
-  background-color: var(--bs-body-bg);
-  border-bottom: 1px solid var(--bs-border-color-translucent) !important;
-}
-.list-group-item:last-child {
-  border-bottom: 0 !important;
-}
-.badge .btn-close-sm {
-  padding: 0.2em 0.35em;
-  width: 0.7em;
-  height: 0.7em;
-  filter: brightness(0) saturate(100%) invert(1) grayscale(100%) brightness(200%); /* Adjusted for secondary badge */
-}
-.badge .btn-close-sm:hover {
-   filter: brightness(0) saturate(100%) invert(18%) sepia(88%) saturate(4792%) hue-rotate(348deg) brightness(96%) contrast(95%);
-}
-.user-select {
-  max-width: 250px;
+  transition: background-color 0.2s ease;
 }
 
-.remove-member-btn {
-  filter: brightness(0) invert(1);
+.list-group-item:hover {
+  background-color: #f8f9fa;
 }
 
-.slide-down-enter-active {
-  transition: all 0.3s ease-out;
+.fade-fast-enter-active, .fade-fast-leave-active {
+  transition: opacity 0.2s ease;
 }
-
-.slide-down-leave-active {
-  transition: all 0.3s ease-in;
-}
-
-.slide-down-enter-from {
-  transform: translateY(-10px);
-  opacity: 0;
-}
-
-.slide-down-leave-to {
-  transform: translateY(-10px);
+.fade-fast-enter, .fade-fast-leave-to /* .fade-fast-leave-active in <2.1.8 */ {
   opacity: 0;
 }
 </style>

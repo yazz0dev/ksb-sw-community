@@ -18,25 +18,26 @@
           <h2 class="h2 text-gradient-primary mb-0 d-inline-flex align-items-center">
             <i class="fas fa-user-circle me-2"></i>My Profile
           </h2>
+          <p class="text-muted small mb-0 mt-1">
+            <i class="fas fa-chart-line me-1"></i>
+            Portfolio ready for generation with {{ currentUserPortfolioData.projects.length }} projects
+          </p>
         </div>
         <div class="d-flex align-items-center justify-content-center justify-content-md-end" style="min-height: 38px;">
           <PortfolioGeneratorButton
-            v-if="!loadingPortfolioData && currentUserPortfolioData.projects.length > 0 && currentUserPortfolioData.eventParticipationCount >= 5"
+            v-if="!loadingPortfolioData && currentUserPortfolioData.eventParticipationCount >= 1"
             :user="userForPortfolioGeneration"
             :projects="projectsForPortfolio"
             :event-participation-count="currentUserPortfolioData.eventParticipationCount"
+            v-bind="currentUserPortfolioData.comprehensiveData ? { comprehensiveData: currentUserPortfolioData.comprehensiveData } : {}"
           />
           <div v-else-if="loadingPortfolioData" class="d-flex align-items-center text-secondary px-3">
             <div class="spinner-border spinner-border-sm me-2" role="status"></div>
             <span class="small fw-medium">Loading portfolio data...</span>
           </div>
-           <div v-else-if="currentUserPortfolioData.eventParticipationCount < 5 && currentUserPortfolioData.projects.length > 0" class="bg-light-subtle text-secondary-emphasis border rounded-pill px-3 py-1 small d-inline-flex align-items-center">
-            <i class="fas fa-info-circle me-2"></i>
-            <span>Generate portfolio after 5 event participations.</span>
-          </div>
           <div v-else class="bg-light-subtle text-secondary-emphasis border rounded-pill px-3 py-1 small d-inline-flex align-items-center">
             <i class="fas fa-info-circle me-2"></i>
-            <span>No project data for portfolio generation.</span>
+            <span>Generate portfolio after participating in an event.</span>
           </div>
         </div>
       </div>
@@ -88,18 +89,13 @@
 
               <!-- Projects -->
               <div class="projects-section animate-fade-in" style="animation-delay: 0.4s">
-                <UserProjects :projects="userProjects" :loading="loadingEventsOrProjects" :initial-data-loaded="initialDataLoaded" />
+                <UserProjects :projects="projectsForUserComponent" :loading="loadingEventsOrProjects" :initial-data-loaded="initialDataLoaded" />
               </div>
               
               <!-- Additional Content for Current User -->
               <div v-if="isCurrentUser" class="additional-content animate-fade-in" style="animation-delay: 0.5s">
                   <AuthGuard>
                     <div class="card">
-                      <div class="card-header requests-card-header">
-                        <h6 class="mb-0 d-flex align-items-center">
-                          <i class="fas fa-inbox text-primary me-2"></i>My Event Requests
-                        </h6>
-                      </div>
                       <div class="card-body p-0">
                         <UserRequests />
                       </div>
@@ -118,8 +114,7 @@
 import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import type { EnrichedStudentData, StudentEventHistoryItem, EnrichedUserData, StudentPortfolioProject } from '@/types/student';
-import type { XPData } from '@/types/xp';
+import type { EnrichedStudentData, StudentEventHistoryItem, EnrichedUserData, StudentPortfolioProject, UserForPortfolio } from '@/types/student';
 
 // Component imports
 import PortfolioGeneratorButton from '@/components/user/PortfolioGeneratorButton.vue';
@@ -130,33 +125,6 @@ import UserXpBreakdown from '@/components/user/UserXpBreakdown.vue';
 import UserEventHistory from '@/components/user/UserEventHistory.vue';
 import UserProjects from '@/components/user/UserProjects.vue';
 import ProfileSkeleton from '@/skeletons/ProfileSkeleton.vue';
-
-// Define a type for the portfolio component projects
-interface PortfolioProject {
-  id: string;
-  projectName: string;
-  description?: string | undefined;
-  eventId?: string | undefined;
-  eventName?: string | undefined;
-  eventFormat?: any;
-  role?: string | undefined;
-  roleDescription?: string | undefined;
-  startDate?: any;
-  endDate?: any;
-  tags?: string[] | undefined;
-  link: string;
-  submittedBy?: string | undefined;
-  submittedAt?: any;
-}
-
-// Define a more specific type for the portfolio button's user prop
-interface UserForPortfolio {
-  name: string;
-  uid: string;
-  xpData?: Partial<XPData> | undefined;
-  skills?: string[] | undefined;
-  bio?: string | undefined;
-}
 
 interface Stats {
     participatedCount: number;
@@ -194,16 +162,27 @@ const userForPortfolioGeneration = computed<UserForPortfolio>(() => {
     return {
         name: user.name || 'User',
         uid: user.uid,
+        email: user.email,
+        photoURL: user.photoURL,
         xpData: user.xpData || undefined,
         skills: user.skills || [],
         bio: user.bio || '',
+        socialLinks: user.socialLinks || {},
     };
 });
 
-const projectsForPortfolio = computed<PortfolioProject[]>(() => {
-  return (currentUserPortfolioData.value.projects || []).map(project => ({
-    ...project,
+const projectsForPortfolio = computed(() => {
+  return (currentUserPortfolioData.value.projects || []).map((project: StudentPortfolioProject) => ({
+    projectName: project.projectName,
+    link: project.link,
     description: project.description === null ? undefined : project.description
+  }));
+});
+
+const projectsForUserComponent = computed(() => {
+  return userProjects.value.map((p: any) => ({
+    ...p,
+    description: p.description === null ? null : p.description // Keep as null for UserProjects component
   }));
 });
 
@@ -226,7 +205,7 @@ const filteredXpData = computed(() => {
 // --- Methods ---
 const fetchPortfolioRelatedDataForCurrentUser = async () => {
     if (!studentStore.currentStudent?.uid || !isCurrentUser.value) {
-        studentStore.$patch(state => {
+        studentStore.$patch((state: any) => {
             state.currentUserPortfolioData = { projects: [], eventParticipationCount: 0 };
         });
         return;
@@ -234,6 +213,8 @@ const fetchPortfolioRelatedDataForCurrentUser = async () => {
     loadingPortfolioData.value = true;
     try {
         await studentStore.fetchCurrentUserPortfolioData();
+        // Fetch comprehensive data for enhanced portfolio generation
+        await studentStore.fetchCurrentUserComprehensivePortfolioData();
     } catch (err) {
         console.error("Error fetching portfolio data for ProfileView:", err);
     } finally {
@@ -268,9 +249,16 @@ const fetchFullProfile = async (userId: string) => {
 
         if (!profileDataFromStore) throw new Error('User data not found.');
 
-        viewedUser.value = { ...profileDataFromStore, xpData: profileDataFromStore.xpData ?? null };
+        viewedUser.value = { 
+          ...profileDataFromStore, 
+          xpData: profileDataFromStore.xpData ?? null,
+          socialLinks: profileDataFromStore.socialLinks || undefined // Ensure socialLinks is compatible
+        };
         participatedEvents.value = studentStore.viewedStudentEventHistory; 
-        userProjects.value = studentStore.viewedStudentProjects.map(p => ({...p, description: p.description ?? null }));
+        userProjects.value = studentStore.viewedStudentProjects.map((p: any) => ({
+          ...p, 
+          description: p.description === null ? undefined : p.description // Convert null to undefined
+        }));
 
         calculateStatsFromEvents(participatedEvents.value);
         if (viewedUser.value?.xpData) {
@@ -285,7 +273,6 @@ const fetchFullProfile = async (userId: string) => {
         initialDataLoaded.value = true;
     }
 };
-
 
 const determineProfileContextAndLoad = async () => {
     loading.value = true;

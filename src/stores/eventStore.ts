@@ -1,13 +1,13 @@
 // src/stores/studentEventStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
-import {
-  Timestamp} from 'firebase/firestore';
-import { type Event, EventStatus, type EventFormData, type Submission, EventFormat } from '@/types/event';
+import { Timestamp } from 'firebase/firestore';
+// Import Event as EventBaseData, as it likely represents the data structure without an 'id'.
+// Removed unused Team and EventGalleryItem imports
+import { type Event as EventBaseData, EventFormat, EventStatus, type EventFormData, type Submission } from '@/types/event';
 import { useProfileStore } from './profileStore';
 import { useNotificationStore } from './notificationStore';
 import { useAuth } from '@/composables/useAuth';
-import { getISTTimestamp } from '@/utils/eventDataUtils';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { deepClone } from '@/utils/eventUtils';
 import { checkDateConflictForRequest } from '@/services/eventService/eventValidation';
@@ -45,45 +45,114 @@ import {
   submitManualWinnerSelectionInFirestore as submitManualWinnerSelectionService
 } from '@/services/eventService/eventVoting';
 import type { UserData } from '@/types/student';
+import { 
+  MIN_TEAM_MEMBERS, 
+  MAX_TEAM_MEMBERS 
+} from '@/utils/constants';
 
+
+// Define the type that includes 'id', which will be primarily used within this store.
+type EventWithId = EventBaseData & { id: string };
 
 // Add createCompleteEvent function before the store definition
-function createCompleteEvent(partialEventData: Partial<Event>, existingEvent?: Event | undefined): Event {
-  // Create a complete Event object with defaults for missing fields
-  const defaultEvent: Event = {
-    id: partialEventData.id || '',
+function createCompleteEvent(
+  partialDataInput: Partial<EventWithId>, 
+  existingEventInput?: EventWithId | undefined
+): EventWithId {
+  
+  const idToUse = partialDataInput.id || existingEventInput?.id || '';
+
+  // Extract data parts, removing 'id' property to handle EventBaseData separately
+  const partialEventBaseData = partialDataInput ? (({ id: _id, ...rest }) => rest)(partialDataInput) : {};
+  const existingEventBaseData = existingEventInput ? (({ id: _id, ...rest }) => rest)(existingEventInput) : undefined;
+
+  // Construct the EventBaseData part
+  const baseData = {
+    // Include id property directly in baseData
+    id: idToUse,
+    // Provide comprehensive defaults for all fields in EventBaseData
     details: {
-      eventName: '',
-      description: '',
-      format: EventFormat.Individual,
+      eventName: '', 
+      description: '', 
+      format: EventFormat.Individual, 
       type: '',
-      organizers: [],
-      date: {
-        start: null,
-        end: null
-      },
+      organizers: [], 
+      date: { start: null, end: null }, 
       allowProjectSubmission: false,
-      ...(partialEventData.details || {})
+      prize: null, // Default to null
+      rules: null, // Default to null
+      // Spread details from existingEventBaseData first, then from partialEventBaseData
+      ...(existingEventBaseData?.details || {}),
+      ...(partialEventBaseData.details || {}),
     },
+    lastUpdatedAt: Timestamp.now(), // Default, will be overridden if present in spreads
     status: EventStatus.Pending,
     requestedBy: '',
     votingOpen: false,
-    createdAt: Timestamp.now(),
-    lastUpdatedAt: Timestamp.now(),
+    lifecycleTimestamps: {
+      createdAt: Timestamp.now(), // Default, will be overridden if present in spreads
+    },
     participants: [],
     submissions: [],
-    ...(existingEvent || {}),
-    ...partialEventData
+    criteria: [], 
+    teams: [],    
+    organizerRatings: {}, 
+    winners: {},
+    criteriaVotes: {},
+    bestPerformerSelections: {},
+    rejectionReason: null, // Default to null
+    manuallySelectedBy: null, // Default to null
+    gallery: null, // Initialize new gallery property
+    teamMemberFlatList: [], // Default to empty array
+
+    // Spread remaining properties from existingEventBaseData, then partialEventBaseData
+    ...(existingEventBaseData || {}),
+    ...partialEventBaseData,
   };
 
-  return defaultEvent;
+  // Ensure specific optional fields that should be null (if not provided explicitly by spreads) are correctly set to null.
+  // This is important if the types are `Something | null` and not `Something | null | undefined`.
+  baseData.details.prize = (baseData.details.prize === undefined) ? null : baseData.details.prize;
+  baseData.details.rules = (baseData.details.rules === undefined) ? null : baseData.details.rules;
+  baseData.rejectionReason = (baseData.rejectionReason === undefined) ? null : baseData.rejectionReason;
+  baseData.manuallySelectedBy = (baseData.manuallySelectedBy === undefined) ? null : baseData.manuallySelectedBy;
+  baseData.gallery = (baseData.gallery === undefined) ? null : baseData.gallery;
+  baseData.lifecycleTimestamps = (baseData.lifecycleTimestamps === undefined) ? null : baseData.lifecycleTimestamps;
+  
+  // Ensure array/object fields that are not nullable are empty arrays/objects if not provided by spreads.
+  baseData.participants = baseData.participants ?? [];
+  baseData.submissions = baseData.submissions ?? [];
+  baseData.criteria = baseData.criteria ?? [];
+  baseData.teams = baseData.teams ?? [];
+  baseData.organizerRatings = baseData.organizerRatings ?? {};
+  baseData.winners = baseData.winners ?? {};
+  baseData.criteriaVotes = baseData.criteriaVotes ?? {};
+  baseData.bestPerformerSelections = baseData.bestPerformerSelections ?? {};
+  baseData.teamMemberFlatList = baseData.teamMemberFlatList ?? [];
+
+  // Ensure details.eventName is a non-empty string, defaulting from eventName if necessary
+  if (!baseData.details.eventName || typeof baseData.details.eventName !== 'string' || baseData.details.eventName.trim() === '') {
+    if (baseData.details.eventName && typeof baseData.details.eventName === 'string' && baseData.details.eventName.trim() !== '') {
+      baseData.details.eventName = baseData.details.eventName.trim();
+    } else {
+      baseData.details.eventName = 'Untitled Event'; // Final fallback
+    }
+  }
+  // Ensure eventName is also a string (it's required by EventDetails type)
+  if (!baseData.details.eventName || typeof baseData.details.eventName !== 'string' || baseData.details.eventName.trim() === '') {
+    baseData.details.eventName = baseData.details.eventName; // If eventName was empty, use the (now guaranteed) title
+  }
+
+
+  // Return the fully formed data with id
+  return baseData as EventWithId;
 }
 
 export const useEventStore = defineStore('studentEvents', () => {
-  // Refs (State)
-  const events = ref<Event[]>([]);
-  const viewedEventDetails = ref<Event | null>(null);
-  const myEventRequests = ref<Event[]>([]);
+  // Refs (State) - Update to use EventWithId
+  const events = ref<EventWithId[]>([]);
+  const viewedEventDetails = ref<EventWithId | null>(null);
+  const myEventRequests = ref<EventWithId[]>([]);
   const isLoading = ref<boolean>(false);
   const actionError = ref<string | null>(null);
   const fetchError = ref<string | null>(null);
@@ -115,7 +184,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     return []; // Current Event type doesn't support this distinction
   });
 
-  const getEventById = (eventId: string): Event | undefined => {
+  const getEventById = (eventId: string): EventWithId | undefined => { // Updated return type
     return events.value.find(e => e.id === eventId) ||
            myEventRequests.value.find(e => e.id === eventId) ||
            (viewedEventDetails.value?.id === eventId ? viewedEventDetails.value : undefined);
@@ -133,15 +202,16 @@ export const useEventStore = defineStore('studentEvents', () => {
   );
 
   // Actions (methods)
-  function _updateLocalEventLists(eventData: Event) {
-    const updateList = (list: Ref<Event[]>) => {
+  function _updateLocalEventLists(eventData: EventWithId) { // Updated parameter type
+    const updateList = (list: Ref<EventWithId[]>) => { // Updated list type
         const index = list.value.findIndex(e => e.id === eventData.id);
         const existingEvent = index !== -1 ? list.value[index] : null;
-        const updatedEvent: Event = {
-            ...(existingEvent || {}),
-            ...deepClone(eventData),
+        // Ensure the spread results in EventWithId
+        const updatedEvent: EventWithId = {
+            ...(existingEvent || {} as EventWithId), // Cast to satisfy spread if existingEvent is null
+            ...deepClone(eventData), // eventData is already EventWithId
             lastUpdatedAt: eventData.lastUpdatedAt || (existingEvent?.lastUpdatedAt || Timestamp.now())
-        } as Event;
+        };
 
         if (index !== -1) {
             list.value.splice(index, 1, updatedEvent);
@@ -167,10 +237,10 @@ export const useEventStore = defineStore('studentEvents', () => {
 
     if (viewedEventDetails.value?.id === eventData.id) {
       viewedEventDetails.value = {
-          ...(viewedEventDetails.value as Event),
-          ...deepClone(eventData),
+          ...(viewedEventDetails.value as EventWithId), // Ensure viewedEventDetails is treated as EventWithId
+          ...deepClone(eventData), // eventData is EventWithId
           lastUpdatedAt: eventData.lastUpdatedAt || viewedEventDetails.value.lastUpdatedAt || Timestamp.now()
-      } as Event;
+      };
     }
   }
 
@@ -221,7 +291,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     fetchError.value = null;
     try {
         const fetchedEvents = await fetchPubliclyViewableEventsService(); 
-        events.value = fetchedEvents.sort(compareEventsForSort);
+        // Assuming fetchPubliclyViewableEventsService returns EventWithId[] or compatible
+        events.value = fetchedEvents.sort(compareEventsForSort) as EventWithId[];
     } catch (err) {
       await _handleFetchError("fetching all events", err);
       events.value = [];
@@ -239,7 +310,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     fetchError.value = null;
     try {
       const requests = await fetchMyEventRequestsService(studentProfileStore.studentId);
-      myEventRequests.value = requests.sort(compareEventsForSort);
+      // Assuming fetchMyEventRequestsService returns EventWithId[] or compatible
+      myEventRequests.value = requests.sort(compareEventsForSort) as EventWithId[];
     } catch (err) {
       await _handleFetchError("fetching my event requests", err);
       myEventRequests.value = [];
@@ -248,7 +320,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  async function fetchEventDetails(eventId: string): Promise<Event | null> {
+  async function fetchEventDetails(eventId: string): Promise<EventWithId | null> { // Updated return type
     isLoading.value = true;
     fetchError.value = null;
     viewedEventDetails.value = null;
@@ -265,8 +337,9 @@ export const useEventStore = defineStore('studentEvents', () => {
             eventData.details.date.end = new Timestamp((eventData.details.date.end as any).seconds, (eventData.details.date.end as any).nanoseconds);
           }
           
-          viewedEventDetails.value = deepClone(eventData);
-          _updateLocalEventLists(eventData);
+          // Assuming eventData from service is compatible with EventWithId
+          viewedEventDetails.value = deepClone(eventData) as EventWithId;
+          _updateLocalEventLists(viewedEventDetails.value);
           return viewedEventDetails.value;
       } else {
           notificationStore.showNotification({ message: `Event (ID: ${eventId}) not found or inaccessible.`, type: 'warning' });
@@ -313,21 +386,33 @@ export const useEventStore = defineStore('studentEvents', () => {
       if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
       // --- End of existing validation logic ---
 
-      // Ensure formData has proper structure before sending to service
-      const sanitizedFormData: EventFormData = {
-        ...formData,
-        criteria: formData.criteria || [],
-        teams: formData.teams || [],
-        votingOpen: false,
-        details: {
-          ...formData.details,
-          rules: formData.details.rules || null,
-          prize: formData.details.prize || null,
-          organizers: formData.details.organizers.length > 0 ? formData.details.organizers : [studentId]
-        }
-      };
+      // Create a sanitized payload
+      const payload = deepClone(formData);
 
-      const newEventId = await createEventRequestService(deepClone(sanitizedFormData), studentId);
+      if (payload.details.format === EventFormat.Competition) {
+        payload.criteria = [];
+        payload.teams = [];
+        // prize can exist for Competition
+        // allowProjectSubmission is handled by RequestEventView watcher
+      } else { // Not Competition (Team or Individual)
+        payload.details.prize = null; // Changed from undefined to null
+        // criteria can exist
+        // allowProjectSubmission is true
+        if (payload.details.format !== EventFormat.Team) { // Individual
+          payload.teams = [];
+        }
+        // If Team, teams can exist
+      }
+      
+      // Ensure organizers array includes the requestor if empty
+      if (!payload.details.organizers || payload.details.organizers.length === 0) {
+        payload.details.organizers = [studentId];
+      } else if (!payload.details.organizers.includes(studentId)) {
+         payload.details.organizers = [studentId, ...payload.details.organizers];
+      }
+
+
+      const newEventId = await createEventRequestService(payload, studentId);
 
       if (!newEventId) {
         throw new Error("Failed to create event request via service.");
@@ -341,33 +426,35 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Construct a partial event data based on formData and known defaults set by the service
       // to pass to createCompleteEvent. This part might need refinement based on what createCompleteEvent needs
       // and what the service guarantees.
-      const eventDataForStoreCreation: Partial<Event> = {
+      const eventDataForStoreCreation: Partial<EventWithId> = { // Use Partial<EventWithId>
         id: newEventId,
         details: {
-            ...sanitizedFormData.details,
+            // title is now handled robustly by createCompleteEvent,
+            // it will use title from payload.details if present and valid,
+            // otherwise default to eventName from payload.details, or "Untitled Event".
+            // Spread details from payload (EventFormData)
+            ...payload.details, 
+            // Explicitly set dates as Timestamps, overriding from payload if necessary
             date: {
                 start: Timestamp.fromDate(startDateTime.toJSDate()),
                 end: Timestamp.fromDate(endDateTime.toJSDate())
             },
-            rules: sanitizedFormData.details.rules || undefined,
-            prize: sanitizedFormData.details.prize || undefined,
+            // Ensure optional fields align with EventBaseData['details']
+            rules: payload.details.rules || null, 
+            prize: payload.details.prize || null,
         },
         requestedBy: studentId,
-        status: EventStatus.Pending,
-        createdAt: Timestamp.now(),
-        lastUpdatedAt: Timestamp.now(),
-        participants: [],
-        votingOpen: false,
-        criteria: sanitizedFormData.criteria || [],
-        teams: sanitizedFormData.teams || [],
-        submissions: [],
-        organizerRatings: {},
-        winners: {},
-        criteriaVotes: {},
-        bestPerformerSelections: {},
+        status: EventStatus.Pending, // Default status for new requests
+        // criteria and teams come from payload (EventFormData)
+        criteria: payload.criteria || [], 
+        teams: payload.teams || [],
+        rejectionReason: null, // Explicitly null for a new request
+        // gallery will be defaulted to null by createCompleteEvent
+        // Other fields like createdAt, lastUpdatedAt, participants, submissions, etc.,
+        // will be handled by createCompleteEvent's defaults.
       };
 
-      const newEventDataForStore: Event = createCompleteEvent(eventDataForStoreCreation);
+      const newEventDataForStore: EventWithId = createCompleteEvent(eventDataForStoreCreation);
         
         _updateLocalEventLists(newEventDataForStore);
         notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
@@ -391,13 +478,18 @@ export const useEventStore = defineStore('studentEvents', () => {
     isLoading.value = true;
 
     try {
-      const startDate = formData.details.date.start ? getISTTimestamp(formData.details.date.start) : null;
-      const endDate = formData.details.date.end ? getISTTimestamp(formData.details.date.end) : null;
+      // Use convertToISTDateTime instead of getISTTimestamp
+      const startDate = formData.details.date.start ? convertToISTDateTime(formData.details.date.start) : null;
+      const endDate = formData.details.date.end ? convertToISTDateTime(formData.details.date.end) : null;
+      
       if (!startDate || !endDate) throw new Error('Event start and end dates are required.');
+      // Luxon DateTime objects also have toMillis(), so this comparison remains valid.
       if (endDate.toMillis() < startDate.toMillis()) throw new Error('Event end date must be on or after start date.');
+      
       const { hasConflict, conflictingEventName } = await checkDateConflict({
-        startDate: startDate,
-        endDate: endDate,
+        // Pass JS Date objects to checkDateConflict as it expects Date | Timestamp
+        startDate: startDate.toJSDate(), 
+        endDate: endDate.toJSDate(),
         excludeEventId: eventId
       });
       if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
@@ -410,12 +502,38 @@ export const useEventStore = defineStore('studentEvents', () => {
         throw new Error(`Event in status '${existingEvent.status}' cannot be edited by the requester.`);
       }
 
-      // Fix: Pass currentStudentId instead of existingEvent.details.format
-      await updateEventRequestInService(eventId, deepClone(formData), currentStudentId);
+      // Create a sanitized payload
+      const payload = deepClone(formData);
+      if (payload.details.format === EventFormat.Competition) {
+        payload.criteria = [];
+        payload.teams = [];
+        // prize can exist for Competition
+      } else { // Not Competition (Team or Individual)
+        payload.details.prize = null; // Changed from undefined to null
+        if (payload.details.format !== EventFormat.Team) { // Individual
+          payload.teams = [];
+        }
+      }
+      
+      // Ensure rejectionReason is explicitly null if not provided in formData,
+      // especially if its type in EventFormData is `string | null | undefined`
+      // and the target type in EventBaseData (via createCompleteEvent) expects `string | null`.
+      if (payload.rejectionReason === undefined) {
+        payload.rejectionReason = null;
+      }
+      
+      // Ensure organizers array includes the requestor if empty, or adds if not present
+      if (!payload.details.organizers || payload.details.organizers.length === 0) {
+        payload.details.organizers = [currentStudentId];
+      } else if (!payload.details.organizers.includes(currentStudentId)) {
+         payload.details.organizers = [currentStudentId, ...payload.details.organizers];
+      }
+
+      await updateEventRequestInService(eventId, payload, currentStudentId);
       
       const updatedEvent = await fetchSingleEventForStudentService(eventId, currentStudentId); // Use currentStudentId
       if (updatedEvent) {
-        _updateLocalEventLists(updatedEvent);
+        _updateLocalEventLists(updatedEvent as EventWithId); // Added 'as EventWithId'
       }
       
       notificationStore.showNotification({ message: 'Event request updated successfully!', type: 'success' });
@@ -467,7 +585,8 @@ export const useEventStore = defineStore('studentEvents', () => {
         };
         // Call the service function
         const updatedFields = await updateEventStatusService(eventId, newStatus, currentUser, rejectionReason);
-        const existingEvent = getEventById(eventId);
+        const existingEvent = getEventById(eventId); // existingEvent is EventWithId | undefined
+        // Pass id explicitly along with updatedFields (which should be Partial<EventBaseData>)
         _updateLocalEventLists(createCompleteEvent({ id: eventId, ...updatedFields }, existingEvent));
         notificationStore.showNotification({ message: `Event status updated to ${newStatus}.`, type: 'success' });
     }  catch (err) {
@@ -486,7 +605,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     try {
         await joinEventService(eventId, studentId);
         const updatedEventData = await fetchSingleEventForStudentService(eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData);
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
         notificationStore.showNotification({ message: "Successfully joined the event!", type: 'success' });
         return true;
     } catch (err) {
@@ -508,7 +627,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     try {
         await leaveEventService(eventId, studentId);
         const updatedEventData = await fetchSingleEventForStudentService(eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData);
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
         notificationStore.showNotification({ message: "Successfully left the event.", type: 'success' });
         return true;
     } catch (err) {
@@ -530,7 +649,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     try {
         await submitProjectService(payload.eventId, studentId, payload.submissionData);
         const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData);
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
         notificationStore.showNotification({ message: "Project submitted successfully!", type: 'success' });
     } catch (err) {
         await _handleOpError("submitting project", err, payload.eventId);
@@ -557,7 +676,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Service function now contains all validation and Firestore logic
       await submitTeamCriteriaVoteService(payload.eventId, studentId, payload.votes);
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData);
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
         notificationStore.showNotification({ message: "Team votes submitted!", type: 'success' });
     } catch (err) {
         await _handleOpError("submitting team votes", err, payload.eventId);
@@ -578,7 +697,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Service function now contains all validation and Firestore logic
       await submitIndividualWinnerVoteService(payload.eventId, studentId, payload.votes);
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData);
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
         notificationStore.showNotification({ message: "Winner selection submitted!", type: 'success' });
     } catch (err) {
         await _handleOpError("submitting individual winner vote", err, payload.eventId);
@@ -599,7 +718,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Service function contains validation (including permission check if studentId is organizer/admin)
       await submitManualWinnerSelectionService(payload.eventId, studentId, payload.winnerSelections);
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentProfileStore.studentId); // Refetch with current user's view
-        if (updatedEventData) _updateLocalEventLists(updatedEventData);
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
         notificationStore.showNotification({ message: "Manual winner selection saved!", type: 'success' });
     } catch (err) {
         await _handleOpError("submitting manual winner selection", err, payload.eventId);
@@ -658,7 +777,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       };
       await toggleVotingStatusService(eventId, open, currentUser);
       const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-      if (updatedEventData) _updateLocalEventLists(updatedEventData);
+      if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
       notificationStore.showNotification({ message: `Voting is now ${open ? 'OPEN' : 'CLOSED'}.`, type: 'success' });
     } catch (err) {
       await _handleOpError(`toggling voting to ${open ? 'open' : 'closed'}`, err, eventId);
@@ -722,7 +841,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Refetch the event to update local state
       const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
       if (updatedEventData) {
-        _updateLocalEventLists(updatedEventData);
+        _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
       }
       
       notificationStore.showNotification({ 
@@ -747,16 +866,22 @@ export const useEventStore = defineStore('studentEvents', () => {
     try {
       const studentsToAssign = payload.studentUids.map(uid => ({ uid }));
       
+      // Use payload's min/max but ensure they are within global constant bounds
+      // The service function autoGenerateEventTeamsInFirestore will also apply these constants.
+      // However, it's good practice to prepare the payload with sensible values.
+      const minMembers = Math.max(payload.minMembers, MIN_TEAM_MEMBERS);
+      const maxMembers = Math.min(payload.maxMembers, MAX_TEAM_MEMBERS);
+      
       const newTeams = await autoGenerateEventTeamsService(
         payload.eventId, 
         studentsToAssign, 
-        payload.minMembers, 
-        payload.maxMembers
+        minMembers, // Pass the validated/constrained minMembers
+        maxMembers  // Pass the validated/constrained maxMembers
       );
       
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentProfileStore.studentId);
       if (updatedEventData) {
-        _updateLocalEventLists(updatedEventData);
+        _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
       }
       
       notificationStore.showNotification({ 

@@ -165,13 +165,5 @@ const handleImageError = (): void => {
   .nav-link {
     padding: 0.4rem 0.1rem;
   }
-  
-  .nav-icon {
-    /* Use standard icon size */
-  }
-  
-  .nav-text {
-    /* Use standard .text-caption class */
-  }
 }
 </style>

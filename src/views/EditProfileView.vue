@@ -49,10 +49,11 @@
                     v-model="form.name"
                     type="text"
                     class="form-control"
-                    :class="{ 'is-invalid': formErrors.name }"
+                    :class="{ 'is-invalid': formErrors.name && touched.name }"
                     maxlength="50"
                     required
                     :disabled="loading"
+                    @blur="touched.name = true"
                   />
                   <div class="invalid-feedback">Name is required</div>
                 </div>
@@ -151,6 +152,10 @@ const formErrors = ref({
   name: false
 });
 
+const touched = ref({
+  name: false
+});
+
 const isFormValid = computed(() => {
   formErrors.value.name = form.value.name.trim().length === 0;
   return !formErrors.value.name;
@@ -159,47 +164,49 @@ const isFormValid = computed(() => {
 async function loadUserData() {
   const userId = studentStore.studentId; // Get from store instead of route params
   if (!userId || !studentStore.isAuthenticated) {
-    error.value = 'You must be logged in to edit your profile.';
-    notificationStore.showNotification({ message: error.value, type: 'error' });
-    router.push({ name: 'Home' });
+    notificationStore.showNotification({ message: "User not authenticated. Cannot load profile.", type: "error" });
+    router.push({ name: 'Login' }); // Redirect to login if not authenticated
     return;
   }
   loading.value = true;
+  error.value = ''; // Clear previous errors
 
   try {
-    const userData: EnrichedStudentData | null = studentStore.currentStudent ?
-        JSON.parse(JSON.stringify(studentStore.currentStudent))
-        : await studentStore.fetchProfileForView(userId);
-
-    if (!userData) {
-      throw new Error('User profile not found.');
+    // Attempt to get profile from store first
+    let userProfile = studentStore.currentStudent;
+    if (!userProfile || userProfile.uid !== userId) {
+      // If not in store or wrong user, fetch it
+      userProfile = await studentStore.fetchMyProfile();
     }
 
-    form.value = {
-      name: userData.name || '', // Fallback to empty string if name is null
-      photoURL: userData.photoURL || '',
-      bio: userData.bio || '',
-      socialLink: userData.socialLinks?.primary || '', // Correctly map to 'primary'
-      instagramLink: userData.socialLinks?.instagram || '', // Instagram username
-      portfolio: userData.socialLinks?.portfolio || '', // Correctly map to 'portfolio'
-      skills: Array.isArray(userData.skills) ? userData.skills.join(', ') : '',
-      hasLaptop: userData.hasLaptop || false
-    };
-     
-    if (!form.value.name) { // If name becomes empty string after fallback, set error
-      formErrors.value.name = true;
-    }
+    if (userProfile) {
+      form.value.name = userProfile.name || '';
+      form.value.photoURL = userProfile.photoURL || '';
+      form.value.bio = userProfile.bio || '';
+      form.value.skills = (userProfile.skills || []).join(', ');
+      form.value.hasLaptop = userProfile.hasLaptop || false;
+      
+      // Populate social links from the enriched structure
+      form.value.socialLink = userProfile.socialLinks?.primary || '';
+      form.value.instagramLink = userProfile.socialLinks?.instagram || '';
+      form.value.portfolio = userProfile.socialLinks?.portfolio || '';
 
+    } else {
+      throw new Error('Profile data not found.');
+    }
   } catch (err: any) {
-    error.value = err?.message || 'Failed to load profile data';
-    notificationStore.showNotification({ message: error.value, type: 'error' });
-    router.back();
+    const message = err.message || 'Failed to load user data.';
+    error.value = message;
+    notificationStore.showNotification({ message, type: 'error' });
+    // Consider if router.back() is still appropriate or if showing error on page is better
+    // router.back(); 
   } finally {
     loading.value = false;
   }
 }
 
 async function saveProfileEdits() {
+  touched.value.name = true;
   if (!isFormValid.value) {
     notificationStore.showNotification({ message: "Please correct the form errors.", type: "warning" });
     return;
@@ -282,9 +289,15 @@ async function saveProfileEdits() {
         notificationStore.showNotification({ message: 'Profile updated successfully', type: 'success' });
         router.push({ name: 'Profile' });
     } else {
-        throw new Error(studentStore.actionError || 'Failed to update profile.');
+        // The studentStore.actionError should already be set by _handleOpError
+        // and _handleOpError should have called notificationStore.showNotification.
+        // So, we just set the local error for prominent display.
+        error.value = studentStore.actionError || 'Failed to update profile.';
+        // No need to call notificationStore.showNotification here again if store does it.
     }
   } catch (err: any) {
+    // This catch block handles errors not caught by the store's _handleOpError,
+    // or if the store re-throws.
     error.value = err?.message || 'Failed to update profile';
     notificationStore.showNotification({ message: error.value, type: 'error' });
   } finally {
@@ -555,6 +568,11 @@ onMounted(() => {
   font-weight: 500;
   margin-top: 0.5rem;
   animation: slideInUp 0.3s ease-out;
+  display: none; /* Hide by default */
+}
+
+.is-invalid ~ .invalid-feedback {
+  display: block; /* Show when sibling is invalid */
 }
 
 /* Animations */

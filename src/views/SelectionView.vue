@@ -157,6 +157,11 @@ import {
   canCalculateWinners
 } from '@/utils/permissionHelpers';
 
+// Add an interface for Event with id
+interface EventWithId extends Event {
+  id: string;
+}
+
 // Import new form components
 import TeamForm from '@/components/voting/TeamForm.vue';
 import IndividualForm from '@/components/voting/IndividualForm.vue';
@@ -171,6 +176,11 @@ interface IndividualVoting {
 // For manual selection by organizer
 interface ManualSelections {
   [constraintKey: string]: string; // Stores selected team name or participant UID
+}
+
+// Modified to ensure Event type includes id property
+interface EventWithId extends Event {
+  id: string;
 }
 
 // --- Reactive state for Voting ---
@@ -209,7 +219,7 @@ const route = useRoute(); // Added useRoute
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const isSubmitting = ref<boolean>(false);
-const event = ref<Event | null>(null);
+const event = ref<EventWithId | null>(null);
 const isTeamEvent = computed(() => event.value?.details?.format === EventFormat.Team);
 const eventTeams = ref<Team[]>([]);
 const allTeamMembers = ref<TeamMember[]>([]);
@@ -277,13 +287,13 @@ const hasValidVotingCriteria = computed<boolean>(() => {
     return false;
   }
 
-  const votableCriteria = getValidCriteria(event.value);
+  const votableCriteria = getValidCriteria(event.value as EventWithId);
   console.log('[SelectionForm] Voting Mode: Votable Criteria:', JSON.parse(JSON.stringify(votableCriteria)));
   
   if (isTeamEvent.value) {
     console.log('[SelectionForm] Voting Mode: Is Team Event. BEST_PERFORMER_LABEL:', BEST_PERFORMER_LABEL);
     // For team events, we need at least one criterion other than Best Performer
-    const teamSpecificVotableCriteria = getValidCriteria(event.value, true); // exclude Best Performer
+    const teamSpecificVotableCriteria = getValidCriteria(event.value as EventWithId, true); // exclude Best Performer
     const teamResult = teamSpecificVotableCriteria.length > 0;
     console.log('[SelectionForm] Voting Mode: Team Event Result (teamSpecificVotableCriteria.length > 0):', teamResult);
     return teamResult;
@@ -361,11 +371,11 @@ const submitButtonText = computed<string>(() => {
 });
 
 const localIsParticipant = computed(() => { // Renamed to avoid conflict if isParticipant is used elsewhere
-  return event.value && currentUser.value ? isEventParticipant(event.value, currentUser.value.uid) : false;
+  return event.value && currentUser.value ? isEventParticipant(event.value as EventWithId, currentUser.value.uid) : false;
 });
 
 const localIsOrganizer = computed(() => { // Renamed to avoid conflict
-  return event.value && currentUser.value ? isEventOrganizer(event.value, currentUser.value.uid) : false;
+  return event.value && currentUser.value ? isEventOrganizer(event.value as EventWithId, currentUser.value.uid) : false;
 });
 
 const canSubmitSelection = computed(() => {
@@ -378,7 +388,7 @@ const canSubmitSelection = computed(() => {
 const canFindWinner = computed(() => {
   if (isManualModeActive.value) return false; // Not shown in manual mode
   return event.value && currentUser.value ? 
-    canCalculateWinners(event.value, currentUser.value.uid) : false;
+    canCalculateWinners(event.value as EventWithId, currentUser.value.uid) : false;
 });
 
 
@@ -477,7 +487,12 @@ const fetchEventDetails = async (): Promise<void> => {
     if (!eventData) {
        throw new Error('Event not found.');
     }
-    event.value = eventData;
+    
+    // Add id to the event data
+    event.value = { 
+      ...eventData, 
+      id: props.eventId 
+    } as EventWithId;
 
     const currentUid = currentUser.value?.uid ?? null;
 
@@ -488,16 +503,16 @@ const fetchEventDetails = async (): Promise<void> => {
       if (eventData.status !== EventStatus.Completed) {
          throw new Error('Manual winner selection is only available for completed events.');
       }
-      await initializeFormForManualMode(eventData);
+      await initializeFormForManualMode(event.value);
     } else {
       // Allow loading even if Voting aren't open, control form display later
       // if (eventData.status !== EventStatus.Completed || eventData.votingOpen !== true) {
       //    throw new Error('Event Voting are not currently open.');
       // }
       if (isTeamEvent.value) {
-        await initializeTeamEventForm(eventData, currentUid);
+        await initializeTeamEventForm(event.value, currentUid);
       } else {
-        await initializeIndividualEventForm(eventData, currentUid);
+        await initializeIndividualEventForm(event.value, currentUid);
       }
     }
     
@@ -736,14 +751,24 @@ const submitManualSelection = async (): Promise<void> => {
 
   try {
     // Use the utility function to create a consistent payload
-    const payload = createManualWinnerPayload(
+    const rawPayload = createManualWinnerPayload(
       props.eventId,
       manualSelections,
       isTeamEvent.value ? manualBestPerformerSelection.value : undefined
     );
     
-    // Type assertion to match expected interface
-    await eventStore.submitManualWinnerSelection(payload as any); // Type assertion as a temporary fix
+    // Convert the winnerSelections from string[] to string to match the expected type
+    const payload = {
+      eventId: rawPayload.eventId,
+      winnerSelections: Object.fromEntries(
+        Object.entries(rawPayload.winnerSelections).map(
+          ([key, value]) => [key, Array.isArray(value) && value.length > 0 ? value[0] : '']
+        )
+      ) as Record<string, string>
+    };
+    
+    // Submit with corrected type
+    await eventStore.submitManualWinnerSelection(payload);
 
     notificationStore.showNotification({
       message: 'Winners saved successfully!',
@@ -770,7 +795,7 @@ const findWinner = async (): Promise<void> => {
     return;
   }
   
-  if (!canCalculateWinners(event.value, currentUser.value.uid)) {
+  if (!canCalculateWinners(event.value as EventWithId, currentUser.value.uid)) {
     errorMessage.value = 'You are not authorized to find the winner.';
     return;
   }
@@ -778,12 +803,11 @@ const findWinner = async (): Promise<void> => {
   isFindingWinner.value = true;
   errorMessage.value = '';
   try {
-    // The 'findWinner' action is likely a backend process.
-    // We can use 'submitManualWinnerSelection' with an empty payload to trigger recalculation,
-    // or a dedicated cloud function could be triggered by a status change.
-    // For now, let's assume manual selection with current votes is the intended action.
-    // This part may need adjustment based on actual backend implementation.
-    await eventStore.submitManualWinnerSelection({ eventId: event.value.id, winnerSelections: {} });
+    // Fix the type of winnerSelections to match the expected type
+    await eventStore.submitManualWinnerSelection({ 
+      eventId: event.value.id, 
+      winnerSelections: {} as Record<string, string> 
+    });
     notificationStore.showNotification({
         message: 'Winner calculation initiated. Check event details for results.',
         type: 'success'

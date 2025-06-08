@@ -55,8 +55,8 @@
           </a>
 
           <a
-            v-if="user.socialLinks?.other"
-            :href="user.socialLinks.other"
+            v-if="user.socialLinks?.portfolio"
+            :href="user.socialLinks.portfolio"
             target="_blank"
             rel="noopener noreferrer"
             class="btn btn-sm btn-light border flex-grow-1 flex-md-grow-0 d-inline-flex align-items-center justify-content-center social-link"
@@ -175,8 +175,7 @@ const profileImageRef = ref<HTMLImageElement | null>(null);
 
 const hasSocialLinks = computed(() => {
   return !!(props.user.socialLinks?.portfolio || 
-           props.user.socialLinks?.instagram || 
-           props.user.socialLinks?.other);
+           props.user.socialLinks?.instagram );
 });
 
 const socialLinkDetails = computed(() => {
@@ -326,7 +325,7 @@ onMounted(() => {
 /* Stats Grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
 }
 

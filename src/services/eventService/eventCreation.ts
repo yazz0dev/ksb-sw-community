@@ -5,14 +5,16 @@ import {
   setDoc,
   updateDoc,
   deleteField,
-  serverTimestamp
+  serverTimestamp,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { DateTime } from 'luxon';
 import { 
-  type Event, 
+  type Event as EventBaseData,
   EventStatus, 
-  type EventFormData
+  type EventFormData,
+  EventFormat
 } from '@/types/event';
 import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventDataUtils';
 import { EVENTS_COLLECTION } from '@/utils/constants';
@@ -75,7 +77,6 @@ export const createEventRequest = async (
     // Ensure the data structure exactly matches what Firestore rules expect
     const dataToSubmit: any = {
       ...mappedData,
-      id: newEventId,
       requestedBy: studentId,
       status: EventStatus.Pending,
       votingOpen: false,
@@ -87,32 +88,79 @@ export const createEventRequest = async (
       criteriaVotes: {},
       participants: [],
       teamMemberFlatList: [],
-      createdAt: serverTimestamp(),
-      lastUpdatedAt: serverTimestamp(),
+      lifecycleTimestamps: {
+        createdAt: serverTimestamp(), // Use serverTimestamp
+      },
+      // lastUpdatedAt is now set by mapEventDataToFirestore to serverTimestamp()
       // Ensure optional fields are explicitly null if not provided
       rejectionReason: null,
       manuallySelectedBy: null,
-      gallery: null,
-      lifecycleTimestamps: null
+      gallery: null
     };
     
     // Ensure organizers array includes the requestor and is properly formatted
+    // This needs to happen *before* setDoc and *after* mappedData spread
     if (dataToSubmit.details) {
-      if (!dataToSubmit.details.organizers || !Array.isArray(dataToSubmit.details.organizers)) {
-        dataToSubmit.details.organizers = [studentId];
-      } else if (!dataToSubmit.details.organizers.includes(studentId)) {
-        dataToSubmit.details.organizers = [studentId, ...dataToSubmit.details.organizers];
+      // If organizers are coming from formData and are valid, use them, ensuring studentId is present.
+      // Otherwise, initialize with studentId.
+      let organizersList = dataToSubmit.details.organizers;
+      if (!Array.isArray(organizersList)) {
+        organizersList = []; // Initialize if not an array
       }
-      
+
+      if (!organizersList.includes(studentId)) {
+        organizersList.push(studentId); // Add studentId if not already present
+      }
+      dataToSubmit.details.organizers = [...new Set(organizersList)]; // Ensure uniqueness and assign back
+
+      // Ensure eventName is not empty. This should be caught by initial validation too.
+      if (!dataToSubmit.details.eventName || dataToSubmit.details.eventName.trim() === '') {
+          throw new Error('Event name cannot be empty.');
+      }
+
       // Ensure all detail fields match rules expectations
       dataToSubmit.details.rules = dataToSubmit.details.rules || null;
-      dataToSubmit.details.prize = dataToSubmit.details.prize || null;
+      dataToSubmit.details.prize = dataToSubmit.details.prize || null; // Ensure all detail fields match rules expectations
+      
+      // Ensure date fields are proper Firestore Timestamps 
+      if (dataToSubmit.details.date && dataToSubmit.details.date.start) {
+        const startDate = startDateTime.toJSDate();
+        const endDate = endDateTime.toJSDate();
+        dataToSubmit.details.date = {
+          start: Timestamp.fromDate(startDate),
+          end: Timestamp.fromDate(endDate)
+        };
+      }
+    } else {
+      // If details object itself is missing, create it with the studentId as organizer
+      dataToSubmit.details = {
+        // formData.details would be undefined here if it was undefined in the input
+        // So, we need to ensure all required fields for EventDetails are initialized
+        eventName: formData.details?.eventName?.trim() || 'Untitled Event', // Default if not provided
+        description: formData.details?.description || '', // Default if not provided
+        format: formData.details?.format || EventFormat.Individual, // Use imported EventFormat
+        type: formData.details?.type || 'General', // Default if not provided
+        organizers: [studentId], 
+        date: {
+            // Create proper Firestore Timestamps here too
+            start: startDateTime ? Timestamp.fromDate(startDateTime.toJSDate()) : null,
+            end: endDateTime ? Timestamp.fromDate(endDateTime.toJSDate()) : null
+        },
+        allowProjectSubmission: formData.details?.allowProjectSubmission !== undefined ? formData.details.allowProjectSubmission : true,
+        rules: formData.details?.rules || null,
+        prize: formData.details?.prize || null,
+      };
+      // Ensure eventName is not empty after defaulting in the else block
+      if (!dataToSubmit.details.eventName || dataToSubmit.details.eventName.trim() === '') {
+          throw new Error('Event name cannot be empty.');
+      }
     }
 
     // Ensure arrays are properly initialized (rules expect arrays, not undefined)
     dataToSubmit.criteria = dataToSubmit.criteria || [];
     dataToSubmit.teams = dataToSubmit.teams || [];
 
+    console.log('Submitting to Firestore (createEventRequest):', dataToSubmit); // Added log
     await setDoc(newEventRef, dataToSubmit);
     return newEventId;
   } catch (error) {
@@ -142,13 +190,13 @@ export const updateEventRequestInService = async (
     const eventSnap = await getDoc(eventRef);
     if (!eventSnap.exists()) throw new Error('Event request not found.');
     
-    const currentEvent = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
+    const currentEvent = mapFirestoreToEventData(eventSnap.id, eventSnap.data()) as EventBaseData | null; // Added type assertion
     if (!currentEvent) throw new Error('Failed to map current event data.');
 
     if (currentEvent.requestedBy !== studentId) {
         throw new Error("Permission denied: You can only edit your own event requests.");
     }
-    if (![EventStatus.Pending, EventStatus.Rejected].includes(currentEvent.status)) {
+    if (![EventStatus.Pending, EventStatus.Rejected].includes(currentEvent.status as EventStatus)) { // Added 'as EventStatus' for clarity if status is a union
         throw new Error(`Cannot edit request with status: ${currentEvent.status}. Only Pending or Rejected requests are editable.`);
     }
 
@@ -183,13 +231,12 @@ export const updateEventRequestInService = async (
         throw new Error('Event end date must be on or after the start date.');
     }
     
-    const mappedUpdates = mapEventDataToFirestore(formData);
+    const mappedUpdates = mapEventDataToFirestore(formData); // This will set lastUpdatedAt to serverTimestamp()
     const updatesToApply: any = { ...mappedUpdates };
 
     // Remove protected fields
     delete updatesToApply.status;
     delete updatesToApply.requestedBy;
-    delete updatesToApply.createdAt;
     delete updatesToApply.lifecycleTimestamps;
     delete updatesToApply.votingOpen;
     delete updatesToApply.winners;
@@ -199,11 +246,15 @@ export const updateEventRequestInService = async (
     delete updatesToApply.teamMemberFlatList;
     delete updatesToApply.participants;
 
+    // lastUpdatedAt is already set by mapEventDataToFirestore in mappedUpdates
+    // No need to explicitly set it again unless overriding that behavior.
+
     if (currentEvent.status === EventStatus.Rejected) {
-        (updatesToApply as any).rejectionReason = deleteField();
         updatesToApply.status = EventStatus.Pending;
+        (updatesToApply as any).rejectionReason = deleteField();
     }
 
+    console.log('Updating Firestore document (updateEventRequestInService):', updatesToApply); // Added log
     await updateDoc(eventRef, updatesToApply);
 
   } catch (error) {
@@ -223,17 +274,16 @@ export const updateEventRequestInService = async (
 export async function createEventInFirestore(eventData: EventFormData, userId: string): Promise<string> {
     if (!userId) throw new Error('User ID is required to create an event.');
     if (!eventData.details?.eventName?.trim()) throw new Error('Event name is required.');
-    
+        
     // ...existing date validation logic...
 
     try {
         const newEventRef = doc(collection(db, EVENTS_COLLECTION));
         const newEventId = newEventRef.id;
-        const mappedData = mapEventDataToFirestore(eventData);
+        const mappedData = mapEventDataToFirestore(eventData); // This will set lastUpdatedAt to serverTimestamp()
 
-        const dataToSubmit: Partial<Event> = {
+        const dataToSubmit: Partial<EventBaseData> = { // Changed Event to EventBaseData
             ...mappedData,
-            id: newEventId,
             requestedBy: userId,
             status: EventStatus.Approved,
             votingOpen: false, 
@@ -253,6 +303,7 @@ export async function createEventInFirestore(eventData: EventFormData, userId: s
             }
         }
 
+        console.log('Submitting to Firestore (createEventInFirestore):', dataToSubmit); // Added log
         await setDoc(newEventRef, dataToSubmit);
         return newEventId;
     } catch (error: any) {

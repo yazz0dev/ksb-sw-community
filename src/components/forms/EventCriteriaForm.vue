@@ -11,11 +11,12 @@
             <input
               :id="`criterion-label-${idx}`"
               class="form-control form-control-sm"
+              :class="{ 'is-invalid': !criterion.title && criterion.touched?.title }"
               type="text"
               v-model.trim="criterion.title"
               placeholder="Enter criterion name (e.g., Code Quality, Creativity)"
               :disabled="isSubmitting || isBestPerformerCriterion(criterion)"
-              required
+              @blur="criterion.touched && (criterion.touched.title = true)"
             />
           </div>
 
@@ -47,9 +48,10 @@
             <select
               :id="`criterion-role-${idx}`"
               class="form-select form-select-sm"
+              :class="{ 'is-invalid': !criterion.role && criterion.touched?.role }"
               v-model="criterion.role"
               :disabled="isSubmitting || isBestPerformerCriterion(criterion)"
-              required
+              @blur="criterion.touched && (criterion.touched.role = true)"
             >
               <option value="" disabled>Select Role...</option>
               <option v-for="role in props.assignableXpRoles" :key="role" :value="role">{{ formatRoleName(role) }}</option>
@@ -72,11 +74,11 @@
           </div>
         </div>
         <!-- Validation message for label -->
-        <small v-if="!criterion.title && !isBestPerformerCriterion(criterion)" class="text-danger d-block mt-1">
+        <small v-if="!criterion.title && !isBestPerformerCriterion(criterion) && criterion.touched?.title" class="text-danger d-block mt-1">
             Criterion name is required.
         </small>
          <!-- Validation message for role -->
-         <small v-if="!criterion.role && !isBestPerformerCriterion(criterion)" class="text-danger d-block mt-1">
+         <small v-if="!criterion.role && !isBestPerformerCriterion(criterion) && criterion.touched?.role" class="text-danger d-block mt-1">
              Target role selection is required.
          </small>
       </div>
@@ -112,6 +114,13 @@ import {
   MAX_TOTAL_XP
 } from '@/utils/constants';
 
+interface CriterionWithState extends EventCriteria {
+  touched?: {
+    title: boolean;
+    role: boolean;
+  };
+}
+
 // --- Constants ---
 const DEFAULT_CRITERION_LABEL = 'Overall Performance';
 const DEFAULT_CRITERION_POINTS = 10;
@@ -129,27 +138,29 @@ const props = defineProps<Props>();
 const emit = defineEmits(['update:criteria']);
 
 // --- State ---
-const localCriteria = ref<EventCriteria[]>([]); // Use EventCriteria
+const localCriteria = ref<CriterionWithState[]>([]); // Use EventCriteria
 
 // --- Helper Functions ---
 const isBestPerformerCriterion = (criterion: EventCriteria): boolean => { // Use EventCriteria
   return criterion.title === BEST_PERFORMER_LABEL;
 };
 
-const createBestPerformerCriterion = (): EventCriteria => ({ // Return EventCriteria
+const createBestPerformerCriterion = (): CriterionWithState => ({ // Return EventCriteria
   constraintIndex: -1,
   title: BEST_PERFORMER_LABEL,
   points: BEST_PERFORMER_POINTS,
   role: '',
+  touched: { title: false, role: false },
 });
 
-function createDefaultCriterion(): EventCriteria { // Return EventCriteria
+function createDefaultCriterion(): CriterionWithState { // Return EventCriteria
   const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
   return {
     constraintIndex: uniqueId,
     title: DEFAULT_CRITERION_LABEL,
     points: DEFAULT_CRITERION_POINTS,
     role: props.assignableXpRoles[0] || '',
+    touched: { title: false, role: false },
   };
 }
 
@@ -172,7 +183,7 @@ watch(
   ([newCriteria, newFormat], [, oldFormat]) => {
     if (isUpdatingFromProp) return;
     
-    let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as EventCriteria[];
+    let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as CriterionWithState[];
 
     if (newFormat !== oldFormat) {
       if (newFormat === EventFormat.Competition) {
@@ -198,6 +209,12 @@ watch(
     if (newFormat !== EventFormat.Competition && nonBestPerfCriteria.length === 0) {
       workingCriteria.unshift(createDefaultCriterion());
     }
+
+    workingCriteria.forEach(c => {
+      if (!c.touched) {
+        c.touched = { title: false, role: false };
+      }
+    });
 
     if (JSON.stringify(workingCriteria) !== JSON.stringify(localCriteria.value)) {
       localCriteria.value = workingCriteria;

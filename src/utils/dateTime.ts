@@ -2,9 +2,14 @@ import { DateTime } from 'luxon';
 import { Timestamp } from 'firebase/firestore';
 
 /**
+ * Type for a plain timestamp object
+ */
+export type PlainTimestamp = { seconds: number; nanoseconds: number };
+
+/**
  * Type for acceptable date inputs
  */
-export type DateInput = Date | Timestamp | string | null | undefined;
+export type DateInput = Date | Timestamp | string | PlainTimestamp | null | undefined;
 
 /**
  * Converts various date formats to IST DateTime

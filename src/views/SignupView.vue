@@ -238,7 +238,7 @@ import { useRoute } from 'vue-router';
 import { collection, addDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase';
 import type { RegistrationFormData, signup } from '@/types/signup';
-import { validateSignupToken, isValidBatchYear, isBatchSignupActive, incrementBatchRegistrationCount } from '@/utils/signupUtils';
+import { validateSignupToken, isValidBatchYear, isBatchSignupActive } from '@/utils/signupUtils';
 
 const route = useRoute();
 
@@ -419,9 +419,6 @@ const submitRegistration = async () => {
     // Submit to Firestore using the flat collection structure
     const signupRef = collection(db, 'signup');
     await addDoc(signupRef, registrationData);
-
-    // Increment the batch registration count
-    await incrementBatchRegistrationCount(batchYear.value!);
 
     submissionSuccess.value = true;
     

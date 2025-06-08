@@ -100,6 +100,12 @@ async function handleFileChange(event: Event) {
   }
   
   const file = files[0];
+  // Additional check to ensure file is defined
+  if (!file) {
+    error.value = "Invalid file selected";
+    return;
+  }
+
   error.value = null;
   
   try {

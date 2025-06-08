@@ -124,8 +124,8 @@ export function compareEventsForSort(a: Event, b: Event): number {
 
     // For active-like statuses, sort ascending by start date (or creation date)
     if ([EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status as EventStatus)) {
-        const dateA = getDateValue(a.details?.date?.start, a.createdAt, 'asc');
-        const dateB = getDateValue(b.details?.date?.start, b.createdAt, 'asc');
+        const dateA = getDateValue(a.details?.date?.start, a.lifecycleTimestamps?.createdAt, 'asc');
+        const dateB = getDateValue(b.details?.date?.start, b.lifecycleTimestamps?.createdAt, 'asc');
         return dateA - dateB;
     } else {
         // For completed/closed/etc. statuses, sort descending by a relevant end/completion/update date
@@ -133,14 +133,14 @@ export function compareEventsForSort(a: Event, b: Event): number {
         if (a.status === EventStatus.Closed) timeA = getDateValue(a.lifecycleTimestamps?.closedAt, a.lastUpdatedAt, 'desc');
         else if (a.status === EventStatus.Completed) timeA = getDateValue(a.lifecycleTimestamps?.completedAt, a.lastUpdatedAt, 'desc');
         else if (a.status === EventStatus.Rejected) timeA = getDateValue(a.lifecycleTimestamps?.rejectedAt, a.lastUpdatedAt, 'desc');
-        else if (a.status === EventStatus.Cancelled) timeA = getDateValue(a.lastUpdatedAt, a.createdAt, 'desc'); // Use createdAt as fallback for cancelled if lastUpdatedAt is not set
+        else if (a.status === EventStatus.Cancelled) timeA = getDateValue(a.lastUpdatedAt, a.lifecycleTimestamps?.createdAt, 'desc'); // Use createdAt as fallback for cancelled if lastUpdatedAt is not set
         else timeA = getDateValue(a.details?.date?.end, a.lastUpdatedAt, 'desc');
 
         let timeB = 0;
         if (b.status === EventStatus.Closed) timeB = getDateValue(b.lifecycleTimestamps?.closedAt, b.lastUpdatedAt, 'desc');
         else if (b.status === EventStatus.Completed) timeB = getDateValue(b.lifecycleTimestamps?.completedAt, b.lastUpdatedAt, 'desc');
         else if (b.status === EventStatus.Rejected) timeB = getDateValue(b.lifecycleTimestamps?.rejectedAt, b.lastUpdatedAt, 'desc');
-        else if (b.status === EventStatus.Cancelled) timeB = getDateValue(b.lastUpdatedAt, b.createdAt, 'desc');
+        else if (b.status === EventStatus.Cancelled) timeB = getDateValue(b.lastUpdatedAt, b.lifecycleTimestamps?.createdAt, 'desc');
         else timeB = getDateValue(b.details?.date?.end, b.lastUpdatedAt, 'desc');
         
         return timeB - timeA; // Note: timeB - timeA for descending

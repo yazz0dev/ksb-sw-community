@@ -59,13 +59,7 @@
         </div>
 
         <div v-else :key="'event-form-content'">
-          <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
-            <i class="fas fa-times-circle me-2"></i>
-            <div>{{ errorMessage }}</div>
-            <button type="button" class="btn-close btn-sm" @click="errorMessage = ''" aria-label="Close"></button>
-          </div>
-
-          <form @submit.prevent="handleSubmitForm" class="needs-validation" novalidate>
+          <form @submit.prevent="handleSubmitForm" class="needs-validation" novalidate ref="formRef">
             <!-- Event Basic Details Card -->
             <div class="card shadow-sm mb-4 rounded-3 overflow-hidden">
               <div class="card-header bg-primary-subtle text-primary-emphasis py-3">
@@ -171,7 +165,7 @@ import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import EventCoOrganizerForm from '@/components/forms/EventCoOrganizerForm.vue';
 import EventCriteriaForm from '@/components/forms/EventCriteriaForm.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
-import { EventFormat, EventStatus, type EventFormData, type Team } from '@/types/event';
+import { EventFormat, EventStatus, type EventFormData, type Team, type EventCriteria } from '@/types/event'; // Import EventFormat, EventFormData, Team, EventCriteria
 import { useEventStore } from '@/stores/eventStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -189,29 +183,30 @@ const loading = ref(true);
 const editError = ref('');
 const isEditing = ref(false);
 const hasActiveRequest = ref(false);
-const errorMessage = ref('');
 const isSubmitting = ref(false);
 const eventId = ref(route.params.eventId as string || '');
+const originalStatus = ref<EventStatus | null>(null);
 const allUsers = ref<InstanceType<typeof ManageTeamsComponent>['students']>([]);
 const nameCache = ref<Record<string, string>>({});
 const assignableXpRoles = ref<readonly string[]>(['developer', 'designer', 'presenter', 'problemSolver']);
 const teamsComponentReady = ref(true); // Add this line to define the missing property
+const formRef = ref<HTMLFormElement | null>(null); // Added form ref
 
 // Form data structure
 const formData = ref<EventFormData>({
   details: {
-    eventName: '',
-    type: '',
-    format: EventFormat.Individual,
-    description: '',
-    rules: '',
-    prize: '',
+    eventName: '', // Initialize
+    description: '', // Initialize
+    type: '', // Initialize
+    format: EventFormat.Individual, // Initialize with a default
     allowProjectSubmission: true,
     organizers: [], 
     date: {
       start: null,
       end: null
-    }
+    },
+    rules: null, // Initialize
+    prize: null, // Initialize
   },
   criteria: [], // Always initialize as empty array
   teams: [],
@@ -227,15 +222,12 @@ const pageSubtitle = computed(() => isEditing.value ? 'Update the details of the
 const isFormValid = computed(() => {
   const details = formData.value.details;
   if (!details.eventName.trim() || !details.type || !details.format) {
-    console.log("Validation fail: Basic details missing");
     return false;
   }
   if (!details.date.start || !details.date.end) {
-    console.log("Validation fail: Dates missing");
     return false;
   }
   if (!isDateAvailable.value) {
-    console.log("Validation fail: Date not available");
     return false;
   }
   if (details.format === EventFormat.Team && (!formData.value.teams || formData.value.teams.length === 0)) {
@@ -244,7 +236,7 @@ const isFormValid = computed(() => {
      // return false; // Optional: enforce teams at this stage
   }
   const criteria = formData.value.criteria || [];
-  if (criteria.some(c => !c.title?.trim() || (c.points ?? 0) <= 0 || !c.role)) {
+  if (criteria.some((c: EventCriteria) => !c.title?.trim() || (c.points ?? 0) <= 0 || !c.role)) {
     // console.log("Validation fail: Invalid criteria entry");
     // return false; // Criteria validation should ideally be handled within EventCriteriaForm
   }
@@ -253,7 +245,7 @@ const isFormValid = computed(() => {
 
 const totalXP = computed(() => {
   const criteria = formData.value.criteria || [];
-  return criteria.reduce((sum, c) => sum + (c.points || 0), 0);
+  return criteria.reduce((sum: number, c: EventCriteria) => sum + (c.points || 0), 0);
 });
 
 const scheduleCardNumber = computed(() => {
@@ -279,8 +271,7 @@ function handleTeamUpdate(newTeams: Team[]) {
 }
 
 function handleFormError(msg: string) {
-  errorMessage.value = msg;
-  setTimeout(() => errorMessage.value = '', 5000);
+  notificationStore.showNotification({ message: msg, type: 'error', duration: 5000 });
 }
 
 function handleAvailabilityChange(isAvailable: boolean) {
@@ -333,6 +324,7 @@ async function initializeFormForEdit(id: string) {
     }
     
     populateFormData(event);
+    originalStatus.value = event.status;
   } catch (err: any) {
     editError.value = err.message || 'An unknown error occurred while fetching event data.';
   } finally {
@@ -341,26 +333,46 @@ async function initializeFormForEdit(id: string) {
 }
 
 async function handleSubmitForm() {
+  const formEl = formRef.value;
   if (!isFormValid.value) {
-    errorMessage.value = "Please fill out all required fields and correct any errors.";
+    notificationStore.showNotification({
+      message: "Please fill out all required fields and correct any errors.",
+      type: 'error',
+      duration: 5000
+    });
+    if (formEl) {
+      formEl.classList.add('was-validated');
+    }
     return;
   }
 
   isSubmitting.value = true;
-  errorMessage.value = '';
 
   try {
     let success = false;
     let newEventId = '';
 
     if (isEditing.value) {
-      success = await eventStore.editMyEventRequest(eventId.value, formData.value);
+      const payload = { ...formData.value };
+      if (originalStatus.value === EventStatus.Rejected) {
+        payload.status = EventStatus.Pending;
+      }
+      success = await eventStore.editMyEventRequest(eventId.value, payload);
     } else {
       newEventId = await eventStore.requestNewEvent(formData.value);
       success = !!newEventId;
     }
 
     if (success) {
+      // Refresh user requests in profile store to ensure the new/updated request appears in UserRequests component
+      if (profileStore.studentId) {
+        try {
+          await profileStore.fetchUserRequests(profileStore.studentId);
+        } catch (error) {
+          console.warn('Failed to refresh user requests after event creation/update:', error);
+        }
+      }
+      
       notificationStore.showNotification({
         message: `Event ${isEditing.value ? 'updated' : 'requested'} successfully!`,
         type: 'success',
@@ -368,7 +380,11 @@ async function handleSubmitForm() {
       router.push({ name: 'EventDetails', params: { id: isEditing.value ? eventId.value : newEventId } });
     }
   } catch (error: any) {
-    errorMessage.value = error.message || `An unknown error occurred.`;
+    notificationStore.showNotification({
+      message: error.message || `An unknown error occurred.`,
+      type: 'error',
+      duration: 5000
+    });
   } finally {
     isSubmitting.value = false;
   }
@@ -393,7 +409,11 @@ onMounted(async () => {
       formData.value.details.organizers = profileStore.studentId ? [profileStore.studentId] : [];
     }
   } catch (error: any) {
-    errorMessage.value = "Failed to load necessary data. " + error.message;
+    notificationStore.showNotification({
+      message: "Failed to load necessary data. " + error.message,
+      type: 'error',
+      duration: 7000 // Longer duration for initial load errors
+    });
   } finally {
     loading.value = false;
   }

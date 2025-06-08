@@ -44,7 +44,6 @@
 import { computed, ref, watch, onMounted } from 'vue';
 import { useProfileStore } from '../stores/profileStore';
 import { useAppStore } from '../stores/appStore';
-import { useRouter, useRoute } from 'vue-router';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '@/composables/useAuth';
 
@@ -61,8 +60,6 @@ const props = withDefaults(defineProps<Props>(), {
 const studentStore = useProfileStore();
 const appStore = useAppStore();
 const auth = useAuth();
-const router = useRouter();
-const route = useRoute();
 
 const isLoading = ref(true);
 const authAttempts = ref(0);
@@ -82,7 +79,7 @@ const isAuthenticated = computed<boolean>(() => {
 const initialAuthAttempted = computed<boolean>(() => appStore.hasFetchedInitialAuth);
 
 // Watch for changes in authentication state
-watch([isAuthenticated, initialAuthAttempted], ([newIsAuth, newInitialAuth]) => {
+watch([isAuthenticated, initialAuthAttempted], ([, newInitialAuth]) => {
   if (newInitialAuth) {
     isLoading.value = false;
   }

@@ -46,7 +46,7 @@
                   </router-link>
                 </div>
                 <div v-if="activeEvents.length > 0" class="row g-3">
-                  <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
+                  <div v-for="(event, index) in activeEvents" :key="`active-${index}-${event.details?.eventName || ''}`" class="col-md-6 col-lg-4">
                     <EventCard :event="event" :name-cache="nameCache" />
                   </div>
                 </div>
@@ -66,7 +66,7 @@
                   </router-link>
                 </div>
                 <div v-if="upcomingEvents.length > 0" class="row g-3">
-                  <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
+                  <div v-for="(event, index) in upcomingEvents" :key="`upcoming-${index}-${event.details?.eventName || ''}`" class="col-md-6 col-lg-4">
                     <EventCard :event="event" :name-cache="nameCache" />
                   </div>
                 </div>
@@ -86,7 +86,7 @@
                   </router-link>
                 </div>
                 <div v-if="completedEvents.length > 0" class="row g-3">
-                  <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
+                  <div v-for="(event, index) in completedEvents" :key="`completed-${index}-${event.details?.eventName || ''}`" class="col-md-6 col-lg-4">
                     <EventCard :event="event" :name-cache="nameCache" />
                   </div>
                 </div>
@@ -104,7 +104,7 @@
                   <transition name="fade-fast">
                     <div v-if="showCancelled">
                       <div class="row g-3">
-                        <div v-for="event in cancelledEvents" :key="event.id" class="col-md-6 col-lg-4">
+                        <div v-for="(event, index) in cancelledEvents" :key="`cancelled-${index}-${event.details?.eventName || ''}`" class="col-md-6 col-lg-4">
                           <EventCard :event="event" :name-cache="nameCache" />
                         </div>
                       </div>

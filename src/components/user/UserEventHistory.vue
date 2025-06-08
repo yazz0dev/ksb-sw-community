@@ -3,13 +3,13 @@
     <!-- Header -->
     <div class="section-header bg-primary-subtle text-primary-emphasis rounded-top-4 p-4 border-bottom">
       <div class="d-flex align-items-center justify-content-between">
-        <div class="header-content d-flex align-items-center">
-          <div class="header-icon me-3">
+        <div class="header-content">
+          <div class="header-icon bg-primary-subtle">
             <i class="fas fa-history fa-lg"></i>
           </div>
           <div>
-            <h5 class="section-title mb-1 fw-semibold">Event History</h5>
-            <p class="section-subtitle text-muted small mb-0">{{ events.length }} event{{ events.length === 1 ? '' : 's' }} participated</p>
+            <h5 class="section-title mb-1 text-primary-emphasis">Event History</h5>
+            <p class="d-none d-sm-block section-subtitle small mb-0">{{ events.length }} event{{ events.length === 1 ? '' : 's' }} participated</p>
           </div>
         </div>
         <div class="header-badge">
@@ -21,7 +21,7 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="loading-section p-4 text-center">
+    <div v-if="loading" class="loading-section">
       <div class="d-flex align-items-center justify-content-center">
         <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
           <span class="visually-hidden">Loading...</span>
@@ -31,18 +31,18 @@
     </div>
 
     <!-- Events List -->
-    <div v-else class="events-list">
+    <div v-else class="item-list">
       <div
         v-for="(eventItem, index) in sortedEvents"
         :key="eventItem.eventId || index" 
-        class="event-item"
+        class="list-item"
         :class="{ 'border-bottom': index < sortedEvents.length - 1 }"
       >
         <!-- Event Header -->
         <div class="event-header mb-3">
           <div class="event-title-section">
             <div class="d-flex align-items-center mb-2">
-              <div class="event-icon me-3">
+              <div class="item-icon bg-primary-subtle">
                 <i class="fas fa-calendar-alt text-primary"></i>
               </div>
               <div class="event-title-container flex-grow-1">
@@ -93,12 +93,12 @@
 
   <!-- Empty State -->
   <div v-else-if="!loading" class="section-card shadow-sm rounded-4 animate-fade-in">
-    <div class="empty-state text-center p-5">
-      <div class="empty-icon mb-4">
+    <div class="empty-state">
+      <div class="empty-icon">
         <i class="fas fa-calendar-times fa-3x text-muted opacity-50"></i>
       </div>
-      <h6 class="empty-title text-secondary fw-semibold mb-2">No Event History</h6>
-      <p class="empty-description text-muted mb-0">This user hasn't participated in any events yet.</p>
+      <h6 class="empty-title">No Event History</h6>
+      <p class="empty-description">This user hasn't participated in any events yet.</p>
     </div>
   </div>
 </template>
@@ -204,6 +204,30 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
   flex-shrink: 0;
 }
 
+/* Event Meta */
+.event-meta {
+  margin-left: 3.5rem;
+}
+
+/* Event-specific badges */
+.meta-badge,
+.organizer-badge,
+.date-badge {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  font-weight: 500;
+}
+
+.organizer-badge {
+  font-weight: 600;
+  border: 1px solid var(--bs-success);
+}
+
+.date-badge {
+  border: 1px solid var(--bs-border-color) !important;
+}
+
+/* Component-specific styles */
 .event-title {
   font-size: 1.1rem;
   line-height: 1.4;
@@ -214,130 +238,8 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
   color: var(--bs-primary) !important;
 }
 
-/* Event Meta */
-.event-meta {
-  margin-left: 3.5rem;
-}
-
-.meta-badge {
-  font-size: 0.75rem;
-  padding: 0.35rem 0.65rem;
-  font-weight: 500;
-}
-
-.status-badge {
-  font-size: 0.75rem;
-  padding: 0.35rem 0.65rem;
-  font-weight: 500;
-}
-
-.organizer-badge {
-  font-size: 0.75rem;
-  padding: 0.35rem 0.65rem;
-  font-weight: 600;
-  border: 1px solid var(--bs-success);
-}
-
-.date-badge {
-  font-size: 0.75rem;
-  padding: 0.35rem 0.65rem;
-  font-weight: 500;
-  border: 1px solid var(--bs-border-color) !important;
-}
-
-/* Empty State */
-.empty-state {
-  background: linear-gradient(135deg, var(--bs-light), rgba(var(--bs-primary-rgb), 0.05));
-}
-
-.empty-icon {
-  opacity: 0.6;
-}
-
-.empty-title {
-  font-size: 1.1rem;
-}
-
-.empty-description {
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .section-header {
-    padding: 1rem !important;
-  }
-  
-  .header-content {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 0.5rem;
-  }
-  
-  .header-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    margin-right: 0.75rem !important;
-  }
-  
-  .section-title {
-    font-size: 1.1rem;
-  }
-  
-  .event-item {
-    padding: 1rem;
-  }
-  
-  .event-icon {
-    width: 2rem;
-    height: 2rem;
-    margin-right: 0.75rem !important;
-  }
-  
-  .event-title {
-    font-size: 1rem;
-  }
-  
-  .event-meta {
-    margin-left: 2.75rem;
-    gap: 0.25rem !important;
-  }
-  
-  .meta-badge,
-  .status-badge,
-  .organizer-badge,
-  .date-badge {
-    font-size: 0.7rem;
-    padding: 0.25rem 0.5rem;
-  }
-}
-
+/* Responsive adjustments */
 @media (max-width: 480px) {
-  .section-header .d-flex {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 1rem;
-  }
-  
-  .header-badge {
-    align-self: flex-end;
-  }
-  
-  .event-item {
-    padding: 0.75rem;
-  }
-  
-  .event-header .d-flex {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 0.5rem;
-  }
-  
-  .event-icon {
-    margin-right: 0 !important;
-  }
-  
   .event-meta {
     margin-left: 0;
     width: 100%;
@@ -347,14 +249,6 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
     flex: 1;
     text-align: center;
     min-width: auto;
-  }
-  
-  .empty-state {
-    padding: 2rem !important;
-  }
-  
-  .empty-icon .fa-3x {
-    font-size: 2rem !important;
   }
 }
 </style>

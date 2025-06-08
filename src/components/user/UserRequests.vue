@@ -18,12 +18,12 @@
       class="empty-section animate-fade-in"
     >
       <div class="section-card shadow-sm rounded-4">
-        <div class="empty-state text-center p-5">
+        <div class="empty-state">
           <div class="empty-icon mb-4">
             <i class="fas fa-calendar-times fa-3x text-muted opacity-50"></i>
           </div>
-          <h6 class="empty-title text-secondary fw-semibold mb-2">No Pending Requests</h6>
-          <p class="empty-description text-muted mb-0">You don't have any pending event requests at the moment.</p>
+          <h6 class="empty-title mb-2">No Pending Requests</h6>
+          <p class="empty-description mb-0">You don't have any pending event requests at the moment.</p>
         </div>
       </div>
     </div>
@@ -34,13 +34,13 @@
         <!-- Header -->
         <div class="section-header bg-primary-subtle text-primary-emphasis rounded-top-4 p-4 border-bottom">
           <div class="d-flex align-items-center justify-content-between">
-            <div class="header-content d-flex align-items-center">
-              <div class="header-icon me-3">
+            <div class="header-content">
+              <div class="header-icon bg-primary-subtle">
                 <i class="fas fa-clipboard-list fa-lg"></i>
               </div>
               <div>
-                <h5 class="section-title mb-1 fw-semibold">Event Requests</h5>
-                <p class="section-subtitle text-muted small mb-0">{{ requests.length }} pending request{{ requests.length === 1 ? '' : 's' }}</p>
+                <h5 class="section-title mb-1 text-primary-emphasis">Event Requests</h5>
+                <p class="d-none d-sm-block section-subtitle small mb-0">{{ requests.length }} pending request{{ requests.length === 1 ? '' : 's' }}</p>
               </div>
             </div>
             <div class="header-badge">
@@ -52,18 +52,18 @@
         </div>
 
         <!-- Requests Content -->
-        <div class="requests-list">
+        <div class="item-list">
           <div 
             v-for="(request, index) in requests" 
             :key="request.id" 
-            class="request-item"
+            class="list-item"
             :class="{ 'border-bottom': index < requests.length - 1 }"
           >
             <!-- Request Header -->
             <div class="request-header mb-3">
               <div class="d-flex align-items-center mb-2 flex-wrap">
                 <div class="d-flex align-items-center me-3 mb-2">
-                  <div class="request-icon me-2">
+                  <div class="item-icon me-2 bg-primary-subtle">
                     <i class="fas fa-file-alt text-primary"></i>
                   </div>
                   <div class="request-title-container flex-grow-1">
@@ -281,97 +281,9 @@ onMounted(() => {
   margin: 1.5rem 0;
 }
 
-/* Loading Section */
+/* Loading content specific */
 .loading-content {
   background: linear-gradient(135deg, var(--bs-light), rgba(var(--bs-primary-rgb), 0.05));
-}
-
-/* Empty State */
-.empty-state {
-  background: linear-gradient(135deg, var(--bs-light), rgba(var(--bs-primary-rgb), 0.05));
-}
-
-.empty-icon {
-  opacity: 0.6;
-}
-
-.empty-title {
-  font-size: 1.1rem;
-}
-
-.empty-description {
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-/* Section Header */
-.section-header {
-  border-bottom: 1px solid var(--bs-border-color-translucent);
-}
-
-.header-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  background: rgba(var(--bs-primary-rgb), 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.section-title {
-  font-size: 1.25rem;
-  color: var(--bs-primary-emphasis);
-}
-
-.section-subtitle {
-  color: var(--bs-secondary);
-}
-
-.header-badge .badge {
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-/* Requests List */
-.requests-list {
-  padding: 0;
-}
-
-.request-item {
-  padding: 1.5rem;
-  transition: background-color 0.3s ease;
-  position: relative;
-}
-
-.request-item:hover {
-  background-color: var(--bs-light);
-}
-
-.request-item:last-child {
-  border-radius: 0 0 var(--bs-border-radius-lg) var(--bs-border-radius-lg);
-}
-
-/* Request Content */
-.request-icon {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  background: var(--bs-primary-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.request-title {
-  font-size: 1.1rem;
-  line-height: 1.4;
-  transition: color 0.3s ease;
-}
-
-.request-title.hover-primary:hover {
-  color: var(--bs-primary) !important;
 }
 
 /* Status Section */
@@ -383,6 +295,17 @@ onMounted(() => {
   font-size: 0.75rem;
   padding: 0.35rem 0.65rem;
   font-weight: 500;
+}
+
+/* Request-specific styles */
+.request-title {
+  font-size: 1.1rem;
+  line-height: 1.4;
+  transition: color 0.3s ease;
+}
+
+.request-title.hover-primary:hover {
+  color: var(--bs-primary) !important;
 }
 
 /* Actions */
@@ -443,40 +366,6 @@ onMounted(() => {
     align-items: flex-start !important;
   }
   
-  .section-header {
-    padding: 1rem !important;
-  }
-  
-  .header-content {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 0.5rem;
-  }
-  
-  .header-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    margin-right: 0.75rem !important;
-  }
-  
-  .section-title {
-    font-size: 1.1rem;
-  }
-  
-  .request-item {
-    padding: 1rem;
-  }
-  
-  .request-icon {
-    width: 2rem;
-    height: 2rem;
-    margin-right: 0.75rem !important;
-  }
-  
-  .request-title {
-    font-size: 1rem;
-  }
-  
   .request-status-section,
   .request-actions {
     margin-left: 2.75rem !important;
@@ -494,42 +383,16 @@ onMounted(() => {
 }
 
 @media (max-width: 480px) {
-  .section-header .d-flex {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 1rem;
-  }
-  
-  .header-badge {
-    align-self: flex-end;
-  }
-  
-  .request-item {
-    padding: 0.75rem;
-  }
-  
   .request-header .d-flex {
     flex-direction: column;
     align-items: flex-start !important;
     gap: 0.5rem;
   }
   
-  .request-icon {
-    margin-right: 0 !important;
-  }
-  
   .request-status-section,
   .request-actions {
     margin-left: 0 !important;
     width: 100%;
-  }
-  
-  .empty-state {
-    padding: 2rem !important;
-  }
-  
-  .empty-icon .fa-3x {
-    font-size: 2rem !important;
   }
   
   .alert {

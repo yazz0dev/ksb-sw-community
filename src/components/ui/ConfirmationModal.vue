@@ -125,7 +125,7 @@ onMounted(() => {
             // Find and set backdrop z-index
             const backdrop = document.querySelector('.modal-backdrop');
             if (backdrop) {
-                backdrop.style.setProperty('z-index', '1059', 'important');
+                (backdrop as HTMLElement).style.setProperty('z-index', '1059', 'important');
             }
         });
     } else {
@@ -153,7 +153,7 @@ defineExpose({
                 }
                 const backdrop = document.querySelector('.modal-backdrop');
                 if (backdrop) {
-                    backdrop.style.setProperty('z-index', '1059', 'important');
+                    (backdrop as HTMLElement).style.setProperty('z-index', '1059', 'important');
                 }
             }, 50);
         } else {
