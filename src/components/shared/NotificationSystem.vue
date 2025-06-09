@@ -1,51 +1,70 @@
 // src/components/shared/NotificationSystem.vue
 <template>
   <div class="notification-container toast-container position-fixed top-0 end-0 p-3">
-    <transition-group name="notification" tag="div">
+    <transition name="notification">
       <div
-        v-for="notification in notifications"
-        :key="notification.id"
+        v-if="currentNotification"
+        :key="currentNotification.id"
         class="toast show m-2 shadow"
         role="alert"
         aria-live="assertive"
         aria-atomic="true"
-        :class="getToastClass(notification.type)"
+        :class="getToastClass(currentNotification.type)"
       >
-        <div class="toast-header" :class="getToastHeaderClass(notification.type)">
+        <div class="toast-header" :class="getToastHeaderClass(currentNotification.type)">
           <span class="me-2">
-            <i :class="['fas', getTypeIcon(notification.type)]"></i>
+            <i :class="['fas', getTypeIcon(currentNotification.type)]"></i>
           </span>
-          <strong class="me-auto">{{ notification.title || notification.type.charAt(0).toUpperCase() + notification.type.slice(1) }}</strong>
+          <strong class="me-auto">{{ currentNotification.title || currentNotification.type.charAt(0).toUpperCase() + currentNotification.type.slice(1) }}</strong>
           <button
             type="button"
             class="btn-close"
-            @click="dismissNotification(notification.id)"
+            @click="dismissCurrentNotification"
             aria-label="Close"
           ></button>
         </div>
         <div class="toast-body">
-          {{ notification.message }}
+          {{ currentNotification.message }}
         </div>
       </div>
-    </transition-group>
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, watch, ref } from 'vue';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAppStore } from '@/stores/appStore';
 import type { QueuedAction, Notification as AppNotification } from '@/types/store'; // Ensure types/store.ts defines these
 
 const notificationStore = useNotificationStore();
 const appStore = useAppStore();
-const notifications = computed<AppNotification[]>(() => notificationStore.allNotifications); // Assuming studentNotificationStore.allNotifications matches AppNotification[]
+const notifications = computed<AppNotification[]>(() => notificationStore.allNotifications);
 const isOnline = computed<boolean>(() => appStore.isOnline);
 const queuedActions = computed<QueuedAction[]>(() => appStore.offlineQueue.actions);
 
-const dismissNotification = (id: string): void => {
-  notificationStore.dismissNotification(id);
+// Show only the most recent notification
+const currentNotification = computed<AppNotification | null>(() => {
+  const notifs = notifications.value;
+  return notifs.length > 0 ? notifs[notifs.length - 1] : null;
+});
+
+const dismissCurrentNotification = (): void => {
+  if (currentNotification.value) {
+    notificationStore.dismissNotification(currentNotification.value.id);
+  }
 };
+
+// Auto-dismiss older notifications when a new one appears
+watch(currentNotification, (newNotification) => {
+  if (newNotification && notifications.value.length > 1) {
+    // Dismiss all older notifications except the current one
+    const notifs = notifications.value;
+    for (let i = 0; i < notifs.length - 1; i++) {
+      notificationStore.dismissNotification(notifs[i].id);
+    }
+  }
+});
 
 watch(isOnline, (online: boolean) => {
   if (online && queuedActions.value.length > 0) {
@@ -105,9 +124,10 @@ const getTypeIcon = (type: AppNotification['type']): string => {
 
 .toast {
   width: 20rem;
-  background-color: var(--bs-card-bg);
-  border: 1px solid var(--bs-border-color);
-  box-shadow: var(--bs-box-shadow);
+  background-color: var(--bs-body-bg);
+  background-clip: padding-box;
+  border: 1px solid var(--bs-border-color-translucent);
+  box-shadow: var(--bs-box-shadow-lg);
 }
 
 .toast.show {

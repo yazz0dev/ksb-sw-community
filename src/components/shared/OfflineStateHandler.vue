@@ -123,11 +123,9 @@ const checkConnection = async (): Promise<void> => {
     if (response.ok) {
       // If fetch succeeds, we're online
       appStore.$patch({ isOnline: true });
-      console.log('Connection restored');
     }
   } catch (error) {
     // If fetch fails, we're still offline
-    console.log('Still offline', error);
     // No need to update offline state as it's already set to false
   } finally {
     isCheckingConnection.value = false;

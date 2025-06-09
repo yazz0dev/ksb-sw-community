@@ -51,7 +51,6 @@ import { useNotificationStore } from './stores/notificationStore';
 import { usePushNotifications } from '@/composables/usePushNotifications';
 import { useAppState } from '@/composables/useAppState';
 import { useAuth } from '@/composables/useAuth';
-import { getAuth } from 'firebase/auth';
 
 import BottomNav from './components/ui/BottomNav.vue';
 import TopBar from './components/ui/TopBar.vue';
@@ -78,9 +77,7 @@ const {
 
 const { 
   logout: performLogout,
-  isAuthenticated,
-  refreshAuthState
-} = useAuth();
+  isAuthenticated} = useAuth();
 
 const userName = computed(() => studentStore.studentName);
 
@@ -129,34 +126,22 @@ const handleLogout = async (): Promise<void> => {
   }
 };
 
+// Add a flag to prevent multiple auth refresh attempts
+// const isRefreshingAuth = ref(false); // This can be removed as we are removing the logic that uses it.
+
 watch(isOnline, (online) => {
   if (online && isAuthenticated.value) {
-    // Remove any refresh logic that might cause loops
+    // Removed refresh logic that was causing loops
   }
 });
 
 onMounted(async () => {
   initAppState();
   
-  // Check if there's a mismatch between Firebase auth and our store
-  const firebaseAuth = getAuth();
-  const hasFirebaseUser = !!firebaseAuth.currentUser;
-  
-  if (hasFirebaseUser && !isAuthenticated.value) {
-    // We have a Firebase user but our app thinks we're not authenticated
-    // This can happen on page refreshes
-    console.log('Auth state mismatch detected on mount, refreshing auth state');
-    await refreshAuthState();
-    
-    // If we still have a mismatch, try syncing with the profile store
-    if (hasFirebaseUser && !isAuthenticated.value) {
-      try {
-        await studentStore.handleAuthStateChange(firebaseAuth.currentUser);
-      } catch (error) {
-        console.error('Error syncing auth state with profile store:', error);
-      }
-    }
-  }
+  // Removed the block that checked for auth state mismatch and called refreshAuthState.
+  // The initial auth state is now expected to be fully handled by main.ts,
+  // initializeAuth service, and the main onAuthStateChanged listener.
+  // isAuthenticated computed property will reflect this state.
 });
 
 onUnmounted(() => {

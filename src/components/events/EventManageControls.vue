@@ -200,6 +200,7 @@
 
     <!-- Cancel Event Confirmation Modal -->
     <ConfirmationModal
+      ref="cancelModalRef"
       modal-id="cancelEventModal"
       title="Cancel Event"
       message="Are you sure you want to cancel this event? This action cannot be undone and all participants will be notified."
@@ -211,6 +212,7 @@
 
     <!-- Close Event Confirmation Modal -->
     <ConfirmationModal
+      ref="closeEventModalRef"
       modal-id="closeEventModal"
       title="Close Event Permanently"
       message="Are you sure you want to permanently close this event and award XP? This action cannot be reopened."
@@ -223,7 +225,6 @@
 </template>
 
 <script setup lang="ts">
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -453,12 +454,11 @@ const toggleVoting = async (openState: boolean): Promise<void> => {
     }
 };
 
+const cancelModalRef = ref<InstanceType<typeof ConfirmationModal> | null>(null);
+const closeEventModalRef = ref<InstanceType<typeof ConfirmationModal> | null>(null);
+
 const showCancelModal = (): void => {
-  const modal = document.getElementById('cancelEventModal');
-  if (modal && window.bootstrap?.Modal) {
-    const modalInstance = new window.bootstrap.Modal(modal);
-    modalInstance.show();
-  }
+  cancelModalRef.value?.show();
 };
 
 const confirmCancel = async (): Promise<void> => {
@@ -466,11 +466,7 @@ const confirmCancel = async (): Promise<void> => {
 };
 
 const showCloseEventModal = (): void => {
-  const modal = document.getElementById('closeEventModal');
-  if (modal && window.bootstrap?.Modal) {
-    const modalInstance = new window.bootstrap.Modal(modal);
-    modalInstance.show();
-  }
+  closeEventModalRef.value?.show();
 };
 
 const confirmCloseEvent = (): void => {

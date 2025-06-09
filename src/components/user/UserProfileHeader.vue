@@ -5,18 +5,30 @@
       <div class="text-center mb-4">
         <div class="profile-photo-container position-relative d-inline-block">
           <img
-            :src="user.photoURL || defaultAvatarUrl"
+            :src="optimizedProfilePhotoUrl"
             :alt="user.name || 'Profile Photo'"
-            class="profile-photo img-fluid border border-3 border-primary shadow-sm"
+            class="profile-photo img-fluid border border-3 shadow-sm"
+            :class="{'border-primary': user.photoURL, 'border-secondary': !user.photoURL}"
             loading="lazy"
             @error="handleImageError"
             ref="profileImageRef"
           />
           <div class="photo-overlay rounded-circle"></div>
+          
+          <!-- Edit button for current user -->
+          <button
+            v-if="isCurrentUser"
+            @click="emitEditProfile"
+            class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle edit-photo-btn"
+            title="Edit Profile"
+            aria-label="Edit Profile"
+          >
+            <i class="fas fa-edit"></i>
+          </button>
         </div>
       </div>
 
-      <!-- User Name & Edit Button -->
+      <!-- User Name & Edit Button (moved outside the photo container) -->
       <div class="text-center mb-4">
         <h1 class="h4 fw-bold text-dark mb-2">{{ user.name || 'User Profile' }}</h1>
 
@@ -154,6 +166,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { type EnrichedUserData } from '@/types/student';
+import { getOptimizedImageUrl } from '@/services/storageService';
 
 interface Props {
   user: EnrichedUserData;
@@ -203,14 +216,31 @@ const instagramUrl = computed(() => {
 const handleImageError = (e: Event) => {
   const target = e.target as HTMLImageElement | null;
   if (target) {
+    console.warn('Profile image failed to load, using default avatar');
     target.src = defaultAvatarUrl;
     target.onerror = null; // Prevent infinite loop
+    
+    // Add a class to indicate fallback image is being used
+    target.classList.add('fallback-avatar');
   }
 };
 
 const emitEditProfile = () => {
   emit('edit-profile');
 };
+
+const optimizedProfilePhotoUrl = computed(() => {
+  if (!props.user.photoURL) {
+    return defaultAvatarUrl;
+  }
+  
+  // Use ImageKit optimization for profile photos
+  return getOptimizedImageUrl(props.user.photoURL, {
+    width: 240,
+    height: 240,
+    quality: 85
+  });
+});
 
 onMounted(() => {
   if (props.user && !props.user.photoURL && profileImageRef.value) {
@@ -223,6 +253,7 @@ onMounted(() => {
 /* Profile Photo Styling */
 .profile-photo-container {
   transition: transform 0.3s ease;
+  margin-bottom: 1rem;
 }
 
 .profile-photo-container:hover {
@@ -234,12 +265,17 @@ onMounted(() => {
   height: 120px;
   border-radius: 50%;
   object-fit: cover;
-  border-color: var(--bs-primary) !important;
-  transition: box-shadow 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .profile-photo:hover {
   box-shadow: var(--bs-box-shadow-lg);
+}
+
+/* Style for the fallback avatar */
+.fallback-avatar {
+  background-color: var(--bs-light);
+  border-color: var(--bs-secondary) !important;
 }
 
 .photo-overlay {
@@ -251,10 +287,27 @@ onMounted(() => {
   background-color: rgba(0,0,0,0.1);
   opacity: 0;
   transition: opacity 0.3s ease;
+  border-radius: 50%;
 }
 
 .profile-photo-container:hover .photo-overlay {
   opacity: 1;
+}
+
+/* Edit photo button */
+.edit-photo-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  transform: translate(5px, 5px);
+  z-index: 2;
+}
+
+.edit-photo-btn:hover {
+  transform: translate(5px, 5px) scale(1.1);
 }
 
 /* Social Links */

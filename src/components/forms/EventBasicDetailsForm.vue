@@ -1,10 +1,10 @@
 // src/components/forms/EventBasicDetailsForm.vue
 <template>
   <div>
-    <!-- Event Format Selection -->
-    <div class="mb-4">
+    <!-- Event Format Selection - Hidden when isPhaseForm is true -->
+    <div v-if="!isPhaseForm" class="mb-4">
       <label class="form-label fw-medium">Event Format <span class="text-danger">*</span></label>
-      <div class="d-flex flex-wrap gap-3">
+      <div class="event-format-container d-flex flex-wrap gap-3">
         <div class="form-check form-check-custom">
           <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" :value="EventFormat.Individual" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatIndividual">Individual</label>
@@ -14,15 +14,15 @@
           <label class="form-check-label" for="formatTeam">Team</label>
         </div>
         <div class="form-check form-check-custom">
-          <input class="form-check-input" type="radio" name="eventFormat" id="formatCompetition" :value="EventFormat.Competition" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
-          <label class="form-check-label" for="formatCompetition">Competition</label>
+          <input class="form-check-input" type="radio" name="eventFormat" id="formatMultiEvent" :value="EventFormat.MultiEvent" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
+          <label class="form-check-label" for="formatMultiEvent">Multiple Events</label>
         </div>
       </div>
     </div>
 
     <!-- Event Name -->
     <div class="mb-3">
-      <label for="eventName" class="form-label fw-medium">Event Name <span class="text-danger">*</span></label>
+      <label for="eventName" class="form-label fw-medium">{{ isPhaseForm ? 'Phase Name' : 'Event Name' }} <span class="text-danger">*</span></label>
       <input
         id="eventName"
         class="form-control"
@@ -31,15 +31,15 @@
         type="text"
         v-model.trim="localDetails.eventName"
         :disabled="isSubmitting"
-        placeholder="Enter a clear and concise event name"
+        :placeholder="isPhaseForm ? 'Enter a clear phase name' : 'Enter a clear and concise event name'"
         maxlength="100"
       />
-      <div class="invalid-feedback">Event name is required.</div>
+      <div class="invalid-feedback">{{ isPhaseForm ? 'Phase name' : 'Event name' }} is required.</div>
     </div>
 
-    <!-- Event Type -->
-    <div class="mb-3">
-      <label for="eventType" class="form-label fw-medium">Event Type <span class="text-danger">*</span></label>
+    <!-- Event Type (Hidden if MultiEvent) -->
+    <div v-if="showTypeField" class="mb-3">
+      <label for="eventType" class="form-label fw-medium">{{ isPhaseForm ? 'Phase Type' : 'Event Type' }} <span class="text-danger">*</span></label>
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-tag"></i></span>
         <select
@@ -57,25 +57,28 @@
             :value="type"
           >{{ type }}</option>
         </select>
+        <div class="invalid-feedback">{{ isPhaseForm ? 'Phase type' : 'Event type' }} is required.</div>
       </div>
-       <div class="invalid-feedback">Event type is required.</div>
     </div>
 
-    <!-- Prize Details (Only for Competition) -->
-    <div v-if="localDetails.format === EventFormat.Competition" class="mb-3">
-      <label for="eventPrize" class="form-label fw-medium">Prize Details (Optional)</label>
-      <input
-        id="eventPrize"
-        class="form-control"
-        type="text"
-        v-model.trim="localDetails.prize"
-        :disabled="isSubmitting"
-        placeholder="e.g., Cash prize, Vouchers, Swag"
-        maxlength="150"
-      />
-      <small class="form-text text-muted">Briefly describe the prize for the competition.</small>
+    <!-- Is Competition Checkbox (Only for MultiEvent) - Hide in phase form -->
+    <div v-if="showCompetitionToggle && !isPhaseForm" class="mb-3">
+      <div class="form-check form-switch form-switch-custom">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          id="isCompetitionSeries"
+          v-model="localDetails.isCompetition"
+          :disabled="isSubmitting"
+        />
+        <label class="form-check-label fw-medium" for="isCompetitionSeries">
+          Is this a Competition series?
+          <span class="text-muted small ms-1 fw-normal">(Enables prizes per phase)</span>
+        </label>
+      </div>
     </div>
-
+    
     <!-- Description -->
     <div class="mb-3">
       <label for="eventDescription" class="form-label fw-medium">Description <span class="text-danger">*</span></label>
@@ -87,28 +90,29 @@
         rows="5"
         v-model="localDetails.description"
         :disabled="isSubmitting"
-        placeholder="Provide a detailed description of the event, including goals, rules, and expected outcomes. Markdown is supported."
+        :placeholder="isPhaseForm ? 'Provide details about this phase' : 'Provide a detailed description of the event, including goals, rules, and expected outcomes. Markdown is supported.'"
       ></textarea>
       <small class="form-text text-muted">Use Markdown for formatting (e.g., **bold**, *italic*, lists).</small>
        <div class="invalid-feedback">Description is required.</div>
     </div>
 
-    <!-- Rules -->
-    <div class="mb-3">
-      <label for="eventRules" class="form-label fw-medium">Rules (Optional)</label>
+    <!-- Overall Event Rules (Hidden if MultiEvent or Individual or if phase form) -->
+    <div v-if="showRulesField && !isPhaseForm" class="mb-3">
+      <label for="eventRules" class="form-label fw-medium">Overall Event Rules (Optional)</label>
       <textarea
         id="eventRules"
         class="form-control"
         rows="4"
-        v-model="localDetails.rules"
+        :value="localDetails.rules || ''"
+        @input="(e: Event) => localDetails.rules = (e.target as HTMLTextAreaElement).value"
         :disabled="isSubmitting"
-        placeholder="Enter specific event rules, guidelines, or judging criteria. Markdown is supported."
+        placeholder="Enter specific overall event rules. For 'Multiple Events', rules are set per phase."
       ></textarea>
-      <small class="form-text text-muted">Use Markdown for formatting (e.g., **bold**, *italic*, lists).</small>
+      <small class="form-text text-muted">Use Markdown for formatting. These are general rules; for 'Multiple Events', rules are set per phase.</small>
     </div>
 
-    <!-- Allow Project Submission Toggle -->
-    <div class="mb-3">
+    <!-- Overall Allow Project Submission Toggle (Hidden if MultiEvent or Individual or if phase form) -->
+    <div v-if="showSubmissionToggle && !isPhaseForm" class="mb-3">
       <div class="form-check form-switch form-switch-custom">
         <input
           class="form-check-input"
@@ -119,8 +123,8 @@
           :disabled="isSubmitting"
         />
         <label class="form-check-label fw-medium" for="allowProjectSubmission">
-          Allow Project Submissions
-          <span class="text-muted small ms-1 fw-normal">(Required for Hackathons, Ideathons, etc.)</span>
+          Allow Project Submissions (Overall)
+          <span class="text-muted small ms-1 fw-normal">(For 'Multiple Events', this is set per phase)</span>
         </label>
       </div>
     </div>
@@ -129,45 +133,44 @@
 
 <script setup lang="ts">
 import { ref, watch, toRefs, computed } from 'vue';
-import { type EventFormData, EventFormat } from '@/types/event';
+import { type EventFormData, EventFormat } from '@/types/event'; // Import from shared utility
+import { individualEventTypes, teamEventTypes } from '@/utils/eventTypes';
 
 interface Props {
   details: EventFormData['details'];
   isSubmitting: boolean;
   isEditing: boolean;
+  isPhaseForm?: boolean; // New prop to control the display mode
 }
 
 const emit = defineEmits(['update:details']);
-const props = defineProps<Props>();
-const { details, isSubmitting, isEditing } = toRefs(props);
+const props = withDefaults(defineProps<Props>(), {
+  isPhaseForm: false
+});
+
+const { details, isSubmitting, isEditing, isPhaseForm } = toRefs(props);
 
 // Local copy for two-way binding
 const localDetails = ref<EventFormData['details']>({ ...details.value });
 
 const touched = ref({
   eventName: false,
-  type: false,
+  type: false, 
   description: false,
 });
 
-// Event types based on format
-const individualEventTypes = [
-  'Topic Presentation', 'Discussion Session', 'Hands-on Workshop', 'Quiz',
-  'Problem Solving', 'Coding Challenge (Individual)', 'Typing Competition', 'Algorithm Design'
-];
-const teamEventTypes = [
-  'Hackathon', 'Ideathon', 'Debate', 'Design Challenge', 'Testing Competition',
-  'Open Source Contribution Drive', 'Tech Business Plan', 'Capture The Flag (CTF)'
-];
-const competitionEventTypes = [
-  'Coding Competition', 'Design Competition', 'Presentation Contest',
-  'Robotics Challenge', 'Data Science Challenge', 'Cybersecurity Challenge'
-];
+// Computed properties for UI visibility based on format
+const isMultiEvent = computed(() => localDetails.value.format === EventFormat.MultiEvent);
+const isIndividualEvent = computed(() => localDetails.value.format === EventFormat.Individual);
+const showTypeField = computed(() => !isMultiEvent.value || isPhaseForm.value);
+const showRulesField = computed(() => !isMultiEvent.value && !isIndividualEvent.value);
+const showSubmissionToggle = computed(() => !isMultiEvent.value && !isIndividualEvent.value);
+const showCompetitionToggle = computed(() => isMultiEvent.value);
 
+// Event types based on format
 const eventTypesForFormat = computed(() => {
   switch (localDetails.value.format) {
     case EventFormat.Team: return teamEventTypes;
-    case EventFormat.Competition: return competitionEventTypes;
     case EventFormat.Individual:
     default: return individualEventTypes;
   }
@@ -178,6 +181,11 @@ let isUpdatingFromProp = false;
 watch(details, (newVal) => {
   if (!isUpdatingFromProp) {
     localDetails.value = { ...newVal };
+    // Ensure that if the format is Individual, rules and submission are correctly set
+    if (localDetails.value.format === EventFormat.Individual) {
+      localDetails.value.rules = null;
+      localDetails.value.allowProjectSubmission = false;
+    }
   }
 }, { deep: true });
 
@@ -185,16 +193,31 @@ watch(details, (newVal) => {
 watch(() => localDetails.value.format, (newFormat, oldFormat) => {
   if (newFormat !== oldFormat) {
     // Reset type if format changes and current type is not valid for the new format
-    if (!eventTypesForFormat.value.includes(localDetails.value.type ?? '')) {
+    if (newFormat !== EventFormat.MultiEvent && !eventTypesForFormat.value.includes(localDetails.value.type ?? '')) {
       localDetails.value.type = '';
     }
-    // Remove prize field if format is not Competition
-    if (newFormat !== EventFormat.Competition) {
-      delete localDetails.value.prize;
+    
+    if (newFormat === EventFormat.MultiEvent) {
+      localDetails.value.type = ''; // Clear type for MultiEvent as it's handled by phases
+      localDetails.value.isCompetition = localDetails.value.isCompetition ?? false; // Default to false
+      localDetails.value.rules = null; // No overall rules for MultiEvent
+      localDetails.value.allowProjectSubmission = false; // No overall submission for MultiEvent
     }
-    // For Competition format, set allowProjectSubmission to true
-    if (newFormat === EventFormat.Competition) {
-      localDetails.value.allowProjectSubmission = true;
+
+    if (newFormat === EventFormat.Individual) {
+      localDetails.value.allowProjectSubmission = false;
+      localDetails.value.rules = null;
+      localDetails.value.phases = []; 
+      localDetails.value.isCompetition = false; // Not a competition series
+    } else if (newFormat === EventFormat.Team) {
+      localDetails.value.allowProjectSubmission = true; 
+      localDetails.value.phases = []; 
+      localDetails.value.isCompetition = false; // Not a competition series
+    } else if (newFormat === EventFormat.MultiEvent) { 
+      // Defaults for MultiEvent are set above
+      if (!localDetails.value.phases || localDetails.value.phases.length === 0) {
+        localDetails.value.phases = []; 
+      }
     }
   }
 });
@@ -203,7 +226,6 @@ watch(() => localDetails.value.format, (newFormat, oldFormat) => {
 watch(localDetails, (newVal) => {
   isUpdatingFromProp = true;
   emit('update:details', { ...newVal });
-  // Reset flag on next tick to allow prop updates
   setTimeout(() => {
     isUpdatingFromProp = false;
   }, 0);
@@ -289,6 +311,15 @@ watch(localDetails, (newVal) => {
   box-shadow: 0 0 0 0.2rem rgba(var(--bs-success-rgb), 0.25);
 }
 
+/* Add new event-format-container class */
+.event-format-container {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
 /* Responsive improvements */
 @media (max-width: 768px) {
   .form-check-custom {
@@ -307,35 +338,22 @@ watch(localDetails, (newVal) => {
     margin-left: -3.5rem; /* Adjusted to match mobile padding */
   }
   
-  /* Applies to the container of Event Format radio buttons */
-  .d-flex.flex-wrap.gap-3 { 
-    gap: 0.75rem !important; /* Slightly increase gap for better touch targets */
+  .event-format-container .form-check-custom {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 }
 
 @media (max-width: 480px) {
-  /* For very small screens, reduce gap further but maintain single row */
-  .d-flex.flex-wrap.gap-3 { 
-    gap: 0.5rem !important;
+  /* For very small screens, force single row layout */
+  .event-format-container {
+    gap: 0.4rem !important;
+    padding-bottom: 0.75rem;
   }
   
-  .form-check-custom {
-    padding: 0.4rem 0.6rem 0.4rem 1rem;
-    font-size: 0.9rem; /* Slightly smaller text on very small screens */
-  }
-  
-  .form-check-custom .form-check-input {
-    margin-left: -1rem;
-    width: 1rem;
-    height: 1rem;
-  }
-  
-  .form-switch-custom {
-    padding: 0.4rem 0.6rem 0.4rem 3rem; /* Increased left padding for very small screens */
-  }
-  
-  .form-switch-custom .form-check-input {
-    margin-left: -3rem; /* Adjusted to match very small screen padding */
+  .event-format-container .form-check-custom {
+    padding: 0.3rem 0.5rem 0.3rem 1rem;
+    font-size: 0.8rem;
   }
 }
 </style>

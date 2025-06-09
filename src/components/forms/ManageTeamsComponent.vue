@@ -41,10 +41,10 @@
               v-model="selectedMemberToAddPerTeam[teamIndex]"
                 class="form-select form-select-sm user-select"
               :disabled="props.isSubmitting || team.members.length >= maxMembersPerTeam"
-              @change="selectedMemberToAddPerTeam[teamIndex] && addMember(teamIndex, selectedMemberToAddPerTeam[teamIndex]!)"
+              @change="handleMemberSelection(teamIndex)"
               @blur="team.touched && (team.touched.members = true)"
             >
-                <option value="" disabled>{{ availableStudentsForTeam(teamIndex).length ? 'Select a student to add...' : 'No available students' }}</option>
+                <option value="">{{ availableStudentsForTeam(teamIndex).length ? 'Select a student to add...' : 'No available students' }}</option>
               <option
                 v-for="student in availableStudentsForTeam(teamIndex)"
                 :key="student.uid"
@@ -357,7 +357,16 @@ const addMember = (teamIndex: number, memberId: string) => {
         emit('error', `Maximum team members (${maxMembersPerTeam}) reached for ${team.teamName}.`);
     }
   }
-  selectedMemberToAddPerTeam.value[teamIndex] = undefined; // Reset dropdown to undefined
+};
+
+// Handle member selection from dropdown
+const handleMemberSelection = (teamIndex: number) => {
+  const selectedMemberId = selectedMemberToAddPerTeam.value[teamIndex];
+  if (selectedMemberId) {
+    addMember(teamIndex, selectedMemberId);
+    // Reset the dropdown selection
+    selectedMemberToAddPerTeam.value[teamIndex] = '';
+  }
 };
 
 // Removes a member from a specific team
@@ -425,7 +434,7 @@ const autoGenerateTeams = () => {
     }
     // If no student could be assigned in a full pass (e.g., all teams full), break to prevent infinite loop
     if (!studentAssignedInThisRound && studentIdx < shuffledStudents.length) {
-        emit('error', `Not all students could be assigned. Some teams might be full (max ${maxMembersPerTeam} members).`);
+        // This is expected behavior when teams are full, not an error
         break;
     }
   }

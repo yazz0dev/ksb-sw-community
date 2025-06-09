@@ -4,7 +4,8 @@ import { createPinia } from "pinia";
 import App from "@/App.vue";
 import router from "./router";
 import AuthGuard from "@/components/AuthGuard.vue";
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/firebase';
 import { initializeAuth } from '@/services/authService'; // Import the initialization function
 import { MotionPlugin } from '@vueuse/motion';
 
@@ -15,7 +16,6 @@ import { useNotificationStore } from "./stores/notificationStore";
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "./styles/main.scss";
-// We no longer need to import bootstrap JS here. Components will import what they need.
 
 // PWA Registration
 import { registerSW } from 'virtual:pwa-register'
@@ -23,9 +23,10 @@ import { registerSW } from 'virtual:pwa-register'
 // --- Initialize App ---
 async function initializeApp() {
   try {
+    // Initialize Firebase Auth persistence
     await initializeAuth();
 
-    // Create pinia instance only once
+    // Create pinia instance
     const pinia = createPinia();
 
     // Create the Vue application
@@ -35,7 +36,7 @@ async function initializeApp() {
     app.use(MotionPlugin);
     app.component("AuthGuard", AuthGuard);
 
-    // Initialize app stores
+    // Initialize app stores *after* pinia is used
     const appStore = useAppStore();
     const profileStore = useProfileStore();
 
@@ -63,33 +64,31 @@ async function initializeApp() {
     // Make updateSW available globally
     window.__updateSW = updateSW;
 
-    // Set up auth initialization
-    const auth = getAuth();
-
-    // Mount app immediately
-    app.mount('#app');
-
-    // Handle auth state changes AFTER mounting
+    // Set up a single, definitive auth state listener
     onAuthStateChanged(auth, async (user) => {
       try {
-        if (user) {
-          console.log('Auth state changed: User is signed in');
-          await profileStore.handleAuthStateChange(user);
-        } else {
-          console.log('Auth state changed: User is signed out');
-          await profileStore.clearStudentSession(false);
-        }
+        // Delegate auth state handling directly to the profile store
+        await profileStore.handleAuthStateChange(user);
       } catch (error) {
-        console.error('Error handling auth state change:', error);
+        console.error('Critical error during auth state change handling:', error);
+        // Optionally, show a global error message to the user
       } finally {
+        // Ensure the app knows the initial auth check is complete.
         if (!appStore.hasFetchedInitialAuth) {
           appStore.setHasFetchedInitialAuth(true);
         }
       }
     }, (error) => {
-      console.error('Error in auth state change listener:', error);
-      appStore.setHasFetchedInitialAuth(true);
+      console.error('Error in onAuthStateChanged listener:', error);
+      // Even on error, we mark the initial auth fetch as complete to unblock the UI
+      if (!appStore.hasFetchedInitialAuth) {
+        appStore.setHasFetchedInitialAuth(true);
+      }
     });
+
+    // Mount the app. The UI will be guarded by AuthGuard or similar
+    // components which react to the stores' state.
+    app.mount('#app');
 
   } catch (error) {
     console.error('Error initializing auth persistence or app:', error);
@@ -100,6 +99,9 @@ async function initializeApp() {
         <div style="text-align: center; padding: 2rem;">
           <h1>Application Error</h1>
           <p>Could not initialize the application. Please try refreshing the page.</p>
+          <button onclick="window.location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Refresh Page
+          </button>
         </div>
       `;
     }

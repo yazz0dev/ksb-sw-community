@@ -82,8 +82,8 @@
               </div>
             </div>
 
-            <!-- Rating Criteria Card (Conditional) -->
-            <div v-if="formData.details.format !== EventFormat.Competition" class="card shadow-sm mb-4 rounded-3 overflow-hidden">
+            <!-- Rating Criteria Card (Hidden for MultiEvent as criteria are per-phase) -->
+            <div v-if="formData.details.format !== EventFormat.MultiEvent" class="card shadow-sm mb-4 rounded-3 overflow-hidden">
               <div class="card-header bg-primary-subtle text-primary-emphasis py-3">
                 <h5 class="mb-0 fw-medium"><i class="fas fa-star me-2"></i>{{ criteriaCardNumber }}. Rating Criteria & XP</h5>
               </div>
@@ -97,8 +97,46 @@
                 />
               </div>
             </div>
+            <!-- MultiEvent Phases Configuration Card -->
+            <div v-else-if="formData.details.format === EventFormat.MultiEvent" class="card shadow-sm mb-4 rounded-3 overflow-hidden">
+              <div class="card-header bg-info-subtle text-info-emphasis py-3">
+                 <h5 class="mb-0 fw-medium"><i class="fas fa-layer-group me-2"></i>{{ multiEventPhasesCardNumber }}. Event Phases Configuration</h5>
+              </div>
+              <div class="card-body p-4">
+                <MultiEventForm 
+                  v-model="formPhases"
+                  :is-submitting="isSubmitting"
+                  :is-overall-competition="formData.details.isCompetition || false"
+                  :all-users="allUsers" 
+                  :name-cache="nameCache"
+                />
+              </div>
+            </div>
+
+
+            <!-- Event Participants Card (Hidden for MultiEvent and Team formats) -->
+            <div v-if="formData.details.format !== EventFormat.MultiEvent && formData.details.format !== EventFormat.Team" class="card shadow-sm mb-4 rounded-3 overflow-hidden">
+              <div class="card-header bg-primary-subtle text-primary-emphasis py-3">
+                <h5 class="mb-0 fw-medium"><i class="fas fa-users me-2"></i>{{ participantCardNumber }}. Event Participants</h5>
+              </div>
+              <div class="card-body p-4">
+                <EventParticipantForm
+                  v-model:participants="formDataParticipants"
+                  v-model:coreParticipants="formData.details.coreParticipants"
+                  :allUsers="allUsers"
+                  :eventFormat="formData.details.format"
+                  :isSubmitting="isSubmitting"
+                  :nameCache="nameCache"
+                  :is-editing="isEditing"
+                  :max-participants="MAX_PARTICIPANTS_INDIVIDUAL_AUTO_ADD" 
+                />
+                 <p v-if="false" class="small text-muted mt-3"> 
+                  These are the overall participants for the event. Specific phases can draw from this list or define their own subset.
+                </p>
+              </div>
+            </div>
             
-            <!-- Team Configuration Card (Conditional) -->
+            <!-- Team Configuration Card (Conditional for Team format, Hidden for MultiEvent) -->
             <div 
               v-if="formData.details.format === EventFormat.Team && teamsComponentReady" 
               class="card shadow-sm mb-4 rounded-3 overflow-hidden"
@@ -107,9 +145,9 @@
                 <h5 class="mb-0 fw-medium"><i class="fas fa-users-cog me-2"></i>{{ teamConfigCardNumber }}. Team Configuration</h5>
               </div>
               <div class="card-body p-4">
-                 <ManageTeamsComponent
+                  <ManageTeamsComponent
                   :initial-teams="formData.teams ?? []"
-                  :students="allUsers" 
+                  :students="allUsers"
                   :is-submitting="isSubmitting"
                   :can-auto-generate="true" 
                   :event-id="eventId || ''"
@@ -164,19 +202,27 @@ import EventScheduleForm from '@/components/forms/EventScheduleForm.vue';
 import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import EventCoOrganizerForm from '@/components/forms/EventCoOrganizerForm.vue';
 import EventCriteriaForm from '@/components/forms/EventCriteriaForm.vue';
+import EventParticipantForm from '@/components/forms/EventParticipantForm.vue';
+import MultiEventForm from '@/components/forms/MultiEventForm.vue';
 import AuthGuard from '@/components/AuthGuard.vue';
-import { EventFormat, EventStatus, type EventFormData, type Team, type EventCriteria } from '@/types/event'; // Import EventFormat, EventFormData, Team, EventCriteria
+import { EventFormat, EventStatus, type EventFormData, type Team } from '@/types/event';
 import { useEventStore } from '@/stores/eventStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { DateTime } from 'luxon';
+import type { UserData } from '@/types/student';
 
+// Define route and router
 const route = useRoute();
 const router = useRouter();
+
 // TODO: Consider using strongly typed store if possible, instead of 'as any'.
 const eventStore = useEventStore() as any;
 const profileStore = useProfileStore();
 const notificationStore = useNotificationStore();
+
+// Constants
+const MAX_PARTICIPANTS_INDIVIDUAL_AUTO_ADD = 50; // Example value, adjust as needed
 
 // Reactive state
 const loading = ref(true);
@@ -186,29 +232,31 @@ const hasActiveRequest = ref(false);
 const isSubmitting = ref(false);
 const eventId = ref(route.params.eventId as string || '');
 const originalStatus = ref<EventStatus | null>(null);
-const allUsers = ref<InstanceType<typeof ManageTeamsComponent>['students']>([]);
+const allUsers = ref<UserData[]>([]);
 const nameCache = ref<Record<string, string>>({});
 const assignableXpRoles = ref<readonly string[]>(['developer', 'designer', 'presenter', 'problemSolver']);
-const teamsComponentReady = ref(true); // Add this line to define the missing property
-const formRef = ref<HTMLFormElement | null>(null); // Added form ref
+const teamsComponentReady = ref(true);
+const formRef = ref<HTMLFormElement | null>(null);
 
 // Form data structure
 const formData = ref<EventFormData>({
   details: {
-    eventName: '', // Initialize
-    description: '', // Initialize
-    type: '', // Initialize
-    format: EventFormat.Individual, // Initialize with a default
+    eventName: '', 
+    description: '', 
+    isCompetition: false,
+    format: EventFormat.Individual, 
     allowProjectSubmission: true,
-    organizers: [], 
+    organizers: [],
+    coreParticipants: [], 
     date: {
       start: null,
       end: null
     },
-    rules: null, // Initialize
-    prize: null, // Initialize
+    rules: null,
+    prize: null,
   },
-  criteria: [], // Always initialize as empty array
+  participants: [], // Initialize as empty array, never undefined
+  criteria: [],
   teams: [],
   status: EventStatus.Pending,
   votingOpen: false,
@@ -219,44 +267,57 @@ const isDateAvailable = ref(true);
 const pageTitle = computed(() => isEditing.value ? 'Edit Event' : 'Request New Event');
 const pageSubtitle = computed(() => isEditing.value ? 'Update the details of the existing event.' : 'Submit a request for a new community event.');
 
-const isFormValid = computed(() => {
-  const details = formData.value.details;
-  if (!details.eventName.trim() || !details.type || !details.format) {
-    return false;
-  }
-  if (!details.date.start || !details.date.end) {
-    return false;
-  }
-  if (!isDateAvailable.value) {
-    return false;
-  }
-  if (details.format === EventFormat.Team && (!formData.value.teams || formData.value.teams.length === 0)) {
-     // For team events, could add validation for at least one team, or min members per team
-     // console.log("Validation fail: Team event with no teams");
-     // return false; // Optional: enforce teams at this stage
-  }
-  const criteria = formData.value.criteria || [];
-  if (criteria.some((c: EventCriteria) => !c.title?.trim() || (c.points ?? 0) <= 0 || !c.role)) {
-    // console.log("Validation fail: Invalid criteria entry");
-    // return false; // Criteria validation should ideally be handled within EventCriteriaForm
-  }
-  return true;
-});
-
 const totalXP = computed(() => {
-  const criteria = formData.value.criteria || [];
-  return criteria.reduce((sum: number, c: EventCriteria) => sum + (c.points || 0), 0);
+  if (!formData.value.criteria) return 0;
+  return formData.value.criteria.reduce((sum, criterion) => sum + (criterion.points || 0), 0); // Changed criterion.xp to criterion.points
 });
 
-const scheduleCardNumber = computed(() => {
-  let num = 2;
-  if (formData.value.details.format !== EventFormat.Competition) num++;
-  if (formData.value.details.format === EventFormat.Team) num++;
+const formPhases = computed({
+  get: () => formData.value.details.phases ?? [],
+  set: (value: any[]) => { // Consider using specific EventPhase[] type if available
+    formData.value.details.phases = value;
+  }
+});
+
+const isFormValid = computed(() => {
+  const nativeValidation = formRef.value?.checkValidity() ?? false;
+  return nativeValidation && isDateAvailable.value;
+});
+
+const criteriaCardNumber = computed(() => { // This card is for non-MultiEvent criteria
+  let num = 2; // Starts after Event Details
   return num;
 });
 
-const teamConfigCardNumber = computed(() => (formData.value.details.format !== EventFormat.Competition) ? 3 : 2);
-const criteriaCardNumber = 2;
+const multiEventPhasesCardNumber = computed(() => { // This card is for MultiEvent phases
+  let num = 2; // Starts after Event Details
+  return num;
+});
+
+const participantCardNumber = computed(() => {
+  let num = 2; // Starts after Event Details
+  if (formData.value.details.format !== EventFormat.MultiEvent) num++; // Criteria card for non-MultiEvent
+  // No participant card if MultiEvent
+  return num;
+});
+
+const teamConfigCardNumber = computed(() => {
+  let num = participantCardNumber.value;
+  if (formData.value.details.format === EventFormat.Team) num++; // Only if overall format is Team
+  return num;
+});
+
+const scheduleCardNumber = computed(() => {
+  let num = 2; // Event Details
+  if (formData.value.details.format === EventFormat.MultiEvent) {
+    num++; // MultiEvent Phases Card
+  } else {
+    num++; // Criteria Card
+    num++; // Participants Card
+    if (formData.value.details.format === EventFormat.Team) num++; // Teams Card
+  }
+  return num;
+});
 
 function goBack() {
   if (window.history.length > 1) {
@@ -283,13 +344,25 @@ function populateFormData(event: any) {
   const eventData = JSON.parse(JSON.stringify(event));
 
   formData.value.details.eventName = eventData.details?.eventName || '';
-  formData.value.details.type = eventData.details?.type || '';
+  // formData.value.details.type = eventData.details?.type || ''; // 'type' removed from details
   formData.value.details.format = eventData.details?.format || EventFormat.Individual;
   formData.value.details.description = eventData.details?.description || '';
   formData.value.details.rules = eventData.details?.rules || '';
-  formData.value.details.prize = eventData.details?.prize || '';
+  formData.value.details.prize = eventData.details?.prize || null;
   formData.value.details.allowProjectSubmission = eventData.details?.allowProjectSubmission ?? true;
   formData.value.details.organizers = eventData.details?.organizers || [];
+  formData.value.details.isCompetition = eventData.details?.isCompetition || false; // Populate isCompetition
+
+  // Participants and coreParticipants are only for non-MultiEvent overall settings
+  if (eventData.details?.format !== EventFormat.MultiEvent) {
+    formData.value.participants = eventData.participants || []; 
+    formData.value.details.coreParticipants = eventData.details?.coreParticipants || []; 
+  } else {
+    formData.value.participants = [];
+    formData.value.details.coreParticipants = [];
+  }
+  formData.value.details.phases = eventData.details?.phases || []; 
+
 
   const toYYYYMMDD = (ts: any) => {
     if (!ts) return null;
@@ -318,9 +391,17 @@ async function initializeFormForEdit(id: string) {
       throw new Error("Event not found or you don't have permission to edit it.");
     }
     
-    const canEdit = (event.requestedBy === profileStore.studentId && [EventStatus.Pending, EventStatus.Rejected].includes(event.status));
+    // Import and use the permission helpers
+    const { isEventOrganizer, isEventEditable } = await import('@/utils/permissionHelpers');
+    
+    // Allow editing if user is an organizer and event is in editable state
+    // OR if user is the requester and event is pending/rejected (for their own requests)
+    const isOrganizer = isEventOrganizer(event, profileStore.studentId);
+    const isOwnRequest = event.requestedBy === profileStore.studentId && [EventStatus.Pending, EventStatus.Rejected].includes(event.status);
+    const canEdit = (isOrganizer && isEventEditable(event.status)) || isOwnRequest;
+    
     if (!canEdit) {
-      throw new Error(`You cannot edit this event. It is currently in '${event.status}' status.`);
+      throw new Error(`You cannot edit this event. You must be an organizer and the event must be in an editable state.`);
     }
     
     populateFormData(event);
@@ -335,11 +416,6 @@ async function initializeFormForEdit(id: string) {
 async function handleSubmitForm() {
   const formEl = formRef.value;
   if (!isFormValid.value) {
-    notificationStore.showNotification({
-      message: "Please fill out all required fields and correct any errors.",
-      type: 'error',
-      duration: 5000
-    });
     if (formEl) {
       formEl.classList.add('was-validated');
     }
@@ -352,11 +428,49 @@ async function handleSubmitForm() {
     let success = false;
     let newEventId = '';
 
+    // Ensure coreParticipants is empty if not an Individual event (overall)
+    if (formData.value.details.format !== EventFormat.Individual && formData.value.details.format !== EventFormat.MultiEvent) {
+      formData.value.details.coreParticipants = [];
+    }
+    // For MultiEvent, overall coreParticipants, participants, criteria, teams are cleared
+    if (formData.value.details.format === EventFormat.MultiEvent) {
+      formData.value.details.coreParticipants = [];
+      formData.value.participants = [];
+      formData.value.criteria = [];
+      formData.value.teams = [];
+      // Ensure type is not set at the top level for MultiEvent
+      // formData.value.details.type = ''; // Type is already removed from EventFormData.details
+    }
+
+
+    // If not MultiEvent, ensure phases is empty
+    if (formData.value.details.format !== EventFormat.MultiEvent) {
+      formData.value.details.phases = [];
+    } else {
+      // Basic validation for phases if it's a MultiEvent
+      if (!formData.value.details.phases || formData.value.details.phases.length === 0) {
+        handleFormError("For 'Multiple Events' format, at least one phase must be configured.");
+        isSubmitting.value = false;
+        return;
+      }
+      // Further validation for each phase would go here or in MultiEventForm
+      for (const phase of formData.value.details.phases) {
+        if (!phase.phaseName?.trim() || !phase.type?.trim()) { // Removed check for phase.description
+          handleFormError(`Phase "${phase.phaseName || 'Unnamed Phase'}" is missing required fields (Name, Type).`);
+          isSubmitting.value = false;
+          return;
+        }
+      }
+    }
+
     if (isEditing.value) {
       const payload = { ...formData.value };
       if (originalStatus.value === EventStatus.Rejected) {
         payload.status = EventStatus.Pending;
       }
+      // Ensure participants is part of the payload if it's at the root - This check might be redundant if participants is always in details.
+      // if (!payload.details.participants) payload.details.participants = formData.value.details.participants; // Adjusted for details
+      
       success = await eventStore.editMyEventRequest(eventId.value, payload);
     } else {
       newEventId = await eventStore.requestNewEvent(formData.value);
@@ -364,15 +478,6 @@ async function handleSubmitForm() {
     }
 
     if (success) {
-      // Refresh user requests in profile store to ensure the new/updated request appears in UserRequests component
-      if (profileStore.studentId) {
-        try {
-          await profileStore.fetchUserRequests(profileStore.studentId);
-        } catch (error) {
-          console.warn('Failed to refresh user requests after event creation/update:', error);
-        }
-      }
-      
       notificationStore.showNotification({
         message: `Event ${isEditing.value ? 'updated' : 'requested'} successfully!`,
         type: 'success',
@@ -395,6 +500,7 @@ onMounted(async () => {
   isEditing.value = !!eventId.value;
 
   try {
+    // Fetch all users first
     allUsers.value = await profileStore.fetchAllStudentProfiles();
     allUsers.value.forEach(u => {
       if (u.uid && u.name) {
@@ -407,6 +513,25 @@ onMounted(async () => {
     } else {
       hasActiveRequest.value = await eventStore.checkExistingPendingRequest();
       formData.value.details.organizers = profileStore.studentId ? [profileStore.studentId] : [];
+      
+      // Auto-populate participants for new Individual events
+      if (formData.value.details.format === EventFormat.Individual && profileStore.studentId) {
+        // For Individual events, auto-add up to MAX_PARTICIPANTS_INDIVIDUAL_AUTO_ADD participants
+        const availableUsers = allUsers.value
+          .filter(user => user.uid && user.uid !== profileStore.studentId) // Exclude current user for now
+          .slice(0, MAX_PARTICIPANTS_INDIVIDUAL_AUTO_ADD - 1); // Leave room for current user
+        
+        // Add current user first, then other users
+        formData.value.participants = [
+          profileStore.studentId,
+          ...availableUsers.map(user => user.uid!).filter(Boolean)
+        ];
+      } else {
+        // For other event types, just add the current user if they're an organizer
+        if (profileStore.studentId && formData.value.details.organizers.includes(profileStore.studentId)) {
+          formData.value.participants = [profileStore.studentId];
+        }
+      }
     }
   } catch (error: any) {
     notificationStore.showNotification({
@@ -420,16 +545,39 @@ onMounted(async () => {
 });
 
 watch(() => formData.value.details.format, (newFormat) => {
-  if (newFormat === EventFormat.Competition) {
-    formData.value.criteria = []; // Set to empty array instead of undefined
-    formData.value.teams = [];
-    formData.value.details.allowProjectSubmission = false;
-  } else {
+  if (newFormat === EventFormat.MultiEvent) {
+    formData.value.criteria = []; 
+    formData.value.teams = []; 
+    formData.value.details.allowProjectSubmission = false; // No overall setting
+    formData.value.participants = []; // No overall participants
+    formData.value.details.coreParticipants = []; 
+    formData.value.details.prize = null; // No overall prize
+    formData.value.details.rules = null; // No overall rules
+    formData.value.details.isCompetition = formData.value.details.isCompetition ?? false; // Default for new MultiEvent
+    if (!formData.value.details.phases || formData.value.details.phases.length === 0) {
+      formData.value.details.phases = []; 
+    }
+  } else if (newFormat === EventFormat.Individual) {
+    // For Individual events, auto-populate participants if this is a new event
+    if (!isEditing.value && profileStore.studentId) {
+      const availableUsers = allUsers.value
+        .filter(user => user.uid && user.uid !== profileStore.studentId)
+        .slice(0, MAX_PARTICIPANTS_INDIVIDUAL_AUTO_ADD - 1);
+      
+      formData.value.participants = [
+        profileStore.studentId,
+        ...availableUsers.map(user => user.uid!).filter(Boolean)
+      ];
+    }
+    formData.value.details.coreParticipants = [];
+  } else { // Covers Team and any other non-Multi, non-Individual formats
     formData.value.details.allowProjectSubmission = true;
     // Initialize criteria as empty array if not already set
     if (!formData.value.criteria) {
       formData.value.criteria = [];
     }
+    // Clear core participants if not individual (this covers Team format)
+    formData.value.details.coreParticipants = [];
   }
 
   // A trick to force re-render ManageTeamsComponent if it was previously not shown
@@ -439,6 +587,14 @@ watch(() => formData.value.details.format, (newFormat) => {
   }
 }, { immediate: true });
 
+// Computed property to ensure participants is always an array for v-model
+const formDataParticipants = computed({
+  get: () => formData.value.participants || [],
+  set: (value: string[]) => {
+    formData.value.participants = value;
+  }
+});
+
 // Computed property to ensure criteria is always an array
 const formDataCriteria = computed({
   get: () => formData.value.criteria || [],
@@ -446,6 +602,13 @@ const formDataCriteria = computed({
     formData.value.criteria = value;
   }
 });
+
+// Add this at the beginning of the script to ensure participants is always an array
+watch(() => formData.value, (newValue) => {
+  if (!Array.isArray(newValue.participants)) {
+    newValue.participants = [];
+  }
+}, { deep: true, immediate: true });
 </script>
 
 <style scoped>

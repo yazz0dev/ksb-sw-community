@@ -31,14 +31,28 @@
         type="button" 
         class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle"
         @click="triggerFileInput"
-        :disabled="isUploading || disabled"
+        :disabled="!!(isUploading || disabled)"
+        aria-label="Change profile picture"
+        title="Change profile picture"
       >
         <i class="fas fa-camera"></i>
       </button>
     </div>
 
     <div v-if="error" class="alert alert-danger py-2 small">
+      <i class="fas fa-exclamation-circle me-1"></i>
       {{ error }}
+      <button 
+        type="button" 
+        class="btn-close btn-close-sm ms-2" 
+        aria-label="Close" 
+        @click="error = null"
+      ></button>
+    </div>
+
+    <div class="text-center text-muted small">
+      <span v-if="!isUploading">Click the camera button to change your profile picture</span>
+      <span v-else>Uploading... {{ uploadProgress }}%</span>
     </div>
 
     <input
@@ -52,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import { UploadStatus } from '@/types/student';
 import type { ImageUploadOptions } from '@/types/student';
@@ -83,10 +97,10 @@ const uploadProgress = computed(() => profileStore.imageUploadState.progress);
 const isUploading = computed(() => uploadStatus.value === UploadStatus.Uploading);
 
 // Default image if none provided
-const defaultImageUrl = computed(() => props.defaultImage || '/default-avatar.png');
+const defaultImage = computed(() => props.defaultImage || '/default-avatar.png');
 
 function triggerFileInput() {
-  if (fileInput.value && !isUploading.value) {
+  if (fileInput.value && !isUploading.value && !props.disabled) {
     fileInput.value.click();
   }
 }
@@ -108,10 +122,28 @@ async function handleFileChange(event: Event) {
 
   error.value = null;
   
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    error.value = "Please select an image file (JPEG, PNG, etc.)";
+    target.value = '';
+    return;
+  }
+  
+  // Validate file size (5MB default)
+  const maxSizeMB = props.options?.maxSizeMB || 5;
+  if (file.size > maxSizeMB * 1024 * 1024) {
+    error.value = `File is too large. Maximum size is ${maxSizeMB}MB.`;
+    target.value = '';
+    return;
+  }
+  
   try {
     emit('upload-start');
     
     // Create a local preview URL
+    if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl.value);
+    }
     previewUrl.value = URL.createObjectURL(file);
     
     // Upload to Firebase Storage and update profile
@@ -137,7 +169,7 @@ async function handleFileChange(event: Event) {
 
 function handleImageError(event: Event) {
   const img = event.target as HTMLImageElement;
-  img.src = defaultImageUrl.value;
+  img.src = defaultImage.value;
 }
 
 // Watch for external changes to currentImageUrl
@@ -156,13 +188,18 @@ watch(() => profileStore.imageUploadState, (state) => {
 
 // Clean up on unmount
 onMounted(() => {
-  return () => {
-    profileStore.resetImageUploadState();
-    // Revoke any object URLs to prevent memory leaks
-    if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrl.value);
-    }
-  };
+  // Initialize with current image URL if available
+  if (props.currentImageUrl) {
+    previewUrl.value = props.currentImageUrl;
+  }
+});
+
+onBeforeUnmount(() => {
+  profileStore.resetImageUploadState();
+  // Revoke any object URLs to prevent memory leaks
+  if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(previewUrl.value);
+  }
 });
 </script>
 
@@ -177,7 +214,12 @@ onMounted(() => {
   object-fit: cover;
   border: 3px solid var(--bs-light);
   box-shadow: var(--bs-box-shadow-sm);
-  transition: filter 0.3s ease;
+  transition: all 0.3s ease;
+}
+
+.profile-image:hover {
+  border-color: var(--bs-primary);
+  transform: scale(1.02);
 }
 
 .profile-image.uploading {
@@ -197,5 +239,34 @@ onMounted(() => {
 
 .image-preview {
   display: inline-block;
+}
+
+.btn-close-sm {
+  font-size: 0.65rem;
+}
+
+/* Ensure the button is prominently visible */
+.btn-primary.rounded-circle {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  transform: translate(5px, 5px);
+}
+
+.btn-primary.rounded-circle:hover {
+  transform: translate(5px, 5px) scale(1.1);
+}
+
+/* Animation for the alert */
+.alert-danger {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

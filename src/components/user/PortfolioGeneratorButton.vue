@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, toRefs } from 'vue';
 import { generatePortfolioPDF } from '@/utils/pdfGenerator';
 import type { StudentPortfolioGenerationData, UserForPortfolio } from '@/types/student';
 
@@ -62,13 +62,16 @@ const props = defineProps<{
   comprehensiveData?: StudentPortfolioGenerationData;
 }>();
 
+// Use toRefs to avoid reactivity issues
+const { user, projects, eventParticipationCount, comprehensiveData } = toRefs(props);
+
 const isGenerating = ref(false);
 const requiredEvents = 1; // Changed from 5 to 1
 
-const isEligible = computed(() => props.eventParticipationCount >= requiredEvents);
+const isEligible = computed(() => eventParticipationCount.value >= requiredEvents);
 
 const eligibilityPercentage = computed(() => 
-  Math.min(100, (props.eventParticipationCount / requiredEvents) * 100)
+  Math.min(100, (eventParticipationCount.value / requiredEvents) * 100)
 );
 
 const buttonText = computed(() => {
@@ -79,7 +82,7 @@ const buttonText = computed(() => {
 
 const getButtonTitle = computed(() => {
   if (!isEligible.value) {
-    return `Requires participation in at least ${requiredEvents} event. Current: ${props.eventParticipationCount}`;
+    return `Requires participation in at least ${requiredEvents} event. Current: ${eventParticipationCount.value}`;
   }
   if (isGenerating.value) return 'Generating your portfolio PDF...';
   return 'Generate and download your portfolio as a PDF';
@@ -97,26 +100,26 @@ const generatePDF = async () => {
 
   try {
     const userForPDF = {
-      ...props.user,
-      xpData: props.user.xpData || {}
+      ...user.value,
+      xpData: user.value.xpData || {}
     };
     
-    const projectsForPDF = props.projects.map(project => ({
+    const projectsForPDF = projects.value.map(project => ({
       ...project,
       description: project.description || ''
     }));
     
     // Always call generatePortfolioPDF with comprehensive data (or undefined)
-    const pdf = await generatePortfolioPDF(userForPDF, projectsForPDF, props.comprehensiveData);
+    const pdf = await generatePortfolioPDF(userForPDF, projectsForPDF, comprehensiveData?.value);
     
-    const userNameForFile = props.user.name || props.user.uid || 'user';
+    const userNameForFile = user.value.name || user.value.uid || 'user';
     const timestamp = new Date().toISOString().split('T')[0];
     const fileName = `portfolio-${userNameForFile.toLowerCase().replace(/\s+/g, '-')}-${timestamp}.pdf`;
     
     pdf.save(fileName);
     
     // Enhanced success message based on whether comprehensive data was available
-    const successMessage = props.comprehensiveData 
+    const successMessage = comprehensiveData?.value 
       ? 'Enhanced portfolio PDF with comprehensive data generated successfully!' 
       : 'Portfolio PDF generated successfully!';
     emit('success', successMessage);

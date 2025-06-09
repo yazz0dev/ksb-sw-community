@@ -35,8 +35,8 @@
         <div class="d-flex align-items-center" title="Event Format">
             <i class="fas fa-users fa-fw me-1 text-muted"></i>{{ event.details?.format || 'N/A' }}
         </div>
-         <!-- Prize (if Competition) -->
-        <div v-if="event.details?.format === EventFormat.Competition && event.details?.prize" class="d-flex align-items-center" title="Prize">
+         <!-- Prize (if Competition or MultiEvent with isCompetition) -->
+        <div v-if="(event.details?.format === EventFormat.MultiEvent && event.details?.isCompetition && event.details?.prize) || (event.details?.format !== EventFormat.MultiEvent && event.details?.prize)" class="d-flex align-items-center" title="Prize">
             <i class="fas fa-trophy fa-fw me-1 text-warning"></i>
             <span class="text-truncate prize-text">{{ event.details.prize }}</span>
         </div>

@@ -19,8 +19,8 @@
              <i class="fas fa-users fa-fw me-2 text-muted"></i>
              <strong class="fw-medium text-dark me-1">Format:</strong> {{ event.details.format }}
          </div>
-         <!-- Prize for Competition -->
-         <div v-if="event.details.format === 'Competition' && event.details.prize" class="col-md-6 col-12 py-1 d-flex align-items-center">
+         <!-- Prize for Competition or MultiEvent with isCompetition -->
+         <div v-if="(event.details.format === EventFormat.MultiEvent && event.details.isCompetition && event.details.prize) || (event.details.format !== EventFormat.MultiEvent && event.details.prize)" class="col-md-6 col-12 py-1 d-flex align-items-center">
               <i class="fas fa-trophy fa-fw me-2 text-warning"></i>
              <strong class="fw-medium text-dark me-1">Prize:</strong> {{ event.details.prize }}
          </div>

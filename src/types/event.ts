@@ -16,10 +16,34 @@ export enum EventStatus {
 export enum EventFormat {
   Individual = 'Individual',
   Team = 'Team',
-  Competition = 'Competition'
+  MultiEvent = 'MultiEvent' // New format for multi-stage/phase events, replaces Competition
 }
 
 // --- Supporting Interfaces ---
+
+// New interface for individual phases within a MultiEvenet
+export interface EventPhase {
+  id: string; // Unique ID for the phase within the event
+  phaseName: string; // e.g., "Round 1: Coding Challenge", "Final Pitch"
+  description: string;
+  format: EventFormat.Individual | EventFormat.Team; // A phase itself is either Individual or Team based
+  type: string; // Specific type for this phase, e.g., "Coding Submission", "Presentation"
+  
+  participants?: string[] | null; // Participants specific to this phase (can be subset of main event)
+  coreParticipants?: string[] | null; // If phase format is Individual
+  
+  criteria?: EventCriteria[] | null; // Rating criteria specific to this phase
+  teams?: Team[] | null; // Teams specific to this phase (if phase format is Team)
+  
+  rules?: string | null; // Make sure this is string | null and not undefined
+  prize?: string | null; // Prize for this specific phase
+  allowProjectSubmission: boolean;
+  
+  // Dates for phases are typically relative to parent or sequential, not absolute standalone dates.
+  // For simplicity, not adding separate start/end here; they'd be managed by parent event's timeline.
+  // Voting for a phase would also be managed in context of the phase.
+}
+
 export interface EventDate {
   start: Timestamp | null;
   end: Timestamp | null;
@@ -35,16 +59,23 @@ export interface EventGalleryItem {
 export interface EventDetails {
   eventName: string;
   description: string;
-  format: EventFormat;
-  type: string; // e.g., 'Workshop', 'Competition', 'Seminar'
-  organizers: string[]; // Array of student UIDs
+  format: EventFormat; // This will determine if 'phases' array is used
+  isCompetition?: boolean; // NEW: Indicates if the MultiEvent as a whole is a competition
+  organizers: string[];
+  // coreParticipants is relevant if the main event (or a phase) is 'Individual'
+  // If format is MultiEvenet, coreParticipants might be at phase level.
+  // For a simple Individual event, it's here.
+  coreParticipants: string[]; 
+  type?: string; // Added back for Individual and Team formats
   date: {
-    start: Timestamp | string | null; // Allow string for form input, convert to Timestamp for store/Firestore
-    end: Timestamp | string | null;   // Allow string for form input, convert to Timestamp for store/Firestore
+    start: Timestamp | string | null;
+    end: Timestamp | string | null;
   };
-  rules?: string | null; // Optional, use null if not provided
-  prize?: string | null; // Optional, use null if not provided
-  allowProjectSubmission: boolean;
+  rules?: string | null; // Overall event rules
+  prize?: string | null; // Overall event prize (if any, distinct from phase prizes)
+  allowProjectSubmission: boolean; // Overall setting, can be overridden by phase if not MultiEvent
+
+  phases?: EventPhase[] | null; // Array of phases, only if format is MultiEvenet
 }
 
 export interface EventCriteria {
@@ -65,6 +96,7 @@ export interface Submission {
   description?: string | null | undefined; // Allow undefined
   participantId?: string | null;
   teamName?: string;
+  phaseId?: string | null; // Optional: to link submission to a specific phase
 }
 
 export interface Team {
@@ -74,7 +106,7 @@ export interface Team {
   teamLead: string | undefined; // Allow undefined for team lead
 }
 
-export type EventWinners = Record<string, string[]>;
+export type EventWinners = Record<string, string[]>; // Can be for overall or per phase { [phaseId_criterionTitle]: winners }
 
 export interface OrganizerRating {
   userId: string;
@@ -104,16 +136,17 @@ export interface Event {
   id: string;
   details: EventDetails;
   status: EventStatus;
-  requestedBy: string; // UID of the student who requested
-  votingOpen: boolean;
+  requestedBy: string;
+  votingOpen: boolean; // Overall voting status, phase-specific voting might be handled differently
+  // childEventIds is removed
   lastUpdatedAt?: Timestamp | null | undefined;
-  participants?: string[] | null | undefined;
+  participants?: string[] | null | undefined; // Overall participants for the event
   submissions?: Submission[] | null | undefined;
   criteria?: EventCriteria[] | null | undefined;
   teams?: Team[] | null | undefined;
   organizerRatings?: Record<string, OrganizerRating> | null | undefined; // UID to Rating
-  winners?: Record<string, string | string[]> | null | undefined; // maps criteria title/ID to winner UID(s)
-  criteriaVotes?: Record<string, Record<string, string>> | null | undefined; // { [voterUid]: { [criterionId]: selectedTeamOrParticipantUid } }
+  winners?: Record<string, string | string[]> | null | undefined; // Can map phaseId_criteria to winner(s) or overall criteria
+  criteriaVotes?: Record<string, Record<string, string>> | null | undefined; // Can be { [voterUid]: { [phaseId_criterionId]: vote } }
   bestPerformerSelections?: Record<string, string> | null | undefined; // { [voterUid]: selectedParticipantUid }
   rejectionReason?: string | null | undefined; // Reason if the event request was rejected
   manuallySelectedBy?: string | null | undefined; // UID of admin/organizer who manually selected winners
@@ -127,19 +160,25 @@ export interface EventFormData {
   details: {
     eventName: string;
     description: string;
-    rules?: string | null;
+    rules?: string | null | undefined; // Allow undefined for form data compatibility
     format: EventFormat;
-    type: string;
+    isCompetition?: boolean; // NEW
     organizers: string[];
+    coreParticipants: string[];
+    type?: string; // Added back for Individual and Team formats
+    parentId?: string | null; // Ensure parentId is here
     date: {
       start: string | null;
       end: string | null;
     };
     allowProjectSubmission: boolean;
-    prize?: string | null;
+    prize?: string | null | undefined; // Allow undefined for form data compatibility
+    phases?: EventPhase[] | null; // For creating/editing MultiEvenets
   };
-  criteria?: EventCriteria[];
-  teams?: Team[];
+  participants?: string[]; // Added participants to the root
+  // childEventIds is removed
+  criteria?: EventCriteria[]; // Overall criteria if not a MultiEvenet or default criteria for phases
+  teams?: Team[]; // Overall teams if not a MultiEvenet or default teams for phases
   status?: EventStatus;
 
   submissions?: Submission[];

@@ -1,0 +1,133 @@
+// Modal Styles for ConfirmationModal
+.confirmation-modal {
+  z-index: 1060 !important;
+
+  .modal-content {
+    background-color: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: var(--bs-border-radius-xl);
+    box-shadow: var(--bs-box-shadow-lg);
+    position: relative;
+    z-index: 1061 !important;
+  }
+
+  .modal-header {
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    background: linear-gradient(135deg, 
+      rgba(var(--bs-primary-rgb), 0.03) 0%, 
+      rgba(var(--bs-primary-rgb), 0.01) 100%);
+    border-radius: var(--bs-border-radius-xl) var(--bs-border-radius-xl) 0 0;
+    padding: 1.25rem 1.5rem 1rem;
+
+    .modal-title {
+      font-weight: 600;
+      color: var(--bs-emphasis-color);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+  }
+
+  .modal-body {
+    padding: 1.25rem 1.5rem;
+    color: var(--bs-body-color);
+    line-height: 1.6;
+  }
+
+  .modal-footer {
+    border-top: 1px solid var(--bs-border-color-translucent);
+    padding: 1rem 1.5rem 1.25rem;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    align-items: center;
+
+    .btn {
+      min-width: 90px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+
+      &:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: var(--bs-box-shadow);
+      }
+    }
+  }
+
+  .btn-close {
+    font-size: 1.1rem;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  // Variant-specific icon colors
+  &.variant-danger .modal-title i {
+    color: var(--bs-danger);
+  }
+
+  &.variant-warning .modal-title i {
+    color: var(--bs-warning);
+  }
+
+  &.variant-success .modal-title i {
+    color: var(--bs-success);
+  }
+
+  &.variant-primary .modal-title i,
+  &.variant-info .modal-title i {
+    color: var(--bs-primary);
+  }
+}
+
+// Modal backdrop styling
+.modal-backdrop {
+  background-color: rgba(var(--bs-dark-rgb), 0.3) !important; // Reduced opacity
+  backdrop-filter: blur(2px); // Reduced blur
+  z-index: 1059 !important; // Ensure this is below .confirmation-modal (1060)
+
+  &.show {
+    opacity: 1 !important;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 576px) {
+  .confirmation-modal {
+    .modal-footer {
+      flex-direction: column-reverse;
+      gap: 0.5rem;
+
+      .btn {
+        width: 100%;
+        min-width: auto;
+      }
+    }
+
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+}
+
+// Animation enhancements
+.modal.fade .modal-dialog {
+  transition: transform 0.3s ease-out;
+  transform: translate(0, -50px);
+}
+
+.modal.show .modal-dialog {
+  transform: none;
+}
+
+// Focus and accessibility improvements
+.confirmation-modal .modal-content:focus {
+  outline: none;
+  box-shadow: var(--bs-box-shadow-lg), 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+}

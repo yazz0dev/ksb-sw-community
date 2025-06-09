@@ -10,8 +10,7 @@ import {
   updateDoc, 
   Timestamp
 } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { db } from '@/firebase';
+import { auth, db } from '@/firebase';
 import type { EnrichedStudentData, UserData } from '@/types/student';
 import type { XPData } from '@/types/xp';
 import { getDefaultXPData } from '@/types/xp';
@@ -79,7 +78,7 @@ export const updateStudentProfile = async (
 ): Promise<void> => {
   try {
     // Ensure the current user is authenticated
-    const auth = getAuth();
+    // Using centralized auth instance from firebase.ts
     if (!auth.currentUser) {
       throw new Error('You must be authenticated to update your profile');
     }

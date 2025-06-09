@@ -457,6 +457,16 @@ export const useEventStore = defineStore('studentEvents', () => {
       const newEventDataForStore: EventWithId = createCompleteEvent(eventDataForStoreCreation);
         
         _updateLocalEventLists(newEventDataForStore);
+        
+        // Update profile store's userRequests
+        if (studentProfileStore.currentStudent?.uid) {
+          try {
+            await studentProfileStore.fetchUserRequests(studentProfileStore.currentStudent.uid);
+          } catch (error) {
+            console.warn('Failed to refresh user requests after event creation:', error);
+          }
+        }
+        
         notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
       return newEventId;
 
@@ -536,6 +546,15 @@ export const useEventStore = defineStore('studentEvents', () => {
         _updateLocalEventLists(updatedEvent as EventWithId); // Added 'as EventWithId'
       }
       
+      // Update profile store's userRequests
+      if (studentProfileStore.currentStudent?.uid) {
+        try {
+          await studentProfileStore.fetchUserRequests(studentProfileStore.currentStudent.uid);
+        } catch (error) {
+          console.warn('Failed to refresh user requests after event update:', error);
+        }
+      }
+      
       notificationStore.showNotification({ message: 'Event request updated successfully!', type: 'success' });
       return true;
     } catch (err) {
@@ -563,6 +582,9 @@ export const useEventStore = defineStore('studentEvents', () => {
       if (viewedEventDetails.value?.id === eventId) {
           viewedEventDetails.value = null;
       }
+
+      // Also remove from profile store's userRequests
+      studentProfileStore.removeUserRequestById(eventId);
 
       notificationStore.showNotification({ message: 'Event request deleted successfully!', type: 'success' });
       return true;

@@ -1,49 +1,41 @@
-import { computed, ref } from 'vue'; // Remove onMounted
-import { getAuth, signOut, type User } from 'firebase/auth';
+import { computed, ref, onMounted, onUnmounted, getCurrentInstance } from 'vue';
+import { signOut, type User } from 'firebase/auth';
+import { auth as firebaseAuthInstance } from '@/firebase';
 import { useProfileStore } from '@/stores/profileStore';
 import { useAppStore } from '@/stores/appStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useRouter } from 'vue-router';
 
 export function useAuth() {
-  const firebaseAuthInstance = getAuth(); // Renamed to avoid conflict if 'auth' is used as a variable name elsewhere
   const profileStore = useProfileStore();
   const appStore = useAppStore();
   const notificationStore = useNotificationStore();
   const router = useRouter();
 
-  // Create a local ref for the auth state to avoid store dependency cycles
-  const currentUser = ref<User | null>(firebaseAuthInstance.currentUser);
-
-  const isAuthenticated = computed(() => {
-    // First check Firebase auth directly
-    if (currentUser.value) return true;
-    // Then check the profile store as a backup
-    return profileStore.isAuthenticated;
-  });
+  // The single source of truth is the profileStore.
+  const isAuthenticated = computed(() => profileStore.isAuthenticated);
   
-  // Provides direct access to the current Firebase user object
-  const authUser = computed(() => currentUser.value); 
+  // Provides direct access to the current Firebase user object from the store's perspective.
+  // Note: This might be null even if Firebase auth is signed in, before the profile is fetched.
+  const authUser = computed(() => profileStore.currentStudent ? firebaseAuthInstance.currentUser : null); 
+
   const isInitialized = computed(() => appStore.hasFetchedInitialAuth);
-  // This error ref is for errors originating from actions within this composable (e.g., logout)
   const authActionError = ref<Error | null>(null);
 
   const logout = async () => {
-    authActionError.value = null; // Clear previous action error
+    authActionError.value = null;
     try {
       await signOut(firebaseAuthInstance);
-      currentUser.value = null;
       
-      // The global onAuthStateChanged listener in main.ts handles profileStore.clearStudentSession
+      // The global onAuthStateChanged listener in main.ts handles all session clearing.
       
       notificationStore.showNotification({
         type: 'success',
         message: 'You have been successfully signed out.'
       });
       
-      // It's common to redirect after logout.
-      // Ensure the route 'Login' or 'Landing' exists and is appropriate.
-      router.push({ name: 'Login' }).catch(err => console.error("Router push error after logout:", err));
+      // Navigate to landing or login page
+      router.push({ name: 'Landing' }).catch(err => console.error("Router push error after logout:", err));
     } catch (error) {
       console.error('Error during logout:', error);
       authActionError.value = error instanceof Error ? error : new Error(String(error));
@@ -54,11 +46,18 @@ export function useAuth() {
     }
   };
 
-  // This function can be used to manually re-check Firebase's current user.
-  const refreshAuthState = async () => {
-    currentUser.value = firebaseAuthInstance.currentUser;
-    return currentUser.value;
+  // This function is less critical now, but can be kept for debugging.
+  const refreshAuthState = () => {
+    // This action should be done via the store now, e.g., by re-calling `handleAuthStateChange`
+    // For now, it just triggers a re-fetch in the store.
+    if (firebaseAuthInstance.currentUser) {
+      profileStore.handleAuthStateChange(firebaseAuthInstance.currentUser);
+    }
+    return firebaseAuthInstance.currentUser;
   };
+
+  // The local onAuthStateChanged listener has been removed to prevent race conditions.
+  // All auth state is now managed centrally via the listener in main.ts and the profileStore.
 
   return {
     isAuthenticated,
@@ -67,6 +66,6 @@ export function useAuth() {
     isInitialized,
     logout,
     refreshAuthState,
-    currentUser
+    // The local currentUser ref is removed, authUser should be used instead.
   };
 }

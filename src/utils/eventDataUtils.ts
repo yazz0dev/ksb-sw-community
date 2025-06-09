@@ -57,45 +57,70 @@ function convertToTimestamp(dateValue: DateInput): Timestamp | null {
  * Maps event data from application format to Firestore format
  * Handles date conversions and ensures proper timestamps
  */
-export const mapEventDataToFirestore = (data: EventFormData | Partial<EventWithId>): any => { // Changed Partial<Event> to Partial<EventWithId>
+export const mapEventDataToFirestore = (data: EventFormData | Partial<EventWithId>): any => {
     const firestoreData: any = { ...data };
     
-    // Remove id if present, as it's not part of the document data
     if ('id' in firestoreData) {
         delete firestoreData.id;
     }
+
+    const isChildEvent = !!firestoreData.details?.parentId;
     
-    // Sanitize fields based on event format
+    // Sanitize fields based on event format and whether it's a child event
     if (firestoreData.details && typeof firestoreData.details.format === 'string') {
         const format = firestoreData.details.format as EventFormat;
 
-        if (format === EventFormat.Competition) {
-            firestoreData.criteria = [];
-            firestoreData.teams = [];
-            // Prize is allowed for competitions, allowProjectSubmission is handled by caller/form logic
-        } else { // Not Competition (Team or Individual)
-            firestoreData.details.prize = null; // No prize for non-competition events
-            // Criteria are allowed for Team/Individual
-            if (format !== EventFormat.Team) { // Individual
-                firestoreData.teams = []; // No teams for individual events
+        // If the event itself (or phase) is marked as a competition
+        if (firestoreData.details.isCompetition) {
+            // For a competitive event/phase, certain fields might be handled differently
+            // This logic seems to be more about overall event structure vs phase structure.
+            // If format is MultiEvent and it's a competition, criteria/teams are per-phase.
+            if (format === EventFormat.MultiEvent) {
+                firestoreData.criteria = []; // Overall criteria cleared for MultiEvent
+                firestoreData.teams = []; // Overall teams cleared for MultiEvent
+                firestoreData.details.coreParticipants = []; // Overall coreParticipants cleared
             }
-            // If Team, teams array is preserved or initialized by || [] below
+            // Prize logic:
+            // If it's a child event (phase) and it's a competition, it can have its own prize.
+            // If it's a parent event and a competition, it can have an overall prize.
+            // If it's NOT a competition (regardless of parent/child), prize should be null.
+        } else { // Not a competition
+            if (!isChildEvent) { // Parent events that are not competitions don't have prizes
+                firestoreData.details.prize = null;
+            }
+            // For child events, prize is allowed regardless of parent's format, if child itself is competition.
+            // If child is not competition, its prize should be null.
+            else if (!firestoreData.details.isCompetition) {
+                 firestoreData.details.prize = null;
+            }
+
+
+            if (format !== EventFormat.Team) { // Individual
+                firestoreData.teams = [];
+            } else { // Team
+                 firestoreData.details.coreParticipants = [];
+            }
         }
     }
 
-    // Ensure optional fields are null, not undefined, and arrays are initialized
     if (firestoreData.details) {
         firestoreData.details.prize = firestoreData.details.prize || null;
         firestoreData.details.rules = firestoreData.details.rules || null;
+        firestoreData.details.coreParticipants = (firestoreData.details.format === EventFormat.Individual && Array.isArray(firestoreData.details.coreParticipants))
+                                               ? firestoreData.details.coreParticipants.filter((uid: any) => typeof uid === 'string' && uid.trim() !== '').slice(0, 10)
+                                               : [];
         
-        // Ensure organizers is always an array
-        if (!firestoreData.details.organizers || !Array.isArray(firestoreData.details.organizers)) {
-            firestoreData.details.organizers = [];
+        if (!isChildEvent) { // Organizers only relevant for parent events in this mapping stage
+            if (!firestoreData.details.organizers || !Array.isArray(firestoreData.details.organizers)) {
+                firestoreData.details.organizers = [];
+            }
         }
+        // parentId is taken as is from formData
+        firestoreData.details.parentId = firestoreData.details.parentId || null;
     }
     
-    // Handle date conversion to Firestore Timestamps
-    if (data.details?.date?.start || data.details?.date?.end) {
+    // Handle date conversion to Firestore Timestamps (only if not a child event, or if dates are explicitly passed for child - currently inherited)
+    if (!isChildEvent && (data.details?.date?.start || data.details?.date?.end)) {
         firestoreData.details = firestoreData.details || {};
         firestoreData.details.date = firestoreData.details.date || {};
 
@@ -110,11 +135,17 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<EventWithI
         } else {
             (firestoreData.details.date as any).end = null;
         }
+    } else if (isChildEvent && firestoreData.details) {
+        // For child events, date is inherited, so we might not transform it here,
+        // assuming it's already in Timestamp format from parent or correctly set by service.
+        // If formData for a child event could somehow provide its own dates, conversion would be needed.
+        // For now, let's assume service layer handles setting correct date object from parent.
+        // delete firestoreData.details.date; // Or ensure it's set correctly by service
     }
     
     // Clean and validate criteria array
     if (Array.isArray(firestoreData.criteria)) {
-        const originalCriteria = firestoreData.criteria;
+        // Remove unused variable
         firestoreData.criteria = firestoreData.criteria
             .filter((criterion: any) => {
                 // Filter out invalid criteria (empty role, negative constraintIndex, etc.)
@@ -125,7 +156,7 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<EventWithI
                        typeof criterion.constraintIndex === 'number' && criterion.constraintIndex >= 0;
                 
                 if (!isValid) {
-                    console.log('Filtering out invalid criterion:', criterion);
+            
                 }
                 return isValid;
             })
@@ -139,7 +170,7 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<EventWithI
                 };
             });
         
-        console.log('Criteria filtering: original count =', originalCriteria.length, ', final count =', firestoreData.criteria.length);
+    
     } else {
         firestoreData.criteria = [];
     }
@@ -211,39 +242,53 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<EventWithI
     // Always set/update lastUpdatedAt with server's current time
     firestoreData.lastUpdatedAt = serverTimestamp();
     
+    // Ensure coreParticipants is an array in details if it exists
+    if (firestoreData.details && !Array.isArray(firestoreData.details.coreParticipants)) {
+      firestoreData.details.coreParticipants = [];
+    }
+
+    // Handle childEventIds - Removed as childEventIds is no longer part of the types
+    // firestoreData.childEventIds = Array.isArray(data.childEventIds) ? data.childEventIds : [];
+    
     return firestoreData;
 };
 
-/**
- * Maps Firestore document data back to application Event format
- * Handles type conversions and ensures proper timestamps
- */
 export const mapFirestoreToEventData = (id: string, data: any): EventBaseData | null => {
   try {
     if (!data) return null;
     
-    // Create a properly formatted Event object
     const event: EventBaseData = {
-      id, // Set id directly without using spread operator that would overwrite it
+      id,
       details: {
-        title: data.details?.eventName || '', // Add title property, defaulting to eventName
+        // title: data.details?.eventName || '', // title is not part of EventDetails
         eventName: data.details?.eventName || '',
         description: data.details?.description || '',
         format: data.details?.format || EventFormat.Individual,
-        type: data.details?.type || '',
+        // type: data.details?.type || '', // 'type' removed from EventDetails
+        isCompetition: data.details?.isCompetition || false,
         organizers: data.details?.organizers || [],
+        coreParticipants: data.details?.coreParticipants || [],
+        parentId: data.details?.parentId || null, // Map parentId
         date: {
           start: data.details?.date?.start || null,
           end: data.details?.date?.end || null
         },
         allowProjectSubmission: data.details?.allowProjectSubmission ?? true,
         prize: data.details?.prize || null,
-        rules: data.details?.rules || null
+        rules: data.details?.rules || null,
+        phases: data.details?.phases || null,
       },
+      // childEventIds: data.childEventIds || [], // 'childEventIds' removed from EventBaseData
       // ...copy the rest of the properties from data
-      ...data
+      ...data // Spread after explicit mappings to allow overrides from data if necessary
     };
     
+    // Ensure event.id is not overwritten by spread if data contains an 'id' field
+    event.id = id;
+    // Ensure details are not overwritten if data contains a 'details' field at top level
+    // This is tricky with spread. Better to map field by field or ensure data structure is clean.
+    // For now, assuming data structure from Firestore is as expected.
+
     return event;
   } catch (error) {
     console.error('Error mapping Firestore data to Event:', error);
@@ -270,7 +315,7 @@ export function hasUserSubmittedVotes(event: EventWithId | null, userId: string 
   if (!event || !userId) return false;
   
   // Check if user has any votes in the criteriaVotes structure
-  if (event.criteriaVotes && event.criteriaVotes[userId] && Object.keys(event.criteriaVotes[userId]).length > 0) {
+  if (event.criteriaVotes && event.criteriaVotes[userId] && Object.keys(event.criteriaVotes[userId] || {}).length > 0) {
     return true;
   }
   // Check if user has selected a best performer
@@ -350,7 +395,7 @@ export function createManualWinnerPayload(
 
 export function hasStudentVotedForEvent(event: EventWithId | null, userId: string | null): boolean { // Parameter type changed
   if (!event || !userId) return false;
-  if (event.criteriaVotes && event.criteriaVotes[userId] && Object.keys(event.criteriaVotes[userId]).length > 0) {
+  if (event.criteriaVotes && event.criteriaVotes[userId] && Object.keys(event.criteriaVotes[userId] || {}).length > 0) {
     return true;
   }
   if (event.bestPerformerSelections && event.bestPerformerSelections[userId]) {
@@ -370,14 +415,17 @@ export function getStudentVoteForCriterion(
   
   if (typeof criterionConstraintIndex === 'string') {
     // After the checks above, event.criteriaVotes[userId] is Record<string, string>
-    const specificVote = event.criteriaVotes[userId][criterionConstraintIndex]; // specificVote is of type string | undefined
+    const userVotes = event.criteriaVotes[userId];
+    if (userVotes) {
+      const specificVote = userVotes[criterionConstraintIndex]; // specificVote is of type string | undefined
 
-    // Check if specificVote is a string. If so, it's a valid vote.
-    if (typeof specificVote === 'string') {
-      return specificVote; // specificVote is narrowed to 'string' here.
-    } else {
-      // specificVote is 'undefined' here.
-      return undefined; 
+      // Check if specificVote is a string. If so, it's a valid vote.
+      if (typeof specificVote === 'string') {
+        return specificVote; // specificVote is narrowed to 'string' here.
+      } else {
+        // specificVote is 'undefined' here.
+        return undefined; 
+      }
     }
   }
   

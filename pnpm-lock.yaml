@@ -42,6 +42,9 @@ importers:
       firebase:
         specifier: 10.12.2
         version: 10.12.2
+      imagekit-javascript:
+        specifier: ^4.0.1
+        version: 4.0.1
       jspdf:
         specifier: ^3.0.1
         version: 3.0.1
@@ -2434,6 +2437,9 @@ packages:
   ignore@7.0.5:
     resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
     engines: {node: '>= 4'}
+
+  imagekit-javascript@4.0.1:
+    resolution: {integrity: sha512-V3eVMz7OW8w8dSNJXPtVcWQMdV0P1wRs+Bftb2B1bKRl8NjOf+NGRWYb/meJlrmSL/HxT68PjM92/XFB+9ZfJA==}
 
   imagemin-gifsicle@7.0.0:
     resolution: {integrity: sha512-LaP38xhxAwS3W8PFh4y5iQ6feoTSF+dTAXFRUEYQWYst6Xd+9L/iPk34QGgK/VO/objmIlmq9TStGfVY2IcHIA==}
@@ -6809,6 +6815,8 @@ snapshots:
 
   ignore@7.0.5:
     optional: true
+
+  imagekit-javascript@4.0.1: {}
 
   imagemin-gifsicle@7.0.0:
     dependencies:

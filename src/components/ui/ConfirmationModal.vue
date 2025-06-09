@@ -4,6 +4,7 @@
     <div 
         ref="modalEl"
         class="modal fade confirmation-modal" 
+        :class="`variant-${variant}`"
         :id="modalId" 
         tabindex="-1" 
         :aria-labelledby="`${modalId}Label`"
@@ -12,10 +13,10 @@
         data-bs-keyboard="false"
     >
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 shadow-lg border-0">
-                <div class="modal-header border-0 pb-2">
-                    <h5 class="modal-title h5 fw-semibold text-dark" :id="`${modalId}Label`">
-                        <i v-if="modalIcon" :class="modalIcon" class="me-2"></i>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" :id="`${modalId}Label`">
+                        <i v-if="modalIcon" :class="modalIcon"></i>
                         {{ title }}
                     </h5>
                     <button 
@@ -25,22 +26,22 @@
                         aria-label="Close"
                     ></button>
                 </div>
-                <div class="modal-body py-3">
+                <div class="modal-body">
                     <slot>
-                        <p class="text-secondary mb-0 lh-base">{{ message }}</p>
+                        <p class="mb-0">{{ message }}</p>
                     </slot>
                 </div>
-                <div class="modal-footer border-0 pt-2 gap-2">
+                <div class="modal-footer">
                     <button 
                         type="button" 
-                        class="btn btn-secondary btn-sm-mobile" 
+                        class="btn btn-secondary" 
                         data-bs-dismiss="modal"
                     >
                         {{ cancelText }}
                     </button>
                     <button 
                         type="button" 
-                        class="btn btn-sm-mobile"
+                        class="btn"
                         :class="confirmButtonClass"
                         @click="handleConfirm"
                     >
@@ -64,11 +65,12 @@ const props = defineProps<{
     message?: string;
     confirmText?: string;
     cancelText?: string;
-    variant?: 'danger' | 'warning' | 'primary' | 'success';
+    variant?: 'danger' | 'warning' | 'primary' | 'success' | 'info';
 }>();
 
 const emit = defineEmits<{
     (e: 'confirm'): void;
+    (e: 'cancel'): void;
 }>();
 
 const modalEl = ref<HTMLElement | null>(null);
@@ -82,10 +84,11 @@ const confirmButtonClass = computed(() => {
 // Compute icon based on variant
 const modalIcon = computed(() => {
     switch (props.variant) {
-        case 'danger': return 'fas fa-exclamation-triangle text-danger';
-        case 'warning': return 'fas fa-exclamation-circle text-warning';
-        case 'success': return 'fas fa-check-circle text-success';
-        default: return 'fas fa-info-circle text-primary';
+        case 'danger': return 'fas fa-exclamation-triangle';
+        case 'warning': return 'fas fa-exclamation-circle';
+        case 'success': return 'fas fa-check-circle';
+        case 'info': return 'fas fa-info-circle';
+        default: return 'fas fa-info-circle';
     }
 });
 
@@ -111,6 +114,10 @@ const handleConfirm = () => {
     emit('confirm');
 };
 
+const handleCancel = () => {
+    emit('cancel');
+};
+
 onMounted(() => {
     if (modalEl.value) {
         modalInstance = new Modal(modalEl.value, {
@@ -119,21 +126,18 @@ onMounted(() => {
             focus: true
         });
         
-        // Ensure modal appears on top of everything
-        modalEl.value.addEventListener('shown.bs.modal', () => {
-            modalEl.value?.style.setProperty('z-index', '1060', 'important');
-            // Find and set backdrop z-index
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) {
-                (backdrop as HTMLElement).style.setProperty('z-index', '1059', 'important');
-            }
-        });
+        // Listen for modal events
+        modalEl.value.addEventListener('hidden.bs.modal', handleCancel);
+        
     } else {
         console.error(`[${props.modalId}] Could not find modal element to initialize.`);
     }
 });
 
 onUnmounted(() => {
+    if (modalEl.value) {
+        modalEl.value.removeEventListener('hidden.bs.modal', handleCancel);
+    }
     if (modalInstance) {
         modalInstance.dispose();
     }
@@ -145,17 +149,6 @@ defineExpose({
     show: () => {
         if (modalInstance) {
             modalInstance.show();
-            // Force focus and z-index
-            setTimeout(() => {
-                if (modalEl.value) {
-                    modalEl.value.style.setProperty('z-index', '1060', 'important');
-                    modalEl.value.focus();
-                }
-                const backdrop = document.querySelector('.modal-backdrop');
-                if (backdrop) {
-                    (backdrop as HTMLElement).style.setProperty('z-index', '1059', 'important');
-                }
-            }, 50);
         } else {
             console.error(`[${props.modalId}] show() called, but modal instance is not initialized.`);
         }
@@ -171,36 +164,12 @@ defineExpose({
 </script>
 
 <style>
-/* Use global styles to override any scoped conflicts */
-.confirmation-modal {
-    z-index: 1060 !important;
-}
-
-.confirmation-modal .modal-backdrop {
-    z-index: 1059 !important;
-    background-color: rgba(0, 0, 0, 0.6) !important;
-    opacity: 1 !important;
-}
-
-/* Custom Modal Backdrop - provides darker backdrop for better focus */
-.modal-backdrop {
-  background-color: rgba(0, 0, 0, 0.6) !important;
-  z-index: 1050 !important;
-}
-
-.modal-backdrop.show {
-  opacity: 1 !important;
-}
-
-.modal {
-  z-index: 1055 !important;
-}
+/* Styles specific to .confirmation-modal structure, not general modal overrides */
 
 .confirmation-modal .modal-content {
-    background: var(--bs-card-bg);
-    border: 1px solid var(--bs-border-color);
-    z-index: 1061 !important;
-    position: relative;
+    background-color: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color-translucent);
+    /* z-index and position are handled by Bootstrap/global SCSS */
 }
 
 .confirmation-modal .btn-close {

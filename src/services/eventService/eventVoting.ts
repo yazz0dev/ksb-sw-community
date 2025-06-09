@@ -217,9 +217,7 @@ export async function submitOrganizationRatingInFirestore(payload: {
             }
 
             // Check if user has already rated (prevent duplicate ratings)
-            if (eventData.organizerRatings && eventData.organizerRatings[userId]) {
-                // Allow updating existing rating
-                console.log(`User ${userId} is updating their existing rating for event ${eventId}`);
+            if (eventData.organizerRatings && eventData.organizerRatings[userId]) {            // Allow updating existing rating
             }
 
             const newRating: OrganizerRating = {
@@ -308,8 +306,10 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
                 if (!criterionVoteCounts[constraintKey]) {
                     criterionVoteCounts[constraintKey] = {};
                 }
-                criterionVoteCounts[constraintKey][selectedEntityId] = 
-                    (criterionVoteCounts[constraintKey][selectedEntityId] || 0) + 1;
+                if (!criterionVoteCounts[constraintKey][selectedEntityId]) {
+                    criterionVoteCounts[constraintKey][selectedEntityId] = 0;
+                }
+                criterionVoteCounts[constraintKey][selectedEntityId] += 1;
             });
         });
 
@@ -442,13 +442,9 @@ export async function finalizeWinnersInFirestore(
             }
             if (eventData.votingOpen === true) {
                 throw new Error("Voting must be closed before finalizing winners. Please close voting first.");
-            }
-
-            if (!isEmpty(eventData.winners)) {
+            }            if (!isEmpty(eventData.winners)) {
                 finalWinners = eventData.winners!;
-                console.log(`Using pre-existing winners for event ${eventId}.`);
             } else {
-                console.log(`No pre-existing winners found for event ${eventId}. Calculating from votes...`);
                 finalWinners = await calculateWinnersFromVotes(eventId);
                 if (isEmpty(finalWinners)) {
                     throw new Error("No winners could be determined from votes. Manual selection might be required.");

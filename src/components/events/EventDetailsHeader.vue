@@ -18,8 +18,8 @@
             {{ event?.details?.eventName || 'Untitled Event' }}
           </h1>
 
-           <!-- Prize Display (for Competition) -->
-           <div v-if="event?.details?.format === EventFormat.Competition && event?.details?.prize" class="mb-3 d-flex align-items-center text-warning-emphasis bg-warning-subtle p-2 rounded-pill border border-warning-subtle" style="max-width: fit-content;">
+           <!-- Prize Display (for Competition or MultiEvent with isCompetition) -->
+           <div v-if="(event?.details?.format === EventFormat.MultiEvent && event?.details?.isCompetition && event?.details?.prize) || (event?.details?.format !== EventFormat.MultiEvent && event?.details?.prize)" class="mb-3 d-flex align-items-center text-warning-emphasis bg-warning-subtle p-2 rounded-pill border border-warning-subtle" style="max-width: fit-content;">
                <i class="fas fa-trophy me-2"></i>
                <span class="fw-medium small">Prize: {{ event.details.prize }}</span>
            </div>
@@ -68,7 +68,8 @@
             <div v-html="renderedRulesHtml"></div>
           </div>
 
-          <div class="alert alert-warning d-flex align-items-center rounded-pill alert-voting-open">
+          <!-- Voting Open Alert - Only show when voting is actually open -->
+          <div v-if="event?.votingOpen" class="alert alert-warning d-flex align-items-center rounded-pill alert-voting-open">
             <i class="fas fa-clock me-2"></i>
             <span class="small">
               <strong>Voting Open:</strong> Submit your ratings for participants and teams
@@ -114,7 +115,7 @@ import { ref, watch, computed, type PropType } from 'vue';
 import { Timestamp } from 'firebase/firestore';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { formatISTDate } from '@/utils/dateTime';
-import { EventFormat, type Team } from '@/types/event'; // Import Team for EventHeaderProps
+import { EventFormat, type EventPhase, type Team } from '@/types/event'; // Import Team for EventHeaderProps
 import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
 // Define a more specific Event type for the header props
@@ -134,10 +135,13 @@ export interface EventHeaderProps {
     organizers: string[] | undefined;
     prize: string | undefined;
     rules: string | undefined;
+    isCompetition?: boolean;
+    phases?: EventPhase[] | undefined;
   };
   closed: boolean;
   teams: Team[] | undefined;
   participants: string[] | undefined;
+  votingOpen?: boolean;
 }
 
 const props = defineProps({
@@ -220,6 +224,22 @@ const formatDateRange = (start: any, end: any): string => {
 
 const totalParticipants = computed(() => {
   if (!props.event) return 0;
+  
+  // Handle MultiEvent format
+  if (props.event.details?.format === EventFormat.MultiEvent && props.event.details.phases) {
+    const memberSet = new Set<string>();
+    props.event.details.phases.forEach(phase => {
+      if (phase.format === EventFormat.Team && phase.teams) {
+        phase.teams.forEach(team => {
+          (team.members || []).forEach(m => m && memberSet.add(m));
+        });
+      } else if (phase.format === EventFormat.Individual && phase.coreParticipants) {
+        phase.coreParticipants.forEach(p => p && memberSet.add(p));
+      }
+    });
+    return memberSet.size;
+  }
+  
   // Team Format
   if (props.event.details?.format === EventFormat.Team && Array.isArray(props.event.teams)) {
     const memberSet = new Set<string>();
@@ -227,7 +247,7 @@ const totalParticipants = computed(() => {
       (team.members || []).forEach(m => m && memberSet.add(m));
     });
     return memberSet.size;
-  // Competition Format (use participants array)
+  // Individual Format
   } else if (Array.isArray(props.event.participants)) {
     return props.event.participants.length;
   }

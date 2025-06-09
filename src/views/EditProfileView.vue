@@ -197,7 +197,6 @@ async function loadUserData() {
   } catch (err: any) {
     const message = err.message || 'Failed to load user data.';
     error.value = message;
-    notificationStore.showNotification({ message, type: 'error' });
     // Consider if router.back() is still appropriate or if showing error on page is better
     // router.back(); 
   } finally {
@@ -216,28 +215,18 @@ async function saveProfileEdits() {
   error.value = '';
 
   try {
-    // Debug authentication state
-    console.log('=== Profile Update Debug Info ===');
-    console.log('studentStore.studentId:', studentStore.studentId);
-    console.log('studentStore.isAuthenticated:', studentStore.isAuthenticated);
-    console.log('studentStore.currentStudent?.uid:', studentStore.currentStudent?.uid);
-    console.log('studentStore.currentStudent:', studentStore.currentStudent);
-
-    // Ensure user is authenticated
     if (!studentStore.studentId) {
       throw new Error('You must be logged in to update your profile');
     }
 
-    // Strict validation for photoURL before sending to Firestore
+    // Handle ImageKit URLs and blob URLs
     let photoURLForFirestore: string | null;
     const currentPhotoValueFromForm = form.value.photoURL;
 
     if (currentPhotoValueFromForm && currentPhotoValueFromForm.startsWith('blob:')) {
-      // A blob URL indicates the upload process isn't complete or failed to yield a permanent URL.
-      // Revert to the existing valid photoURL from the store, or null if not available/valid.
       console.warn('Attempting to save profile with a blob URL for photo. Reverting to stored photoURL or null.');
       const storedPhotoURL = studentStore.currentStudent?.photoURL;
-      if (storedPhotoURL && storedPhotoURL.match(/^https?:\/\/.+/)) {
+      if (storedPhotoURL && (storedPhotoURL.match(/^https?:\/\/.+/) || storedPhotoURL.includes('imagekit.io'))) {
         photoURLForFirestore = storedPhotoURL;
       } else {
         photoURLForFirestore = null;
@@ -246,11 +235,10 @@ async function saveProfileEdits() {
         message: 'New image was not saved as it was not finalized. Using previous image if available.', 
         type: 'warning' 
       });
-    } else if (currentPhotoValueFromForm && currentPhotoValueFromForm.match(/^https?:\/\/.+/)) {
-      // It's a valid http/https URL from the form (could be existing or newly uploaded and finalized)
+    } else if (currentPhotoValueFromForm && (currentPhotoValueFromForm.match(/^https?:\/\/.+/) || currentPhotoValueFromForm.includes('imagekit.io'))) {
+      // Valid HTTP/HTTPS URL or ImageKit URL
       photoURLForFirestore = currentPhotoValueFromForm.trim();
     } else {
-      // It's empty, null, or an invalid string format (e.g., relative path). Treat as null for Firestore.
       if (currentPhotoValueFromForm && currentPhotoValueFromForm.trim() !== '') {
          console.warn(`Invalid photoURL format in form ('${currentPhotoValueFromForm}'). Setting to null for Firestore update.`);
       }
@@ -289,17 +277,16 @@ async function saveProfileEdits() {
         notificationStore.showNotification({ message: 'Profile updated successfully', type: 'success' });
         router.push({ name: 'Profile' });
     } else {
-        // The studentStore.actionError should already be set by _handleOpError
-        // and _handleOpError should have called notificationStore.showNotification.
-        // So, we just set the local error for prominent display.
+        // The store handles error notifications, so we just set the local error for display
         error.value = studentStore.actionError || 'Failed to update profile.';
-        // No need to call notificationStore.showNotification here again if store does it.
     }
   } catch (err: any) {
-    // This catch block handles errors not caught by the store's _handleOpError,
-    // or if the store re-throws.
+    // This catch block handles unexpected errors
     error.value = err?.message || 'Failed to update profile';
-    notificationStore.showNotification({ message: error.value, type: 'error' });
+    // Only show notification if it's a different error than what the store might have handled
+    if (!studentStore.actionError) {
+      notificationStore.showNotification({ message: error.value, type: 'error' });
+    }
   } finally {
     loading.value = false;
   }

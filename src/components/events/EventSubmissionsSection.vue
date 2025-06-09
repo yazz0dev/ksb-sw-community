@@ -320,6 +320,11 @@ onBeforeUnmount(() => {
   color: var(--bs-secondary);
 }
 
+.text-display {
+  font-size: 4rem;
+  opacity: 0.3;
+}
+
 /* Team Sections */
 .team-section {
   margin-bottom: 1.5rem;

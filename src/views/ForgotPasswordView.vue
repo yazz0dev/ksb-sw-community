@@ -136,16 +136,16 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  getAuth,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   verifyPasswordResetCode,
   confirmPasswordReset,
   type AuthError
 } from 'firebase/auth';
+import { auth } from '@/firebase';
 
 const route = useRoute();
 const router = useRouter();
-const auth = getAuth();
+// Using centralized auth instance from firebase.ts
 
 const email = ref<string>('');
 const newPassword = ref<string>('');

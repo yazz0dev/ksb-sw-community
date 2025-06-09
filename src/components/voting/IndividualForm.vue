@@ -27,7 +27,7 @@
           >
             <option value="" disabled>Choose winner...</option>
             <option
-              v-for="participantId in participants"
+              v-for="participantId in coreParticipants"
               :key="`manual-ind-part-${participantId}`"
               :value="participantId"
             >
@@ -45,7 +45,7 @@
           >
             <option value="" disabled>Choose winner...</option>
             <option
-              v-for="participantId in selectableParticipants"
+              v-for="participantId in selectableParticipantsForVoting"
               :key="`vote-ind-part-${participantId}`"
               :value="participantId"
             >
@@ -66,6 +66,7 @@
 import { computed, reactive, type PropType, watch } from 'vue';
 import type { EventCriteria } from '@/types/event';
 import { formatRoleName } from '@/utils/formatters';
+import { EventFormat } from '@/types/event'; // Added EventFormat import
 
 interface IndividualVoting {
   [constraintKey: string]: string;
@@ -95,6 +96,14 @@ const props = defineProps({
   isSubmitting: {
     type: Boolean,
     default: false
+  },
+  eventFormat: {
+    type: String as PropType<EventFormat>,
+    required: true
+  },
+  coreParticipants: {
+    type: Array as PropType<string[]>,
+    default: () => []
   },
   existingVotes: {
     type: Object as PropType<Record<string, string>>,
@@ -126,9 +135,14 @@ watch(manualSelections, (newVal) => {
 }, { deep: true });
 
 // Computed properties
-const selectableParticipants = computed(() => {
-  if (!props.participants || !props.currentUserId) return props.participants;
-  return props.participants.filter(pId => pId && pId !== props.currentUserId);
+const sourceParticipantsForVoting = computed(() => {
+  // Always use coreParticipants for Individual events
+  return props.coreParticipants;
+});
+
+const selectableParticipantsForVoting = computed(() => {
+  if (!sourceParticipantsForVoting.value || !props.currentUserId) return sourceParticipantsForVoting.value;
+  return sourceParticipantsForVoting.value.filter(pId => pId && pId !== props.currentUserId);
 });
 
 // Helper functions

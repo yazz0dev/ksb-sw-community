@@ -220,7 +220,15 @@ export const useAppStore = defineStore('studentApp', () => {
 
     for (const action of actionsToProcess) {
       try {
-        const [storeName, actionName] = action.type.split('/');
+        const parts = action.type.split('/');
+        if (parts.length !== 2) {
+          throw new Error(`Invalid action type format: ${action.type}. Expected 'storeName/actionName' format.`);
+        }
+        
+        const [storeName, actionName] = parts;
+        
+        // Explicitly ensure actionName is treated as a string
+        const actionNameStr = actionName as string;
         let storeInstance: any;
 
         // Map storeName to actual store instance
@@ -230,8 +238,8 @@ export const useAppStore = defineStore('studentApp', () => {
         // Add other stores here if they have offline-queued actions
         // else if (storeName === 'anotherStore') { storeInstance = useAnotherStore(); }
 
-        if (storeInstance && typeof storeInstance[actionName] === 'function') {
-          await storeInstance[actionName](action.payload); // Replay the action
+        if (storeInstance && typeof storeInstance[actionNameStr] === 'function') {
+          await storeInstance[actionNameStr](action.payload); // Replay the action
           // Remove from queue on success
           offlineQueue.value.actions = offlineQueue.value.actions.filter(a => a.id !== action.id);
           successCount++;

@@ -103,10 +103,10 @@
                 <div v-else class="mb-3 mb-md-4">
                   <div class="section-header mb-3">
                     <i class="fas fa-user-friends text-primary me-2"></i>
-                    <span class="h5 mb-0 text-gradient-primary">Participants ({{ event.participants?.length || 0 }})</span>
+                    <span class="h5 mb-0 text-gradient-primary">Participants ({{ event.details.coreParticipants?.length || 0 }})</span>
                   </div>
                   <div class="row g-3">
-                    <div class="col-12" :class="{ 'col-lg-6': (event.participants?.length || 0) > 8 }">
+                    <div class="col-12" :class="{ 'col-lg-6': (event.details.coreParticipants?.length || 0) > 8 }">
                       <EventParticipantList
                         :participants="participantsFirstHalf"
                         :loading="loading"
@@ -116,7 +116,7 @@
                         class="animate-scale-in card-hover-lift"
                       />
                     </div>
-                    <div v-if="(event.participants?.length || 0) > 8" class="col-12 col-lg-6">
+                    <div v-if="(event.details.coreParticipants?.length || 0) > 8" class="col-12 col-lg-6">
                       <EventParticipantList
                         :participants="participantsSecondHalf"
                         :loading="loading"
@@ -172,6 +172,7 @@
 
     <!-- Leave Event Confirmation Modal -->
     <ConfirmationModal
+      ref="leaveEventModalRef"
       modal-id="leaveEventModal"
       title="Leave Event"
       message="Are you sure you want to leave this event? You can rejoin later if the event is still accepting participants."
@@ -215,7 +216,6 @@ interface EventWithId extends Event {
 // Import utility functions
 import {
   isEventOrganizer,
-  isEventParticipant,
   canUserSubmitToEvent,
 } from '@/utils/permissionHelpers';
 
@@ -246,32 +246,87 @@ const isJoining = ref(false);
 const isLeaving = ref(false);
 const globalFeedback = ref<FeedbackState>({ message: '', type: 'success' });
 const actionInProgress = ref<boolean>(false);
+const leaveEventModalRef = ref<InstanceType<typeof ConfirmationModal> | null>(null);
 
 // --- Computed Properties ---
 const currentUserId = computed<string | null>(() => studentStore.studentId);
 const currentUser = computed<EnrichedStudentData | null>(() => studentStore.currentStudent);
 
 const nameCacheRecord = computed(() => Object.fromEntries(nameCache.value));
-const isTeamEvent = computed<boolean>(() => event.value?.details.format === EventFormat.Team);
+const isTeamEvent = computed<boolean>(() => {
+  if (!event.value) return false;
+  
+  // For MultiEvent, check if any phase is Team format
+  if (event.value.details.format === EventFormat.MultiEvent) {
+    return event.value.details.phases?.some(phase => phase.format === EventFormat.Team) || false;
+  }
+  
+  return event.value.details.format === EventFormat.Team;
+});
 
 const localIsCurrentUserOrganizer = computed<boolean>(() =>
   event.value && currentUser.value ? isEventOrganizer(event.value, currentUser.value.uid) : false
 );
 
-const localIsCurrentUserParticipant = computed<boolean>(() =>
-  event.value && currentUser.value ? isEventParticipant(event.value, currentUser.value.uid) : false
-);
+const localIsCurrentUserParticipant = computed<boolean>(() => {
+  if (!event.value || !currentUser.value) return false;
+  
+  const currentUserId = currentUser.value.uid;
+  
+  // For MultiEvent, check participants across all phases
+  if (event.value.details.format === EventFormat.MultiEvent && event.value.details.phases) {
+    return event.value.details.phases.some(phase => {
+      if (phase.format === EventFormat.Team && phase.teams) {
+        return phase.teams.some(team => 
+          team.members && team.members.includes(currentUserId)
+        );
+      } else if (phase.format === EventFormat.Individual && phase.coreParticipants) {
+        return phase.coreParticipants.includes(currentUserId);
+      }
+      return false;
+    });
+  }
+  
+  // For Team events, check if user is in any team
+  if (event.value.details.format === EventFormat.Team && event.value.teams) {
+    return event.value.teams.some(team => 
+      team.members && team.members.includes(currentUserId)
+    );
+  }
+  
+  // For Individual events, check coreParticipants
+  return (event.value.details.coreParticipants || []).includes(currentUserId);
+});
 
 const allAssociatedUserIds = computed<string[]>(() => {
     if (!event.value) return [];
     const userIds = new Set<string>();
+    
+    // Add requester and organizers
     if (event.value.requestedBy) userIds.add(event.value.requestedBy);
     (event.value.details.organizers || []).forEach(id => { if (id) userIds.add(id); });
-    if (isTeamEvent.value) {
-        (event.value.teams || []).forEach(team => { (team.members || []).forEach(id => { if (id) userIds.add(id); }); });
+    
+    // Handle MultiEvent format
+    if (event.value.details.format === EventFormat.MultiEvent && event.value.details.phases) {
+      event.value.details.phases.forEach(phase => {
+        if (phase.format === EventFormat.Team && phase.teams) {
+          phase.teams.forEach(team => {
+            (team.members || []).forEach(id => { if (id) userIds.add(id); });
+          });
+        } else if (phase.format === EventFormat.Individual && phase.coreParticipants) {
+          phase.coreParticipants.forEach(id => { if (id) userIds.add(id); });
+        }
+      });
     } else {
-        (event.value.participants || []).forEach(id => { if (id) userIds.add(id); });
+      // Handle regular Team/Individual formats
+      if (isTeamEvent.value) {
+          (event.value.teams || []).forEach(team => { (team.members || []).forEach(id => { if (id) userIds.add(id); }); });
+      } else {
+          (event.value.details.coreParticipants || []).forEach(id => { if (id) userIds.add(id); });
+      }
     }
+    
+    // Add submission authors and organizer raters
     (event.value.submissions || []).forEach(sub => { if (sub.submittedBy) userIds.add(sub.submittedBy); });
     Object.keys(event.value.organizerRatings || {}).forEach(userId => { if (userId) userIds.add(userId); });
 
@@ -298,7 +353,7 @@ const canRateOrganizer = computed(() => {
   if (!event.value || !currentUser.value) return false;
   return localIsCurrentUserParticipant.value &&
          !localIsCurrentUserOrganizer.value &&
-         event.value.status === EventStatus.Completed;
+         (event.value.status === EventStatus.Completed || event.value.status === EventStatus.Closed);
 });
 
 // Convert organizerRatings map to an array for the form component
@@ -311,14 +366,14 @@ const organizerRatingsAsArray = computed(() => {
   }));
 });
 
-// Add computed properties for splitting participants
+// Update computed properties for participant lists
 const participantsFirstHalf = computed(() => {
-  const participants = event.value?.participants ?? [];
+  const participants = event.value?.details.coreParticipants ?? [];
   return participants.slice(0, Math.ceil(participants.length / 2));
 });
 
 const participantsSecondHalf = computed(() => {
-  const participants = event.value?.participants ?? [];
+  const participants = event.value?.details.coreParticipants ?? [];
   return participants.slice(Math.ceil(participants.length / 2));
 });
 
@@ -326,9 +381,12 @@ const participantsSecondHalf = computed(() => {
 function setGlobalFeedback(message: string, type: 'success' | 'error' = 'success', duration: number = 5000): void {
   globalFeedback.value = { message, type };
   if (duration > 0) {
-    setTimeout(clearGlobalFeedback, duration);
+    setTimeout(() => {
+      globalFeedback.value = { message: '', type: 'success' };
+    }, duration);
   }
 }
+
 function clearGlobalFeedback(): void {
   globalFeedback.value = { message: '', type: 'success' };
 }
@@ -417,11 +475,7 @@ const handleJoin = async (): Promise<void> => {
 };
 
 const showLeaveModal = (): void => {
-    const modal = document.getElementById('leaveEventModal');
-    if (modal && window.bootstrap?.Modal) {
-        const modalInstance = new window.bootstrap.Modal(modal);
-        modalInstance.show();
-    }
+  leaveEventModalRef.value?.show();
 };
 
 const handleLeave = async (): Promise<void> => {
@@ -461,10 +515,11 @@ const mapEventToHeaderProps = (evt: EventWithId): EventHeaderProps => {
   return {
     id: evt.id,
     status: evt.status,
-    title: evt.details.eventName || evt.details.type || 'Event',
-    closed: evt.status === EventStatus.Completed || evt.status === EventStatus.Cancelled,
+    title: evt.details.eventName || 'Event',
+    closed: evt.status === EventStatus.Completed || evt.status === EventStatus.Cancelled || evt.status === EventStatus.Closed,
     teams: evt.teams || undefined,
-    participants: evt.participants || undefined,
+    participants: evt.details.coreParticipants || undefined,
+    votingOpen: evt.votingOpen || false,
     details: {
         format: evt.details.format,
         date: {
@@ -476,7 +531,9 @@ const mapEventToHeaderProps = (evt: EventWithId): EventHeaderProps => {
         type: evt.details.type || undefined,
         organizers: evt.details.organizers || undefined,
         prize: evt.details.prize || undefined,
-        rules: evt.details.rules || undefined
+        rules: evt.details.rules || undefined,
+        isCompetition: evt.details.isCompetition || false,
+        phases: evt.details.phases || undefined
     }
   };
 };
@@ -719,13 +776,11 @@ defineExpose({ handleJoin, handleLeave });
   opacity: 1;
 }
 
-.card-header { // This is a general .card-header, ensure it's not too broad or make more specific
+.card-header {
   background: linear-gradient(135deg, 
     rgba(var(--bs-primary-rgb), 0.05) 0%, 
     rgba(var(--bs-primary-rgb), 0.02) 100%);
   border-bottom: 1px solid rgba(var(--bs-primary-rgb), 0.08);
-  // Consider if this should be var(--bs-tertiary-bg) or similar for consistency
-  // For now, leaving as is, as it might be intended for specific card headers in this view.
 }
 
 /* Mobile Responsive Improvements */
@@ -778,6 +833,11 @@ defineExpose({ handleJoin, handleLeave });
   border-radius: var(--bs-border-radius);
   height: 1rem;
   margin-bottom: 0.5rem;
+}
+
+.text-display {
+  font-size: 4rem;
+  opacity: 0.3;
 }
 
 @keyframes shimmer {

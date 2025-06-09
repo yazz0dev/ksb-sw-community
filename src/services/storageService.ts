@@ -1,75 +1,129 @@
-import {
-  getStorage,
-  ref as storageRefFb, // Renamed to avoid conflict with Vue's ref
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-} from 'firebase/storage';
+import ImageKit from 'imagekit-javascript';
 
-const storage = getStorage();
+// Initialize ImageKit for client-side uploads
+const imagekit = new ImageKit({
+  publicKey: import.meta.env.VITE_IMAGEKIT_PUBLIC_KEY!,
+  urlEndpoint: import.meta.env.VITE_IMAGEKIT_URL_ENDPOINT!,
+});
 
 /**
- * Uploads a file to Firebase Storage with progress tracking.
- * @param file The file to upload.
- * @param path The storage path where the file should be uploaded (e.g., 'profile-images/userId/filename.jpg').
- * @param onProgress Callback function to report upload progress (0-100).
- * @returns Promise resolving with the download URL of the uploaded file.
+ * Upload a file to ImageKit using client-side upload
+ * @param file The file to upload
+ * @param fileName The name for the uploaded file
+ * @param onProgress Progress callback function
+ * @returns Promise with the download URL
  */
-export const uploadFileService = (
+export async function uploadFileService(
   file: File,
-  path: string,
-  onProgress: (progress: number) => void
-): Promise<string> => {
+  fileName: string,
+  onProgress?: (progress: number) => void
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    const fileRef = storageRefFb(storage, path);
-    const uploadTask = uploadBytesResumable(fileRef, file);
+    // Build upload options with optional progress callback
+    const uploadOptions: any = {
+      file: file,
+      fileName: fileName,
+      folder: '/profile-pictures/',
+      tags: ['profile', 'user-upload'],
+      useUniqueFileName: true,
+      responseFields: ['url', 'fileId'],
+    };
 
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        onProgress(Math.round(progress));
-      },
-      (error) => {
-        console.error('Upload failed:', error);
-        reject(error);
-      },
-      async () => {
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          resolve(downloadURL);
-        } catch (error) {
-          console.error('Failed to get download URL:', error);
-          reject(error);
+    // Add progress callback to upload options if provided
+    if (onProgress) {
+      uploadOptions.onUploadProgress = (evt: any) => {
+        if (evt.total > 0) {
+          const progress = Math.round((evt.loaded * 100) / evt.total);
+          onProgress(progress);
+        }
+      };
+    }
+
+    imagekit.upload(
+      uploadOptions,
+      (error: any, result: any) => {
+        if (error) {
+          reject(new Error(error.message || 'Upload failed'));
+        } else if (result && result.url) {
+          resolve(result.url);
+        } else {
+          reject(new Error('Upload failed - no result or URL returned'));
         }
       }
     );
   });
-};
+}
 
 /**
- * Deletes a file from Firebase Storage using its download URL.
- * @param fileUrl The download URL of the file to delete.
- * @returns Promise that resolves when deletion is complete.
+ * Delete a file from ImageKit by URL
+ * @param fileUrl The URL of the file to delete
  */
-export const deleteFileByUrlService = async (fileUrl: string): Promise<void> => {
-  if (!fileUrl || !fileUrl.startsWith('https://firebasestorage.googleapis.com')) {
-    console.warn('Invalid file URL provided for deletion:', fileUrl);
-    // Optionally throw an error or return early if the URL is not a Firebase Storage URL
-    // For now, let's attempt to create a ref, which might fail gracefully if URL is malformed.
-  }
+export async function deleteFileByUrlService(fileUrl: string): Promise<void> {
   try {
-    const fileRef = storageRefFb(storage, fileUrl); // Firebase SDK can parse full URLs
-    await deleteObject(fileRef);
-  } catch (error: any) {
-    // It's common for 'storage/object-not-found' to occur if deleting an already deleted/non-existent file.
-    // Depending on requirements, you might want to suppress this specific error.
-    if (error.code === 'storage/object-not-found') {
-      console.warn('Attempted to delete a file that does not exist:', fileUrl, error.message);
-      // Resolve promise successfully if not finding the object is acceptable for deletion attempt.
-      return Promise.resolve();
+    // Extract fileId from ImageKit URL
+    const fileId = extractFileIdFromUrl(fileUrl);
+    if (!fileId) {
+      console.warn('Could not extract file ID from URL:', fileUrl);
+      return;
     }
-    console.error('Failed to delete file by URL:', fileUrl, error);
-    throw error; // Re-throw other errors
+
+    // Note: Direct file deletion requires server-side implementation
+    // This would typically be handled by your backend API
+    console.warn('File deletion should be handled server-side for security. FileId:', fileId);
+    
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    throw error;
   }
-}; 
+}
+
+/**
+ * Extract file ID from ImageKit URL
+ * @param url ImageKit file URL
+ * @returns File ID or null if not found
+ */
+function extractFileIdFromUrl(url: string): string | null {
+  try {
+    // ImageKit URLs typically contain the file ID in the path
+    // This is a simplified extraction - adjust based on your URL structure
+    const urlParts = url.split('/');
+    const lastSegment = urlParts[urlParts.length - 1];
+
+    if (typeof lastSegment !== 'string') {
+      // This case should ideally not be reached if `url` is a valid string,
+      // as split('/') on a string always yields a non-empty array of strings.
+      return null;
+    }
+
+    // lastSegment is now confirmed to be a string.
+    // The split('.')[0] operation on a string will always yield a string.
+    const fileId = lastSegment.split('.')[0];
+    return fileId || null; // Handle empty string case
+  } catch (error) {
+    console.error('Error extracting file ID from URL:', error);
+    return null;
+  }
+}
+
+/**
+ * Get optimized image URL with transformations
+ * @param url Original ImageKit URL
+ * @param transformations ImageKit transformation parameters
+ * @returns Optimized image URL
+ */
+export function getOptimizedImageUrl(
+  url: string, 
+  transformations: { width?: number; height?: number; quality?: number } = {}
+): string {
+  if (!url.includes('imagekit.io')) {
+    return url; // Return original URL if not an ImageKit URL
+  }
+
+  const { width = 400, height = 400, quality = 80 } = transformations;
+  
+  // Add ImageKit transformations to URL
+  const transformationString = `tr:w-${width},h-${height},q-${quality},c-maintain_ratio`;
+  
+  // Insert transformation parameters into ImageKit URL
+  return url.replace(/\/([^\/]+\.(jpg|jpeg|png|webp|gif))$/i, `/${transformationString}/$1`);
+}

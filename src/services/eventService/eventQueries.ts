@@ -21,18 +21,29 @@ import { EVENTS_COLLECTION } from '@/utils/constants';
  * @returns Promise<EventData[]> - An array of the student's event requests.
  */
 export async function fetchMyEventRequests(studentId: string): Promise<EventData[]> {
-    if (!studentId) return [];
+    if (!studentId) {
+        return [];
+    }
     try {
         const q = query(
             collection(db, EVENTS_COLLECTION),
             where('requestedBy', '==', studentId),
-            where('status', 'in', [EventStatus.Pending, EventStatus.Rejected]),
-            orderBy('createdAt', 'desc')
+            where('status', 'in', [EventStatus.Pending, EventStatus.Rejected])
         );
         const snapshot = await getDocs(q);
-        return snapshot.docs
-            .map(docSnap => mapFirestoreToEventData(docSnap.id, docSnap.data()) as EventData | null) // Add type assertion
+        
+        const mappedEvents = snapshot.docs
+            .map(docSnap => mapFirestoreToEventData(docSnap.id, docSnap.data()) as EventData | null)
             .filter((event): event is EventData => event !== null);
+        
+        // Sort the results in JavaScript instead of in the query
+        mappedEvents.sort((a, b) => {
+            const aTime = a.lifecycleTimestamps?.createdAt?.toMillis() || 0;
+            const bTime = b.lifecycleTimestamps?.createdAt?.toMillis() || 0;
+            return bTime - aTime; // Descending order (newest first)
+        });
+        
+        return mappedEvents;
     } catch (error: any) {
         console.error(`Error in fetchMyEventRequests for ${studentId}:`, error);
         throw new Error(`Failed to fetch your event requests: ${error.message}`);
@@ -51,13 +62,11 @@ export async function fetchSingleEventForStudent(eventId: string, currentStudent
     try {
         const eventSnap = await getDoc(eventRef);
         if (!eventSnap.exists()) {
-            console.log(`No event found with ID: ${eventId}`);
             return null;
         }
         const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data()) as EventData | null; // Add type assertion
 
         if (!eventData) {
-            console.warn(`Failed to map event data for document ID: ${eventSnap.id} in fetchSingleEventForStudent`);
             return null;
         }
 
@@ -71,10 +80,8 @@ export async function fetchSingleEventForStudent(eventId: string, currentStudent
             return eventData;
         } else {
             if (!currentStudentId && eventData.status === EventStatus.InProgress) {
-                 console.warn(`Unauthenticated access attempt to InProgress event ${eventId}.`);
                  return null;
             }
-            console.log(`Student ${currentStudentId || 'Unauthenticated'} does not have permission to view event ${eventId} with status ${eventData.status}.`);
             return null; 
         }
     } catch (error: any) {
@@ -121,7 +128,6 @@ export async function fetchPubliclyViewableEvents(): Promise<EventData[]> {
  */
 export async function hasPendingRequest(studentId: string): Promise<boolean> {
   if (!studentId) {
-    console.warn("hasPendingRequest called without a studentId.");
     return false;
   }
   try {

@@ -96,7 +96,9 @@
                 <IndividualForm
                   v-else
                   :criteria="sortedXpAllocation"
-                  :participants="event?.participants || []"
+                  :participants="event?.details?.coreParticipants || []" 
+                  :coreParticipants="event?.details?.coreParticipants || []"
+                  :eventFormat="event?.details?.format"
                   :current-user-id="currentUser?.uid || ''"
                   :is-manual-mode="isManualModeActive"
                   :is-submitting="isSubmitting"
@@ -153,7 +155,6 @@ import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 import { createManualWinnerPayload, getValidCriteria } from '@/utils/eventDataUtils';
 import { 
   isEventOrganizer, 
-  isEventParticipant, 
   canCalculateWinners
 } from '@/utils/permissionHelpers';
 
@@ -264,43 +265,32 @@ const sortedXpAllocation = computed<EventCriteria[]>(() => {
 });
 
 const hasValidVotingCriteria = computed<boolean>(() => {
-  console.log('[SelectionForm] Checking hasValidRatingCriteria...');
   if (!event.value) {
-    console.log('[SelectionForm] Event data is not loaded.');
     return false;
   }
   
-  console.log('[SelectionForm] Is Manual Mode Active:', isManualModeActive.value);
-
   // For manual mode, the organizer should be able to see the form if any criteria exist,
   // even if points are 0 or labels are being finalized.
   if (isManualModeActive.value) {
     const manualModeResult = !!(event.value.criteria && event.value.criteria.length > 0);
-    console.log('[SelectionForm] Manual Mode: Criteria length > 0:', manualModeResult);
     return manualModeResult;
   }
 
   // Voting Mode Checks:
-  console.log('[SelectionForm] Voting Mode: Event Status:', event.value.status, 'Voting Open:', event.value.votingOpen);
   if (event.value.status !== EventStatus.Completed || event.value.votingOpen !== true) {
-    console.log('[SelectionForm] Voting Mode: Event not completed or Voting not open.');
     return false;
   }
 
   const votableCriteria = getValidCriteria(event.value as EventWithId);
-  console.log('[SelectionForm] Voting Mode: Votable Criteria:', JSON.parse(JSON.stringify(votableCriteria)));
   
   if (isTeamEvent.value) {
-    console.log('[SelectionForm] Voting Mode: Is Team Event. BEST_PERFORMER_LABEL:', BEST_PERFORMER_LABEL);
     // For team events, we need at least one criterion other than Best Performer
     const teamSpecificVotableCriteria = getValidCriteria(event.value as EventWithId, true); // exclude Best Performer
     const teamResult = teamSpecificVotableCriteria.length > 0;
-    console.log('[SelectionForm] Voting Mode: Team Event Result (teamSpecificVotableCriteria.length > 0):', teamResult);
     return teamResult;
   } else {
     // For individual/competition events, any valid criterion is enough
     const individualResult = votableCriteria.length > 0;
-    console.log('[SelectionForm] Voting Mode: Individual/Competition Event Result (votableCriteria.length > 0):', individualResult);
     return individualResult;
   }
 });
@@ -354,11 +344,38 @@ const isManualSelectionValid = computed<boolean>(() => {
 
 
 const availableParticipants = computed<string[]>(() => {
-  if (isTeamEvent.value || !event.value?.participants || !Array.isArray(event.value.participants)) {
-      return [];
+  if (!event.value || !currentUser.value) return [];
+  
+  const currentUserId = currentUser.value.uid;
+  let allParticipants: string[] = [];
+  
+  // Handle MultiEvent format
+  if (event.value.details.format === EventFormat.MultiEvent && event.value.details.phases) {
+    const participantSet = new Set<string>();
+    event.value.details.phases.forEach(phase => {
+      if (phase.format === EventFormat.Team && phase.teams) {
+        phase.teams.forEach(team => {
+          (team.members || []).forEach(member => { if (member) participantSet.add(member); });
+        });
+      } else if (phase.format === EventFormat.Individual && phase.coreParticipants) {
+        phase.coreParticipants.forEach(participant => { if (participant) participantSet.add(participant); });
+      }
+    });
+    allParticipants = Array.from(participantSet);
+  } else if (isTeamEvent.value) {
+    // For Team events, get all team members
+    const memberSet = new Set<string>();
+    (event.value.teams || []).forEach(team => {
+      (team.members || []).forEach(member => { if (member) memberSet.add(member); });
+    });
+    allParticipants = Array.from(memberSet);
+  } else {
+    // For Individual events, use coreParticipants
+    allParticipants = event.value.details.coreParticipants || [];
   }
-  const currentUserId = currentUser.value?.uid;
-  return event.value.participants.filter(pId => pId && (!currentUserId || pId !== currentUserId));
+  
+  // Filter out current user to prevent self-voting
+  return allParticipants.filter(pId => pId && pId !== currentUserId);
 });
 
 const submitButtonText = computed<string>(() => {
@@ -370,8 +387,34 @@ const submitButtonText = computed<string>(() => {
   return isSubmitting.value ? 'Submitting...' : `${action} ${target}`;
 });
 
-const localIsParticipant = computed(() => { // Renamed to avoid conflict if isParticipant is used elsewhere
-  return event.value && currentUser.value ? isEventParticipant(event.value as EventWithId, currentUser.value.uid) : false;
+const localIsParticipant = computed(() => {
+  if (!event.value || !currentUser.value) return false;
+  
+  const currentUserId = currentUser.value.uid;
+  
+  // For MultiEvent, check participants across all phases
+  if (event.value.details.format === EventFormat.MultiEvent && event.value.details.phases) {
+    return event.value.details.phases.some(phase => {
+      if (phase.format === EventFormat.Team && phase.teams) {
+        return phase.teams.some(team => 
+          team.members && team.members.includes(currentUserId)
+        );
+      } else if (phase.format === EventFormat.Individual && phase.coreParticipants) {
+        return phase.coreParticipants.includes(currentUserId);
+      }
+      return false;
+    });
+  }
+  
+  // For Team events, check if user is in any team
+  if (event.value.details.format === EventFormat.Team && event.value.teams) {
+    return event.value.teams.some(team => 
+      team.members && team.members.includes(currentUserId)
+    );
+  }
+  
+  // For Individual events, check coreParticipants
+  return (event.value.details.coreParticipants || []).includes(currentUserId);
 });
 
 const localIsOrganizer = computed(() => { // Renamed to avoid conflict
@@ -447,7 +490,6 @@ watch([availableParticipants, event], async ([participants]) => {
         try {
             const names: Record<string, string> = await studentStore.fetchUserNamesBatch(idsToFetch);
             Object.entries(names).forEach(([uid, name]) => {
-              // Use fallback here directly
               userNameMap.value[uid] = name || `User (${uid.substring(0, 5)}...)`;
             });
         } catch (error) {
@@ -519,7 +561,7 @@ const fetchEventDetails = async (): Promise<void> => {
     // Fetch user names for dropdowns if event data is available
     if (event.value) {
         const userIdsToFetch = new Set<string>();
-        (event.value.participants || []).forEach(id => userIdsToFetch.add(id));
+        (event.value.details.coreParticipants || []).forEach(id => userIdsToFetch.add(id));
         (event.value.teams || []).forEach(team => (team.members || []).forEach(id => userIdsToFetch.add(id)));
         
         const idsArray = Array.from(userIdsToFetch).filter(Boolean);
@@ -571,7 +613,7 @@ const initializeTeamEventForm = async (eventDetails: Event, currentUserId: strin
   if (eventDetails.criteriaVotes && eventDetails.criteriaVotes[currentUserId]) {
     const userVotes = eventDetails.criteriaVotes[currentUserId];
     let loadedFromCriteriaVotes = false;
-    Object.entries(userVotes).forEach(([constraintKey, selectedTeamName]) => {
+    Object.entries(userVotes || {}).forEach(([constraintKey, selectedTeamName]) => {
       if (teamVoting.hasOwnProperty(constraintKey)) {
         teamVoting[constraintKey] = selectedTeamName;
         loadedFromCriteriaVotes = true;
@@ -600,6 +642,8 @@ const initializeTeamEventForm = async (eventDetails: Event, currentUserId: strin
 };
 
 const initializeIndividualEventForm = async (eventDetails: Event, currentUserId: string | null): Promise<void> => {
+  // Pass coreParticipants to the form
+  
   // Names are fetched by watcher
 
   // --- Restore previous votes if present ---
@@ -610,7 +654,7 @@ const initializeIndividualEventForm = async (eventDetails: Event, currentUserId:
   if (eventDetails.criteriaVotes && eventDetails.criteriaVotes[currentUserId]) {
     const userVotes = eventDetails.criteriaVotes[currentUserId];
     let loadedFromCriteriaVotes = false;
-    Object.entries(userVotes).forEach(([constraintKey, selectedUserId]) => {
+    Object.entries(userVotes || {}).forEach(([constraintKey, selectedUserId]) => {
       if (individualVoting.hasOwnProperty(constraintKey)) {
         individualVoting[constraintKey] = selectedUserId;
         loadedFromCriteriaVotes = true;

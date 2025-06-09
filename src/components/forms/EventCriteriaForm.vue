@@ -94,11 +94,8 @@
     >
       <i class="fas fa-plus me-1"></i> Add Criterion
     </button>
-    <p v-if="!canAddMoreCriteria && props.eventFormat !== EventFormat.Competition" class="form-text text-warning mt-2">
+    <p v-if="!canAddMoreCriteria && props.eventFormat !== EventFormat.MultiEvent" class="form-text text-warning mt-2">
         Maximum number of rating criteria reached ({{ MAX_USER_CRITERIA_CONST }} user-defined + default/best performer).
-    </p>
-    <p v-if="props.eventFormat === EventFormat.Competition" class="form-text text-muted mt-2">
-        Rating criteria are typically not defined for competitions.
     </p>
   </div>
 </template>
@@ -173,7 +170,7 @@ const userAddedCriteriaCount = computed(() => {
 });
 
 const canAddMoreCriteria = computed(() => {
-  return props.eventFormat !== EventFormat.Competition && userAddedCriteriaCount.value < MAX_USER_CRITERIA_CONST;
+  return props.eventFormat !== EventFormat.MultiEvent && userAddedCriteriaCount.value < MAX_USER_CRITERIA_CONST;
 });
 
 // --- Watcher for Prop Changes ---
@@ -186,7 +183,7 @@ watch(
     let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as CriterionWithState[];
 
     if (newFormat !== oldFormat) {
-      if (newFormat === EventFormat.Competition) {
+      if (newFormat === EventFormat.MultiEvent) {
         workingCriteria = [];
       } else {
         if (oldFormat === EventFormat.Team) {
@@ -206,7 +203,7 @@ watch(
     }
 
     const nonBestPerfCriteria = workingCriteria.filter(c => !isBestPerformerCriterion(c));
-    if (newFormat !== EventFormat.Competition && nonBestPerfCriteria.length === 0) {
+    if (newFormat !== EventFormat.MultiEvent && nonBestPerfCriteria.length === 0) {
       workingCriteria.unshift(createDefaultCriterion());
     }
 

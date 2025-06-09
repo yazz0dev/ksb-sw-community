@@ -156,14 +156,39 @@ const initialDataLoaded = ref<boolean>(false);
 const currentUserData = computed<EnrichedStudentData | null>(() => studentStore.currentStudent);
 const currentUserPortfolioData = computed(() => studentStore.currentUserPortfolioData);
 
+const fetchPortfolioRelatedDataForCurrentUser = async () => {
+    if (!studentStore.currentStudent?.uid || !isCurrentUser.value) {
+        studentStore.$patch((state: any) => {
+            state.currentUserPortfolioData = { projects: [], eventParticipationCount: 0 };
+        });
+        return;
+    }
+    
+    // Only fetch if we don't already have the data or if it's stale
+    if (loadingPortfolioData.value) return; // Prevent multiple simultaneous fetches
+    
+    loadingPortfolioData.value = true;
+    try {
+        await Promise.all([
+            studentStore.fetchCurrentUserPortfolioData(),
+            studentStore.fetchCurrentUserComprehensivePortfolioData()
+        ]);
+    } catch (err) {
+        console.error("Error fetching portfolio data for ProfileView:", err);
+    } finally {
+        loadingPortfolioData.value = false;
+    }
+};
+
+// Memoize computed properties to prevent unnecessary recalculations
 const userForPortfolioGeneration = computed<UserForPortfolio>(() => {
     if (!isCurrentUser.value || !currentUserData.value) return { name: 'User', uid: '' };
     const user = currentUserData.value;
     return {
         name: user.name || 'User',
         uid: user.uid,
-        email: user.email,
-        photoURL: user.photoURL,
+        email: user.email ?? null,
+        photoURL: user.photoURL ?? null,
         xpData: user.xpData || undefined,
         skills: user.skills || [],
         bio: user.bio || '',
@@ -172,7 +197,8 @@ const userForPortfolioGeneration = computed<UserForPortfolio>(() => {
 });
 
 const projectsForPortfolio = computed(() => {
-  return (currentUserPortfolioData.value.projects || []).map((project: StudentPortfolioProject) => ({
+  if (!currentUserPortfolioData.value.projects) return [];
+  return currentUserPortfolioData.value.projects.map((project: StudentPortfolioProject) => ({
     projectName: project.projectName,
     link: project.link,
     description: project.description === null ? undefined : project.description
@@ -203,22 +229,14 @@ const filteredXpData = computed(() => {
 
 
 // --- Methods ---
-const fetchPortfolioRelatedDataForCurrentUser = async () => {
-    if (!studentStore.currentStudent?.uid || !isCurrentUser.value) {
-        studentStore.$patch((state: any) => {
-            state.currentUserPortfolioData = { projects: [], eventParticipationCount: 0 };
-        });
-        return;
-    }
-    loadingPortfolioData.value = true;
+const fetchUserRequestsForCurrentUser = async (userId: string) => {
     try {
-        await studentStore.fetchCurrentUserPortfolioData();
-        // Fetch comprehensive data for enhanced portfolio generation
-        await studentStore.fetchCurrentUserComprehensivePortfolioData();
+        await studentStore.fetchUserRequests(userId);
     } catch (err) {
-        console.error("Error fetching portfolio data for ProfileView:", err);
-    } finally {
-        loadingPortfolioData.value = false;
+        console.error("Error fetching user requests:", err);
+        if (errorMessage.value === '') {
+            errorMessage.value = 'Failed to load event requests. Some profile data may be incomplete.';
+        }
     }
 };
 
@@ -232,32 +250,34 @@ const calculateStatsFromEvents = (events: StudentEventHistoryItem[]) => {
 };
 
 const fetchFullProfile = async (userId: string) => {
-    loading.value = true;
+    // This function now only manages loading state for projects/events, not the main 'loading'
     loadingEventsOrProjects.value = true;
-    errorMessage.value = '';
-    
-    // Reset states
-    viewedUser.value = null;
-    userProjects.value = [];
-    participatedEvents.value = [];
-    stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
+    // errorMessage.value = ''; // Error message is handled by determineProfileContextAndLoad
+
+    // Reset specific parts for the viewed profile if it's being re-fetched
+    if (viewedUser.value?.uid !== userId) {
+        viewedUser.value = null;
+        userProjects.value = [];
+        participatedEvents.value = [];
+        stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
+    }
     initialDataLoaded.value = false;
 
     try {
         await studentStore.fetchProfileForView(userId);
-        const profileDataFromStore = studentStore.viewedStudentProfile; 
+        const profileDataFromStore = studentStore.viewedStudentProfile;
 
         if (!profileDataFromStore) throw new Error('User data not found.');
 
-        viewedUser.value = { 
-          ...profileDataFromStore, 
+        viewedUser.value = {
+          ...profileDataFromStore,
           xpData: profileDataFromStore.xpData ?? null,
-          socialLinks: profileDataFromStore.socialLinks || undefined // Ensure socialLinks is compatible
+          socialLinks: profileDataFromStore.socialLinks || undefined
         };
-        participatedEvents.value = studentStore.viewedStudentEventHistory; 
+        participatedEvents.value = studentStore.viewedStudentEventHistory;
         userProjects.value = studentStore.viewedStudentProjects.map((p: any) => ({
-          ...p, 
-          description: p.description === null ? undefined : p.description // Convert null to undefined
+          ...p,
+          description: p.description === null ? undefined : p.description
         }));
 
         calculateStatsFromEvents(participatedEvents.value);
@@ -266,9 +286,10 @@ const fetchFullProfile = async (userId: string) => {
         }
 
     } catch (error: any) {
-        errorMessage.value = error?.message || 'Failed to load profile.';
+        // Let determineProfileContextAndLoad handle setting the main errorMessage
+        console.error(`[ProfileView] Error in fetchFullProfile for ${userId}:`, error);
+        throw error; // Re-throw to be caught by determineProfileContextAndLoad
     } finally {
-        loading.value = false;
         loadingEventsOrProjects.value = false;
         initialDataLoaded.value = true;
     }
@@ -276,8 +297,18 @@ const fetchFullProfile = async (userId: string) => {
 
 const determineProfileContextAndLoad = async () => {
     loading.value = true;
+    errorMessage.value = '';
+
+    // Reset states for viewed user profile data
+    viewedUser.value = null;
+    userProjects.value = [];
+    participatedEvents.value = [];
+    stats.value = { participatedCount: 0, organizedCount: 0, wonCount: 0 };
+    initialDataLoaded.value = false;
+    // Do not reset currentUserPortfolioData here as it's for the logged-in user, not necessarily the viewed profile
+
     const routeUserIdParam = route.params.userId;
-    const loggedInUid = studentStore.currentStudent?.uid; 
+    const loggedInUid = studentStore.currentStudent?.uid;
     const targetUidFromRoute = Array.isArray(routeUserIdParam) ? routeUserIdParam[0] : routeUserIdParam;
 
     let finalUserId: string | null = null;
@@ -287,20 +318,33 @@ const determineProfileContextAndLoad = async () => {
     } else if (loggedInUid && route.name === 'Profile') {
         finalUserId = loggedInUid;
     }
-    
-    isCurrentUser.value = finalUserId === loggedInUid;
+
+    isCurrentUser.value = !!finalUserId && finalUserId === loggedInUid;
     targetUserId.value = finalUserId;
 
-    if (finalUserId) {
-        await fetchFullProfile(finalUserId);
-        if (isCurrentUser.value) {
-            await fetchPortfolioRelatedDataForCurrentUser();
+    try {
+        if (finalUserId) {
+            await fetchFullProfile(finalUserId);
+
+            if (isCurrentUser.value) {
+                await Promise.all([
+                    fetchPortfolioRelatedDataForCurrentUser(),
+                    fetchUserRequestsForCurrentUser(finalUserId)
+                ]);
+            }
+        } else {
+            // Handle case where no user ID could be determined (e.g., accessing /profile when not logged in)
+            if (!loggedInUid && route.name === 'Profile') {
+                router.replace({ name: 'Login', query: { redirect: route.fullPath } });
+            } else if (route.name !== 'Profile' && !targetUidFromRoute) {
+                // Generic error if a user ID was expected but not found (e.g. direct navigation to a bad user profile URL)
+                errorMessage.value = "User profile ID is missing.";
+            }
         }
-    } else {
-        isCurrentUser.value = false;
-        if (!loggedInUid && route.name === 'Profile') {
-            router.replace({ name: 'Login', query: { redirect: route.fullPath }});
-        }
+    } catch (error: any) {
+        console.error("[ProfileView] Error in determineProfileContextAndLoad:", error);
+        errorMessage.value = error?.message || "Failed to load profile data.";
+        viewedUser.value = null; // Ensure profile is cleared on error    } finally {
         loading.value = false;
     }
 };
@@ -310,17 +354,18 @@ const handleEditProfile = () => {
 };
 
 // --- Watchers ---
+watch(() => studentStore.currentStudent?.uid, (newUid, oldUid) => {
+    // Only react to actual UID changes, not other property changes
+    if (newUid !== oldUid) {
+        determineProfileContextAndLoad();
+    }
+}, { immediate: true });
+
 watch(() => route.params.userId, (newRouteUserId, oldRouteUserId) => {
     if (newRouteUserId !== oldRouteUserId) {
         determineProfileContextAndLoad();
     }
 });
-
-watch(() => studentStore.currentStudent, (newStudent, oldStudent) => {
-    if (newStudent?.uid !== oldStudent?.uid) {
-        determineProfileContextAndLoad();
-    }
-}, { deep: true, immediate: true });
 </script>
 
 <style scoped>

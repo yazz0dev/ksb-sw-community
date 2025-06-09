@@ -12,7 +12,6 @@ export const initializeAuth = async (): Promise<void> => {
   try {
     // Set persistent authentication to ensure user stays logged in across refreshes
     await setPersistence(auth, browserLocalPersistence);
-    console.log('Auth persistence initialized with browserLocalPersistence');
   } catch (error) {
     console.error('Error initializing auth persistence:', error);
   }

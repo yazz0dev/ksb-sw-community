@@ -334,7 +334,7 @@ export function hasStudentSubmittedvotes(event: Event | null, studentId: string 
     
     // Check in the new criteriaVotes structure
     if (event.criteriaVotes && event.criteriaVotes[studentId]) {
-        return Object.keys(event.criteriaVotes[studentId]).length > 0;
+        return Object.keys(event.criteriaVotes[studentId] || {}).length > 0;
     }
     
     // Check for best performer selection in team events

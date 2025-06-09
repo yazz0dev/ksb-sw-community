@@ -2,12 +2,13 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { User as FirebaseUser } from 'firebase/auth'; // Added AuthError
-import { getAuth, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth'; // Added getAuth, signOut, onAuthStateChanged
+import { signOut as firebaseSignOut } from 'firebase/auth'; // Added signOut, onAuthStateChanged
+import { auth } from '@/firebase';
 import { deepClone, isEmpty } from '@/utils/eventUtils'; // Added now, isEmpty
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore'; // Renamed to studentAppStore for clarity in this file
 import type { EnrichedStudentData, StudentEventHistoryItem, UserData, StudentPortfolioGenerationData } from '@/types/student'; // Adjusted imports: Removed StudentData, Changed StudentPortfolioData
-import { type Event, EventStatus } from '@/types/event'; // Added Event and EventStatus, EventFormat
+import { type Event } from '@/types/event'; // Added Event and EventStatus, EventFormat
 import type { NameCacheEntry, StudentPortfolioProject, ImageUploadOptions, ImageUploadState } from '@/types/student'; // Removed UploadStatusValue
 import { UploadStatus } from '@/types/student'; // Added UploadStatus enum
 import { handleAuthError as formatAuthErrorUtil, handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
@@ -37,7 +38,7 @@ const NAME_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 // const now = () => Timestamp.now(); // Now imported from helpers
 
 export const useProfileStore = defineStore('studentProfile', () => {
-  const auth = getAuth(); // Initialize Firebase Auth
+  // Using centralized auth instance from firebase.ts
   const notificationStore = useNotificationStore();
   const studentAppStore = useAppStore(); // Use the renamed import
 
@@ -60,6 +61,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
   const actionError = ref<string | null>(null); // Error for specific actions like update
   const fetchError = ref<string | null>(null); // Error for fetching data for other profiles/lists
   const userRequests = ref<Event[]>([]); // State for user's event requests
+  const isLoadingUserRequests = ref<boolean>(false); // New dedicated loading state for user requests
   const hasFetched = ref<boolean>(false); // Added hasFetched state
 
   // --- State ---
@@ -78,7 +80,9 @@ export const useProfileStore = defineStore('studentProfile', () => {
   const studentXP = computed(() => currentStudent.value?.xpData?.totalCalculatedXp || 0);
   const currentStudentPhotoURL = computed(() => currentStudent.value?.photoURL || null);
   // Add isAuthenticated computed property
-  const isAuthenticated = computed(() => !!currentStudent.value?.uid);
+  const isAuthenticated = computed(() => {
+    return !!currentStudent.value?.uid;
+  });
 
   // New getter for allUsers
   const getAllUsers = computed(() => allUsers.value);
@@ -159,50 +163,73 @@ export const useProfileStore = defineStore('studentProfile', () => {
 
   // --- Public Actions ---
   async function handleAuthStateChange(firebaseUser: FirebaseUser | null) {
+    // Prevent concurrent auth state changes
+    if (isLoading.value) {
+      return;
+    }
+
     isLoading.value = true;
     error.value = null;
     actionError.value = null;
     fetchError.value = null;
     
     if (firebaseUser) {
+      // User is authenticated with Firebase.
+      // We trust this call is from the single source of truth in main.ts.
+      // No need to check for existing user, as this function is now the authority.
       try {
         const enrichedData = await fetchStudentDataService(firebaseUser.uid);
-      if (enrichedData) {
-        currentStudent.value = enrichedData;
+        
+        if (enrichedData) {
+          currentStudent.value = enrichedData;
           _updateNameCache(enrichedData.uid, enrichedData.name ?? null);
-        await fetchCurrentUserPortfolioData();
-        hasFetched.value = true; // Set hasFetched to true after successful fetch
-      } else {
+          await fetchCurrentUserPortfolioData();
+          hasFetched.value = true;
+        } else {
           // Profile not found, but user is authenticated with Firebase.
-          // Clear local app session but do not sign out from Firebase.
-        await clearStudentSession(false); 
-        // Removed: if (auth.currentUser) { try { await firebaseSignOut(auth); } catch (e) { console.warn("Error during sign out attempt after profile not found:", e); } }
-        notificationStore.showNotification({ 
-            message: "Your account is authenticated, but no student profile was found. Please contact support if you believe this is an error. You remain logged in at the authentication level.", 
-            type: 'warning', // Changed from 'error' to 'warning' as user is still auth'd
-            duration: 10000 // Increased duration
-        });
-          // Setting a general error might be appropriate here too
+          // The session will be in a state where user is authenticated but has no profile data.
+          // This is a valid state, and UI can decide how to handle it (e.g., prompt for profile creation).
+          currentStudent.value = null; // Ensure no stale profile data
+          hasFetched.value = true; // Still mark as fetched to unblock UI
+          notificationStore.showNotification({ 
+            message: "Authentication successful, but no student profile was found. Please contact an admin to have your account set up.",
+            type: 'warning',
+            duration: 10000
+          });
           error.value = "Student profile not found for authenticated user.";
         }
       } catch (err) {
-        // Use _handleAuthError as this is part of the auth state change flow
+        console.error('Error fetching student data after auth change:', err);
         await _handleAuthError("fetching student data after auth change", err, firebaseUser.uid);
-        await clearStudentSession(false); // Ensure session is cleared on error
-         if (auth.currentUser) { // Attempt to sign out from Firebase if a user somehow still exists
-             try { await firebaseSignOut(auth); } catch (e) { console.warn("Error signing out Firebase user after auth state change fetch error:", e); }
-         }
+        // On a critical fetch error, do not sign out. Leave the user authenticated
+        // but without a profile, similar to the 'profile not found' case.
+        currentStudent.value = null;
+        hasFetched.value = true; // Mark as fetched to unblock UI
+        notificationStore.showNotification({ 
+          message: "We couldn't load your profile due to a permissions error. Please contact an admin.",
+          type: 'error',
+          duration: 10000
+        });
       }
     } else {
+      // No Firebase user, clear the session.
+      // This is triggered on sign-out.
       await clearStudentSession(false);
     }
+    
     isLoading.value = false;
+    
     if (!studentAppStore.hasFetchedInitialAuth) {
-        studentAppStore.setHasFetchedInitialAuth(true);
+      studentAppStore.setHasFetchedInitialAuth(true);
     }
+    
     if (currentStudent.value && allUsers.value.length === 0) {
-        // Consider if fetchAllStudentProfiles should also be protected by a try/catch
+      // Consider if fetchAllStudentProfiles should also be protected by a try/catch
+      try {
         await fetchAllStudentProfiles();
+      } catch (err) {
+        console.warn('Error fetching all student profiles:', err);
+      }
     }
   }
 
@@ -242,39 +269,23 @@ export const useProfileStore = defineStore('studentProfile', () => {
   }
 
   async function fetchUserRequests(userId: string): Promise<void> {
-    isLoading.value = true;
+    isLoadingUserRequests.value = true;
     fetchError.value = null;
-    userRequests.value = []; // Clear previous requests
+    userRequests.value = [];
 
     try {
-      // Call the service function
       const fetchedRequestsFromService = await fetchStudentEventRequestsService(userId);
-      
-      // The service returns Pending and Rejected, ordered by createdAt.
-      // The store previously queried for Pending only, ordered by eventName.
-      // We need to apply these transformations now if they are still required.
-      
-      const pendingRequests = fetchedRequestsFromService.filter(
-        request => request.status === EventStatus.Pending
-      );
-      
-      // Sort by event name
-      pendingRequests.sort((a, b) => {
-        const nameA = a.details?.eventName?.toLowerCase() || '';
-        const nameB = b.details?.eventName?.toLowerCase() || '';
-        if (nameA < nameB) return -1;
-        if (nameA > nameB) return 1;
-        return 0;
-      });
-      
-      userRequests.value = pendingRequests;
+      userRequests.value = fetchedRequestsFromService;
     } catch (err) {
-      // The service function throws an error, which will be caught here.
       await _handleFetchError("fetching user event requests", err);
-      userRequests.value = []; // Ensure requests are empty on error
+      userRequests.value = [];
     } finally {
-      isLoading.value = false;
+      isLoadingUserRequests.value = false;
     }
+  }
+
+  function removeUserRequestById(eventId: string): void {
+    userRequests.value = userRequests.value.filter(request => request.id !== eventId);
   }
 
   async function clearStudentSession(performFirebaseSignOut: boolean = false) {
@@ -289,6 +300,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     viewedStudentProjects.value = [];
     viewedStudentEventHistory.value = [];
     currentUserPortfolioData.value = { projects: [], eventParticipationCount: 0 };
+    userRequests.value = []; // Clear user requests as well
     hasFetched.value = false; // Reset hasFetched on session clear
   }
 
@@ -563,31 +575,28 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
-  // This ensures profile data is loaded/cleared when Firebase auth state changes.
-  let unsubscribeAuthStateListener: (() => void) | null = null;
-  if (auth) {
-    unsubscribeAuthStateListener = onAuthStateChanged(auth, handleAuthStateChange);
-  } else {
-  }
-  
   // Expose a way to unsubscribe if needed, e.g. on app teardown.
   const unsubscribeProfileAuthListener = () => {
+    // No longer necessary as the listener is removed.
+    // This function can be kept for now to avoid breaking changes if it's called elsewhere,
+    // or it can be removed if it's confirmed to be unused.
+    /*
     if (unsubscribeAuthStateListener) {
       unsubscribeAuthStateListener();
       unsubscribeAuthStateListener = null;
     }
+    */
   };
 
   // --- Image Upload Functions ---
   /**
-   * Upload an image file to Firebase Storage
+   * Upload an image file to ImageKit
    * @param file The file to upload
    * @param options Upload options
    * @returns Promise with the download URL
    */
   async function uploadProfileImage(file: File, options: ImageUploadOptions = {}): Promise<string> {
     if (!studentId.value) {
-      // This error should ideally be caught and handled by the caller, setting actionError if needed.
       throw new Error("You must be logged in to upload a profile image.");
     }
 
@@ -595,7 +604,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
       status: UploadStatus.Uploading,
       progress: 0,
       error: null,
-      fileName: file.name, // Set initial file name
+      fileName: file.name,
       downloadURL: null
     };
 
@@ -611,65 +620,61 @@ export const useProfileStore = defineStore('studentProfile', () => {
       let fileToUpload = file;
       if (options.maxWidthOrHeight || options.quality) {
         try {
-            const imageCompression = await import('browser-image-compression')
-              .then(module => module.default)
+          const imageCompression = await import('browser-image-compression')
+            .then(module => module.default)
             .catch(() => null);
-            if (imageCompression) {
-              fileToUpload = await imageCompression(file, {
-                maxSizeMB: options.maxSizeMB || 2,
-                maxWidthOrHeight: options.maxWidthOrHeight || 1200,
-                useWebWorker: true,
-                fileType: file.type,
+          if (imageCompression) {
+            fileToUpload = await imageCompression(file, {
+              maxSizeMB: options.maxSizeMB || 2,
+              maxWidthOrHeight: options.maxWidthOrHeight || 1200,
+              useWebWorker: true,
+              fileType: file.type,
               // @ts-ignore
-                quality: options.quality || 0.8
-              });
-            imageUploadState.value.fileName = fileToUpload.name; // Update fileName if compressed
+              quality: options.quality || 0.8
+            });
+            imageUploadState.value.fileName = fileToUpload.name;
           }
         } catch (compressionError) {
           console.warn("Image compression failed, uploading original:", compressionError);
-          // imageUploadState.value.error = "Image compression failed. Trying original."; // Optional user feedback
         }
       }
 
-      
-      // Delete old profile image if it exists using the service
+      // Delete old profile image if it exists
       if (currentStudent.value?.photoURL) {
         try {
           await deleteFileByUrlService(currentStudent.value.photoURL);
         } catch (deleteError) {
-          console.warn("Failed to delete old profile image (service call):", deleteError);
-          // Non-critical, so we don't usually re-throw or fail the whole upload here
+          console.warn("Failed to delete old profile image:", deleteError);
         }
       }
 
-      // Upload the file using the service
+      // Upload the file with progress callback
       const downloadURL = await uploadFileService(
         fileToUpload,
-        `profile-pictures/${studentId.value}/${Date.now()}_${fileToUpload.name}`,
+        `${studentId.value}_${Date.now()}_${fileToUpload.name}`,
         (progress: number) => {
           imageUploadState.value.progress = progress;
         }
       );
 
-              imageUploadState.value = {
-                status: UploadStatus.Success,
-                progress: 100,
-                error: null,
+      imageUploadState.value = {
+        status: UploadStatus.Success,
+        progress: 100,
+        error: null,
         fileName: fileToUpload.name,
-                downloadURL
-              };
+        downloadURL
+      };
       return downloadURL;
 
     } catch (err: any) {
-      // Errors from validation, compression, or uploadFileService will be caught here
       imageUploadState.value = {
         status: UploadStatus.Error,
-        progress: imageUploadState.value.progress, // Keep existing progress if error occurs mid-upload
+        progress: imageUploadState.value.progress,
         error: err?.message || "Upload failed due to an unexpected error.",
-        fileName: file.name, // Revert to original file name on error display
+        fileName: file.name,
         downloadURL: null
       };
-      throw err; // Re-throw for the caller (updateProfileImage) to handle
+      throw err;
     }
   }
 
@@ -732,7 +737,8 @@ export const useProfileStore = defineStore('studentProfile', () => {
 
   return {
     currentStudent,
-    isLoading,
+    isLoading, // General store loading
+    isLoadingUserRequests, // Dedicated loading for user requests
     error,
     actionError,
     fetchError,
@@ -772,6 +778,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     // Expose user requests related state and actions
     userRequests,
     fetchUserRequests,
+    removeUserRequestById,
     // Expose clearError
     clearError
   };
