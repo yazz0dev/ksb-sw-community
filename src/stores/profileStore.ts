@@ -22,11 +22,11 @@ import {
 import {
     fetchStudentPortfolioProjects as fetchStudentPortfolioProjectsService,
     fetchStudentEventHistory as fetchStudentEventHistoryService,
-    fetchStudentEventParticipationCount as fetchStudentEventParticipationCountService,
     fetchComprehensivePortfolioData as fetchComprehensivePortfolioDataService
-} from '@/services/portfolioService'; // Added import for portfolio services
+} from '@/services/portfolioService';
 import { fetchMyEventRequests as fetchStudentEventRequestsService } from '@/services/eventService/eventQueries';
-import { uploadFileService, deleteFileByUrlService } from '@/services/storageService'; // Added storage service imports
+import { fetchStudentEvents } from '@/services/eventService/eventQueries'; // Added fetchStudentEvents import
+import { uploadFileService, deleteFileByUrlService, getOptimizedImageUrl } from '@/services/storageService'; // Added storage service imports
 
 // const STUDENT_COLLECTION_PATH = 'students';
 // const XP_COLLECTION_PATH = 'xp';
@@ -321,7 +321,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     }
   }
 
-  async function updateMyProfile(updates: Partial<Omit<UserData, 'uid' | 'email' | 'createdAt' | 'participatedEventIDs' | 'organizedEventIDs' | 'xpData' | 'lastLogin' | 'profileUpdatedAt'>>) { // Use UserData
+  async function updateMyProfile(updates: Partial<Omit<UserData, 'uid' | 'email' | 'createdAt' | 'xpData' | 'lastLogin' | 'profileUpdatedAt'>>) { // Removed participatedEventIDs and organizedEventIDs
     if (!studentId.value) {
       notificationStore.showNotification({ message: "You must be logged in to update your profile.", type: 'error'});
       return false;
@@ -374,11 +374,11 @@ export const useProfileStore = defineStore('studentProfile', () => {
         viewedStudentProfile.value = enrichedData;
         _updateNameCache(enrichedData.uid, enrichedData.name ?? null);
 
-        // Call service functions for projects and history
-        const projects = await fetchStudentPortfolioProjectsService(targetStudentId, enrichedData.participatedEventIDs, enrichedData.organizedEventIDs);
+        // Use direct event queries instead of stored IDs
+        const projects = await fetchStudentPortfolioProjectsService(targetStudentId);
         viewedStudentProjects.value = projects;
 
-        const history = await fetchStudentEventHistoryService(targetStudentId, enrichedData.participatedEventIDs, enrichedData.organizedEventIDs);
+        const history = await fetchStudentEventHistoryService(targetStudentId);
         viewedStudentEventHistory.value = history;
         
         return enrichedData;
@@ -405,17 +405,18 @@ export const useProfileStore = defineStore('studentProfile', () => {
       const studentProfile = currentStudent.value;
       if (!studentProfile) throw new Error("Current student profile not loaded.");
 
-      // Call service function for projects
-      const projects = await fetchStudentPortfolioProjectsService(
-        studentProfile.uid,
-        studentProfile.participatedEventIDs,
-        studentProfile.organizedEventIDs
-      );
-      currentUserPortfolioData.value.projects = projects;
+      // Use the working fetchStudentEvents function to get participation count
+      const studentEvents = await fetchStudentEvents(studentProfile.uid);
+      currentUserPortfolioData.value.eventParticipationCount = studentEvents.length;
 
-      // Call service function for event participation count
-      const count = await fetchStudentEventParticipationCountService(studentProfile.participatedEventIDs);
-      currentUserPortfolioData.value.eventParticipationCount = count;
+      // Try to fetch projects, but fall back gracefully if it fails
+      try {
+        const projects = await fetchStudentPortfolioProjectsService(studentProfile.uid);
+        currentUserPortfolioData.value.projects = projects;
+      } catch (projectError) {
+        console.warn("Failed to fetch portfolio projects, using empty array:", projectError);
+        currentUserPortfolioData.value.projects = [];
+      }
 
     } catch (err) {
       await _handleOpError("fetching current user portfolio data", err, studentId.value);
@@ -434,15 +435,15 @@ export const useProfileStore = defineStore('studentProfile', () => {
       const studentProfile = currentStudent.value;
       if (!studentProfile) throw new Error("Current student profile not loaded.");
 
-      // Fetch comprehensive portfolio data
-      const comprehensiveData = await fetchComprehensivePortfolioDataService(
-        studentProfile.uid,
-        studentProfile.participatedEventIDs,
-        studentProfile.organizedEventIDs
-      );
-      
-      currentUserPortfolioData.value.comprehensiveData = comprehensiveData;
-      return comprehensiveData;
+      // Try to fetch comprehensive data, but fall back gracefully if it fails
+      try {
+        const comprehensiveData = await fetchComprehensivePortfolioDataService(studentProfile.uid);
+        currentUserPortfolioData.value.comprehensiveData = comprehensiveData;
+        return comprehensiveData;
+      } catch (comprehensiveError) {
+        console.warn("Failed to fetch comprehensive portfolio data:", comprehensiveError);
+        return null;
+      }
 
     } catch (err) {
       await _handleOpError("fetching comprehensive portfolio data", err, studentId.value);
@@ -590,7 +591,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
 
   // --- Image Upload Functions ---
   /**
-   * Upload an image file to ImageKit
+   * Upload an image file to Cloudinary with enhanced format handling
    * @param file The file to upload
    * @param options Upload options
    * @returns Promise with the download URL
@@ -618,7 +619,9 @@ export const useProfileStore = defineStore('studentProfile', () => {
       }
 
       let fileToUpload = file;
-      if (options.maxWidthOrHeight || options.quality) {
+      
+      // Only apply compression if specified and it's not already handled by storage service
+      if (options.maxWidthOrHeight && options.maxWidthOrHeight < 1200) {
         try {
           const imageCompression = await import('browser-image-compression')
             .then(module => module.default)
@@ -626,16 +629,15 @@ export const useProfileStore = defineStore('studentProfile', () => {
           if (imageCompression) {
             fileToUpload = await imageCompression(file, {
               maxSizeMB: options.maxSizeMB || 2,
-              maxWidthOrHeight: options.maxWidthOrHeight || 1200,
+              maxWidthOrHeight: options.maxWidthOrHeight,
               useWebWorker: true,
-              fileType: file.type,
-              // @ts-ignore
-              quality: options.quality || 0.8
+              fileType: 'image/jpeg', // Ensure JPEG output
+              initialQuality: options.quality || 0.85 // Use initialQuality instead of quality
             });
             imageUploadState.value.fileName = fileToUpload.name;
           }
         } catch (compressionError) {
-          console.warn("Image compression failed, uploading original:", compressionError);
+          console.warn("Image compression failed, using storage service conversion:", compressionError);
         }
       }
 
@@ -648,10 +650,10 @@ export const useProfileStore = defineStore('studentProfile', () => {
         }
       }
 
-      // Upload the file with progress callback
+      // Upload the file with progress callback - storage service handles format conversion
       const downloadURL = await uploadFileService(
         fileToUpload,
-        `${studentId.value}_${Date.now()}_${fileToUpload.name}`,
+        `${studentId.value}_${Date.now()}_profile`,
         (progress: number) => {
           imageUploadState.value.progress = progress;
         }
@@ -710,6 +712,21 @@ export const useProfileStore = defineStore('studentProfile', () => {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /**
+   * Get optimized profile image URL using Cloudinary SDK
+   * @param imageUrl Original image URL
+   * @param size Desired size (width and height)
+   * @param quality Image quality (1-100)
+   * @returns Optimized image URL
+   */
+  function getOptimizedProfileImageUrl(
+    imageUrl: string, 
+    size: number = 400, 
+    quality: number = 80
+  ): string {
+    return getOptimizedImageUrl(imageUrl, { width: size, height: size, quality });
   }
 
   /**
@@ -775,6 +792,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     uploadProfileImage,
     updateProfileImage,
     resetImageUploadState,
+    getOptimizedProfileImageUrl,
     // Expose user requests related state and actions
     userRequests,
     fetchUserRequests,

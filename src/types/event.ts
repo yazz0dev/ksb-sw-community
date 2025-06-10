@@ -106,8 +106,6 @@ export interface Team {
   teamLead: string | undefined; // Allow undefined for team lead
 }
 
-export type EventWinners = Record<string, string[]>; // Can be for overall or per phase { [phaseId_criterionTitle]: winners }
-
 export interface OrganizerRating {
   userId: string;
   rating: number;
@@ -145,9 +143,12 @@ export interface Event {
   criteria?: EventCriteria[] | null | undefined;
   teams?: Team[] | null | undefined;
   organizerRatings?: Record<string, OrganizerRating> | null | undefined; // UID to Rating
-  winners?: Record<string, string | string[]> | null | undefined; // Can map phaseId_criteria to winner(s) or overall criteria
-  criteriaVotes?: Record<string, Record<string, string>> | null | undefined; // Can be { [voterUid]: { [phaseId_criterionId]: vote } }
-  bestPerformerSelections?: Record<string, string> | null | undefined; // { [voterUid]: selectedParticipantUid }
+  winners?: Record<string, string[]> | null | undefined; // Consistent array type for all winners
+  
+  // Fix the type definitions for criteriaVotes and bestPerformerSelections
+  criteriaVotes?: Record<string, Record<string, string>> | null | undefined; // userId -> constraintKey -> selected value
+  bestPerformerSelections?: Record<string, string> | null | undefined; // userId -> selected performer userId
+  
   rejectionReason?: string | null | undefined; // Reason if the event request was rejected
   manuallySelectedBy?: string | null | undefined; // UID of admin/organizer who manually selected winners
   gallery?: EventGalleryItem[] | null | undefined; // For event photos/videos
@@ -199,3 +200,5 @@ export interface EventFormData {
   rejectionReason?: string | null;
   manuallySelectedBy?: string;
 }
+
+export type EventWinners = Record<string, string[]>; // Consistent array type for winners

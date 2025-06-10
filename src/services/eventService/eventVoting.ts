@@ -282,7 +282,7 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
 /**
  * Calculates winners from the new criteriaVotes structure.
  */
-export async function calculateWinnersFromVotes(eventId: string): Promise<Record<string, string | string[]>> {
+export async function calculateWinnersFromVotes(eventId: string): Promise<Record<string, string[]>> {
     if (!eventId) throw new Error("Event ID is required.");
 
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);
@@ -294,7 +294,7 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
         throw new Error("Failed to map event data for calculating winners.");
     }
 
-    const winners: Record<string, string | string[]> = {};
+    const winners: Record<string, string[]> = {};
 
     // Calculate winners from criteriaVotes structure
     if (eventData.criteriaVotes && !isEmpty(eventData.criteriaVotes)) {
@@ -324,13 +324,12 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
                 const criterion = eventData.criteria?.find((c: EventCriteria) => c.constraintIndex === constraintIndex);
                 const criterionTitle = criterion?.title || `Criterion ${constraintIndex}`;
                 
-                // Fix: Ensure we never assign undefined by checking array length and content
-                if (criterionWinners.length === 1 && criterionWinners[0] !== undefined) {
-                    winners[criterionTitle] = criterionWinners[0];
-                } else if (criterionWinners.length > 1) {
-                    winners[criterionTitle] = criterionWinners;
+                // Always store winners as an array, even for single winners
+                if (criterionWinners.length > 0) {
+                    // Filter out any undefined values just to be safe
+                    winners[criterionTitle] = criterionWinners.filter(Boolean);
                 } else {
-                    // Handle the case where there are no valid winners (empty array or undefined values)
+                    // If no winners (shouldn't happen but for safety)
                     winners[criterionTitle] = [];
                 }
             }
@@ -348,13 +347,10 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
             const maxVotes = Math.max(...Object.values(bestPerformerVoteCounts));
             const bestPerformers = Object.keys(bestPerformerVoteCounts).filter(id => bestPerformerVoteCounts[id] === maxVotes);
             
-            // Fix: Ensure we never assign undefined by checking array length and content
-            if (bestPerformers.length === 1 && bestPerformers[0] !== undefined) {
-                winners[BEST_PERFORMER_LABEL] = bestPerformers[0];
-            } else if (bestPerformers.length > 1) {
-                winners[BEST_PERFORMER_LABEL] = bestPerformers;
+            // Always store as array, even for single winner
+            if (bestPerformers.length > 0) {
+                winners[BEST_PERFORMER_LABEL] = bestPerformers.filter(Boolean);
             } else {
-                // Handle the case where there are no valid winners (empty array or undefined values)
                 winners[BEST_PERFORMER_LABEL] = [];
             }
         }

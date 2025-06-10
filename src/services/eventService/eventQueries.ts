@@ -143,3 +143,91 @@ export async function hasPendingRequest(studentId: string): Promise<boolean> {
     throw new Error(`Failed to check for pending requests: ${error.message}`);
   }
 }
+
+/**
+ * Fetches events where a student is either a participant or organizer
+ * @param studentId - The UID of the student
+ * @returns Promise<EventData[]> - An array of events the student is involved in
+ */
+export async function fetchStudentEvents(studentId: string): Promise<EventData[]> {
+  if (!studentId) {
+    return [];
+  }
+  
+  try {
+    
+    // Query for events where student is a participant - ordered by date descending
+    const participantQuery = query(
+      collection(db, EVENTS_COLLECTION),
+      where('participants', 'array-contains', studentId),
+      orderBy('details.date.start', 'desc')
+    );
+    
+    // Query for events where student is an organizer - ordered by date descending
+    const organizerQuery = query(
+      collection(db, EVENTS_COLLECTION),
+      where('details.organizers', 'array-contains', studentId),
+      orderBy('details.date.start', 'desc')
+    );
+    
+    // Query for events where student is in teamMemberFlatList - ordered by date descending
+    const teamMemberQuery = query(
+      collection(db, EVENTS_COLLECTION),
+      where('teamMemberFlatList', 'array-contains', studentId),
+      orderBy('details.date.start', 'desc')
+    );
+    
+    const [participantSnapshot, organizerSnapshot, teamMemberSnapshot] = await Promise.all([
+      getDocs(participantQuery),
+      getDocs(organizerQuery),
+      getDocs(teamMemberQuery)
+    ]);
+  
+    const eventMap = new Map<string, EventData>();
+    
+    // Process participant events
+    participantSnapshot.docs.forEach(docSnap => {
+      const eventData = mapFirestoreToEventData(docSnap.id, docSnap.data()) as EventData | null;
+      if (eventData) {
+        console.log('Found participant event:', eventData.details.eventName );
+        eventMap.set(docSnap.id, eventData);
+      }
+    });
+    
+    // Process organizer events
+    organizerSnapshot.docs.forEach(docSnap => {
+      const eventData = mapFirestoreToEventData(docSnap.id, docSnap.data()) as EventData | null;
+      if (eventData) {
+        eventMap.set(docSnap.id, eventData);
+      }
+    });
+    
+    // Process team member events
+    teamMemberSnapshot.docs.forEach(docSnap => {
+      const eventData = mapFirestoreToEventData(docSnap.id, docSnap.data()) as EventData | null;
+      if (eventData) {
+        eventMap.set(docSnap.id, eventData);
+      }
+    });
+    
+    // Convert map to array - already sorted by Firebase queries
+    const events = Array.from(eventMap.values());
+    
+    // Since we have multiple queries, we need to sort the combined results
+    // Use a more reliable sorting method
+    events.sort((a, b) => {
+      const aTime = a.details.date.start && typeof a.details.date.start === 'object' && 'toMillis' in a.details.date.start 
+        ? a.details.date.start.toMillis() 
+        : 0;
+      const bTime = b.details.date.start && typeof b.details.date.start === 'object' && 'toMillis' in b.details.date.start 
+        ? b.details.date.start.toMillis() 
+        : 0;
+      return bTime - aTime; // Descending order (newest first)
+    });
+    
+    return events;
+  } catch (error: any) {
+    console.error(`Error in fetchStudentEvents for ${studentId}:`, error);
+    throw new Error(`Failed to fetch student events: ${error.message}`);
+  }
+}

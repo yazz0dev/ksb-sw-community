@@ -34,13 +34,35 @@
           <div class="card shadow-sm">
             <div class="card-body p-3 p-md-4">
               <form @submit.prevent="saveProfileEdits" class="needs-validation" novalidate>
-                <!-- Profile Image -->
+                <!-- Profile Image with Enhanced Cloudinary Integration -->
                 <div class="mb-4 text-center">
                   <ProfileImageUploader
                     :current-image-url="form.photoURL"
-                    :disabled="loading"
-                    @update:image="form.photoURL = $event"
+                    :optimized-image-url="getOptimizedImageUrl(form.photoURL)"
+                    :disabled="loading || isImageUploading"
+                    :upload-progress="imageUploadProgress"
+                    :upload-error="imageUploadError"
+                    @image-selected="handleImageSelected"
+                    @image-uploaded="handleImageUploaded"
+                    @upload-error="handleUploadError"
                   />
+                  
+                  <!-- Upload Progress Display -->
+                  <div v-if="isImageUploading" class="mt-2">
+                    <div class="progress" style="height: 4px;">
+                      <div 
+                        class="progress-bar progress-bar-striped progress-bar-animated" 
+                        :style="{ width: imageUploadProgress + '%' }"
+                      ></div>
+                    </div>
+                    <small class="text-muted">Uploading... {{ imageUploadProgress }}%</small>
+                  </div>
+                  
+                  <!-- Upload Error Display -->
+                  <div v-if="imageUploadError" class="mt-2 text-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    {{ imageUploadError }}
+                  </div>
                 </div>
 
                 <div class="mb-4">
@@ -100,7 +122,7 @@
                     type="button"
                     class="btn btn-light"
                     @click="router.back()"
-                    :disabled="loading"
+                    :disabled="loading || isImageUploading"
                   >
                     Cancel
                   </button>
@@ -108,8 +130,9 @@
                     type="submit"
                     class="btn btn-primary"
                     :class="{ 'btn-loading': loading }"
-                    :disabled="loading || !isFormValid"
+                    :disabled="loading || !isFormValid || isImageUploading"
                   >
+                    <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
                     <span class="btn-text">Save Changes</span>
                   </button>
                 </div>
@@ -123,13 +146,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import type { StudentProfileData, EnrichedStudentData } from '@/types/student';
 import ProfileImageUploader from '@/components/ui/ProfileImageUploader.vue';
 import { serverTimestamp } from 'firebase/firestore';
+import { UploadStatus } from '@/types/student';
 
 const router = useRouter();
 const studentStore = useProfileStore();
@@ -161,44 +185,113 @@ const isFormValid = computed(() => {
   return !formErrors.value.name;
 });
 
+// Enhanced image upload state management
+const imageUploadProgress = ref(0);
+const imageUploadError = ref<string | null>(null);
+
+// Add computed for image upload state
+const isImageUploading = computed(() => {
+  return studentStore.imageUploadState.status === UploadStatus.Uploading;
+});
+
+// Enhanced image handling functions
+function getOptimizedImageUrl(imageUrl: string): string {
+  if (!imageUrl) return '';
+  // Use the store's optimized image URL function
+  return studentStore.getOptimizedProfileImageUrl(imageUrl, 400, 85);
+}
+
+async function handleImageSelected(file: File) {
+  // Clear previous errors
+  imageUploadError.value = null;
+  imageUploadProgress.value = 0;
+  
+  try {
+    // Start upload using the profile store
+    const downloadURL = await studentStore.uploadProfileImage(file, {
+      maxSizeMB: 2,
+      maxWidthOrHeight: 1200,
+      quality: 0.85
+    });
+    
+    // Update form with the new URL
+    form.value.photoURL = downloadURL;
+    
+    notificationStore.showNotification({ 
+      message: 'Image uploaded successfully!', 
+      type: 'success' 
+    });
+  } catch (err: any) {
+    imageUploadError.value = err.message || 'Upload failed';
+    notificationStore.showNotification({ 
+      message: `Image upload failed: ${err.message}`, 
+      type: 'error' 
+    });
+  }
+}
+
+function handleImageUploaded(imageUrl: string) {
+  form.value.photoURL = imageUrl;
+  imageUploadError.value = null;
+  notificationStore.showNotification({ 
+    message: 'Image uploaded successfully!', 
+    type: 'success' 
+  });
+}
+
+function handleUploadError(error: string) {
+  imageUploadError.value = error;
+  notificationStore.showNotification({ 
+    message: `Image upload failed: ${error}`, 
+    type: 'error' 
+  });
+}
+
+// Watch for upload state changes from the store
+watch(() => studentStore.imageUploadState, (newState) => {
+  imageUploadProgress.value = newState.progress;
+  
+  if (newState.status === UploadStatus.Error) {
+    imageUploadError.value = newState.error;
+  } else if (newState.status === UploadStatus.Success && newState.downloadURL) {
+    form.value.photoURL = newState.downloadURL;
+    imageUploadError.value = null;
+  }
+}, { deep: true });
+
 async function loadUserData() {
-  const userId = studentStore.studentId; // Get from store instead of route params
+  const userId = studentStore.studentId;
   if (!userId || !studentStore.isAuthenticated) {
     notificationStore.showNotification({ message: "User not authenticated. Cannot load profile.", type: "error" });
-    router.push({ name: 'Login' }); // Redirect to login if not authenticated
+    router.push({ name: 'Login' });
     return;
   }
   loading.value = true;
-  error.value = ''; // Clear previous errors
+  error.value = '';
 
   try {
-    // Attempt to get profile from store first
     let userProfile = studentStore.currentStudent;
     if (!userProfile || userProfile.uid !== userId) {
-      // If not in store or wrong user, fetch it
       userProfile = await studentStore.fetchMyProfile();
     }
 
     if (userProfile) {
       form.value.name = userProfile.name || '';
+      // Use optimized image URL for display
       form.value.photoURL = userProfile.photoURL || '';
       form.value.bio = userProfile.bio || '';
       form.value.skills = (userProfile.skills || []).join(', ');
       form.value.hasLaptop = userProfile.hasLaptop || false;
       
-      // Populate social links from the enriched structure
       form.value.socialLink = userProfile.socialLinks?.primary || '';
       form.value.instagramLink = userProfile.socialLinks?.instagram || '';
       form.value.portfolio = userProfile.socialLinks?.portfolio || '';
-
     } else {
       throw new Error('Profile data not found.');
     }
   } catch (err: any) {
     const message = err.message || 'Failed to load user data.';
     error.value = message;
-    // Consider if router.back() is still appropriate or if showing error on page is better
-    // router.back(); 
   } finally {
     loading.value = false;
   }
@@ -211,6 +304,15 @@ async function saveProfileEdits() {
     return;
   }
 
+  // Check if image is still uploading
+  if (isImageUploading.value) {
+    notificationStore.showNotification({ 
+      message: "Please wait for image upload to complete before saving.", 
+      type: "warning" 
+    });
+    return;
+  }
+
   loading.value = true;
   error.value = '';
 
@@ -219,30 +321,28 @@ async function saveProfileEdits() {
       throw new Error('You must be logged in to update your profile');
     }
 
-    // Handle ImageKit URLs and blob URLs
-    let photoURLForFirestore: string | null;
-    const currentPhotoValueFromForm = form.value.photoURL;
+    // Enhanced Cloudinary URL validation
+    let photoURLForFirestore: string | null = null;
+    const currentPhotoValue = form.value.photoURL;
 
-    if (currentPhotoValueFromForm && currentPhotoValueFromForm.startsWith('blob:')) {
-      console.warn('Attempting to save profile with a blob URL for photo. Reverting to stored photoURL or null.');
-      const storedPhotoURL = studentStore.currentStudent?.photoURL;
-      if (storedPhotoURL && (storedPhotoURL.match(/^https?:\/\/.+/) || storedPhotoURL.includes('imagekit.io'))) {
-        photoURLForFirestore = storedPhotoURL;
-      } else {
-        photoURLForFirestore = null;
+    if (currentPhotoValue) {
+      // Check for valid Cloudinary URLs or other valid HTTP URLs
+      if (currentPhotoValue.includes('cloudinary.com') || 
+          /^https?:\/\//.test(currentPhotoValue)) {
+        photoURLForFirestore = currentPhotoValue.trim();
+      } else if (currentPhotoValue.startsWith('blob:') || 
+                 currentPhotoValue.startsWith('data:')) {
+        console.warn('Attempting to save profile with a temporary URL. Using stored photoURL.');
+        const storedPhotoURL = studentStore.currentStudent?.photoURL;
+        photoURLForFirestore = (storedPhotoURL && 
+          (storedPhotoURL.includes('cloudinary.com') || /^https?:\/\//.test(storedPhotoURL))) 
+          ? storedPhotoURL : null;
+        
+        notificationStore.showNotification({ 
+          message: 'Image was not finalized. Using previous image if available.', 
+          type: 'warning' 
+        });
       }
-      notificationStore.showNotification({ 
-        message: 'New image was not saved as it was not finalized. Using previous image if available.', 
-        type: 'warning' 
-      });
-    } else if (currentPhotoValueFromForm && (currentPhotoValueFromForm.match(/^https?:\/\/.+/) || currentPhotoValueFromForm.includes('imagekit.io'))) {
-      // Valid HTTP/HTTPS URL or ImageKit URL
-      photoURLForFirestore = currentPhotoValueFromForm.trim();
-    } else {
-      if (currentPhotoValueFromForm && currentPhotoValueFromForm.trim() !== '') {
-         console.warn(`Invalid photoURL format in form ('${currentPhotoValueFromForm}'). Setting to null for Firestore update.`);
-      }
-      photoURLForFirestore = null;
     }
 
     // Prepare skills as arrays
@@ -253,7 +353,7 @@ async function saveProfileEdits() {
 
     // Prepare socialLinks object
     const newSocialLinks: EnrichedStudentData['socialLinks'] = {
-      ...(studentStore.currentStudent?.socialLinks || {}), // Preserve other links
+      ...(studentStore.currentStudent?.socialLinks || {}),
     };
     
     // Consistently map form fields to socialLinks properties, trimming whitespace.
@@ -263,7 +363,7 @@ async function saveProfileEdits() {
 
     const payloadForUpdate = {
       name: form.value.name.trim(),
-      photoURL: photoURLForFirestore, // Use the strictly validated/corrected URL
+      photoURL: photoURLForFirestore,
       bio: form.value.bio.trim(),
       skills: skillsArray,
       hasLaptop: form.value.hasLaptop,
@@ -274,16 +374,18 @@ async function saveProfileEdits() {
     const success = await studentStore.updateMyProfile(payloadForUpdate as Partial<StudentProfileData>);
 
     if (success) {
+        // Reset image upload state on successful save
+        studentStore.resetImageUploadState();
+        imageUploadError.value = null;
+        imageUploadProgress.value = 0;
+        
         notificationStore.showNotification({ message: 'Profile updated successfully', type: 'success' });
         router.push({ name: 'Profile' });
     } else {
-        // The store handles error notifications, so we just set the local error for display
         error.value = studentStore.actionError || 'Failed to update profile.';
     }
   } catch (err: any) {
-    // This catch block handles unexpected errors
     error.value = err?.message || 'Failed to update profile';
-    // Only show notification if it's a different error than what the store might have handled
     if (!studentStore.actionError) {
       notificationStore.showNotification({ message: error.value, type: 'error' });
     }
@@ -292,8 +394,13 @@ async function saveProfileEdits() {
   }
 }
 
+// Clean up upload state when component unmounts
 onMounted(() => {
   loadUserData();
+  // Reset any previous upload state
+  studentStore.resetImageUploadState();
+  imageUploadError.value = null;
+  imageUploadProgress.value = 0;
 });
 </script>
 

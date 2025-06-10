@@ -13,31 +13,38 @@
       </div>
 
       <!-- Header for Current User -->
-      <div v-if="isCurrentUser && currentUserData" class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center gap-3 mb-4 pb-3 border-bottom">
-        <div>
-          <h2 class="h2 text-gradient-primary mb-0 d-inline-flex align-items-center">
-            <i class="fas fa-user-circle me-2"></i>My Profile
-          </h2>
-          <p class="text-muted small mb-0 mt-1">
-            <i class="fas fa-chart-line me-1"></i>
-            Portfolio ready for generation with {{ currentUserPortfolioData.projects.length }} projects
-          </p>
-        </div>
-        <div class="d-flex align-items-center justify-content-center justify-content-md-end" style="min-height: 38px;">
-          <PortfolioGeneratorButton
-            v-if="!loadingPortfolioData && currentUserPortfolioData.eventParticipationCount >= 1"
-            :user="userForPortfolioGeneration"
-            :projects="projectsForPortfolio"
-            :event-participation-count="currentUserPortfolioData.eventParticipationCount"
-            v-bind="currentUserPortfolioData.comprehensiveData ? { comprehensiveData: currentUserPortfolioData.comprehensiveData } : {}"
-          />
-          <div v-else-if="loadingPortfolioData" class="d-flex align-items-center text-secondary px-3">
-            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-            <span class="small fw-medium">Loading portfolio data...</span>
-          </div>
-          <div v-else class="bg-light-subtle text-secondary-emphasis border rounded-pill px-3 py-1 small d-inline-flex align-items-center">
-            <i class="fas fa-info-circle me-2"></i>
-            <span>Generate portfolio after participating in an event.</span>
+      <div v-if="isCurrentUser && currentUserData" class="profile-header mb-4 pb-3 border-bottom">
+        <div class="d-flex align-items-start justify-content-between">
+          <!-- Left side: Profile heading and subtitle -->
+          <div class="header-text flex-grow-1">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <h2 class="h2 text-gradient-primary mb-0 d-inline-flex align-items-center">
+                <i class="fas fa-user-circle me-2"></i>My Profile
+              </h2>
+              
+              <!-- Portfolio Button - All screen sizes -->
+              <div class="ms-3 flex-shrink-0">
+                <PortfolioGeneratorButton
+                  v-if="!loadingPortfolioData && currentUserPortfolioData.eventParticipationCount >= 1"
+                  :user="userForPortfolioGeneration"
+                  :projects="projectsForPortfolio"
+                  :event-participation-count="currentUserPortfolioData.eventParticipationCount"
+                  v-bind="currentUserPortfolioData.comprehensiveData ? { comprehensiveData: currentUserPortfolioData.comprehensiveData } : {}"
+                />
+                <div v-else-if="loadingPortfolioData" class="d-flex align-items-center text-secondary">
+                  <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                  <span class="small fw-medium d-none d-sm-inline">Loading...</span>
+                </div>
+                <div v-else class="bg-light-subtle text-secondary-emphasis border rounded px-2 py-1 small d-none d-sm-flex align-items-center">
+                  <i class="fas fa-info-circle me-1"></i>
+                  <span class="text-nowrap">Generate after event</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-muted small mb-0">
+              <i class="fas fa-chart-line me-1"></i>
+              Portfolio ready for generation with {{ currentUserPortfolioData.projects.length }} projects
+            </p>
           </div>
         </div>
       </div>
@@ -114,6 +121,7 @@
 import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
+import { fetchStudentEvents } from '@/services/eventService/eventQueries';
 import type { EnrichedStudentData, StudentEventHistoryItem, EnrichedUserData, StudentPortfolioProject, UserForPortfolio } from '@/types/student';
 
 // Component imports
@@ -212,7 +220,7 @@ const projectsForUserComponent = computed(() => {
   }));
 });
 
-// --- Computed merged from UserProfile ---
+// --- Computed ---
 const hasXpData = computed((): boolean => {
   const xp = viewedUser.value?.xpData;
   return !!(xp && xp.totalCalculatedXp > 0 && Object.values(xp).some(val => typeof val === 'number' && val > 0));
@@ -274,16 +282,58 @@ const fetchFullProfile = async (userId: string) => {
           xpData: profileDataFromStore.xpData ?? null,
           socialLinks: profileDataFromStore.socialLinks || undefined
         };
-        participatedEvents.value = studentStore.viewedStudentEventHistory;
-        userProjects.value = studentStore.viewedStudentProjects.map((p: any) => ({
+
+        // Use the new fetchStudentEvents function directly
+        const studentEvents = await fetchStudentEvents(userId);
+        
+        
+        // Get organizer names for all events at once
+        const allOrganizerIds = [...new Set(studentEvents.flatMap(event => event.details.organizers || []))];
+        const organizerNamesMap = allOrganizerIds.length > 0 
+          ? await studentStore.fetchUserNamesBatch(allOrganizerIds)
+          : {};
+        
+        // Convert Event objects to StudentEventHistoryItem format
+        // Events are already sorted by Firebase queries, just filter and map
+        participatedEvents.value = studentEvents
+          .filter(event => event.status !== 'Pending') // Filter out pending events
+          .map(event => {
+          const eventName = event.details.eventName || 'Unnamed Event';
+          
+          return {
+            eventId: event.id,
+            eventName: eventName,
+            eventStatus: event.status,
+            eventFormat: event.details.format,
+            roleInEvent: event.details.organizers?.includes(userId) ? 'organizer' as const : 'participant' as const,
+            date: {
+              start: event.details.date.start && typeof event.details.date.start === 'object' && 'toMillis' in event.details.date.start 
+                ? event.details.date.start 
+                : null,
+              end: event.details.date.end && typeof event.details.date.end === 'object' && 'toMillis' in event.details.date.end 
+                ? event.details.date.end 
+                : null
+            },
+            eventDescription: event.details.description,
+            eventType: event.details.type,
+            organizerNames: event.details.organizers 
+              ? event.details.organizers.map(id => organizerNamesMap[id] || `Student (${id.substring(0,5)})`)
+              : undefined,
+            participantCount: event.participants?.length || 0
+          };
+        });
+
+        // Try to get projects from the store, but handle gracefully if not available
+        userProjects.value = studentStore.viewedStudentProjects?.map((p: any) => ({
           ...p,
           description: p.description === null ? undefined : p.description
-        }));
+        })) || [];
 
         calculateStatsFromEvents(participatedEvents.value);
         if (viewedUser.value?.xpData) {
             stats.value.wonCount = viewedUser.value.xpData.count_wins ?? 0;
         }
+
 
     } catch (error: any) {
         // Let determineProfileContextAndLoad handle setting the main errorMessage
@@ -344,7 +394,8 @@ const determineProfileContextAndLoad = async () => {
     } catch (error: any) {
         console.error("[ProfileView] Error in determineProfileContextAndLoad:", error);
         errorMessage.value = error?.message || "Failed to load profile data.";
-        viewedUser.value = null; // Ensure profile is cleared on error    } finally {
+        viewedUser.value = null; // Ensure profile is cleared on error
+    } finally {
         loading.value = false;
     }
 };
@@ -374,6 +425,37 @@ watch(() => route.params.userId, (newRouteUserId, oldRouteUserId) => {
   position: relative;
   z-index: 1;
 }
+
+.profile-header {
+  .header-text {
+    width: 100%;
+  }
+  
+  .h2 {
+    font-size: 1.25rem;
+    
+    @media (min-width: 576px) {
+      font-size: 1.5rem;
+    }
+  }
+  
+  .text-muted {
+    font-size: 0.75rem;
+    
+    @media (min-width: 576px) {
+      font-size: 0.8rem;
+    }
+  }
+  
+  .ms-3 {
+    margin-left: 0.75rem !important;
+    
+    @media (min-width: 576px) {
+      margin-left: 1rem !important;
+    }
+  }
+}
+
 .requests-card-header {
   background-color: var(--bs-tertiary-bg);
   border-bottom: 1px solid var(--bs-border-color);

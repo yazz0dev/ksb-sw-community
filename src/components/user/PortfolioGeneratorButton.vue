@@ -2,7 +2,7 @@
   <div class="portfolio-generator-container">
     <button
       type="button"
-      class="portfolio-btn btn btn-primary btn-sm-mobile d-inline-flex align-items-center shadow-sm"
+      class="portfolio-btn btn btn-primary d-inline-flex align-items-center shadow-sm"
       :class="{
         'btn-disabled': !isEligible,
         'btn-generating': isGenerating,
@@ -28,7 +28,7 @@
     </button>
     
     <!-- Eligibility Info -->
-    <div v-if="!isEligible" class="eligibility-info mt-2">
+    <div v-if="!isEligible" class="eligibility-info mt-2 position-absolute">
       <small class="text-muted d-flex align-items-center">
         <i class="fas fa-info-circle me-1 text-info"></i>
         Requires participation in at least {{ requiredEvents }} event{{ requiredEvents === 1 ? '' : 's' }}
@@ -140,9 +140,20 @@ const generatePDF = async () => {
   position: relative;
 }
 
-/* Portfolio Button - Extending base button styles */
+/* Portfolio Button - Compact for inline positioning */
 .portfolio-btn {
-  min-width: 180px;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: 6px;
+  white-space: nowrap;
+  
+  @media (min-width: 768px) {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: 8px;
+  }
   
   &.btn-disabled {
     cursor: not-allowed;
@@ -165,24 +176,10 @@ const generatePDF = async () => {
   }
 }
 
-/* Button Icon */
-.btn-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.btn-icon .spinner-border-sm {
-  width: 1rem;
-  height: 1rem;
-}
-
 /* Button Text */
 .btn-text {
   transition: all 0.3s ease;
-  font-size: 0.9rem;
+  font-size: inherit;
 }
 
 .portfolio-btn:disabled .btn-text {
@@ -195,9 +192,15 @@ const generatePDF = async () => {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 2px;
   background: rgba(255,255,255,0.2);
   overflow: hidden;
+  border-radius: 0 0 6px 6px;
+  
+  @media (min-width: 768px) {
+    height: 3px;
+    border-radius: 0 0 8px 8px;
+  }
 }
 
 .progress-indicator .progress-bar {
@@ -206,14 +209,32 @@ const generatePDF = async () => {
   animation: progressSlide 2s infinite;
 }
 
-/* Eligibility Info */
+/* Eligibility Info - Positioned as tooltip */
 .eligibility-info {
-  max-width: 100%;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: white;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 6px;
+  padding: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  min-width: 250px;
+  
+  @media (max-width: 768px) {
+    min-width: 200px;
+    padding: 0.5rem;
+  }
 }
 
 .eligibility-info small {
-  font-size: 0.8rem;
-  line-height: 1.4;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  
+  @media (min-width: 768px) {
+    font-size: 0.8rem;
+  }
 }
 
 .eligibility-info .progress {
@@ -238,40 +259,17 @@ const generatePDF = async () => {
   opacity: 1;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
+/* Mobile adjustments for inline positioning */
+@media (max-width: 480px) {
   .portfolio-btn {
-    min-width: 160px;
-    padding: 0.5rem 1rem;
-  }
-  
-  .btn-text {
-    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem;
   }
   
   .eligibility-info {
-    width: 100%;
-  }
-  
-  .eligibility-info small {
-    font-size: 0.75rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .portfolio-generator-container {
-    width: 100%;
-  }
-  
-  .portfolio-btn {
-    width: 100%;
+    left: -50px;
+    right: -50px;
     min-width: auto;
-    padding: 0.625rem 1rem;
-    justify-content: center;
-  }
-  
-  .btn-text {
-    font-size: 0.8rem;
   }
   
   .eligibility-info small {

@@ -28,10 +28,6 @@ export interface StudentProfileData {
 
   socialLinks?: SocialLinks | undefined; // Allow undefined for the object itself
 
-  // Arrays of Event IDs.
-  participatedEventIDs?: string[] | undefined;
-  organizedEventIDs?: string[] | undefined;
-
   // Fields like uid, email, createdAt, lastUpdatedAt are not stored in this nested object.
   // uid is the document ID (students/{uid})
   // email is available via Auth.
@@ -161,10 +157,6 @@ export interface UserData {
   github?: string | undefined;
   linkedin?: string | undefined;
   socialLinks?: SocialLinks | undefined; // Explicitly allow undefined
-
-  // Event participation
-  participatedEventIDs?: string[] | undefined;
-  organizedEventIDs?: string[] | undefined;
 
   // Timestamps
   createdAt?: Timestamp | undefined;

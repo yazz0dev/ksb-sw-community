@@ -24,7 +24,6 @@
           </div>
           <h6 class="empty-title mb-2">No Event Requests</h6>
           <p class="empty-description mb-3">You don't have any pending or rejected event requests at the moment.</p>
-          
         </div>
       </div>
     </div>
@@ -35,19 +34,19 @@
         <!-- Header -->
         <div class="section-header bg-primary-subtle text-primary-emphasis rounded-top-4 p-4 border-bottom">
           <div class="d-flex align-items-center justify-content-between">
-            <div class="header-content">
-              <div class="header-icon bg-primary-subtle">
-                <i class="fas fa-clipboard-list fa-lg"></i>
+            <div class="header-content d-flex align-items-center">
+              <div class="header-icon bg-primary text-white rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                <i class="fas fa-clipboard-list"></i>
               </div>
               <div>
                 <h5 class="section-title mb-1 text-primary-emphasis">Event Requests</h5>
-                <p class="d-none d-sm-block section-subtitle small mb-0">
-                  {{ pendingRequests.length }} pending, {{ rejectedRequests.length }} rejected
+                <p class="d-none d-sm-block section-subtitle small mb-0 text-muted">
+                  Manage your event submissions and track their status
                 </p>
               </div>
             </div>
             <div class="header-badge">
-              <span class="badge bg-primary text-white rounded-pill px-3 py-2">
+              <span class="badge bg-primary text-white rounded-pill px-3 py-2 fw-semibold">
                 {{ allRequests.length }}
               </span>
             </div>
@@ -79,9 +78,10 @@
           >
             <!-- Request Header -->
             <div class="request-header mb-3">
-              <div class="d-flex align-items-start mb-2 flex-wrap">
-                <div class="d-flex align-items-center me-auto mb-2">
-                  <div class="item-icon me-3 bg-primary-subtle">
+              <!-- First Row: Request Name and Status Badge -->
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center">
+                  <div class="item-icon bg-primary-subtle me-3">
                     <i class="fas fa-calendar-alt text-primary"></i>
                   </div>
                   <div class="request-title-container">
@@ -93,68 +93,81 @@
                     </router-link>
                   </div>
                 </div>
-
-                <!-- Request Status -->
-                <div class="request-status-section mb-2">
-                  <span :class="['status-badge badge rounded-pill', getStatusClass(request.status)]">
-                    <i class="fas fa-circle me-2"></i>
-                    {{ request.status }}
-                  </span>
-                </div>
+                
+                <!-- Status Badge -->
+                <span 
+                  class="status-badge badge rounded-pill"
+                  :class="{
+                    'bg-warning-subtle text-warning-emphasis': request.status === 'Pending',
+                    'bg-danger-subtle text-danger-emphasis': request.status === 'Rejected'
+                  }"
+                >
+                  <i class="fas me-1" :class="{
+                    'fa-clock': request.status === 'Pending',
+                    'fa-times-circle': request.status === 'Rejected'
+                  }"></i>{{ request.status }}
+                </span>
               </div>
+              
+              <!-- Second Row: Event Type and Date -->
+              <div class="d-flex align-items-center justify-content-between ms-5">
+                <!-- Event Type -->
+                <span 
+                  v-if="request.eventType" 
+                  class="meta-badge badge bg-secondary-subtle text-secondary-emphasis rounded-pill"
+                >
+                  <i class="fas fa-tag me-1"></i>{{ request.eventType }}
+                </span>
+                <span v-else></span>
+                
+                <!-- Event Date -->
+                <span 
+                  v-if="request.eventDate"
+                  class="date-badge badge bg-light text-dark border rounded-pill"
+                >
+                  <i class="fas fa-clock me-1"></i>{{ formatEventDate(request.eventDate) }}
+                </span>
+              </div>
+            </div>
 
-              <!-- Rejection Message -->
-              <div v-if="request.status === 'Rejected' && request.rejectionReason" class="rejection-reason mt-2 p-3 bg-danger-subtle border border-danger-subtle rounded">
-                <div class="d-flex align-items-start">
-                  <i class="fas fa-info-circle text-danger me-2 mt-1"></i>
-                  <div>
-                    <h6 class="text-danger-emphasis mb-1">Rejection Reason</h6>
-                    <p class="text-danger-emphasis mb-0 small">{{ request.rejectionReason }}</p>
-                  </div>
+            <!-- Rejection Message -->
+            <div v-if="request.status === 'Rejected' && request.rejectionReason" class="rejection-reason p-3 bg-danger-subtle border border-danger-subtle rounded-3 mb-3">
+              <div class="d-flex align-items-start">
+                <i class="fas fa-exclamation-triangle text-danger me-2 mt-1 flex-shrink-0"></i>
+                <div>
+                  <h6 class="text-danger-emphasis mb-1 fw-semibold">Rejection Reason</h6>
+                  <p class="text-danger-emphasis mb-0 small">{{ request.rejectionReason }}</p>
                 </div>
               </div>
             </div>
 
             <!-- Request Actions -->
-            <div v-if="request.status === 'Pending'" class="request-actions">
+            <div class="request-actions">
               <div class="actions-grid">
                 <button
-                  class="btn btn-outline-primary btn-sm-mobile d-inline-flex align-items-center action-btn"
+                  v-if="request.status === 'Pending'"
+                  class="btn btn-outline-primary d-inline-flex align-items-center action-btn"
                   @click="editRequest(request)"
                 >
                   <i class="fas fa-edit me-2"></i>Edit Request
                 </button>
                 
                 <button
-                  class="btn btn-outline-danger btn-sm-mobile d-inline-flex align-items-center action-btn"
-                  :disabled="!!request._deleting"
-                  @click="deleteRequest(request, index)"
-                >
-                  <span v-if="request._deleting" class="spinner-border spinner-border-sm me-2" role="status"></span>
-                  <i v-else class="fas fa-trash me-2"></i>
-                  {{ request._deleting ? 'Deleting...' : 'Delete Request' }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Action for Rejected Events -->
-            <div v-else-if="request.status === 'Rejected'" class="request-actions">
-              <div class="actions-grid">
-                <button
-                  class="btn btn-outline-primary btn-sm-mobile d-inline-flex align-items-center action-btn"
+                  v-else-if="request.status === 'Rejected'"
+                  class="btn btn-outline-primary d-inline-flex align-items-center action-btn"
                   @click="editRequest(request)"
                 >
-                  <i class="fas fa-edit me-2"></i>Resubmit Request
+                  <i class="fas fa-redo me-2"></i>Resubmit Request
                 </button>
                 
                 <button
-                  class="btn btn-outline-danger btn-sm-mobile d-inline-flex align-items-center action-btn"
+                  class="btn btn-outline-danger d-inline-flex align-items-center action-btn"
                   :disabled="!!request._deleting"
                   @click="deleteRequest(request, index)"
                 >
                   <span v-if="request._deleting" class="spinner-border spinner-border-sm me-2" role="status"></span>
                   <i v-else class="fas fa-trash me-2"></i>
-                  {{ request._deleting ? 'Deleting...' : 'Delete Request' }}
+                  {{ request._deleting ? 'Deleting...' : 'Delete' }}
                 </button>
               </div>
             </div>
@@ -184,7 +197,7 @@
       ref="deleteConfirmationModal"
       modal-id="deleteRequestModal"
       title="Delete Request"
-      message="Are you sure you want to delete this pending event request? This action cannot be undone and the request will be permanently removed."
+      message="Are you sure you want to delete this event request? This action cannot be undone and the request will be permanently removed."
       confirm-text="Delete"
       cancel-text="Cancel"
       variant="danger"
@@ -205,6 +218,8 @@ import type { Event as StoreEvent } from '@/types/event';
 interface Request {
     id: string;
     eventName: string;
+    eventDate?: any;
+    eventType?: string | null;
     status: 'Pending' | 'Rejected';
     rejectionReason?: string;
     _deleting?: boolean;
@@ -226,40 +241,31 @@ const deleteConfirmationModal = ref<InstanceType<typeof ConfirmationModal> | nul
 const statusFilter = ref<StatusFilter>('pending');
 
 // Computed properties for reactive data from stores
-const loadingRequests = computed(() => {
-  const val = profileStore.isLoadingUserRequests;
-  return val;
-});
-const storeRequests = computed(() => {
-  const val = profileStore.userRequests;
-  return val;
-});
+const loadingRequests = computed(() => profileStore.isLoadingUserRequests);
+const storeRequests = computed(() => profileStore.userRequests);
 
 // Transform store data to component format
 const allRequests = computed<Request[]>(() => {
-  const mapped = storeRequests.value.map((event: StoreEvent): Request => {
-    // Base object without rejectionReason
+  return storeRequests.value.map((event: StoreEvent): Request => {
     const baseRequestData = {
       id: event.id,
       eventName: event.details?.eventName || 'Unnamed Request',
-      status: event.status as Request['status'], // Assuming event.status aligns with 'Pending' | 'Rejected'
-      requestedBy: event.requestedBy, // Assuming StoreEvent has requestedBy: string
+      eventDate: event.details?.date?.start || null,
+      eventType: event.details?.type || null,
+      status: event.status as Request['status'],
+      requestedBy: event.requestedBy,
       _deleting: (event as any)._deleting || false,
     };
 
     // Conditionally add rejectionReason if it's a non-null string
-    // StoreEvent (Event type from @/types/event) has rejectionReason: string | null
     if (event.rejectionReason !== null && event.rejectionReason !== undefined) {
       return {
         ...baseRequestData,
         rejectionReason: event.rejectionReason,
       };
     }
-    // If event.rejectionReason is null or undefined, return the base object.
-    // The rejectionReason property will be omitted, making it `undefined` on the Request type.
     return baseRequestData;
   });
-  return mapped;
 });
 
 // Filtered requests by status
@@ -278,12 +284,50 @@ const filteredRequests = computed(() => {
 });
 
 // Utility functions
-const getStatusClass = (status: Request['status']): string => {
-    switch (status) {
-        case 'Pending': return 'bg-warning-subtle text-warning-emphasis';
-        case 'Rejected': return 'bg-danger-subtle text-danger-emphasis';
-        default: return 'bg-secondary-subtle text-secondary-emphasis';
+
+const formatEventDate = (dateValue: any): string => {
+  if (!dateValue) return 'Date not set';
+  
+  try {
+    let date: Date;
+    
+    // Handle Firestore Timestamp
+    if (dateValue && typeof dateValue.toDate === 'function') {
+      date = dateValue.toDate();
+    } 
+    // Handle ISO string
+    else if (typeof dateValue === 'string') {
+      date = new Date(dateValue);
     }
+    // Handle Date object
+    else if (dateValue instanceof Date) {
+      date = dateValue;
+    }
+    // Handle timestamp number
+    else if (typeof dateValue === 'number') {
+      date = new Date(dateValue);
+    }
+    else {
+      return 'Invalid date';
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
+    // Format the date
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (error) {
+    console.warn('Error formatting event date:', error);
+    return 'Date error';
+  }
 };
 
 const deleteRequest = (request: Request, index: number) => {
@@ -351,125 +395,258 @@ watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
 <style scoped>
 /* Container */
 .user-requests-container {
-  margin: 1.5rem 0;
+  margin: 1rem 0;
+  
+  @media (min-width: 768px) {
+    margin: 1.5rem 0;
+  }
 }
 
 /* Loading content specific */
 .loading-content {
   background: linear-gradient(135deg, var(--bs-light), rgba(var(--bs-primary-rgb), 0.05));
+  padding: 2rem 1rem;
+  
+  @media (min-width: 768px) {
+    padding: 3rem 1.5rem;
+  }
 }
 
 /* Cards and Sections */
 .section-card {
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+  border: 1px solid var(--bs-border-color-translucent);
 }
 
 .empty-state {
-  padding: 3rem 1.5rem;
+  padding: 2rem 1rem;
   text-align: center;
+  
+  @media (min-width: 768px) {
+    padding: 3rem 1.5rem;
+  }
 }
 
 .list-item {
-  padding: 1.25rem;
+  padding: 1rem;
   transition: background-color 0.2s ease;
+  
+  @media (min-width: 768px) {
+    padding: 1.5rem;
+  }
 }
 
 .list-item:hover {
-  background-color: rgba(var(--bs-primary-rgb), 0.03);
+  background-color: var(--bs-light);
 }
 
-/* Status Section */
-.status-badge {
-  font-size: 0.8rem;
-  padding: 0.5rem 0.85rem;
+/* Header improvements */
+.section-header {
+  padding: 0.75rem !important;
+  
+  @media (min-width: 768px) {
+    padding: 1rem !important;
+  }
+}
+
+.header-content {
+  flex-grow: 1;
+}
+
+.header-icon {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  
+  @media (min-width: 768px) {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}
+
+.section-title {
   font-weight: 600;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  letter-spacing: 0.01em;
+  font-size: 1rem;
+  
+  @media (min-width: 768px) {
+    font-size: 1.1rem;
+  }
 }
 
-.status-badge i {
-  font-size: 0.7rem;
+.section-subtitle {
+  font-size: 0.8rem;
+  
+  @media (min-width: 768px) {
+    font-size: 0.875rem;
+  }
+}
+
+.header-badge .badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  
+  @media (min-width: 768px) {
+    font-size: 0.875rem;
+    padding: 0.35rem 0.75rem;
+  }
 }
 
 /* Request-specific styles */
 .request-title {
-  font-size: 1.15rem;
+  font-size: 1rem;
   line-height: 1.4;
   transition: color 0.2s ease;
-  display: inline-block;
+  
+  @media (min-width: 768px) {
+    font-size: 1.1rem;
+  }
 }
 
-.request-title.hover-primary:hover {
+.request-title:hover {
   color: var(--bs-primary) !important;
   text-decoration: underline !important;
 }
 
-/* Icons */
-.item-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+.request-title-container {
+  flex-grow: 1;
+}
+
+/* Status and meta badges */
+.status-badge,
+.meta-badge,
+.date-badge {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  font-weight: 500;
+}
+
+.status-badge {
+  font-weight: 600;
+}
+
+.date-badge {
+  border: 1px solid var(--bs-border-color) !important;
+}
+
+/* Remove old request-meta styles and use consistent spacing */
+.request-header .ms-5 {
+  @media (max-width: 480px) {
+    margin-left: 0 !important;
+    margin-top: 0.5rem;
+    justify-content: space-between;
+  }
 }
 
 /* Filter tabs */
 .filter-tabs {
+  padding: 0.75rem;
   position: sticky;
   top: 0;
   z-index: 5;
+  
+  @media (min-width: 768px) {
+    padding: 1rem;
+  }
 }
 
 .filter-tabs .btn-group {
-  gap: 0.5rem;
+  gap: 0.25rem;
+  
+  @media (min-width: 768px) {
+    gap: 0.5rem;
+  }
 }
 
 .filter-tabs .btn-group .btn {
   border-radius: 6px !important;
-  padding: 0.6rem 1rem;
+  padding: 0.5rem 0.75rem;
   font-weight: 500;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  
+  @media (min-width: 768px) {
+    border-radius: 8px !important;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
 }
 
 .filter-tabs .btn-group .btn-check:checked + .btn {
   background-color: var(--bs-primary);
   border-color: var(--bs-primary);
   color: white;
-  box-shadow: 0 2px 5px rgba(var(--bs-primary-rgb), 0.3);
+  box-shadow: 0 2px 4px rgba(var(--bs-primary-rgb), 0.3);
+  
+  @media (min-width: 768px) {
+    box-shadow: 0 2px 8px rgba(var(--bs-primary-rgb), 0.3);
+    transform: translateY(-1px);
+  }
 }
 
 /* Rejection reason */
 .rejection-reason {
-  border-left: 4px solid var(--bs-danger);
-  border-radius: 8px;
-  margin-top: 1rem;
+  padding: 0.75rem;
+  border-left: 3px solid var(--bs-danger);
+  font-size: 0.85rem;
+  
+  @media (min-width: 768px) {
+    padding: 1rem;
+    border-left: 4px solid var(--bs-danger);
+    font-size: 0.9rem;
+  }
 }
 
 /* Actions */
 .request-actions {
-  margin-top: 1.5rem;
+  margin-top: 0.75rem;
+  
+  @media (min-width: 768px) {
+    margin-top: 1rem;
+  }
 }
 
 .actions-grid {
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  
+  @media (min-width: 768px) {
+    gap: 0.75rem;
+  }
 }
 
 .action-btn {
   transition: all 0.2s ease;
-  border-width: 2px;
+  border-width: 1px;
   font-weight: 500;
-  padding: 0.6rem 1.2rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 6px;
-  min-width: 140px;
+  flex: 1;
+  min-width: 0;
   justify-content: center;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  
+  @media (min-width: 768px) {
+    border-width: 2px;
+    font-weight: 600;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    min-width: 120px;
+  }
 }
 
 .action-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  
+  @media (min-width: 768px) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
 }
 
 .action-btn:disabled {
@@ -479,12 +656,22 @@ watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
 
 /* Error Section */
 .error-section {
-  margin-top: 1.5rem;
+  margin-top: 1rem;
+  
+  @media (min-width: 768px) {
+    margin-top: 1.5rem;
+  }
 }
 
 .alert {
   border: none;
-  border-left: 4px solid var(--bs-danger);
+  border-left: 3px solid var(--bs-danger);
+  padding: 0.75rem;
+  
+  @media (min-width: 768px) {
+    border-left: 4px solid var(--bs-danger);
+    padding: 1rem;
+  }
 }
 
 .alert-icon {
@@ -495,83 +682,51 @@ watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
 .alert-content .alert-heading {
   color: var(--bs-danger-emphasis);
   font-weight: 600;
-}
-
-/* Responsive Design */
-@media (max-width: 992px) {
-  .section-header {
-    padding: 1.25rem !important;
-  }
+  font-size: 0.9rem;
   
-  .request-title {
-    font-size: 1.05rem;
-  }
-  
-  .action-btn {
-    min-width: 120px;
-    padding: 0.5rem 1rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .action-btn {
-    width: 100%;
-    font-size: 0.9rem;
-    padding: 0.7rem 1rem;
-  }
-  
-  .list-item {
-    padding: 1.25rem 1rem;
-  }
-  
-  .request-header .request-title {
+  @media (min-width: 768px) {
     font-size: 1rem;
   }
 }
 
-@media (max-width: 576px) {
-  .user-requests-container {
-    margin: 1rem 0;
+/* Mobile-specific responsive adjustments */
+@media (max-width: 480px) {
+  .section-header .d-flex {
+    flex-direction: row;
+    align-items: center !important;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .header-badge {
+    margin-left: auto;
+  }
+  
+  .request-header .d-flex:first-child {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .request-header .ms-5 {
+    margin-left: 0 !important;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
   
   .actions-grid {
-    flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.4rem;
   }
   
   .action-btn {
-    width: 100%;
-    justify-content: center;
-    padding: 0.75rem;
-    border-radius: 8px;
-  }
-  
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.4rem 0.75rem;
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
   }
   
   .filter-tabs .btn-group .btn {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.875rem;
-  }
-  
-  .list-item {
-    padding: 1.25rem 0.85rem;
-  }
-  
-  .section-header {
-    padding: 1rem !important;
-  }
-  
-  .section-header .section-title {
-    font-size: 1.1rem;
-  }
-  
-  .rejection-reason {
-    padding: 0.75rem !important;
+    padding: 0.45rem 0.5rem;
+    font-size: 0.75rem;
   }
 }
 </style>

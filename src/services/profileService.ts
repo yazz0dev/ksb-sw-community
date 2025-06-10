@@ -55,8 +55,6 @@ export const fetchStudentData = async (uid: string): Promise<EnrichedStudentData
       skills: studentData.skills,
       hasLaptop: studentData.hasLaptop,
       socialLinks: studentData.socialLinks,
-      participatedEventIDs: studentData.participatedEventIDs,
-      organizedEventIDs: studentData.organizedEventIDs,
       xpData: deepClone(xpData)
     };
     return enrichedData;
@@ -74,7 +72,7 @@ export const fetchStudentData = async (uid: string): Promise<EnrichedStudentData
  */
 export const updateStudentProfile = async (
   uid: string,
-  updates: Partial<Omit<UserData, 'uid' | 'email' | 'batchYear' | 'createdAt' | 'participatedEventIDs' | 'organizedEventIDs'>>
+  updates: Partial<Omit<UserData, 'uid' | 'email' | 'batchYear' | 'createdAt'>>
 ): Promise<void> => {
   try {
     // Ensure the current user is authenticated
@@ -204,8 +202,6 @@ export const fetchLeaderboardData = async (): Promise<EnrichedStudentData[]> => 
         skills: studentData.skills,
         hasLaptop: studentData.hasLaptop,
         socialLinks: studentData.socialLinks,
-        participatedEventIDs: studentData.participatedEventIDs,
-        organizedEventIDs: studentData.organizedEventIDs,
         xpData: deepClone(xpData)
       } as EnrichedStudentData;
     });

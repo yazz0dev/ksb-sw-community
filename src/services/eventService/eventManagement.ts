@@ -231,8 +231,8 @@ export async function deleteEventRequestInFirestore(eventId: string, userId: str
         if (eventData.requestedBy !== userId) {
             throw new Error('You do not have permission to delete this event request.');
         }
-        if (eventData.status !== EventStatus.Pending) {
-            throw new Error(`Only events with 'Pending' status can be deleted. Current status: ${eventData.status}`);
+        if (![EventStatus.Pending, EventStatus.Rejected].includes(eventData.status)) {
+            throw new Error(`Only events with 'Pending' or 'Rejected' status can be deleted. Current status: ${eventData.status}`);
         }
 
         await deleteDoc(eventRef);

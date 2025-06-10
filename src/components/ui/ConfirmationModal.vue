@@ -11,6 +11,7 @@
         role="dialog"
         data-bs-backdrop="static"
         data-bs-keyboard="false"
+        aria-hidden="true"
     >
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -56,24 +57,31 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { Modal } from 'bootstrap';
 
-const props = defineProps<{
-    modalId: string;
-    title: string;
-    message?: string;
-    confirmText?: string;
-    cancelText?: string;
-    variant?: 'danger' | 'warning' | 'primary' | 'success' | 'info';
-}>();
+interface Props {
+  modalId: string;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: 'danger' | 'warning' | 'primary' | 'success';
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  confirmText: 'Confirm',
+  cancelText: 'Cancel',
+  variant: 'danger'
+});
 
 const emit = defineEmits<{
-    (e: 'confirm'): void;
-    (e: 'cancel'): void;
+  confirm: [];
+  cancel: [];
 }>();
 
 const modalEl = ref<HTMLElement | null>(null);
+let modalInstance: Modal | null = null;
 
 // Compute button class based on variant
 const confirmButtonClass = computed(() => {
@@ -105,8 +113,6 @@ const confirmIcon = computed(() => {
 const confirmText = props.confirmText || 'Confirm';
 const cancelText = props.cancelText || 'Cancel';
 
-let modalInstance: Modal | null = null;
-
 const handleConfirm = () => {
     if (modalInstance) {
         modalInstance.hide();
@@ -126,8 +132,25 @@ onMounted(() => {
             focus: true
         });
         
-        // Listen for modal events
-        modalEl.value.addEventListener('hidden.bs.modal', handleCancel);
+        // Fix aria-hidden accessibility issue
+        modalEl.value.addEventListener('shown.bs.modal', () => {
+            if (modalEl.value) {
+                modalEl.value.removeAttribute('aria-hidden');
+            }
+        });
+        
+        modalEl.value.addEventListener('hidden.bs.modal', () => {
+            if (modalEl.value) {
+                modalEl.value.setAttribute('aria-hidden', 'true');
+            }
+        });
+        
+        // Additional event to handle show start
+        modalEl.value.addEventListener('show.bs.modal', () => {
+            if (modalEl.value) {
+                modalEl.value.removeAttribute('aria-hidden');
+            }
+        });
         
     } else {
         console.error(`[${props.modalId}] Could not find modal element to initialize.`);
@@ -135,13 +158,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-    if (modalEl.value) {
-        modalEl.value.removeEventListener('hidden.bs.modal', handleCancel);
-    }
     if (modalInstance) {
         modalInstance.dispose();
     }
-    modalInstance = null;
 });
 
 // Expose show/hide methods to parent

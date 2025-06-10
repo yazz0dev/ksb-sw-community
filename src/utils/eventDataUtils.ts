@@ -380,17 +380,26 @@ export function createManualWinnerPayload(
   manualSelections: Record<string, string>,
   bestPerformerSelection?: string
 ): { eventId: string; winnerSelections: Record<string, string[]> } {
-  const payloadWinners: Record<string, string[]> = {};
-  for (const key in manualSelections) {
-    const selection = manualSelections[key];
-    if (selection) {
-      payloadWinners[key] = [selection]; // Wrap in array
+  const winnerSelections: Record<string, string[]> = {};
+  
+  // Convert constraint selections to array format
+  Object.entries(manualSelections).forEach(([constraintKey, selectedValue]) => {
+    if (selectedValue && selectedValue.trim() !== '') {
+      // Extract constraint index from key (e.g., "constraint0" -> "0")
+      const constraintIndex = constraintKey.replace('constraint', '');
+      winnerSelections[constraintIndex] = [selectedValue];
     }
+  });
+  
+  // Add best performer selection if provided
+  if (bestPerformerSelection && bestPerformerSelection.trim() !== '') {
+    winnerSelections['bestPerformer'] = [bestPerformerSelection];
   }
-  if (bestPerformerSelection) {
-    payloadWinners['bestPerformer'] = [bestPerformerSelection];
-  }
-  return { eventId, winnerSelections: payloadWinners };
+  
+  return {
+    eventId,
+    winnerSelections
+  };
 }
 
 export function hasStudentVotedForEvent(event: EventWithId | null, userId: string | null): boolean { // Parameter type changed

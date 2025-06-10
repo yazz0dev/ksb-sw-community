@@ -389,7 +389,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Create a sanitized payload
       const payload = deepClone(formData);
 
-      if (payload.details.format === EventFormat.Competition) {
+      if (payload.details.format === EventFormat.MultiEvent) {
         payload.criteria = [];
         payload.teams = [];
         // prize can exist for Competition
@@ -514,11 +514,11 @@ export const useEventStore = defineStore('studentEvents', () => {
 
       // Create a sanitized payload
       const payload = deepClone(formData);
-      if (payload.details.format === EventFormat.Competition) {
+      if (payload.details.format === EventFormat.MultiEvent) {
         payload.criteria = [];
         payload.teams = [];
-        // prize can exist for Competition
-      } else { // Not Competition (Team or Individual)
+        // prize can exist for MultiEvent
+      } else { // Not MultiEvent (Team or Individual)
         payload.details.prize = null; // Changed from undefined to null
         if (payload.details.format !== EventFormat.Team) { // Individual
           payload.teams = [];
@@ -574,6 +574,8 @@ export const useEventStore = defineStore('studentEvents', () => {
     const studentId = studentProfileStore.studentId;
     isLoading.value = true;
     try {
+      // The service should handle validation, but let's provide a better error message
+      // if the service rejects the deletion for status reasons
       await deleteEventRequestService(eventId, studentId);
 
       // Remove from local lists
@@ -589,7 +591,13 @@ export const useEventStore = defineStore('studentEvents', () => {
       notificationStore.showNotification({ message: 'Event request deleted successfully!', type: 'success' });
       return true;
     } catch (err) {
-      await _handleOpError("deleting event request", err, eventId);
+      // Check if the error is about status validation and provide a more helpful message
+      if (err instanceof Error && err.message.includes("Only events with 'Pending' status can be deleted")) {
+        const enhancedError = new Error("Events with 'Pending' or 'Rejected' status can be deleted. Please refresh and try again if the status has changed.");
+        await _handleOpError("deleting event request", enhancedError, eventId);
+      } else {
+        await _handleOpError("deleting event request", err, eventId);
+      }
       return false;
     } finally {
       isLoading.value = false;
@@ -745,7 +753,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     } catch (err) {
         await _handleOpError("submitting manual winner selection", err, payload.eventId);
     } finally {
-        isLoading.value = false;
+      isLoading.value = false;
     }
   }
 

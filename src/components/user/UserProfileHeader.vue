@@ -234,7 +234,7 @@ const optimizedProfilePhotoUrl = computed(() => {
     return defaultAvatarUrl;
   }
   
-  // Use ImageKit optimization for profile photos
+  // Use Cloudinary optimization for profile photos
   return getOptimizedImageUrl(props.user.photoURL, {
     width: 240,
     height: 240,
