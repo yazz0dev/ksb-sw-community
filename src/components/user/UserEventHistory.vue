@@ -9,13 +9,13 @@
           </div>
           <div>
             <h5 class="section-title mb-1 text-primary-emphasis">Event History</h5>
-            <p v-if="!loading" class="d-none d-sm-block section-subtitle small mb-0">{{ events.length }} event{{ events.length === 1 ? '' : 's' }} participated</p>
+            <p v-if="!loading" class="d-none d-sm-block section-subtitle small mb-0">{{ activeEvents.length }} event{{ activeEvents.length === 1 ? '' : 's' }} participated</p>
             <p v-else class="d-none d-sm-block section-subtitle small mb-0">Loading events...</p>
           </div>
         </div>
         <div class="header-badge">
           <span v-if="!loading" class="badge bg-primary text-white rounded-pill px-3 py-2">
-            {{ events.length }}
+            {{ activeEvents.length }}
           </span>
           <div v-else class="spinner-border spinner-border-sm text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
@@ -34,13 +34,13 @@
       </div>
     </div>
 
-    <!-- Events List -->
-    <div v-else-if="events.length > 0" class="item-list">
+    <!-- Active Events List -->
+    <div v-else-if="activeEvents.length > 0" class="item-list">
       <div
-        v-for="(eventItem, index) in sortedEvents"
+        v-for="(eventItem, index) in sortedActiveEvents"
         :key="eventItem.eventId || `event-${index}`" 
         class="list-item p-3"
-        :class="{ 'border-bottom': index < sortedEvents.length - 1 }"
+        :class="{ 'border-bottom': index < sortedActiveEvents.length - 1 || cancelledEvents.length > 0 }"
       >
         <!-- Event Header -->
         <div class="event-header mb-3">
@@ -95,6 +95,42 @@
         </div>
       </div>
     </div>
+
+    <!-- Cancelled Events Section -->
+    <div v-if="cancelledEvents.length > 0" class="cancelled-events-section p-3 border-top bg-light-subtle">
+      <div class="cancelled-header mb-3">
+        <h6 class="text-muted mb-1 d-flex align-items-center">
+          <i class="fas fa-ban me-2 text-danger"></i>
+          Cancelled Events ({{ cancelledEvents.length }})
+        </h6>
+        <p class="small text-muted mb-0">Events that were cancelled after registration</p>
+      </div>
+      
+      <!-- Horizontal List of Cancelled Events -->
+      <div class="cancelled-events-grid">
+        <div
+          v-for="(eventItem, index) in cancelledEvents"
+          :key="`cancelled-${eventItem.eventId || index}`"
+          class="cancelled-event-card"
+        >
+          <div class="cancelled-event-content">
+            <div class="cancelled-event-name">{{ eventItem.eventName || 'Unnamed Event' }}</div>
+            <div class="cancelled-event-type">
+              <i class="fas fa-tag me-1"></i>{{ eventItem.eventType || 'Event' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty Active Events State -->
+    <div v-else-if="!loading && activeEvents.length === 0 && cancelledEvents.length === 0" class="empty-state-content p-4">
+      <div class="empty-icon text-center mb-3">
+        <i class="fas fa-calendar-times fa-3x text-muted opacity-50"></i>
+      </div>
+      <h6 class="empty-title text-center mb-2">No Event History</h6>
+      <p class="empty-description text-center text-muted mb-0">This user hasn't participated in any events yet.</p>
+    </div>
   </div>
 
   <!-- Empty State -->
@@ -110,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed } from 'vue';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventFormat, EventStatus } from '@/types/event';
 import { type StudentEventHistoryItem } from '@/types/student';
@@ -122,9 +158,21 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const sortedEvents = computed(() => {
-  // Events are already sorted by Firebase queries, just filter out pending events
-  return props.events.filter(event => event.eventStatus !== EventStatus.Pending);
+// Separate active and cancelled events
+const activeEvents = computed(() => {
+  return props.events.filter(event => 
+    event.eventStatus !== EventStatus.Pending && 
+    event.eventStatus !== EventStatus.Cancelled
+  );
+});
+
+const cancelledEvents = computed(() => {
+  return props.events.filter(event => event.eventStatus === EventStatus.Cancelled);
+});
+
+const sortedActiveEvents = computed(() => {
+  // Events are already sorted by Firebase queries
+  return activeEvents.value;
 });
 
 const isOrganizer = (eventItem: StudentEventHistoryItem): boolean => {
@@ -259,6 +307,77 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
   color: var(--bs-primary) !important;
 }
 
+/* Cancelled Events Section */
+.cancelled-events-section {
+  background: var(--bs-light-bg-subtle);
+  border-top: 1px solid var(--bs-border-color-translucent) !important;
+}
+
+.cancelled-header h6 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--bs-secondary);
+}
+
+.cancelled-events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.cancelled-event-card {
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  padding: 0.75rem;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.cancelled-event-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--bs-danger);
+  border-radius: var(--bs-border-radius) var(--bs-border-radius) 0 0;
+}
+
+.cancelled-event-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: var(--bs-danger-border-subtle);
+}
+
+.cancelled-event-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cancelled-event-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--bs-body-color);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cancelled-event-type {
+  font-size: 0.75rem;
+  color: var(--bs-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.cancelled-event-type i {
+  opacity: 0.7;
+}
+
 /* Responsive adjustments */
 @media (max-width: 480px) {
   .event-meta {
@@ -289,5 +408,31 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
 
 .list-item:hover {
   background-color: var(--bs-light);
+}
+
+/* Responsive adjustments for cancelled events */
+@media (max-width: 768px) {
+  .cancelled-events-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .cancelled-event-card {
+    padding: 0.5rem;
+  }
+  
+  .cancelled-event-name {
+    font-size: 0.8rem;
+  }
+  
+  .cancelled-event-type {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .cancelled-events-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

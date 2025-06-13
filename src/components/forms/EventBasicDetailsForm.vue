@@ -62,7 +62,7 @@
     </div>
 
     <!-- Is Competition Checkbox (Only for MultiEvent) - Hide in phase form -->
-    <div v-if="showCompetitionToggle && !isPhaseForm" class="mb-3">
+    <div v-if="showMultiEventCompetitionToggle && !isPhaseForm" class="mb-3">
       <div class="form-check form-switch form-switch-custom">
         <input
           class="form-check-input"
@@ -74,7 +74,25 @@
         />
         <label class="form-check-label fw-medium" for="isCompetitionSeries">
           Is this a Competition series?
-          <span class="text-muted small ms-1 fw-normal">(Enables prizes per phase)</span>
+          <span class="text-muted small ms-1 fw-normal">(Enables prizes per phase for Multiple Events)</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Is Competition Checkbox (Only for Individual Event) - Hide in phase form -->
+    <div v-if="showIndividualCompetitionToggle && !isPhaseForm" class="mb-3">
+      <div class="form-check form-switch form-switch-custom">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          id="isIndividualCompetition"
+          v-model="localDetails.isCompetition"
+          :disabled="isSubmitting"
+        />
+        <label class="form-check-label fw-medium" for="isIndividualCompetition">
+          Is this an Individual Competition?
+          <span class="text-muted small ms-1 fw-normal">(Points per criterion awarded to one core participant)</span>
         </label>
       </div>
     </div>
@@ -143,7 +161,7 @@ interface Props {
   isPhaseForm?: boolean; // New prop to control the display mode
 }
 
-const emit = defineEmits(['update:details']);
+const emit = defineEmits(['update:details', 'validity-change']);
 const props = withDefaults(defineProps<Props>(), {
   isPhaseForm: false
 });
@@ -165,7 +183,8 @@ const isIndividualEvent = computed(() => localDetails.value.format === EventForm
 const showTypeField = computed(() => !isMultiEvent.value || isPhaseForm.value);
 const showRulesField = computed(() => !isMultiEvent.value && !isIndividualEvent.value);
 const showSubmissionToggle = computed(() => !isMultiEvent.value && !isIndividualEvent.value);
-const showCompetitionToggle = computed(() => isMultiEvent.value);
+const showMultiEventCompetitionToggle = computed(() => isMultiEvent.value);
+const showIndividualCompetitionToggle = computed(() => isIndividualEvent.value);
 
 // Event types based on format
 const eventTypesForFormat = computed(() => {
@@ -175,6 +194,23 @@ const eventTypesForFormat = computed(() => {
     default: return individualEventTypes;
   }
 });
+
+// Add validation computed property
+const isBasicDetailsValid = computed(() => {
+  const hasEventName = !!(localDetails.value.eventName?.trim());
+  const hasDescription = !!(localDetails.value.description?.trim());
+  const hasFormat = !!(localDetails.value.format);
+  
+  // Type is required unless it's MultiEvent format (and not phase form)
+  const hasType = (isMultiEvent.value && !isPhaseForm.value) || !!(localDetails.value.type?.trim());
+  
+  return hasEventName && hasDescription && hasFormat && hasType;
+});
+
+// Watch basic details validity and emit changes
+watch(isBasicDetailsValid, (newValid) => {
+  emit('validity-change', newValid);
+}, { immediate: true });
 
 // Watch for prop changes from parent (only update local if different)
 let isUpdatingFromProp = false;
@@ -192,32 +228,40 @@ watch(details, (newVal) => {
 // Watch for format changes to reset type and handle competition-specific logic
 watch(() => localDetails.value.format, (newFormat, oldFormat) => {
   if (newFormat !== oldFormat) {
-    // Reset type if format changes and current type is not valid for the new format
-    if (newFormat !== EventFormat.MultiEvent && !eventTypesForFormat.value.includes(localDetails.value.type ?? '')) {
+    // Only reset type if format changes and current type is not valid for the new format
+    // BUT preserve existing type during editing if it's valid for the format
+    if (newFormat !== EventFormat.MultiEvent) {
+      const availableTypes = eventTypesForFormat.value;
+      if (!availableTypes.includes(localDetails.value.type ?? '')) {
+        // Only reset if current type is invalid for new format
+        localDetails.value.type = availableTypes.length > 0 ? (availableTypes[0] ?? '') : '';
+      }
+    } else {
+      // For MultiEvent, always clear type as it's handled by phases
       localDetails.value.type = '';
     }
     
-    if (newFormat === EventFormat.MultiEvent) {
-      localDetails.value.type = ''; // Clear type for MultiEvent as it's handled by phases
-      localDetails.value.isCompetition = localDetails.value.isCompetition ?? false; // Default to false
-      localDetails.value.rules = null; // No overall rules for MultiEvent
-      localDetails.value.allowProjectSubmission = false; // No overall submission for MultiEvent
+    // Reset isCompetition flag if format is not MultiEvent or Individual
+    if (newFormat !== EventFormat.MultiEvent && newFormat !== EventFormat.Individual) {
+      localDetails.value.isCompetition = false;
+    } else {
+      // Initialize isCompetition to false if it's undefined for these formats
+      localDetails.value.isCompetition = localDetails.value.isCompetition ?? false;
     }
 
-    if (newFormat === EventFormat.Individual) {
+    if (newFormat === EventFormat.MultiEvent) {
+      // localDetails.value.isCompetition = localDetails.value.isCompetition ?? false; // Already handled above
+      localDetails.value.rules = null;
+      localDetails.value.allowProjectSubmission = false;
+    } else if (newFormat === EventFormat.Individual) {
       localDetails.value.allowProjectSubmission = false;
       localDetails.value.rules = null;
       localDetails.value.phases = []; 
-      localDetails.value.isCompetition = false; // Not a competition series
+      // localDetails.value.isCompetition = localDetails.value.isCompetition ?? false; // Already handled above
     } else if (newFormat === EventFormat.Team) {
       localDetails.value.allowProjectSubmission = true; 
       localDetails.value.phases = []; 
-      localDetails.value.isCompetition = false; // Not a competition series
-    } else if (newFormat === EventFormat.MultiEvent) { 
-      // Defaults for MultiEvent are set above
-      if (!localDetails.value.phases || localDetails.value.phases.length === 0) {
-        localDetails.value.phases = []; 
-      }
+      localDetails.value.isCompetition = false; // Team events are not competitions in this new sense
     }
   }
 });

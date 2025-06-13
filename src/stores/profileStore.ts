@@ -25,7 +25,7 @@ import {
     fetchComprehensivePortfolioData as fetchComprehensivePortfolioDataService
 } from '@/services/portfolioService';
 import { fetchMyEventRequests as fetchStudentEventRequestsService } from '@/services/eventService/eventQueries';
-import { fetchStudentEvents } from '@/services/eventService/eventQueries'; // Added fetchStudentEvents import
+import { fetchStudentEventsWithFallback } from '@/services/eventService/eventQueries'; // Updated import
 import { uploadFileService, deleteFileByUrlService, getOptimizedImageUrl } from '@/services/storageService'; // Added storage service imports
 
 // const STUDENT_COLLECTION_PATH = 'students';
@@ -405,8 +405,8 @@ export const useProfileStore = defineStore('studentProfile', () => {
       const studentProfile = currentStudent.value;
       if (!studentProfile) throw new Error("Current student profile not loaded.");
 
-      // Use the working fetchStudentEvents function to get participation count
-      const studentEvents = await fetchStudentEvents(studentProfile.uid);
+      // Use the fallback function to get participation count
+      const studentEvents = await fetchStudentEventsWithFallback(studentProfile.uid);
       currentUserPortfolioData.value.eventParticipationCount = studentEvents.length;
 
       // Try to fetch projects, but fall back gracefully if it fails

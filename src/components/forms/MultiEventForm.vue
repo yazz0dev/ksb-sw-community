@@ -1,12 +1,35 @@
 <template>
   <div class="multi-event-form">
+    <!-- Validation Summary -->
+    <div v-if="localPhases.length > 0" class="alert alert-sm py-2 mb-3" :class="{
+      'alert-success': isFormValid,
+      'alert-warning': !isFormValid && localPhases.length > 0,
+      'alert-info': localPhases.length === 0
+    }">
+      <i class="fas me-1" :class="{
+        'fa-check-circle': isFormValid,
+        'fa-exclamation-triangle': !isFormValid && localPhases.length > 0,
+        'fa-info-circle': localPhases.length === 0
+      }"></i>
+      {{ validationSummary }}
+    </div>
+
     <div v-if="localPhases.length === 0" class="alert alert-info">
       Click "Add Phase" to define the stages or sub-events for this multi-event.
     </div>
 
     <div v-for="(phase, index) in localPhases" :key="phase.id" class="phase-card card mb-4 shadow-sm">
       <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-        <h6 class="mb-0 text-dark">Phase {{ index + 1 }}: {{ phase.phaseName || 'New Phase' }}</h6>
+        <div class="d-flex align-items-center">
+          <h6 class="mb-0 text-dark me-2">Phase {{ index + 1 }}: {{ phase.phaseName || 'New Phase' }}</h6>
+          <!-- Phase Validation Indicator -->
+          <span v-if="validatePhase(index)" class="badge bg-success-subtle text-success-emphasis rounded-pill">
+            <i class="fas fa-check me-1"></i>Valid
+          </span>
+          <span v-else class="badge bg-warning-subtle text-warning-emphasis rounded-pill">
+            <i class="fas fa-exclamation-triangle me-1"></i>Incomplete
+          </span>
+        </div>
         <button
           type="button"
           class="btn btn-sm btn-outline-danger py-1 px-2"
@@ -18,7 +41,51 @@
         </button>
       </div>
       <div class="card-body p-3 p-md-4">
+        <!-- Phase Validation Errors -->
+        <div v-if="validationState.phases[index] && !validationState.phases[index].isValid" class="alert alert-warning alert-sm py-2 mb-3">
+          <small>
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            <strong>Issues to fix:</strong>
+            <ul class="mb-0 mt-1 ps-3">
+              <li v-for="error in validationState.phases[index].errors" :key="error" class="small">{{ error }}</li>
+            </ul>
+          </small>
+        </div>
+
         <div class="row g-3">
+          <!-- Phase Format Selection -->
+          <div class="col-12">
+            <label class="form-label fw-medium">Phase Format <span class="text-danger">*</span></label>
+            <div class="d-flex flex-wrap gap-3">
+              <div class="form-check">
+                <input 
+                  class="form-check-input" 
+                  type="radio" 
+                  :name="`phaseFormat-${phase.id}`" 
+                  :id="`formatIndividual-${phase.id}`" 
+                  :value="EventFormat.Individual" 
+                  v-model="phase.format" 
+                  :disabled="isSubmitting"
+                  @change="emit('update:modelValue', localPhases)"
+                >
+                <label class="form-check-label" :for="`formatIndividual-${phase.id}`">Individual</label>
+              </div>
+              <div class="form-check">
+                <input 
+                  class="form-check-input" 
+                  type="radio" 
+                  :name="`phaseFormat-${phase.id}`" 
+                  :id="`formatTeam-${phase.id}`" 
+                  :value="EventFormat.Team" 
+                  v-model="phase.format" 
+                  :disabled="isSubmitting"
+                  @change="emit('update:modelValue', localPhases)"
+                >
+                <label class="form-check-label" :for="`formatTeam-${phase.id}`">Team</label>
+              </div>
+            </div>
+          </div>
+
           <!-- Using EventBasicDetailsForm for consistency -->
           <div class="col-12">
             <EventBasicDetailsForm
@@ -102,6 +169,7 @@
                 @update:criteria="updatePhaseCriteria(index, $event)"
                 :isSubmitting="isSubmitting"
                 :eventFormat="phase.format"
+                :isIndividualCompetition="phase.format === EventFormat.Individual && props.isOverallCompetition"
                 :assignableXpRoles="assignableXpRoles"
                 :totalXP="calculateTotalXP(phase.criteria)"
               />
@@ -124,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, type PropType } from 'vue';
+import { ref, watch, computed, type PropType } from 'vue';
 import { EventFormat, type EventPhase, type Team, type EventCriteria, type EventFormData } from '@/types/event';
 import type { UserData } from '@/types/student';
 import EventParticipantForm from '@/components/forms/EventParticipantForm.vue';
@@ -165,6 +233,7 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: EventPhase[]): void;
   (e: 'submit'): void;
   (e: 'error', message: string): void;
+  (e: 'validity-change', isValid: boolean): void;
 }>();
 
 const localPhases = ref<EventPhase[]>(props.modelValue.map(phase => ({ ...phase })));
@@ -191,9 +260,9 @@ const updatePhaseFromEventDetails = (phaseIndex: number, details: EventFormData[
     const phase = localPhases.value[phaseIndex];
     phase.phaseName = details.eventName;
     phase.description = details.description;
-    phase.format = details.format as EventFormat.Individual | EventFormat.Team;
+    // Don't update format from EventBasicDetailsForm since we handle it separately
     phase.type = details.type || '';
-    phase.rules = details.rules ?? null; // Convert undefined to null to match EventPhase.rules type
+    phase.rules = details.rules ?? null;
     
     // Update teams array if format changed
     if (phase.format === EventFormat.Individual && phase.teams && phase.teams.length > 0) {
@@ -268,17 +337,144 @@ const getEventTypesForFormat = (format: EventFormat) => {
   }
 };
 
+// Enhanced validation with detailed error tracking
+const validationState = ref({
+  phases: [] as Array<{
+    isValid: boolean;
+    errors: string[];
+  }>
+});
+
+// Add validation computed property with detailed phase validation
+const isFormValid = computed(() => {
+  if (localPhases.value.length === 0) {
+    return false;
+  }
+  
+  // Update validation state for each phase
+  validationState.value.phases = localPhases.value.map((phase) => {
+    const errors: string[] = [];
+    
+    // Basic details validation
+    if (!phase.phaseName?.trim()) {
+      errors.push('Phase name is required');
+    }
+    if (!phase.description?.trim()) {
+      errors.push('Phase description is required');
+    }
+    if (!phase.type?.trim()) {
+      errors.push('Phase type is required');
+    }
+    
+    // Participants validation
+    if (!phase.participants || phase.participants.length === 0) {
+      errors.push('At least one participant is required');
+    }
+    
+    // Core participants validation for Individual format
+    if (phase.format === EventFormat.Individual && (!phase.coreParticipants || phase.coreParticipants.length === 0)) {
+      errors.push('At least one core participant is required for Individual format');
+    }
+    
+    // Criteria validation
+    if (!phase.criteria || phase.criteria.length === 0) {
+      errors.push('At least one rating criterion is required');
+    } else {
+      const invalidCriteria = phase.criteria.filter(c => 
+        !c.title?.trim() || !c.role?.trim() || !c.points || c.points <= 0
+      );
+      if (invalidCriteria.length > 0) {
+        errors.push(`${invalidCriteria.length} rating criteria are incomplete`);
+      }
+    }
+    
+    // Teams validation for Team format
+    if (phase.format === EventFormat.Team) {
+      if (!phase.teams || phase.teams.length === 0) {
+        errors.push('At least one team is required for Team format');
+      } else {
+        const invalidTeams = phase.teams.filter(team => 
+          !team.teamName?.trim() || !team.members || team.members.length < 2
+        );
+        if (invalidTeams.length > 0) {
+          errors.push(`${invalidTeams.length} teams are invalid (need name and 2+ members)`);
+        }
+      }
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  });
+  
+  return validationState.value.phases.every(phase => phase.isValid);
+});
+
+// Add computed property for validation summary
+const validationSummary = computed(() => {
+  if (localPhases.value.length === 0) {
+    return 'No phases defined. Add at least one phase to continue.';
+  }
+  
+  const invalidPhases = validationState.value.phases.filter(p => !p.isValid);
+  if (invalidPhases.length === 0) {
+    return `All ${localPhases.value.length} phases are valid.`;
+  }
+  
+  return `${invalidPhases.length} of ${localPhases.value.length} phases have validation errors.`;
+});
+
+// Enhanced phase validation handlers
+const validatePhase = (phaseIndex: number) => {
+  const phase = localPhases.value[phaseIndex];
+  if (!phase) return false;
+  
+  const hasBasicDetails = !!(phase.phaseName?.trim() && phase.description?.trim() && phase.type?.trim());
+  const hasValidParticipants = phase.participants && phase.participants.length > 0;
+  const hasValidCriteria = phase.criteria && phase.criteria.length > 0 && 
+    phase.criteria.every(c => c.title?.trim() && c.role?.trim() && c.points > 0);
+  
+  // For Individual format, check core participants
+  if (phase.format === EventFormat.Individual) {
+    const hasValidCoreParticipants = phase.coreParticipants && phase.coreParticipants.length > 0;
+    return hasBasicDetails && hasValidParticipants && hasValidCriteria && hasValidCoreParticipants;
+  }
+  
+  // For team format, also check teams
+  if (phase.format === EventFormat.Team) {
+    const hasValidTeams = phase.teams && phase.teams.length > 0 &&
+      phase.teams.every(team => team.teamName?.trim() && team.members?.length >= 2);
+    return hasBasicDetails && hasValidParticipants && hasValidCriteria && hasValidTeams;
+  }
+  
+  return hasBasicDetails && hasValidParticipants && hasValidCriteria;
+};
+
+// Watch form validity and emit changes with debouncing
+let validityTimeout: number | null = null;
+watch(isFormValid, (newValid) => {
+  if (validityTimeout) {
+    clearTimeout(validityTimeout);
+  }
+  
+  validityTimeout = setTimeout(() => {
+    emit('validity-change', newValid);
+  }, 100); // Debounce validation emissions
+}, { immediate: true });
+
+// Enhanced phase management
 const addPhase = () => {
   const newPhase: EventPhase = {
-    id: crypto.randomUUID(), // Generate a unique ID for the new phase
-    phaseName: '',
-    format: EventFormat.Individual, // Default format for a new phase
+    id: crypto.randomUUID(),
+    phaseName: `Phase ${localPhases.value.length + 1}`,
+    format: EventFormat.Individual,
     type: '',
     description: '', 
-    participants: [], // Initialize as empty array instead of null
-    coreParticipants: [], // Initialize as empty array instead of null
-    criteria: [], // Initialize as empty array instead of null
-    teams: [], // Initialize as empty array instead of null
+    participants: [],
+    coreParticipants: [],
+    criteria: [],
+    teams: [],
     rules: null,
     prize: null,
     allowProjectSubmission: false
@@ -289,30 +485,67 @@ const addPhase = () => {
 };
 
 const removePhase = (index: number) => {
+  if (localPhases.value.length <= 1) {
+    emit('error', 'Cannot remove the last phase. At least one phase is required.');
+    return;
+  }
+  
   localPhases.value.splice(index, 1);
   emit('update:modelValue', localPhases.value);
 };
 
-// Add a watch for phase format changes to reset type if not valid for the new format
+// Enhanced phase format change handler
 watch(localPhases, (phases) => {
-  phases.forEach(phase => {
+  phases.forEach((phase) => {
     // Reset type if it's not valid for the current format
     if (phase.type && !getEventTypesForFormat(phase.format).includes(phase.type)) {
       phase.type = '';
     }
+    
+    // Clear format-specific data when format changes
+    if (phase.format === EventFormat.Individual && phase.teams && phase.teams.length > 0) {
+      phase.teams = [];
+    }
+    
+    // Ensure core participants are cleared for Team format
+    if (phase.format === EventFormat.Team) {
+      phase.coreParticipants = [];
+    }
   });
+  
+  // Emit updated phases
+  emit('update:modelValue', phases);
 }, { deep: true });
 
-// Optional: Emit submit event for the entire form
+// Add cleanup on unmount
+import { onUnmounted } from 'vue';
+
+onUnmounted(() => {
+  if (validityTimeout) {
+    clearTimeout(validityTimeout);
+  }
+});
 
 </script>
 
 <style scoped>
-.phase-card {
-  transition: transform 0.2s;
+.alert-sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
 }
 
-.phase-card:hover {
-  transform: scale(1.02);
+.badge {
+  font-size: 0.75em;
+}
+
+.phase-card .card-header {
+  background-color: var(--bs-light-bg-subtle) !important;
+}
+
+.phase-card:not(:last-child) {
+  margin-bottom: 1.5rem;
 }
 </style>
+
+
+

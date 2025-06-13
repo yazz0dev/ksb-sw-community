@@ -86,6 +86,7 @@ const emit = defineEmits<{
   (e: 'update:dates', value: FormDateRange): void;
   (e: 'error', message: string): void;
   (e: 'availability-change', isAvailable: boolean): void;
+  (e: 'validity-change', isValid: boolean): void;
 }>();
 
 // localDates will store ISO strings directly
@@ -175,8 +176,8 @@ const checkAvailability = async () => {
 
 const onDateChange = async () => {
   const datesToEmit: FormDateRange = {
-      start: localDates.value.start, // Already ISO string
-      end: localDates.value.end     // Already ISO string
+      start: localDates.value.start,
+      end: localDates.value.end
   };
   
   if (datesToEmit.start && datesToEmit.end) {
@@ -186,6 +187,7 @@ const onDateChange = async () => {
     if (!startDateTime.isValid || !endDateTime.isValid) {
       emit('error', 'Invalid date format selected.');
       emit('availability-change', false);
+      emit('validity-change', false);
       return;
     }
     
@@ -193,11 +195,11 @@ const onDateChange = async () => {
     if (endDateTime < startDateTime) {
       emit('error', `End date cannot be before start date.`);
       emit('availability-change', false);
-      // Set end date to start date if end is before start
+      emit('validity-change', false);
+      // Auto-correct end date to match start date
       localDates.value.end = localDates.value.start;
-      // Re-emit the corrected dates
       emit('update:dates', { start: localDates.value.start, end: localDates.value.start });
-      await checkAvailability(); // Re-check with corrected date
+      await checkAvailability();
       return;
     }
   }
@@ -205,6 +207,20 @@ const onDateChange = async () => {
   emit('update:dates', datesToEmit);
   await checkAvailability();
 };
+
+// Add validation computed property
+const isScheduleValid = computed(() => {
+  const hasStartDate = !!(localDates.value.start?.trim());
+  const hasEndDate = !!(localDates.value.end?.trim());
+  const hasNoDuplicates = localDates.value.start !== localDates.value.end || 
+    (localDates.value.start === localDates.value.end && localDates.value.start !== null);
+  return hasStartDate && hasEndDate && !dateConflictError.value && hasNoDuplicates;
+});
+
+// Watch schedule validity and emit changes
+watch(isScheduleValid, (newValid) => {
+  emit('validity-change', newValid);
+}, { immediate: true });
 
 watch(() => props.dates, (newDates) => {
     if (newDates.start !== localDates.value.start) {

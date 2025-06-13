@@ -231,3 +231,38 @@ export async function fetchStudentEvents(studentId: string): Promise<EventData[]
     throw new Error(`Failed to fetch student events: ${error.message}`);
   }
 }
+
+/**
+ * Fetches events where a student is either a participant or organizer with fallback handling
+ * @param studentId - The UID of the student
+ * @returns Promise<EventData[]> - An array of events the student is involved in
+ */
+export async function fetchStudentEventsWithFallback(studentId: string): Promise<EventData[]> {
+  if (!studentId) {
+    return [];
+  }
+  
+  try {
+    // Try the original function first
+    return await fetchStudentEvents(studentId);
+  } catch (error: any) {
+    console.warn(`Primary fetchStudentEvents failed for ${studentId}, trying fallback approach:`, error);
+    
+    // Fallback: Try to fetch publicly viewable events and filter
+    try {
+      const publicEvents = await fetchPubliclyViewableEvents();
+      
+      // Filter events where the student is involved
+      const studentEvents = publicEvents.filter(event => {
+        return event.participants?.includes(studentId) ||
+               event.details.organizers?.includes(studentId) ||
+               event.teamMemberFlatList?.includes(studentId);
+      });
+      
+      return studentEvents;
+    } catch (fallbackError: any) {
+      console.error(`Fallback fetchStudentEvents also failed for ${studentId}:`, fallbackError);
+      return []; // Return empty array instead of throwing
+    }
+  }
+}

@@ -144,11 +144,11 @@
           class="btn btn-info action-btn"
           :disabled="isActionLoading('manualSelectWinner')"
           @click="goToManualSelectWinner"
-          title="Manually set or override winners"
+          :title="manualSelectButtonTitle"
         >
           <span v-if="isActionLoading('manualSelectWinner')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
           <i v-else class="fas fa-edit me-2"></i>
-          <span>Manual Selection</span>
+          <span>{{ manualSelectButtonText }}</span>
         </button>
         
         <!-- Close Event Button -->
@@ -330,26 +330,35 @@ const showMarkCompleteButton = computed(() =>
   !props.event?.lifecycleTimestamps?.closedAt
 );
 
-const showOpenVotingButton = computed(() =>
-  localIsOrganizer.value &&
-  props.event?.status === EventStatus.Completed &&
-  votingIsClosed.value &&
-  !props.event?.lifecycleTimestamps?.closedAt
-);
-
-const showCloseVotingButton = computed(() =>
-    localIsOrganizer.value &&
+const showOpenVotingButton = computed(() => {
+  if (props.event?.details.format === 'Individual' && !props.event.details.isCompetition) {
+    return false;
+  }
+  return localIsOrganizer.value &&
     props.event?.status === EventStatus.Completed &&
-    props.event?.votingOpen === true &&
+    votingIsClosed.value &&
     !props.event?.lifecycleTimestamps?.closedAt
-);
+});
 
-const canFindWinner = computed(() =>
-  localIsOrganizer.value &&
-  props.event?.status === EventStatus.Completed &&
-  votingIsClosed.value &&
-  !props.event?.lifecycleTimestamps?.closedAt
-);
+const showCloseVotingButton = computed(() => {
+    if (props.event?.details.format === 'Individual' && !props.event.details.isCompetition) {
+      return false;
+    }
+    return localIsOrganizer.value &&
+      props.event?.status === EventStatus.Completed &&
+      props.event?.votingOpen === true &&
+      !props.event?.lifecycleTimestamps?.closedAt
+});
+
+const canFindWinner = computed(() => {
+  if (props.event?.details.format === 'Individual' && !props.event.details.isCompetition) {
+    return false;
+  }
+  return localIsOrganizer.value &&
+    props.event?.status === EventStatus.Completed &&
+    votingIsClosed.value &&
+    !props.event?.lifecycleTimestamps?.closedAt
+});
 
 const showFindWinnerButton = canFindWinner;
 
@@ -388,6 +397,20 @@ const showStatusManagementSection = computed(() =>
 const showVotingClosingSection = computed(() =>
     showOpenVotingButton.value || showCloseVotingButton.value || showFindWinnerButton.value || showCloseEventButton.value || showManualSelectWinnerButton.value
 );
+
+const manualSelectButtonText = computed(() => {
+    if (props.event?.details.format === 'Individual' && !props.event?.details.isCompetition) {
+        return 'Award Points';
+    }
+    return 'Manual Selection';
+});
+
+const manualSelectButtonTitle = computed(() => {
+    if (props.event?.details.format === 'Individual' && !props.event?.details.isCompetition) {
+        return 'Award points to participants for each criterion';
+    }
+    return 'Manually set or override winners';
+});
 
 // --- Actions ---
 const isActionLoading = (action: EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner'): boolean => 

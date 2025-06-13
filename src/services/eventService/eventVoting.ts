@@ -365,7 +365,7 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
 export async function submitManualWinnerSelectionInFirestore(
     eventId: string,
     userId: string, 
-    selections: Record<string, string> 
+    selections: Record<string, string | string[]> 
 ): Promise<void> {
     if (!eventId || !userId) throw new Error("Event ID and User ID are required.");
     if (!selections || isEmpty(selections)) throw new Error("Winner selections are required.");
@@ -385,11 +385,16 @@ export async function submitManualWinnerSelectionInFirestore(
                 throw new Error("Manual winner selection is only allowed for completed events.");
             }
 
-            // Validate selections format
-            const validatedWinners: Record<string, string> = {};
+            // Validate selections format, ensuring all values are arrays of strings
+            const validatedWinners: Record<string, string[]> = {};
             for (const [key, value] of Object.entries(selections)) { 
-                if (typeof value === 'string' && value.trim()) {
-                    validatedWinners[key] = value.trim();
+                if (Array.isArray(value)) {
+                    const validIds = value.filter(id => typeof id === 'string' && id.trim());
+                    if (validIds.length > 0) {
+                        validatedWinners[key] = validIds;
+                    }
+                } else if (typeof value === 'string' && value.trim()) {
+                    validatedWinners[key] = [value.trim()];
                 }
             }
 

@@ -1,6 +1,6 @@
-import { doc, writeBatch, increment, Timestamp, type WriteBatch } from 'firebase/firestore';
+import { doc, writeBatch, increment, Timestamp, type WriteBatch, arrayUnion } from 'firebase/firestore';
 import { db } from '@/firebase';
-import type { XPData, XpFirestoreFieldKey } from '@/types/xp';
+import type { XPData, XpFirestoreFieldKey, XPPointHistoryItem, XpCalculationRoleKey } from '@/types/xp';
 
 // Helper to get current Firestore Timestamp, similar to createTimestamp in stores
 const now = () => Timestamp.now();
@@ -12,33 +12,48 @@ const now = () => Timestamp.now();
 export type XpFieldUpdates = Partial<Pick<XPData, XpFirestoreFieldKey | 'count_wins' | 'totalCalculatedXp'>>;
 
 /**
- * Applies XP awards to student profiles using a Firestore batch write.
+ * Prepares a Firestore batch write to apply XP awards to student profiles.
+ * This function creates the batch but does NOT commit it, allowing it to be combined
+ * with other operations in an atomic transaction.
  *
  * @param xpChangesMap - A map where keys are student IDs and values are XP field increments
- * @param options - Additional options for the batch operation
- * @returns The Firestore WriteBatch instance (will already be committed)
- * @throws Error if the batch write fails
+ * @param eventId - The ID of the event for which XP is being awarded
+ * @param eventName - The name of the event, to be stored in the XP history
+ * @returns A Firestore WriteBatch instance, ready to be committed by the caller
+ * @throws An error if the number of users exceeds Firestore's batch operation limit for a single transaction
  */
-export const applyXpAwardsBatch = async (
+export const applyXpAwardsBatch = (
   xpChangesMap: Record<string, XpFieldUpdates>,
-  options: { skipCommit?: boolean } = {}
-): Promise<WriteBatch> => {
-  if (Object.keys(xpChangesMap).length === 0) {
-    console.info('No XP changes to apply');
-    return writeBatch(db); // Return empty batch
+  eventId: string,
+  eventName: string
+): WriteBatch => {
+  const userIds = Object.keys(xpChangesMap);
+  if (userIds.length === 0) {
+    console.info('No XP changes to apply, returning an empty batch.');
+    return writeBatch(db);
+  }
+  
+  if (userIds.length >= 499) {
+      throw new Error(`Cannot award XP to ${userIds.length} users at once from the client. The limit is 498 per event closure to ensure atomicity.`);
+  }
+
+  if (!eventId || !eventName) {
+    console.warn('Event ID or Event Name is missing. Cannot create XP history.');
+    return writeBatch(db);
   }
 
   const batch = writeBatch(db);
-  let operationsInBatch = 0;
 
-  for (const [userId, xpIncrements] of Object.entries(xpChangesMap)) {
-    if (!userId) {
-      console.warn('Skipping XP update for empty user ID');
+  for (const userId of userIds) {
+    const xpIncrements = xpChangesMap[userId];
+    if (!userId || !xpIncrements) {
+      console.warn('Skipping XP update for empty user ID or empty increments');
       continue;
     }
     
     const xpDocRef = doc(db, 'xp', userId);
     const updatePayload: Record<string, any> = { lastUpdatedAt: now() };
+    const historyItems: XPPointHistoryItem[] = [];
     let userHasUpdates = false;
     let totalXpIncrementForThisUser = 0;
 
@@ -46,42 +61,42 @@ export const applyXpAwardsBatch = async (
       const typedKey = key as keyof XpFieldUpdates;
       const incrementValue = xpIncrements[typedKey];
 
-      if (typeof incrementValue === 'number' && incrementValue !== 0) {
+      if (typeof incrementValue === 'number' && incrementValue > 0) {
         if (key.startsWith('xp_')) {
           updatePayload[key] = increment(incrementValue);
           totalXpIncrementForThisUser += incrementValue;
           userHasUpdates = true;
+
+          const role = key.substring(3) as XpCalculationRoleKey;
+          historyItems.push({
+            eventId,
+            eventName,
+            role,
+            points: incrementValue,
+            awardedAt: now(),
+          });
+
         } else if (key === 'count_wins') {
           updatePayload[key] = increment(incrementValue);
           userHasUpdates = true;
         } 
-        // totalCalculatedXp from input is ignored, it's calculated from xp_ fields.
       }
     }
 
-    if (totalXpIncrementForThisUser !== 0) {
+    if (totalXpIncrementForThisUser > 0) {
       updatePayload.totalCalculatedXp = increment(totalXpIncrementForThisUser);
-      userHasUpdates = true; // Ensure this is true if only totalXpIncrement changes (e.g. if other fields were 0)
+    }
+    
+    if (historyItems.length > 0) {
+        updatePayload.pointHistory = arrayUnion(...historyItems);
     }
 
-    // Only add to batch if there are actual increments for the user
     if (userHasUpdates) {
       batch.set(xpDocRef, updatePayload, { merge: true });
-      operationsInBatch++;
     }
   }
-
-  try {
-    if (operationsInBatch > 0 && !options.skipCommit) {
-      await batch.commit();
-      console.info(`Successfully applied XP updates for ${operationsInBatch} users`);
-    }
-    return batch; 
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Failed to apply XP awards: ${errorMessage}`, error);
-    throw new Error(`Failed to apply XP awards: ${errorMessage}`);
-  }
+  
+  return batch;
 };
 
 /**
@@ -98,6 +113,5 @@ export function createXpUpdate(role: XpFirestoreFieldKey, amount: number): XpFie
   
   return {
     [role]: amount,
-    // totalCalculatedXp: amount // REMOVED: applyXpAwardsBatch will handle this
   };
 }

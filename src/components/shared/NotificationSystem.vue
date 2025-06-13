@@ -32,22 +32,32 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, ref } from 'vue';
+import { computed, watch } from 'vue';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAppStore } from '@/stores/appStore';
-import type { QueuedAction, Notification as AppNotification } from '@/types/store'; // Ensure types/store.ts defines these
+import type { QueuedAction } from '@/types/store'; // Ensure types/store.ts defines these
+
+// Define the Notification interface
+interface Notification {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  title?: string;
+  duration?: number;
+}
 
 const notificationStore = useNotificationStore();
 const appStore = useAppStore();
-const notifications = computed<AppNotification[]>(() => notificationStore.allNotifications);
 const isOnline = computed<boolean>(() => appStore.isOnline);
 const queuedActions = computed<QueuedAction[]>(() => appStore.offlineQueue.actions);
 
 // Show only the most recent notification
-const currentNotification = computed<AppNotification | null>(() => {
-  const notifs = notifications.value;
-  return notifs.length > 0 ? notifs[notifs.length - 1] : null;
+const currentNotification = computed(() => {
+  const notifs = notificationStore.notifications;
+  return notifs.length > 0 ? notifs[0] : null;
 });
+
+const notifications = computed(() => notificationStore.notifications);
 
 const dismissCurrentNotification = (): void => {
   if (currentNotification.value) {
@@ -61,7 +71,10 @@ watch(currentNotification, (newNotification) => {
     // Dismiss all older notifications except the current one
     const notifs = notifications.value;
     for (let i = 0; i < notifs.length - 1; i++) {
-      notificationStore.dismissNotification(notifs[i].id);
+      const notification = notifs[i];
+      if (notification?.id) {
+        notificationStore.dismissNotification(notification.id);
+      }
     }
   }
 });
@@ -86,7 +99,7 @@ watch(() => queuedActions.value.length, (newCount: number, oldCount: number) => 
   }
 });
 
-const getToastClass = (type: AppNotification['type']): string => {
+const getToastClass = (type: Notification['type']): string => {
   switch (type) {
     case 'success': return 'border-success';
     case 'error': return 'border-danger';
@@ -96,7 +109,7 @@ const getToastClass = (type: AppNotification['type']): string => {
   }
 };
 
-const getToastHeaderClass = (type: AppNotification['type']): string => {
+const getToastHeaderClass = (type: Notification['type']): string => {
   switch (type) {
     case 'success': return 'bg-success-subtle text-success-emphasis';
     case 'error': return 'bg-danger-subtle text-danger-emphasis';
@@ -106,7 +119,7 @@ const getToastHeaderClass = (type: AppNotification['type']): string => {
   }
 };
 
-const getTypeIcon = (type: AppNotification['type']): string => {
+const getTypeIcon = (type: Notification['type']): string => {
   switch (type) {
     case 'success': return 'fa-check-circle';
     case 'error': return 'fa-exclamation-circle';
@@ -117,7 +130,7 @@ const getTypeIcon = (type: AppNotification['type']): string => {
 };
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .notification-container {
   z-index: 1100;
 }

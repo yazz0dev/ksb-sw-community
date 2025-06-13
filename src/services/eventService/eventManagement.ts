@@ -3,9 +3,7 @@ import {
   getDoc, 
   updateDoc,
   deleteDoc,
-  serverTimestamp,
-  writeBatch
-} from 'firebase/firestore';
+  serverTimestamp} from 'firebase/firestore';
 import { db } from '@/firebase';
 import { 
   type Event, 
@@ -99,7 +97,7 @@ export async function updateEventStatusInFirestore(
 }
 
 /**
- * Closes an event, updates its status, and awards XP to participants.
+ * Closes an event, updates its status, and awards XP to participants in a single atomic transaction.
  * @param eventId The ID of the event to close.
  * @param closingUser The user profile performing the close operation.
  * @returns Promise resolving to an object with success status and XP changes map.
@@ -112,7 +110,6 @@ export const closeEventAndAwardXP = async (
   if (!closingUser?.uid) throw new Error('Closing user and their UID are required.');
 
   const eventRef = doc(db, EVENTS_COLLECTION, eventId);
-  const batch = writeBatch(db);
 
   try {
     const eventSnap = await getDoc(eventRef);
@@ -123,6 +120,9 @@ export const closeEventAndAwardXP = async (
     const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data()) as Event;
     if (!eventData) {
       throw new Error('Failed to map event data for closing.');
+    }
+    if (!eventData.details.eventName) {
+        throw new Error('Event name is missing and required for XP history.');
     }
 
     const isOrganizerOrRequester = eventData.details.organizers?.includes(closingUser.uid) || eventData.requestedBy === closingUser.uid;
@@ -146,10 +146,10 @@ export const closeEventAndAwardXP = async (
     const xpAwards = calculateEventXP(eventData);
     const studentIdsWithXP = Object.keys(xpAwards);
 
-    if (studentIdsWithXP.length > 0) {
-      await applyXpAwardsBatch(xpAwards);
-    }
+    // Get the batch with all XP updates, but don't commit it yet.
+    const batch = applyXpAwardsBatch(xpAwards, eventId, eventData.details.eventName);
 
+    // Add the event status update to the same batch.
     const updatePayload = {
       status: EventStatus.Closed,
       lastUpdatedAt: serverTimestamp(),
@@ -160,6 +160,7 @@ export const closeEventAndAwardXP = async (
     };
     batch.update(eventRef, updatePayload as any);
 
+    // Atomically commit all XP awards and the event status update.
     await batch.commit();
 
     return {
@@ -173,41 +174,6 @@ export const closeEventAndAwardXP = async (
     throw new Error(`Failed to close event ${eventId}: ${message}`);
   }
 };
-
-/**
- * Records a request for event deletion in Firestore.
- * @param eventId - The ID of the event to request deletion for.
- * @param userId - The UID of the user making the request.
- * @param reason - The reason for requesting deletion.
- */
-export async function requestEventDeletionInFirestore(eventId: string, userId: string, reason: string): Promise<void> {
-    if (!eventId) throw new Error('Event ID is required to request deletion.');
-    if (!userId) throw new Error('User ID is required to request deletion.');
-    if (!reason || reason.trim().length === 0) throw new Error('A reason for deletion is required.');
-
-    const eventRef = doc(db, EVENTS_COLLECTION, eventId);
-    try {
-        const eventSnap = await getDoc(eventRef);
-        if (!eventSnap.exists()) {
-            throw new Error('Event not found.');
-        }
-
-        const deletionRequest = {
-            requestedBy: userId,
-            requestedAt: serverTimestamp(),
-            reason: reason.trim(),
-            status: 'PendingReview'
-        };
-
-        await updateDoc(eventRef, {
-            deletionRequested: deletionRequest,
-            lastUpdatedAt: serverTimestamp()
-        });
-        
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to request deletion for event ${eventId}.`);
-    }
-}
 
 /**
  * Deletes a pending event request from Firestore.

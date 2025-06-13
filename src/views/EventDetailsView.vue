@@ -19,6 +19,18 @@
       <!-- Event Content (Render only if event data is loaded successfully) -->
       <template v-if="event && !initialFetchError">
         <div class="container-lg">
+          <!-- Mobile Back Button - Only visible on mobile -->
+          <div class="mobile-back-button d-block d-md-none mb-3">
+            <button 
+              class="btn btn-outline-secondary btn-sm d-flex align-items-center"
+              @click="goBack"
+              aria-label="Go back"
+            >
+              <i class="fas fa-arrow-left me-2"></i>
+              <span>Back</span>
+            </button>
+          </div>
+
           <!-- Event Header -->
           <EventDetailsHeader
             :event="mapEventToHeaderProps(event)"
@@ -62,6 +74,8 @@
               <EventCriteriaDisplay 
                 v-if="event.criteria?.length" 
                 :criteria="event.criteria" 
+                :event-format="event.details.format"
+                :is-competition="event.details.isCompetition ?? false"
                 class="mb-3 mb-md-4"
               />
 
@@ -100,15 +114,16 @@
                   </div>
                 </div>
                 <!-- Participant List (Individual/Competition) -->
-                <div v-else class="mb-3 mb-md-4">
+                <div v-else-if="shouldShowParticipantLists" class="mb-3 mb-md-4">
                   <div class="section-header mb-3">
                     <i class="fas fa-user-friends text-primary me-2"></i>
-                    <span class="h5 mb-0 text-gradient-primary">Participants ({{ event.details.coreParticipants?.length || 0 }})</span>
+                    <span class="h5 mb-0 text-gradient-primary">Participants ({{ allParticipantsForDisplay.length }})</span>
                   </div>
                   <div class="row g-3">
-                    <div class="col-12" :class="{ 'col-lg-6': (event.details.coreParticipants?.length || 0) > 8 }">
+                    <!-- Always show the first column -->
+                    <div class="col-12" :class="{ 'col-lg-6': allParticipantsForDisplay.length > 8 }">
                       <EventParticipantList
-                        :participants="participantsFirstHalf"
+                        :core-participants="allParticipantsForDisplay.length > 8 ? participantsFirstHalf : allParticipantsForDisplay"
                         :loading="loading"
                         :currentUserId="currentUserId"
                         :show-header="false"
@@ -116,9 +131,10 @@
                         class="animate-scale-in card-hover-lift"
                       />
                     </div>
-                    <div v-if="(event.details.coreParticipants?.length || 0) > 8" class="col-12 col-lg-6">
+                    <!-- Only show second column if there are more than 8 participants -->
+                    <div v-if="allParticipantsForDisplay.length > 8" class="col-12 col-lg-6">
                       <EventParticipantList
-                        :participants="participantsSecondHalf"
+                        :core-participants="participantsSecondHalf"
                         :loading="loading"
                         :currentUserId="currentUserId"
                         :show-header="false"
@@ -369,12 +385,35 @@ const organizerRatingsAsArray = computed(() => {
 // Update computed properties for participant lists
 const participantsFirstHalf = computed(() => {
   const participants = event.value?.details.coreParticipants ?? [];
-  return participants.slice(0, Math.ceil(participants.length / 2));
+  const firstHalf = participants.slice(0, Math.ceil(participants.length / 2));
+  return firstHalf;
 });
 
 const participantsSecondHalf = computed(() => {
   const participants = event.value?.details.coreParticipants ?? [];
-  return participants.slice(Math.ceil(participants.length / 2));
+  const secondHalf = participants.slice(Math.ceil(participants.length / 2));
+  return secondHalf;
+});
+
+// Add a computed property to get all participants for display
+const allParticipantsForDisplay = computed(() => {
+  const participants = event.value?.details.coreParticipants ?? [];
+  return participants;
+});
+
+// Add computed property to check if we should show participant lists
+const shouldShowParticipantLists = computed(() => {
+  if (!event.value) return false;
+  
+  const hasParticipants = (event.value.details.coreParticipants?.length ?? 0) > 0;
+  
+  // For MultiEvent, check if any phase has individual format
+  if (event.value.details.format === EventFormat.MultiEvent && event.value.details.phases) {
+    return event.value.details.phases.some(phase => phase.format === EventFormat.Individual) && hasParticipants;
+  }
+  
+  // For Individual events, always show if there are coreParticipants
+  return event.value.details.format === EventFormat.Individual && hasParticipants;
 });
 
 // --- Methods ---
@@ -553,6 +592,15 @@ watch(() => props.id, (newId, oldId) => {
 });
 
 defineExpose({ handleJoin, handleLeave });
+
+function goBack() {
+  if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    // Fallback to home if no history
+    window.location.href = '/';
+  }
+}
 
 </script>
 
@@ -791,34 +839,9 @@ defineExpose({ handleJoin, handleLeave });
 }
 
 @media (max-width: 575.98px) {
-  .section-header {
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    gap: 0.5rem;
-  }
-  
-  .section-header i {
-    width: 20px;
-    height: 20px;
-    font-size: 0.75rem;
-  }
-  
-  .team-list-box, .card {
-    margin-bottom: 1rem;
-  }
-  
-  .row.g-3 {
-    --bs-gutter-x: 0.75rem;
-    --bs-gutter-y: 0.75rem;
-  }
-  
-  .participant-card {
-    padding: 0.75rem;
-  }
-  
-  .event-details-view {
-    padding-left: 0.25rem;
-    padding-right: 0.25rem;
+  .mobile-back-button .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
   }
 }
 
@@ -843,5 +866,49 @@ defineExpose({ handleJoin, handleLeave });
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+/* Mobile Back Button Styles */
+.mobile-back-button {
+  position: relative;
+  z-index: 3;
+  
+  .btn {
+    background: rgba(var(--bs-white-rgb), 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(var(--bs-border-color-rgb), 0.2);
+    border-radius: var(--bs-border-radius-lg);
+    box-shadow: 0 2px 8px rgba(var(--bs-dark-rgb), 0.08);
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    
+    &:hover {
+      background: rgba(var(--bs-secondary-rgb), 0.1);
+      border-color: var(--bs-secondary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(var(--bs-dark-rgb), 0.12);
+    }
+    
+    &:active {
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Ensure proper spacing on mobile */
+@media (max-width: 767.98px) {
+  .event-details-view {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  .mobile-back-button {
+    margin-bottom: 1rem;
+    
+    .btn {
+      font-weight: 500;
+    }
+  }
 }
 </style>

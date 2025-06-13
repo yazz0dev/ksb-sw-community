@@ -7,7 +7,7 @@
         </div>
         <div>
           <h6 class="mb-0 section-title">Participants</h6>
-          <small class="text-muted">{{ participants.length }} member{{ participants.length === 1 ? '' : 's' }}</small>
+          <small class="text-muted">{{ displayParticipants.length }} member{{ displayParticipants.length === 1 ? '' : 's' }}</small>
         </div>
       </div>
       <button class="btn btn-outline-primary btn-sm toggle-btn" @click="showParticipants = !showParticipants">
@@ -20,7 +20,7 @@
         <div class="spinner-border spinner-border-sm text-primary me-2"></div>
         <span class="text-muted">Loading participants...</span>
       </div>
-      <div v-else-if="participants.length === 0" class="empty-state text-center py-4">
+      <div v-else-if="displayParticipants.length === 0" class="empty-state text-center py-4">
         <div class="empty-icon mb-3">
           <i class="fas fa-users fa-2x text-muted opacity-50"></i>
         </div>
@@ -28,7 +28,7 @@
       </div>
       <div v-else class="participants-grid">
         <div
-          v-for="(participantId, index) in participants"
+          v-for="(participantId, index) in displayParticipants"
           :key="participantId"
           class="participant-item d-flex align-items-center"
           :class="{ 'current-user': participantId === currentUserId }"
@@ -52,15 +52,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
-defineProps<{
-  participants: string[];
+interface Props {
+  participants?: string[];
+  coreParticipants?: string[];
   loading: boolean;
   currentUserId: string | null;
   showHeader?: boolean;
-  getName: (uid: string) => string; // Add missing prop
-}>();
+  getName: (uid: string) => string;
+}
+
+const props = defineProps<Props>();
+
+// Use coreParticipants if provided, otherwise fall back to participants
+const displayParticipants = computed(() => {
+  return props.coreParticipants || props.participants || [];
+});
 
 const showParticipants = ref(true);
 </script>

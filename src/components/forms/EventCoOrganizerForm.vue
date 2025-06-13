@@ -1,33 +1,37 @@
 // src/components/forms/EventCoOrganizerForm.vue
 <template>
   <div class="co-organizer-form">
-    <!-- Search Input Section -->
-    <div class="mb-4">
-      <div class="position-relative dropdown">
-        <label for="coOrganizerSearch" class="form-label fw-medium">
+    <!-- Compact Search Section -->
+    <div class="mb-3">
+      <div class="position-relative">
+        <label for="coOrganizerSearch" class="form-label small fw-medium text-secondary mb-2">
           <i class="fas fa-user-plus text-primary me-1"></i>
           Search & Add Co-organizers
         </label>
-        <input
-          id="coOrganizerSearch"
-          class="form-control search-input"
-          type="text"
-          v-model="coOrganizerSearch"
-          :disabled="isSubmitting"
-          placeholder="Type a name to search..."
-          @focus="showCoOrganizerDropdown = true"
-          @input="searchUsers"
-          @blur="handleCoOrganizerBlur"
-          autocomplete="off"
-          aria-describedby="coOrganizerHelp"
-        />
-        <div id="coOrganizerHelp" class="form-text">
-          <i class="fas fa-info-circle text-info me-1"></i>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-light">
+            <i class="fas fa-search text-muted"></i>
+          </span>
+          <input
+            id="coOrganizerSearch"
+            class="form-control"
+            type="text"
+            v-model="coOrganizerSearch"
+            :disabled="isSubmitting"
+            placeholder="Type a name to search..."
+            @focus="showCoOrganizerDropdown = true"
+            @input="searchUsers"
+            @blur="handleCoOrganizerBlur"
+            autocomplete="off"
+          />
+        </div>
+        <div class="form-text small text-muted mt-1">
+          <i class="fas fa-info-circle me-1"></i>
           Add other students who will help manage the event.
         </div>
 
-        <!-- Dropdown Results -->
-        <ul v-if="showCoOrganizerDropdown && filteredUsers.length > 0" class="search-dropdown shadow-lg">
+        <!-- Compact Dropdown Results -->
+        <ul v-if="showCoOrganizerDropdown && filteredUsers.length > 0" class="search-dropdown">
           <li v-for="user in filteredUsers" :key="user.uid" class="dropdown-item-wrapper">
             <button class="dropdown-item-custom" type="button" @mousedown.prevent="addOrganizer(user.uid)">
               <i class="fas fa-user text-muted me-2"></i>
@@ -37,35 +41,36 @@
         </ul>
         
         <!-- No Results Message -->
-        <div v-else-if="showCoOrganizerDropdown && coOrganizerSearch && filteredUsers.length === 0" class="search-dropdown shadow-lg">
+        <div v-else-if="showCoOrganizerDropdown && coOrganizerSearch && filteredUsers.length === 0" class="search-dropdown">
           <div class="no-results">
             <i class="fas fa-search text-muted me-2"></i>
-            <span class="text-muted fst-italic">No matching users found.</span>
+            <span class="text-muted">No matching users found.</span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Selected Co-organizers Section -->
+    <!-- Compact Selected Co-organizers Section -->
     <div class="selected-organizers-section">
-      <label class="form-label fw-medium mb-3">
-        <i class="fas fa-users text-primary me-1"></i>
-        Selected Co-organizers
-        <span v-if="localOrganizers.length > 0" class="badge bg-primary-subtle text-primary-emphasis ms-2">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <label class="form-label small fw-medium text-secondary mb-0">
+          <i class="fas fa-users text-primary me-1"></i>
+          Selected Co-organizers
+        </label>
+        <span v-if="localOrganizers.length > 0" class="badge bg-primary-subtle text-primary-emphasis">
           {{ localOrganizers.length }}
         </span>
-      </label>
+      </div>
       
-      <div v-if="localOrganizers.length > 0" class="organizers-grid">
-        <div v-for="uid in localOrganizers" :key="uid" class="organizer-badge">
+      <div v-if="localOrganizers.length > 0" class="organizers-grid-compact">
+        <div v-for="uid in localOrganizers" :key="uid" class="organizer-card-compact">
           <div class="organizer-info">
-            <i class="fas fa-user me-2"></i>
+            <i class="fas fa-user text-primary me-2"></i>
             <span class="organizer-name">{{ nameCache[uid] || `User (${uid.substring(0,5)}...)` }}</span>
           </div>
           <button
             type="button"
-            class="remove-btn"
-            aria-label="Remove co-organizer"
+            class="btn-remove-compact"
             @click="removeOrganizer(uid)"
             :disabled="isSubmitting"
             title="Remove co-organizer"
@@ -75,10 +80,10 @@
         </div>
       </div>
       
-      <div v-else class="empty-state">
-                    <i class="fas fa-user-plus text-muted text-hero mb-2"></i>
-        <p class="text-muted fst-italic mb-0">No co-organizers added yet.</p>
-        <small class="text-secondary">Use the search above to add co-organizers.</small>
+      <div v-else class="empty-state-compact text-center py-3">
+        <i class="fas fa-user-plus text-muted mb-1" style="font-size: 1.5rem; opacity: 0.5;"></i>
+        <p class="text-muted small mb-0">No co-organizers added</p>
+        <small class="text-secondary">Search above to add co-organizers</small>
       </div>
     </div>
   </div>
@@ -112,7 +117,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:organizers']);
+const emit = defineEmits(['update:organizers', 'validity-change']);
 
 const localOrganizers = ref<string[]>([...props.organizers]);
 const coOrganizerSearch = ref('');
@@ -155,30 +160,37 @@ function emitOrganizersUpdate() {
   emit('update:organizers', [...localOrganizers.value]);
 }
 
+// Add validation computed property (organizers are optional, so always valid)
+const isOrganizersValid = computed(() => true); // Co-organizers are optional
+
+// Watch organizers validity and emit changes
+watch(isOrganizersValid, (newValid) => {
+  emit('validity-change', newValid);
+}, { immediate: true });
+
 function searchUsers() { showCoOrganizerDropdown.value = true; }
 function handleCoOrganizerBlur() { setTimeout(() => { showCoOrganizerDropdown.value = false; }, 200); }
 </script>
 
 <style scoped>
 .co-organizer-form {
-  background: var(--bs-card-bg);
+  --border-radius: 6px;
+  --primary-color: #0d6efd;
+  --danger-color: #dc3545;
 }
 
-/* Search Input */
-.search-input {
-  border: 1px solid var(--bs-input-border-color);
-  border-radius: var(--bs-border-radius);
-  font-size: 0.95rem;
-  padding: 0.75rem;
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+/* Compact Search Input */
+.input-group-text {
+  border-color: var(--bs-border-color);
+  background: var(--bs-light-bg-subtle);
 }
 
-.search-input:focus {
-  border-color: var(--bs-primary);
-  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
 }
 
-/* Dropdown Styles */
+/* Compact Dropdown */
 .search-dropdown {
   position: absolute;
   top: 100%;
@@ -187,25 +199,28 @@ function handleCoOrganizerBlur() { setTimeout(() => { showCoOrganizerDropdown.va
   z-index: 1000;
   background: var(--bs-card-bg);
   border: 1px solid var(--bs-border-color);
-  border-radius: var(--bs-border-radius);
-  max-height: 300px;
+  border-radius: var(--border-radius);
+  max-height: 250px;
   overflow-y: auto;
   margin-top: 0.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  list-style: none;
+  margin: 0.25rem 0 0 0;
+  padding: 0;
 }
 
 .dropdown-item-wrapper {
-  list-style: none;
   margin: 0;
   padding: 0;
 }
 
 .dropdown-item-custom {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   background: none;
   border: none;
   text-align: left;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--bs-body-color);
   transition: background-color 0.15s ease;
   display: flex;
@@ -218,147 +233,153 @@ function handleCoOrganizerBlur() { setTimeout(() => { showCoOrganizerDropdown.va
 }
 
 .no-results {
-  padding: 1rem;
+  padding: 0.75rem;
   text-align: center;
   color: var(--bs-secondary);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 
-/* Selected Organizers */
+/* Compact Selected Organizers */
 .selected-organizers-section {
-  background: var(--bs-light);
-  border: 1px solid var(--bs-border-color);
-  border-radius: var(--bs-border-radius);
-  padding: 1.5rem;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color-translucent);
+  border-radius: var(--border-radius);
+  padding: 0.75rem;
 }
 
-.organizers-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.organizers-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
 }
 
-.organizer-badge {
+.organizer-card-compact {
   display: flex;
   align-items: center;
-  background: var(--bs-card-bg);
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: var(--bs-secondary-bg-subtle);
   border: 1px solid var(--bs-border-color);
-  border-radius: var(--bs-border-radius-lg);
-  padding: 0.5rem 0.75rem;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  box-shadow: var(--bs-box-shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: calc(var(--border-radius) - 2px);
+  transition: all 0.2s ease;
 }
 
-.organizer-badge:hover {
+.organizer-card-compact:hover {
+  background: var(--bs-tertiary-bg-subtle);
+  border-color: var(--bs-secondary-border-subtle);
   transform: translateY(-1px);
-  box-shadow: var(--bs-box-shadow);
 }
 
 .organizer-info {
   display: flex;
   align-items: center;
-  color: var(--bs-body-color);
-  font-weight: 500;
+  flex-grow: 1;
+  min-width: 0;
 }
 
 .organizer-name {
-  max-width: 150px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--bs-body-color);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.remove-btn {
-  background: var(--bs-danger);
-  color: white;
-  border: none;
+.btn-remove-compact {
+  background: none;
+  border: 1px solid var(--bs-border-color);
   border-radius: 50%;
   width: 1.5rem;
   height: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  color: var(--danger-color);
   transition: all 0.2s ease;
   flex-shrink: 0;
+  margin-left: 0.5rem;
 }
 
-.remove-btn:hover:not(:disabled) {
-  background: var(--bs-danger);
+.btn-remove-compact:hover:not(:disabled) {
+  background: var(--danger-color);
+  border-color: var(--danger-color);
+  color: white;
   transform: scale(1.1);
 }
 
-.remove-btn:disabled {
+.btn-remove-compact:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: 2rem 1rem;
-  color: var(--bs-secondary);
+/* Compact Empty State */
+.empty-state-compact {
+  background: var(--bs-light-bg-subtle);
+  border: 1px dashed var(--bs-border-color);
+  border-radius: var(--border-radius);
 }
 
+/* Form Labels */
 .form-label {
   color: var(--bs-body-color);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .form-text {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: var(--bs-secondary);
-  margin-top: 0.25rem;
 }
 
-/* Responsive Design */
+/* Badge */
+.badge {
+  font-size: 0.75em;
+  padding: 0.3em 0.5em;
+  border-radius: 0.25rem;
+}
+
+/* Mobile Optimizations */
 @media (max-width: 768px) {
-  .search-input {
-    font-size: 0.9rem;
-    padding: 0.625rem;
+  .organizers-grid-compact {
+    grid-template-columns: 1fr;
+    gap: 0.375rem;
   }
   
-  .selected-organizers-section {
-    padding: 1rem;
-  }
-  
-  .organizers-grid {
-    gap: 0.5rem;
-  }
-  
-  .organizer-badge {
-    font-size: 0.85rem;
-    padding: 0.4rem 0.6rem;
+  .organizer-card-compact {
+    padding: 0.375rem;
   }
   
   .organizer-name {
-    max-width: 120px;
+    font-size: 0.8rem;
   }
   
-  .remove-btn {
+  .btn-remove-compact {
     width: 1.25rem;
     height: 1.25rem;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
   
-  .empty-state {
-    padding: 1.5rem 0.5rem;
+  .form-text {
+    font-size: 0.75rem;
+  }
+  
+  .selected-organizers-section {
+    padding: 0.5rem;
   }
 }
 
 @media (max-width: 480px) {
-  .organizers-grid {
-    flex-direction: column;
+  .organizer-card-compact {
+    padding: 0.25rem 0.375rem;
   }
   
-  .organizer-badge {
-    justify-content: space-between;
+  .empty-state-compact {
+    padding: 1.5rem 0.5rem;
   }
   
-  .organizer-name {
-    max-width: none;
+  .search-dropdown {
+    max-height: 200px;
   }
 }
 </style>

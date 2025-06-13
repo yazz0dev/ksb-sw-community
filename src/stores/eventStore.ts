@@ -49,6 +49,7 @@ import {
   MIN_TEAM_MEMBERS, 
   MAX_TEAM_MEMBERS 
 } from '@/utils/constants';
+import { useAppStore } from './appStore';
 
 
 // Define the type that includes 'id', which will be primarily used within this store.
@@ -158,8 +159,11 @@ export const useEventStore = defineStore('studentEvents', () => {
   const fetchError = ref<string | null>(null);
 
   // Store instances
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const studentProfileStore = useProfileStore();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const notificationStore = useNotificationStore();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const auth = useAuth();
 
   // Computed (Getters)
@@ -541,7 +545,7 @@ export const useEventStore = defineStore('studentEvents', () => {
 
       await updateEventRequestInService(eventId, payload, currentStudentId);
       
-      const updatedEvent = await fetchSingleEventForStudentService(eventId, currentStudentId); // Use currentStudentId
+      const updatedEvent = await fetchSingleEventForStudentService(eventId, currentStudentId);
       if (updatedEvent) {
         _updateLocalEventLists(updatedEvent as EventWithId); // Added 'as EventWithId'
       }
@@ -736,7 +740,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  async function submitManualWinnerSelection(payload: { eventId: string; winnerSelections: Record<string, string> }) {
+  async function submitManualWinnerSelection(payload: { eventId: string; winnerSelections: Record<string, string | string[]> }) {
     actionError.value = null;
     if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
       await _handleOpError("submitting manual winner selection", new Error("User not authenticated."), payload.eventId);
@@ -857,21 +861,31 @@ export const useEventStore = defineStore('studentEvents', () => {
       return;
     }
     
+    // Check for offline status and queue the action if necessary
+    const appStore = useAppStore();
+    if (await appStore.tryQueueAction({ type: 'studentEvents/closeEventPermanently', payload: { eventId } })) {
+        notificationStore.showNotification({
+            message: "You are offline. Closing the event has been queued and will be processed when you are back online.",
+            type: 'info'
+        });
+        return; // Return early as the action is now queued
+    }
+
     isLoading.value = true;
     try {
-      // Ensure photoURL is not undefined to match UserData type
+      // Ensure the current user object matches the required UserData type
       const currentUser: UserData = {
         ...studentProfileStore.currentStudent,
         photoURL: studentProfileStore.currentStudent.photoURL || null
       };
-      // Service function contains all validation and Firestore logic
-      // Call the service function
+
+      // The service function now handles all Firestore logic atomically
       const result = await closeEventAndAwardXPService(eventId, currentUser);
       
-      // Refetch the event to update local state
+      // Refetch the event to update local state with its new 'Closed' status
       const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
       if (updatedEventData) {
-        _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
+        _updateLocalEventLists(updatedEventData as EventWithId);
       }
       
       notificationStore.showNotification({ 

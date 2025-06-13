@@ -70,9 +70,9 @@ router.beforeEach(async (
       new Promise<void>(resolve => setTimeout(resolve, maxWaitTime))
     ]);
 
-    // If we timed out and still haven't fetched auth, force refresh auth state
+    // If we timed out and still haven't fetched auth, proceed anyway
     if (!appStore.hasFetchedInitialAuth) {
-      await auth.refreshAuthState();
+      console.warn('Auth state check timed out, proceeding with navigation');
       appStore.setHasFetchedInitialAuth(true);
     }
   }

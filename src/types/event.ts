@@ -60,11 +60,11 @@ export interface EventDetails {
   eventName: string;
   description: string;
   format: EventFormat; // This will determine if 'phases' array is used
-  isCompetition?: boolean; // NEW: Indicates if the MultiEvent as a whole is a competition
+  isCompetition?: boolean; // NEW: Indicates if the MultiEvent as a whole is a competition OR if an Individual event is a competition
   organizers: string[];
-  // coreParticipants is relevant if the main event (or a phase) is 'Individual'
-  // If format is MultiEvenet, coreParticipants might be at phase level.
-  // For a simple Individual event, it's here.
+  // coreParticipants: For Individual events, these are the main participants
+  // For Team events, participants are organized in teams, not here
+  // For MultiEvent, coreParticipants at this level represent overall event participants
   coreParticipants: string[]; 
   type?: string; // Added back for Individual and Team formats
   date: {
@@ -138,7 +138,9 @@ export interface Event {
   votingOpen: boolean; // Overall voting status, phase-specific voting might be handled differently
   // childEventIds is removed
   lastUpdatedAt?: Timestamp | null | undefined;
-  participants?: string[] | null | undefined; // Overall participants for the event
+  // participants: General event participants (can include organizers, observers, etc.)
+  // For Individual events, use details.coreParticipants for the actual competitors
+  participants?: string[] | null | undefined; 
   submissions?: Submission[] | null | undefined;
   criteria?: EventCriteria[] | null | undefined;
   teams?: Team[] | null | undefined;
@@ -163,7 +165,7 @@ export interface EventFormData {
     description: string;
     rules?: string | null | undefined; // Allow undefined for form data compatibility
     format: EventFormat;
-    isCompetition?: boolean; // NEW
+    isCompetition?: boolean; // NEW: Applicable to Individual or MultiEvent
     organizers: string[];
     coreParticipants: string[];
     type?: string; // Added back for Individual and Team formats

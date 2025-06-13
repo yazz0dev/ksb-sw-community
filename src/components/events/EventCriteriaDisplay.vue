@@ -4,33 +4,35 @@
     <div class="card-header bg-warning-subtle border-0">
       <div class="d-flex align-items-center">
         <!-- Updated icon and title styling -->
-        <i class="fas fa-tasks text-primary me-2"></i>
-        <h5 class="mb-0 fw-semibold text-gradient-primary">Rating Criteria</h5>
+        <i class="fas text-primary me-2" :class="isIndividualCompetitionAward ? 'fa-award' : 'fa-tasks'"></i>
+        <h5 class="mb-0 fw-semibold text-gradient-primary">
+          {{ titleText }}
+        </h5>
         <span class="badge bg-primary-subtle text-primary-emphasis ms-auto">
-          {{ criteria.length }} {{ criteria.length === 1 ? 'criterion' : 'criteria' }}
+          {{ criteria.length }} {{ criteria.length === 1 ? (isIndividualCompetitionAward ? 'award' : 'criterion') : (isIndividualCompetitionAward ? 'awards' : 'criteria') }}
         </span>
       </div>
     </div>
     <div class="card-body p-0">
       <div v-if="criteria.length === 0" class="empty-state">
-        <i class="fas fa-star text-muted text-display mb-3"></i>
-        <p class="text-muted mb-0">No rating criteria defined for this event.</p>
+        <i class="fas text-muted text-display mb-3" :class="isIndividualCompetitionAward ? 'fa-award' : 'fa-star'"></i>
+        <p class="text-muted mb-0">No {{ isIndividualCompetitionAward ? 'awards' : 'rating criteria' }} defined for this event.</p>
       </div>
       <div v-else class="criteria-list">
         <div v-for="(criterion, idx) in criteria" :key="criterion.constraintIndex ?? idx" class="criterion-item">
           <div class="criterion-content">
             <div class="criterion-header">
               <div class="criterion-icon">
-                <i class="fas fa-star text-warning"></i>
+                <i class="fas text-warning" :class="isIndividualCompetitionAward ? 'fa-medal' : 'fa-star'"></i>
               </div>
               <div class="criterion-details">
-                <h6 class="criterion-title mb-1">{{ criterion.title || 'Unnamed Criteria' }}</h6>
+                <h6 class="criterion-title mb-1">{{ criterion.title || (isIndividualCompetitionAward ? 'Unnamed Award' : 'Unnamed Criterion') }}</h6>
                 <div class="criterion-meta">
                   <span class="xp-badge">
                     <i class="fas fa-trophy me-1"></i>
                     {{ criterion.points }} XP
                   </span>
-                  <span class="role-badge">
+                  <span v-if="!isIndividualCompetitionAward" class="role-badge">
                     <i class="fas fa-user-tag me-1"></i>
                     {{ getRoleDisplay(criterion) }}
                   </span>
@@ -48,10 +50,32 @@
 </template>
 
 <script setup lang="ts">
-import type { EventCriteria } from '@/types/event'; 
+import { computed } from 'vue';
+import type { EventCriteria, EventFormat } from '@/types/event'; 
 import { formatRoleName } from '@/utils/formatters';
 
-defineProps<{ criteria: EventCriteria[] }>(); 
+interface Props {
+  criteria: EventCriteria[],
+  eventFormat?: EventFormat, 
+  isCompetition?: boolean    
+}
+const props = withDefaults(defineProps<Props>(), {
+  isCompetition: false,
+});
+
+const isIndividualCompetitionAward = computed(() => {
+  return props.eventFormat === 'Individual' && props.isCompetition;
+});
+
+const titleText = computed(() => {
+  if (props.eventFormat === 'Individual' && props.isCompetition) {
+    return 'Competition Awards';
+  }
+  if (props.eventFormat === 'MultiEvent' && props.isCompetition) {
+    return 'Overall Competition Series Awards'; // Or similar if criteria are for overall multi-event
+  }
+  return 'Rating Criteria';
+});
 
 // Handle both role and targetRole properties consistently
 function getRoleDisplay(criterion: EventCriteria): string {

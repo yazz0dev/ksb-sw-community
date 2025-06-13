@@ -125,19 +125,20 @@ const MAX_USER_CRITERIA_CONST = MAX_USER_CRITERIA; // Expose to template
 
 // --- Props & Emits ---
 interface Props {
-  criteria: EventCriteria[]; // Use EventCriteria
+  criteria: EventCriteria[];
   isSubmitting: boolean;
   eventFormat: EventFormat;
+  isIndividualCompetition: boolean; // Keep it as boolean
   assignableXpRoles: readonly string[];
-  totalXP: number;
 }
 const props = defineProps<Props>();
-const emit = defineEmits(['update:criteria']);
+const emit = defineEmits(['update:criteria', 'validity-change']);
 
 // --- State ---
 const localCriteria = ref<CriterionWithState[]>([]); // Use EventCriteria
 
 // --- Helper Functions ---
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const isBestPerformerCriterion = (criterion: EventCriteria): boolean => { // Use EventCriteria
   return criterion.title === BEST_PERFORMER_LABEL;
 };
@@ -170,19 +171,54 @@ const userAddedCriteriaCount = computed(() => {
 });
 
 const canAddMoreCriteria = computed(() => {
+  if (props.eventFormat === EventFormat.Individual && !props.isIndividualCompetition) {
+    return false; // Cannot add/remove criteria for non-competition individual events
+  }
   return props.eventFormat !== EventFormat.MultiEvent && userAddedCriteriaCount.value < MAX_USER_CRITERIA_CONST;
+});
+
+// Add validation computed property
+const isCriteriaValid = computed(() => {
+  if (props.eventFormat === EventFormat.MultiEvent) return true; // Criteria handled per phase
+  
+  if (localCriteria.value.length === 0) return false;
+  
+  return localCriteria.value.every(criterion => {
+    const hasTitle = !!(criterion.title?.trim());
+    const hasRole = !!(criterion.role?.trim());
+    const hasValidPoints = typeof criterion.points === 'number' && criterion.points > 0;
+    
+    // Best performer criteria are always valid if they exist
+    if (isBestPerformerCriterion(criterion)) return true;
+    
+    return hasTitle && hasRole && hasValidPoints;
+  });
 });
 
 // --- Watcher for Prop Changes ---
 let isUpdatingFromProp = false;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 watch(
-  [() => props.criteria, () => props.eventFormat],
-  ([newCriteria, newFormat], [, oldFormat]) => {
+  [() => props.criteria, () => props.eventFormat, () => props.isIndividualCompetition],
+  ([newCriteria, newFormat, isIndividualComp], [, oldFormat]) => {
     if (isUpdatingFromProp) return;
     
     let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as CriterionWithState[];
 
-    if (newFormat !== oldFormat) {
+    // Handle Individual Non-Competition case
+    if (newFormat === EventFormat.Individual && !isIndividualComp) {
+      const roleBasedCriteria: CriterionWithState[] = props.assignableXpRoles.map((role, index) => {
+        const existing = workingCriteria.find(c => c.role === role);
+        return existing || {
+          constraintIndex: -(index + 1), // Use negative indices to signify fixed criteria
+          title: formatRoleName(role),
+          points: DEFAULT_CRITERION_POINTS,
+          role: role,
+          touched: { title: false, role: false }
+        };
+      });
+      workingCriteria = roleBasedCriteria;
+    } else if (newFormat !== oldFormat) {
       if (newFormat === EventFormat.MultiEvent) {
         workingCriteria = [];
       } else {
@@ -229,6 +265,11 @@ watch(localCriteria, (newVal) => {
   }, 0);
 }, { deep: true });
 
+// Watch criteria validity and emit changes
+watch(isCriteriaValid, (newValid) => {
+  emit('validity-change', newValid);
+}, { immediate: true });
+
 // --- Methods ---
 function getCriterionKey(criterion: EventCriteria, index: number): string | number { // Use EventCriteria
   if (typeof criterion.constraintIndex === 'number' && criterion.constraintIndex !== 0) {
@@ -248,6 +289,9 @@ function addCriterion() {
 }
 
 function removeCriterion(idx: number) {
+  if (props.eventFormat === EventFormat.Individual && !props.isIndividualCompetition) {
+    return; // Cannot remove criteria for non-competition individual events
+  }
   const criterion = localCriteria.value[idx];
   if (userAddedCriteriaCount.value <= 1 && criterion && !isBestPerformerCriterion(criterion)) {
     console.warn("Cannot remove the last criterion.");

@@ -43,6 +43,7 @@ export const useAppStore = defineStore('studentApp', () => {
       'studentEvents/submitOrganizerRating',
       'studentEvents/joinEvent', // If you want to queue joining
       'studentEvents/leaveEvent', // If you want to queue leaving
+      'studentEvents/closeEventPermanently', // For organizers to close events offline
       // Add other student actions here
     ],
   });

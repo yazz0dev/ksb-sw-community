@@ -121,7 +121,7 @@
 import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
-import { fetchStudentEvents } from '@/services/eventService/eventQueries';
+import { fetchStudentEventsWithFallback } from '@/services/eventService/eventQueries'; // Updated import
 import type { EnrichedStudentData, StudentEventHistoryItem, EnrichedUserData, StudentPortfolioProject, UserForPortfolio } from '@/types/student';
 
 // Component imports
@@ -283,45 +283,49 @@ const fetchFullProfile = async (userId: string) => {
           socialLinks: profileDataFromStore.socialLinks || undefined
         };
 
-        // Use the new fetchStudentEvents function directly
-        const studentEvents = await fetchStudentEvents(userId);
-        
-        
-        // Get organizer names for all events at once
-        const allOrganizerIds = [...new Set(studentEvents.flatMap(event => event.details.organizers || []))];
-        const organizerNamesMap = allOrganizerIds.length > 0 
-          ? await studentStore.fetchUserNamesBatch(allOrganizerIds)
-          : {};
-        
-        // Convert Event objects to StudentEventHistoryItem format
-        // Events are already sorted by Firebase queries, just filter and map
-        participatedEvents.value = studentEvents
-          .filter(event => event.status !== 'Pending') // Filter out pending events
-          .map(event => {
-          const eventName = event.details.eventName || 'Unnamed Event';
+        // Use the fallback function instead of the direct one
+        try {
+          const studentEvents = await fetchStudentEventsWithFallback(userId);
           
-          return {
-            eventId: event.id,
-            eventName: eventName,
-            eventStatus: event.status,
-            eventFormat: event.details.format,
-            roleInEvent: event.details.organizers?.includes(userId) ? 'organizer' as const : 'participant' as const,
-            date: {
-              start: event.details.date.start && typeof event.details.date.start === 'object' && 'toMillis' in event.details.date.start 
-                ? event.details.date.start 
-                : null,
-              end: event.details.date.end && typeof event.details.date.end === 'object' && 'toMillis' in event.details.date.end 
-                ? event.details.date.end 
-                : null
-            },
-            eventDescription: event.details.description,
-            eventType: event.details.type,
-            organizerNames: event.details.organizers 
-              ? event.details.organizers.map(id => organizerNamesMap[id] || `Student (${id.substring(0,5)})`)
-              : undefined,
-            participantCount: event.participants?.length || 0
-          };
-        });
+          // Get organizer names for all events at once
+          const allOrganizerIds = [...new Set(studentEvents.flatMap(event => event.details.organizers || []))];
+          const organizerNamesMap = allOrganizerIds.length > 0 
+            ? await studentStore.fetchUserNamesBatch(allOrganizerIds)
+            : {};
+          
+          // Convert Event objects to StudentEventHistoryItem format
+          // Events are already sorted by Firebase queries, just filter and map
+          participatedEvents.value = studentEvents
+            .filter(event => event.status !== 'Pending') // Filter out pending events
+            .map(event => {
+            const eventName = event.details.eventName || 'Unnamed Event';
+            
+            return {
+              eventId: event.id,
+              eventName: eventName,
+              eventStatus: event.status,
+              eventFormat: event.details.format,
+              roleInEvent: event.details.organizers?.includes(userId) ? 'organizer' as const : 'participant' as const,
+              date: {
+                start: event.details.date.start && typeof event.details.date.start === 'object' && 'toMillis' in event.details.date.start 
+                  ? event.details.date.start 
+                  : null,
+                end: event.details.date.end && typeof event.details.date.end === 'object' && 'toMillis' in event.details.date.end 
+                  ? event.details.date.end 
+                  : null
+              },
+              eventDescription: event.details.description,
+              eventType: event.details.type,
+              organizerNames: event.details.organizers 
+                ? event.details.organizers.map(id => organizerNamesMap[id] || `Student (${id.substring(0,5)})`)
+                : undefined,
+              participantCount: event.participants?.length || 0
+            };
+          });
+        } catch (eventsError) {
+          console.warn("Failed to fetch student events, continuing without event data:", eventsError);
+          participatedEvents.value = [];
+        }
 
         // Try to get projects from the store, but handle gracefully if not available
         userProjects.value = studentStore.viewedStudentProjects?.map((p: any) => ({
@@ -333,7 +337,6 @@ const fetchFullProfile = async (userId: string) => {
         if (viewedUser.value?.xpData) {
             stats.value.wonCount = viewedUser.value.xpData.count_wins ?? 0;
         }
-
 
     } catch (error: any) {
         // Let determineProfileContextAndLoad handle setting the main errorMessage

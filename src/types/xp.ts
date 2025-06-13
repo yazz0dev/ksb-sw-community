@@ -35,6 +35,17 @@ export const xpFirestoreFieldKeys = [
 export type XpFirestoreFieldKey = typeof xpFirestoreFieldKeys[number];
 
 
+// --- XP Point History Item ---
+// Structure for an entry in the point history array.
+export interface XPPointHistoryItem {
+  eventId: string;
+  eventName: string;
+  role: XpCalculationRoleKey;
+  points: number;
+  awardedAt: Timestamp;
+}
+
+
 // --- XPData Interface (Firestore: xp/{studentId}) ---
 // Structure of the document storing a student's XP.
 export interface XPData {
@@ -54,6 +65,7 @@ export interface XPData {
                                       // Incremented when a student is part of a winning team/individual for a criterion.
     totalCalculatedXp: number;        // Server-calculated sum of all `xp_*` prefixed fields.
                                       // This is the primary value for leaderboard ranking.
+    pointHistory: XPPointHistoryItem[]; // Array of all XP awards received.
     lastUpdatedAt: Timestamp;         // When this XP document was last modified.
 }
 
@@ -74,6 +86,7 @@ export function getDefaultXPData(studentId: string): XPData {
         xp_bestPerformer: 0,
         count_wins: 0,
         totalCalculatedXp: 0,
+        pointHistory: [],
         lastUpdatedAt: Timestamp.now(),
     };
     return defaultData;

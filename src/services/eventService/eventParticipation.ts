@@ -138,6 +138,7 @@ export async function joinEventByStudentInFirestore(eventId: string, studentId: 
  * @param eventId - The ID of the event.
  * @param studentId - The UID of the student leaving.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function leaveEventByStudentInFirestore(eventId: string, studentId: string): Promise<void> {
     if (!eventId || !studentId) throw new Error('Event ID and Student ID are required.');
 

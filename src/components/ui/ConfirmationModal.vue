@@ -66,7 +66,7 @@ interface Props {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'danger' | 'warning' | 'primary' | 'success';
+  variant?: 'danger' | 'warning' | 'primary' | 'success' | 'info';
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -120,9 +120,6 @@ const handleConfirm = () => {
     emit('confirm');
 };
 
-const handleCancel = () => {
-    emit('cancel');
-};
 
 onMounted(() => {
     if (modalEl.value) {

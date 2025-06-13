@@ -221,15 +221,16 @@ function createDefaultXpData(userId?: string): XPData {
     uid: userId || '',
     totalCalculatedXp: 0,
     xp_developer: 0,
-    xp_presenter: 0, 
+    xp_presenter: 0,
     xp_designer: 0,
     xp_organizer: 0,
     xp_problemSolver: 0,
     xp_bestPerformer: 0,
     xp_participation: 0,
     count_wins: 0,
-    lastUpdatedAt: Timestamp.now()
-  };
+    lastUpdatedAt: Timestamp.now(),
+    pointHistory: []
+};
 }
 
 // Extended interface for EventCriteria with the additional properties we need

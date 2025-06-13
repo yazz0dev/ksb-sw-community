@@ -2,7 +2,6 @@ import {
   collection, 
   doc, 
   getDoc, 
-  setDoc,
   updateDoc,
   deleteField,
   serverTimestamp,
@@ -281,48 +280,3 @@ export const updateEventRequestInService = async (
     throw new Error(`Failed to update event request ${eventId}: ${message}`);
   }
 };
-
-/**
- * Creates a new event document in Firestore (directly, not a request).
- * Typically for admin use.
- * @param eventData - The event form data.
- * @param userId - The UID of the user creating the event (admin).
- * @returns Promise<string> - The ID of the newly created event document.
- */
-export async function createEventInFirestore(eventData: EventFormData, userId: string): Promise<string> {
-    if (!userId) throw new Error('User ID is required to create an event.');
-    if (!eventData.details?.eventName?.trim()) throw new Error('Event name is required.');
-        
-    try {
-        const newEventRef = doc(collection(db, EVENTS_COLLECTION));
-        const newEventId = newEventRef.id;
-        const mappedData = mapEventDataToFirestore(eventData); // This will set lastUpdatedAt to serverTimestamp()
-
-        const dataToSubmit: Partial<EventBaseData> = { // Changed Event to EventBaseData
-            ...mappedData,
-            requestedBy: userId,
-            status: EventStatus.Approved,
-            votingOpen: false, 
-            organizerRatings: {},
-            submissions: [],
-            winners: {},
-            bestPerformerSelections: {},
-            lifecycleTimestamps: {
-                createdAt: serverTimestamp(),
-                approvedAt: serverTimestamp(),
-            }
-        };
-        
-        if (dataToSubmit.details) {
-            if (!dataToSubmit.details.organizers || dataToSubmit.details.organizers.length === 0) {
-                dataToSubmit.details.organizers = [userId];
-            }
-        }
-
-        await setDoc(newEventRef, dataToSubmit);
-        return newEventId;
-    } catch (error: any) {
-        console.error(`Error creating event request for user ${userId}:`, error);
-        throw new Error(`Failed to create event request: ${error.message || 'Unknown error'}`);
-    }
-}
