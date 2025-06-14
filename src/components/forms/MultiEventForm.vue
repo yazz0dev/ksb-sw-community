@@ -117,10 +117,11 @@
                 role="switch"
                 :id="`phaseAllowSubmission-${phase.id}`"
                 v-model="phase.allowProjectSubmission"
-                :disabled="isSubmitting"
+                :disabled="isSubmitting || props.isOverallCompetition"
               />
               <label class="form-check-label fw-medium" :for="`phaseAllowSubmission-${phase.id}`">
                 Allow Project Submissions for this Phase
+                <span v-if="props.isOverallCompetition" class="text-muted small ms-1">(Disabled: Project submissions are not allowed for individual phases when the overall MultiEvent is a competition.)</span>
               </label>
             </div>
           </div>
@@ -361,6 +362,17 @@ watch(() => props.modelValue, (newVal) => {
     initializeLocalPhases();
   }
 }, { deep: true });
+
+// Watch for isOverallCompetition changes to update phase submissions
+watch(() => props.isOverallCompetition, (isCompetition) => {
+  if (isCompetition) {
+    localPhases.value.forEach(phase => {
+      phase.allowProjectSubmission = false;
+    });
+  }
+  // If isCompetition becomes false, phase.allowProjectSubmission remains as is, user can enable it.
+  // The UI toggle will become enabled.
+}, { immediate: true }); // Immediate to run on component load
 
 // Enhanced validation with detailed error tracking
 const validationState = ref<{
