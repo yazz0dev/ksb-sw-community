@@ -2,84 +2,91 @@
 <template>
   <div
     v-if="event?.id"
-    class="card event-card h-100 shadow-sm border"
-    :class="{ 'bg-light opacity-75': isCancelledOrRejected }"
+    class="card event-card h-100 shadow-sm border-0"
+    :class="[
+      { 'bg-light opacity-75': isCancelledOrRejected },
+      { 'event-card--compact': displayMode === 'compact' },
+      { 'event-card--full': displayMode === 'full' }
+    ]"
   >
-    <div class="card-body d-flex flex-column p-3 p-md-4">
-      <!-- Header: Name & Status -->
-      <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
-        <h5
-          class="card-title h6 fw-bold mb-0 me-2 text-break"
-          :class="{
-            'text-secondary text-decoration-line-through': isCancelledOrRejected,
-            'text-primary': !isCancelledOrRejected
-          }"
-        >
-          {{ event.details?.eventName || 'Untitled Event' }}
-        </h5>
-        <span
-                        class="badge rounded-pill text-caption flex-shrink-0"
-          :class="getEventStatusBadgeClass(event.status)"
-        >
-          {{ event.status }}
+    <div class="card-body p-3 d-flex flex-column">
+      <!-- Header Row: Title and Status Badge -->
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div class="flex-grow-1 me-2">
+          <h6
+            class="card-title fw-bold mb-1 text-break lh-sm"
+            :class="{
+              'text-secondary text-decoration-line-through': isCancelledOrRejected,
+              'text-dark': !isCancelledOrRejected
+            }"
+          >
+            {{ event.details?.eventName || 'Untitled Event' }}
+          </h6>
+        </div>
+        <!-- Status Badge moved to header row -->
+        <div class="event-status">
+          <span class="badge rounded-pill text-xs" :class="getEventStatusBadgeClass(event.status)">
+            {{ event.status }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Event Type & Format Row -->
+      <div class="d-flex align-items-center flex-wrap gap-2 small text-muted mb-2">
+        <span class="d-flex align-items-center">
+          <i class="fas fa-tag fa-xs me-1"></i>{{ event.details?.type || 'N/A' }}
+        </span>
+        <span class="text-muted">•</span>
+        <span class="d-flex align-items-center">
+          <i class="fas fa-users fa-xs me-1"></i>{{ event.details?.format || 'N/A' }}
+        </span>
+        <span v-if="(event.details?.format === EventFormat.MultiEvent && event.details?.isCompetition && event.details?.prize) || (event.details?.format !== EventFormat.MultiEvent && event.details?.prize)" class="text-muted">•</span>
+        <span v-if="(event.details?.format === EventFormat.MultiEvent && event.details?.isCompetition && event.details?.prize) || (event.details?.format !== EventFormat.MultiEvent && event.details?.prize)" class="d-flex align-items-center text-warning">
+          <i class="fas fa-trophy fa-xs me-1"></i>Prize
         </span>
       </div>
 
-      <!-- Meta Info: Type, Format, Date, Prize -->
-      <div class="d-flex small text-secondary mb-3 flex-wrap event-meta">
-        <!-- Type -->
-        <div class="d-flex align-items-center" title="Event Type">
-            <i class="fas fa-tag fa-fw me-1 text-muted"></i>{{ event.details?.type || 'N/A' }}
+      <!-- Date and Organizer Row -->
+      <div class="d-flex justify-content-between align-items-center mb-2 small">
+        <div class="d-flex align-items-center text-muted">
+          <i class="fas fa-calendar-alt fa-xs me-1"></i>
+          <span>{{ formatDateRange(event.details?.date?.start, event.details?.date?.end) }}</span>
         </div>
-        <!-- Format -->
-        <div class="d-flex align-items-center" title="Event Format">
-            <i class="fas fa-users fa-fw me-1 text-muted"></i>{{ event.details?.format || 'N/A' }}
-        </div>
-         <!-- Prize (if Competition or MultiEvent with isCompetition) -->
-        <div v-if="(event.details?.format === EventFormat.MultiEvent && event.details?.isCompetition && event.details?.prize) || (event.details?.format !== EventFormat.MultiEvent && event.details?.prize)" class="d-flex align-items-center" title="Prize">
-            <i class="fas fa-trophy fa-fw me-1 text-warning"></i>
-            <span class="text-truncate prize-text">{{ event.details.prize }}</span>
-        </div>
-         <!-- Date -->
-        <div class="d-flex align-items-center" title="Date Range">
-            <i class="fas fa-calendar-alt fa-fw me-1 text-muted"></i>{{ formatDateRange(event.details?.date?.start, event.details?.date?.end) }}
-        </div>
-      </div>
-
-      <!-- Organizers -->
-      <div v-if="event.details?.organizers?.length" class="d-flex small text-secondary mb-3 organizers-info" title="Organizers">
-        <i class="fas fa-user-shield fa-fw text-muted"></i>
-        <div class="text-truncate">
-          {{ formatOrganizers }}
+        <div v-if="event.details?.organizers?.length" class="d-flex align-items-center text-muted">
+          <i class="fas fa-user-shield fa-xs me-1"></i>
+          <span class="text-truncate" style="max-width: 120px;">{{ formatOrganizers }}</span>
         </div>
       </div>
 
       <!-- Description -->
-      <div class="card-text small text-secondary mb-4 flex-grow-1 rendered-markdown" v-html="renderedDescriptionHtml"></div>
+      <div class="card-text small text-secondary mb-3 flex-grow-1">
+        <div class="rendered-markdown" v-html="renderedDescriptionHtml"></div>
+      </div>
 
-      <!-- Footer: Action & Participants -->
-      <div class="d-flex justify-content-between align-items-center mt-auto pt-3 border-top">
+      <!-- Footer: Action Button -->
+      <div class="mt-auto">
         <router-link
           :to="{ name: 'EventDetails', params: { id: event.id } }"
-          class="btn btn-primary btn-sm shadow-sm"
+          class="btn btn-outline-primary btn-sm w-100"
         >
-          View Details
+          <i class="fas fa-eye fa-xs me-1"></i>View Details
         </router-link>
       </div>
     </div>
   </div>
   <div v-else class="card h-100 border-light">
-      <div class="card-body d-flex align-items-center justify-content-center text-muted">
-           Event data unavailable.
-      </div>
+    <div class="card-body d-flex align-items-center justify-content-center text-muted">
+      <i class="fas fa-exclamation-triangle me-2"></i>
+      Event data unavailable.
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, type PropType, ref, watch } from 'vue';
-import { useProfileStore } from '@/stores/profileStore'; // Corrected import
+import { useProfileStore } from '@/stores/profileStore';
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, type Event, EventFormat } from '@/types/event'; // Added EventCriteria
+import { EventStatus, type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
@@ -91,10 +98,14 @@ const props = defineProps({
   nameCache: {
     type: Object as PropType<Record<string, string>>,
     default: () => ({})
+  },
+  displayMode: {
+    type: String as PropType<'compact' | 'full'>,
+    default: 'compact'
   }
 });
 
-const studentStore = useProfileStore(); // Corrected usage
+const studentStore = useProfileStore();
 const { renderMarkdown } = useMarkdownRenderer();
 
 const isCancelledOrRejected = computed(() =>
@@ -105,8 +116,9 @@ const isCancelledOrRejected = computed(() =>
 const renderedDescriptionHtml = ref('');
 
 async function processDescription(description: string | undefined) {
+    // Set different character limits based on display mode
+    const maxLen = props.displayMode === 'full' ? 160 : 120; // Increased from 120/80
     let desc = description || '';
-    const maxLen = 80;
     if (desc.length > maxLen) {
         desc = desc.substring(0, maxLen).trim() + '…';
     }
@@ -114,9 +126,13 @@ async function processDescription(description: string | undefined) {
     renderedDescriptionHtml.value = await renderMarkdown(desc);
 }
 
-watch(() => props.event?.details?.description, (newDesc) => {
-     processDescription(newDesc);
-}, { immediate: true });
+watch(
+  [() => props.event?.details?.description, () => props.displayMode], 
+  ([newDesc]) => {
+    processDescription(newDesc);
+  }, 
+  { immediate: true }
+);
 
 const formatDateRange = (start: any, end: any): string => {
   try {
@@ -137,7 +153,7 @@ const formatOrganizers = computed(() => {
   }
   const getName = (uid: string): string => {
     if (!uid) return 'Unknown';
-    const cachedName = studentStore.getCachedStudentName(uid); // Corrected method name
+    const cachedName = studentStore.getCachedStudentName(uid);
     return cachedName || 'Member';
   };
   const names = organizers.map(getName);
@@ -150,48 +166,326 @@ const formatOrganizers = computed(() => {
 </script>
 
 <style scoped>
+/* Base card styles */
 .event-card {
-  border-radius: var(--bs-border-radius-lg);
-  border-color: var(--bs-border-color);
-  background-color: var(--bs-card-bg);
+  border-radius: 0.75rem;
+  background: var(--bs-white);
+  border: 1px solid var(--bs-border-color-translucent) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
   overflow: hidden;
-  transition: all 0.2s ease-in-out;
+}
+
+/* Compact mode (for horizontal scrolling in HomeView) */
+.event-card--compact {
+  min-height: 180px; /* Reduced from 200px */
+  max-height: 260px; /* Reduced from 280px */
+}
+
+/* Full mode (for grid display in EventsListView) */
+.event-card--full {
+  min-height: 230px; /* Reduced from 250px */
+  max-height: 280px; /* Reduced from 300px */
 }
 
 .event-card:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: var(--bs-box-shadow-lg);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+  border-color: var(--bs-primary-border-subtle) !important;
 }
 
-.event-meta {
-  gap: 0.5rem 1rem;
+/* Card title styles */
+.card-title {
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  hyphens: auto;
 }
 
-.organizers-info {
-  gap: 0.5rem;
+.event-card--compact .card-title {
+  font-size: 1.1rem; /* Increased from 1rem */
 }
 
-.prize-text {
-  max-width: 150px;
+.event-card--full .card-title {
+  font-size: 1.15rem; /* Increased from 1.05rem */
+}
+
+/* Event status badge */
+.event-status {
+  display: flex;
+  align-items: flex-start;
+  margin-left: 0.5rem;
 }
 
 .badge {
-  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.event-card--compact .badge {
+  font-size: 0.75rem; /* Increased from 0.7rem */
+  padding: 0.3rem 0.5rem;
+}
+
+.event-card--full .badge {
+  font-size: 0.8rem; /* Increased from 0.75rem */
+  padding: 0.35rem 0.6rem;
+}
+
+/* Icon sizes */
+.fa-xs {
+  font-size: 0.75rem; /* Increased from 0.7rem */
+}
+
+.event-card--full .fa-xs {
+  font-size: 0.8rem; /* Increased from 0.75rem */
+}
+
+.text-xs {
+  font-size: 0.8rem; /* Increased from 0.75rem */
+}
+
+.event-card--full .text-xs {
+  font-size: 0.85rem; /* Increased from 0.8rem */
+}
+
+/* Description area */
+.rendered-markdown {
+  line-height: 1.45;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.event-card--compact .rendered-markdown {
+  font-size: 1.05rem; /* Increased from 1rem */
+  max-height: 5.4em; /* Adjusted from 5.6em */
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.event-card--full .rendered-markdown {
+  font-size: 0.975rem;
+  max-height: 5.6em;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  line-height: 1.5;
+}
+
+.rendered-markdown :deep(p) {
+  margin-bottom: 0.25rem;
 }
 
 .rendered-markdown :deep(p:last-child) {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .rendered-markdown :deep(ul),
 .rendered-markdown :deep(ol) {
-    margin-bottom: 0;
-    padding-left: 1.2rem;
+  margin-bottom: 0;
+  padding-left: 1rem;
+  font-size: inherit;
 }
 
-.text-break {
-   overflow-wrap: break-word;
-   word-wrap: break-word;
-   word-break: break-word;
+/* Button styles */
+.btn-outline-primary {
+  border-width: 1px;
+  white-space: nowrap;
+}
+
+.event-card--compact .btn-outline-primary {
+  font-size: 0.85rem; /* Increased from 0.8rem */
+  padding: 0.4rem 0.75rem;
+}
+
+.event-card--full .btn-outline-primary {
+  font-size: 0.9rem; /* Increased from 0.85rem */
+  padding: 0.45rem 0.8rem;
+}
+
+.btn-outline-primary:hover {
+  transform: none;
+}
+
+/* Responsive breakpoints - compact mode */
+@media (max-width: 992px) {
+  .event-card--compact {
+    min-height: 190px; /* Reduced from 210px */
+    max-height: 270px; /* Reduced from 290px */
+  }
+  
+  .event-card--compact .card-title {
+    font-size: 1.05rem;
+  }
+  
+  .event-card--compact .rendered-markdown {
+    font-size: 0.9rem; /* Increased from 0.85rem */
+    max-height: 5em; 
+  }
+}
+
+@media (max-width: 768px) {
+  .event-card--compact {
+    min-height: 190px; /* Reduced from 210px */
+    max-height: 270px; /* Reduced from 290px */
+  }
+  
+  .event-card--compact .card-title {
+    font-size: 1rem;
+  }
+  
+  .event-card--compact .rendered-markdown {
+    font-size: 0.9rem; /* Increased from 0.85rem */
+    max-height: 5.2em; /* Adjusted from 5.4em */
+  }
+  
+  .event-card--compact .btn-outline-primary {
+    font-size: 0.8rem; /* Increased from 0.75rem */
+    padding: 0.35rem 0.6rem;
+  }
+  
+  .event-card--compact .text-xs {
+    font-size: 0.75rem; /* Increased from 0.7rem */
+  }
+  
+  .event-card--compact .fa-xs {
+    font-size: 0.7rem; /* Increased from 0.65rem */
+  }
+}
+
+@media (max-width: 576px) {
+  .event-card--compact {
+    min-height: 230px; /* Reduced from 250px */
+    max-height: 310px; /* Reduced from 330px */
+  }
+  
+  .event-card--full {
+    min-height: 230px; /* Reduced from 250px */
+    max-height: 320px; /* Reduced from 340px */
+  }
+  
+  .event-card--compact .card-title,
+  .event-card--full .card-title {
+    font-size: 1rem;
+  }
+  
+  .event-card--compact .rendered-markdown {
+    font-size: 0.95rem; /* Increased from 0.9rem */
+    max-height: 7.2em; /* Adjusted from 7.6em, for 4 lines */
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    line-height: 1.5;
+  }
+  
+  .event-card--full .rendered-markdown {
+    font-size: 0.9rem;
+    max-height: 5.8em;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    line-height: 1.6;
+  }
+  
+  .event-card--compact .btn-outline-primary {
+    font-size: 0.8rem; /* Increased from 0.75rem */
+    padding: 0.35rem 0.7rem;
+  }
+  
+  .event-card--compact .badge {
+    font-size: 0.7rem; /* Increased from 0.65rem */
+    padding: 0.25rem 0.45rem;
+  }
+  
+  .event-card--compact .text-xs {
+    font-size: 0.7rem; /* Increased from 0.65rem */
+  }
+  
+  .event-card--compact .fa-xs {
+    font-size: 0.65rem; /* Increased from 0.6rem */
+  }
+}
+
+@media (max-width: 480px) {
+  .event-card--compact {
+    min-height: 230px; /* Reduced from 250px */
+    max-height: 310px; /* Reduced from 330px */
+  }
+  
+  .event-card--compact .card-title {
+    font-size: 0.9rem;
+    line-height: 1.3;
+  }
+  
+  .event-card--compact .rendered-markdown {
+    font-size: 0.85rem; /* Increased from 0.8rem */
+    max-height: 6.8em; /* Adjusted from 7em, for 4 lines */
+  }
+  
+  .event-card--compact .btn-outline-primary {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .event-card--compact {
+    min-height: 220px; /* Reduced from 240px */
+    max-height: 300px; /* Reduced from 320px */
+  }
+  
+  .event-card--compact .card-title {
+    font-size: 0.85rem;
+  }
+  
+  .event-card--compact .rendered-markdown {
+    font-size: 0.75rem; /* Increased from 0.7rem */
+    max-height: 6.0em; /* Adjusted from 6.5em, for 4 lines */
+  }
+  
+  .event-card--compact .btn-outline-primary {
+    font-size: 0.65rem;
+    padding: 0.25rem 0.5rem;
+  }
+  
+  .card-body {
+    padding: 0.75rem !important;
+  }
+}
+
+/* Touch improvements for mobile */
+@media (hover: none) and (pointer: coarse) {
+  .event-card:hover {
+    transform: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08) !important;
+  }
+  
+  .btn-outline-primary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .event-card {
+    border-width: 0.5px;
+  }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .event-card {
+    transition: none;
+  }
+  
+  .event-card:hover {
+    transform: none;
+  }
 }
 </style>

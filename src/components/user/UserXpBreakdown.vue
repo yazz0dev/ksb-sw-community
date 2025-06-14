@@ -1,7 +1,7 @@
 <template>
   <div class="section-card shadow-sm rounded-4 animate-fade-in">
     <!-- Header -->
-    <div class="section-header bg-warning-subtle text-warning-emphasis rounded-top-4 p-4 border-bottom">
+    <div class="section-header bg-warning-subtle text-warning-emphasis rounded-top-4 p-3 border-bottom">
       <div class="d-flex align-items-center justify-content-between">
         <div class="header-content d-flex align-items-center">
           <div class="header-icon me-3">
@@ -21,7 +21,7 @@
     </div>
 
     <!-- Content -->
-    <div class="card-body p-4">
+    <div class="card-body p-3">
       <!-- Loading State -->
       <div v-if="loading" class="loading-container text-center py-4">
         <div class="spinner-border spinner-border-sm text-warning mb-3" role="status">
@@ -47,7 +47,7 @@
           class="xp-role-item"
         >
           <!-- Role Header -->
-          <div class="role-header d-flex justify-content-between align-items-center mb-3">
+          <div class="role-header d-flex justify-content-between align-items-center mb-2">
             <div class="role-info d-flex align-items-center">
               <div class="role-icon me-3">
                 <i :class="getRoleIcon(roleKey)"></i>
@@ -60,7 +60,7 @@
           </div>
           
           <!-- Progress Bar -->
-          <div class="progress-container mb-2">
+          <div class="progress-container mb-1">
             <div class="progress role-progress" role="progressbar" :aria-valuenow="xpPercentage(xp)" aria-valuemin="0" aria-valuemax="100">
               <div 
                 class="progress-bar progress-bar-striped" 
@@ -204,13 +204,13 @@ const getProgressBarClass = (roleKey: string): string => {
 .xp-breakdown-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .xp-role-item {
   background: var(--bs-light);
   border-radius: var(--bs-border-radius-lg);
-  padding: 1.25rem;
+  padding: 1rem;
   border: 1px solid var(--bs-border-color-translucent);
   transition: all 0.3s ease;
 }
@@ -286,7 +286,7 @@ const getProgressBarClass = (roleKey: string): string => {
 /* Responsive Design */
 @media (max-width: 768px) {
   .section-header {
-    padding: 1rem !important;
+    padding: 0.75rem !important;
   }
   
   .header-content {
@@ -306,22 +306,22 @@ const getProgressBarClass = (roleKey: string): string => {
   }
   
   .card-body {
-    padding: 1rem !important;
+    padding: 0.75rem !important;
   }
   
   .xp-breakdown-grid {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 0.75rem;
   }
   
   .xp-role-item {
-    padding: 1rem;
+    padding: 0.75rem;
   }
   
   .role-header {
     flex-direction: column;
     align-items: flex-start !important;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
   
   .role-info {
@@ -348,7 +348,7 @@ const getProgressBarClass = (roleKey: string): string => {
   .section-header .d-flex {
     flex-direction: column;
     align-items: flex-start !important;
-    gap: 1rem;
+    gap: 0.75rem;
   }
   
   .header-badge {
@@ -356,21 +356,21 @@ const getProgressBarClass = (roleKey: string): string => {
   }
   
   .xp-breakdown-grid {
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
   
   .xp-role-item {
-    padding: 0.875rem;
+    padding: 0.65rem;
   }
   
   .role-header {
-    margin-bottom: 0.75rem !important;
+    margin-bottom: 0.5rem !important;
   }
   
   .role-info .d-flex {
     flex-direction: column;
     align-items: flex-start !important;
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
   
   .role-icon {
@@ -378,7 +378,7 @@ const getProgressBarClass = (roleKey: string): string => {
   }
   
   .progress-container {
-    margin-bottom: 0.5rem !important;
+    margin-bottom: 0.25rem !important;
   }
 }
 

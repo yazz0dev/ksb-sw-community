@@ -42,7 +42,7 @@
             <h2 class="h4 text-gradient-primary mb-4">Upcoming Events</h2>
             <div v-if="upcomingEvents.length > 0" class="row g-4">
               <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" :name-cache="nameCache" />
+                <EventCard :event="event" :name-cache="nameCache" display-mode="full" />
               </div>
             </div>
             <p v-else class="text-muted">No upcoming events.</p>
@@ -54,7 +54,7 @@
             <h2 class="h4 text-gradient-primary mb-4">Active Events</h2>
             <div v-if="activeEvents.length > 0" class="row g-4">
               <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" :name-cache="nameCache" />
+                <EventCard :event="event" :name-cache="nameCache" display-mode="full" />
               </div>
             </div>
             <p v-else class="text-muted">No active events.</p>
@@ -66,7 +66,7 @@
             <h2 class="h4 text-gradient-primary mb-4">Completed Events</h2>
             <div v-if="completedEvents.length > 0" class="row g-4">
               <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
-                <EventCard :event="event" :name-cache="nameCache" />
+                <EventCard :event="event" :name-cache="nameCache" display-mode="full" />
               </div>
             </div>
             <p v-else class="text-muted">No completed events.</p>
@@ -79,7 +79,7 @@
           <h2 class="h4 text-gradient-primary mb-4">Upcoming Events</h2>
           <div v-if="upcomingEvents.length > 0" class="row g-4">
             <div v-for="event in upcomingEvents" :key="event.id" class="col-md-6 col-lg-4">
-              <EventCard :event="event" :name-cache="nameCache" />
+              <EventCard :event="event" :name-cache="nameCache" display-mode="full" />
             </div>
           </div>
           <p v-else class="text-muted">No upcoming events.</p>
@@ -89,7 +89,7 @@
           <h2 class="h4 text-gradient-primary mb-4">Ongoing Events</h2>
           <div v-if="activeEvents.length > 0" class="row g-4"> {/* activeEvents for unauth will only contain 'Approved' current events */}
             <div v-for="event in activeEvents" :key="event.id" class="col-md-6 col-lg-4">
-              <EventCard :event="event" :name-cache="nameCache" />
+              <EventCard :event="event" :name-cache="nameCache" display-mode="full" />
             </div>
           </div>
           <p v-else class="text-muted">No ongoing events currently.</p>
@@ -99,7 +99,7 @@
           <h2 class="h4 text-gradient-primary mb-4">Completed Events</h2>
           <div v-if="completedEvents.length > 0" class="row g-4">
             <div v-for="event in completedEvents" :key="event.id" class="col-md-6 col-lg-4">
-              <EventCard :event="event" :name-cache="nameCache" />
+              <EventCard :event="event" :name-cache="nameCache" display-mode="full" />
             </div>
           </div>
           <p v-else class="text-muted">No completed events to display.</p>
@@ -296,6 +296,73 @@ onMounted(async () => {
 @media (min-width: 992px) {
   .events-list-section {
     min-height: calc(100vh - var(--navbar-height-desktop));
+  }
+}
+
+/* Styles for EventCard within EventsListView */
+.col-md-6 :deep(.event-card),
+.col-lg-4 :deep(.event-card) {
+  min-height: 250px; /* Match EventCard's full min-height */
+  max-height: 300px; /* Match EventCard's full max-height */
+}
+
+.col-md-6 :deep(.card-title),
+.col-lg-4 :deep(.card-title) {
+  font-size: 1.15rem; /* Match EventCard's full title font size */
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.col-md-6 :deep(.rendered-markdown),
+.col-lg-4 :deep(.rendered-markdown) {
+  font-size: 0.925rem; /* Match EventCard's full description font size */
+  max-height: 5.4em;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  line-height: 1.5;
+}
+
+.col-md-6 :deep(.text-xs),
+.col-lg-4 :deep(.text-xs) {
+  font-size: 0.85rem; /* Match EventCard's full text size */
+}
+
+.col-md-6 :deep(.fa-xs),
+.col-lg-4 :deep(.fa-xs) {
+  font-size: 0.8rem; /* Match EventCard's full icon size */
+}
+
+.col-md-6 :deep(.badge),
+.col-lg-4 :deep(.badge) {
+  font-size: 0.8rem; /* Match EventCard's full badge font size */
+  padding: 0.35rem 0.6rem;
+}
+
+.col-md-6 :deep(.btn-outline-primary),
+.col-lg-4 :deep(.btn-outline-primary) {
+  font-size: 0.9rem; /* Match EventCard's full button text size */
+}
+
+/* Further adjustments for very small screens if cards are still too cramped */
+@media (max-width: 576px) {
+  .col-md-6 :deep(.event-card),
+  .col-lg-4 :deep(.event-card) {
+    min-height: 250px; /* Match EventCard's mobile full min-height */
+    max-height: 340px; /* Match EventCard's mobile full max-height */
+  }
+
+  .col-md-6 :deep(.card-title),
+  .col-lg-4 :deep(.card-title) {
+    font-size: 1rem; /* Match EventCard's mobile full title font size */
+  }
+
+  .col-md-6 :deep(.rendered-markdown),
+  .col-lg-4 :deep(.rendered-markdown) {
+    font-size: 0.85rem; /* Match EventCard's mobile full description font size */
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    max-height: 5.8em;
+    line-height: 1.6;
   }
 }
 </style>

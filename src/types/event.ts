@@ -37,7 +37,7 @@ export interface EventPhase {
   
   rules?: string | null; // Make sure this is string | null and not undefined
   prize?: string | null; // Prize for this specific phase
-  allowProjectSubmission: boolean;
+  allowProjectSubmission: boolean; // Ensure this is always boolean, not nullable
   
   // Dates for phases are typically relative to parent or sequential, not absolute standalone dates.
   // For simplicity, not adding separate start/end here; they'd be managed by parent event's timeline.

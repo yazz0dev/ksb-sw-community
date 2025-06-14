@@ -2,7 +2,7 @@
   <div class="section-card shadow-sm rounded-4 animate-fade-in">
     <div class="card-body p-3 p-md-4">
       <!-- Profile Photo Section -->
-      <div class="text-center mb-4">
+      <div class="text-center mb-3"> <!-- mb-4 to mb-3 -->
         <div class="profile-photo-container position-relative d-inline-block">
           <img
             :src="optimizedProfilePhotoUrl"
@@ -29,20 +29,12 @@
       </div>
 
       <!-- User Name & Edit Button (moved outside the photo container) -->
-      <div class="text-center mb-4">
+      <div class="text-center mb-3"> <!-- mb-4 to mb-3 -->
         <h1 class="h4 fw-bold text-dark mb-2">{{ user.name || 'User Profile' }}</h1>
-
-        <button
-          v-if="isCurrentUser"
-          @click="emitEditProfile"
-          class="btn btn-outline-primary btn-sm d-inline-flex align-items-center"
-        >
-          <i class="fas fa-edit me-2"></i>Edit Profile
-        </button>
       </div>
 
       <!-- Social Links Section -->
-      <div v-if="hasSocialLinks" class="social-links-section mb-4">
+      <div v-if="hasSocialLinks" class="social-links-section mb-3"> <!-- mb-4 to mb-3 -->
         <div class="d-flex flex-wrap justify-content-center gap-2">
           <a
             v-if="user.socialLinks?.portfolio"
@@ -79,7 +71,7 @@
       </div>
 
       <!-- Bio Section -->
-      <div class="bio-section mb-4 text-center">
+      <div class="bio-section mb-3 text-center"> <!-- mb-4 to mb-3 -->
         <div class="bio-container d-inline-block text-start p-3 bg-light rounded-3">
           <i class="fas fa-quote-left text-secondary me-1 opacity-50"></i>
           <span v-if="user.bio" class="text-secondary small">{{ user.bio }}</span>
@@ -88,10 +80,10 @@
       </div>
 
       <!-- Skills & Equipment -->
-      <div class="border-top border-bottom py-3 my-4">
-        <div class="row g-3">
+      <div class="border-top border-bottom py-2 my-3"> <!-- py-3 my-4 to py-2 my-3 -->
+        <div class="row g-2"> <!-- g-3 to g-2 -->
             <!-- Skills Section -->
-            <div v-if="user.skills && user.skills.length > 0" class="col-12 col-md-6 border-end-md">
+            <div v-if="user.skills && user.skills.length > 0" class="col-6 border-end">
                 <div class="info-section-header mb-2 text-center text-md-start">
                   <i class="fas fa-code text-primary me-2"></i>
                   <span class="fw-semibold text-dark small text-uppercase">Skills</span>
@@ -107,26 +99,28 @@
                 </div>
             </div>
              <!-- Equipment Section -->
-            <div :class="user.skills && user.skills.length > 0 ? 'col-12 col-md-6' : 'col-12'">
-                <div class="info-section-header mb-2 text-center text-md-start">
-                  <i class="fas fa-laptop text-primary me-2"></i>
-                  <span class="fw-semibold text-dark small text-uppercase">Equipment</span>
-                </div>
-                <div class="equipment-status text-center text-md-start">
-                  <span
-                    class="equipment-badge badge border"
-                    :class="user.hasLaptop ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'"
-                  >
-                    <i :class="['fas', user.hasLaptop ? 'fa-check-circle' : 'fa-times-circle', 'me-1']"></i>
-                    {{ user.hasLaptop ? 'Has Laptop' : 'No Laptop' }}
-                  </span>
+            <div :class="user.skills && user.skills.length > 0 ? 'col-6' : 'col-12'">
+                <div class="d-flex flex-column align-items-center align-items-md-start">
+                  <div class="info-section-header mb-1 text-center text-md-start"> 
+                    <i class="fas fa-laptop text-primary me-2"></i>
+                    <span class="fw-semibold text-dark small text-uppercase">Equipment</span>
+                  </div>
+                  <div class="equipment-status"> 
+                    <span
+                      class="equipment-badge badge border"
+                      :class="user.hasLaptop ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'"
+                    >
+                      <i :class="['fas', user.hasLaptop ? 'fa-check-circle' : 'fa-times-circle', 'me-1']"></i>
+                      {{ user.hasLaptop ? 'Has Laptop' : 'No Laptop' }}
+                    </span>
+                  </div>
                 </div>
             </div>
         </div>
       </div>
 
       <!-- Stats Section -->
-      <div class="stats-section mb-4">
+      <div class="stats-section mb-3"> <!-- mb-4 to mb-3 -->
         <div class="stats-grid">
           <div class="stat-item text-center">
             <div class="stat-value bg-primary-subtle text-primary-emphasis rounded-3 p-3 mb-2">
@@ -472,6 +466,13 @@ onMounted(() => {
 .profile-photo-container:hover .photo-overlay {
   opacity: 1;
 }
+
+@media (min-width: 768px) {
+    .border-end-md {
+        border-right: 1px solid var(--bs-border-color);
+    }
+}
+
 
 @media (min-width: 768px) {
     .border-end-md {

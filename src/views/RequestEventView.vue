@@ -679,25 +679,25 @@ onMounted(async () => {
     } else {
       hasActiveRequest.value = await eventStore.checkExistingPendingRequest();
       
-      // Initialize formData with proper defaults for new events
+      // Initialize formData with proper defaults for new events, defaulting to Team format
       formData.value = {
         details: {
           eventName: '',
           description: '',
-          isCompetition: false,
-          format: EventFormat.Individual,
-          type: '', // Ensure type is always a string
-          allowProjectSubmission: false,
+          isCompetition: false, // Team format typically isn't a "competition" in the same way as Individual/MultiEvent
+          format: EventFormat.Team, // Default to Team format
+          type: '', // Ensure type is always a string, user will select
+          allowProjectSubmission: true, // Default for Team format
           organizers: profileStore.studentId ? [profileStore.studentId] : [],
-          coreParticipants: [],
+          coreParticipants: [], // Cleared for Team format
           date: { start: null, end: null },
           rules: null,
           prize: null,
-          phases: [],
+          phases: [], // Cleared for Team format
         },
-        participants: [],
-        criteria: [],
-        teams: [],
+        participants: [], // Cleared for Team format (managed by ManageTeamsComponent)
+        criteria: [], // Criteria are still applicable
+        teams: [], // Teams will be configured
         status: EventStatus.Pending,
         votingOpen: false,
       };

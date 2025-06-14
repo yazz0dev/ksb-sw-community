@@ -67,7 +67,7 @@
       
       <!-- Main Profile Content -->
       <div v-else-if="viewedUser" class="profile-content animate-fade-in">
-        <div class="row g-4 g-lg-5">
+        <div class="row g-3 g-lg-4"> <!-- g-4 g-lg-5 to g-3 g-lg-4 -->
           <!-- Left Column (Sidebar) -->
           <div class="col-12 col-lg-4">
             <div class="profile-sidebar sticky-lg-top">
@@ -83,7 +83,7 @@
 
           <!-- Right Column (Main Details) -->
           <div class="col-12 col-lg-8">
-            <div class="profile-details d-flex flex-column gap-3 gap-md-4">
+            <div class="profile-details d-flex flex-column gap-2 gap-md-3"> <!-- gap-3 gap-md-4 to gap-2 gap-md-3 -->
               <!-- XP Breakdown -->
               <div v-if="hasXpData" class="xp-section animate-fade-in" style="animation-delay: 0.2s">
                 <UserXpBreakdown :xp-data="filteredXpData" />
@@ -102,11 +102,7 @@
               <!-- Additional Content for Current User -->
               <div v-if="isCurrentUser" class="additional-content animate-fade-in" style="animation-delay: 0.5s">
                   <AuthGuard>
-                    <div class="card">
-                      <div class="card-body p-0">
-                        <UserRequests />
-                      </div>
-                    </div>
+                    <UserRequests />
                   </AuthGuard>
               </div>
             </div>

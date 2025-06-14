@@ -395,10 +395,10 @@ watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
 <style scoped>
 /* Container */
 .user-requests-container {
-  margin: 1rem 0;
+  /* margin: 1rem 0; Removed */
   
   @media (min-width: 768px) {
-    margin: 1.5rem 0;
+    /* margin: 1.5rem 0; Removed */
   }
 }
 

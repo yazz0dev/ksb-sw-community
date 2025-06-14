@@ -66,7 +66,6 @@
                   :value="EventFormat.Individual" 
                   v-model="phase.format" 
                   :disabled="isSubmitting"
-                  @change="emit('update:modelValue', localPhases)"
                 >
                 <label class="form-check-label" :for="`formatIndividual-${phase.id}`">Individual</label>
               </div>
@@ -79,7 +78,6 @@
                   :value="EventFormat.Team" 
                   v-model="phase.format" 
                   :disabled="isSubmitting"
-                  @change="emit('update:modelValue', localPhases)"
                 >
                 <label class="form-check-label" :for="`formatTeam-${phase.id}`">Team</label>
               </div>
@@ -192,36 +190,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, type PropType } from 'vue';
+import { ref, watch, computed, onUnmounted, type PropType } from 'vue';
 import { EventFormat, type EventPhase, type Team, type EventCriteria, type EventFormData } from '@/types/event';
 import type { UserData } from '@/types/student';
 import EventParticipantForm from '@/components/forms/EventParticipantForm.vue';
 import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import EventCriteriaForm from '@/components/forms/EventCriteriaForm.vue';
 import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
-import { teamEventTypes } from '@/utils/eventTypes';
-import { individualEventTypes } from '@/utils/eventTypes';
 
 // Constants
-const MAX_PARTICIPANTS_PER_PHASE = 50; // Maximum participants per phase
+const MAX_PARTICIPANTS_PER_PHASE = 50;
 const assignableXpRoles = ['developer', 'designer', 'presenter', 'problemSolver'];
 
 const props = defineProps({
   modelValue: {
     type: Array as PropType<EventPhase[]>,
     default: () => [],
+    required: true,
   },
   isSubmitting: {
     type: Boolean,
     default: false,
   },
-  isOverallCompetition: { // New prop
+  isOverallCompetition: {
     type: Boolean,
     default: false,
   },
-  allUsers: { // Prop for participant selection within phases
+  allUsers: {
     type: Array as PropType<UserData[]>,
     default: () => [],
+    required: true,
   },
   nameCache: {
     type: Object as PropType<Record<string, string>>,
@@ -230,13 +228,46 @@ const props = defineProps({
 });
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: EventPhase[]): void;
-  (e: 'submit'): void;
-  (e: 'error', message: string): void;
-  (e: 'validity-change', isValid: boolean): void;
+  'update:modelValue': [value: EventPhase[]];
+  'submit': [];
+  'error': [message: string];
+  'validity-change': [isValid: boolean];
 }>();
 
-const localPhases = ref<EventPhase[]>(props.modelValue.map(phase => ({ ...phase })));
+const localPhases = ref<EventPhase[]>([]);
+const validityTimeout = ref<number | null>(null);
+
+// Initialize localPhases properly
+const initializeLocalPhases = () => {
+  localPhases.value = (props.modelValue || []).map(phase => ({ 
+    ...phase,
+    id: phase.id || crypto.randomUUID(),
+    participants: phase.participants || [],
+    coreParticipants: phase.coreParticipants || [],
+    criteria: phase.criteria || [],
+    teams: phase.teams || [],
+    type: phase.type || '',
+    rules: phase.rules ?? null,
+    prize: phase.prize ?? null,
+    allowProjectSubmission: Boolean(phase.allowProjectSubmission)
+  }));
+};
+
+// Initialize on mount
+initializeLocalPhases();
+
+// Helper function to get event types based on phase format
+const getEventTypesForFormat = (format: EventFormat): string[] => {
+  // You'll need to import these from your event types utility
+  // For now, returning basic arrays - replace with actual imports
+  switch (format) {
+    case EventFormat.Team: 
+      return ['Hackathon', 'Project Competition', 'Case Study', 'Design Challenge'];
+    case EventFormat.Individual:
+    default: 
+      return ['Quiz', 'Presentation', 'Code Challenge', 'Interview'];
+  }
+};
 
 // Helper function to convert EventPhase to EventFormData['details'] for EventBasicDetailsForm
 const getPhaseAsEventDetails = (phase: EventPhase): EventFormData['details'] => {
@@ -247,10 +278,11 @@ const getPhaseAsEventDetails = (phase: EventPhase): EventFormData['details'] => 
     type: phase.type,
     organizers: [], // Not used for phases
     coreParticipants: phase.coreParticipants || [],
-    allowProjectSubmission: phase.allowProjectSubmission,
+    allowProjectSubmission: Boolean(phase.allowProjectSubmission),
     date: { start: null, end: null }, // Dates managed at parent level
     rules: phase.rules,
-    prize: phase.prize
+    prize: phase.prize,
+    isCompetition: false // Default for phases
   };
 };
 
@@ -325,24 +357,19 @@ const handleError = (message: string) => {
 
 // Watch for external changes to modelValue prop
 watch(() => props.modelValue, (newVal) => {
-  localPhases.value = newVal.map(phase => ({ ...phase }));
+  if (newVal && Array.isArray(newVal)) {
+    initializeLocalPhases();
+  }
 }, { deep: true });
 
-// Helper function to get event types based on phase format
-const getEventTypesForFormat = (format: EventFormat) => {
-  switch (format) {
-    case EventFormat.Team: return teamEventTypes;
-    case EventFormat.Individual:
-    default: return individualEventTypes;
-  }
-};
-
 // Enhanced validation with detailed error tracking
-const validationState = ref({
-  phases: [] as Array<{
+const validationState = ref<{
+  phases: Array<{
     isValid: boolean;
     errors: string[];
   }>
+}>({
+  phases: []
 });
 
 // Add validation computed property with detailed phase validation
@@ -352,7 +379,7 @@ const isFormValid = computed(() => {
   }
   
   // Update validation state for each phase
-  validationState.value.phases = localPhases.value.map((phase) => {
+  validationState.value.phases = localPhases.value.map((phase: EventPhase) => {
     const errors: string[] = [];
     
     // Basic details validation
@@ -426,7 +453,7 @@ const validationSummary = computed(() => {
 });
 
 // Enhanced phase validation handlers
-const validatePhase = (phaseIndex: number) => {
+const validatePhase = (phaseIndex: number): boolean => {
   const phase = localPhases.value[phaseIndex];
   if (!phase) return false;
   
@@ -452,15 +479,14 @@ const validatePhase = (phaseIndex: number) => {
 };
 
 // Watch form validity and emit changes with debouncing
-let validityTimeout: number | null = null;
 watch(isFormValid, (newValid) => {
-  if (validityTimeout) {
-    clearTimeout(validityTimeout);
+  if (validityTimeout.value) {
+    clearTimeout(validityTimeout.value);
   }
   
-  validityTimeout = setTimeout(() => {
+  validityTimeout.value = window.setTimeout(() => {
     emit('validity-change', newValid);
-  }, 100); // Debounce validation emissions
+  }, 100);
 }, { immediate: true });
 
 // Enhanced phase management
@@ -496,9 +522,17 @@ const removePhase = (index: number) => {
 
 // Enhanced phase format change handler
 watch(localPhases, (phases) => {
-  phases.forEach((phase) => {
+  if (!Array.isArray(phases)) return;
+  
+  phases.forEach((phase: EventPhase) => {
+    // Ensure phase has required properties
+    if (!phase.id) {
+      phase.id = crypto.randomUUID();
+    }
+    
     // Reset type if it's not valid for the current format
-    if (phase.type && !getEventTypesForFormat(phase.format).includes(phase.type)) {
+    const validTypes = getEventTypesForFormat(phase.format);
+    if (phase.type && !validTypes.includes(phase.type)) {
       phase.type = '';
     }
     
@@ -511,6 +545,9 @@ watch(localPhases, (phases) => {
     if (phase.format === EventFormat.Team) {
       phase.coreParticipants = [];
     }
+
+    // Ensure boolean properties are correctly typed
+    phase.allowProjectSubmission = Boolean(phase.allowProjectSubmission);
   });
   
   // Emit updated phases
@@ -518,11 +555,9 @@ watch(localPhases, (phases) => {
 }, { deep: true });
 
 // Add cleanup on unmount
-import { onUnmounted } from 'vue';
-
 onUnmounted(() => {
-  if (validityTimeout) {
-    clearTimeout(validityTimeout);
+  if (validityTimeout.value) {
+    clearTimeout(validityTimeout.value);
   }
 });
 
