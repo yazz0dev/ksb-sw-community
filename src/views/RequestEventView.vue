@@ -568,6 +568,22 @@ async function handleSubmitForm() {
   isSubmitting.value = true;
 
   try {
+    // New Validation for MultiEvent Competition Prize
+    if (
+      formData.value.details.format === EventFormat.MultiEvent &&
+      formData.value.details.isCompetition === true
+    ) {
+      const topLevelPrizeSet = !!formData.value.details.prize?.trim();
+      const phasePrizes = formData.value.details.phases || [];
+      const atLeastOnePhasePrizeSet = phasePrizes.some(phase => !!phase.prize?.trim());
+
+      if (!topLevelPrizeSet && !atLeastOnePhasePrizeSet) {
+        throw new Error(
+          "For a MultiEvent competition, a prize must be specified for the overall event or for at least one of its phases."
+        );
+      }
+    }
+
     // Data cleanup based on format
     const submissionData = JSON.parse(JSON.stringify(formData.value));
     
@@ -778,6 +794,30 @@ watch(() => formData.value?.details?.format, (newFormat, oldFormat) => {
     setTimeout(() => { teamsComponentReady.value = true; }, 0);
   }
 }, { immediate: false });
+
+// Watcher for format and isCompetition changes to enforce rules
+watch(() => [formData.value.details.format, formData.value.details.isCompetition], ([newFormat, newIsCompetition], [oldFormat, oldIsCompetition]) => {
+  if (newFormat === EventFormat.MultiEvent) {
+    // Rule: Top-level allowProjectSubmission for MultiEvents is always false (submissions are per-phase)
+    // This is already set by the format watcher, but we re-affirm it here.
+    if (formData.value.details.allowProjectSubmission !== false) {
+      formData.value.details.allowProjectSubmission = false;
+    }
+
+    if (newIsCompetition === false) {
+      // Rule: If a MultiEvent is not a competition, it cannot have an overall prize.
+      if (formData.value.details.prize !== null) {
+        formData.value.details.prize = null;
+      }
+    }
+    // If newIsCompetition is true, user can set a prize. Validation for this is in handleSubmitForm.
+    // UI for prize input and allowProjectSubmission in EventBasicDetailsForm should be
+    // enabled/disabled by EventBasicDetailsForm itself based on format and isCompetition.
+  }
+
+  // If format changed from MultiEvent to something else, or isCompetition changed for non-MultiEvent,
+  // existing watchers in EventBasicDetailsForm should handle resetting prize/submission if needed.
+}, { deep: true, immediate: false }); // immediate: false to avoid running on initial setup before all child components might be ready
 
 // Add this at the beginning of the script to ensure participants is always an array
 watch(() => formData.value, (newValue) => {

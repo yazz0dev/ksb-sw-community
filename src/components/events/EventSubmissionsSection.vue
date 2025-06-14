@@ -7,7 +7,7 @@
           <i class="fas fa-code-branch text-info me-2 h5"></i>
           <h5 class="mb-0 fw-semibold text-info-emphasis">Project Submissions</h5>
         </div>
-        <button v-if="canSubmitProject" class="btn btn-info btn-sm" @click="openSubmissionModal">
+        <button v-if="displayCanSubmitProject" class="btn btn-info btn-sm" @click="openSubmissionModal">
           <i class="fas fa-plus me-1"></i>Submit
         </button>
       </div>
@@ -181,7 +181,7 @@
 
 <script setup lang="ts">
 import type { Event, Team, Submission } from '@/types/event';
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useEvents } from '@/composables/useEvents';
 
 // Add submission form interfaces and types
@@ -209,6 +209,16 @@ const emit = defineEmits(['submission-success']);
 
 // Composables
 const { submitProject } = useEvents();
+
+// Computed property to determine if submission button should be shown
+const displayCanSubmitProject = computed(() => {
+  // New condition: If the event is a competition, no project submissions are allowed directly from this section.
+  if (props.event.details.isCompetition) {
+    return false;
+  }
+  // Otherwise, rely on the canSubmitProject prop passed by the parent.
+  return props.canSubmitProject;
+});
 
 // Submission modal state
 const submissionModalRef = ref<HTMLElement | null>(null);

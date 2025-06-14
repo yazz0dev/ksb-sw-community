@@ -43,6 +43,8 @@ export interface XPPointHistoryItem {
   role: XpCalculationRoleKey;
   points: number;
   awardedAt: Timestamp;
+  phaseId?: string; // Optional: ID of the phase if XP awarded for a specific phase
+  phaseName?: string; // Optional: Name of the phase for display purposes
 }
 
 
