@@ -93,7 +93,7 @@ export const createEventRequest = async (
 
     const mappedData = mapEventDataToFirestore(formData);
     
-    const dataToSubmit: any = {
+    const dataToSubmit: Record<string, unknown> = { // Changed from any
       ...mappedData,
       requestedBy: studentId,
       status: EventStatus.Pending, // Child events also go through approval
@@ -175,7 +175,7 @@ export const createEventRequest = async (
     });
     
     return newEventId;
-  } catch (error) {
+  } catch (error: unknown) { // Changed from implicit any
     const message = error instanceof Error ? error.message : 'Unknown error during event creation.';
     console.error('Error creating event request:', message, error);
     throw new Error(`Failed to create event request: ${message}`);
@@ -249,7 +249,7 @@ export const updateEventRequestInService = async (
     }
 
     const mappedUpdates = mapEventDataToFirestore(formData); // This will set lastUpdatedAt to serverTimestamp()
-    const updatesToApply: any = { ...mappedUpdates };
+    const updatesToApply: Record<string, unknown> = { ...mappedUpdates }; // Changed from any
 
     // Remove protected fields
     delete updatesToApply.status;
@@ -274,7 +274,7 @@ export const updateEventRequestInService = async (
     
     await updateDoc(eventRef, updatesToApply);
 
-  } catch (error) {
+  } catch (error: unknown) { // Changed from implicit any
     const message = error instanceof Error ? error.message : 'Unknown error during event update.';
     console.error(`Error updating event request ${eventId}:`, message);
     throw new Error(`Failed to update event request ${eventId}: ${message}`);

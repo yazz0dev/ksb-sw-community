@@ -321,20 +321,8 @@ const getIconColorClass = (color: Feature['color']): string => {
   font-weight: 700;
 }
 
-.animate-pop {
-  animation: pop-in 0.7s cubic-bezier(.23,1.01,.32,1) both;
-}
-
-@keyframes pop-in {
-  0% { 
-    opacity: 0; 
-    transform: scale(0.95);
-  }
-  100% { 
-    opacity: 1; 
-    transform: scale(1);
-  }
-}
+/* .animate-pop class is global and uses popIn keyframes from _animations.scss */
+/* Local @keyframes pop-in and .animate-pop class definition removed. */
 
 /* Features Section */
 .features-section {
@@ -622,40 +610,8 @@ const getIconColorClass = (color: Feature['color']): string => {
 }
 
 /* Animations */
-.fade-slide-down-enter-active,
-.fade-slide-up-enter-active,
-.fade-slide-left-enter-active,
-.fade-slide-right-enter-active {
-  transition: all 0.7s cubic-bezier(.23,1.01,.32,1);
-}
-
-.fade-slide-down-enter-from {
-  opacity: 0;
-  transform: translateY(-40px);
-}
-
-.fade-slide-up-enter-from {
-  opacity: 0;
-  transform: translateY(40px);
-}
-
-.fade-slide-left-enter-from {
-  opacity: 0;
-  transform: translateX(-40px);
-}
-
-.fade-slide-right-enter-from {
-  opacity: 0;
-  transform: translateX(40px);
-}
-
-.fade-slide-down-enter-to,
-.fade-slide-up-enter-to,
-.fade-slide-left-enter-to,
-.fade-slide-right-enter-to {
-  opacity: 1;
-  transform: none;
-}
+/* Local Vue transition definitions for fade-slide-* removed. */
+/* They are globally available from _animations.scss. */
 
 /* About Section Enhancements */
 .about-section {

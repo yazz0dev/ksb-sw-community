@@ -15,33 +15,41 @@ export interface SocialLinks {
 }
 
 // --- Base Student Data Interface (Represents the object stored under students/{studentUid}) ---
-export interface StudentProfileData { 
-  name: string | null;        // Should be required, with fallback for display
-  studentId?: string | undefined;         // College student ID (Optional)
-  batchYear?: number | undefined;         // Numeric batch year (e.g., 2023, 2024) - Now a field
-  batch?: string | undefined;             // String batch year (e.g., "2023") - Now a field
+// export interface StudentProfileData { ... } // Original definition commented out or removed
+// StudentProfileData is now an alias for StudentDbData for backward compatibility or phased refactoring.
+export type StudentProfileData = StudentDbData;
 
+// --- Student Data Hierarchy ---
+
+// Step 1: StudentDbData - Raw data from Firestore students/{uid} document
+// (Derived from the existing StudentProfileData, ensuring no uid/email)
+export interface StudentDbData {
+  name: string | null;
+  studentId?: string | undefined;
+  batchYear?: number | undefined;
+  batch?: string | undefined; // Consider making this derived from batchYear if possible
   photoURL?: string | null | undefined;
   bio?: string | undefined;
-  skills?: string[] | undefined;          // Self-reported
-  hasLaptop?: boolean | undefined;        // Default to false if not set
-
-  socialLinks?: SocialLinks | undefined; // Allow undefined for the object itself
-
-  // Fields like uid, email, createdAt, lastUpdatedAt are not stored in this nested object.
-  // uid is the document ID (students/{uid})
-  // email is available via Auth.
+  skills?: string[] | undefined;
+  hasLaptop?: boolean | undefined;
+  socialLinks?: SocialLinks | undefined;
+  // Add any other fields that are directly part of the student document in Firestore
+  // Excludes uid, email (from Auth), xpData (separate collection)
 }
 
-// --- Enriched Student Data (StudentProfileData + XPData + context like UID, email) ---
-// This is what's typically constructed in the application layer when a full student profile is needed.
-export interface EnrichedStudentData extends StudentProfileData {
-  uid: string; // Document ID from students/{uid}
-  email: string | null; // From Auth
-  // batchYear is part of StudentProfileData now
+// Step 2: StudentAppModel - Base model for use within the application
+// Combines raw DB data with essential auth information.
+export interface StudentAppModel extends StudentDbData {
+  uid: string; // From Firebase Auth
+  email: string | null; // From Firebase Auth (can be null)
+}
+
+// Step 3: EnrichedStudentData - The most comprehensive student type for app use
+// Extends StudentAppModel with related data like XP.
+// This replaces the old EnrichedStudentData definition.
+export interface EnrichedStudentData extends StudentAppModel {
   xpData?: XPData | null | undefined; // XP data from separate collection
-  // If you need createdAt/lastUpdatedAt for the student's record itself (not the parent doc),
-  // they would be added here, potentially fetched from a different source or managed differently.
+  // Other enriched fields can be added here, e.g., event participation summaries, etc.
 }
 
 // --- For Name Caching (Used by both admin and student sites) ---

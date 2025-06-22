@@ -543,17 +543,9 @@ const remainingUsers = computed(() => {
 
 /* Animation */
 .animate-fade-in {
-  animation: fadeIn 0.6s ease-out forwards;
+  /* Uses global keyframe name 'fadeInUp' which matches the local definition previously here */
+  animation: fadeInUp 0.6s ease-out forwards;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Local @keyframes fadeIn (which was identical to global fadeInUp) removed. */
 </style>

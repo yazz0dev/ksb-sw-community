@@ -755,7 +755,7 @@ textarea.form-control {
   .form-select {
     transform: translateY(10px);
     opacity: 0;
-    animation: formSlideIn 0.6s ease-out forwards;
+    animation: fadeIn 0.6s ease-out forwards; /* Changed to use global fadeIn */
     
     @for $i from 1 through 10 {
       &:nth-child(#{$i}) {
@@ -765,12 +765,7 @@ textarea.form-control {
   }
 }
 
-@keyframes formSlideIn {
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
+/* @keyframes formSlideIn removed, using global 'fadeIn' keyframes */
 
 // Custom File Upload
 .file-upload-custom {

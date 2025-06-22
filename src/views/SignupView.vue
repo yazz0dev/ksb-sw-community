@@ -485,19 +485,10 @@ onMounted(async () => {
 }
 
 .animate-pop {
-  animation: popIn 0.4s ease-out;
+  /* This class is now global and uses the popIn keyframes from _animations.scss */
 }
 
-@keyframes popIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.9) translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
+/* Local @keyframes popIn removed. */
 
 .form-check-input:checked {
   background-color: var(--bs-primary);

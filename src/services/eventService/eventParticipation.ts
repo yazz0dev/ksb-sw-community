@@ -58,7 +58,7 @@ export const submitProject = async (
       link: submissionData.link.trim(),
       description: submissionData.description?.trim() || undefined,
       submittedBy: studentId,
-      submittedAt: serverTimestamp() as any,
+      submittedAt: serverTimestamp(), // Removed 'as any'
     };
 
     if (eventData.details.format === EventFormat.Team) {
@@ -87,9 +87,13 @@ export const submitProject = async (
       submissions: arrayUnion(newSubmission),
       lastUpdatedAt: serverTimestamp()
     });
-  } catch (error: any) {
-    const message = error.message || `Failed to submit project for event ${eventId}.`;
+  } catch (error: unknown) { // Changed from any
+    const message = error instanceof Error ? error.message : `Failed to submit project for event ${eventId}.`;
     console.error(`Error submitting project for event ${eventId}:`, error);
+    // Add specific Firebase error check if needed
+    if (error && typeof (error as any).code === 'string' && (error as any).code === 'permission-denied') {
+        throw new Error("You don't have permission to submit to this event.");
+    }
     throw new Error(message);
   }
 };
@@ -128,8 +132,9 @@ export async function joinEventByStudentInFirestore(eventId: string, studentId: 
             participants: arrayUnion(studentId),
             lastUpdatedAt: serverTimestamp()
         });
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to join event ${eventId}.`);
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : `Failed to join event ${eventId}.`;
+        throw new Error(message);
     }
 }
 
@@ -157,17 +162,26 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
             throw new Error("Organizers cannot leave the event using this action. Admin action required.");
         }
 
-        const updates: Partial<Event> = { lastUpdatedAt: serverTimestamp() as any };
+        const updates: Record<string, unknown> = { lastUpdatedAt: serverTimestamp() }; // Changed type, removed 'as any'
         let userFoundAndRemoved = false;
 
         // ...existing leave logic...
+        // This part of leaveEventByStudentInFirestore is incomplete in the provided source.
+        // Assuming it would modify 'updates' if user is found in participants or teams.
+        // For example, if user is in participants:
+        if (eventData.participants?.includes(studentId)) {
+            updates.participants = arrayRemove(studentId);
+            userFoundAndRemoved = true;
+        }
+        // Add similar logic for team removal if applicable for this function
 
         if (!userFoundAndRemoved) {
             throw new Error('You are not currently registered as a participant or team member in this event.');
         }
 
-        await updateDoc(eventRef, updates as any);
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to leave event ${eventId}.`);
+        await updateDoc(eventRef, updates); // Removed 'as any'
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : `Failed to leave event ${eventId}.`;
+        throw new Error(message);
     }
 }

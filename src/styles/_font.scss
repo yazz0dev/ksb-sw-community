@@ -420,50 +420,18 @@ ul, ol {
 
 // Animation Classes for Text
 .text-animate-fade-in {
-  animation: textFadeIn 0.6s ease-out forwards;
+  animation: fadeIn 0.6s ease-out forwards; /* Uses global fadeIn */
 }
 
 .text-animate-slide-up {
-  animation: textSlideUp 0.8s ease-out forwards;
+  animation: slideInUp 0.8s ease-out forwards; /* Uses global slideInUp */
 }
 
 .text-animate-bounce {
-  animation: textBounce 1s ease-out;
+  animation: textBounce 1s ease-out; /* Uses global textBounce */
 }
 
-@keyframes textFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes textSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes textBounce {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-5px);
-  }
-  60% {
-    transform: translateY(-3px);
-  }
-}
+/* Local keyframes textFadeIn, textSlideUp, textBounce removed. */
 
 // Responsive Typography
 @media (max-width: 768px) {

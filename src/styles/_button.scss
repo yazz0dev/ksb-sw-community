@@ -427,10 +427,7 @@
   }
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+/* @keyframes spin removed, now uses global definition from _animations.scss */
 
 // Responsive Button Styles
 @media (max-width: 768px) {

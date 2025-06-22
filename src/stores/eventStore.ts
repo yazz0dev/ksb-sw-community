@@ -52,14 +52,13 @@ import {
 import { useAppStore } from './appStore';
 
 
-// Define the type that includes 'id', which will be primarily used within this store.
-type EventWithId = EventBaseData & { id: string };
+// EventWithId type alias removed as EventBaseData (imported as Event) already includes 'id'.
 
 // Add createCompleteEvent function before the store definition
 function createCompleteEvent(
-  partialDataInput: Partial<EventWithId>, 
-  existingEventInput?: EventWithId | undefined
-): EventWithId {
+  partialDataInput: Partial<EventBaseData>, // Changed from EventWithId
+  existingEventInput?: EventBaseData | undefined // Changed from EventWithId
+): EventBaseData { // Changed from EventWithId
   
   const idToUse = partialDataInput.id || existingEventInput?.id || '';
 
@@ -146,14 +145,14 @@ function createCompleteEvent(
 
 
   // Return the fully formed data with id
-  return baseData as EventWithId;
+  return baseData as EventBaseData; // Changed from EventWithId
 }
 
 export const useEventStore = defineStore('studentEvents', () => {
-  // Refs (State) - Update to use EventWithId
-  const events = ref<EventWithId[]>([]);
-  const viewedEventDetails = ref<EventWithId | null>(null);
-  const myEventRequests = ref<EventWithId[]>([]);
+  // Refs (State) - Update to use EventBaseData
+  const events = ref<EventBaseData[]>([]); // Changed from EventWithId
+  const viewedEventDetails = ref<EventBaseData | null>(null); // Changed from EventWithId
+  const myEventRequests = ref<EventBaseData[]>([]); // Changed from EventWithId
   const isLoading = ref<boolean>(false);
   const actionError = ref<string | null>(null);
   const fetchError = ref<string | null>(null);
@@ -188,7 +187,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     return []; // Current Event type doesn't support this distinction
   });
 
-  const getEventById = (eventId: string): EventWithId | undefined => { // Updated return type
+  const getEventById = (eventId: string): EventBaseData | undefined => { // Changed from EventWithId
     return events.value.find(e => e.id === eventId) ||
            myEventRequests.value.find(e => e.id === eventId) ||
            (viewedEventDetails.value?.id === eventId ? viewedEventDetails.value : undefined);
@@ -206,14 +205,14 @@ export const useEventStore = defineStore('studentEvents', () => {
   );
 
   // Actions (methods)
-  function _updateLocalEventLists(eventData: EventWithId) { // Updated parameter type
-    const updateList = (list: Ref<EventWithId[]>) => { // Updated list type
+  function _updateLocalEventLists(eventData: EventBaseData) { // Changed from EventWithId
+    const updateList = (list: Ref<EventBaseData[]>) => { // Changed from EventWithId
         const index = list.value.findIndex(e => e.id === eventData.id);
         const existingEvent = index !== -1 ? list.value[index] : null;
-        // Ensure the spread results in EventWithId
-        const updatedEvent: EventWithId = {
-            ...(existingEvent || {} as EventWithId), // Cast to satisfy spread if existingEvent is null
-            ...deepClone(eventData), // eventData is already EventWithId
+        // Ensure the spread results in EventBaseData
+        const updatedEvent: EventBaseData = { // Changed from EventWithId
+            ...(existingEvent || {} as EventBaseData), // Cast to satisfy spread
+            ...deepClone(eventData),
             lastUpdatedAt: eventData.lastUpdatedAt || (existingEvent?.lastUpdatedAt || Timestamp.now())
         };
 
@@ -241,8 +240,8 @@ export const useEventStore = defineStore('studentEvents', () => {
 
     if (viewedEventDetails.value?.id === eventData.id) {
       viewedEventDetails.value = {
-          ...(viewedEventDetails.value as EventWithId), // Ensure viewedEventDetails is treated as EventWithId
-          ...deepClone(eventData), // eventData is EventWithId
+          ...(viewedEventDetails.value as EventBaseData), // Changed from EventWithId
+          ...deepClone(eventData),
           lastUpdatedAt: eventData.lastUpdatedAt || viewedEventDetails.value.lastUpdatedAt || Timestamp.now()
       };
     }
@@ -295,8 +294,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     fetchError.value = null;
     try {
         const fetchedEvents = await fetchPubliclyViewableEventsService(); 
-        // Assuming fetchPubliclyViewableEventsService returns EventWithId[] or compatible
-        events.value = fetchedEvents.sort(compareEventsForSort) as EventWithId[];
+        events.value = fetchedEvents.sort(compareEventsForSort) as EventBaseData[]; // Changed from EventWithId
     } catch (err) {
       await _handleFetchError("fetching all events", err);
       events.value = [];
@@ -314,8 +312,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     fetchError.value = null;
     try {
       const requests = await fetchMyEventRequestsService(studentProfileStore.studentId);
-      // Assuming fetchMyEventRequestsService returns EventWithId[] or compatible
-      myEventRequests.value = requests.sort(compareEventsForSort) as EventWithId[];
+      myEventRequests.value = requests.sort(compareEventsForSort) as EventBaseData[]; // Changed from EventWithId
     } catch (err) {
       await _handleFetchError("fetching my event requests", err);
       myEventRequests.value = [];
@@ -324,7 +321,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     }
   }
 
-  async function fetchEventDetails(eventId: string): Promise<EventWithId | null> { // Updated return type
+  async function fetchEventDetails(eventId: string): Promise<EventBaseData | null> { // Changed from EventWithId
     isLoading.value = true;
     fetchError.value = null;
     viewedEventDetails.value = null;
@@ -341,8 +338,7 @@ export const useEventStore = defineStore('studentEvents', () => {
             eventData.details.date.end = new Timestamp((eventData.details.date.end as any).seconds, (eventData.details.date.end as any).nanoseconds);
           }
           
-          // Assuming eventData from service is compatible with EventWithId
-          viewedEventDetails.value = deepClone(eventData) as EventWithId;
+          viewedEventDetails.value = deepClone(eventData) as EventBaseData; // Changed from EventWithId
           _updateLocalEventLists(viewedEventDetails.value);
           return viewedEventDetails.value;
       } else {
@@ -430,7 +426,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Construct a partial event data based on formData and known defaults set by the service
       // to pass to createCompleteEvent. This part might need refinement based on what createCompleteEvent needs
       // and what the service guarantees.
-      const eventDataForStoreCreation: Partial<EventWithId> = { // Use Partial<EventWithId>
+      const eventDataForStoreCreation: Partial<EventBaseData> = { // Changed from EventWithId
         id: newEventId,
         details: {
             // title is now handled robustly by createCompleteEvent,
@@ -458,7 +454,7 @@ export const useEventStore = defineStore('studentEvents', () => {
         // will be handled by createCompleteEvent's defaults.
       };
 
-      const newEventDataForStore: EventWithId = createCompleteEvent(eventDataForStoreCreation);
+      const newEventDataForStore: EventBaseData = createCompleteEvent(eventDataForStoreCreation); // Changed from EventWithId
         
         _updateLocalEventLists(newEventDataForStore);
         
@@ -547,7 +543,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       
       const updatedEvent = await fetchSingleEventForStudentService(eventId, currentStudentId);
       if (updatedEvent) {
-        _updateLocalEventLists(updatedEvent as EventWithId); // Added 'as EventWithId'
+        _updateLocalEventLists(updatedEvent as EventBaseData); // Changed from EventWithId
       }
       
       // Update profile store's userRequests
@@ -621,7 +617,7 @@ export const useEventStore = defineStore('studentEvents', () => {
         const updatedFields = await updateEventStatusService(eventId, newStatus, currentUser, rejectionReason);
         const existingEvent = getEventById(eventId); // existingEvent is EventWithId | undefined
         // Pass id explicitly along with updatedFields (which should be Partial<EventBaseData>)
-        _updateLocalEventLists(createCompleteEvent({ id: eventId, ...updatedFields }, existingEvent));
+        _updateLocalEventLists(createCompleteEvent({ id: eventId, ...updatedFields }, existingEvent as EventBaseData)); // Added cast for existingEvent
         notificationStore.showNotification({ message: `Event status updated to ${newStatus}.`, type: 'success' });
     }  catch (err) {
         await _handleOpError(`updating event status to ${newStatus}`, err, eventId);
@@ -639,7 +635,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     try {
         await joinEventService(eventId, studentId);
         const updatedEventData = await fetchSingleEventForStudentService(eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventBaseData); // Changed from EventWithId
         notificationStore.showNotification({ message: "Successfully joined the event!", type: 'success' });
         return true;
     } catch (err) {
@@ -661,7 +657,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     try {
         await leaveEventService(eventId, studentId);
         const updatedEventData = await fetchSingleEventForStudentService(eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventBaseData); // Changed from EventWithId
         notificationStore.showNotification({ message: "Successfully left the event.", type: 'success' });
         return true;
     } catch (err) {
@@ -683,7 +679,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     try {
         await submitProjectService(payload.eventId, studentId, payload.submissionData);
         const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventBaseData); // Changed from EventWithId
         notificationStore.showNotification({ message: "Project submitted successfully!", type: 'success' });
     } catch (err) {
         await _handleOpError("submitting project", err, payload.eventId);
@@ -710,7 +706,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Service function now contains all validation and Firestore logic
       await submitTeamCriteriaVoteService(payload.eventId, studentId, payload.votes);
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventBaseData); // Changed from EventWithId
         notificationStore.showNotification({ message: "Team votes submitted!", type: 'success' });
     } catch (err) {
         await _handleOpError("submitting team votes", err, payload.eventId);
@@ -731,7 +727,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Service function now contains all validation and Firestore logic
       await submitIndividualWinnerVoteService(payload.eventId, studentId, payload.votes);
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventBaseData); // Changed from EventWithId
         notificationStore.showNotification({ message: "Winner selection submitted!", type: 'success' });
     } catch (err) {
         await _handleOpError("submitting individual winner vote", err, payload.eventId);
@@ -752,7 +748,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Service function contains validation (including permission check if studentId is organizer/admin)
       await submitManualWinnerSelectionService(payload.eventId, studentId, payload.winnerSelections);
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentProfileStore.studentId); // Refetch with current user's view
-        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
+        if (updatedEventData) _updateLocalEventLists(updatedEventData as EventBaseData); // Changed from EventWithId
         notificationStore.showNotification({ message: "Manual winner selection saved!", type: 'success' });
     } catch (err) {
         await _handleOpError("submitting manual winner selection", err, payload.eventId);
@@ -811,7 +807,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       };
       await toggleVotingStatusService(eventId, open, currentUser);
       const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-      if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
+      if (updatedEventData) _updateLocalEventLists(updatedEventData as EventBaseData); // Changed from EventWithId
       notificationStore.showNotification({ message: `Voting is now ${open ? 'OPEN' : 'CLOSED'}.`, type: 'success' });
     } catch (err) {
       await _handleOpError(`toggling voting to ${open ? 'open' : 'closed'}`, err, eventId);
@@ -885,7 +881,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       // Refetch the event to update local state with its new 'Closed' status
       const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
       if (updatedEventData) {
-        _updateLocalEventLists(updatedEventData as EventWithId);
+        _updateLocalEventLists(updatedEventData as EventBaseData); // Changed from EventWithId
       }
       
       notificationStore.showNotification({ 
@@ -925,7 +921,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       
       const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentProfileStore.studentId);
       if (updatedEventData) {
-        _updateLocalEventLists(updatedEventData as EventWithId); // Added 'as EventWithId'
+        _updateLocalEventLists(updatedEventData as EventBaseData); // Changed from EventWithId
       }
       
       notificationStore.showNotification({ 

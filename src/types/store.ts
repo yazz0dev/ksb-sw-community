@@ -17,7 +17,7 @@ export interface Notification {
 export interface QueuedAction {
   id: string; // Unique ID for the queued action
   type: string; // Identifier for the action (e.g., 'event/rateTeam')
-  payload: any; // Data needed for the action
+  payload: unknown; // Data needed for the action, changed from any
   timestamp: number; // When the action was queued
   retries?: number; // Optional: Track retry attempts
   error?: string; // Optional: Store error message if failed

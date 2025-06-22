@@ -42,7 +42,7 @@ export async function updateEventStatusInFirestore(
         const currentEvent = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
         if (!currentEvent) throw new Error('Failed to map current event data.');
 
-        const updatesToApply: any = {
+        const updatesToApply: Record<string, unknown> = { // Changed from any
             status: newStatus,
             lastUpdatedAt: serverTimestamp(),
         };
@@ -88,11 +88,26 @@ export async function updateEventStatusInFirestore(
         }
 
         await updateDoc(eventRef, updatesToApply);
-        const { lastUpdatedAt, ...returnedUpdates } = updatesToApply;
+        // Ensure returnedUpdates matches Partial<Event>
+        const { lastUpdatedAt, ...otherUpdates } = updatesToApply; // lastUpdatedAt is FieldValue, not in Partial<Event>
+        const returnedUpdates: Partial<Event> = { ...otherUpdates };
+        if (updatesToApply.lifecycleTimestamps) { // Ensure lifecycleTimestamps is correctly typed or cast
+            returnedUpdates.lifecycleTimestamps = updatesToApply.lifecycleTimestamps as Partial<EventLifecycleTimestamps>;
+        }
+        if (updatesToApply.rejectionReason) {
+            returnedUpdates.rejectionReason = updatesToApply.rejectionReason as string;
+        }
+         if (updatesToApply.status) {
+            returnedUpdates.status = updatesToApply.status as EventStatus;
+        }
+        if (updatesToApply.votingOpen !== undefined) {
+            returnedUpdates.votingOpen = updatesToApply.votingOpen as boolean;
+        }
         return returnedUpdates; 
 
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to update event status to ${newStatus}.`);
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : `Failed to update event status to ${newStatus}.`;
+        throw new Error(message);
     }
 }
 
@@ -105,7 +120,7 @@ export async function updateEventStatusInFirestore(
 export const closeEventAndAwardXP = async (
   eventId: string,
   closingUser: EnrichedStudentData | UserData
-): Promise<{ success: boolean; message: string; xpAwarded?: any }> => {
+): Promise<{ success: boolean; message: string; xpAwarded?: Record<string, Partial<XPData>> }> => { // Typed xpAwarded
   if (!eventId) throw new Error('Event ID is required.');
   if (!closingUser?.uid) throw new Error('Closing user and their UID are required.');
 
@@ -150,27 +165,50 @@ export const closeEventAndAwardXP = async (
     const batch = applyXpAwardsBatch(xpAwards, eventId, eventData.details.eventName);
 
     // Add the event status update to the same batch.
-    const updatePayload = {
+    const updatePayload: Record<string, unknown> = { // Typed updatePayload
       status: EventStatus.Closed,
       lastUpdatedAt: serverTimestamp(),
       lifecycleTimestamps: {
         ...(eventData.lifecycleTimestamps || {}),
         closedAt: serverTimestamp(),
+        closedBy: closingUser.uid // Added closedBy based on previous logic review
       },
     };
-    batch.update(eventRef, updatePayload as any);
+    batch.update(eventRef, updatePayload); // Removed 'as any'
 
     // Atomically commit all XP awards and the event status update.
     await batch.commit();
 
+    // Aggregate xpAwards (EventXPAward[]) into Record<string, Partial<XPData>> for the return
+    const aggregatedXpChanges: Record<string, Partial<XPData>> = {};
+      for (const award of xpAwards) {
+        if (!aggregatedXpChanges[award.userId]) {
+          aggregatedXpChanges[award.userId] = { totalCalculatedXp: 0, count_wins: 0 };
+        }
+        const firestoreKey = mapCalcRoleToFirestoreKey(award.role);
+        (aggregatedXpChanges[award.userId] as any)[firestoreKey] =
+          ((aggregatedXpChanges[award.userId] as any)[firestoreKey] || 0) + award.points;
+
+        aggregatedXpChanges[award.userId]!.totalCalculatedXp =
+          (aggregatedXpChanges[award.userId]!.totalCalculatedXp || 0) + award.points;
+
+        if (award.isWinner) {
+            aggregatedXpChanges[award.userId]!.count_wins =
+              (aggregatedXpChanges[award.userId]!.count_wins || 0) + 1;
+        }
+      }
+
     return {
       success: true,
       message: `Event "${eventData.details.eventName}" closed successfully. XP awarded to ${studentIdsWithXP.length} participants.`,
-      xpAwarded: xpAwards,
+      xpAwarded: aggregatedXpChanges,
     };
-  } catch (error) {
+  } catch (error: unknown) { // Changed from implicit any
     const message = error instanceof Error ? error.message : 'Unknown error during event closure.';
     console.error(`Error closing event ${eventId}:`, message, error);
+    if (error && typeof (error as any).code === 'string') { // Check if it's a FirebaseError
+        throw new Error(`Failed to close event: ${message} (Code: ${(error as any).code})`);
+    }
     throw new Error(`Failed to close event ${eventId}: ${message}`);
   }
 };
@@ -203,7 +241,8 @@ export async function deleteEventRequestInFirestore(eventId: string, userId: str
 
         await deleteDoc(eventRef);
 
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to delete event request ${eventId}.`);
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : `Failed to delete event request ${eventId}.`;
+        throw new Error(message);
     }
 }

@@ -24,7 +24,7 @@ import { EVENTS_COLLECTION, MIN_TEAM_MEMBERS, MAX_TEAM_MEMBERS } from '@/utils/c
  */
 export async function autoGenerateEventTeamsInFirestore(
   eventId: string,
-  students: Array<{ uid: string; [key: string]: any }>, 
+  students: Array<{ uid: string; [key: string]: unknown }>, // Changed from any to unknown
   minMembersPerTeam: number = 2, // Default will be clamped by MIN_TEAM_MEMBERS
   maxMembersPerTeam: number = 8  // Default will be clamped by MAX_TEAM_MEMBERS
 ): Promise<Team[]> {
@@ -110,8 +110,9 @@ export async function autoGenerateEventTeamsInFirestore(
     });
 
     return populatedTeams;
-  } catch (error: any) {
+  } catch (error: unknown) { // Changed from any
     console.error(`Error auto-generating teams for event ${eventId}:`, error);
-    throw new Error(error.message || `Failed to auto-generate teams for event ${eventId}.`);
+    const message = error instanceof Error ? error.message : `Failed to auto-generate teams for event ${eventId}.`;
+    throw new Error(message);
   }
 }

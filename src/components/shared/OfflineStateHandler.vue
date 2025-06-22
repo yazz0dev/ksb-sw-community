@@ -9,7 +9,7 @@
   <!-- Bottom Status Bar -->
   <div 
     v-if="!isOnline || hasQueuedActions"
-    class="offline-status-bar animate-slide-up"
+    class="offline-status-bar animate-slide-in-from-bottom"
     :class="{ 
       'status-offline': !isOnline,
       'status-queued': hasQueuedActions && isOnline 
@@ -288,7 +288,7 @@ const checkConnection = async (): Promise<void> => {
 .sync-progress .progress-bar {
   height: 100%;
   background: rgba(255, 255, 255, 0.6);
-  animation: syncProgress 2s infinite;
+  animation: progressSlide 2s infinite; /* Use global progressSlide */
 }
 
 .status-queued .sync-progress .progress-bar {
@@ -369,32 +369,8 @@ const checkConnection = async (): Promise<void> => {
 }
 
 /* Animations */
-@keyframes syncProgress {
-  0% {
-    transform: translateX(-100%);
-  }
-  50% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.animate-slide-up {
-  animation: slideUp 0.4s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
+/* Local @keyframes syncProgress and @keyframes slideUp removed. */
+/* Uses global progressSlide and .animate-slide-in-from-bottom class. */
 
 /* Focus states for accessibility */
 .btn-sync:focus {

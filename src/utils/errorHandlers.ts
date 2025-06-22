@@ -2,38 +2,41 @@ import { ERROR_MESSAGES } from './constants';
 
 /**
  * Handles Firestore errors by translating them into user-friendly messages
- * @param error The error object from Firestore
+ * @param error The error object from Firestore (typed as unknown)
  * @returns A user-friendly error message
  */
-export function handleFirestoreError(error: any): string {
-  if (error?.code === 'permission-denied') {
-    return ERROR_MESSAGES.PERMISSION_DENIED;
-  }
-  
-  if (error?.code === 'not-found') {
-    return 'The requested document or resource was not found.';
-  }
-  
-  if (error?.code === 'unavailable') {
-    return ERROR_MESSAGES.SERVICE_UNAVAILABLE;
-  }
-  
-  if (typeof error?.message === 'string') {
+export function handleFirestoreError(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const firebaseError = error as { code: string; message?: string };
+    if (firebaseError.code === 'permission-denied') {
+      return ERROR_MESSAGES.PERMISSION_DENIED;
+    }
+    if (firebaseError.code === 'not-found') {
+      return 'The requested document or resource was not found.';
+    }
+    if (firebaseError.code === 'unavailable') {
+      return ERROR_MESSAGES.SERVICE_UNAVAILABLE;
+    }
+    if (typeof firebaseError.message === 'string') {
+      return firebaseError.message;
+    }
+  } else if (error instanceof Error && typeof error.message === 'string') {
     return error.message;
   }
-  
   return 'An unknown error occurred.';
 }
 
 /**
  * Handles authentication errors by translating them into user-friendly messages
- * @param error The error object from Firebase Auth
+ * @param error The error object from Firebase Auth (typed as unknown)
  * @returns A user-friendly error message
  */
-export function handleAuthError(error: any): string {
-  switch (error?.code) {
-    case 'auth/user-not-found':
-      return 'No user found with this email address.';
+export function handleAuthError(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const firebaseError = error as { code: string; message?: string };
+    switch (firebaseError.code) {
+      case 'auth/user-not-found':
+        return 'No user found with this email address.';
     case 'auth/wrong-password':
       return 'Incorrect password. Please try again.';
     case 'auth/invalid-email':
@@ -49,9 +52,13 @@ export function handleAuthError(error: any): string {
     case 'auth/too-many-requests':
       return 'Too many unsuccessful login attempts. Please try again later.';
     default:
-      if (typeof error?.message === 'string') {
-        return error.message;
+      if (typeof firebaseError.message === 'string') {
+        return firebaseError.message;
       }
       return 'An authentication error occurred. Please try again.';
+    }
+  } else if (error instanceof Error && typeof error.message === 'string') {
+    return error.message;
   }
+  return 'An authentication error occurred. Please try again.';
 }

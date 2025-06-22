@@ -324,19 +324,11 @@ async function submitRating() {
 
 /* Animation for form appearance */
 .animate-fade-in {
+  /* Uses global keyframe 'fadeInUp' */
   animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Local @keyframes fadeInUp removed. */
 
 /* Mobile Responsive */
 @media (max-width: 575.98px) {

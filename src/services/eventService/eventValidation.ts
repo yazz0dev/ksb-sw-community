@@ -13,6 +13,7 @@ import {
 } from '@/types/event';
 import { mapFirestoreToEventData } from '@/utils/eventDataUtils';
 import { EVENTS_COLLECTION } from '@/utils/constants';
+import type { DateInput } from '@/utils/dateTime'; // Import DateInput
 
 /**
  * Checks if a student already has an active (Pending) event request.
@@ -29,9 +30,10 @@ export async function checkExistingPendingRequest(studentId: string): Promise<bo
         );
         const querySnapshot = await getDocs(q);
         return !querySnapshot.empty;
-    } catch (error: any) {
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error("Error checking existing student requests:", error);
-        throw new Error(`Failed to check existing requests: ${error.message}`);
+        throw new Error(`Failed to check existing requests: ${message}`);
     }
 }
 
@@ -52,12 +54,17 @@ export async function checkDateConflictForRequest(
     conflictingEvent: Event | null; 
     conflictingEventName: string | null 
 }> {
-    const getValidDateTime = (input: any): DateTime | null => {
+    const getValidDateTime = (input: DateInput | DateTime): DateTime | null => { // Changed from any
         if (!input) return null;
         let dt: DateTime;
         if (input instanceof Timestamp) dt = DateTime.fromJSDate(input.toDate());
         else if (input instanceof Date) dt = DateTime.fromJSDate(input);
         else if (typeof input === 'string') dt = DateTime.fromISO(input);
+        else if (typeof input === 'object' && 'seconds' in input && 'nanoseconds' in input && !(input instanceof Date)) { // Handle PlainTimestamp from DateInput
+             dt = DateTime.fromJSDate(new Timestamp(input.seconds, input.nanoseconds).toDate());
+        } else if (input instanceof DateTime) { // Explicitly handle DateTime if passed
+            dt = input;
+        }
         else return null;
         return dt.isValid ? dt.setZone('Asia/Kolkata').startOf('day') : null;
     };
@@ -112,8 +119,9 @@ export async function checkDateConflictForRequest(
         }
 
         return { hasConflict, nextAvailableDate: nextAvailableDateISO, conflictingEvent, conflictingEventName };
-    } catch (error: any) {
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error("Firestore date conflict check query error:", error);
-        throw new Error(`Failed to check date conflicts: ${error.message}`);
+        throw new Error(`Failed to check date conflicts: ${message}`);
     }
 }
