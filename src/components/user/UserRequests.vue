@@ -32,14 +32,14 @@
     <div v-if="!loadingRequests && allRequests.length > 0" class="requests-section animate-fade-in">
       <div class="section-card shadow-sm rounded-4">
         <!-- Header -->
-        <div class="section-header bg-primary-subtle text-primary-emphasis rounded-top-4 p-4 border-bottom">
+        <div class="section-header bg-primary-subtle text-primary-emphasis rounded-top-4 p-3 border-bottom">
           <div class="d-flex align-items-center justify-content-between">
             <div class="header-content d-flex align-items-center">
-              <div class="header-icon bg-primary text-white rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+              <div class="header-icon bg-primary text-white rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
                 <i class="fas fa-clipboard-list"></i>
               </div>
               <div>
-                <h5 class="section-title mb-1 text-primary-emphasis">Event Requests</h5>
+                <h5 class="section-title mb-0 text-primary-emphasis">Event Requests</h5>
                 <p class="d-none d-sm-block section-subtitle small mb-0 text-muted">
                   Manage your event submissions and track their status
                 </p>
@@ -73,15 +73,15 @@
           <div 
             v-for="(request, index) in filteredRequests" 
             :key="request.id" 
-            class="list-item p-4"
+            class="list-item p-3 p-md-3"
             :class="{ 'border-bottom': index < filteredRequests.length - 1 }"
           >
             <!-- Request Header -->
-            <div class="request-header mb-3">
+            <div class="request-header mb-2">
               <!-- First Row: Request Name and Status Badge -->
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center">
-                  <div class="item-icon bg-primary-subtle me-3">
+                  <div class="item-icon bg-primary-subtle me-2">
                     <i class="fas fa-calendar-alt text-primary"></i>
                   </div>
                   <div class="request-title-container">
@@ -110,7 +110,7 @@
               </div>
               
               <!-- Second Row: Event Type and Date -->
-              <div class="d-flex align-items-center justify-content-between ms-5">
+              <div class="d-flex align-items-center justify-content-between ms-sm-5">
                 <!-- Event Type -->
                 <span 
                   v-if="request.eventType" 
@@ -146,7 +146,7 @@
               <div class="actions-grid">
                 <button
                   v-if="request.status === 'Pending'"
-                  class="btn btn-outline-primary d-inline-flex align-items-center action-btn"
+                  class="btn btn-sm btn-outline-primary d-inline-flex align-items-center action-btn"
                   @click="editRequest(request)"
                 >
                   <i class="fas fa-edit me-2"></i>Edit Request
@@ -154,14 +154,14 @@
                 
                 <button
                   v-else-if="request.status === 'Rejected'"
-                  class="btn btn-outline-primary d-inline-flex align-items-center action-btn"
+                  class="btn btn-sm btn-outline-primary d-inline-flex align-items-center action-btn"
                   @click="editRequest(request)"
                 >
                   <i class="fas fa-redo me-2"></i>Resubmit Request
                 </button>
                 
                 <button
-                  class="btn btn-outline-danger d-inline-flex align-items-center action-btn"
+                  class="btn btn-sm btn-outline-danger d-inline-flex align-items-center action-btn"
                   :disabled="!!request._deleting"
                   @click="deleteRequest(request, index)"
                 >
@@ -214,68 +214,46 @@ import { useRouter } from 'vue-router';
 import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
 import type { Event as StoreEvent } from '@/types/event';
 
-// Local interface for the component's needs
 interface Request {
     id: string;
     eventName: string;
-    eventDate?: any;
-    eventType?: string | null;
+    eventDate: any | null;
+    eventType: string | null;
     status: 'Pending' | 'Rejected';
     rejectionReason?: string;
     _deleting?: boolean;
     [key: string]: any;
 }
 
-// Define StatusFilter type without 'all'
 type StatusFilter = 'pending' | 'rejected';
 
-// Stores and router
 const profileStore = useProfileStore();
 const eventStore = useEventStore();
 const router = useRouter();
 
-// Local state
 const errorMessage = ref<string>('');
 const pendingDeleteRequest = ref<{ request: Request; index: number } | null>(null);
 const deleteConfirmationModal = ref<InstanceType<typeof ConfirmationModal> | null>(null);
 const statusFilter = ref<StatusFilter>('pending');
 
-// Computed properties for reactive data from stores
 const loadingRequests = computed(() => profileStore.isLoadingUserRequests);
 const storeRequests = computed(() => profileStore.userRequests);
 
-// Transform store data to component format
 const allRequests = computed<Request[]>(() => {
-  return storeRequests.value.map((event: StoreEvent): Request => {
-    const baseRequestData = {
-      id: event.id,
-      eventName: event.details?.eventName || 'Unnamed Request',
-      eventDate: event.details?.date?.start || null,
-      eventType: event.details?.type || null,
-      status: event.status as Request['status'],
-      requestedBy: event.requestedBy,
-      _deleting: (event as any)._deleting || false,
-    };
-
-    // Conditionally add rejectionReason if it's a non-null string
-    if (event.rejectionReason !== null && event.rejectionReason !== undefined) {
-      return {
-        ...baseRequestData,
-        rejectionReason: event.rejectionReason,
-      };
-    }
-    return baseRequestData;
-  });
+  if (!storeRequests.value) return [];
+  return storeRequests.value.map((event: StoreEvent): Request => ({
+    id: event.id,
+    eventName: event.details?.eventName || 'Unnamed Request',
+    eventDate: event.details?.date?.start || null,
+    eventType: event.details?.type || null,
+    status: event.status as Request['status'],
+    ...(event.rejectionReason && { rejectionReason: event.rejectionReason }),
+    _deleting: (event as any)._deleting || false,
+  }));
 });
 
-// Filtered requests by status
-const pendingRequests = computed(() => 
-  allRequests.value.filter(request => request.status === 'Pending')
-);
-
-const rejectedRequests = computed(() => 
-  allRequests.value.filter(request => request.status === 'Rejected')
-);
+const pendingRequests = computed(() => allRequests.value.filter(r => r.status === 'Pending'));
+const rejectedRequests = computed(() => allRequests.value.filter(r => r.status === 'Rejected'));
 
 const filteredRequests = computed(() => {
   return statusFilter.value === 'pending' 
@@ -283,46 +261,32 @@ const filteredRequests = computed(() => {
     : rejectedRequests.value;
 });
 
-// Utility functions
-
 const formatEventDate = (dateValue: any): string => {
   if (!dateValue) return 'Date not set';
   
   try {
     let date: Date;
     
-    // Handle Firestore Timestamp
     if (dateValue && typeof dateValue.toDate === 'function') {
       date = dateValue.toDate();
-    } 
-    // Handle ISO string
-    else if (typeof dateValue === 'string') {
+    } else if (typeof dateValue === 'string') {
       date = new Date(dateValue);
-    }
-    // Handle Date object
-    else if (dateValue instanceof Date) {
+    } else if (dateValue instanceof Date) {
       date = dateValue;
-    }
-    // Handle timestamp number
-    else if (typeof dateValue === 'number') {
+    } else if (typeof dateValue === 'number') {
       date = new Date(dateValue);
-    }
-    else {
+    } else {
       return 'Invalid date';
     }
     
-    // Check if date is valid
     if (isNaN(date.getTime())) {
       return 'Invalid date';
     }
     
-    // Format the date
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric'
     });
   } catch (error) {
     console.warn('Error formatting event date:', error);
@@ -338,27 +302,19 @@ const deleteRequest = (request: Request, index: number) => {
 
 const confirmDeleteRequest = async () => {
   if (!pendingDeleteRequest.value) return;
-  
   const { request } = pendingDeleteRequest.value;
   
-  // Set deleting state directly on the request object in the store
   const storeRequest = storeRequests.value.find(r => r.id === request.id);
-  if (storeRequest) {
-    (storeRequest as any)._deleting = true;
-  }
+  if (storeRequest) (storeRequest as any)._deleting = true;
   
   try {
     const success = await eventStore.deleteEventRequest(request.id);
-    if (!success) {
-      if (storeRequest) {
-        (storeRequest as any)._deleting = false;
-      }
+    if (!success && storeRequest) {
+      (storeRequest as any)._deleting = false;
     }
   } catch (error) {
     errorMessage.value = 'An unexpected error occurred while deleting the request.';
-    if (storeRequest) {
-      (storeRequest as any)._deleting = false;
-    }
+    if (storeRequest) (storeRequest as any)._deleting = false;
   } finally {
     pendingDeleteRequest.value = null;
   }
@@ -368,21 +324,16 @@ const editRequest = (request: Request): void => {
   router.push({ name: 'EditEvent', params: { eventId: request.id } });
 };
 
-// Watch for fetch errors from the store
 watch(() => profileStore.fetchError, (newError) => {
-  if (newError) {
-    errorMessage.value = newError;
-  }
+  if (newError) errorMessage.value = newError;
 });
 
-// Clear error message when store error is cleared
 watch(() => profileStore.fetchError, (newError) => {
   if (!newError && errorMessage.value === profileStore.fetchError) {
     errorMessage.value = '';
   }
 });
 
-// Set default filter based on available data
 watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
   if (pending.length > 0) {
     statusFilter.value = 'pending';
@@ -428,15 +379,6 @@ watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
   }
 }
 
-.list-item {
-  padding: 1rem;
-  transition: background-color 0.2s ease;
-  
-  @media (min-width: 768px) {
-    padding: 1.5rem;
-  }
-}
-
 .list-item:hover {
   background-color: var(--bs-light);
 }
@@ -458,10 +400,12 @@ watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
   width: 2rem;
   height: 2rem;
   flex-shrink: 0;
-  
-  @media (min-width: 768px) {
-    width: 2.5rem;
-    height: 2.5rem;
+}
+
+@media (min-width: 768px) {
+  .header-icon {
+    width: 2.25rem;
+    height: 2.25rem;
   }
 }
 
@@ -527,15 +471,6 @@ watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
 
 .date-badge {
   border: 1px solid var(--bs-border-color) !important;
-}
-
-/* Remove old request-meta styles and use consistent spacing */
-.request-header .ms-5 {
-  @media (max-width: 480px) {
-    margin-left: 0 !important;
-    margin-top: 0.5rem;
-    justify-content: space-between;
-  }
 }
 
 /* Filter tabs */
@@ -630,9 +565,9 @@ watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
   white-space: nowrap;
   
   @media (min-width: 768px) {
-    border-width: 2px;
+    border-width: 1.5px;
     font-weight: 600;
-    padding: 0.6rem 1.2rem;
+    padding: 0.5rem 1rem;
     border-radius: 8px;
     font-size: 0.875rem;
     min-width: 120px;
@@ -728,5 +663,16 @@ watch([pendingRequests, rejectedRequests], ([pending, rejected]) => {
     padding: 0.45rem 0.5rem;
     font-size: 0.75rem;
   }
+}
+
+.item-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--bs-primary-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 </style>

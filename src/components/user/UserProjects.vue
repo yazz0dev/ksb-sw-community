@@ -1,14 +1,14 @@
 <template>
   <div v-if="projects.length > 0" class="section-card shadow-sm rounded-4 animate-fade-in">
     <!-- Header -->
-    <div class="section-header bg-info-subtle text-info-emphasis rounded-top-4 p-4 border-bottom">
+    <div class="section-header bg-info-subtle text-info-emphasis rounded-top-4 p-3 border-bottom">
       <div class="d-flex align-items-center justify-content-between">
         <div class="header-content">
           <div class="header-icon bg-info-subtle">
-            <i class="fas fa-folder-open fa-lg"></i>
+            <i class="fas fa-folder-open"></i>
           </div>
           <div>
-            <h5 class="section-title mb-1 text-info-emphasis">Projects</h5>
+            <h5 class="section-title mb-0 text-info-emphasis">Projects</h5>
             <p class="d-none d-sm-block section-subtitle small mb-0">{{ projects.length }} project{{ projects.length === 1 ? '' : 's' }} submitted</p>
           </div>
         </div>
@@ -33,17 +33,17 @@
     <!-- Projects List -->
     <div v-else class="item-list">
       <div 
-        v-for="(project, index) in projects" 
+        v-for="(project, index) in displayedProjects" 
         :key="project.id" 
-        class="list-item"
-        :class="{ 'border-bottom': index < projects.length - 1 }"
+        class="project-item"
+        :class="{ 'border-bottom': index < displayedProjects.length - 1 }"
       >
         <div class="project-content">
           <!-- Project Header -->
-          <div class="project-header d-flex align-items-start justify-content-between mb-3">
+          <div class="project-header d-flex align-items-start justify-content-between mb-2">
             <div class="project-info flex-grow-1">
               <div class="d-flex align-items-center mb-2">
-                <div class="item-icon bg-info-subtle">
+                <div class="item-icon bg-info-subtle me-3">
                   <i class="fas fa-code-branch text-info"></i>
                 </div>
                 <h6 class="project-title mb-0 fw-semibold text-dark">
@@ -52,7 +52,7 @@
               </div>
               
               <!-- Event Association -->
-              <div v-if="project.eventId" class="event-association mb-2">
+              <div v-if="project.eventId" class="event-association mb-2 ms-sm-5">
                 <div class="d-flex align-items-center text-muted small">
                   <i class="fas fa-calendar-alt me-2"></i>
                   <span class="me-1">Event:</span>
@@ -80,12 +80,23 @@
           </div>
           
           <!-- Project Description -->
-          <div v-if="project.description" class="project-description">
+          <div v-if="project.description" class="project-description ms-sm-5">
             <div class="description-container">
               <p class="description-text text-secondary mb-0">{{ project.description }}</p>
             </div>
           </div>
         </div>
+      </div>
+       <!-- Show More/Less Button -->
+      <div v-if="hasMoreProjects" class="show-more-section text-center p-3 border-top">
+        <button @click="toggleShowAll" class="btn btn-sm btn-outline-secondary">
+          <span v-if="!showAll">
+            Show all {{ projects.length }} projects <i class="fas fa-chevron-down ms-1"></i>
+          </span>
+          <span v-else>
+            Show less <i class="fas fa-chevron-up ms-1"></i>
+          </span>
+        </button>
       </div>
     </div>
   </div>
@@ -103,6 +114,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue';
+
 interface UserProjectDisplay {
   id: string;
   projectName: string;
@@ -119,7 +132,22 @@ interface Props {
   initialDataLoaded: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
+const initialVisibleCount = 3;
+const showAll = ref(false);
+
+const displayedProjects = computed(() => {
+    if (showAll.value || props.projects.length <= initialVisibleCount) {
+        return props.projects;
+    }
+    return props.projects.slice(0, initialVisibleCount);
+});
+
+const hasMoreProjects = computed(() => props.projects.length > initialVisibleCount);
+
+const toggleShowAll = () => {
+  showAll.value = !showAll.value;
+};
 </script>
 
 <style scoped>
@@ -129,8 +157,8 @@ defineProps<Props>();
 }
 
 .header-icon {
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
   background: rgba(var(--bs-info-rgb), 0.1);
   display: flex;
@@ -139,7 +167,8 @@ defineProps<Props>();
 }
 
 .section-title {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
+  font-weight: 600;
   color: var(--bs-info-emphasis);
 }
 
@@ -164,7 +193,7 @@ defineProps<Props>();
 }
 
 .project-item {
-  padding: 1.5rem;
+  padding: 1rem;
   transition: background-color 0.3s ease;
   position: relative;
 }
@@ -178,9 +207,9 @@ defineProps<Props>();
 }
 
 /* Project Content */
-.project-icon {
-  width: 2.5rem;
-  height: 2.5rem;
+.item-icon {
+  width: 2.25rem;
+  height: 2.25rem;
   border-radius: 50%;
   background: var(--bs-info-subtle);
   display: flex;
@@ -190,19 +219,14 @@ defineProps<Props>();
 }
 
 .project-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1.4;
   color: var(--bs-dark);
 }
 
 /* Event Association */
 .event-association {
-  margin-left: 3.5rem;
-  
-  @media (max-width: 480px) {
-    margin-left: 0;
-    width: 100%;
-  }
+  margin-top: 1rem;
 }
 
 .event-link {
@@ -231,18 +255,12 @@ defineProps<Props>();
 /* Project Description */
 .project-description {
   margin-top: 1rem;
-  margin-left: 3.5rem;
-  
-  @media (max-width: 480px) {
-    margin-left: 0;
-    width: 100%;
-  }
 }
 
 .description-container {
   background: var(--bs-light);
   border-radius: var(--bs-border-radius);
-  padding: 0.875rem 1rem;
+  padding: 0.75rem 1rem;
   border-left: 3px solid var(--bs-info);
 }
 

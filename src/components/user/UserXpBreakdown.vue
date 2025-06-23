@@ -203,7 +203,7 @@ const getProgressBarClass = (roleKey: string): string => {
 /* XP Breakdown Grid */
 .xp-breakdown-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
 }
 
@@ -302,7 +302,7 @@ const getProgressBarClass = (roleKey: string): string => {
   }
   
   .section-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
   
   .card-body {

@@ -1,33 +1,33 @@
 // src/components/shared/NotificationSystem.vue
 <template>
   <div class="notification-container toast-container position-fixed top-0 end-0 p-3">
-    <transition name="notification">
+    <transition-group name="notification">
       <div
-        v-if="currentNotification"
-        :key="currentNotification.id"
+        v-for="notification in notifications"
+        :key="notification.id"
         class="toast show m-2 shadow"
         role="alert"
         aria-live="assertive"
         aria-atomic="true"
-        :class="getToastClass(currentNotification.type)"
+        :class="getToastClass(notification.type)"
       >
-        <div class="toast-header" :class="getToastHeaderClass(currentNotification.type)">
+        <div class="toast-header" :class="getToastHeaderClass(notification.type)">
           <span class="me-2">
-            <i :class="['fas', getTypeIcon(currentNotification.type)]"></i>
+            <i :class="['fas', getTypeIcon(notification.type)]"></i>
           </span>
-          <strong class="me-auto">{{ currentNotification.title || currentNotification.type.charAt(0).toUpperCase() + currentNotification.type.slice(1) }}</strong>
+          <strong class="me-auto">{{ notification.title || notification.type.charAt(0).toUpperCase() + notification.type.slice(1) }}</strong>
           <button
             type="button"
             class="btn-close"
-            @click="dismissCurrentNotification"
+            @click="dismissNotification(notification.id)"
             aria-label="Close"
           ></button>
         </div>
         <div class="toast-body">
-          {{ currentNotification.message }}
+          {{ notification.message }}
         </div>
       </div>
-    </transition>
+    </transition-group>
   </div>
 </template>
 
@@ -35,49 +35,18 @@
 import { computed, watch } from 'vue';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAppStore } from '@/stores/appStore';
-import type { QueuedAction } from '@/types/store'; // Ensure types/store.ts defines these
-
-// Define the Notification interface
-interface Notification {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  message: string;
-  title?: string;
-  duration?: number;
-}
+import type { QueuedAction, Notification } from '@/types/store'; // Import Notification from types/store.ts
 
 const notificationStore = useNotificationStore();
 const appStore = useAppStore();
-const isOnline = computed<boolean>(() => appStore.isOnline);
-const queuedActions = computed<QueuedAction[]>(() => appStore.offlineQueue.actions);
-
-// Show only the most recent notification
-const currentNotification = computed(() => {
-  const notifs = notificationStore.notifications;
-  return notifs.length > 0 ? notifs[0] : null;
-});
 
 const notifications = computed(() => notificationStore.notifications);
+const isOnline = computed(() => appStore.isOnline);
+const queuedActions = computed<QueuedAction[]>(() => appStore.offlineQueue.actions);
 
-const dismissCurrentNotification = (): void => {
-  if (currentNotification.value) {
-    notificationStore.dismissNotification(currentNotification.value.id);
-  }
+const dismissNotification = (id: string): void => {
+  notificationStore.dismissNotification(id);
 };
-
-// Auto-dismiss older notifications when a new one appears
-watch(currentNotification, (newNotification) => {
-  if (newNotification && notifications.value.length > 1) {
-    // Dismiss all older notifications except the current one
-    const notifs = notifications.value;
-    for (let i = 0; i < notifs.length - 1; i++) {
-      const notification = notifs[i];
-      if (notification?.id) {
-        notificationStore.dismissNotification(notification.id);
-      }
-    }
-  }
-});
 
 watch(isOnline, (online: boolean) => {
   if (online && queuedActions.value.length > 0) {
@@ -137,6 +106,7 @@ const getTypeIcon = (type: Notification['type']): string => {
 
 .toast {
   width: 20rem;
+  max-width: calc(100vw - 2rem);
   background-color: var(--bs-body-bg);
   background-clip: padding-box;
   border: 1px solid var(--bs-border-color-translucent);
@@ -161,79 +131,19 @@ const getTypeIcon = (type: Notification['type']): string => {
   filter: none;
 }
 
-.notification-enter-active {
-  transition: all 0.3s ease-out;
+.notification-enter-active,
+.notification-leave-active,
+.notification-move {
+  transition: all 0.3s ease;
 }
 
-.notification-enter-from {
+.notification-enter-from,
+.notification-leave-to {
   opacity: 0;
   transform: translateX(30px);
 }
 
-.notification-enter-to {
-  opacity: 1;
-  transform: translateX(0);
-}
-
 .notification-leave-active {
-  transition: all 0.2s ease-in;
   position: absolute;
-  width: 100%;
-}
-
-.notification-leave-to {
-  opacity: 0;
-  transform: translateY(-20px);
-}
-
-.notification-move {
-  transition: transform 0.3s ease;
-}
-
-/* Enhanced feedback message styles */
-.feedback-section {
-  .alert {
-    border: none;
-    border-radius: var(--bs-border-radius-lg);
-    backdrop-filter: blur(10px);
-    box-shadow: var(--bs-box-shadow-sm);
-    
-    &.alert-success {
-      background: linear-gradient(135deg, 
-        rgba(var(--bs-success-rgb), 0.1) 0%, 
-        rgba(var(--bs-success-rgb), 0.05) 100%);
-      border-left: 4px solid var(--bs-success);
-    }
-    
-    &.alert-danger {
-      background: linear-gradient(135deg, 
-        rgba(var(--bs-danger-rgb), 0.1) 0%, 
-        rgba(var(--bs-danger-rgb), 0.05) 100%);
-      border-left: 4px solid var(--bs-danger);
-    }
-    
-    &.alert-warning {
-      background: linear-gradient(135deg, 
-        rgba(var(--bs-warning-rgb), 0.1) 0%, 
-        rgba(var(--bs-warning-rgb), 0.05) 100%);
-      border-left: 4px solid var(--bs-warning);
-    }
-    
-    &.alert-info {
-      background: linear-gradient(135deg, 
-        rgba(var(--bs-info-rgb), 0.1) 0%, 
-        rgba(var(--bs-info-rgb), 0.05) 100%);
-      border-left: 4px solid var(--bs-info);
-    }
-    
-    .btn-close {
-      background-size: 0.75rem;
-      opacity: 0.7;
-      
-      &:hover {
-        opacity: 1;
-      }
-    }
-  }
 }
 </style>

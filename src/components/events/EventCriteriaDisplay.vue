@@ -3,7 +3,6 @@
   <div class="card criteria-card shadow-sm animate-fade-in">
     <div class="card-header bg-warning-subtle border-0">
       <div class="d-flex align-items-center">
-        <!-- Updated icon and title styling -->
         <i class="fas text-primary me-2" :class="isIndividualCompetitionAward ? 'fa-award' : 'fa-tasks'"></i>
         <h5 class="mb-0 fw-semibold text-gradient-primary">
           {{ titleText }}
@@ -34,7 +33,7 @@
                   </span>
                   <span v-if="!isIndividualCompetitionAward" class="role-badge">
                     <i class="fas fa-user-tag me-1"></i>
-                    {{ getRoleDisplay(criterion) }}
+                    {{ formatRoleName(criterion.role || '') }}
                   </span>
                 </div>
               </div>
@@ -51,13 +50,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { EventCriteria, EventFormat } from '@/types/event'; 
-import { formatRoleName } from '@/utils/formatters';
+import type { EventCriteria, EventFormat } from '@/types/event';
+import { formatRoleName } from '@/utils/formatters'; // Use the centralized formatter
 
 interface Props {
   criteria: EventCriteria[],
-  eventFormat?: EventFormat, 
-  isCompetition?: boolean    
+  eventFormat?: EventFormat,
+  isCompetition?: boolean
 }
 const props = withDefaults(defineProps<Props>(), {
   isCompetition: false,
@@ -68,20 +67,17 @@ const isIndividualCompetitionAward = computed(() => {
 });
 
 const titleText = computed(() => {
-  if (props.eventFormat === 'Individual' && props.isCompetition) {
+  if (isIndividualCompetitionAward.value) {
     return 'Competition Awards';
   }
   if (props.eventFormat === 'MultiEvent' && props.isCompetition) {
-    return 'Overall Competition Series Awards'; // Or similar if criteria are for overall multi-event
+    return 'Overall Competition Series Awards';
   }
   return 'Rating Criteria';
 });
 
-// Handle both role and targetRole properties consistently
-function getRoleDisplay(criterion: EventCriteria): string {
-  const role = criterion.targetRole || criterion.role; // targetRole is optional on EventCriteria
-  return role ? formatRoleName(String(role)) : 'No Role'; // Ensure role is string for formatRoleName
-}
+// The local getRoleDisplay function is no longer needed.
+// The template now directly uses the imported `formatRoleName` function.
 </script>
 
 <style scoped>
@@ -183,14 +179,12 @@ function getRoleDisplay(criterion: EventCriteria): string {
   border-top: 1px solid var(--bs-border-color-translucent);
 }
 
-/* Empty State */
 .empty-state {
   text-align: center;
   padding: 3rem 2rem;
   color: var(--bs-secondary);
 }
 
-/* Animation */
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
 }
@@ -203,57 +197,6 @@ function getRoleDisplay(criterion: EventCriteria): string {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .card-header {
-    padding: 0.875rem 1rem;
-  }
-  
-  .criterion-content {
-    padding: 1rem;
-  }
-  
-  .criterion-header {
-    gap: 0.5rem;
-  }
-  
-  .criterion-icon {
-    width: 1.75rem;
-    height: 1.75rem;
-  }
-  
-  .criterion-title {
-    font-size: 0.95rem;
-  }
-  
-  .criterion-meta {
-    gap: 0.375rem;
-  }
-  
-  .xp-badge,
-  .role-badge {
-    padding: 0.2rem 0.4rem;
-    font-size: 0.75rem;
-  }
-  
-  .empty-state {
-    padding: 2rem 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .criterion-meta {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .xp-badge,
-  .role-badge {
-    width: 100%;
-    justify-content: center;
   }
 }
 </style>

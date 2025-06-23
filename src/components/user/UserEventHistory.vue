@@ -1,14 +1,14 @@
 <template>
   <div v-if="events.length > 0 || loading" class="section-card shadow-sm rounded-4 animate-fade-in">
     <!-- Header -->
-    <div class="section-header bg-primary-subtle text-primary-emphasis rounded-top-4 p-4 border-bottom">
+    <div class="section-header bg-primary-subtle text-primary-emphasis rounded-top-4 p-3 border-bottom">
       <div class="d-flex align-items-center justify-content-between">
         <div class="header-content">
           <div class="header-icon bg-primary-subtle">
-            <i class="fas fa-history fa-lg"></i>
+            <i class="fas fa-history"></i>
           </div>
           <div>
-            <h5 class="section-title mb-1 text-primary-emphasis">Event History</h5>
+            <h5 class="section-title mb-0 text-primary-emphasis">Event History</h5>
             <p v-if="!loading" class="d-none d-sm-block section-subtitle small mb-0">{{ activeEvents.length }} event{{ activeEvents.length === 1 ? '' : 's' }} participated</p>
             <p v-else class="d-none d-sm-block section-subtitle small mb-0">Loading events...</p>
           </div>
@@ -37,17 +37,17 @@
     <!-- Active Events List -->
     <div v-else-if="activeEvents.length > 0" class="item-list">
       <div
-        v-for="(eventItem, index) in sortedActiveEvents"
+        v-for="(eventItem, index) in displayedActiveEvents"
         :key="eventItem.eventId || `event-${index}`" 
         class="list-item p-3"
-        :class="{ 'border-bottom': index < sortedActiveEvents.length - 1 || cancelledEvents.length > 0 }"
+        :class="{ 'border-bottom': index < displayedActiveEvents.length - 1 }"
       >
         <!-- Event Header -->
-        <div class="event-header mb-3">
+        <div class="event-header mb-2">
           <!-- First Row: Event Name and Organizer Badge -->
           <div class="d-flex align-items-center justify-content-between mb-2">
             <div class="d-flex align-items-center">
-              <div class="item-icon bg-primary-subtle me-3">
+              <div class="item-icon bg-primary-subtle me-2">
                 <i class="fas fa-calendar-alt text-primary"></i>
               </div>
               <div class="event-title-container">
@@ -77,7 +77,7 @@
           </div>
           
           <!-- Second Row: Event Format and Date -->
-          <div class="d-flex align-items-center justify-content-between ms-5">
+          <div class="d-flex align-items-center justify-content-between ms-sm-5">
             <!-- Event Format -->
             <span 
               v-if="eventItem.eventFormat" 
@@ -93,6 +93,17 @@
             </span>
           </div>
         </div>
+      </div>
+       <!-- Show More/Less Button -->
+      <div v-if="hasMoreEvents" class="show-more-section text-center p-3 border-top">
+        <button @click="toggleShowAll" class="btn btn-sm btn-outline-secondary">
+          <span v-if="!showAll">
+            Show all {{ sortedActiveEvents.length }} events <i class="fas fa-chevron-down ms-1"></i>
+          </span>
+          <span v-else>
+            Show less <i class="fas fa-chevron-up ms-1"></i>
+          </span>
+        </button>
       </div>
     </div>
 
@@ -146,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { formatISTDate } from '@/utils/dateTime';
 import { EventFormat, EventStatus } from '@/types/event';
 import { type StudentEventHistoryItem } from '@/types/student';
@@ -157,6 +168,8 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const initialVisibleCount = 3;
+const showAll = ref(false);
 
 // Separate active and cancelled events
 const activeEvents = computed(() => {
@@ -174,6 +187,19 @@ const sortedActiveEvents = computed(() => {
   // Events are already sorted by Firebase queries
   return activeEvents.value;
 });
+
+const displayedActiveEvents = computed(() => {
+    if (showAll.value || sortedActiveEvents.value.length <= initialVisibleCount) {
+        return sortedActiveEvents.value;
+    }
+    return sortedActiveEvents.value.slice(0, initialVisibleCount);
+});
+
+const hasMoreEvents = computed(() => sortedActiveEvents.value.length > initialVisibleCount);
+
+const toggleShowAll = () => {
+  showAll.value = !showAll.value;
+};
 
 const isOrganizer = (eventItem: StudentEventHistoryItem): boolean => {
   return eventItem.roleInEvent === 'organizer';
@@ -195,8 +221,8 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
 }
 
 .header-icon {
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
   background: rgba(var(--bs-primary-rgb), 0.1);
   display: flex;
@@ -262,9 +288,9 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
 }
 
 /* Event Header */
-.event-icon {
-  width: 2.5rem;
-  height: 2.5rem;
+.item-icon {
+  width: 2.25rem;
+  height: 2.25rem;
   border-radius: 50%;
   background: var(--bs-primary-subtle);
   display: flex;
@@ -282,7 +308,7 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
 .meta-badge,
 .organizer-badge,
 .date-badge {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   padding: 0.35rem 0.65rem;
   font-weight: 500;
 }
@@ -298,7 +324,7 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
 
 /* Component-specific styles */
 .event-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1.4;
   transition: color 0.3s ease;
 }
@@ -314,7 +340,7 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
 }
 
 .cancelled-header h6 {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--bs-secondary);
 }
@@ -380,26 +406,9 @@ const formatEventFormat = (format: EventFormat | undefined): string => {
 
 /* Responsive adjustments */
 @media (max-width: 480px) {
-  .event-meta {
-    margin-left: 0;
-    width: 100%;
+  .event-header .ms-sm-5 {
+    margin-left: 0 !important;
   }
-  
-  .event-meta .badge {
-    flex: 1;
-    text-align: center;
-    min-width: auto;
-  }
-}
-
-.item-icon {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
 }
 
 .list-item {

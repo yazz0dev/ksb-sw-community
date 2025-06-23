@@ -1,3 +1,5 @@
+// src/utils/dateTime.ts
+
 import { DateTime } from 'luxon';
 import { Timestamp } from 'firebase/firestore';
 
@@ -68,6 +70,29 @@ export function isDateWithinEventRange(startDate: DateInput, endDate: DateInput)
     return false;
   }
 }
+
+/**
+ * Converts various date formats to a Firestore Timestamp.
+ * @param date The date input to convert.
+ * @returns A Firestore Timestamp object or null if the input is invalid/null.
+ */
+export function toFirestoreTimestamp(date: DateInput): Timestamp | null {
+  if (!date) return null;
+  if (date instanceof Timestamp) return date;
+  if (date instanceof Date) return Timestamp.fromDate(date);
+  if (typeof date === 'string') {
+    const dt = DateTime.fromISO(date);
+    return dt.isValid ? Timestamp.fromDate(dt.toJSDate()) : null;
+  }
+  // Handle PlainTimestamp object
+  if (typeof date === 'object' && 'seconds' in date && 'nanoseconds' in date) {
+    return new Timestamp((date as PlainTimestamp).seconds, (date as PlainTimestamp).nanoseconds);
+  }
+  
+  console.warn('Invalid date input for toFirestoreTimestamp:', date);
+  return null;
+}
+
 
 // Use the consolidated function for both checks
 export const isEventInProgress = isDateWithinEventRange;

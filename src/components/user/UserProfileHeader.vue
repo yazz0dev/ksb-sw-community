@@ -2,7 +2,7 @@
   <div class="section-card shadow-sm rounded-4 animate-fade-in">
     <div class="card-body p-3 p-md-4">
       <!-- Profile Photo Section -->
-      <div class="text-center mb-3"> <!-- mb-4 to mb-3 -->
+      <div class="text-center mb-3">
         <div class="profile-photo-container position-relative d-inline-block">
           <img
             :src="optimizedProfilePhotoUrl"
@@ -29,12 +29,12 @@
       </div>
 
       <!-- User Name & Edit Button (moved outside the photo container) -->
-      <div class="text-center mb-3"> <!-- mb-4 to mb-3 -->
+      <div class="text-center mb-3">
         <h1 class="h4 fw-bold text-dark mb-2">{{ user.name || 'User Profile' }}</h1>
       </div>
 
       <!-- Social Links Section -->
-      <div v-if="hasSocialLinks" class="social-links-section mb-3"> <!-- mb-4 to mb-3 -->
+      <div v-if="hasSocialLinks" class="social-links-section mb-3">
         <div class="d-flex flex-wrap justify-content-center gap-2">
           <a
             v-if="user.socialLinks?.portfolio"
@@ -71,7 +71,7 @@
       </div>
 
       <!-- Bio Section -->
-      <div class="bio-section mb-3 text-center"> <!-- mb-4 to mb-3 -->
+      <div class="bio-section mb-3 text-center">
         <div class="bio-container d-inline-block text-start p-3 bg-light rounded-3">
           <i class="fas fa-quote-left text-secondary me-1 opacity-50"></i>
           <span v-if="user.bio" class="text-secondary small">{{ user.bio }}</span>
@@ -80,10 +80,10 @@
       </div>
 
       <!-- Skills & Equipment -->
-      <div class="border-top border-bottom py-2 my-3"> <!-- py-3 my-4 to py-2 my-3 -->
-        <div class="row g-2"> <!-- g-3 to g-2 -->
+      <div class="border-top border-bottom py-2 my-3">
+        <div class="row g-2">
             <!-- Skills Section -->
-            <div v-if="user.skills && user.skills.length > 0" class="col-6 border-end">
+            <div v-if="user.skills && user.skills.length > 0" class="col-12 col-md-6 border-end-md">
                 <div class="info-section-header mb-2 text-center text-md-start">
                   <i class="fas fa-code text-primary me-2"></i>
                   <span class="fw-semibold text-dark small text-uppercase">Skills</span>
@@ -99,7 +99,7 @@
                 </div>
             </div>
              <!-- Equipment Section -->
-            <div :class="user.skills && user.skills.length > 0 ? 'col-6' : 'col-12'">
+            <div :class="user.skills && user.skills.length > 0 ? 'col-12 col-md-6' : 'col-12'">
                 <div class="d-flex flex-column align-items-center align-items-md-start">
                   <div class="info-section-header mb-1 text-center text-md-start"> 
                     <i class="fas fa-laptop text-primary me-2"></i>
@@ -120,7 +120,7 @@
       </div>
 
       <!-- Stats Section -->
-      <div class="stats-section mb-3"> <!-- mb-4 to mb-3 -->
+      <div class="stats-section mb-3">
         <div class="stats-grid">
           <div class="stat-item text-center">
             <div class="stat-value bg-primary-subtle text-primary-emphasis rounded-3 p-3 mb-2">
@@ -255,8 +255,8 @@ onMounted(() => {
 }
 
 .profile-photo {
-  width: 120px;
-  height: 120px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   object-fit: cover;
   transition: all 0.3s ease;
@@ -414,8 +414,8 @@ onMounted(() => {
 /* Responsive Design */
 @media (max-width: 767.98px) {
   .profile-photo {
-    width: 100px;
-    height: 100px;
+    width: 90px;
+    height: 90px;
   }
   
   .card-body {
@@ -444,7 +444,7 @@ onMounted(() => {
   }
   
   .xp-value {
-    font-size: 2.5rem;
+    font-size: 2rem;
   }
 }
 
@@ -466,13 +466,6 @@ onMounted(() => {
 .profile-photo-container:hover .photo-overlay {
   opacity: 1;
 }
-
-@media (min-width: 768px) {
-    .border-end-md {
-        border-right: 1px solid var(--bs-border-color);
-    }
-}
-
 
 @media (min-width: 768px) {
     .border-end-md {

@@ -14,7 +14,8 @@ import { type EnrichedStudentData, type UserData } from '@/types/student';
 import { mapFirestoreToEventData } from '@/utils/eventDataUtils';
 import { calculateEventXP } from '@/utils/eventUtils';
 import { EVENTS_COLLECTION } from '@/utils/constants';
-import { applyXpAwardsBatch } from '@/services/xpService';
+import { applyXpAwardsBatch, type XpFieldUpdates } from '@/services/xpService';
+import { type XPData, mapCalcRoleToFirestoreKey } from '@/types/xp';
 
 /**
  * Updates the status of an event document in Firestore.
@@ -42,7 +43,7 @@ export async function updateEventStatusInFirestore(
         const currentEvent = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
         if (!currentEvent) throw new Error('Failed to map current event data.');
 
-        const updatesToApply: Record<string, unknown> = { // Changed from any
+        const updatesToApply: Record<string, any> = {
             status: newStatus,
             lastUpdatedAt: serverTimestamp(),
         };
@@ -161,11 +162,28 @@ export const closeEventAndAwardXP = async (
     const xpAwards = calculateEventXP(eventData);
     const studentIdsWithXP = Object.keys(xpAwards);
 
+    // Convert EventXPAward[] to Record<string, XpFieldUpdates> for applyXpAwardsBatch
+    const xpChangesMap: Record<string, XpFieldUpdates> = {};
+    for (const award of xpAwards) {
+      if (!xpChangesMap[award.userId]) {
+        xpChangesMap[award.userId] = {};
+      }
+      const firestoreKey = mapCalcRoleToFirestoreKey(award.role);
+      const userUpdates = xpChangesMap[award.userId];
+      if (userUpdates) {
+        userUpdates[firestoreKey] = (userUpdates[firestoreKey] || 0) + award.points;
+        
+        if (award.isWinner) {
+          userUpdates.count_wins = (userUpdates.count_wins || 0) + 1;
+        }
+      }
+    }
+
     // Get the batch with all XP updates, but don't commit it yet.
-    const batch = applyXpAwardsBatch(xpAwards, eventId, eventData.details.eventName);
+    const batch = applyXpAwardsBatch(xpChangesMap, eventId, eventData.details.eventName);
 
     // Add the event status update to the same batch.
-    const updatePayload: Record<string, unknown> = { // Typed updatePayload
+    const updatePayload: Record<string, any> = {
       status: EventStatus.Closed,
       lastUpdatedAt: serverTimestamp(),
       lifecycleTimestamps: {
@@ -174,29 +192,28 @@ export const closeEventAndAwardXP = async (
         closedBy: closingUser.uid // Added closedBy based on previous logic review
       },
     };
-    batch.update(eventRef, updatePayload); // Removed 'as any'
+    batch.update(eventRef, updatePayload);
 
     // Atomically commit all XP awards and the event status update.
     await batch.commit();
 
     // Aggregate xpAwards (EventXPAward[]) into Record<string, Partial<XPData>> for the return
     const aggregatedXpChanges: Record<string, Partial<XPData>> = {};
-      for (const award of xpAwards) {
-        if (!aggregatedXpChanges[award.userId]) {
-          aggregatedXpChanges[award.userId] = { totalCalculatedXp: 0, count_wins: 0 };
-        }
-        const firestoreKey = mapCalcRoleToFirestoreKey(award.role);
-        (aggregatedXpChanges[award.userId] as any)[firestoreKey] =
-          ((aggregatedXpChanges[award.userId] as any)[firestoreKey] || 0) + award.points;
-
-        aggregatedXpChanges[award.userId]!.totalCalculatedXp =
-          (aggregatedXpChanges[award.userId]!.totalCalculatedXp || 0) + award.points;
+    for (const award of xpAwards) {
+      if (!aggregatedXpChanges[award.userId]) {
+        aggregatedXpChanges[award.userId] = { totalCalculatedXp: 0, count_wins: 0 };
+      }
+      const firestoreKey = mapCalcRoleToFirestoreKey(award.role);
+      const userChanges = aggregatedXpChanges[award.userId];
+      if (userChanges) {
+        (userChanges as any)[firestoreKey] = ((userChanges as any)[firestoreKey] || 0) + award.points;
+        userChanges.totalCalculatedXp = (userChanges.totalCalculatedXp || 0) + award.points;
 
         if (award.isWinner) {
-            aggregatedXpChanges[award.userId]!.count_wins =
-              (aggregatedXpChanges[award.userId]!.count_wins || 0) + 1;
+          userChanges.count_wins = (userChanges.count_wins || 0) + 1;
         }
       }
+    }
 
     return {
       success: true,

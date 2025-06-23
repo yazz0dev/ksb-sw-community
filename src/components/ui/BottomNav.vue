@@ -11,7 +11,6 @@
         <span class="nav-text text-caption">Home</span>
       </router-link>
 
-      <!-- Event Request Link  -->
       <router-link
         v-if="isAuthenticated"
         to="/request-event"
@@ -23,7 +22,6 @@
         <span class="nav-text text-caption">Request</span>
       </router-link>
 
-      <!-- Leaderboard -->
       <router-link
         to="/leaderboard"
         class="nav-link d-flex flex-column align-items-center justify-content-center text-center flex-fill"
@@ -34,15 +32,13 @@
         <span class="nav-text text-caption">Leaderboard</span>
       </router-link>
 
-      <!-- Profile (User Only) -->
       <router-link
-        v-if="typeof isAuthenticated === 'boolean'"
+        v-if="isAuthenticated"
         to="/profile"
         class="nav-link d-flex flex-column align-items-center justify-content-center text-center flex-fill"
         active-class="active"
         aria-label="Profile"
       >
-        <!-- Profile Pic or Icon -->
         <div class="nav-icon mb-1 h5">
           <img
             v-if="userProfilePicUrl && !imgError"
@@ -61,17 +57,15 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useProfileStore } from '@/stores/profileStore';
+import { useAuth } from '@/composables/useAuth'; // Use the centralized auth composable
 
-const studentStore = useProfileStore();
-const imgError = ref<boolean>(false);
+const { isAuthenticated, authUser } = useAuth();
+const imgError = ref(false);
 
-// Computed properties with type annotations
-const isAuthenticated = computed<boolean>(() => studentStore.isAuthenticated);
-const userProfilePicUrl = computed<string | null>(() => studentStore.currentStudent?.photoURL ?? null);
-const userName = computed<string | null>(() => studentStore.currentStudent?.name ?? null);
+const userProfilePicUrl = computed(() => authUser.value?.photoURL ?? null);
+const userName = computed(() => authUser.value?.name ?? null);
 
-const handleImageError = (): void => {
+const handleImageError = () => {
   imgError.value = true;
 };
 </script>
@@ -85,7 +79,6 @@ const handleImageError = (): void => {
   background-color: var(--bs-white) !important;
 }
 
-/* Ensure BottomNav is completely hidden on desktop */
 @media (min-width: 992px) {
   .bottom-nav {
     display: none !important;
@@ -96,9 +89,8 @@ const handleImageError = (): void => {
   color: var(--bs-secondary);
   text-decoration: none;
   padding: 0.5rem 0.25rem;
-  border-top: 3px solid transparent; /* keeping transparent border for consistent spacing */
+  border-top: 3px solid transparent;
   transition: color 0.2s ease, border-color 0.2s ease;
-  position: relative;
   min-height: var(--bottom-nav-height-mobile);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -107,7 +99,6 @@ const handleImageError = (): void => {
 .nav-link:hover,
 .nav-link:focus {
   color: var(--bs-primary);
-  text-decoration: none;
   outline: none;
 }
 
@@ -135,10 +126,6 @@ const handleImageError = (): void => {
   font-weight: 500;
 }
 
-.nav-link.active .nav-text {
-  font-weight: 600;
-}
-
 .profile-pic {
   width: 26px;
   height: 26px;
@@ -149,21 +136,5 @@ const handleImageError = (): void => {
 
 .nav-link.active .profile-pic {
   border-color: var(--bs-primary);
-}
-
-/* iOS safe area support - only on mobile */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  @media (max-width: 991.98px) {
-    .bottom-nav {
-      height: calc(var(--bottom-nav-height-mobile) + env(safe-area-inset-bottom));
-    }
-  }
-}
-
-/* Responsive adjustments for very small screens */
-@media (max-width: 360px) {
-  .nav-link {
-    padding: 0.4rem 0.1rem;
-  }
 }
 </style>

@@ -62,11 +62,11 @@
         </span>
       </div>
       
-      <div v-if="localOrganizers.length > 0" class="organizers-grid-compact">
-        <div v-for="uid in localOrganizers" :key="uid" class="organizer-card-compact">
-          <div class="organizer-info">
+      <div v-if="localOrganizers.length > 0" class="compact-grid">
+        <div v-for="uid in localOrganizers" :key="uid" class="compact-card">
+          <div class="compact-card-info">
             <i class="fas fa-user text-primary me-2"></i>
-            <span class="organizer-name">{{ nameCache[uid] || `User (${uid.substring(0,5)}...)` }}</span>
+            <span class="compact-card-name">{{ nameCache[uid] || `User (${uid.substring(0,5)}...)` }}</span>
           </div>
           <button
             type="button"
@@ -175,8 +175,6 @@ function handleCoOrganizerBlur() { setTimeout(() => { showCoOrganizerDropdown.va
 <style scoped>
 .co-organizer-form {
   --border-radius: 6px;
-  --primary-color: #0d6efd;
-  --danger-color: #dc3545;
 }
 
 /* Compact Search Input */
@@ -190,135 +188,12 @@ function handleCoOrganizerBlur() { setTimeout(() => { showCoOrganizerDropdown.va
   box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
 }
 
-/* Compact Dropdown */
-.search-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  background: var(--bs-card-bg);
-  border: 1px solid var(--bs-border-color);
-  border-radius: var(--border-radius);
-  max-height: 250px;
-  overflow-y: auto;
-  margin-top: 0.25rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  list-style: none;
-  margin: 0.25rem 0 0 0;
-  padding: 0;
-}
-
-.dropdown-item-wrapper {
-  margin: 0;
-  padding: 0;
-}
-
-.dropdown-item-custom {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  background: none;
-  border: none;
-  text-align: left;
-  font-size: 0.875rem;
-  color: var(--bs-body-color);
-  transition: background-color 0.15s ease;
-  display: flex;
-  align-items: center;
-}
-
-.dropdown-item-custom:hover {
-  background-color: var(--bs-primary-bg-subtle);
-  color: var(--bs-primary);
-}
-
-.no-results {
-  padding: 0.75rem;
-  text-align: center;
-  color: var(--bs-secondary);
-  font-size: 0.875rem;
-}
-
 /* Compact Selected Organizers */
 .selected-organizers-section {
   background: var(--bs-body-bg);
   border: 1px solid var(--bs-border-color-translucent);
   border-radius: var(--border-radius);
   padding: 0.75rem;
-}
-
-.organizers-grid-compact {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.5rem;
-}
-
-.organizer-card-compact {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem;
-  background: var(--bs-secondary-bg-subtle);
-  border: 1px solid var(--bs-border-color);
-  border-radius: calc(var(--border-radius) - 2px);
-  transition: all 0.2s ease;
-}
-
-.organizer-card-compact:hover {
-  background: var(--bs-tertiary-bg-subtle);
-  border-color: var(--bs-secondary-border-subtle);
-  transform: translateY(-1px);
-}
-
-.organizer-info {
-  display: flex;
-  align-items: center;
-  flex-grow: 1;
-  min-width: 0;
-}
-
-.organizer-name {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--bs-body-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.btn-remove-compact {
-  background: none;
-  border: 1px solid var(--bs-border-color);
-  border-radius: 50%;
-  width: 1.5rem;
-  height: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  color: var(--danger-color);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-  margin-left: 0.5rem;
-}
-
-.btn-remove-compact:hover:not(:disabled) {
-  background: var(--danger-color);
-  border-color: var(--danger-color);
-  color: white;
-  transform: scale(1.1);
-}
-
-.btn-remove-compact:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Compact Empty State */
-.empty-state-compact {
-  background: var(--bs-light-bg-subtle);
-  border: 1px dashed var(--bs-border-color);
-  border-radius: var(--border-radius);
 }
 
 /* Form Labels */
@@ -341,25 +216,6 @@ function handleCoOrganizerBlur() { setTimeout(() => { showCoOrganizerDropdown.va
 
 /* Mobile Optimizations */
 @media (max-width: 768px) {
-  .organizers-grid-compact {
-    grid-template-columns: 1fr;
-    gap: 0.375rem;
-  }
-  
-  .organizer-card-compact {
-    padding: 0.375rem;
-  }
-  
-  .organizer-name {
-    font-size: 0.8rem;
-  }
-  
-  .btn-remove-compact {
-    width: 1.25rem;
-    height: 1.25rem;
-    font-size: 0.65rem;
-  }
-  
   .form-text {
     font-size: 0.75rem;
   }
@@ -370,16 +226,8 @@ function handleCoOrganizerBlur() { setTimeout(() => { showCoOrganizerDropdown.va
 }
 
 @media (max-width: 480px) {
-  .organizer-card-compact {
-    padding: 0.25rem 0.375rem;
-  }
-  
   .empty-state-compact {
     padding: 1.5rem 0.5rem;
-  }
-  
-  .search-dropdown {
-    max-height: 200px;
   }
 }
 </style>

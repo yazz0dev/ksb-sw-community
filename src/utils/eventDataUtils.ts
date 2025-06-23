@@ -1,4 +1,6 @@
-import { Timestamp, serverTimestamp, type DocumentData } from 'firebase/firestore'; // Import serverTimestamp & DocumentData
+// src/utils/eventDataUtils.ts
+
+import { serverTimestamp, type DocumentData } from 'firebase/firestore'; // Import serverTimestamp & DocumentData
 import type { 
     Event as EventBaseData, // Aliasing to clarify it's the base structure
     EventFormData, 
@@ -6,7 +8,7 @@ import type {
     Team // Import Team
 } from '@/types/event';
 import { EventFormat, EventStatus } from '@/types/event';
-import { convertToISTDateTime, type DateInput, toFirestoreTimestamp } from '@/utils/dateTime'; // Added import, toFirestoreTimestamp
+import { type DateInput, toFirestoreTimestamp } from '@/utils/dateTime'; // Added import, toFirestoreTimestamp
 
 // EventWithId is no longer needed as EventBaseData (Event) includes id.
 // type EventWithId = EventBaseData & { id: string }; // Removed
@@ -38,24 +40,24 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<EventBaseD
         delete firestoreData.id;
     }
 
-    // Details object must be asserted to work with its properties
-    const details = firestoreData.details as Partial<EventBaseData['details']> | undefined;
+    // Cast details to a flexible type to handle properties not yet in the official type definition
+    const details = firestoreData.details as Record<string, any> | undefined;
 
     const isChildEvent = !!details?.parentId;
     
     // Sanitize fields based on event format and whether it's a child event
-    if (firestoreData.details && typeof firestoreData.details.format === 'string') {
-        const format = firestoreData.details.format as EventFormat;
+    if (details && typeof details.format === 'string') {
+        const format = details.format as EventFormat;
 
         // If the event itself (or phase) is marked as a competition
-        if (firestoreData.details.isCompetition) {
+        if (details.isCompetition) {
             // For a competitive event/phase, certain fields might be handled differently
             // This logic seems to be more about overall event structure vs phase structure.
             // If format is MultiEvent and it's a competition, criteria/teams are per-phase.
             if (format === EventFormat.MultiEvent) {
                 firestoreData.criteria = []; // Overall criteria cleared for MultiEvent
                 firestoreData.teams = []; // Overall teams cleared for MultiEvent
-                firestoreData.details.coreParticipants = []; // Overall coreParticipants cleared
+                details.coreParticipants = []; // Overall coreParticipants cleared
             }
             // Prize logic:
             // If it's a child event (phase) and it's a competition, it can have its own prize.
@@ -63,19 +65,19 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<EventBaseD
             // If it's NOT a competition (regardless of parent/child), prize should be null.
         } else { // Not a competition
             if (!isChildEvent) { // Parent events that are not competitions don't have prizes
-                firestoreData.details.prize = null;
+                details.prize = null;
             }
             // For child events, prize is allowed regardless of parent's format, if child itself is competition.
             // If child is not competition, its prize should be null.
-            else if (!firestoreData.details.isCompetition) {
-                 firestoreData.details.prize = null;
+            else if (!details.isCompetition) {
+                 details.prize = null;
             }
 
 
             if (format !== EventFormat.Team) { // Individual
                 firestoreData.teams = [];
             } else { // Team
-                 firestoreData.details.coreParticipants = [];
+                 details.coreParticipants = [];
             }
         }
     }
@@ -88,12 +90,12 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<EventBaseD
                                                : [];
         
         if (!isChildEvent) { // Organizers only relevant for parent events in this mapping stage
-            if (!firestoreData.details.organizers || !Array.isArray(firestoreData.details.organizers)) {
-                firestoreData.details.organizers = [];
+            if (!details.organizers || !Array.isArray(details.organizers)) {
+                details.organizers = [];
             }
         }
         // parentId is taken as is from formData
-        firestoreData.details.parentId = firestoreData.details.parentId || null;
+        details.parentId = details.parentId || null;
     }
     
     // Handle date conversion to Firestore Timestamps (only if not a child event, or if dates are explicitly passed for child - currently inherited)
@@ -230,7 +232,7 @@ export const mapFirestoreToEventData = (id: string, data: DocumentData | Record<
         rules: eventData.details?.rules || null,
         phases: eventData.details?.phases || null,
         type: eventData.details?.type || '', // Ensure type is present
-      },
+      } as any, // Cast to any to allow properties not defined in the static type
       status: eventData.status || EventStatus.Pending,
       requestedBy: eventData.requestedBy || '',
       votingOpen: eventData.votingOpen || false,

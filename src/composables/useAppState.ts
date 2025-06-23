@@ -1,72 +1,51 @@
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/appStore';
 
 export function useAppState() {
   const appStore = useAppStore();
-  const isOnline = ref(navigator.onLine);
-  const currentTheme = ref<'light' | 'dark'>(appStore.currentTheme || 'light');
-  const newVersionAvailable = ref(appStore.newAppVersionAvailable);
+
+  // Reactive computed properties that directly reflect the store's state.
+  const isOnline = computed(() => appStore.isOnline);
+  const currentTheme = computed(() => appStore.currentTheme);
+  const newVersionAvailable = computed(() => appStore.newAppVersionAvailable);
 
   /**
-   * Initialize the app state
+   * Initializes app-wide listeners and state from the store.
    */
   const initAppState = (): void => {
     appStore.initAppListeners();
-    setNetworkStatus(navigator.onLine);
-    initTheme();
   };
 
   /**
-   * Set the network status
-   * @param status Network status
-   */
-  const setNetworkStatus = (status: boolean): void => {
-    isOnline.value = status;
-    appStore.setNetworkOnlineStatus(status);
-  };
-
-  /**
-   * Initialize the theme
-   */
-  const initTheme = (): void => {
-    const storedTheme = localStorage.getItem('student-app-theme') as 'light' | 'dark' | null;
-    
-    if (storedTheme) {
-      setTheme(storedTheme);
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
-    } else {
-      setTheme('light');
-    }
-  };
-
-  /**
-   * Set the theme
-   * @param theme Theme
+   * Sets the theme by calling the appStore action.
+   * The store is now the single source of truth for this logic.
+   * @param theme The theme to set ('light' or 'dark').
    */
   const setTheme = (theme: 'light' | 'dark'): void => {
-    currentTheme.value = theme;
     appStore.setTheme(theme);
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('student-app-theme', theme);
   };
 
   /**
-   * Set the new version available flag
-   * @param status New version available status
+   * Sets the new version available flag via the appStore.
+   * @param status The new status.
    */
   const setNewVersionAvailable = (status: boolean): void => {
-    newVersionAvailable.value = status;
     appStore.setNewAppVersionAvailable(status);
   };
 
   /**
-   * Reload the app
+   * Reloads the application to apply a new service worker version.
    */
   const reloadApp = (): void => {
     if (!isOnline.value) return;
     appStore.setNewAppVersionAvailable(false);
-    window.location.reload();
+    
+    // Use the globally exposed PWA update function if available.
+    if (window.__updateSW) {
+      window.__updateSW(true);
+    } else {
+      window.location.reload();
+    }
   };
 
   return {
@@ -74,9 +53,8 @@ export function useAppState() {
     currentTheme,
     newVersionAvailable,
     initAppState,
-    setNetworkStatus,
     setTheme,
     setNewVersionAvailable,
-    reloadApp
+    reloadApp,
   };
 }

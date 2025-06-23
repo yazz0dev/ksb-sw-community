@@ -1,4 +1,19 @@
-// Fade In
+// _animations.scss - GLOBAL ANIMATION LIBRARY
+
+// --- Keyframe Animations ---
+
+// Generic Fade In (from bottom)
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+// Alias for consistency
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -10,7 +25,51 @@
   }
 }
 
-// Vue Transitions
+// Pop In
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+// Shake
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+}
+
+// Shimmer (for skeletons)
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+// Indeterminate Progress Bar
+@keyframes progressSlide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+// Generic Spin
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// --- Vue Transition Classes ---
 
 // Fade
 .fade-enter-active,
@@ -22,7 +81,7 @@
   opacity: 0;
 }
 
-// Fade Fast
+// Fade Fast (for list items)
 .fade-fast-enter-active,
 .fade-fast-leave-active {
   transition: all 0.2s ease-out;
@@ -36,7 +95,7 @@
   transition: transform 0.3s ease-out;
 }
 
-// Slide Fade
+// Slide Fade (for collapsible sections)
 .slide-fade-enter-active {
   transition: all 0.3s ease-out;
 }
@@ -49,37 +108,36 @@
   opacity: 0;
 }
 
-// Fade Pop (used for pop-in effect)
-.fade-pop-enter-active {
-  animation: fadeIn 0.7s;
+// Slide Fade Smooth (for collapsible team details)
+.slide-fade-smooth-enter-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.fade-pop-leave-active {
-  animation: fadeIn 0.7s reverse;
+.slide-fade-smooth-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.6, 1);
+}
+.slide-fade-smooth-enter-from,
+.slide-fade-smooth-leave-to {
+  opacity: 0;
+  transform: translateY(-15px);
+  max-height: 0;
+}
+.slide-fade-smooth-enter-to {
+  max-height: 400px; /* Generous height for content */
+  opacity: 1;
+  transform: translateY(0);
 }
 
-// Fade Slide Down/Up/Left/Right (used in LandingView and others)
+// Fade Slide (for page transitions)
 .fade-slide-down-enter-active,
 .fade-slide-up-enter-active,
 .fade-slide-left-enter-active,
 .fade-slide-right-enter-active {
   transition: all 0.7s cubic-bezier(.23,1.01,.32,1);
 }
-.fade-slide-down-enter-from {
-  opacity: 0;
-  transform: translateY(-40px);
-}
-.fade-slide-up-enter-from {
-  opacity: 0;
-  transform: translateY(40px);
-}
-.fade-slide-left-enter-from {
-  opacity: 0;
-  transform: translateX(-40px);
-}
-.fade-slide-right-enter-from {
-  opacity: 0;
-  transform: translateX(40px);
-}
+.fade-slide-down-enter-from { opacity: 0; transform: translateY(-40px); }
+.fade-slide-up-enter-from { opacity: 0; transform: translateY(40px); }
+.fade-slide-left-enter-from { opacity: 0; transform: translateX(-40px); }
+.fade-slide-right-enter-from { opacity: 0; transform: translateX(40px); }
 .fade-slide-down-enter-to,
 .fade-slide-up-enter-to,
 .fade-slide-left-enter-to,
@@ -88,260 +146,28 @@
   transform: none;
 }
 
-// Animation Classes
+// --- Animation Utility Classes ---
+
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeInUp 0.5s ease-out forwards;
 }
 
-// Shake animation
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  50% { transform: translateX(5px); } /* Added a middle step for better shake */
-  75% { transform: translateX(-3px); }
-  100% { transform: translateX(0); }
+.animate-pop {
+  animation: popIn 0.4s ease-out forwards;
 }
 
 .animate-shake {
   animation: shake 0.5s ease-in-out;
 }
 
-@keyframes popIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.9) translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.animate-pop {
-  /* Updated to use popIn keyframes and a more typical pop duration */
-  animation: popIn 0.4s ease-out forwards;
-}
-
-// Staggered animation for lists (useful for TransparencyView)
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
+// Staggered animation for lists
 .stagger-fade-in > * {
   animation: fadeInUp 0.5s ease-out forwards;
   opacity: 0;
 }
-
-.stagger-fade-in > *:nth-child(1) { animation-delay: 0.1s; }
-.stagger-fade-in > *:nth-child(2) { animation-delay: 0.2s; }
-.stagger-fade-in > *:nth-child(3) { animation-delay: 0.3s; }
-.stagger-fade-in > *:nth-child(4) { animation-delay: 0.4s; }
-.stagger-fade-in > *:nth-child(5) { animation-delay: 0.5s; }
-.stagger-fade-in > *:nth-child(6) { animation-delay: 0.6s; }
-
-// Enhanced Event Details Animations
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
+// Staggered delays
+@for $i from 1 through 10 {
+  .stagger-fade-in > *:nth-child(#{$i}) {
+    animation-delay: #{$i * 0.08}s;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes bounceIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-  70% {
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-// Smooth slide transitions for team details
-.slide-fade-smooth-enter-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.slide-fade-smooth-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.6, 1);
-}
-
-.slide-fade-smooth-enter-from {
-  opacity: 0;
-  transform: translateY(-15px);
-  max-height: 0;
-}
-
-.slide-fade-smooth-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-  max-height: 0;
-}
-
-.slide-fade-smooth-enter-to {
-  max-height: 400px; /* Increased max-height */
-  opacity: 1; /* Ensure opacity is set to 1 on enter-to */
-  transform: translateY(0); /* Ensure transform is reset on enter-to */
-}
-
-// Enhanced card hover animations
-.card-hover-lift {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  &:hover {
-    transform: translateY(-4px) scale(1.01);
-    box-shadow: 
-      0 10px 30px rgba(var(--bs-dark-rgb), 0.1),
-      0 4px 8px rgba(var(--bs-dark-rgb), 0.06);
-  }
-}
-
-// Staggered fade in for lists with improved timing
-.stagger-fade-enhanced > * {
-  animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  opacity: 0;
-}
-
-.stagger-fade-enhanced > *:nth-child(1) { animation-delay: 0.1s; }
-.stagger-fade-enhanced > *:nth-child(2) { animation-delay: 0.15s; }
-.stagger-fade-enhanced > *:nth-child(3) { animation-delay: 0.2s; }
-.stagger-fade-enhanced > *:nth-child(4) { animation-delay: 0.25s; }
-.stagger-fade-enhanced > *:nth-child(5) { animation-delay: 0.3s; }
-.stagger-fade-enhanced > *:nth-child(6) { animation-delay: 0.35s; }
-
-// Utility animation classes
-.animate-slide-in-up {
-  animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.animate-bounce-in {
-  animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
-}
-
-// Loading pulse animation
-@keyframes pulse-subtle {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.animate-pulse-subtle {
-  animation: pulse-subtle 2s infinite;
-}
-
-// Shimmer effect for skeleton loaders
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.animate-shimmer {
-  animation: shimmer 1.5s infinite;
-}
-
-// Slide In Down 20px
-@keyframes slideInDown20 {
-  from { opacity: 0; transform: translateY(-20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-slide-in-down-20 {
-  animation: slideInDown20 0.5s ease-out forwards;
-}
-
-// Indeterminate Progress Bar Slide
-@keyframes progressSlide {
-  0% {
-    transform: translateX(-100%);
-  }
-  50% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.animate-progress-slide {
-  animation: progressSlide 2s infinite;
-}
-
-// Text Bounce (gentle bounce for text elements)
-@keyframes textBounce {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-5px);
-  }
-  60% {
-    transform: translateY(-3px);
-  }
-}
-
-.animate-text-bounce {
-  animation: textBounce 1s ease-out;
-}
-
-// Slide In From Bottom
-@keyframes slideInFromBottom {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.animate-slide-in-from-bottom {
-  animation: slideInFromBottom 0.4s ease-out; /* Duration from OfflineStateHandler.vue */
-}
-
-// Spin animation (for loaders)
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
 }

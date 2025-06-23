@@ -67,7 +67,7 @@
       
       <!-- Main Profile Content -->
       <div v-else-if="viewedUser" class="profile-content animate-fade-in">
-        <div class="row g-3 g-lg-4"> <!-- g-4 g-lg-5 to g-3 g-lg-4 -->
+        <div class="row g-2 g-lg-4"> <!-- g-4 g-lg-5 to g-2 g-lg-4 -->
           <!-- Left Column (Sidebar) -->
           <div class="col-12 col-lg-4">
             <div class="profile-sidebar sticky-lg-top">

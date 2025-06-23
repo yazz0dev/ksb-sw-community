@@ -599,10 +599,6 @@ const setTeamLead = (teamIndex: number, memberId: string) => {
 <style scoped>
 .manage-teams-component {
   --border-radius: 6px;
-  --primary-color: #0d6efd;
-  --success-color: #198754;
-  --warning-color: #ffc107;
-  --danger-color: #dc3545;
 }
 
 .teams-summary {
@@ -639,7 +635,7 @@ const setTeamLead = (teamIndex: number, memberId: string) => {
 
 .members-grid-compact {
   display: grid;
-  grid-template-columns: repeat(4, 1fr); /* 4 columns on desktop */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.375rem;
 }
 
@@ -679,8 +675,8 @@ const setTeamLead = (teamIndex: number, memberId: string) => {
 }
 
 .crown-btn-compact.active {
-  background: var(--warning-color);
-  border-color: var(--warning-color);
+  background: var(--bs-warning);
+  border-color: var(--bs-warning);
   color: white;
 }
 
@@ -690,8 +686,8 @@ const setTeamLead = (teamIndex: number, memberId: string) => {
 
 .crown-btn-compact:hover {
   transform: scale(1.1);
-  background: var(--warning-color);
-  border-color: var(--warning-color);
+  background: var(--bs-warning);
+  border-color: var(--bs-warning);
   color: white;
 }
 
@@ -702,29 +698,6 @@ const setTeamLead = (teamIndex: number, memberId: string) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 120px; /* Limit width for text truncation */
-}
-
-.btn-remove-compact {
-  background: none;
-  border: 1px solid var(--bs-border-color);
-  border-radius: 50%;
-  width: 1.5rem;
-  height: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  color: var(--danger-color);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.btn-remove-compact:hover {
-  background: var(--danger-color);
-  border-color: var(--danger-color);
-  color: white;
-  transform: scale(1.1);
 }
 
 .empty-members-compact {
@@ -756,105 +729,14 @@ const setTeamLead = (teamIndex: number, memberId: string) => {
 }
 
 /* Form improvements */
-.form-control:focus,
-.form-select:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+.form-control:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.15);
 }
 
 .btn {
   border-radius: calc(var(--border-radius) - 2px);
   transition: all 0.2s ease;
-}
-
-/* Mobile optimizations */
-@media (max-width: 768px) {
-  .teams-summary {
-    margin-bottom: 0.75rem;
-  }
-  
-  .teams-summary .row {
-    text-align: center;
-  }
-  
-  .teams-summary .col-md-4 {
-    justify-content: center !important;
-  }
-  
-  /* Keep buttons in same row on mobile */
-  .teams-summary .d-flex {
-    flex-wrap: nowrap !important;
-    justify-content: center;
-    overflow-x: auto; /* Allow horizontal scroll if needed */
-  }
-  
-  /* Ensure buttons don't break to new line */
-  .teams-summary .btn {
-    white-space: nowrap;
-    flex-shrink: 0;
-    min-width: auto;
-    font-size: 0.875rem;
-    padding: 0.375rem 0.75rem;
-  }
-  
-  .team-card .card-body {
-    padding: 0.75rem;
-  }
-  
-  .team-members-section {
-    padding: 0.5rem;
-  }
-  
-  .member-card-compact {
-    padding: 0.375rem;
-    min-height: 2.25rem;
-  }
-  
-  .members-grid-compact {
-    grid-template-columns: repeat(2, 1fr); /* 2 columns on mobile */
-    gap: 0.25rem;
-  }
-  
-  .crown-btn-compact,
-  .btn-remove-compact {
-    width: 1.5rem;
-    height: 1.5rem;
-    font-size: 0.65rem;
-  }
-  
-  .member-name-compact {
-    font-size: 0.8rem;
-    max-width: 80px; /* Smaller max width on mobile */
-  }
-}
-
-@media (max-width: 480px) {
-  /* Very small screens - reduce button size but keep them together */
-  .teams-summary .btn {
-    font-size: 0.8rem;
-    padding: 0.25rem 0.5rem;
-  }
-  
-  .teams-summary .d-flex {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .team-card .card-header {
-    padding: 0.75rem;
-  }
-  
-  .empty-state {
-    padding: 2rem 1rem;
-  }
-  
-  .action-hints {
-    font-size: 0.75rem;
-  }
-  
-  .member-name-compact {
-    max-width: 70px; /* Even smaller on very small screens */
-  }
 }
 
 /* Input group enhancements */
@@ -863,69 +745,12 @@ const setTeamLead = (teamIndex: number, memberId: string) => {
   background: var(--bs-light-bg-subtle);
 }
 
-.input-group .form-control,
-.input-group .form-select {
+.input-group .form-control {
   border-color: var(--bs-border-color);
 }
 
 .input-group:focus-within .input-group-text {
-  border-color: var(--primary-color);
+  border-color: var(--bs-primary);
   background: var(--bs-primary-bg-subtle);
-}
-
-/* Badge enhancements */
-.badge {
-  font-size: 0.7em;
-  padding: 0.3em 0.5em;
-  border-radius: 0.25rem;
-}
-
-/* Search Dropdown Styles */
-.search-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  background: var(--bs-card-bg);
-  border: 1px solid var(--bs-border-color);
-  border-radius: var(--border-radius);
-  max-height: 250px;
-  overflow-y: auto;
-  margin-top: 0.25rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  list-style: none;
-  margin: 0.25rem 0 0 0;
-  padding: 0;
-}
-
-.dropdown-item-wrapper {
-  margin: 0;
-  padding: 0;
-}
-
-.dropdown-item-custom {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  background: none;
-  border: none;
-  text-align: left;
-  font-size: 0.875rem;
-  color: var(--bs-body-color);
-  transition: background-color 0.15s ease;
-  display: flex;
-  align-items: center;
-}
-
-.dropdown-item-custom:hover {
-  background-color: var(--bs-primary-bg-subtle);
-  color: var(--bs-primary);
-}
-
-.no-results {
-  padding: 0.75rem;
-  text-align: center;
-  color: var(--bs-secondary);
-  font-size: 0.875rem;
 }
 </style>

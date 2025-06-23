@@ -4,7 +4,7 @@
     <!-- Event Format Selection - Hidden when isPhaseForm is true -->
     <div v-if="!isPhaseForm" class="mb-4">
       <label class="form-label fw-medium">Event Format <span class="text-danger">*</span></label>
-      <div class="event-format-container d-flex flex-wrap gap-3">
+      <div class="event-format-container d-flex gap-3">
         <div class="form-check form-check-custom">
           <input class="form-check-input" type="radio" name="eventFormat" id="formatIndividual" :value="EventFormat.Individual" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatIndividual">Individual</label>

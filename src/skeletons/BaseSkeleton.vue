@@ -1,5 +1,5 @@
 <template>
-  <div 
+  <div
     class="skeleton-loader"
     :class="[
       `skeleton-${type}`,
@@ -43,7 +43,7 @@ withDefaults(defineProps<Props>(), {
 
 <style lang="scss" scoped>
 .skeleton-loader {
-  background: var(--bs-secondary-bg); /* Updated background */
+  background: var(--bs-secondary-bg);
   position: relative;
   overflow: hidden;
 }
@@ -62,48 +62,24 @@ withDefaults(defineProps<Props>(), {
     rgba(255, 255, 255, 0.5) 60%,
     rgba(255, 255, 255, 0)
   );
-  animation: skeletonSlideShimmer 2s infinite; /* Renamed animation */
+  animation: shimmer 2s infinite; // Using global 'shimmer' animation
   content: '';
 }
 
-@keyframes skeletonSlideShimmer { /* Renamed keyframes */
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.skeleton-circle {
+.skeleton-circle,
+.skeleton-avatar {
   border-radius: 50%;
 }
 
-.skeleton-avatar {
-  border-radius: 50%; /* Similar to circle, or adjust as needed */
-}
-
 .skeleton-image {
-  border-radius: var(--bs-border-radius); /* Use Bootstrap variable */
+  border-radius: var(--bs-border-radius);
 }
 
 .skeleton-text {
-  border-radius: var(--bs-border-radius-sm); /* Use Bootstrap variable */
+  border-radius: var(--bs-border-radius-sm);
 }
 
 .skeleton-rounded {
   border-radius: var(--bs-border-radius-pill);
-}
-
-/* Enhanced loading states and skeleton styles */
-.loading-section {
-  .skeleton-card {
-    background: linear-gradient(90deg, 
-      rgba(var(--bs-light-rgb), 0.8) 25%, 
-      rgba(var(--bs-light-rgb), 0.4) 50%, 
-      rgba(var(--bs-light-rgb), 0.8) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite; /* This will use the global shimmer keyframes */
-    border-radius: var(--bs-border-radius-lg);
-  }
-  
-  /* Removed the duplicate @keyframes shimmer definition here */
 }
 </style>

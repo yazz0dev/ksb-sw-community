@@ -2,91 +2,59 @@
 <template>
   <div
     class="card skeleton-card h-100"
-    style="background-color: var(--bs-light); border-radius: var(--bs-border-radius); box-shadow: var(--bs-box-shadow-sm); border: 1px solid var(--bs-border-color); overflow: hidden;"
+    style="
+      background-color: var(--bs-light);
+      border-radius: var(--bs-border-radius);
+      border: 1px solid var(--bs-border-color);
+      overflow: hidden;
+      min-height: 14.375rem; /* Match EventCard--full min-height */
+    "
   >
-    <div class="card-body p-3">
-      <!-- Placeholder for title -->
-      <div class="skeleton-line" style="height: 22px; width: 75%; margin-bottom: 12px;"></div>
-      
-      <!-- Placeholder for type and format -->
-      <div class="d-flex gap-2 mb-2">
-        <div class="skeleton-line" style="height: 16px; width: 30%; margin-bottom: 0;"></div>
-        <div class="skeleton-line" style="height: 16px; width: 30%; margin-bottom: 0;"></div>
+    <div class="card-body p-3 d-flex flex-column">
+      <!-- Header Row: Title and Status Badge -->
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div class="flex-grow-1 me-2">
+          <BaseSkeleton type="text" width="80%" height="1.1rem" class="mb-1" />
+          <BaseSkeleton type="text" width="50%" height="1.1rem" />
+        </div>
+        <BaseSkeleton type="text" width="60px" height="20px" :rounded="true" />
       </div>
-      
-      <!-- Placeholder for date and organizer -->
-      <div class="d-flex justify-content-between mb-2">
-        <div class="skeleton-line" style="height: 16px; width: 40%; margin-bottom: 0;"></div>
-        <div class="skeleton-line" style="height: 16px; width: 30%; margin-bottom: 0;"></div>
+
+      <!-- Event Type & Format Row -->
+      <div class="d-flex align-items-center flex-wrap gap-2 small text-muted mb-2">
+        <BaseSkeleton type="text" width="40px" height="14px" />
+        <BaseSkeleton type="text" width="50px" height="14px" />
       </div>
-      
-      <!-- Placeholder for status badge -->
-      <div class="mb-2">
-        <div class="skeleton-line" style="height: 18px; width: 25%; border-radius: 50px; margin-bottom: 0;"></div>
+
+      <!-- Date and Organizer Row -->
+      <div class="d-flex justify-content-between align-items-center mb-2 small">
+        <BaseSkeleton type="text" width="40%" height="14px" />
+        <BaseSkeleton type="text" width="35%" height="14px" />
       </div>
-      
-      <!-- Placeholder for description -->
-      <div class="skeleton-description">
-        <div class="skeleton-line" style="height: 14px; width: 100%; margin-bottom: 8px;"></div>
-        <div class="skeleton-line" style="height: 14px; width: 90%; margin-bottom: 8px;"></div>
-        <div class="skeleton-line" style="height: 14px; width: 95%; margin-bottom: 0;"></div>
+
+      <!-- Description -->
+      <div class="card-text small text-secondary mb-3 flex-grow-1">
+        <BaseSkeleton type="text" width="100%" height="12px" class="mb-1" />
+        <BaseSkeleton type="text" width="100%" height="12px" class="mb-1" />
+        <BaseSkeleton type="text" width="75%" height="12px" />
       </div>
-      
-      <!-- Placeholder for button -->
-      <div class="mt-3">
-        <div class="skeleton-line" style="height: 36px; width: 100%; margin-bottom: 0; border-radius: 6px;"></div>
+
+      <!-- Footer: Action Button -->
+      <div class="mt-auto">
+        <BaseSkeleton type="text" width="100%" height="32px" border-radius="var(--bs-border-radius)" />
       </div>
     </div>
   </div>
 </template>
 
+<script setup lang="ts">
+import BaseSkeleton from './BaseSkeleton.vue';
+</script>
 
 <style scoped>
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
+/* The skeleton-card has a pulse animation in the global file now */
+/* No local styles needed */
 .skeleton-card {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  min-height: 180px; /* Match compact card min-height */
-  max-height: 260px; /* Match compact card max-height */
-}
-
-.skeleton-line,
-.skeleton-circle {
-  background-color: var(--bs-secondary-bg);
-  border-radius: var(--bs-border-radius-sm);
-}
-
-.skeleton-circle {
-  border-radius: 50%;
-}
-
-.skeleton-description {
-  margin: 10px 0 15px 0;
-  flex-grow: 1;
-}
-
-@media (max-width: 992px) {
-  .skeleton-card {
-    min-height: 190px; /* Match responsive compact card min-height */
-  }
-}
-
-@media (max-width: 768px) {
-  .skeleton-card {
-    min-height: 190px; /* Match responsive compact card min-height */
-  }
-}
-
-@media (max-width: 576px) {
-  .skeleton-card {
-    min-height: 230px; /* Match responsive compact card min-height */
-  }
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 </style>

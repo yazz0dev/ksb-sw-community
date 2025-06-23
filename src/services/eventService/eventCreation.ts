@@ -1,18 +1,17 @@
-import { 
-  collection, 
-  doc, 
-  getDoc, 
+import {
+  collection,
+  doc,
+  getDoc,
   updateDoc,
   deleteField,
   serverTimestamp,
-  Timestamp,
-  runTransaction // Added for potential transactional updates
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { DateTime } from 'luxon';
-import { 
-  type Event as EventBaseData,
-  EventStatus, 
+import {
+  type EventDetails,
+  EventStatus,
   type EventFormData,
   EventFormat
 } from '@/types/event';
@@ -20,90 +19,57 @@ import { mapEventDataToFirestore, mapFirestoreToEventData } from '@/utils/eventD
 import { EVENTS_COLLECTION } from '@/utils/constants';
 
 /**
- * Create a new event request
- * @param formData Event form data
- * @param studentId Student's UID
- * @returns Promise that resolves with the new event ID
+ * Creates a new event request in Firestore after thorough validation.
+ * @param formData - The event form data.
+ * @param studentId - The UID of the student making the request.
+ * @returns The ID of the newly created event.
  */
 export const createEventRequest = async (
-  formData: EventFormData, 
+  formData: EventFormData,
   studentId: string
 ): Promise<string> => {
   if (!studentId) throw new Error('Student ID is required to request an event.');
-  
-  const isChildEvent = !!formData.details.parentId;
-
-  if (!isChildEvent && !formData.details?.eventName?.trim()) {
-    throw new Error('Event name is required for a parent event.');
-  }
-  if (!formData.details?.type?.trim()) {
+  if (!formData.details?.eventName?.trim()) throw new Error('Event name is required.');
+  if (!formData.details?.type?.trim() && formData.details.format !== EventFormat.MultiEvent) {
     throw new Error('Event type is required.');
   }
 
-  // Date validation - only for parent events
-  let startDateTime: DateTime | null = null;
-  let endDateTime: DateTime | null = null;
-
-  if (!isChildEvent) {
-    const startDateInput = formData.details.date.start;
-    const endDateInput = formData.details.date.end;
-    if (!startDateInput || !endDateInput) {
-        throw new Error('Both start and end dates are required for a parent event.');
-    }
-    try {
-        if (typeof startDateInput === 'string') startDateTime = DateTime.fromISO(startDateInput);
-        else throw new Error('Invalid start date format, expected ISO string.');
-
-        if (typeof endDateInput === 'string') endDateTime = DateTime.fromISO(endDateInput);
-        else throw new Error('Invalid end date format, expected ISO string.');
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error during date parsing.';
-        throw new Error(`Invalid date format provided for validation: ${message}`);
-    }
-    if (!startDateTime.isValid || !endDateTime.isValid) {
-        let invalidReasons = [];
-        if (!startDateTime.isValid) invalidReasons.push(`Start date: ${startDateTime.invalidReason} (value: ${startDateInput})`);
-        if (!endDateTime.isValid) invalidReasons.push(`End date: ${endDateTime.invalidReason} (value: ${endDateInput})`);
-        throw new Error(`Invalid dates provided. ${invalidReasons.join(', ')}`);
-    }
-    if (endDateTime < startDateTime) {
-        throw new Error('Event end date must be on or after the start date.');
-    }
-    const nowLuxon = DateTime.now().setZone('Asia/Kolkata').startOf('day');
-    if (startDateTime.startOf('day') < nowLuxon) {
-        throw new Error('Event start date cannot be in the past.');
-    }
+  // --- Date Validation ---
+  const { start: startDateInput, end: endDateInput } = formData.details.date;
+  if (!startDateInput || !endDateInput) {
+    throw new Error('Both start and end dates are required.');
+  }
+  const startDateTime = DateTime.fromISO(startDateInput);
+  const endDateTime = DateTime.fromISO(endDateInput);
+  if (!startDateTime.isValid || !endDateTime.isValid) {
+    throw new Error('Invalid date format provided. Please use YYYY-MM-DD.');
+  }
+  if (endDateTime < startDateTime) {
+    throw new Error('Event end date must be on or after the start date.');
+  }
+  const nowInIST = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+  if (startDateTime.startOf('day') < nowInIST) {
+    throw new Error('Event start date cannot be in the past.');
   }
 
   try {
     const newEventRef = doc(collection(db, EVENTS_COLLECTION));
     const newEventId = newEventRef.id;
-
-    let parentEventData: EventBaseData | null = null;
-    if (isChildEvent && formData.details.parentId) {
-      const parentEventSnap = await getDoc(doc(db, EVENTS_COLLECTION, formData.details.parentId));
-      if (!parentEventSnap.exists()) {
-        throw new Error(`Parent event with ID ${formData.details.parentId} not found.`);
-      }
-      parentEventData = mapFirestoreToEventData(parentEventSnap.id, parentEventSnap.data()) as EventBaseData;
-      if (!parentEventData) {
-        throw new Error(`Could not map parent event data for ID ${formData.details.parentId}.`);
-      }
-    }
-
-    const mappedData = mapEventDataToFirestore(formData);
     
-    const dataToSubmit: Record<string, unknown> = { // Changed from any
-      ...mappedData,
+    // Map application data to a clean Firestore-ready object.
+    const firestoreData = mapEventDataToFirestore(formData);
+
+    const dataToSubmit: Record<string, any> = {
+      ...firestoreData,
       requestedBy: studentId,
-      status: EventStatus.Pending, // Child events also go through approval
+      status: EventStatus.Pending,
       votingOpen: false,
       organizerRatings: {},
       submissions: [],
       winners: {},
       bestPerformerSelections: {},
       criteriaVotes: {},
-      participants: [],
+      participants: formData.participants || [], // Use participants from root of formData
       teamMemberFlatList: [],
       lifecycleTimestamps: {
         createdAt: serverTimestamp(),
@@ -111,71 +77,18 @@ export const createEventRequest = async (
       rejectionReason: null,
       manuallySelectedBy: null,
       gallery: null,
-      childEventIds: [], // Initialize for all events, parent or child (child won't have children itself for now)
+      childEventIds: [],
     };
 
-    if (isChildEvent && parentEventData) {
-      // Inherit specific fields from parent
-      dataToSubmit.details.eventName = parentEventData.details.eventName; // Child uses parent's name
-      dataToSubmit.details.date = parentEventData.details.date; // Child uses parent's date
-      dataToSubmit.details.organizers = parentEventData.details.organizers; // Child uses parent's organizers
-      dataToSubmit.details.parentId = formData.details.parentId; // Ensure parentId is set
-    } else {
-      // Parent event specific details setup
-      dataToSubmit.details.parentId = null;
-      if (dataToSubmit.details) {
-        let organizersList = dataToSubmit.details.organizers;
-        if (!Array.isArray(organizersList)) organizersList = [];
-        if (!organizersList.includes(studentId)) organizersList.push(studentId);
-        dataToSubmit.details.organizers = [...new Set(organizersList)];
+    // Ensure organizers array always includes the requester.
+    const organizers = new Set((dataToSubmit.details as EventDetails).organizers || []);
+    organizers.add(studentId);
+    (dataToSubmit.details as EventDetails).organizers = Array.from(organizers);
 
-        if (!dataToSubmit.details.eventName || dataToSubmit.details.eventName.trim() === '') {
-            throw new Error('Event name cannot be empty for a parent event.');
-        }
-        dataToSubmit.details.rules = dataToSubmit.details.rules || null;
-        dataToSubmit.details.prize = dataToSubmit.details.prize || null;
-        
-        if (startDateTime && endDateTime && dataToSubmit.details.date) {
-          dataToSubmit.details.date = {
-            start: Timestamp.fromDate(startDateTime.toJSDate()),
-            end: Timestamp.fromDate(endDateTime.toJSDate())
-          };
-        }
-      } else { // Should not happen if !isChildEvent due to earlier checks
-         throw new Error('Event details are missing for a parent event.');
-      }
-    }
-     // Common details setup
-    if (!dataToSubmit.details.type || dataToSubmit.details.type.trim() === '') {
-        throw new Error('Event type cannot be empty.');
-    }
-    dataToSubmit.details.coreParticipants = (dataToSubmit.details.format === EventFormat.Individual && Array.isArray(dataToSubmit.details.coreParticipants))
-                                          ? dataToSubmit.details.coreParticipants.filter((uid: any) => typeof uid === 'string' && uid.trim() !== '').slice(0, 10)
-                                          : [];
-
-
-    dataToSubmit.criteria = dataToSubmit.criteria || [];
-    dataToSubmit.teams = dataToSubmit.teams || [];
-
-    // Transaction to create child and update parent
-    await runTransaction(db, async (transaction) => {
-      transaction.set(newEventRef, dataToSubmit);
-
-      if (isChildEvent && formData.details.parentId) {
-        const parentRef = doc(db, EVENTS_COLLECTION, formData.details.parentId);
-        // Fetch parent again within transaction to get latest state
-        const freshParentSnap = await transaction.get(parentRef);
-        if (!freshParentSnap.exists()) {
-          throw new Error(`Parent event with ID ${formData.details.parentId} not found during transaction.`);
-        }
-        const currentChildIds = freshParentSnap.data()?.childEventIds || [];
-        const newChildIds = [...new Set([...currentChildIds, newEventId])];
-        transaction.update(parentRef, { childEventIds: newChildIds, lastUpdatedAt: serverTimestamp() });
-      }
-    });
-    
+    await setDoc(newEventRef, dataToSubmit);
     return newEventId;
-  } catch (error: unknown) { // Changed from implicit any
+
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error during event creation.';
     console.error('Error creating event request:', message, error);
     throw new Error(`Failed to create event request: ${message}`);
@@ -183,11 +96,10 @@ export const createEventRequest = async (
 };
 
 /**
- * Update an existing event request
- * @param eventId ID of the event to update
- * @param formData Event form data containing updates
- * @param studentId Student's UID for permission checks
- * @returns Promise that resolves when the update is complete
+ * Updates an existing event request in Firestore after thorough validation.
+ * @param eventId - The ID of the event to update.
+ * @param formData - The event form data with updates.
+ * @param studentId - The UID of the student making the request.
  */
 export const updateEventRequestInService = async (
   eventId: string,
@@ -201,82 +113,63 @@ export const updateEventRequestInService = async (
   try {
     const eventSnap = await getDoc(eventRef);
     if (!eventSnap.exists()) throw new Error('Event request not found.');
-    
-    const currentEvent = mapFirestoreToEventData(eventSnap.id, eventSnap.data()) as EventBaseData | null;
+
+    const currentEvent = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
     if (!currentEvent) throw new Error('Failed to map current event data.');
-
-    if (currentEvent.requestedBy !== studentId) {
-        throw new Error("Permission denied: You can only edit your own event requests.");
+    
+    const isOrganizer = currentEvent.details.organizers.includes(studentId);
+    if (currentEvent.requestedBy !== studentId && !isOrganizer) {
+      throw new Error("Permission denied: You can only edit your own event requests or events you organize.");
     }
-    if (![EventStatus.Pending, EventStatus.Rejected].includes(currentEvent.status as EventStatus)) {
-        throw new Error(`Cannot edit request with status: ${currentEvent.status}. Only Pending or Rejected requests are editable.`);
+    if (![EventStatus.Pending, EventStatus.Rejected].includes(currentEvent.status as EventStatus) && !isOrganizer) {
+      throw new Error(`Cannot edit request with status: ${currentEvent.status}.`);
     }
 
-    // Date validation for updates
-    const startDateInput = formData.details.date.start;
-    const endDateInput = formData.details.date.end;
+    // --- Date Validation ---
+    const { start: startDateInput, end: endDateInput } = formData.details.date;
     if (!startDateInput || !endDateInput) {
-        throw new Error('Both start and end dates are required for update.');
+      throw new Error('Both start and end dates are required.');
     }
-    
-    let startDateTime: DateTime;
-    let endDateTime: DateTime;
-    try {
-        if (typeof startDateInput === 'string') startDateTime = DateTime.fromISO(startDateInput);
-        else throw new Error('Invalid start date format, expected ISO string.');
-
-        if (typeof endDateInput === 'string') endDateTime = DateTime.fromISO(endDateInput);
-        else throw new Error('Invalid end date format, expected ISO string.');
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error during date parsing.';
-        throw new Error(`Invalid date format provided for validation: ${message}`);
-    }
-
+    const startDateTime = DateTime.fromISO(startDateInput);
+    const endDateTime = DateTime.fromISO(endDateInput);
     if (!startDateTime.isValid || !endDateTime.isValid) {
-        let invalidReasons = [];
-        if (!startDateTime.isValid) invalidReasons.push(`Start date: ${startDateTime.invalidReason} (value: ${startDateInput})`);
-        if (!endDateTime.isValid) invalidReasons.push(`End date: ${endDateTime.invalidReason} (value: ${endDateInput})`);
-        throw new Error(`Invalid dates provided. ${invalidReasons.join(', ')}`);
+      throw new Error('Invalid date format provided.');
     }
-
     if (endDateTime < startDateTime) {
-        throw new Error('Event end date must be on or after the start date.');
+      throw new Error('Event end date must be on or after the start date.');
     }
-    
-    const nowLuxon = DateTime.now().setZone('Asia/Kolkata').startOf('day');
-    if (startDateTime.startOf('day') < nowLuxon) {
+    const nowInIST = DateTime.now().setZone('Asia/Kolkata').startOf('day');
+    if (startDateTime.startOf('day') < nowInIST) {
         throw new Error('Event start date cannot be in the past.');
     }
 
-    const mappedUpdates = mapEventDataToFirestore(formData); // This will set lastUpdatedAt to serverTimestamp()
-    const updatesToApply: Record<string, unknown> = { ...mappedUpdates }; // Changed from any
-
-    // Remove protected fields
+    // Map form data to a clean Firestore object.
+    const mappedUpdates = mapEventDataToFirestore(formData);
+    const updatesToApply: Record<string, any> = { ...mappedUpdates };
+    
+    // Ensure protected fields are not overwritten from the form.
     delete updatesToApply.status;
     delete updatesToApply.requestedBy;
     delete updatesToApply.lifecycleTimestamps;
-    delete updatesToApply.votingOpen;
     delete updatesToApply.winners;
     delete updatesToApply.manuallySelectedBy;
-    delete updatesToApply.organizerRatings;
-    delete updatesToApply.submissions;
-    delete updatesToApply.teamMemberFlatList;
-    delete updatesToApply.participants;
 
-    // lastUpdatedAt is already set by mapEventDataToFirestore in mappedUpdates
-    // No need to explicitly set it again unless overriding that behavior.
-
+    // If the event was rejected, resubmitting moves it back to Pending.
     if (currentEvent.status === EventStatus.Rejected) {
-        updatesToApply.status = EventStatus.Pending;
-        (updatesToApply as any).rejectionReason = deleteField();
+      updatesToApply.status = EventStatus.Pending;
+      updatesToApply.rejectionReason = deleteField();
     }
 
-    
+    // Ensure organizers array always includes the editor.
+    const organizers = new Set((updatesToApply.details as EventDetails).organizers || []);
+    organizers.add(studentId);
+    (updatesToApply.details as EventDetails).organizers = Array.from(organizers);
+
     await updateDoc(eventRef, updatesToApply);
 
-  } catch (error: unknown) { // Changed from implicit any
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error during event update.';
     console.error(`Error updating event request ${eventId}:`, message);
-    throw new Error(`Failed to update event request ${eventId}: ${message}`);
+    throw new Error(`Failed to update event request: ${message}`);
   }
 };

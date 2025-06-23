@@ -122,15 +122,15 @@
       </p>
 
       <!-- Participants list -->
-      <div v-if="participants.length > 0" class="participants-grid-compact">
+      <div v-if="participants.length > 0" class="compact-grid">
         <div
           v-for="participantId in participants"
           :key="`participant-${participantId}`"
-          class="participant-card-compact"
+          class="compact-card"
         >
-          <div class="participant-info">
+          <div class="compact-card-info">
             <i class="fas fa-user text-primary me-2"></i>
-            <span class="participant-name">{{ getUserName(participantId) }}</span>
+            <span class="compact-card-name">{{ getUserName(participantId) }}</span>
           </div>
           <button
             type="button"
@@ -231,15 +231,15 @@
       </div>
 
       <!-- Core Participants Display -->
-      <div v-if="coreParticipants.length > 0" class="core-participants-grid-compact">
+      <div v-if="coreParticipants.length > 0" class="compact-grid">
         <div
           v-for="coreParticipantId in coreParticipants"
           :key="`core-participant-${coreParticipantId}`"
-          class="core-participant-card-compact"
+          class="compact-card core-participant-card-compact"
         >
-          <div class="participant-info">
+          <div class="compact-card-info">
             <i class="fas fa-star text-warning me-2"></i>
-            <span class="participant-name">{{ getUserName(coreParticipantId) }}</span>
+            <span class="compact-card-name">{{ getUserName(coreParticipantId) }}</span>
           </div>
           <button
             type="button"
@@ -578,9 +578,6 @@ watch(isParticipantsValid, (newValid) => {
 <style scoped>
 .event-participant-form {
   --border-radius: 6px;
-  --primary-color: #0d6efd;
-  --warning-color: #ffc107;
-  --danger-color: #dc3545;
 }
 
 /* Search Input Styles */
@@ -590,77 +587,8 @@ watch(isParticipantsValid, (newValid) => {
 }
 
 .form-control:focus {
-  border-color: var(--primary-color);
+  border-color: var(--bs-primary);
   box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
-}
-
-/* Search Dropdown Styles */
-.search-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  background: var(--bs-card-bg);
-  border: 1px solid var(--bs-border-color);
-  border-radius: var(--border-radius);
-  max-height: 250px;
-  overflow-y: auto;
-  margin-top: 0.25rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  list-style: none;
-  margin: 0.25rem 0 0 0;
-  padding: 0;
-}
-
-.dropdown-item-wrapper {
-  margin: 0;
-  padding: 0;
-}
-
-.dropdown-item-custom {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  background: none;
-  border: none;
-  text-align: left;
-  font-size: 0.875rem;
-  color: var(--bs-body-color);
-  transition: background-color 0.15s ease;
-  display: flex;
-  align-items: center;
-}
-
-.dropdown-item-custom:hover {
-  background-color: var(--bs-primary-bg-subtle);
-  color: var(--bs-primary);
-}
-
-.no-results {
-  padding: 0.75rem;
-  text-align: center;
-  color: var(--bs-secondary);
-  font-size: 0.875rem;
-}
-
-/* Participant Display Grids */
-.participants-grid-compact,
-.core-participants-grid-compact {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.5rem;
-}
-
-.participant-card-compact,
-.core-participant-card-compact {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem;
-  background: var(--bs-secondary-bg-subtle);
-  border: 1px solid var(--bs-border-color);
-  border-radius: calc(var(--border-radius) - 2px);
-  transition: all 0.2s ease;
 }
 
 .core-participant-card-compact {
@@ -668,106 +596,9 @@ watch(isParticipantsValid, (newValid) => {
   border-color: var(--bs-warning-border-subtle);
 }
 
-.participant-card-compact:hover,
-.core-participant-card-compact:hover {
-  background: var(--bs-tertiary-bg-subtle);
-  border-color: var(--bs-secondary-border-subtle);
-  transform: translateY(-1px);
-}
-
-.participant-info {
-  display: flex;
-  align-items: center;
-  flex-grow: 1;
-  min-width: 0;
-}
-
-.participant-name {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--bs-body-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.btn-remove-compact {
-  background: none;
-  border: 1px solid var(--bs-border-color);
-  border-radius: 50%;
-  width: 1.5rem;
-  height: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  color: var(--danger-color);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-  margin-left: 0.5rem;
-}
-
-.btn-remove-compact:hover:not(:disabled) {
-  background: var(--danger-color);
-  border-color: var(--danger-color);
-  color: white;
-  transform: scale(1.1);
-}
-
-.btn-remove-compact:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Empty State */
-.empty-state-compact {
-  background: var(--bs-light-bg-subtle);
-  border: 1px dashed var(--bs-border-color);
-  border-radius: var(--border-radius);
-}
-
 /* Form Labels */
 .form-label {
   color: var(--bs-body-color);
   margin-bottom: 0.25rem;
-}
-
-/* Mobile Optimizations */
-@media (max-width: 768px) {
-  .participants-grid-compact,
-  .core-participants-grid-compact {
-    grid-template-columns: 1fr;
-    gap: 0.375rem;
-  }
-  
-  .participant-card-compact,
-  .core-participant-card-compact {
-    padding: 0.375rem;
-  }
-  
-  .participant-name {
-    font-size: 0.8rem;
-  }
-  
-  .btn-remove-compact {
-    width: 1.25rem;
-    height: 1.25rem;
-    font-size: 0.65rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .participant-card-compact,
-  .core-participant-card-compact {
-    padding: 0.25rem 0.375rem;
-  }
-  
-  .empty-state-compact {
-    padding: 1.5rem 0.5rem;
-  }
-  
-  .search-dropdown {
-    max-height: 200px;
-  }
 }
 </style>

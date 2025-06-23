@@ -1,352 +1,126 @@
-// src/stores/studentEventStore.ts
+// src/stores/eventStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
-import { Timestamp } from 'firebase/firestore';
-// Import Event as EventBaseData, as it likely represents the data structure without an 'id'.
-import { type Event as EventBaseData, EventFormat, EventStatus, type EventFormData, type Submission } from '@/types/event';
+import type { Event, EventFormData, Submission } from '@/types/event';
+import { EventStatus } from '@/types/event';
 import { useProfileStore } from './profileStore';
 import { useNotificationStore } from './notificationStore';
-import { useAuth } from '@/composables/useAuth';
-import { convertToISTDateTime } from '@/utils/dateTime';
-import { deepClone } from '@/utils/eventUtils';
-import { checkDateConflictForRequest } from '@/services/eventService/eventValidation';
-import { handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
-import { DateTime } from 'luxon';
-import { compareEventsForSort } from '@/utils/eventUtils';
-import { 
-  createEventRequest as createEventRequestService, 
-  updateEventRequestInService, 
-} from '@/services/eventService/eventCreation';
-import {
-  closeEventAndAwardXP as closeEventAndAwardXPService,
-  updateEventStatusInFirestore as updateEventStatusService,
-  deleteEventRequestInFirestore as deleteEventRequestService,
-} from '@/services/eventService/eventManagement';
-import {
-  fetchMyEventRequests as fetchMyEventRequestsService,
-  fetchSingleEventForStudent as fetchSingleEventForStudentService,
-  fetchPubliclyViewableEvents as fetchPubliclyViewableEventsService,
-  hasPendingRequest,
-} from '@/services/eventService/eventQueries';
-import {
-  joinEventByStudentInFirestore as joinEventService, 
-  leaveEventByStudentInFirestore as leaveEventService,
-  submitProject as submitProjectService,
-} from '@/services/eventService/eventParticipation';
-import {
-  autoGenerateEventTeamsInFirestore as autoGenerateEventTeamsService,
-} from '@/services/eventService/eventTeams';
-import {
-  submitTeamCriteriaVoteInFirestore as submitTeamCriteriaVoteService,
-  submitIndividualWinnerVoteInFirestore as submitIndividualWinnerVoteService,
-  submitOrganizationRatingInFirestore as submitOrganizationRatingService,
-  toggleVotingStatusInFirestore as toggleVotingStatusService,
-  submitManualWinnerSelectionInFirestore as submitManualWinnerSelectionService
-} from '@/services/eventService/eventVoting';
-import type { UserData } from '@/types/student';
-import { 
-  MIN_TEAM_MEMBERS, 
-  MAX_TEAM_MEMBERS 
-} from '@/utils/constants';
 import { useAppStore } from './appStore';
+import { compareEventsForSort } from '@/utils/eventUtils';
+import { handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
 
-
-// EventWithId type alias removed as EventBaseData (imported as Event) already includes 'id'.
-
-// Add createCompleteEvent function before the store definition
-function createCompleteEvent(
-  partialDataInput: Partial<EventBaseData>, // Changed from EventWithId
-  existingEventInput?: EventBaseData | undefined // Changed from EventWithId
-): EventBaseData { // Changed from EventWithId
-  
-  const idToUse = partialDataInput.id || existingEventInput?.id || '';
-
-  // Extract data parts, removing 'id' property to handle EventBaseData separately
-  const partialEventBaseData = partialDataInput ? (({ id: _id, ...rest }) => rest)(partialDataInput) : {};
-  const existingEventBaseData = existingEventInput ? (({ id: _id, ...rest }) => rest)(existingEventInput) : undefined;
-
-  // Construct the EventBaseData part
-  const baseData = {
-    // Include id property directly in baseData
-    id: idToUse,
-    // Provide comprehensive defaults for all fields in EventBaseData
-    details: {
-      eventName: '', 
-      description: '', 
-      format: EventFormat.Individual, 
-      type: '',
-      organizers: [], 
-      date: { start: null, end: null }, 
-      allowProjectSubmission: false,
-      prize: null, // Default to null
-      rules: null, // Default to null
-      // Spread details from existingEventBaseData first, then from partialEventBaseData
-      ...(existingEventBaseData?.details || {}),
-      ...(partialEventBaseData.details || {}),
-    },
-    lastUpdatedAt: Timestamp.now(), // Default, will be overridden if present in spreads
-    status: EventStatus.Pending,
-    requestedBy: '',
-    votingOpen: false,
-    lifecycleTimestamps: {
-      createdAt: Timestamp.now(), // Default, will be overridden if present in spreads
-    },
-    participants: [],
-    submissions: [],
-    criteria: [], 
-    teams: [],    
-    organizerRatings: {}, 
-    winners: {},
-    criteriaVotes: {},
-    bestPerformerSelections: {},
-    rejectionReason: null, // Default to null
-    manuallySelectedBy: null, // Default to null
-    gallery: null, // Initialize new gallery property
-    teamMemberFlatList: [], // Default to empty array
-
-    // Spread remaining properties from existingEventBaseData, then partialEventBaseData
-    ...(existingEventBaseData || {}),
-    ...partialEventBaseData,
-  };
-
-  // Ensure specific optional fields that should be null (if not provided explicitly by spreads) are correctly set to null.
-  // This is important if the types are `Something | null` and not `Something | null | undefined`.
-  baseData.details.prize = (baseData.details.prize === undefined) ? null : baseData.details.prize;
-  baseData.details.rules = (baseData.details.rules === undefined) ? null : baseData.details.rules;
-  baseData.rejectionReason = (baseData.rejectionReason === undefined) ? null : baseData.rejectionReason;
-  baseData.manuallySelectedBy = (baseData.manuallySelectedBy === undefined) ? null : baseData.manuallySelectedBy;
-  baseData.gallery = (baseData.gallery === undefined) ? null : baseData.gallery;
-  baseData.lifecycleTimestamps = (baseData.lifecycleTimestamps === undefined) ? null : baseData.lifecycleTimestamps;
-  
-  // Ensure array/object fields that are not nullable are empty arrays/objects if not provided by spreads.
-  baseData.participants = baseData.participants ?? [];
-  baseData.submissions = baseData.submissions ?? [];
-  baseData.criteria = baseData.criteria ?? [];
-  baseData.teams = baseData.teams ?? [];
-  baseData.organizerRatings = baseData.organizerRatings ?? {};
-  baseData.winners = baseData.winners ?? {};
-  baseData.criteriaVotes = baseData.criteriaVotes ?? {};
-  baseData.bestPerformerSelections = baseData.bestPerformerSelections ?? {};
-  baseData.teamMemberFlatList = baseData.teamMemberFlatList ?? [];
-
-  // Ensure details.eventName is a non-empty string, defaulting from eventName if necessary
-  if (!baseData.details.eventName || typeof baseData.details.eventName !== 'string' || baseData.details.eventName.trim() === '') {
-    if (baseData.details.eventName && typeof baseData.details.eventName === 'string' && baseData.details.eventName.trim() !== '') {
-      baseData.details.eventName = baseData.details.eventName.trim();
-    } else {
-      baseData.details.eventName = 'Untitled Event'; // Final fallback
-    }
-  }
-  // Ensure eventName is also a string (it's required by EventDetails type)
-  if (!baseData.details.eventName || typeof baseData.details.eventName !== 'string' || baseData.details.eventName.trim() === '') {
-    baseData.details.eventName = baseData.details.eventName; // If eventName was empty, use the (now guaranteed) title
-  }
-
-
-  // Return the fully formed data with id
-  return baseData as EventBaseData; // Changed from EventWithId
-}
+// Service Imports
+import { createEventRequest, updateEventRequestInService } from '@/services/eventService/eventCreation';
+import { updateEventStatusInFirestore, deleteEventRequestInFirestore } from '@/services/eventService/eventManagement';
+import { fetchMyEventRequests, fetchSingleEventForStudent, fetchPubliclyViewableEvents, hasPendingRequest } from '@/services/eventService/eventQueries';
+import { joinEventByStudentInFirestore, leaveEventByStudentInFirestore, submitProject as submitProjectService } from '@/services/eventService/eventParticipation';
+import { autoGenerateEventTeamsInFirestore } from '@/services/eventService/eventTeams';
+import { submitOrganizationRatingInFirestore } from '@/services/eventService/eventVoting';
 
 export const useEventStore = defineStore('studentEvents', () => {
-  // Refs (State) - Update to use EventBaseData
-  const events = ref<EventBaseData[]>([]); // Changed from EventWithId
-  const viewedEventDetails = ref<EventBaseData | null>(null); // Changed from EventWithId
-  const myEventRequests = ref<EventBaseData[]>([]); // Changed from EventWithId
-  const isLoading = ref<boolean>(false);
+  // --- State ---
+  const events = ref<Event[]>([]);
+  const viewedEventDetails = ref<Event | null>(null);
+  const myEventRequests = ref<Event[]>([]);
+  const isLoading = ref(false);
+  const isSubmitting = ref(false); // Added for form submissions
   const actionError = ref<string | null>(null);
   const fetchError = ref<string | null>(null);
 
-  // Store instances
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const studentProfileStore = useProfileStore();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // --- Dependencies ---
+  const profileStore = useProfileStore();
   const notificationStore = useNotificationStore();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const auth = useAuth();
+  const appStore = useAppStore();
 
-  // Computed (Getters)
-  const allPubliclyViewableEvents = computed(() => {
-    return events.value;
-  });
+  // --- Getters (Computed) ---
+  const allPubliclyViewableEvents = computed(() => events.value);
+  const currentEventDetails = computed(() => viewedEventDetails.value);
+  const upcomingEvents = computed(() => events.value.filter(e => e.status === EventStatus.Approved && new Date((e.details.date.start as any)?.toDate() || e.details.date.start) > new Date()));
+  const activeEvents = computed(() => events.value.filter(e => e.status === EventStatus.InProgress));
+  const pastEvents = computed(() => events.value.filter(e => [EventStatus.Completed, EventStatus.Closed].includes(e.status as EventStatus)));
 
-  const userSubmittedEvents = computed(() => {
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) return [];
-    return events.value.filter(event => event.requestedBy === studentProfileStore.studentId);
-  });
-
-  const userParticipatingEvents = computed(() => {
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) return [];
-    return events.value.filter(event =>
-      event.participants?.includes(studentProfileStore.studentId!)
-    );
-  });
-
-  const userWaitlistedEvents = computed(() => {
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) return [];
-    return []; // Current Event type doesn't support this distinction
-  });
-
-  const getEventById = (eventId: string): EventBaseData | undefined => { // Changed from EventWithId
+  // --- Internal Helpers ---
+  function getEventById(eventId: string): Event | undefined {
     return events.value.find(e => e.id === eventId) ||
            myEventRequests.value.find(e => e.id === eventId) ||
            (viewedEventDetails.value?.id === eventId ? viewedEventDetails.value : undefined);
   };
-  const currentEventDetails = computed(() => viewedEventDetails.value);
 
-  const upcomingEvents = computed(() =>
-    allPubliclyViewableEvents.value.filter(e => e.status === EventStatus.Approved && convertToISTDateTime(e.details.date.start)! > convertToISTDateTime(new Date())!)
-  );
-  const activeEvents = computed(() =>
-    allPubliclyViewableEvents.value.filter(e => e.status === EventStatus.InProgress)
-  );
-  const pastEvents = computed(() =>
-    allPubliclyViewableEvents.value.filter(e => [EventStatus.Completed, EventStatus.Closed].includes(e.status))
-  );
-
-  // Actions (methods)
-  function _updateLocalEventLists(eventData: EventBaseData) { // Changed from EventWithId
-    const updateList = (list: Ref<EventBaseData[]>) => { // Changed from EventWithId
-        const index = list.value.findIndex(e => e.id === eventData.id);
-        const existingEvent = index !== -1 ? list.value[index] : null;
-        // Ensure the spread results in EventBaseData
-        const updatedEvent: EventBaseData = { // Changed from EventWithId
-            ...(existingEvent || {} as EventBaseData), // Cast to satisfy spread
-            ...deepClone(eventData),
-            lastUpdatedAt: eventData.lastUpdatedAt || (existingEvent?.lastUpdatedAt || Timestamp.now())
-        };
-
-        if (index !== -1) {
-            list.value.splice(index, 1, updatedEvent);
-        } else {
-            list.value.push(updatedEvent);
-        }
-        list.value.sort(compareEventsForSort);
+  function _updateLocalEvent(eventData: Event) {
+    const updateList = (list: Ref<Event[]>) => {
+      const index = list.value.findIndex(e => e.id === eventData.id);
+      if (index !== -1) {
+        list.value.splice(index, 1, { ...list.value[index], ...eventData });
+      } else {
+        list.value.push(eventData);
+      }
+      list.value.sort(compareEventsForSort);
     };
 
-    if ([EventStatus.Approved, EventStatus.InProgress, EventStatus.Completed, EventStatus.Closed].includes(eventData.status as EventStatus) ||
-        events.value.some(e => e.id === eventData.id)) {
-        updateList(events);
+    if ([EventStatus.Approved, EventStatus.InProgress, EventStatus.Completed, EventStatus.Closed].includes(eventData.status as EventStatus)) {
+      updateList(events);
     } else {
-        events.value = events.value.filter(e => e.id !== eventData.id);
+      events.value = events.value.filter(e => e.id !== eventData.id);
     }
 
-    if (eventData.requestedBy === studentProfileStore.studentId &&
-        [EventStatus.Pending, EventStatus.Rejected].includes(eventData.status as EventStatus)) {
-        updateList(myEventRequests);
+    if (profileStore.studentId && eventData.requestedBy === profileStore.studentId && [EventStatus.Pending, EventStatus.Rejected].includes(eventData.status as EventStatus)) {
+      updateList(myEventRequests);
     } else {
-        myEventRequests.value = myEventRequests.value.filter(e => e.id !== eventData.id);
+      myEventRequests.value = myEventRequests.value.filter(e => e.id !== eventData.id);
     }
 
     if (viewedEventDetails.value?.id === eventData.id) {
-      viewedEventDetails.value = {
-          ...(viewedEventDetails.value as EventBaseData), // Changed from EventWithId
-          ...deepClone(eventData),
-          lastUpdatedAt: eventData.lastUpdatedAt || viewedEventDetails.value.lastUpdatedAt || Timestamp.now()
-      };
+      viewedEventDetails.value = { ...viewedEventDetails.value, ...eventData };
     }
   }
 
-  async function _handleOpError(operation: string, err: unknown, eventId?: string): Promise<void> {
-    let finalMessage: string;
-    const context = eventId ? `${operation} for event ${eventId}` : operation;
-
-    if (err && typeof (err as any).code === 'string') {
-        const formattedMessage = formatFirestoreErrorUtil(err);
-        if (formattedMessage === 'An unknown error occurred.' || formattedMessage === 'The service is currently unavailable. Please try again later.') {
-            finalMessage = err instanceof Error ? `${context}: ${err.message}` : `An error occurred during ${context}. Details: ${formattedMessage}`;
-        } else {
-            finalMessage = formattedMessage;
-        }
-    } else if (err instanceof Error) {
-        finalMessage = `${context}: ${err.message}`;
-    } else {
-        finalMessage = `An unknown error occurred during ${context}.`;
-    }
-    
+  async function _handleOpError(operation: string, err: unknown): Promise<void> {
+    const finalMessage = formatFirestoreErrorUtil(err, operation);
     actionError.value = finalMessage;
-    console.error(`StudentEventStore Operation Error (${operation})${eventId ? ` for event ${eventId}` : ''}:`, err instanceof Error ? err.message : err);
     notificationStore.showNotification({ message: finalMessage, type: 'error' });
   }
 
-  async function _handleFetchError(operation: string, err: unknown): Promise<void> {
-    let finalMessage: string;
-
-    if (err && typeof (err as any).code === 'string') {
-        const formattedMessage = formatFirestoreErrorUtil(err);
-        if (formattedMessage === 'An unknown error occurred.' || formattedMessage === 'The service is currently unavailable. Please try again later.') {
-            finalMessage = err instanceof Error ? `${operation}: ${err.message}` : `An error occurred during ${operation}. Details: ${formattedMessage}`;
-        } else {
-            finalMessage = formattedMessage;
-        }
-    } else if (err instanceof Error) {
-        finalMessage = `${operation}: ${err.message}`;
-    } else {
-        finalMessage = `An unknown error occurred during ${operation}.`;
-    }
-
-    fetchError.value = finalMessage;
-    console.error(`StudentEventStore Fetch Error (${operation}):`, err instanceof Error ? err.message : err);
-  }
+  // --- Public Actions ---
 
   async function fetchEvents() {
     isLoading.value = true;
     fetchError.value = null;
     try {
-        const fetchedEvents = await fetchPubliclyViewableEventsService(); 
-        events.value = fetchedEvents.sort(compareEventsForSort) as EventBaseData[]; // Changed from EventWithId
+      events.value = await fetchPubliclyViewableEvents();
     } catch (err) {
-      await _handleFetchError("fetching all events", err);
-      events.value = [];
+      fetchError.value = formatFirestoreErrorUtil(err, "fetching all events");
     } finally {
       isLoading.value = false;
     }
   }
 
   async function fetchMyEventRequests() {
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      myEventRequests.value = [];
-      return;
-    }
+    const studentId = profileStore.studentId;
+    if (!studentId) { myEventRequests.value = []; return; }
     isLoading.value = true;
     fetchError.value = null;
     try {
-      const requests = await fetchMyEventRequestsService(studentProfileStore.studentId);
-      myEventRequests.value = requests.sort(compareEventsForSort) as EventBaseData[]; // Changed from EventWithId
+      myEventRequests.value = await fetchMyEventRequests(studentId);
     } catch (err) {
-      await _handleFetchError("fetching my event requests", err);
-      myEventRequests.value = [];
+      fetchError.value = formatFirestoreErrorUtil(err, "fetching my event requests");
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function fetchEventDetails(eventId: string): Promise<EventBaseData | null> { // Changed from EventWithId
+  async function fetchEventDetails(eventId: string): Promise<Event | null> {
     isLoading.value = true;
     fetchError.value = null;
-    viewedEventDetails.value = null;
     try {
-      const eventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-
+      const eventData = await fetchSingleEventForStudent(eventId, profileStore.studentId);
       if (eventData) {
-          // Manually convert date objects to Timestamps if they aren't already.
-          // This can happen if data comes from a source that loses the class instance (e.g., deepClone, some state management).
-          if (eventData.details.date?.start && typeof eventData.details.date.start === 'object' && 'seconds' in eventData.details.date.start) {
-            eventData.details.date.start = new Timestamp((eventData.details.date.start as any).seconds, (eventData.details.date.start as any).nanoseconds);
-          }
-          if (eventData.details.date?.end && typeof eventData.details.date.end === 'object' && 'seconds' in eventData.details.date.end) {
-            eventData.details.date.end = new Timestamp((eventData.details.date.end as any).seconds, (eventData.details.date.end as any).nanoseconds);
-          }
-          
-          viewedEventDetails.value = deepClone(eventData) as EventBaseData; // Changed from EventWithId
-          _updateLocalEventLists(viewedEventDetails.value);
-          return viewedEventDetails.value;
-      } else {
-          notificationStore.showNotification({ message: `Event (ID: ${eventId}) not found or inaccessible.`, type: 'warning' });
-          return null;
+        _updateLocalEvent(eventData);
+        viewedEventDetails.value = eventData;
       }
+      return eventData;
     } catch (err) {
-      await _handleFetchError(`fetching event details for ${eventId}`, err);
-      notificationStore.showNotification({ message: fetchError.value || "Failed to load event details.", type: 'error' });
+      fetchError.value = formatFirestoreErrorUtil(err, `fetching event ${eventId}`);
+      notificationStore.showNotification({ message: fetchError.value, type: 'error' });
       return null;
     } finally {
       isLoading.value = false;
@@ -354,709 +128,206 @@ export const useEventStore = defineStore('studentEvents', () => {
   }
 
   async function requestNewEvent(formData: EventFormData): Promise<string | null> {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("requesting new event", new Error("User not authenticated or profile not loaded."));
-      return null;
+    const studentId = profileStore.studentId;
+    if (!studentId) {
+      return _handleOpError("requesting new event", new Error("User not authenticated.")).then(() => null);
     }
-    const studentId = studentProfileStore.studentId!;
-    isLoading.value = true;
+    isSubmitting.value = true;
     try {
-      // --- Start of existing validation logic (to be kept in store) ---
-      const startDate = formData.details.date.start;
-      const endDate = formData.details.date.end;
-      if (!startDate || !endDate) {
-        throw new Error('Both start and end dates are required.');
-      }
-      let startDateTime: DateTime;
-      let endDateTime: DateTime;
-      try {
-        if (typeof startDate === 'string') startDateTime = DateTime.fromISO(startDate); else throw new Error('Expected string date format for start date');
-        if (typeof endDate === 'string') endDateTime = DateTime.fromISO(endDate); else throw new Error('Expected string date format for end date');
-      } catch (error) { console.error('Date parsing error:', error); throw new Error('Invalid date format provided.'); }
-      if (!startDateTime.isValid || !endDateTime.isValid) throw new Error(`Invalid dates provided. Start: ${startDateTime.invalidReason}, End: ${endDateTime.invalidReason}`);
-      if (endDateTime < startDateTime) throw new Error(`Event end date must be on or after the start date.`);
-      
-      // FIX: Normalize to start of day for comparison
-      const nowInIST = DateTime.now().setZone('Asia/Kolkata').startOf('day');
-      if (startDateTime.startOf('day') < nowInIST) throw new Error('Event start date cannot be in the past.');
-
-      const { hasConflict, conflictingEventName } = await checkDateConflict({ startDate: startDateTime.toJSDate(), endDate: endDateTime.toJSDate() });
-      if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
-      // --- End of existing validation logic ---
-
-      // Create a sanitized payload
-      const payload = deepClone(formData);
-
-      if (payload.details.format === EventFormat.MultiEvent) {
-        payload.criteria = [];
-        payload.teams = [];
-        // prize can exist for Competition
-        // allowProjectSubmission is handled by RequestEventView watcher
-      } else { // Not Competition (Team or Individual)
-        payload.details.prize = null; // Changed from undefined to null
-        // criteria can exist
-        // allowProjectSubmission is true
-        if (payload.details.format !== EventFormat.Team) { // Individual
-          payload.teams = [];
-        }
-        // If Team, teams can exist
-      }
-      
-      // Ensure organizers array includes the requestor if empty
-      if (!payload.details.organizers || payload.details.organizers.length === 0) {
-        payload.details.organizers = [studentId];
-      } else if (!payload.details.organizers.includes(studentId)) {
-         payload.details.organizers = [studentId, ...payload.details.organizers];
-      }
-
-
-      const newEventId = await createEventRequestService(payload, studentId);
-
-      if (!newEventId) {
-        throw new Error("Failed to create event request via service.");
-      }
-
-      // Create a complete Event object for local store using the ID from the service
-      // We need to simulate the data that would have been written to Firestore to pass to createCompleteEvent
-      // or fetch the event data using the newEventId. Fetching is safer for consistency.
-      // For now, let's try to construct it, assuming service sets reasonable defaults.
-      
-      // Construct a partial event data based on formData and known defaults set by the service
-      // to pass to createCompleteEvent. This part might need refinement based on what createCompleteEvent needs
-      // and what the service guarantees.
-      const eventDataForStoreCreation: Partial<EventBaseData> = { // Changed from EventWithId
-        id: newEventId,
-        details: {
-            // title is now handled robustly by createCompleteEvent,
-            // it will use title from payload.details if present and valid,
-            // otherwise default to eventName from payload.details, or "Untitled Event".
-            // Spread details from payload (EventFormData)
-            ...payload.details, 
-            // Explicitly set dates as Timestamps, overriding from payload if necessary
-            date: {
-                start: Timestamp.fromDate(startDateTime.toJSDate()),
-                end: Timestamp.fromDate(endDateTime.toJSDate())
-            },
-            // Ensure optional fields align with EventBaseData['details']
-            rules: payload.details.rules || null, 
-            prize: payload.details.prize || null,
-        },
-        requestedBy: studentId,
-        status: EventStatus.Pending, // Default status for new requests
-        // criteria and teams come from payload (EventFormData)
-        criteria: payload.criteria || [], 
-        teams: payload.teams || [],
-        rejectionReason: null, // Explicitly null for a new request
-        // gallery will be defaulted to null by createCompleteEvent
-        // Other fields like createdAt, lastUpdatedAt, participants, submissions, etc.,
-        // will be handled by createCompleteEvent's defaults.
-      };
-
-      const newEventDataForStore: EventBaseData = createCompleteEvent(eventDataForStoreCreation); // Changed from EventWithId
-        
-        _updateLocalEventLists(newEventDataForStore);
-        
-        // Update profile store's userRequests
-        if (studentProfileStore.currentStudent?.uid) {
-          try {
-            await studentProfileStore.fetchUserRequests(studentProfileStore.currentStudent.uid);
-          } catch (error) {
-            console.warn('Failed to refresh user requests after event creation:', error);
-          }
-        }
-        
-        notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
+      const newEventId = await createEventRequest(formData, studentId);
+      await fetchEventDetails(newEventId);
+      notificationStore.showNotification({ message: 'Event request submitted successfully!', type: 'success' });
       return newEventId;
-
     } catch (err) {
       await _handleOpError('creating new event', err);
       return null;
     } finally {
-      isLoading.value = false;
+      isSubmitting.value = false;
     }
   }
 
   async function editMyEventRequest(eventId: string, formData: EventFormData): Promise<boolean> {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("editing event request", new Error("User not authenticated or profile not loaded."), eventId);
-      return false;
+    const studentId = profileStore.studentId;
+    if (!studentId) {
+      return _handleOpError("editing event request", new Error("User not authenticated.")).then(() => false);
     }
-    const currentStudentId = studentProfileStore.studentId; // Store studentId
-    isLoading.value = true;
-
+    isSubmitting.value = true;
     try {
-      // Use convertToISTDateTime instead of getISTTimestamp
-      const startDate = formData.details.date.start ? convertToISTDateTime(formData.details.date.start) : null;
-      const endDate = formData.details.date.end ? convertToISTDateTime(formData.details.date.end) : null;
-      
-      if (!startDate || !endDate) throw new Error('Event start and end dates are required.');
-      // Luxon DateTime objects also have toMillis(), so this comparison remains valid.
-      if (endDate.toMillis() < startDate.toMillis()) throw new Error('Event end date must be on or after start date.');
-      
-      const { hasConflict, conflictingEventName } = await checkDateConflict({
-        // Pass JS Date objects to checkDateConflict as it expects Date | Timestamp
-        startDate: startDate.toJSDate(), 
-        endDate: endDate.toJSDate(),
-        excludeEventId: eventId
-      });
-      if (hasConflict) throw new Error(`Date conflict with event: ${conflictingEventName}`);
-
-      const existingEvent = await fetchSingleEventForStudentService(eventId, currentStudentId); // Use currentStudentId
-      if (!existingEvent) {
-        throw new Error("Event not found or you don't have permission to edit it.");
-      }
-      if (existingEvent.status !== EventStatus.Pending && existingEvent.status !== EventStatus.Rejected) {
-        throw new Error(`Event in status '${existingEvent.status}' cannot be edited by the requester.`);
-      }
-
-      // Create a sanitized payload
-      const payload = deepClone(formData);
-      if (payload.details.format === EventFormat.MultiEvent) {
-        payload.criteria = [];
-        payload.teams = [];
-        // prize can exist for MultiEvent
-      } else { // Not MultiEvent (Team or Individual)
-        payload.details.prize = null; // Changed from undefined to null
-        if (payload.details.format !== EventFormat.Team) { // Individual
-          payload.teams = [];
-        }
-      }
-      
-      // Ensure rejectionReason is explicitly null if not provided in formData,
-      // especially if its type in EventFormData is `string | null | undefined`
-      // and the target type in EventBaseData (via createCompleteEvent) expects `string | null`.
-      if (payload.rejectionReason === undefined) {
-        payload.rejectionReason = null;
-      }
-      
-      // Ensure organizers array includes the requestor if empty, or adds if not present
-      if (!payload.details.organizers || payload.details.organizers.length === 0) {
-        payload.details.organizers = [currentStudentId];
-      } else if (!payload.details.organizers.includes(currentStudentId)) {
-         payload.details.organizers = [currentStudentId, ...payload.details.organizers];
-      }
-
-      await updateEventRequestInService(eventId, payload, currentStudentId);
-      
-      const updatedEvent = await fetchSingleEventForStudentService(eventId, currentStudentId);
-      if (updatedEvent) {
-        _updateLocalEventLists(updatedEvent as EventBaseData); // Changed from EventWithId
-      }
-      
-      // Update profile store's userRequests
-      if (studentProfileStore.currentStudent?.uid) {
-        try {
-          await studentProfileStore.fetchUserRequests(studentProfileStore.currentStudent.uid);
-        } catch (error) {
-          console.warn('Failed to refresh user requests after event update:', error);
-        }
-      }
-      
+      await updateEventRequestInService(eventId, formData, studentId);
+      await fetchEventDetails(eventId);
       notificationStore.showNotification({ message: 'Event request updated successfully!', type: 'success' });
       return true;
     } catch (err) {
-      await _handleOpError("editing my event request", err, eventId);
+      await _handleOpError("editing my event request", err);
       return false;
     } finally {
-      isLoading.value = false;
+      isSubmitting.value = false;
     }
   }
 
   async function deleteEventRequest(eventId: string): Promise<boolean> {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("deleting event request", new Error("User not authenticated."), eventId);
-      return false;
+    const studentId = profileStore.studentId;
+    if (!studentId) {
+      return _handleOpError("deleting event request", new Error("User not authenticated.")).then(() => false);
     }
-    const studentId = studentProfileStore.studentId;
     isLoading.value = true;
     try {
-      // The service should handle validation, but let's provide a better error message
-      // if the service rejects the deletion for status reasons
-      await deleteEventRequestService(eventId, studentId);
-
-      // Remove from local lists
+      await deleteEventRequestInFirestore(eventId, studentId);
       myEventRequests.value = myEventRequests.value.filter(e => e.id !== eventId);
       events.value = events.value.filter(e => e.id !== eventId);
-      if (viewedEventDetails.value?.id === eventId) {
-          viewedEventDetails.value = null;
-      }
-
-      // Also remove from profile store's userRequests
-      studentProfileStore.removeUserRequestById(eventId);
-
+      if (viewedEventDetails.value?.id === eventId) viewedEventDetails.value = null;
+      profileStore.removeUserRequestById(eventId);
       notificationStore.showNotification({ message: 'Event request deleted successfully!', type: 'success' });
       return true;
     } catch (err) {
-      // Check if the error is about status validation and provide a more helpful message
-      if (err instanceof Error && err.message.includes("Only events with 'Pending' status can be deleted")) {
-        const enhancedError = new Error("Events with 'Pending' or 'Rejected' status can be deleted. Please refresh and try again if the status has changed.");
-        await _handleOpError("deleting event request", enhancedError, eventId);
-      } else {
-        await _handleOpError("deleting event request", err, eventId);
-      }
+      await _handleOpError("deleting event request", err);
       return false;
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function updateEventStatus({ eventId, newStatus, rejectionReason }: { eventId: string; newStatus: EventStatus; rejectionReason?: string }) {
-    actionError.value = null;
-    try {
-        if (!studentProfileStore.currentStudent) throw new Error("User not authenticated.");
-        // Ensure photoURL is not undefined to match UserData type
-        const currentUser: UserData = {
-            ...studentProfileStore.currentStudent,
-            photoURL: studentProfileStore.currentStudent.photoURL || null
-        };
-        // Call the service function
-        const updatedFields = await updateEventStatusService(eventId, newStatus, currentUser, rejectionReason);
-        const existingEvent = getEventById(eventId); // existingEvent is EventWithId | undefined
-        // Pass id explicitly along with updatedFields (which should be Partial<EventBaseData>)
-        _updateLocalEventLists(createCompleteEvent({ id: eventId, ...updatedFields }, existingEvent as EventBaseData)); // Added cast for existingEvent
-        notificationStore.showNotification({ message: `Event status updated to ${newStatus}.`, type: 'success' });
-    }  catch (err) {
-        await _handleOpError(`updating event status to ${newStatus}`, err, eventId);
-    }
+  async function updateEventStatus(payload: { eventId: string; newStatus: EventStatus; rejectionReason?: string }) {
+    if (!profileStore.currentStudent) return _handleOpError("updating status", new Error("User not authenticated."));
+    await updateEventStatusInFirestore(payload.eventId, payload.newStatus, profileStore.currentStudent, payload.rejectionReason);
+    await fetchEventDetails(payload.eventId);
   }
 
-  async function joinEvent(eventId: string): Promise<boolean> {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("joining event", new Error("User not authenticated."), eventId);
-      return false;
-    }
-    const studentId = studentProfileStore.studentId!;
-    isLoading.value = true; // Keep isLoading for immediate UI feedback if needed
+  // --- Offline-Capable Actions ---
 
-    const appStore = useAppStore();
+  async function _queueAction(actionName: string, payload: any) {
+    actionError.value = null;
+    const studentId = profileStore.studentId;
+    if (!studentId) {
+      return _handleOpError(actionName, new Error("User not authenticated."));
+    }
+    
     try {
-      return await appStore.tryQueueAction(
-        async () => {
-          await joinEventService(eventId, studentId);
-          // Post-success logic (e.g., refetching data, local state updates) should ideally be
-          // part of this queued function if they depend on the success of the write operation.
-          // Or, they can be handled by listening to a success event from tryQueueAction if available.
-          const updatedEventData = await fetchSingleEventForStudentService(eventId, studentId);
-          if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId);
-          notificationStore.showNotification({ message: "Successfully joined the event!", type: 'success' });
-          return true;
-        },
-        'joinEvent',
-        { actionContext: `Joining event: ${eventId}` } // Optional: context for logging/display
-      );
+      await appStore.tryQueueAction({
+        type: `studentEvents/${actionName}`,
+        payload: { ...payload, studentId } // Automatically add studentId to payload
+      });
     } catch (err) {
-      // This catch block will primarily handle errors if tryQueueAction itself fails
-      // or if the action is executed immediately and fails.
-      // Errors from queued actions executed later are typically handled within tryQueueAction.
-      await _handleOpError("joining event", err, eventId);
-      return false;
-    } finally {
-      isLoading.value = false;
+      await _handleOpError(actionName, err);
     }
   }
 
-  async function leaveEvent(eventId: string): Promise<boolean> {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("leaving event", new Error("User not authenticated."), eventId);
-      return false;
-    }
-    const studentId = studentProfileStore.studentId!;
-    isLoading.value = true;
-
-    const appStore = useAppStore();
+  async function _executeAndRefresh(action: () => Promise<any>, eventId: string, successMessage: string) {
     try {
-      return await appStore.tryQueueAction(
-        async () => {
-          await leaveEventService(eventId, studentId);
-          const updatedEventData = await fetchSingleEventForStudentService(eventId, studentId);
-          if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId);
-          notificationStore.showNotification({ message: "Successfully left the event.", type: 'success' });
-          return true;
-        },
-        'leaveEvent',
-        { actionContext: `Leaving event: ${eventId}` }
-      );
+      await action();
+      await fetchEventDetails(eventId);
+      notificationStore.showNotification({ message: successMessage, type: 'success' });
     } catch (err) {
-      await _handleOpError("leaving event", err, eventId);
-      return false;
-    } finally {
-      isLoading.value = false;
+      // Error is handled by the calling queued action handler in appStore
+      throw err;
     }
+  }
+  
+  async function joinEvent(eventId: string) { await _queueAction('_joinEvent', { eventId }); }
+  async function _joinEvent(payload: { eventId: string; studentId: string }) {
+    await _executeAndRefresh(
+      () => joinEventByStudentInFirestore(payload.eventId, payload.studentId),
+      payload.eventId,
+      "Successfully joined the event!"
+    );
+  }
+
+  async function leaveEvent(eventId: string) { await _queueAction('_leaveEvent', { eventId }); }
+  async function _leaveEvent(payload: { eventId: string; studentId: string }) {
+    await _executeAndRefresh(
+      () => leaveEventByStudentInFirestore(payload.eventId, payload.studentId),
+      payload.eventId,
+      "Successfully left the event."
+    );
   }
 
   async function submitProject(payload: { eventId: string; submissionData: Omit<Submission, 'submittedBy' | 'submittedAt' | 'teamName' | 'participantId'> }) {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("submitting project", new Error("User not authenticated or profile not loaded."), payload.eventId);
-      return;
-    }
-    const studentId = studentProfileStore.studentId!;
-    isLoading.value = true;
-
-    const appStore = useAppStore();
-    try {
-      await appStore.tryQueueAction(
-        async () => {
-          await submitProjectService(payload.eventId, studentId, payload.submissionData);
-          const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-          if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId);
-          notificationStore.showNotification({ message: "Project submitted successfully!", type: 'success' });
-        },
-        'submitProject',
-        { actionContext: `Submitting project for event: ${payload.eventId}` }
-      );
-    } catch (err) {
-      await _handleOpError("submitting project", err, payload.eventId);
-    } finally {
-      isLoading.value = false;
-    }
+    await _queueAction('_submitProject', payload);
   }
-
-  async function submitTeamCriteriaVote(payload: { 
-    eventId: string; 
-    votes: { 
-      criteria: Record<string, string>; 
-      bestPerformer?: string 
-    } 
-  }) {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("submitting team criteria vote", new Error("User not authenticated."), payload.eventId);
-      return;
-    }
-    const studentId = studentProfileStore.studentId!;
-    isLoading.value = true;
-
-    const appStore = useAppStore();
-    try {
-      await appStore.tryQueueAction(
-        async () => {
-          await submitTeamCriteriaVoteService(payload.eventId, studentId, payload.votes);
-          const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-          if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId);
-          notificationStore.showNotification({ message: "Team votes submitted!", type: 'success' });
-        },
-        'submitTeamCriteriaVote',
-        { actionContext: `Submitting team votes for event: ${payload.eventId}` }
-      );
-    } catch (err) {
-      await _handleOpError("submitting team votes", err, payload.eventId);
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function submitIndividualWinnerVote(payload: { eventId: string; votes: { criteria: Record<string, string> } }) {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("submitting individual winner vote", new Error("User not authenticated."), payload.eventId);
-      return;
-    }
-    const studentId = studentProfileStore.studentId!;
-    isLoading.value = true;
-
-    const appStore = useAppStore();
-    try {
-      await appStore.tryQueueAction(
-        async () => {
-          await submitIndividualWinnerVoteService(payload.eventId, studentId, payload.votes);
-          const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentId);
-          if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId);
-          notificationStore.showNotification({ message: "Winner selection submitted!", type: 'success' });
-        },
-        'submitIndividualWinnerVote',
-        { actionContext: `Submitting individual winner vote for event: ${payload.eventId}` }
-      );
-    } catch (err) {
-      await _handleOpError("submitting individual winner vote", err, payload.eventId);
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function submitManualWinnerSelection(payload: { eventId: string; winnerSelections: Record<string, string | string[]> }) {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("submitting manual winner selection", new Error("User not authenticated."), payload.eventId);
-      return;
-    }
-    const studentId = studentProfileStore.studentId!; // This should be an organizer/admin ID
-    isLoading.value = true;
-
-    const appStore = useAppStore();
-    try {
-      await appStore.tryQueueAction(
-        async () => {
-          await submitManualWinnerSelectionService(payload.eventId, studentId, payload.winnerSelections);
-          const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentProfileStore.studentId);
-          if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId);
-          notificationStore.showNotification({ message: "Manual winner selection saved!", type: 'success' });
-        },
-        'submitManualWinnerSelection',
-        { actionContext: `Submitting manual winner selection for event: ${payload.eventId}` }
-      );
-    } catch (err) {
-      await _handleOpError("submitting manual winner selection", err, payload.eventId);
-    } finally {
-      isLoading.value = false;
-    }
+  async function _submitProject(payload: { eventId: string; studentId: string; submissionData: any }) {
+    await _executeAndRefresh(
+      () => submitProjectService(payload.eventId, payload.studentId, payload.submissionData),
+      payload.eventId,
+      "Project submitted successfully!"
+    );
   }
 
   async function submitOrganizationRating(payload: { eventId: string; score: number; feedback?: string | null }) {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("submitting organization rating", new Error("User not authenticated."), payload.eventId);
-      return;
-    }
-    isLoading.value = true; // For optimistic update UI feedback
-
-    const appStore = useAppStore();
-    try {
-      // Optimistic update (as it was before)
-      const eventToUpdate = viewedEventDetails.value;
-      if (eventToUpdate) {
-        if (!eventToUpdate.organizerRatings) {
-          eventToUpdate.organizerRatings = {};
-        }
-        eventToUpdate.organizerRatings[studentProfileStore.studentId] = {
-          userId: studentProfileStore.studentId,
-          rating: payload.score,
-          feedback: payload.feedback || '',
-          ratedAt: Timestamp.now() // This will be slightly different from server if queued
-        };
-        _updateLocalEventLists(eventToUpdate);
-      }
-
-      await appStore.tryQueueAction(
-        async () => {
-          await submitOrganizationRatingService({
-            ...payload,
-            userId: studentProfileStore.studentId
-          });
-          // If the action was queued, the optimistic update might be stale.
-          // A robust solution would involve refetching or a more complex state reconciliation.
-          // For now, we just ensure the write operation is queued.
-          // The notification is shown optimistically too.
-        },
-        'submitOrganizationRating',
-        { actionContext: `Submitting organization rating for event: ${payload.eventId}` }
-      );
-      notificationStore.showNotification({
-        message: 'Organization rating submitted successfully!', // Or "queued for submission" if offline
-        type: 'success',
-      });
-    } catch (err) {
-      // Revert optimistic update if tryQueueAction fails immediately or if not queued
-      // This is a simplified revert, a real one might need to store pre-update state.
-      if (eventToUpdate && eventToUpdate.organizerRatings && eventToUpdate.organizerRatings[studentProfileStore.studentId!]) {
-          delete eventToUpdate.organizerRatings[studentProfileStore.studentId!];
-          _updateLocalEventLists(eventToUpdate);
-      }
-      await _handleOpError('submitting organization rating', err, payload.eventId);
-    } finally {
-      isLoading.value = false;
-    }
+    await _queueAction('_submitOrganizationRating', payload);
+  }
+  async function _submitOrganizationRating(payload: { eventId: string; studentId: string; score: number; feedback?: string | null }) {
+    await _executeAndRefresh(
+      () => submitOrganizationRatingInFirestore(payload.eventId, payload.studentId, payload.score, payload.feedback),
+      payload.eventId,
+      "Organizer rating submitted!"
+    );
   }
 
-  async function toggleVotingOpen({ eventId, open }: { eventId: string; open: boolean }) {
-    actionError.value = null;
-    isLoading.value = true;
-    if (!studentProfileStore.currentStudent) {
-      await _handleOpError("toggling voting open/close", new Error("User not authenticated or profile not loaded."), eventId);
-      isLoading.value = false;
-      return;
-    }
-    const currentUser: UserData = {
-      ...studentProfileStore.currentStudent,
-      photoURL: studentProfileStore.currentStudent.photoURL || null
-    };
-
-    const appStore = useAppStore();
-    try {
-      await appStore.tryQueueAction(
-        async () => {
-          await toggleVotingStatusService(eventId, open, currentUser);
-          const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-          if (updatedEventData) _updateLocalEventLists(updatedEventData as EventWithId);
-          notificationStore.showNotification({ message: `Voting is now ${open ? 'OPEN' : 'CLOSED'}.`, type: 'success' });
-        },
-        'toggleVotingOpen',
-        { actionContext: `Toggling voting to ${open} for event: ${eventId}` }
-      );
-    } catch (err) {
-      await _handleOpError(`toggling voting to ${open ? 'open' : 'closed'}`, err, eventId);
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function checkDateConflict({ 
-    startDate, 
-    endDate, 
-    excludeEventId 
-  }: { 
-    startDate: Date | Timestamp; 
-    endDate: Date | Timestamp; 
-    excludeEventId?: string 
-  }): Promise<{ hasConflict: boolean; conflictingEventName: string | null; nextAvailableDate: string | null }> { // Updated return type
-    try {
-      // Convert to Timestamps if they are JS Dates
-      const startTimestamp = startDate instanceof Date ? Timestamp.fromDate(startDate) : startDate;
-      const endTimestamp = endDate instanceof Date ? Timestamp.fromDate(endDate) : endDate;
-
-      // Call the service function with individual arguments
-      const result = await checkDateConflictForRequest(
-        startTimestamp,
-        endTimestamp,
-        excludeEventId
-      );
-
-      // Explicitly return the properties expected by the Promise type
-      return {
-        hasConflict: result.hasConflict,
-        conflictingEventName: result.conflictingEventName,
-        nextAvailableDate: result.nextAvailableDate
-        // conflictingEvent from service result is not part of this store function's promised type, so it's fine.
-      };
-    } catch (error) {
-      console.error("Error checking date conflict:", error);
-      throw new Error(`Failed to check date conflict: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async function closeEventPermanently({ eventId }: { eventId: string }): Promise<void> {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.currentStudent) {
-      await _handleOpError("closing event permanently", new Error("User not authenticated or profile not loaded."), eventId);
-      return;
-    }
-    
-    const appStore = useAppStore();
-    // This function uses a different tryQueueAction pattern, an object-based one.
-    // For consistency with the task's request to wrap functions, this would ideally be refactored.
-    // However, sticking to the specific request to modify *other* functions for now.
-    // The existing pattern for closeEventPermanently is:
-    // if (await appStore.tryQueueAction({ type: 'studentEvents/closeEventPermanently', payload: { eventId } })) { ... }
-    // This will be kept as is unless specific instruction to change its pattern.
-    // For this exercise, I will assume this specific tryQueueAction is different and I should not change it.
-    // The prompt asked to use `closeEventPermanently` as a *reference* for *using* tryQueueAction,
-    // not necessarily for its exact signature if the store already uses multiple signatures of it.
-    // The example `appStore.tryQueueAction(async () => { /* ... */ }, 'actionName')` is what I'm following for other functions.
-
-    // Original logic for closeEventPermanently, assuming it's either handled by a different tryQueueAction
-    // or its existing queuing logic is to be preserved.
-    // For this exercise, I will re-wrap it using the function-based approach for consistency with other changes,
-    // but acknowledge its original different pattern.
+  async function autoGenerateTeams(payload: { eventId: string; studentUids: string[]; minMembers: number; maxMembers: number }) {
     isLoading.value = true;
     try {
-      await appStore.tryQueueAction(
-        async () => {
-          const currentUser: UserData = {
-            ...studentProfileStore.currentStudent!, // Added non-null assertion
-            photoURL: studentProfileStore.currentStudent!.photoURL || null // Added non-null assertion
-          };
-          const result = await closeEventAndAwardXPService(eventId, currentUser);
-          const updatedEventData = await fetchSingleEventForStudentService(eventId, studentProfileStore.studentId);
-          if (updatedEventData) {
-            _updateLocalEventLists(updatedEventData as EventWithId);
-          }
-          notificationStore.showNotification({
-            message: result.message || "Event closed successfully! XP has been awarded.",
-            type: 'success'
-          });
-        },
-        'closeEventPermanently',
-        { actionContext: `Closing event permanently: ${eventId}` }
-      );
+      await autoGenerateEventTeamsInFirestore(payload.eventId, payload.studentUids.map(uid => ({ uid })), payload.minMembers, payload.maxMembers);
+      await fetchEventDetails(payload.eventId);
+      notificationStore.showNotification({ message: "Teams auto-generated successfully!", type: 'success' });
     } catch (err) {
-      await _handleOpError("closing event permanently", err, eventId);
+      await _handleOpError("auto-generating teams", err);
     } finally {
       isLoading.value = false;
     }
-  }
-
-  async function autoGenerateTeams(payload: { eventId: string; studentUids: string[]; minMembers: number; maxMembers: number }): Promise<void> {
-    actionError.value = null;
-    if (!auth.isAuthenticated.value || !studentProfileStore.studentId) {
-      await _handleOpError("auto-generating teams", new Error("User not authenticated or profile not loaded."), payload.eventId);
-      return;
-    }
-    
-    isLoading.value = true;
-    const appStore = useAppStore();
-    try {
-      await appStore.tryQueueAction(
-        async () => {
-          const studentsToAssign = payload.studentUids.map(uid => ({ uid }));
-          const minMembers = Math.max(payload.minMembers, MIN_TEAM_MEMBERS);
-          const maxMembers = Math.min(payload.maxMembers, MAX_TEAM_MEMBERS);
-
-          const newTeams = await autoGenerateEventTeamsService(
-            payload.eventId,
-            studentsToAssign,
-            minMembers,
-            maxMembers
-          );
-
-          const updatedEventData = await fetchSingleEventForStudentService(payload.eventId, studentProfileStore.studentId);
-          if (updatedEventData) {
-            _updateLocalEventLists(updatedEventData as EventWithId);
-          }
-
-          notificationStore.showNotification({
-            message: `Teams auto-generated successfully! (${newTeams.length} teams created)`,
-            type: 'success'
-          });
-        },
-        'autoGenerateTeams',
-        { actionContext: `Auto-generating teams for event: ${payload.eventId}` }
-      );
-    } catch (err) {
-      await _handleOpError("auto-generating teams", err, payload.eventId);
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function checkExistingPendingRequest(): Promise<boolean> {
-    if (!studentProfileStore.studentId) {
-      console.warn("checkExistingPendingRequest called but user is not logged in.");
-      return false;
-    }
-    try {
-      return await hasPendingRequest(studentProfileStore.studentId);
-    } catch (err) {
-      await _handleOpError("checking for existing pending request", err);
-      return false; // Assume no request on error to avoid blocking user.
-    }
-  }
-
-  /**
-   * Clear all error states (actionError, fetchError)
-   */
-  function clearError(): void {
-    actionError.value = null;
-    fetchError.value = null;
   }
   
+  async function checkExistingPendingRequest(): Promise<boolean> {
+    if (!profileStore.studentId) return false;
+    try {
+      return await hasPendingRequest(profileStore.studentId);
+    } catch (err) {
+      await _handleOpError("checking for existing pending request", err);
+      return false;
+    }
+  }
+
+  function clearError() {
+    actionError.value = null;
+  }
+
   return {
-    events, viewedEventDetails, myEventRequests, isLoading, actionError, fetchError,
-    allPubliclyViewableEvents, userSubmittedEvents, userParticipatingEvents, userWaitlistedEvents,
-    getEventById, currentEventDetails, upcomingEvents, activeEvents, pastEvents,
-    fetchEvents, fetchMyEventRequests, fetchEventDetails,
-    requestNewEvent, editMyEventRequest, updateEventStatus,
+    // State
+    events,
+    viewedEventDetails,
+    myEventRequests,
+    isLoading,
+    isSubmitting,
+    actionError,
+    fetchError,
+
+    // Getters
+    allPubliclyViewableEvents,
+    currentEventDetails,
+    upcomingEvents,
+    activeEvents,
+    pastEvents,
+    
+    // Actions
+    fetchEvents,
+    fetchMyEventRequests,
+    fetchEventDetails,
+    requestNewEvent,
+    editMyEventRequest,
     deleteEventRequest,
-    joinEvent, leaveEvent, submitProject,
-    submitTeamCriteriaVote, submitIndividualWinnerVote, submitManualWinnerSelection, submitOrganizationRating,
-    toggleVotingOpen,
-    checkDateConflict,
+    updateEventStatus,
+    joinEvent,
+    leaveEvent,
+    submitProject,
+    autoGenerateTeams,
+    submitOrganizationRating,
     checkExistingPendingRequest,
-    closeEventPermanently, autoGenerateTeams,
-    clearError
+    clearError,
+
+    // Internals exposed for offline queue processing
+    _joinEvent,
+    _leaveEvent,
+    _submitProject,
+    _submitOrganizationRating,
+    // Add other actions here as needed, wrapping them in _queueAction if they can be offline
   };
 });
