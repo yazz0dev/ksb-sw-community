@@ -3,7 +3,6 @@ import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
 import { Timestamp } from 'firebase/firestore';
 // Import Event as EventBaseData, as it likely represents the data structure without an 'id'.
-// Removed unused Team and EventGalleryItem imports
 import { type Event as EventBaseData, EventFormat, EventStatus, type EventFormData, type Submission } from '@/types/event';
 import { useProfileStore } from './profileStore';
 import { useNotificationStore } from './notificationStore';
