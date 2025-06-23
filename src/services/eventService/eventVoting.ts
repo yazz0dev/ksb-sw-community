@@ -54,7 +54,7 @@ export async function submitTeamCriteriaVoteInFirestore(
             }
 
             // Prepare update data using proper structure
-            const updateData: any = {
+            const updateData: Record<string, unknown> = { // Changed from any
                 lastUpdatedAt: serverTimestamp()
             };
 
@@ -100,8 +100,9 @@ export async function submitTeamCriteriaVoteInFirestore(
 
             transaction.update(eventRef, updateData);
         });
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to submit team criteria vote for event ${eventId}.`);
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : `Failed to submit team criteria vote for event ${eventId}.`;
+        throw new Error(message);
     }
 }
 
@@ -171,16 +172,18 @@ export async function submitIndividualWinnerVoteInFirestore(
                 }
             });
 
-            transaction.update(eventRef, {
+            const updatePayload: Record<string, unknown> = { // Added type
                 criteriaVotes: {
                     ...currentCriteriaVotes,
                     [userId]: userCriteriaVotes
                 },
                 lastUpdatedAt: serverTimestamp()
-            });
+            };
+            transaction.update(eventRef, updatePayload);
         });
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to submit individual winner vote for event ${eventId}.`);
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : `Failed to submit individual winner vote for event ${eventId}.`;
+        throw new Error(message);
     }
 }
 
@@ -223,7 +226,7 @@ export async function submitOrganizationRatingInFirestore(payload: {
             const newRating: OrganizerRating = {
                 userId: userId,
                 rating: score,
-                ratedAt: serverTimestamp() as any,
+                ratedAt: serverTimestamp(), // Removed 'as any'
             };
             if (feedback && feedback.trim()) {
                 newRating.feedback = feedback.trim();
@@ -234,9 +237,10 @@ export async function submitOrganizationRatingInFirestore(payload: {
                 lastUpdatedAt: serverTimestamp()
             });
         });
-    } catch (error: any) {
+    } catch (error: unknown) { // Changed from any
         console.error(`Error submitting rating for event ${eventId}:`, error);
-        throw new Error(error.message || 'Failed to submit rating.');
+        const message = error instanceof Error ? error.message : 'Failed to submit rating.';
+        throw new Error(message);
     }
 }
 
@@ -269,13 +273,14 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
                 throw new Error(`Voting can only be toggled for 'In Progress' or 'Completed' events. Current status: ${eventData.status}`);
             }
 
-            transaction.update(eventRef, {
+            const updatePayload: Record<string, unknown> = { // Added type
                 votingOpen: open,
                 lastUpdatedAt: serverTimestamp()
-            });
+            };
+            transaction.update(eventRef, updatePayload);
         });
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to toggle voting status for event ${eventId}.`);
+    } catch (error: unknown) { // Changed from any
+        throw new Error((error instanceof Error ? error.message : 'Unknown error') || `Failed to toggle voting status for event ${eventId}.`);
     }
 }
 
@@ -402,14 +407,16 @@ export async function submitManualWinnerSelectionInFirestore(
                 throw new Error("No valid winner selections provided."); 
             }
 
-            transaction.update(eventRef, {
+            const updatePayload: Record<string, unknown> = { // Added type
                 winners: validatedWinners,
                 manuallySelectedBy: userId,
                 lastUpdatedAt: serverTimestamp()
-            });
+            };
+            transaction.update(eventRef, updatePayload);
         });
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to submit manual winner selection for event ${eventId}.`);
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : `Failed to submit manual winner selection for event ${eventId}.`;
+        throw new Error(message);
     }
 }
 
@@ -460,7 +467,8 @@ export async function finalizeWinnersInFirestore(
         
         return finalWinners;
 
-    } catch (error: any) {
-        throw new Error(error.message || `Failed to finalize winners for event ${eventId}.`);
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : `Failed to finalize winners for event ${eventId}.`;
+        throw new Error(message);
     }
 }

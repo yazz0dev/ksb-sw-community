@@ -79,7 +79,7 @@ export interface EventDetails {
 }
 
 export interface EventCriteria {
-  description?: any; // Make optional
+  description?: string | null | undefined; // Changed from any
   constraintIndex: number;
   title: string;
   constraintKey?: string;

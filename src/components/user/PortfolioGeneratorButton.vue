@@ -170,7 +170,7 @@ const generatePDF = async () => {
       width: 100%;
       height: 100%;
       background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      animation: shimmer 1.5s infinite;
+      animation: buttonShineEffect 1.5s infinite; /* Use renamed animation */
       z-index: 2;
     }
   }
@@ -284,7 +284,7 @@ const generatePDF = async () => {
 }
 
 /* Animations */
-@keyframes shimmer {
+@keyframes buttonShineEffect { /* Renamed from shimmer to be specific */
   0% {
     left: -100%;
   }
@@ -293,17 +293,7 @@ const generatePDF = async () => {
   }
 }
 
-@keyframes progressSlide {
-  0% {
-    transform: translateX(-100%);
-  }
-  50% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
+/* Local @keyframes progressSlide removed, using global version. */
 
 /* Disabled state styling */
 .portfolio-btn:disabled {

@@ -62,11 +62,11 @@ withDefaults(defineProps<Props>(), {
     rgba(255, 255, 255, 0.5) 60%,
     rgba(255, 255, 255, 0)
   );
-  animation: shimmer 2s infinite;
+  animation: skeletonSlideShimmer 2s infinite; /* Renamed animation */
   content: '';
 }
 
-@keyframes shimmer {
+@keyframes skeletonSlideShimmer { /* Renamed keyframes */
   100% {
     transform: translateX(100%);
   }
@@ -100,13 +100,10 @@ withDefaults(defineProps<Props>(), {
       rgba(var(--bs-light-rgb), 0.4) 50%, 
       rgba(var(--bs-light-rgb), 0.8) 75%);
     background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
+    animation: shimmer 1.5s infinite; /* This will use the global shimmer keyframes */
     border-radius: var(--bs-border-radius-lg);
   }
   
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
+  /* Removed the duplicate @keyframes shimmer definition here */
 }
 </style>

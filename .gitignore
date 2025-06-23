@@ -36,3 +36,6 @@ tsconfig.tsbuildinfo
 
 # windsurf rules
 .windsurfrules
+
+# Local Netlify folder
+.netlify

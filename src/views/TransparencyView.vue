@@ -584,19 +584,11 @@ const platformVersion = ref('2.1.0');
 
 /* Animation for content cards */
 .content-card {
+  /* Uses global keyframe 'fadeInUp' */
   animation: fadeInUp 0.6s ease-out both;
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Local @keyframes fadeInUp removed. */
 
 /* Tablet and up */
 @media (min-width: 576px) {

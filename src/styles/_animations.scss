@@ -92,8 +92,34 @@
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
 }
+
+// Shake animation
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); } /* Added a middle step for better shake */
+  75% { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 .animate-pop {
-  animation: fadeIn 0.7s cubic-bezier(.23,1.01,.32,1) both;
+  /* Updated to use popIn keyframes and a more typical pop duration */
+  animation: popIn 0.4s ease-out forwards;
 }
 
 // Staggered animation for lists (useful for TransparencyView)
@@ -238,4 +264,84 @@
 
 .animate-pulse-subtle {
   animation: pulse-subtle 2s infinite;
+}
+
+// Shimmer effect for skeleton loaders
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+}
+
+// Slide In Down 20px
+@keyframes slideInDown20 {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-in-down-20 {
+  animation: slideInDown20 0.5s ease-out forwards;
+}
+
+// Indeterminate Progress Bar Slide
+@keyframes progressSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-progress-slide {
+  animation: progressSlide 2s infinite;
+}
+
+// Text Bounce (gentle bounce for text elements)
+@keyframes textBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+}
+
+.animate-text-bounce {
+  animation: textBounce 1s ease-out;
+}
+
+// Slide In From Bottom
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-from-bottom {
+  animation: slideInFromBottom 0.4s ease-out; /* Duration from OfflineStateHandler.vue */
+}
+
+// Spin animation (for loaders)
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
 }

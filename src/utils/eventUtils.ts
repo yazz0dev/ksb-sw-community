@@ -183,10 +183,10 @@ export function mergeLifecycleTimestamps(
 
 /**
  * Converts date strings within event details to Firestore Timestamp objects.
- * @param details The event details object.
+ * @param details The event details object, potentially with string dates.
  * @returns Event details with dates converted to Timestamps.
  */
-export function convertEventDetailsDateFormat(details: any): EventDetails {
+export function convertEventDetailsDateFormat(details: Record<string, any>): EventDetails { // Changed details from any
   if (!details) return {} as EventDetails; // Return an empty object typed as EventDetails
   
   // Create a shallow copy to avoid modifying the original object directly

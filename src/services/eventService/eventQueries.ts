@@ -44,9 +44,10 @@ export async function fetchMyEventRequests(studentId: string): Promise<EventData
         });
         
         return mappedEvents;
-    } catch (error: any) {
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error(`Error in fetchMyEventRequests for ${studentId}:`, error);
-        throw new Error(`Failed to fetch your event requests: ${error.message}`);
+        throw new Error(`Failed to fetch your event requests: ${message}`);
     }
 }
 
@@ -84,9 +85,10 @@ export async function fetchSingleEventForStudent(eventId: string, currentStudent
             }
             return null; 
         }
-    } catch (error: any) {
+    } catch (error: unknown) { // Changed from any
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error(`Error fetching single event for student (ID: ${eventId}):`, error);
-        throw new Error(`Failed to fetch event details for ${eventId}: ${error.message}`);
+        throw new Error(`Failed to fetch event details for ${eventId}: ${message}`);
     }
 }
 
@@ -115,9 +117,10 @@ export async function fetchPubliclyViewableEvents(): Promise<EventData[]> {
       }
     });
     return events;
-  } catch (error: any) {
+  } catch (error: unknown) { // Changed from any
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error fetching publicly viewable events:', error);
-    throw new Error(`Failed to fetch public events: ${error.message}`);
+    throw new Error(`Failed to fetch public events: ${message}`);
   }
 }
 
@@ -138,9 +141,10 @@ export async function hasPendingRequest(studentId: string): Promise<boolean> {
     );
     const querySnapshot = await getDocs(q);
     return !querySnapshot.empty;
-  } catch (error: any) {
+  } catch (error: unknown) { // Changed from any
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error(`Error checking for pending requests for student ${studentId}:`, error);
-    throw new Error(`Failed to check for pending requests: ${error.message}`);
+    throw new Error(`Failed to check for pending requests: ${message}`);
   }
 }
 
@@ -226,9 +230,10 @@ export async function fetchStudentEvents(studentId: string): Promise<EventData[]
     });
     
     return events;
-  } catch (error: any) {
+  } catch (error: unknown) { // Changed from any
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error(`Error in fetchStudentEvents for ${studentId}:`, error);
-    throw new Error(`Failed to fetch student events: ${error.message}`);
+    throw new Error(`Failed to fetch student events: ${message}`);
   }
 }
 
@@ -245,7 +250,7 @@ export async function fetchStudentEventsWithFallback(studentId: string): Promise
   try {
     // Try the original function first
     return await fetchStudentEvents(studentId);
-  } catch (error: any) {
+  } catch (error: unknown) { // Changed from any
     console.warn(`Primary fetchStudentEvents failed for ${studentId}, trying fallback approach:`, error);
     
     // Fallback: Try to fetch publicly viewable events and filter
@@ -260,7 +265,7 @@ export async function fetchStudentEventsWithFallback(studentId: string): Promise
       });
       
       return studentEvents;
-    } catch (fallbackError: any) {
+    } catch (fallbackError: unknown) { // Changed from any
       console.error(`Fallback fetchStudentEvents also failed for ${studentId}:`, fallbackError);
       return []; // Return empty array instead of throwing
     }

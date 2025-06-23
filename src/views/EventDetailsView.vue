@@ -863,10 +863,7 @@ function goBack() {
   opacity: 0.3;
 }
 
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
+/* Local @keyframes shimmer removed, using global shimmer from _animations.scss */
 
 /* Mobile Back Button Styles */
 .mobile-back-button {

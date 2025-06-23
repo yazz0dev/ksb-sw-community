@@ -229,19 +229,9 @@ const getCategoryIcon = (title: string): string => {
 }
 
 /* Animation */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
+/* Local @keyframes fadeIn removed, using global fadeInUp */
 .animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
+    animation: fadeInUp 0.5s ease-out forwards; /* Changed to use global fadeInUp keyframe name */
     opacity: 0;
 }
 

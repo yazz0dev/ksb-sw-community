@@ -471,7 +471,7 @@ onMounted(() => {
   border-left: 4px solid var(--bs-danger);
   border-radius: var(--bs-border-radius-lg);
   box-shadow: 0 4px 15px rgba(var(--bs-danger-rgb), 0.1);
-  animation: slideInDown 0.5s ease-out;
+  animation: slideInDown20 0.5s ease-out; /* Use global slideInDown20 */
 }
 
 /* Card Styling */
@@ -524,7 +524,7 @@ onMounted(() => {
   color: var(--bs-danger);
   margin-left: 0.25rem;
   font-weight: 700;
-  animation: pulse 2s infinite;
+  animation: pulseOpacity 2s infinite; /* Use global pulseOpacity */
 }
 
 .form-control, 
@@ -670,6 +670,7 @@ onMounted(() => {
 }
 
 /* Animations */
+/* Local slideInLeft is specific to .border-bottom::after width animation - KEPT */
 @keyframes slideInLeft {
   from {
     width: 0;
@@ -681,48 +682,8 @@ onMounted(() => {
   }
 }
 
-@keyframes slideInDown {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideInUp {
-  from {
-    transform: translateY(30px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-@keyframes shake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-5px);
-  }
-  75% {
-    transform: translateX(5px);
-  }
-}
+/* Other local keyframes (slideInDown, slideInUp, pulse, shake) removed. */
+/* They will use global versions now. */
 
 /* Responsive Design */
 @media (max-width: 768px) {
@@ -744,20 +705,13 @@ onMounted(() => {
     transform: none;
   }
   
-  @keyframes slideInLeft {
-    0%, 100% { transform: none; }
-  }
-  @keyframes slideInDown {
-    0%, 100% { transform: none; }
-  }
-  @keyframes slideInUp {
-    0%, 100% { transform: none; }
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-  }
-  @keyframes shake {
-    0%, 100% { transform: none; }
+  .border-bottom::after,
+  .alert-danger,
+  .card,
+  .is-invalid,
+  .invalid-feedback,
+  .required::after {
+    animation: none !important; /* Disable animations */
   }
 }
 
@@ -783,20 +737,14 @@ onMounted(() => {
     transform: none;
   }
   
-  @keyframes slideInLeft {
-    0%, 100% { transform: none; }
-  }
-  @keyframes slideInDown {
-    0%, 100% { transform: none; }
-  }
-  @keyframes slideInUp {
-    0%, 100% { transform: none; }
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-  }
-  @keyframes shake {
-    0%, 100% { transform: none; }
+  /* Animations already disabled by 768px media query, re-stating for emphasis or if specific overrides were intended */
+  .border-bottom::after,
+  .alert-danger,
+  .card,
+  .is-invalid,
+  .invalid-feedback,
+  .required::after {
+    animation: none !important;
   }
 }
 
@@ -814,20 +762,13 @@ onMounted(() => {
     transform: none;
   }
   
-  @keyframes slideInLeft {
-    0%, 100% { transform: none; }
-  }
-  @keyframes slideInDown {
-    0%, 100% { transform: none; }
-  }
-  @keyframes slideInUp {
-    0%, 100% { transform: none; }
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-  }
-  @keyframes shake {
-    0%, 100% { transform: none; }
+  .border-bottom::after,
+  .alert-danger,
+  .card, /* main card animation */
+  .is-invalid, /* shake */
+  .invalid-feedback, /* slideInUp */
+  .required::after { /* pulse */
+    animation: none !important;
   }
 }
 

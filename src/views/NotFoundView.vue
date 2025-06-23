@@ -49,19 +49,11 @@
 }
 
 .animate-fade-in {
-  animation: fadeInContent 0.8s ease-out forwards;
+  /* Uses global keyframe 'slideInUp' which matches the local 'fadeInContent' */
+  animation: slideInUp 0.8s ease-out forwards;
 }
 
-@keyframes fadeInContent {
-  from { 
-    opacity: 0; 
-    transform: translateY(30px); 
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
-  }
-}
+/* Local @keyframes fadeInContent removed. */
 
 @media (min-width: 768px) {
   .not-found-content {
