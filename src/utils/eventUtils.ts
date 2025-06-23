@@ -239,89 +239,187 @@ interface EventCriteriaWithXP extends EventCriteria {
   roleKey?: XpCalculationRoleKey;
 }
 
-/**
- * Calculates XP changes for an event based on participation, organization, and winning.
- * @param eventData - The event data.
- * @returns Record<string, XPData> - Map of user IDs to their XP changes.
- */
-export function calculateEventXP(eventData: Event): Record<string, Partial<XPData>> { // Return type changed to Partial<XPData>
-    const xpChangesMap: Record<string, Partial<XPData>> = {};
+// src/types/event.ts - EventFormat, Event, EventPhase
+// src/types/xp.ts - XPData, XpCalculationRoleKey, mapCalcRoleToFirestoreKey
+// Assume BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS are defined constants.
 
+// Define the return structure for individual XP awards
+export interface EventXPAward {
+    userId: string;
+    eventId: string;
+    eventName: string;
+    phaseId?: string; // Optional: for MultiEvent phases
+    phaseName?: string; // Optional: for MultiEvent phases
+    role: XpCalculationRoleKey;
+    points: number;
+    isWinner: boolean; // To help xpService update count_wins
+}
+
+/**
+ * Calculates XP awards for an event.
+ * For MultiEvents, XP is calculated per phase and returned as a list of awards.
+ * For single events, XP is calculated and returned as a list of awards.
+ * @param eventData - The event data.
+ * @returns EventXPAward[] - An array of XP awards.
+ */
+export function calculateEventXP(eventData: Event): EventXPAward[] {
+    const xpAwards: EventXPAward[] = [];
     const baseParticipationXP = 10;
     const organizerXP = 50;
 
-    const addXPChange = (userId: string, calcRole: XpCalculationRoleKey, amount: number) => {
-        if (!userId || amount <= 0) return;
-        if (!xpChangesMap[userId]) {
-            xpChangesMap[userId] = createDefaultXpData(userId);
-        }
-        const firestoreKey = mapCalcRoleToFirestoreKey(calcRole);
-        (xpChangesMap[userId] as any)[firestoreKey] = ((xpChangesMap[userId] as any)[firestoreKey] || 0) + amount;
-        xpChangesMap[userId]!.totalCalculatedXp = (xpChangesMap[userId]!.totalCalculatedXp || 0) + amount;
+    const addAward = (
+        userId: string,
+        role: XpCalculationRoleKey,
+        points: number,
+        isWinner: boolean = false,
+        phaseId?: string,
+        phaseName?: string
+    ) => {
+        if (!userId || points <= 0) return;
+        xpAwards.push({
+            userId,
+            eventId: eventData.id,
+            eventName: eventData.details.eventName,
+            phaseId,
+            phaseName,
+            role,
+            points,
+            isWinner,
+        });
     };
 
-    const incrementWinCount = (userId: string) => {
-        if (!userId) return;
-        if (!xpChangesMap[userId]) {
-            xpChangesMap[userId] = createDefaultXpData(userId);
-        }
-        xpChangesMap[userId]!.count_wins = (xpChangesMap[userId]!.count_wins || 0) + 1;
-    };
-
+    // --- Event-level XP (Organizers) ---
+    // Organizers get XP for the overall event, not per phase by default.
     (eventData.details?.organizers || []).filter(Boolean).forEach((uid: string) => {
-        addXPChange(uid, 'organizer', organizerXP);
+        addAward(uid, 'organizer', organizerXP);
     });
 
-    if (eventData.details?.format === EventFormat.Team && Array.isArray(eventData.teams)) {
-        eventData.teams.forEach((team: any) => {
-            (team.members || []).filter(Boolean).forEach((uid: string) => {
-                addXPChange(uid, 'participation', baseParticipationXP);
-            });
-        });
-    } else if (Array.isArray(eventData.participants)) {
-        eventData.participants.filter(Boolean).forEach((uid: string) => {
-            addXPChange(uid, 'participation', baseParticipationXP);
-        });
-    }
+    // --- Main XP Calculation Logic ---
+    if (eventData.details?.format === EventFormat.MultiEvent && Array.isArray(eventData.details.phases) && eventData.details.phases.length > 0) {
+        // --- MultiEvent XP Calculation ---
+        eventData.details.phases.forEach(phase => {
+            // Participation XP for this phase
+            if (phase.format === EventFormat.Team && Array.isArray(phase.teams)) {
+                phase.teams.forEach(team => {
+                    (team.members || []).filter(Boolean).forEach((uid: string) => {
+                        addAward(uid, 'participation', baseParticipationXP, false, phase.id, phase.phaseName);
+                    });
+                });
+            } else if (Array.isArray(phase.participants)) { // Individual format for phase or fallback
+                phase.participants.filter(Boolean).forEach((uid: string) => {
+                    addAward(uid, 'participation', baseParticipationXP, false, phase.id, phase.phaseName);
+                });
+            }
+            // TODO: Implement winner XP calculation for phases
+            // This requires clarity on how phase winners are stored in eventData.winners
+            // Assuming winners are keyed like `phaseId_criterionKey` or phase criteria have unique keys.
+            // For now, this part is a placeholder.
+            const phaseCriteriaMap = new Map<string, EventCriteriaWithXP>();
+            if (Array.isArray(phase.criteria)) {
+                phase.criteria.forEach((c: EventCriteria) => {
+                    const criterionWithXP = c as EventCriteriaWithXP;
+                    // Ensure unique key for map, perhaps prefix with phaseId if constraintKeys are not unique across phases
+                    const mapKey = `${phase.id}_${criterionWithXP.constraintKey || criterionWithXP.title}`;
+                    if (criterionWithXP.xpValue) { // xpValue is from EventCriteriaWithXP, ensure it's populated
+                       phaseCriteriaMap.set(mapKey, { ...criterionWithXP, roleKey: c.role as XpCalculationRoleKey, xpValue: c.points });
+                    } else if (criterionWithXP.points) { // Fallback to points if xpValue isn't directly there
+                       phaseCriteriaMap.set(mapKey, { ...criterionWithXP, roleKey: c.role as XpCalculationRoleKey, xpValue: c.points });
+                    }
+                });
+            }
 
-    const winners = eventData.winners || {};
-    const criteriaMap = new Map<string, EventCriteriaWithXP>();
-    if (Array.isArray(eventData.criteria)) {
-        eventData.criteria.forEach((c: EventCriteria) => {
-            const criterionWithXP = c as EventCriteriaWithXP;
-            if (criterionWithXP?.constraintKey && criterionWithXP?.xpValue) {
-                criteriaMap.set(criterionWithXP.constraintKey, criterionWithXP);
+            const winners = eventData.winners || {};
+            for (const [criterionOrLabel, winnerIdOrIds] of Object.entries(winners)) {
+                // Attempt to match criterionOrLabel with phase-specific criteria
+                // This is a simplified matching. A more robust solution might be needed.
+                const phaseSpecificKey = `${phase.id}_${criterionOrLabel}`;
+                const criterionConfig = phaseCriteriaMap.get(phaseSpecificKey) || phaseCriteriaMap.get(criterionOrLabel); // Fallback to non-prefixed
+
+                if (criterionConfig && criterionConfig.xpValue) {
+                    const xpValue = criterionConfig.xpValue;
+                    const roleKey = criterionConfig.roleKey || 'problemSolver';
+
+                    if (Array.isArray(winnerIdOrIds)) {
+                        winnerIdOrIds.filter(Boolean).forEach(winnerId => {
+                            addAward(winnerId, roleKey, xpValue, true, phase.id, phase.phaseName);
+                        });
+                    } else if (typeof winnerIdOrIds === 'string' && winnerIdOrIds) {
+                         // Check if this winner entry is specifically for this phase,
+                         // This check might need refinement based on how winners are structured.
+                         // For now, if criterionConfig was found via phaseSpecificKey, assume it's for this phase.
+                        if (phaseCriteriaMap.has(phaseSpecificKey) || (criterionConfig.targetRole && criterionConfig.targetRole === phase.id)){ // crude way to check if criterion was phase specific
+                            addAward(winnerIdOrIds, roleKey, xpValue, true, phase.id, phase.phaseName);
+                        }
+                    }
+                }
             }
         });
-    }
 
-    for (const [criterionOrLabel, winnerIdOrIds] of Object.entries(winners)) {
-        const criterionConfig = criteriaMap.get(criterionOrLabel);
-        const xpValue = criterionConfig?.xpValue || 0;
-        if (Array.isArray(winnerIdOrIds)) {
-            winnerIdOrIds.filter(Boolean).forEach(winnerId => {
-                if (xpValue > 0) addXPChange(winnerId, (criterionConfig?.roleKey || 'problemSolver'), xpValue);
-                incrementWinCount(winnerId);
+    } else {
+        // --- Single Event XP Calculation (Original Logic Adapted) ---
+        if (eventData.details?.format === EventFormat.Team && Array.isArray(eventData.teams)) {
+            eventData.teams.forEach((team: any) => { // Consider defining a proper Team type if not already
+                (team.members || []).filter(Boolean).forEach((uid: string) => {
+                    addAward(uid, 'participation', baseParticipationXP);
+                });
             });
-        } else if (typeof winnerIdOrIds === 'string' && winnerIdOrIds) {
-            if (criterionOrLabel !== BEST_PERFORMER_LABEL) {
-                 if (xpValue > 0) addXPChange(winnerIdOrIds, (criterionConfig?.roleKey || 'problemSolver'), xpValue);
-                 incrementWinCount(winnerIdOrIds);
+        } else if (Array.isArray(eventData.participants)) { // Handles Individual events or events with flat participant lists
+            eventData.participants.filter(Boolean).forEach((uid: string) => {
+                addAward(uid, 'participation', baseParticipationXP);
+            });
+        } else if (Array.isArray(eventData.details?.coreParticipants)) { // Fallback to coreParticipants for Individual events
+             eventData.details.coreParticipants.filter(Boolean).forEach((uid: string) => {
+                addAward(uid, 'participation', baseParticipationXP);
+            });
+        }
+
+        const winners = eventData.winners || {};
+        const criteriaMap = new Map<string, EventCriteriaWithXP>();
+        if (Array.isArray(eventData.criteria)) {
+            eventData.criteria.forEach((c: EventCriteria) => {
+                const criterionWithXP = c as EventCriteriaWithXP;
+                // Ensure roleKey and xpValue are correctly derived or assigned
+                const roleKey = c.role as XpCalculationRoleKey; // Assuming c.role directly maps or needs mapping
+                const xpValue = c.points; // Assuming c.points is the xpValue
+                if (criterionWithXP?.constraintKey && xpValue) {
+                    criteriaMap.set(criterionWithXP.constraintKey, { ...criterionWithXP, roleKey, xpValue });
+                } else if (xpValue) { // Fallback if constraintKey is missing but title can be used
+                    criteriaMap.set(criterionWithXP.title, { ...criterionWithXP, roleKey, xpValue });
+                }
+            });
+        }
+
+        for (const [criterionOrLabel, winnerIdOrIds] of Object.entries(winners)) {
+            if (criterionOrLabel === BEST_PERFORMER_LABEL) continue; // Handled separately
+
+            const criterionConfig = criteriaMap.get(criterionOrLabel);
+            const xpValue = criterionConfig?.xpValue || 0;
+            const roleKey = criterionConfig?.roleKey || 'problemSolver'; // Default role
+
+            if (xpValue > 0) {
+                if (Array.isArray(winnerIdOrIds)) {
+                    winnerIdOrIds.filter(Boolean).forEach(winnerId => {
+                        addAward(winnerId, roleKey, xpValue, true);
+                    });
+                } else if (typeof winnerIdOrIds === 'string' && winnerIdOrIds) {
+                    addAward(winnerIdOrIds, roleKey, xpValue, true);
+                }
+            }
+        }
+
+        const bestPerformerWinner = winners[BEST_PERFORMER_LABEL];
+        if (bestPerformerWinner) {
+            if (Array.isArray(bestPerformerWinner)) {
+                bestPerformerWinner.filter(Boolean).forEach(bpUid => {
+                    addAward(bpUid, 'bestPerformer', BEST_PERFORMER_POINTS, true);
+                });
+            } else if (typeof bestPerformerWinner === 'string' && bestPerformerWinner) {
+                addAward(bestPerformerWinner, 'bestPerformer', BEST_PERFORMER_POINTS, true);
             }
         }
     }
-    
-    const bestPerformerWinner = winners[BEST_PERFORMER_LABEL];
-    if (bestPerformerWinner) {
-        if (Array.isArray(bestPerformerWinner)) {
-            bestPerformerWinner.filter(Boolean).forEach(bpUid => {
-                addXPChange(bpUid, 'bestPerformer', BEST_PERFORMER_POINTS);
-            });
-        } else if (typeof bestPerformerWinner === 'string' && bestPerformerWinner) {
-            addXPChange(bestPerformerWinner, 'bestPerformer', BEST_PERFORMER_POINTS);
-        }
-    }
-    return xpChangesMap;
+
+    return xpAwards;
 }
 
 /**

@@ -97,6 +97,25 @@
       </div>
     </div>
     
+    <!-- Overall Event Prize (shown if !isPhaseForm and isCompetition is true for Individual or MultiEvent) -->
+    <div v-if="!isPhaseForm && localDetails.isCompetition && (isMultiEvent || isIndividualEvent)" class="mb-3">
+      <label for="eventOverallPrize" class="form-label fw-medium">Overall Event Prize</label>
+      <input
+        id="eventOverallPrize"
+        type="text"
+        class="form-control"
+        v-model.trim="localDetails.prize"
+        :placeholder="isMultiEvent ? 'e.g., Grand Prize for the entire series' : 'e.g., Prize for the winner'"
+        :disabled="isSubmitting"
+      />
+      <small v-if="isMultiEvent" class="form-text text-muted">
+        Optional overall prize for the MultiEvent competition. Phase-specific prizes can be set in the phases section.
+      </small>
+      <small v-else-if="isIndividualEvent" class="form-text text-muted">
+        Prize for the winner of this Individual competition.
+      </small>
+    </div>
+
     <!-- Description -->
     <div class="mb-3">
       <label for="eventDescription" class="form-label fw-medium">Description <span class="text-danger">*</span></label>
@@ -228,40 +247,39 @@ watch(details, (newVal) => {
 // Watch for format changes to reset type and handle competition-specific logic
 watch(() => localDetails.value.format, (newFormat, oldFormat) => {
   if (newFormat !== oldFormat) {
-    // Only reset type if format changes and current type is not valid for the new format
-    // BUT preserve existing type during editing if it's valid for the format
+    // Handle 'type' field based on format change
     if (newFormat !== EventFormat.MultiEvent) {
       const availableTypes = eventTypesForFormat.value;
       if (!availableTypes.includes(localDetails.value.type ?? '')) {
-        // Only reset if current type is invalid for new format
         localDetails.value.type = availableTypes.length > 0 ? (availableTypes[0] ?? '') : '';
       }
-    } else {
-      // For MultiEvent, always clear type as it's handled by phases
-      localDetails.value.type = '';
-    }
-    
-    // Reset isCompetition flag if format is not MultiEvent or Individual
-    if (newFormat !== EventFormat.MultiEvent && newFormat !== EventFormat.Individual) {
-      localDetails.value.isCompetition = false;
-    } else {
-      // Initialize isCompetition to false if it's undefined for these formats
-      localDetails.value.isCompetition = localDetails.value.isCompetition ?? false;
+    } else { // MultiEvent
+      localDetails.value.type = ''; // Type is handled by phases
     }
 
-    if (newFormat === EventFormat.MultiEvent) {
-      // localDetails.value.isCompetition = localDetails.value.isCompetition ?? false; // Already handled above
-      localDetails.value.rules = null;
-      localDetails.value.allowProjectSubmission = false;
-    } else if (newFormat === EventFormat.Individual) {
+    // Handle 'isCompetition' based on the new format
+    if (newFormat === EventFormat.Individual) {
+      if (localDetails.value.isCompetition === undefined) {
+        localDetails.value.isCompetition = false;
+      }
+      // Specific Individual event fields
       localDetails.value.allowProjectSubmission = false;
       localDetails.value.rules = null;
       localDetails.value.phases = []; 
-      // localDetails.value.isCompetition = localDetails.value.isCompetition ?? false; // Already handled above
     } else if (newFormat === EventFormat.Team) {
+      localDetails.value.isCompetition = false; // Always false for Team
+      // Specific Team event fields
       localDetails.value.allowProjectSubmission = true; 
       localDetails.value.phases = []; 
-      localDetails.value.isCompetition = false; // Team events are not competitions in this new sense
+      // rules can exist for Team events, so don't nullify here unless intended
+    } else if (newFormat === EventFormat.MultiEvent) {
+      if (localDetails.value.isCompetition === undefined) {
+        localDetails.value.isCompetition = false;
+      }
+      // Specific MultiEvent fields (overall event level)
+      localDetails.value.rules = null; // Rules are per-phase
+      localDetails.value.allowProjectSubmission = false; // Submissions are per-phase
+      // phases array is managed by MultiEventForm component, not reset here
     }
   }
 });
