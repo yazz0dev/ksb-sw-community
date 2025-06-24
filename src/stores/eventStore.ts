@@ -12,7 +12,7 @@ import { handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorH
 // Service Imports
 import { createEventRequest, updateEventRequestInService } from '@/services/eventService/eventCreation';
 import { updateEventStatusInFirestore, deleteEventRequestInFirestore } from '@/services/eventService/eventManagement';
-import { fetchMyEventRequests, fetchSingleEventForStudent, fetchPubliclyViewableEvents, hasPendingRequest } from '@/services/eventService/eventQueries';
+import { fetchMyEventRequests as fetchMyEventRequestsService, fetchSingleEventForStudent, fetchPubliclyViewableEvents, hasPendingRequest } from '@/services/eventService/eventQueries';
 import { joinEventByStudentInFirestore, leaveEventByStudentInFirestore, submitProject as submitProjectService } from '@/services/eventService/eventParticipation';
 import { autoGenerateEventTeamsInFirestore } from '@/services/eventService/eventTeams';
 import { submitOrganizationRatingInFirestore } from '@/services/eventService/eventVoting';
@@ -40,12 +40,6 @@ export const useEventStore = defineStore('studentEvents', () => {
   const pastEvents = computed(() => events.value.filter(e => [EventStatus.Completed, EventStatus.Closed].includes(e.status as EventStatus)));
 
   // --- Internal Helpers ---
-  function getEventById(eventId: string): Event | undefined {
-    return events.value.find(e => e.id === eventId) ||
-           myEventRequests.value.find(e => e.id === eventId) ||
-           (viewedEventDetails.value?.id === eventId ? viewedEventDetails.value : undefined);
-  };
-
   function _updateLocalEvent(eventData: Event) {
     const updateList = (list: Ref<Event[]>) => {
       const index = list.value.findIndex(e => e.id === eventData.id);
@@ -100,7 +94,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     isLoading.value = true;
     fetchError.value = null;
     try {
-      myEventRequests.value = await fetchMyEventRequests(studentId);
+      myEventRequests.value = await fetchMyEventRequestsService(studentId);
     } catch (err) {
       fetchError.value = formatFirestoreErrorUtil(err, "fetching my event requests");
     } finally {
@@ -257,7 +251,12 @@ export const useEventStore = defineStore('studentEvents', () => {
   }
   async function _submitOrganizationRating(payload: { eventId: string; studentId: string; score: number; feedback?: string | null }) {
     await _executeAndRefresh(
-      () => submitOrganizationRatingInFirestore(payload.eventId, payload.studentId, payload.score, payload.feedback),
+      () => submitOrganizationRatingInFirestore({
+        eventId: payload.eventId,
+        userId: payload.studentId,
+        score: payload.score,
+        feedback: payload.feedback ?? null
+      }),
       payload.eventId,
       "Organizer rating submitted!"
     );
@@ -266,7 +265,12 @@ export const useEventStore = defineStore('studentEvents', () => {
   async function autoGenerateTeams(payload: { eventId: string; studentUids: string[]; minMembers: number; maxMembers: number }) {
     isLoading.value = true;
     try {
-      await autoGenerateEventTeamsInFirestore(payload.eventId, payload.studentUids.map(uid => ({ uid })), payload.minMembers, payload.maxMembers);
+      await autoGenerateEventTeamsInFirestore(
+        payload.eventId, 
+        payload.studentUids.map(uid => ({ uid })), 
+        payload.minMembers, 
+        payload.maxMembers
+      );
       await fetchEventDetails(payload.eventId);
       notificationStore.showNotification({ message: "Teams auto-generated successfully!", type: 'success' });
     } catch (err) {

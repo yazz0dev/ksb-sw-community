@@ -5,25 +5,28 @@ import { ERROR_MESSAGES } from './constants';
  * @param error The error object from Firestore (typed as unknown)
  * @returns A user-friendly error message
  */
-export function handleFirestoreError(error: unknown): string {
+export function handleFirestoreError(error: unknown, operation?: string): string {
+  let baseMessage;
   if (error && typeof error === 'object' && 'code' in error) {
     const firebaseError = error as { code: string; message?: string };
     if (firebaseError.code === 'permission-denied') {
-      return ERROR_MESSAGES.PERMISSION_DENIED;
-    }
-    if (firebaseError.code === 'not-found') {
-      return 'The requested document or resource was not found.';
-    }
-    if (firebaseError.code === 'unavailable') {
-      return ERROR_MESSAGES.SERVICE_UNAVAILABLE;
-    }
-    if (typeof firebaseError.message === 'string') {
-      return firebaseError.message;
+      baseMessage = ERROR_MESSAGES.PERMISSION_DENIED;
+    } else if (firebaseError.code === 'not-found') {
+      baseMessage = 'The requested document or resource was not found.';
+    } else if (firebaseError.code === 'unavailable') {
+      baseMessage = ERROR_MESSAGES.SERVICE_UNAVAILABLE;
+    } else if (typeof firebaseError.message === 'string') {
+      baseMessage = firebaseError.message;
+    } else {
+      baseMessage = 'An unknown Firebase error occurred';
     }
   } else if (error instanceof Error && typeof error.message === 'string') {
-    return error.message;
+    baseMessage = error.message;
+  } else {
+    baseMessage = 'An unknown error occurred.';
   }
-  return 'An unknown error occurred.';
+
+  return operation ? `Error during ${operation}: ${baseMessage}` : baseMessage;
 }
 
 /**
