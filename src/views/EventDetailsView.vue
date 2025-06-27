@@ -70,17 +70,17 @@
                 />
               </div>
 
-              <!-- XP/Criteria Section -->
+              <!-- XP/Criteria Section (Only for non-MultiEvent) -->
               <EventCriteriaDisplay 
-                v-if="event.criteria?.length" 
+                v-if="event.details.format !== EventFormat.MultiEvent && event.criteria && event.criteria.length > 0"
                 :criteria="event.criteria" 
                 :event-format="event.details.format"
                 :is-competition="event.details.isCompetition ?? false"
                 class="mb-3 mb-md-4"
               />
 
-              <!-- Teams/Participants Section -->
-              <div class="mb-3 mb-md-4">
+              <!-- Teams/Participants Section (Only for non-MultiEvent) -->
+              <div v-if="event.details.format !== EventFormat.MultiEvent" class="mb-3 mb-md-4">
                 <!-- Team List -->
                 <div v-if="isTeamEvent" class="mb-3 mb-md-4">
                   <div class="section-header mb-3">
@@ -113,14 +113,13 @@
                     </div>
                   </div>
                 </div>
-                <!-- Participant List (Individual/Competition) -->
+                <!-- Participant List (Individual) -->
                 <div v-else-if="shouldShowParticipantLists" class="mb-3 mb-md-4">
                   <div class="section-header mb-3">
                     <i class="fas fa-user-friends text-primary me-2"></i>
                     <span class="h5 mb-0 text-gradient-primary">Participants ({{ allParticipantsForDisplay.length }})</span>
                   </div>
                   <div class="row g-3">
-                    <!-- Always show the first column -->
                     <div class="col-12" :class="{ 'col-lg-6': allParticipantsForDisplay.length > 8 }">
                       <EventParticipantList
                         :core-participants="allParticipantsForDisplay.length > 8 ? participantsFirstHalf : allParticipantsForDisplay"
@@ -131,7 +130,6 @@
                         class="animate-scale-in card-hover-lift"
                       />
                     </div>
-                    <!-- Only show second column if there are more than 8 participants -->
                     <div v-if="allParticipantsForDisplay.length > 8" class="col-12 col-lg-6">
                       <EventParticipantList
                         :core-participants="participantsSecondHalf"
@@ -146,14 +144,31 @@
                   </div>
                 </div>
               </div>
+
+              <!-- NEW: Phases Section (Only for MultiEvent) -->
+              <div v-if="event.details.format === EventFormat.MultiEvent && event.details.phases && event.details.phases.length > 0" class="phases-section mb-3 mb-md-4">
+                <div class="section-header mb-3">
+                  <i class="fas fa-layer-group text-primary me-2"></i>
+                  <span class="h5 mb-0 text-gradient-primary">Event Phases</span>
+                </div>
+                <div v-for="(phase, index) in event.details.phases" :key="phase.id || index" class="mb-3">
+                  <PhaseDisplayCard
+                    :phase="phase"
+                    :phaseNumber="index + 1"
+                    :nameCache="nameCacheRecord"
+                    :event-id="event.id"
+                    :overall-event-status="event.status"
+                  />
+                </div>
+              </div>
             </div>
 
-            <!-- Sidebar Column: Submissions & Voting -->
+            <!-- Sidebar Column: Submissions & Voting (Overall event submissions might be hidden for MultiEvent based on allowProjectSubmission) -->
             <div class="col-12 col-lg-4">
               <div class="sticky-lg-top" style="top: 80px;">
                 <!-- Submission Section -->
                 <EventSubmissionsSection
-                  v-if="event.details.allowProjectSubmission !== false"
+                  v-if="event.details.format !== EventFormat.MultiEvent && event.details.allowProjectSubmission !== false"
                   :event="event"
                   :teams="teams"
                   :loading="loading"
@@ -204,7 +219,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore';
-import { Timestamp } from 'firebase/firestore'; // Import Timestamp
+import { Timestamp } from 'firebase/firestore';
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
@@ -218,40 +233,35 @@ import SkeletonProvider from '@/skeletons/SkeletonProvider.vue';
 import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
 import VotingCard from '@/components/events/VotingCard.vue';
 import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
+import PhaseDisplayCard from '@/components/events/PhaseDisplayCard.vue'; // Import new component
 
 // Type Imports
 import { EventStatus, type Event, type Team, EventFormat } from '@/types/event';
 import { type EnrichedStudentData } from '@/types/student';
 import type { EventHeaderProps } from '@/components/events/EventDetailsHeader.vue';
 
-// Define an extension of Event that includes id
 interface EventWithId extends Event {
   id: string;
 }
 
-// Import utility functions
 import {
   isEventOrganizer,
   canUserSubmitToEvent,
 } from '@/utils/permissionHelpers';
 
-// --- Local Types & Interfaces ---
 interface FeedbackState {
 	message: string;
 	type: 'success' | 'error';
 }
 
-// --- Props ---
 interface Props {
   id: string;
 }
 const props = defineProps<Props>();
 
-// --- Composables ---
 const studentStore = useProfileStore();
 const eventStore = useEventStore();
 
-// --- Refs and Reactive State ---
 const loading = ref<boolean>(true);
 const event = ref<EventWithId | null>(null);
 const teams = ref<Team[]>([]);
@@ -264,20 +274,14 @@ const globalFeedback = ref<FeedbackState>({ message: '', type: 'success' });
 const actionInProgress = ref<boolean>(false);
 const leaveEventModalRef = ref<InstanceType<typeof ConfirmationModal> | null>(null);
 
-// --- Computed Properties ---
 const currentUserId = computed<string | null>(() => studentStore.studentId);
 const currentUser = computed<EnrichedStudentData | null>(() => studentStore.currentStudent);
 
 const nameCacheRecord = computed(() => Object.fromEntries(nameCache.value));
+
+// Updated: isTeamEvent should only reflect the overall event format
 const isTeamEvent = computed<boolean>(() => {
-  if (!event.value) return false;
-  
-  // For MultiEvent, check if any phase is Team format
-  if (event.value.details.format === EventFormat.MultiEvent) {
-    return event.value.details.phases?.some(phase => phase.format === EventFormat.Team) || false;
-  }
-  
-  return event.value.details.format === EventFormat.Team;
+  return event.value?.details.format === EventFormat.Team;
 });
 
 const localIsCurrentUserOrganizer = computed<boolean>(() =>
@@ -287,62 +291,56 @@ const localIsCurrentUserOrganizer = computed<boolean>(() =>
 const localIsCurrentUserParticipant = computed<boolean>(() => {
   if (!event.value || !currentUser.value) return false;
   
-  const currentUserId = currentUser.value.uid;
+  const currentUId = currentUser.value.uid;
   
-  // For MultiEvent, check participants across all phases
   if (event.value.details.format === EventFormat.MultiEvent && event.value.details.phases) {
     return event.value.details.phases.some(phase => {
       if (phase.format === EventFormat.Team && phase.teams) {
-        return phase.teams.some(team => 
-          team.members && team.members.includes(currentUserId)
-        );
+        return phase.teams.some(team => team.members && team.members.includes(currentUId));
       } else if (phase.format === EventFormat.Individual && phase.coreParticipants) {
-        return phase.coreParticipants.includes(currentUserId);
+        return phase.coreParticipants.includes(currentUId);
+      } else if (phase.format === EventFormat.Individual && phase.participants) { // Also check general participants for individual phases
+        return phase.participants.includes(currentUId);
       }
       return false;
     });
   }
   
-  // For Team events, check if user is in any team
   if (event.value.details.format === EventFormat.Team && event.value.teams) {
-    return event.value.teams.some(team => 
-      team.members && team.members.includes(currentUserId)
-    );
+    return event.value.teams.some(team => team.members && team.members.includes(currentUId));
   }
   
-  // For Individual events, check coreParticipants
-  return (event.value.details.coreParticipants || []).includes(currentUserId);
+  // For overall Individual events, check coreParticipants.
+  // General participants array at root level is for broader association, not specific competitive participation.
+  return (event.value.details.coreParticipants || []).includes(currentUId);
 });
 
 const allAssociatedUserIds = computed<string[]>(() => {
     if (!event.value) return [];
     const userIds = new Set<string>();
     
-    // Add requester and organizers
     if (event.value.requestedBy) userIds.add(event.value.requestedBy);
     (event.value.details.organizers || []).forEach(id => { if (id) userIds.add(id); });
     
-    // Handle MultiEvent format
     if (event.value.details.format === EventFormat.MultiEvent && event.value.details.phases) {
       event.value.details.phases.forEach(phase => {
-        if (phase.format === EventFormat.Team && phase.teams) {
+        (phase.participants || []).forEach(id => { if (id) userIds.add(id); });
+        (phase.coreParticipants || []).forEach(id => { if (id) userIds.add(id); });
+        if (phase.teams) {
           phase.teams.forEach(team => {
             (team.members || []).forEach(id => { if (id) userIds.add(id); });
           });
-        } else if (phase.format === EventFormat.Individual && phase.coreParticipants) {
-          phase.coreParticipants.forEach(id => { if (id) userIds.add(id); });
         }
       });
     } else {
-      // Handle regular Team/Individual formats
-      if (isTeamEvent.value) {
+      if (event.value.details.format === EventFormat.Team) {
           (event.value.teams || []).forEach(team => { (team.members || []).forEach(id => { if (id) userIds.add(id); }); });
-      } else {
+      } else { // Individual
           (event.value.details.coreParticipants || []).forEach(id => { if (id) userIds.add(id); });
       }
+      (event.value.participants || []).forEach(id => { if (id) userIds.add(id);}); // Also include root participants
     }
     
-    // Add submission authors and organizer raters
     (event.value.submissions || []).forEach(sub => { if (sub.submittedBy) userIds.add(sub.submittedBy); });
     Object.keys(event.value.organizerRatings || {}).forEach(userId => { if (userId) userIds.add(userId); });
 
@@ -372,51 +370,38 @@ const canRateOrganizer = computed(() => {
          (event.value.status === EventStatus.Completed || event.value.status === EventStatus.Closed);
 });
 
-// Convert organizerRatings map to an array for the form component
 const organizerRatingsAsArray = computed(() => {
   if (!event.value?.organizerRatings) return [];
-  // The ratings are now a map, not an array. We convert it for the prop.
   return Object.entries(event.value.organizerRatings).map(([userId, rating]) => ({
     ...rating,
     userId: userId,
   }));
 });
 
-// Update computed properties for participant lists
 const participantsFirstHalf = computed(() => {
-  const participants = event.value?.details.coreParticipants ?? [];
-  const firstHalf = participants.slice(0, Math.ceil(participants.length / 2));
-  return firstHalf;
+  const participants = (event.value?.details.format === EventFormat.Individual) ? (event.value.details.coreParticipants ?? []) : [];
+  return participants.slice(0, Math.ceil(participants.length / 2));
 });
 
 const participantsSecondHalf = computed(() => {
-  const participants = event.value?.details.coreParticipants ?? [];
-  const secondHalf = participants.slice(Math.ceil(participants.length / 2));
-  return secondHalf;
+  const participants = (event.value?.details.format === EventFormat.Individual) ? (event.value.details.coreParticipants ?? []) : [];
+  return participants.slice(Math.ceil(participants.length / 2));
 });
 
-// Add a computed property to get all participants for display
+// Updated: shouldShowParticipantLists should only reflect the overall Individual event format
 const allParticipantsForDisplay = computed(() => {
-  const participants = event.value?.details.coreParticipants ?? [];
-  return participants;
+  if (event.value?.details.format === EventFormat.Individual) {
+    return event.value.details.coreParticipants ?? [];
+  }
+  return [];
 });
 
-// Add computed property to check if we should show participant lists
 const shouldShowParticipantLists = computed(() => {
   if (!event.value) return false;
-  
-  const hasParticipants = (event.value.details.coreParticipants?.length ?? 0) > 0;
-  
-  // For MultiEvent, check if any phase has individual format
-  if (event.value.details.format === EventFormat.MultiEvent && event.value.details.phases) {
-    return event.value.details.phases.some(phase => phase.format === EventFormat.Individual) && hasParticipants;
-  }
-  
-  // For Individual events, always show if there are coreParticipants
-  return event.value.details.format === EventFormat.Individual && hasParticipants;
+  return event.value.details.format === EventFormat.Individual && (event.value.details.coreParticipants?.length ?? 0) > 0;
 });
 
-// --- Methods ---
+
 function setGlobalFeedback(message: string, type: 'success' | 'error' = 'success', duration: number = 5000): void {
   globalFeedback.value = { message, type };
   if (duration > 0) {
@@ -463,23 +448,16 @@ async function fetchData(): Promise<void> {
 
   try {
     if (props.id) {
-      // Use fetchEventDetails which has the correct permission logic for single events.
       const fetchedEvent = await eventStore.fetchEventDetails(props.id);
-
       if (!fetchedEvent) {
-        // fetchEventDetails will have already set a notification, but we can set a local error too.
         throw new Error('Event not found or you do not have permission to view it.');
       }
-
-      // The store now holds the definitive state in `viewedEventDetails`.
-      // We can use it to populate our local ref.
-      event.value = { 
-        ...fetchedEvent,
-        id: props.id  // Ensure id is set
-      } as EventWithId;
-      teams.value = (isTeamEvent.value && Array.isArray(fetchedEvent.teams)) ? [...fetchedEvent.teams] : [];
-
-      // fetchUserNames should still be called.
+      event.value = { ...fetchedEvent, id: props.id } as EventWithId;
+      if (event.value.details.format === EventFormat.Team && Array.isArray(fetchedEvent.teams)) {
+        teams.value = [...fetchedEvent.teams];
+      } else {
+        teams.value = [];
+      }
       await fetchUserNames(allAssociatedUserIds.value);
     }
   } catch (error: any) {
@@ -494,7 +472,7 @@ async function fetchData(): Promise<void> {
 
 const handleSubmissionSuccess = (): void => {
   setGlobalFeedback('Project submitted successfully!', 'success');
-  fetchData(); // Refresh data to show new submission
+  fetchData();
 };
 
 const handleJoin = async (): Promise<void> => {
@@ -519,7 +497,6 @@ const showLeaveModal = (): void => {
 
 const handleLeave = async (): Promise<void> => {
     if (!event.value || !currentUserId.value || isLeaving.value || actionInProgress.value) return;
-
     isLeaving.value = true;
     actionInProgress.value = true;
     try {
@@ -538,17 +515,11 @@ const mapEventToHeaderProps = (evt: EventWithId): EventHeaderProps => {
   const convertToTimestamp = (dateVal: any): Timestamp | null => {
     if (!dateVal) return null;
     if (dateVal instanceof Timestamp) return dateVal;
-    // Check if it's a plain object that looks like a Firestore Timestamp
     if (typeof dateVal === 'object' && dateVal !== null &&
         typeof dateVal.seconds === 'number' && typeof dateVal.nanoseconds === 'number') {
       return new Timestamp(dateVal.seconds, dateVal.nanoseconds);
     }
-    // If it's already a JS Date object, this path won't be hit by typical Firestore data.
-    // If it's a string, formatISTDate might handle it, but EventHeaderProps expects Timestamp.
-    // For robustness, one might add string/Date parsing here if necessary,
-    // but the primary goal is to handle Firestore's plain object representation.
-    console.warn('Date value received by mapEventToHeaderProps is not a Timestamp or a plain Firestore Timestamp object:', dateVal);
-    return null; // Or handle other types if necessary and if formatISTDate supports them
+    return null;
   };
 
   return {
@@ -557,7 +528,7 @@ const mapEventToHeaderProps = (evt: EventWithId): EventHeaderProps => {
     title: evt.details.eventName || 'Event',
     closed: evt.status === EventStatus.Completed || evt.status === EventStatus.Cancelled || evt.status === EventStatus.Closed,
     teams: evt.teams || undefined,
-    participants: evt.details.coreParticipants || undefined,
+    participants: evt.details.format === EventFormat.Individual ? (evt.details.coreParticipants || undefined) : undefined,
     votingOpen: evt.votingOpen || false,
     details: {
         format: evt.details.format,
@@ -572,12 +543,11 @@ const mapEventToHeaderProps = (evt: EventWithId): EventHeaderProps => {
         prize: evt.details.prize || undefined,
         rules: evt.details.rules || undefined,
         isCompetition: evt.details.isCompetition || false,
-        phases: evt.details.phases || undefined
+        phases: evt.details.phases || undefined // Pass phases data
     }
   };
 };
 
-// --- Lifecycle Hooks ---
 onMounted(() => {
   fetchData();
 });
@@ -597,11 +567,9 @@ function goBack() {
   if (window.history.length > 1) {
     window.history.back();
   } else {
-    // Fallback to home if no history
     window.location.href = '/';
   }
 }
-
 </script>
 
 <style lang="scss" scoped>
@@ -657,7 +625,7 @@ function goBack() {
 
 /* Enhanced Section Headers */
 .section-header { 
-  background: rgba(var(--bs-white-rgb), 0.9); // Kept for distinct section header appearance
+  background: rgba(var(--bs-white-rgb), 0.9);
   backdrop-filter: blur(10px);
   border-radius: var(--bs-border-radius-lg);
   padding: 1rem 1.25rem;
@@ -691,27 +659,16 @@ function goBack() {
   font-size: 0.875rem;
 }
 
-/* Simplified Card Styling for .team-list-box and other general cards in this view */
-/* Note: The very generic .card selector was removed to avoid unintended global effects.
-   If other cards in this view need this styling, they should get a specific class or be targeted more precisely.
-*/
 .team-list-box { 
   background-color: var(--bs-body-bg);
   border: 1px solid var(--bs-border-color-translucent);
   border-radius: var(--bs-border-radius-lg); 
   box-shadow: var(--bs-box-shadow-sm);
   overflow: hidden; 
-  /* transition for hover effect is now part of card-hover-lift in _animations.scss */
   position: relative;
-  z-index: 2; // Ensure it's above background elements
+  z-index: 2;
 }
 
-/* .team-list-box:hover is now handled by .card-hover-lift in _animations.scss */
-
-/* Participant List Enhancements - Styles for .participant-card and .participant-item are now in ParticipantList.vue */
-/* Removed local .participant-card and .participant-item styles */
-
-/* Sidebar Enhancements - Kept as is, assuming these are desired for sidebar distinctiveness */
 .sidebar-card {
   background: rgba(var(--bs-white-rgb), 0.98);
   backdrop-filter: blur(15px);
@@ -739,7 +696,6 @@ function goBack() {
   margin-bottom: 0;
 }
 
-/* Animation Classes */
 .animate-fade-in { 
   animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; 
 }
@@ -755,7 +711,6 @@ function goBack() {
   } 
 }
 
-/* Feedback Transitions */
 .fade-pop-enter-active { 
   animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
 }
@@ -775,7 +730,6 @@ function goBack() {
   } 
 }
 
-/* Sticky Sidebar */
 .sticky-lg-top { 
   position: sticky; 
   top: 80px; 
@@ -788,7 +742,6 @@ function goBack() {
   } 
 }
 
-/* Enhanced Alert Styling */
 .alert-sm { 
   padding: 0.75rem 1rem; 
   font-size: 0.875rem;
@@ -824,14 +777,13 @@ function goBack() {
   opacity: 1;
 }
 
-.card-header {
+.card-header { /* This is a general .card-header, ensure it's not conflicting with more specific ones if any */
   background: linear-gradient(135deg, 
     rgba(var(--bs-primary-rgb), 0.05) 0%, 
     rgba(var(--bs-primary-rgb), 0.02) 100%);
   border-bottom: 1px solid rgba(var(--bs-primary-rgb), 0.08);
 }
 
-/* Mobile Responsive Improvements */
 @media (max-width: 991.98px) {
   .sidebar-card {
     margin-top: 2rem;
@@ -845,7 +797,6 @@ function goBack() {
   }
 }
 
-/* Loading States */
 .loading-placeholder {
   background: linear-gradient(90deg, 
     rgba(var(--bs-light-rgb), 0.8) 25%, 
@@ -863,9 +814,6 @@ function goBack() {
   opacity: 0.3;
 }
 
-/* Local @keyframes shimmer removed, using global shimmer from _animations.scss */
-
-/* Mobile Back Button Styles */
 .mobile-back-button {
   position: relative;
   z-index: 3;
@@ -893,7 +841,6 @@ function goBack() {
   }
 }
 
-/* Ensure proper spacing on mobile */
 @media (max-width: 767.98px) {
   .event-details-view {
     padding-left: 0.75rem;
