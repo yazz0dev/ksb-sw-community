@@ -114,20 +114,20 @@ export const mapEventDataToFirestore = (data: EventFormData | Partial<EventBaseD
     // Clean and validate criteria array
     if (Array.isArray(firestoreData.criteria)) {
         firestoreData.criteria = (firestoreData.criteria as EventCriteria[])
-            .filter((criterion: EventCriteria) => { // Typed criterion
-                const isValid = criterion && 
-                       typeof criterion.title === 'string' && criterion.title.trim() !== '' &&
-                       typeof criterion.role === 'string' && criterion.role.trim() !== '' &&
-                       typeof criterion.points === 'number' && criterion.points > 0 &&
-                       typeof criterion.constraintIndex === 'number' && criterion.constraintIndex >= 0;
+            .filter((criteria: EventCriteria) => { // Typed criteria
+                const isValid = criteria && 
+                       typeof criteria.title === 'string' && criteria.title.trim() !== '' &&
+                       typeof criteria.role === 'string' && criteria.role.trim() !== '' &&
+                       typeof criteria.points === 'number' && criteria.points > 0 &&
+                       typeof criteria.constraintIndex === 'number' && criteria.constraintIndex >= 0;
                 return isValid;
             })
-            .map((criterion: EventCriteria) => { // Typed criterion
+            .map((criteria: EventCriteria) => { // Typed criteria
                 return {
-                    constraintIndex: criterion.constraintIndex,
-                    title: criterion.title.trim(),
-                    points: criterion.points,
-                    role: criterion.role.trim()
+                    constraintIndex: criteria.constraintIndex,
+                    title: criteria.title.trim(),
+                    points: criteria.points,
+                    role: criteria.role.trim()
                     // Removed targetRole as it's not in the cleaned object structure here
                 };
             });
@@ -376,20 +376,20 @@ export function hasStudentVotedForEvent(event: EventBaseData | null, userId: str
   return false;
 }
 
-export function getStudentVoteForCriterion(
+export function getStudentVoteForcriteria(
   event: EventBaseData | null, // Changed EventWithId to EventBaseData
   userId: string | null, 
-  criterionConstraintIndex: number | string 
+  criteriaConstraintIndex: number | string 
 ): string | undefined { 
   if (!event || !userId || !event.criteriaVotes || !event.criteriaVotes[userId]) {
     return undefined;
   }
   
-  if (typeof criterionConstraintIndex === 'string') {
+  if (typeof criteriaConstraintIndex === 'string') {
     // After the checks above, event.criteriaVotes[userId] is Record<string, string>
     const userVotes = event.criteriaVotes[userId];
     if (userVotes) {
-      const specificVote = userVotes[criterionConstraintIndex]; // specificVote is of type string | undefined
+      const specificVote = userVotes[criteriaConstraintIndex]; // specificVote is of type string | undefined
 
       // Check if specificVote is a string. If so, it's a valid vote.
       if (typeof specificVote === 'string') {
@@ -401,6 +401,6 @@ export function getStudentVoteForCriterion(
     }
   }
   
-  // Fallback for non-string criterionConstraintIndex or if the vote is not found under a string key.
+  // Fallback for non-string criteriaConstraintIndex or if the vote is not found under a string key.
   return undefined;
 }

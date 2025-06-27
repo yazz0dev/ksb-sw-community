@@ -123,7 +123,7 @@ router.beforeEach(async (
 
 const DEFAULT_TITLE = 'KSB Tech Community';
 const DEFAULT_DESCRIPTION = 'KSB Software Community Platform for Events & Learning. Join us for skill development, networking, and tech discussions.';
-const SITE_URL = 'https://www.ksbtechs.web.app'; // Updated to match the sitemap and meta tags
+const SITE_URL = 'https://www.ksbtech.netlify.app'; // Updated to match the sitemap and meta tags
 
 router.afterEach((to) => {
   const routeMeta = to.meta as RouteMeta;

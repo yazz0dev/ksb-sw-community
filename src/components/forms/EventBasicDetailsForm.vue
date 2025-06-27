@@ -92,7 +92,7 @@
         />
         <label class="form-check-label fw-medium" for="isIndividualCompetition">
           Is this an Individual Competition?
-          <span class="text-muted small ms-1 fw-normal">(Points per criterion awarded to one core participant)</span>
+          <span class="text-muted small ms-1 fw-normal">(Points per criteria awarded to one core participant)</span>
         </label>
       </div>
     </div>

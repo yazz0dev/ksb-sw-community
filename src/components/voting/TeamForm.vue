@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h5 class="h5 mb-4">{{ isManualMode ? 'Manually Set Best Team & Performer' : 'Select Best Team per Criterion:' }}</h5>
+    <h5 class="h5 mb-4">{{ isManualMode ? 'Manually Set Best Team & Performer' : 'Select Best Team per criteria:' }}</h5>
     <div class="d-flex flex-column mb-4 gap-3">
       <!-- Iterate over actual criteria -->
       <div
@@ -48,7 +48,7 @@
           </option>
         </select>
         <small class="text-muted d-block mt-1" v-if="allocation.role">
-          This criterion targets the {{ formatRoleName(allocation.role) }} role
+          This criteria targets the {{ formatRoleName(allocation.role) }} role
         </small>
       </div>
       

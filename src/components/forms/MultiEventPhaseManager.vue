@@ -5,31 +5,50 @@
       A Multi-Stage Event requires at least one phase. Click "Add New Phase" to begin.
     </div>
 
-    <draggable
-      v-model="localPhases"
-      item-key="id"
-      handle=".phase-drag-handle"
-      ghost-class="ghost-phase"
-      animation="200"
-      @end="onDragEnd"
-      class="phases-list"
-    >
-      <template #item="{ element: phase, index }">
-        <PhaseEditorCard
-          :phase="phase"
-          :phaseNumber="index + 1"
-          :isSubmitting="isSubmitting"
-          :overallEventIsCompetition="overallEventIsCompetition"
-          :allUsers="allUsers"
-          :nameCache="nameCache"
-          @update:phase="updatedPhase => updatePhase(index, updatedPhase)"
-          @remove-phase="() => removePhase(index)"
-          @validity-change="isValid => handlePhaseValidityChange(index, isValid)"
-          @error="handleError"
-          class="mb-3"
-        />
-      </template>
-    </draggable>
+    <div class="phases-list">
+      <div
+        v-for="(phase, index) in localPhases"
+        :key="phase.id"
+        class="phase-card card mb-3 shadow-sm"
+      >
+        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+          <div class="d-flex align-items-center">
+            <div class="phase-drag-handle me-2" title="Drag to reorder">
+              <i class="fas fa-grip-vertical text-muted"></i>
+            </div>
+            <h6 class="mb-0 text-dark me-2">Phase {{ index + 1 }}: {{ phase.phaseName || 'New Phase' }}</h6>
+            <span v-if="validatePhase(index)" class="badge bg-success-subtle text-success-emphasis rounded-pill">
+              <i class="fas fa-check me-1"></i>Valid
+            </span>
+            <span v-else class="badge bg-warning-subtle text-warning-emphasis rounded-pill">
+              <i class="fas fa-exclamation-triangle me-1"></i>Incomplete
+            </span>
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger py-1 px-2"
+            @click="removePhase(index)"
+            :disabled="isSubmitting"
+            title="Remove Phase"
+          >
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+        <div class="card-body p-3 p-md-4">
+          <!-- Use MultiEventForm for each phase -->
+          <MultiEventForm
+            :model-value="[phase]"
+            @update:model-value="(phases) => updatePhase(index, phases[0])"
+            :is-submitting="isSubmitting"
+            :is-overall-competition="overallEventIsCompetition"
+            :all-users="allUsers"
+            :name-cache="nameCache"
+            @validity-change="(isValid) => handlePhaseValidityChange(index, isValid)"
+            @error="handleError"
+          />
+        </div>
+      </div>
+    </div>
 
     <div class="mt-4 text-end">
       <button
@@ -42,18 +61,16 @@
       </button>
     </div>
 
-    <!-- Validation Summary (Optional) -->
-     <div v-if="localPhases.length > 0 && !areAllPhasesValid" class="alert alert-warning mt-3 small">
-        <i class="fas fa-exclamation-triangle me-1"></i> Some phases have incomplete or invalid configurations. Please review each phase.
-     </div>
+    <div v-if="localPhases.length > 0 && !areAllPhasesValid" class="alert alert-warning mt-3 small">
+      <i class="fas fa-exclamation-triangle me-1"></i> Some phases have incomplete or invalid configurations. Please review each phase.
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue';
 import type { PropType } from 'vue';
-import draggable from 'vuedraggable';
-import PhaseEditorCard from './PhaseEditorCard.vue'; // New component
+import MultiEventForm from './MultiEventForm.vue';
 import { EventFormat, type EventPhase } from '@/types/event';
 import type { UserData } from '@/types/student';
 
@@ -173,6 +190,29 @@ onMounted(() => {
    emit('validity-change', areAllPhasesValid.value);
 });
 
+function validatePhase(index: number): boolean {
+  const phase = localPhases.value[index];
+  if (!phase) return false;
+  
+  const hasBasicDetails = !!(phase.phaseName?.trim() && phase.description?.trim() && phase.type?.trim());
+  const hasValidParticipants = phase.participants && phase.participants.length > 0;
+  const hasValidCriteria = phase.criteria && phase.criteria.length > 0 && 
+    phase.criteria.every(c => c.title?.trim() && c.role?.trim() && c.points > 0);
+  
+  if (phase.format === EventFormat.Individual) {
+    const hasValidCoreParticipants = phase.coreParticipants && phase.coreParticipants.length > 0;
+    return hasBasicDetails && hasValidParticipants && hasValidCriteria && hasValidCoreParticipants;
+  }
+  
+  if (phase.format === EventFormat.Team) {
+    const hasValidTeams = phase.teams && phase.teams.length > 0 &&
+      phase.teams.every(team => team.teamName?.trim() && team.members?.length >= 2);
+    return hasBasicDetails && hasValidParticipants && hasValidCriteria && hasValidTeams;
+  }
+  
+  return hasBasicDetails && hasValidParticipants && hasValidCriteria;
+}
+
 </script>
 
 <style scoped>
@@ -186,5 +226,8 @@ onMounted(() => {
 }
 .phase-drag-handle {
   cursor: grab;
+}
+.phase-drag-handle:active {
+  cursor: grabbing;
 }
 </style>

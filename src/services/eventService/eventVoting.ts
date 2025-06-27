@@ -71,15 +71,15 @@ export async function submitTeamCriteriaVoteInFirestore(
                         return;
                     }
 
-                    // Check if criterion exists
-                    const criterionExists = currentEventData.criteria?.some((c: EventCriteria) => 
+                    // Check if criteria exists
+                    const criteriaExists = currentEventData.criteria?.some((c: EventCriteria) => 
                         typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
                     );
 
-                    if (criterionExists) {
+                    if (criteriaExists) {
                         userCriteriaVotes[constraintKey] = selectedTeamName;
                     } else {
-                        console.warn(`Criterion with index ${constraintIndex} not found`);
+                        console.warn(`criteria with index ${constraintIndex} not found`);
                     }
                 });
 
@@ -160,15 +160,15 @@ export async function submitIndividualWinnerVoteInFirestore(
                     return;
                 }
 
-                // Check if criterion exists
-                const criterionExists = currentEventData.criteria?.some((c: EventCriteria) => 
+                // Check if criteria exists
+                const criteriaExists = currentEventData.criteria?.some((c: EventCriteria) => 
                     typeof c.constraintIndex === 'number' && c.constraintIndex === constraintIndex
                 );
 
-                if (criterionExists) {
+                if (criteriaExists) {
                     userCriteriaVotes[constraintKey] = selectedUserId;
                 } else {
-                    console.warn(`Criterion with index ${constraintIndex} not found`);
+                    console.warn(`criteria with index ${constraintIndex} not found`);
                 }
             });
 
@@ -303,39 +303,39 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
 
     // Calculate winners from criteriaVotes structure
     if (eventData.criteriaVotes && !isEmpty(eventData.criteriaVotes)) {
-        // Group all votes by criterion
-        const criterionVoteCounts: Record<string, Record<string, number>> = {};
+        // Group all votes by criteria
+        const criteriaVoteCounts: Record<string, Record<string, number>> = {};
 
         Object.values(eventData.criteriaVotes).forEach((userVotes: Record<string, string>) => {
             Object.entries(userVotes).forEach(([constraintKey, selectedEntityId]) => {
-                if (!criterionVoteCounts[constraintKey]) {
-                    criterionVoteCounts[constraintKey] = {};
+                if (!criteriaVoteCounts[constraintKey]) {
+                    criteriaVoteCounts[constraintKey] = {};
                 }
-                if (!criterionVoteCounts[constraintKey][selectedEntityId]) {
-                    criterionVoteCounts[constraintKey][selectedEntityId] = 0;
+                if (!criteriaVoteCounts[constraintKey][selectedEntityId]) {
+                    criteriaVoteCounts[constraintKey][selectedEntityId] = 0;
                 }
-                criterionVoteCounts[constraintKey][selectedEntityId] += 1;
+                criteriaVoteCounts[constraintKey][selectedEntityId] += 1;
             });
         });
 
-        // Find winners for each criterion
-        Object.entries(criterionVoteCounts).forEach(([constraintKey, voteCounts]) => {
+        // Find winners for each criteria
+        Object.entries(criteriaVoteCounts).forEach(([constraintKey, voteCounts]) => {
             if (!isEmpty(voteCounts)) {
                 const maxVotes = Math.max(...Object.values(voteCounts));
-                const criterionWinners = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
+                const criteriaWinners = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
                 
-                // Get criterion title from event data
+                // Get criteria title from event data
                 const constraintIndex = parseInt(constraintKey.replace('constraint', ''));
-                const criterion = eventData.criteria?.find((c: EventCriteria) => c.constraintIndex === constraintIndex);
-                const criterionTitle = criterion?.title || `Criterion ${constraintIndex}`;
+                const criteria = eventData.criteria?.find((c: EventCriteria) => c.constraintIndex === constraintIndex);
+                const criteriaTitle = criteria?.title || `criteria ${constraintIndex}`;
                 
                 // Always store winners as an array, even for single winners
-                if (criterionWinners.length > 0) {
+                if (criteriaWinners.length > 0) {
                     // Filter out any undefined values just to be safe
-                    winners[criterionTitle] = criterionWinners.filter(Boolean);
+                    winners[criteriaTitle] = criteriaWinners.filter(Boolean);
                 } else {
                     // If no winners (shouldn't happen but for safety)
-                    winners[criterionTitle] = [];
+                    winners[criteriaTitle] = [];
                 }
             }
         });
