@@ -1,8 +1,8 @@
 // src/components/forms/EventBasicDetailsForm.vue
 <template>
   <div>
-    <!-- Event Format Selection - Hidden when isPhaseForm is true -->
-    <div v-if="!isPhaseForm" class="mb-4">
+    <!-- Event Format Selection - Hidden when isPhaseForm is true OR if isMultiEventOverall is true -->
+    <div v-if="!isPhaseForm && !isMultiEventOverall" class="mb-4">
       <label class="form-label fw-medium">Event Format <span class="text-danger">*</span></label>
       <div class="event-format-container d-flex gap-3">
         <div class="form-check form-check-custom">
@@ -22,7 +22,7 @@
 
     <!-- Event Name -->
     <div class="mb-3">
-      <label for="eventName" class="form-label fw-medium">{{ isPhaseForm ? 'Phase Name' : 'Event Name' }} <span class="text-danger">*</span></label>
+      <label for="eventName" class="form-label fw-medium">{{ nameLabel }} <span class="text-danger">*</span></label>
       <input
         id="eventName"
         class="form-control"
@@ -31,15 +31,15 @@
         type="text"
         v-model.trim="localDetails.eventName"
         :disabled="isSubmitting"
-        :placeholder="isPhaseForm ? 'Enter a clear phase name' : 'Enter a clear and concise event name'"
+        :placeholder="namePlaceholder"
         maxlength="100"
       />
-      <div class="invalid-feedback">{{ isPhaseForm ? 'Phase name' : 'Event name' }} is required.</div>
+      <div class="invalid-feedback">{{ nameLabel }} is required.</div>
     </div>
 
     <!-- Event Type (Hidden if MultiEvent AND not a phase form) -->
     <div v-if="showTypeField" class="mb-3">
-      <label for="eventType" class="form-label fw-medium">{{ isPhaseForm ? 'Phase Type' : 'Event Type' }} <span class="text-danger">*</span></label>
+      <label for="eventType" class="form-label fw-medium">{{ typeLabel }} <span class="text-danger">*</span></label>
       <div class="input-group">
         <span class="input-group-text"><i class="fas fa-tag"></i></span>
         <select
@@ -52,12 +52,12 @@
         >
           <option value="" disabled>Select type...</option>
           <option
-            v-for="type in eventTypesForFormat"
-            :key="type"
-            :value="type"
-          >{{ type }}</option>
+            v-for="typeOpt in eventTypesForFormat"
+            :key="typeOpt"
+            :value="typeOpt"
+          >{{ typeOpt }}</option>
         </select>
-        <div class="invalid-feedback">{{ isPhaseForm ? 'Phase type' : 'Event type' }} is required.</div>
+        <div class="invalid-feedback">{{ typeLabel }} is required.</div>
       </div>
     </div>
 
@@ -68,7 +68,7 @@
           class="form-check-input"
           type="checkbox"
           role="switch"
-          id="isCompetitionSeries"
+          :id="isActuallyMultiEventOverall ? 'isCompetitionSeries' : 'isIndividualCompetition'"
           v-model="localDetails.isCompetition"
           :disabled="isSubmitting"
         />
@@ -105,7 +105,7 @@
         type="text"
         class="form-control"
         v-model.trim="localDetails.prize"
-        :placeholder="isMultiEvent ? 'e.g., Grand Prize for the entire series' : 'e.g., Prize for the winner'"
+        :placeholder="isActuallyMultiEventOverall ? 'e.g., Grand Prize for the entire series' : 'e.g., Prize for the winner'"
         :disabled="isSubmitting"
       />
       <small v-if="isMultiEvent && !hideMultiEventOption" class="form-text text-muted">
@@ -127,7 +127,7 @@
         rows="5"
         v-model="localDetails.description"
         :disabled="isSubmitting"
-        :placeholder="isPhaseForm ? 'Provide details about this phase' : 'Provide a detailed description of the event, including goals, rules, and expected outcomes. Markdown is supported.'"
+        :placeholder="descriptionPlaceholder"
       ></textarea>
       <small class="form-text text-muted">Use Markdown for formatting (e.g., **bold**, *italic*, lists).</small>
        <div class="invalid-feedback">Description is required.</div>
@@ -143,7 +143,7 @@
         :value="localDetails.rules || ''"
         @input="(e: Event) => localDetails.rules = (e.target as HTMLTextAreaElement).value"
         :disabled="isSubmitting"
-        placeholder="Enter specific overall event rules. For 'Multiple Events', rules are set per phase."
+        placeholder="Enter specific overall event rules."
       ></textarea>
       <small class="form-text text-muted">Use Markdown for formatting. These are general rules; for 'Multiple Events' (if available), rules are set per phase.</small>
     </div>
@@ -222,6 +222,9 @@ const showIndividualCompetitionToggle = computed(() => !isPhaseForm.value && isI
 
 
 const eventTypesForFormat = computed(() => {
+  // For overall MultiEvent, there's no "type". For phases, type depends on phase.format.
+  if (isActuallyMultiEventOverall.value && !isPhaseForm.value) return [];
+
   switch (localDetails.value.format) {
     case EventFormat.Team: return teamEventTypes;
     case EventFormat.Individual: return individualEventTypes;

@@ -24,10 +24,10 @@ export enum EventFormat {
 // New interface for individual phases within a MultiEvenet
 export interface EventPhase {
   id: string; // Unique ID for the phase within the event
-  phaseName: string; // e.g., "Round 1: Coding Challenge", "Final Pitch"
+  // phaseName: string; // REMOVED - phase 'type' will now serve as its name/identifier
   description: string;
   format: EventFormat.Individual | EventFormat.Team; // A phase itself is either Individual or Team based
-  type: string; // Specific type for this phase, e.g., "Coding Submission", "Presentation"
+  type: string; // Specific type for this phase, e.g., "Coding Submission", "Presentation". This now also serves as the display name.
   
   participants?: string[] | null; // Participants specific to this phase (can be subset of main event)
   coreParticipants?: string[] | null; // If phase format is Individual

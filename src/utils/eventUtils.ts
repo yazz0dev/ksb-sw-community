@@ -319,6 +319,16 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
                     phaseCriteriaDetails.set(key, { points: c.points, role: c.role as XpCalculationRoleKey });
                 });
 
+<<<<<<< HEAD
+                for (const [criterionKeyOrTitle, winnerUids] of Object.entries(phase.winners)) {
+                    const criterionDetail = phaseCriteriaDetails.get(String(criterionKeyOrTitle));
+                    if (criterionDetail && Array.isArray(winnerUids)) {
+                        winnerUids.filter(Boolean).forEach(winnerUid => {
+                            addAward(
+                                winnerUid,
+                                criterionDetail.role,
+                                criterionDetail.points,
+=======
                 for (const [criteriaKeyOrTitle, winnerUids] of Object.entries(phase.winners)) {
                     const criteriaDetail = phaseCriteriaDetails.get(String(criteriaKeyOrTitle));
                     if (criteriaDetail && Array.isArray(winnerUids)) {
@@ -327,6 +337,7 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
                                 winnerUid,
                                 criteriaDetail.role,
                                 criteriaDetail.points,
+>>>>>>> main
                                 true, // isWinner
                                 phase.id,
                                 phase.phaseName
