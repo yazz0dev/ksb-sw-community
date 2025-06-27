@@ -38,8 +38,11 @@ export const applyXpAwardsBatch = (
   }
 
   if (!eventId || !eventName) {
-    console.warn('Event ID or Event Name is missing. Cannot create XP history.');
-    return writeBatch(db);
+    // Changed from console.warn and returning empty batch to throwing an error.
+    // This makes the operation fail explicitly if context for history is missing.
+    // closeEventAndAwardXP already checks for eventName, so this is an additional safeguard.
+    console.error('applyXpAwardsBatch: Event ID or Event Name is missing. Cannot create valid XP history.');
+    throw new Error('Event ID or Event Name is missing, cannot reliably award XP with history.');
   }
 
   const batch = writeBatch(db);

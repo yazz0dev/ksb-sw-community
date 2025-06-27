@@ -24,10 +24,10 @@ export enum EventFormat {
 // New interface for individual phases within a MultiEvenet
 export interface EventPhase {
   id: string; // Unique ID for the phase within the event
-  phaseName: string; // e.g., "Round 1: Coding Challenge", "Final Pitch"
+  // phaseName: string; // REMOVED - phase 'type' will now serve as its name/identifier
   description: string;
   format: EventFormat.Individual | EventFormat.Team; // A phase itself is either Individual or Team based
-  type: string; // Specific type for this phase, e.g., "Coding Submission", "Presentation"
+  type: string; // Specific type for this phase, e.g., "Coding Submission", "Presentation". This now also serves as the display name.
   
   participants?: string[] | null; // Participants specific to this phase (can be subset of main event)
   coreParticipants?: string[] | null; // If phase format is Individual
@@ -39,6 +39,12 @@ export interface EventPhase {
   prize?: string | null; // Prize for this specific phase
   allowProjectSubmission: boolean; // Ensure this is always boolean, not nullable
   
+  // Phase-specific winner tracking
+  winners?: Record<string, string[]> | null; // Key: criterionKey/title from phase.criteria, Value: array of user UIDs
+  // Optional: For more detailed phase-level voting, if implemented in future
+  // criteriaVotes?: Record<string, Record<string, string>> | null;
+  // bestPerformerSelections?: Record<string, string> | null;
+
   // Dates for phases are typically relative to parent or sequential, not absolute standalone dates.
   // For simplicity, not adding separate start/end here; they'd be managed by parent event's timeline.
   // Voting for a phase would also be managed in context of the phase.

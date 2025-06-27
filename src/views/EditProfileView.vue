@@ -20,6 +20,15 @@
             <i class="fas fa-edit me-2"></i>Edit Profile
           </h2>
         </div>
+         <!-- Offline Draft Indicator -->
+        <div v-if="hasOfflineDraft && !isSyncingDraft" class="text-info small d-inline-flex align-items-center">
+            <i class="fas fa-cloud-upload-alt me-2 fs-5"></i>
+            <span>Changes saved locally. Will sync when online.</span>
+        </div>
+        <div v-if="isSyncingDraft" class="text-primary small d-inline-flex align-items-center">
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <span>Syncing profile changes...</span>
+        </div>
       </div>
 
       <!-- Error Alert -->
@@ -33,13 +42,13 @@
         <div class="col-lg-8">
           <div class="card shadow-sm">
             <div class="card-body p-3 p-md-4">
-              <form @submit.prevent="saveProfileEdits" class="needs-validation" novalidate>
+              <form @submit.prevent="handleFormSubmit" class="needs-validation" novalidate>
                 <!-- Profile Image with Enhanced Cloudinary Integration -->
                 <div class="mb-4 text-center">
                   <ProfileImageUploader
                     :current-image-url="form.photoURL"
                     :optimized-image-url="getOptimizedImageUrl(form.photoURL)"
-                    :disabled="loading || isImageUploading"
+                    :disabled="pageLoading || isImageUploading || isSavingOnline || isSyncingDraft"
                     :upload-progress="imageUploadProgress"
                     :upload-error="imageUploadError"
                     @image-selected="handleImageSelected"
@@ -47,7 +56,6 @@
                     @upload-error="handleUploadError"
                   />
                   
-                  <!-- Upload Progress Display -->
                   <div v-if="isImageUploading" class="mt-2">
                     <div class="progress" style="height: 4px;">
                       <div 
@@ -57,8 +65,6 @@
                     </div>
                     <small class="text-muted">Uploading... {{ imageUploadProgress }}%</small>
                   </div>
-                  
-                  <!-- Upload Error Display -->
                   <div v-if="imageUploadError" class="mt-2 text-danger small">
                     <i class="fas fa-exclamation-triangle me-1"></i>
                     {{ imageUploadError }}
@@ -74,7 +80,7 @@
                     :class="{ 'is-invalid': formErrors.name && touched.name }"
                     maxlength="50"
                     required
-                    :disabled="loading"
+                    :disabled="pageLoading || isSavingOnline || isSyncingDraft"
                     @blur="touched.name = true"
                   />
                   <div class="invalid-feedback">Name is required</div>
@@ -82,12 +88,12 @@
 
                 <div class="mb-3">
                   <label class="form-label">Bio</label>
-                  <textarea v-model="form.bio" class="form-control" rows="3" maxlength="200" placeholder="Tell us about yourself" />
+                  <textarea v-model="form.bio" class="form-control" rows="3" maxlength="200" placeholder="Tell us about yourself" :disabled="pageLoading || isSavingOnline || isSyncingDraft"/>
                 </div>
 
                 <div class="mb-3">
                   <label class="form-label">Primary Website/Social Link</label>
-                  <input v-model="form.socialLink" type="url" class="form-control" placeholder="https://..." />
+                  <input v-model="form.socialLink" type="url" class="form-control" placeholder="https://..." :disabled="pageLoading || isSavingOnline || isSyncingDraft"/>
                   <div class="form-text">Your primary website, portfolio, or social media profile</div>
                 </div>
 
@@ -95,25 +101,25 @@
                   <label class="form-label">Instagram Username</label>
                   <div class="input-group">
                     <span class="input-group-text">@</span>
-                    <input v-model="form.instagramLink" type="text" class="form-control" placeholder="username (without @)" />
+                    <input v-model="form.instagramLink" type="text" class="form-control" placeholder="username (without @)" :disabled="pageLoading || isSavingOnline || isSyncingDraft"/>
                   </div>
                   <div class="form-text text-muted">Enter just your username, not the full URL</div>
                 </div>
 
                 <div class="mb-3">
                   <label class="form-label">Portfolio Link</label>
-                  <input v-model="form.portfolio" type="url" class="form-control" placeholder="https://..." />
+                  <input v-model="form.portfolio" type="url" class="form-control" placeholder="https://..." :disabled="pageLoading || isSavingOnline || isSyncingDraft"/>
                   <div class="form-text">Link to your portfolio or project showcase</div>
                 </div>
 
                 <div class="mb-3">
                   <label class="form-label">Skills (comma separated)</label>
-                  <input v-model="form.skills" type="text" class="form-control" placeholder="e.g. JavaScript, Python" />
+                  <input v-model="form.skills" type="text" class="form-control" placeholder="e.g. JavaScript, Python" :disabled="pageLoading || isSavingOnline || isSyncingDraft"/>
                   <div class="form-text">List your technical skills, separated by commas</div>
                 </div>
 
                 <div class="mb-4 form-check">
-                  <input v-model="form.hasLaptop" type="checkbox" class="form-check-input" id="hasLaptopCheck" :disabled="loading">
+                  <input v-model="form.hasLaptop" type="checkbox" class="form-check-input" id="hasLaptopCheck" :disabled="pageLoading || isSavingOnline || isSyncingDraft">
                   <label class="form-check-label" for="hasLaptopCheck">Has Laptop</label>
                 </div>
 
@@ -122,18 +128,18 @@
                     type="button"
                     class="btn btn-light"
                     @click="router.back()"
-                    :disabled="loading || isImageUploading"
+                    :disabled="pageLoading || isImageUploading || isSavingOnline || isSyncingDraft"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     class="btn btn-primary"
-                    :class="{ 'btn-loading': loading }"
-                    :disabled="loading || !isFormValid || isImageUploading"
+                    :class="{ 'btn-loading': isSavingOnline || isSyncingDraft }"
+                    :disabled="pageLoading || !isFormValid || isImageUploading || isSavingOnline || isSyncingDraft"
                   >
-                    <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
-                    <span class="btn-text">Save Changes</span>
+                    <span v-if="isSavingOnline || isSyncingDraft" class="spinner-border spinner-border-sm me-2"></span>
+                    <span class="btn-text">{{ (isSavingOnline || isSyncingDraft) ? 'Saving...' : 'Save Changes' }}</span>
                   </button>
                 </div>
               </form>
@@ -146,258 +152,287 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useAppStore } from '@/stores/appStore';
 import type { StudentProfileData, EnrichedStudentData } from '@/types/student';
 import ProfileImageUploader from '@/components/ui/ProfileImageUploader.vue';
 import { serverTimestamp } from 'firebase/firestore';
 import { UploadStatus } from '@/types/student';
+import { saveProfileDraft, loadProfileDraft, clearProfileDraft, type ProfileDraftData, type ProfileDraft } from '@/utils/localDrafts';
+import { debounce } from 'lodash-es';
 
 const router = useRouter();
 const studentStore = useProfileStore();
 const notificationStore = useNotificationStore();
+const appStore = useAppStore();
 
-const loading = ref(false);
+const pageLoading = ref(true); // Renamed loading to pageLoading for clarity
+const isSavingOnline = ref(false);
 const error = ref('');
-const form = ref({
-  name: '', // Will be string, not null, due to required validation
+
+const form = ref<ProfileDraftData>({
+  name: '',
   photoURL: '',
   bio: '',
   socialLink: '',
-  instagramLink: '', // Instagram username
-  portfolio: '',     // Portfolio link (renamed from otherLink)
+  instagramLink: '',
+  portfolio: '',
   skills: '',
   hasLaptop: false
 });
 
-const formErrors = ref({
-  name: false
-});
+const formErrors = ref({ name: false });
+const touched = ref({ name: false });
 
-const touched = ref({
-  name: false
-});
+const hasOfflineDraft = ref(false);
+const isOfflineDraftLoaded = ref(false);
+const isSyncingDraft = ref(false);
+let formInitialized = false;
+
 
 const isFormValid = computed(() => {
   formErrors.value.name = form.value.name.trim().length === 0;
   return !formErrors.value.name;
 });
 
-// Enhanced image upload state management
 const imageUploadProgress = ref(0);
 const imageUploadError = ref<string | null>(null);
+const isImageUploading = computed(() => studentStore.imageUploadState.status === UploadStatus.Uploading);
 
-// Add computed for image upload state
-const isImageUploading = computed(() => {
-  return studentStore.imageUploadState.status === UploadStatus.Uploading;
-});
-
-// Enhanced image handling functions
-function getOptimizedImageUrl(imageUrl: string): string {
+function getOptimizedImageUrl(imageUrl?: string): string {
   if (!imageUrl) return '';
-  // Use the store's optimized image URL function
   return studentStore.getOptimizedProfileImageUrl(imageUrl, 400, 85);
 }
 
 async function handleImageSelected(file: File) {
-  // Clear previous errors
   imageUploadError.value = null;
   imageUploadProgress.value = 0;
-  
   try {
-    // Start upload using the profile store
     const downloadURL = await studentStore.uploadProfileImage(file, {
       maxSizeMB: 2,
       maxWidthOrHeight: 1200,
       quality: 0.85
     });
-    
-    // Update form with the new URL
     form.value.photoURL = downloadURL;
-    
-    notificationStore.showNotification({ 
-      message: 'Image uploaded successfully!', 
-      type: 'success' 
-    });
+    notificationStore.showNotification({ message: 'Image uploaded successfully!', type: 'success' });
+    // If offline after successful upload but before profile save, draft will pick up new photoURL
+    if(!appStore.isOnline) await debouncedSaveDraft();
+
   } catch (err: any) {
     imageUploadError.value = err.message || 'Upload failed';
-    notificationStore.showNotification({ 
-      message: `Image upload failed: ${err.message}`, 
-      type: 'error' 
-    });
+    notificationStore.showNotification({ message: `Image upload failed: ${err.message}`, type: 'error' });
   }
 }
 
-function handleImageUploaded(imageUrl: string) {
+function handleImageUploaded(imageUrl: string) { // This might be redundant if handleImageSelected covers all
   form.value.photoURL = imageUrl;
   imageUploadError.value = null;
-  notificationStore.showNotification({ 
-    message: 'Image uploaded successfully!', 
-    type: 'success' 
-  });
+   if(!appStore.isOnline) debouncedSaveDraft();
 }
 
-function handleUploadError(error: string) {
-  imageUploadError.value = error;
-  notificationStore.showNotification({ 
-    message: `Image upload failed: ${error}`, 
-    type: 'error' 
-  });
+function handleUploadError(err: string) {
+  imageUploadError.value = err;
+  notificationStore.showNotification({ message: `Image upload failed: ${err}`, type: 'error' });
 }
 
-// Watch for upload state changes from the store
 watch(() => studentStore.imageUploadState, (newState) => {
   imageUploadProgress.value = newState.progress;
-  
-  if (newState.status === UploadStatus.Error) {
-    imageUploadError.value = newState.error;
-  } else if (newState.status === UploadStatus.Success && newState.downloadURL) {
+  if (newState.status === UploadStatus.Error) imageUploadError.value = newState.error;
+  else if (newState.status === UploadStatus.Success && newState.downloadURL) {
     form.value.photoURL = newState.downloadURL;
     imageUploadError.value = null;
   }
 }, { deep: true });
 
+
 async function loadUserData() {
   const userId = studentStore.studentId;
   if (!userId || !studentStore.isAuthenticated) {
-    notificationStore.showNotification({ message: "User not authenticated. Cannot load profile.", type: "error" });
+    notificationStore.showNotification({ message: "User not authenticated.", type: "error" });
     router.push({ name: 'Login' });
     return;
   }
-  loading.value = true;
+  pageLoading.value = true;
   error.value = '';
+  isOfflineDraftLoaded.value = false;
+  hasOfflineDraft.value = false;
 
-  try {
-    let userProfile = studentStore.currentStudent;
-    if (!userProfile || userProfile.uid !== userId) {
-      userProfile = await studentStore.fetchMyProfile();
-    }
+  let profileDataToLoad: ProfileDraftData | null = null;
+  let draftTimestamp: number | undefined = undefined;
 
-    if (userProfile) {
-      form.value.name = userProfile.name || '';
-      // Use optimized image URL for display
-      form.value.photoURL = userProfile.photoURL || '';
-      form.value.bio = userProfile.bio || '';
-      form.value.skills = (userProfile.skills || []).join(', ');
-      form.value.hasLaptop = userProfile.hasLaptop || false;
-      
-      form.value.socialLink = userProfile.socialLinks?.primary || '';
-      form.value.instagramLink = userProfile.socialLinks?.instagram || '';
-      form.value.portfolio = userProfile.socialLinks?.portfolio || '';
-    } else {
-      throw new Error('Profile data not found.');
-    }
-  } catch (err: any) {
-    const message = err.message || 'Failed to load user data.';
-    error.value = message;
-  } finally {
-    loading.value = false;
+  const draft = await loadProfileDraft();
+  if (draft) {
+    profileDataToLoad = draft;
+    draftTimestamp = draft.savedAt;
+    hasOfflineDraft.value = true;
+    isOfflineDraftLoaded.value = true;
   }
+
+  if (appStore.isOnline) {
+    try {
+      let userProfile = studentStore.currentStudent;
+      if (!userProfile || userProfile.uid !== userId || !studentStore.hasFetched) {
+        userProfile = await studentStore.fetchMyProfile();
+      }
+
+      if (userProfile) {
+        const serverTimestamp = userProfile.lastUpdatedAt?.toMillis();
+
+        if (!profileDataToLoad || (serverTimestamp && draftTimestamp && serverTimestamp > draftTimestamp)) {
+          profileDataToLoad = {
+            name: userProfile.name || '', photoURL: userProfile.photoURL || '',
+            bio: userProfile.bio || '', skills: (userProfile.skills || []).join(', '),
+            hasLaptop: userProfile.hasLaptop || false,
+            socialLink: userProfile.socialLinks?.primary || '',
+            instagramLink: userProfile.socialLinks?.instagram || '',
+            portfolio: userProfile.socialLinks?.portfolio || '',
+          };
+          if (draft && serverTimestamp && draftTimestamp && serverTimestamp > draftTimestamp) {
+            await clearProfileDraft();
+            hasOfflineDraft.value = false;
+            notificationStore.showNotification({ message: "Server data is newer. Local draft discarded.", type: "info", duration: 4000 });
+          }
+          isOfflineDraftLoaded.value = false;
+        } else if (draft) {
+             notificationStore.showNotification({ message: "Loaded local draft. It's newer or server data is unavailable.", type: "info", duration: 4000 });
+        }
+      } else if (!profileDataToLoad) {
+        throw new Error('Profile data not found on server and no local draft.');
+      }
+    } catch (err: any) {
+      console.warn("Failed to load server profile, using draft if available:", err);
+      if (!profileDataToLoad) error.value = err.message || 'Failed to load user data.';
+    }
+  } else if (!profileDataToLoad) {
+     error.value = "You are offline and no local profile draft is available.";
+  }
+
+  if (profileDataToLoad) {
+    form.value = { ...profileDataToLoad };
+  }
+  pageLoading.value = false;
+  await nextTick(); // Ensure form is populated before setting formInitialized
+  formInitialized = true;
 }
 
-async function saveProfileEdits() {
-  touched.value.name = true;
+const handleFormSubmit = async () => {
+    await saveProfileEdits(false); // false indicates it's a manual submission attempt
+};
+
+const debouncedSaveDraft = debounce(async () => {
+  if (!appStore.isOnline && isFormValid.value && formInitialized && !isSyncingDraft.value && !pageLoading.value) {
+    const draftData: ProfileDraftData = { ...form.value };
+    await saveProfileDraft(draftData);
+    hasOfflineDraft.value = true;
+    // Subtle indication, main one is cloud icon.
+    // notificationStore.showNotification({ message: "Changes saved as draft.", type: "info", duration: 2000 });
+  }
+}, 1000);
+
+watch(form, () => {
+  if (formInitialized && !pageLoading.value) { // Only save draft if form has been initialized and not currently loading
+      debouncedSaveDraft();
+  }
+}, { deep: true });
+
+watch(() => appStore.isOnline, async (newIsOnline, oldIsOnline) => {
+  if (newIsOnline && !oldIsOnline && hasOfflineDraft.value && !isSyncingDraft.value) {
+    notificationStore.showNotification({ message: "Back online! Attempting to sync profile changes...", type: "info" });
+    isSyncingDraft.value = true;
+    await saveProfileEdits(true); // true indicates it's an auto-sync attempt
+    isSyncingDraft.value = false;
+  }
+});
+
+async function saveProfileEdits(isAutoSync: boolean) {
+  touched.value.name = true; // Mark as touched to show validation errors if any
   if (!isFormValid.value) {
-    notificationStore.showNotification({ message: "Please correct the form errors.", type: "warning" });
+    if (!isAutoSync) notificationStore.showNotification({ message: "Please correct the form errors.", type: "warning" });
     return;
   }
-
-  // Check if image is still uploading
   if (isImageUploading.value) {
-    notificationStore.showNotification({ 
-      message: "Please wait for image upload to complete before saving.", 
-      type: "warning" 
-    });
+    if (!isAutoSync) notificationStore.showNotification({ message: "Please wait for image upload to complete.", type: "warning" });
     return;
   }
 
-  loading.value = true;
+  isSavingOnline.value = true;
   error.value = '';
 
+  if (!appStore.isOnline && !isAutoSync) { // If manually submitted while offline
+    const draftData: ProfileDraftData = { ...form.value };
+    await saveProfileDraft(draftData);
+    hasOfflineDraft.value = true;
+    notificationStore.showNotification({ message: "You are offline. Profile changes saved as a local draft.", type: "info" });
+    isSavingOnline.value = false;
+    return;
+  }
+
   try {
-    if (!studentStore.studentId) {
-      throw new Error('You must be logged in to update your profile');
+    if (!studentStore.studentId) throw new Error('You must be logged in to update your profile');
+
+    let photoURLForFirestore: string | null = form.value.photoURL?.trim() || null;
+    if (photoURLForFirestore && (photoURLForFirestore.startsWith('blob:') || photoURLForFirestore.startsWith('data:'))) {
+        photoURLForFirestore = studentStore.currentStudent?.photoURL || null;
     }
 
-    // Enhanced Cloudinary URL validation
-    let photoURLForFirestore: string | null = null;
-    const currentPhotoValue = form.value.photoURL;
-
-    if (currentPhotoValue) {
-      // Check for valid Cloudinary URLs or other valid HTTP URLs
-      if (currentPhotoValue.includes('cloudinary.com') || 
-          /^https?:\/\//.test(currentPhotoValue)) {
-        photoURLForFirestore = currentPhotoValue.trim();
-      } else if (currentPhotoValue.startsWith('blob:') || 
-                 currentPhotoValue.startsWith('data:')) {
-        console.warn('Attempting to save profile with a temporary URL. Using stored photoURL.');
-        const storedPhotoURL = studentStore.currentStudent?.photoURL;
-        photoURLForFirestore = (storedPhotoURL && 
-          (storedPhotoURL.includes('cloudinary.com') || /^https?:\/\//.test(storedPhotoURL))) 
-          ? storedPhotoURL : null;
-        
-        notificationStore.showNotification({ 
-          message: 'Image was not finalized. Using previous image if available.', 
-          type: 'warning' 
-        });
-      }
-    }
-
-    // Prepare skills as arrays
-    const skillsArray = form.value.skills
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
-
-    // Prepare socialLinks object
+    const skillsArray = form.value.skills?.split(',').map(s => s.trim()).filter(s => s.length > 0) || [];
     const newSocialLinks: EnrichedStudentData['socialLinks'] = {
-      ...(studentStore.currentStudent?.socialLinks || {}),
-    };
-    
-    // Consistently map form fields to socialLinks properties, trimming whitespace.
-    newSocialLinks.primary = form.value.socialLink.trim();
-    newSocialLinks.instagram = form.value.instagramLink.trim().replace('@', '');
-    newSocialLinks.portfolio = form.value.portfolio.trim();
-
-    const payloadForUpdate = {
-      name: form.value.name.trim(),
-      photoURL: photoURLForFirestore,
-      bio: form.value.bio.trim(),
-      skills: skillsArray,
-      hasLaptop: form.value.hasLaptop,
-      socialLinks: newSocialLinks,
-      lastUpdatedAt: serverTimestamp()
+      primary: form.value.socialLink?.trim() || '',
+      instagram: form.value.instagramLink?.trim().replace('@', '') || '',
+      portfolio: form.value.portfolio?.trim() || '',
     };
 
-    const success = await studentStore.updateMyProfile(payloadForUpdate as Partial<StudentProfileData>);
+    const payloadForUpdate: Partial<StudentProfileData> = {
+      name: form.value.name.trim(), photoURL: photoURLForFirestore,
+      bio: form.value.bio?.trim() || '', skills: skillsArray,
+      hasLaptop: form.value.hasLaptop || false, socialLinks: newSocialLinks,
+      lastUpdatedAt: serverTimestamp() as any,
+    };
+
+    const success = await studentStore.updateMyProfile(payloadForUpdate);
 
     if (success) {
-        // Reset image upload state on successful save
-        studentStore.resetImageUploadState();
-        imageUploadError.value = null;
-        imageUploadProgress.value = 0;
-        
-        notificationStore.showNotification({ message: 'Profile updated successfully', type: 'success' });
-        router.push({ name: 'Profile' });
+      studentStore.resetImageUploadState();
+      imageUploadError.value = null; imageUploadProgress.value = 0;
+      await clearProfileDraft();
+      hasOfflineDraft.value = false; isOfflineDraftLoaded.value = false;
+      notificationStore.showNotification({ message: 'Profile updated successfully!', type: 'success' });
+      if (!isAutoSync) router.push({ name: 'Profile' }); // Only navigate if it's a manual save
     } else {
-        error.value = studentStore.actionError || 'Failed to update profile.';
+      error.value = studentStore.actionError || 'Failed to update profile online.';
+      if (appStore.isOnline) { // If online and failed, save draft
+          const draftData: ProfileDraftData = { ...form.value };
+          await saveProfileDraft(draftData);
+          hasOfflineDraft.value = true;
+          if (!isAutoSync) notificationStore.showNotification({ message: `Online save failed: ${error.value}. Changes saved as draft.`, type: "warning" });
+          else notificationStore.showNotification({ message: `Auto-sync failed: ${error.value}. Changes remain as draft.`, type: "warning" });
+      }
     }
   } catch (err: any) {
     error.value = err?.message || 'Failed to update profile';
-    if (!studentStore.actionError) {
-      notificationStore.showNotification({ message: error.value, type: 'error' });
+    const draftData: ProfileDraftData = { ...form.value };
+    await saveProfileDraft(draftData); // Save draft on any catch during submission
+    hasOfflineDraft.value = true;
+    if (appStore.isOnline && !isAutoSync) {
+         notificationStore.showNotification({ message: `${error.value}. Changes saved as a local draft.`, type: 'error' });
+    } else if (appStore.isOnline && isAutoSync) {
+         notificationStore.showNotification({ message: `Auto-sync failed: ${error.value}. Changes remain as draft.`, type: 'error' });
+    } else if (!isAutoSync) { // Offline and manual submit
+         notificationStore.showNotification({ message: "You are offline. Changes saved as a local draft.", type: "info" });
     }
   } finally {
-    loading.value = false;
+    isSavingOnline.value = false;
   }
 }
 
-// Clean up upload state when component unmounts
 onMounted(() => {
-  loadUserData();
-  // Reset any previous upload state
+  formInitialized = false; // Reset flag on mount
+  loadUserData().finally(() => {
+      // formInitialized = true; // Moved to end of loadUserData after nextTick
+  });
   studentStore.resetImageUploadState();
   imageUploadError.value = null;
   imageUploadProgress.value = 0;

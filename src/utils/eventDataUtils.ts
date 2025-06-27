@@ -230,9 +230,9 @@ export const mapFirestoreToEventData = (id: string, data: DocumentData | Record<
         allowProjectSubmission: eventData.details?.allowProjectSubmission ?? true,
         prize: eventData.details?.prize || null,
         rules: eventData.details?.rules || null,
-        phases: eventData.details?.phases || null,
-        type: eventData.details?.type || '', // Ensure type is present
-      } as any, // Cast to any to allow properties not defined in the static type
+        phases: eventData.details?.phases || null, // This will be processed further down
+        type: eventData.details?.type || '',
+      } as EventBaseData['details'], // More specific cast
       status: eventData.status || EventStatus.Pending,
       requestedBy: eventData.requestedBy || '',
       votingOpen: eventData.votingOpen || false,
@@ -251,6 +251,38 @@ export const mapFirestoreToEventData = (id: string, data: DocumentData | Record<
       lifecycleTimestamps: eventData.lifecycleTimestamps || null,
       teamMemberFlatList: eventData.teamMemberFlatList || [],
     };
+
+    // Handle phaseName deprecation and ensure phase objects are well-formed
+    if (event.details.format === EventFormat.MultiEvent && Array.isArray(event.details.phases)) {
+      event.details.phases = event.details.phases.map((phaseFromDb: any) => {
+        let phaseType = phaseFromDb.type || '';
+        if (!phaseType && phaseFromDb.phaseName) {
+          console.warn(`Event ID [${id}], Phase ID [${phaseFromDb.id || 'unknown'}]: Phase has legacy 'phaseName' ("${phaseFromDb.phaseName}") and no 'type'. Using 'phaseName' as 'type'. Please update event data to use 'type' field directly for phases.`);
+          phaseType = phaseFromDb.phaseName;
+        } else if (phaseFromDb.phaseName && phaseType && phaseFromDb.phaseName !== phaseType) {
+          console.log(`Event ID [${id}], Phase ID [${phaseFromDb.id || 'unknown'}]: Phase has legacy 'phaseName' ("${phaseFromDb.phaseName}") and differing 'type' ("${phaseType}"). 'type' will be used.`);
+        }
+
+        const { phaseName, ...restOfPhase } = phaseFromDb; // Exclude phaseName from the final object
+
+        return {
+          ...restOfPhase,
+          id: phaseFromDb.id || crypto.randomUUID(), // Ensure ID
+          type: phaseType,
+          description: phaseFromDb.description || '',
+          format: phaseFromDb.format || EventFormat.Individual,
+          participants: phaseFromDb.participants || [],
+          coreParticipants: phaseFromDb.coreParticipants || [],
+          criteria: phaseFromDb.criteria || [],
+          teams: phaseFromDb.teams || [],
+          rules: phaseFromDb.rules ?? null,
+          prize: phaseFromDb.prize ?? null,
+          allowProjectSubmission: phaseFromDb.allowProjectSubmission ?? false,
+          winners: phaseFromDb.winners ?? null,
+          // Ensure any other EventPhase fields have defaults if necessary
+        };
+      });
+    }
     
     return event;
   } catch (error) {
