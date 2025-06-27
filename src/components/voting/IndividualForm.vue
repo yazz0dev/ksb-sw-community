@@ -5,7 +5,7 @@
     <div class="d-flex flex-column gap-3">
       <div
         v-for="allocation in criteria"
-        :key="`criterion-${allocation.constraintIndex}`"
+        :key="`criteria-${allocation.constraintIndex}`"
         class="p-3 border rounded bg-light"
       >
         <h6 class="h6 mb-2">
@@ -157,7 +157,7 @@ const pageTitle = computed(() => {
   if (props.isManualMode) {
     return props.isIndividualCompetition ? 'Manually Select Award Winners' : 'Manually Set Winners';
   }
-  return 'Select Winners for Each Criterion:';
+  return 'Select Winners for Each criteria:';
 });
 
 const availableParticipants = computed<string[]>(() => {
@@ -199,9 +199,9 @@ const initializeSelections = () => {
                             ? props.coreParticipants 
                             : availableParticipants.value;
 
-  props.criteria.forEach(criterion => {
-    if (typeof criterion.constraintIndex === 'number') {
-      const key = `constraint${criterion.constraintIndex}`;
+  props.criteria.forEach(criteria => {
+    if (typeof criteria.constraintIndex === 'number') {
+      const key = `constraint${criteria.constraintIndex}`;
 
       newIndividual[key] = props.existingVotes[key] || '';
 

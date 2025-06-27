@@ -342,7 +342,7 @@ const updatePhaseCriteria = (phaseIndex: number, criteria: EventCriteria[]) => {
 
 const calculateTotalXP = (criteria: EventCriteria[] | null | undefined) => {
   if (!criteria) return 0;
-  return criteria.reduce((sum, criterion) => sum + (criterion.points || 0), 0);
+  return criteria.reduce((sum, criteria) => sum + (criteria.points || 0), 0);
 };
 
 const updatePhaseTeams = (phaseIndex: number, teams: Team[]) => {
@@ -417,7 +417,7 @@ const isFormValid = computed(() => {
     
     // Criteria validation
     if (!phase.criteria || phase.criteria.length === 0) {
-      errors.push('At least one rating criterion is required');
+      errors.push('At least one rating criteria is required');
     } else {
       const invalidCriteria = phase.criteria.filter(c => 
         !c.title?.trim() || !c.role?.trim() || !c.points || c.points <= 0

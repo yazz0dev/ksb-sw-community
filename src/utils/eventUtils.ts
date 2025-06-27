@@ -319,6 +319,7 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
                     phaseCriteriaDetails.set(key, { points: c.points, role: c.role as XpCalculationRoleKey });
                 });
 
+<<<<<<< HEAD
                 for (const [criterionKeyOrTitle, winnerUids] of Object.entries(phase.winners)) {
                     const criterionDetail = phaseCriteriaDetails.get(String(criterionKeyOrTitle));
                     if (criterionDetail && Array.isArray(winnerUids)) {
@@ -327,6 +328,16 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
                                 winnerUid,
                                 criterionDetail.role,
                                 criterionDetail.points,
+=======
+                for (const [criteriaKeyOrTitle, winnerUids] of Object.entries(phase.winners)) {
+                    const criteriaDetail = phaseCriteriaDetails.get(String(criteriaKeyOrTitle));
+                    if (criteriaDetail && Array.isArray(winnerUids)) {
+                        winnerUids.filter(Boolean).forEach(winnerUid => {
+                            addAward(
+                                winnerUid,
+                                criteriaDetail.role,
+                                criteriaDetail.points,
+>>>>>>> main
                                 true, // isWinner
                                 phase.id,
                                 phase.phaseName
@@ -361,24 +372,24 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
         const criteriaMap = new Map<string, EventCriteriaWithXP>();
         if (Array.isArray(eventData.criteria)) {
             eventData.criteria.forEach((c: EventCriteria) => {
-                const criterionWithXP = c as EventCriteriaWithXP;
+                const criteriaWithXP = c as EventCriteriaWithXP;
                 // Ensure roleKey and xpValue are correctly derived or assigned
                 const roleKey = c.role as XpCalculationRoleKey; // Assuming c.role directly maps or needs mapping
                 const xpValue = c.points; // Assuming c.points is the xpValue
-                if (criterionWithXP?.constraintKey && xpValue) {
-                    criteriaMap.set(criterionWithXP.constraintKey, { ...criterionWithXP, roleKey, xpValue });
+                if (criteriaWithXP?.constraintKey && xpValue) {
+                    criteriaMap.set(criteriaWithXP.constraintKey, { ...criteriaWithXP, roleKey, xpValue });
                 } else if (xpValue) { // Fallback if constraintKey is missing but title can be used
-                    criteriaMap.set(criterionWithXP.title, { ...criterionWithXP, roleKey, xpValue });
+                    criteriaMap.set(criteriaWithXP.title, { ...criteriaWithXP, roleKey, xpValue });
                 }
             });
         }
 
-        for (const [criterionOrLabel, winnerIdOrIds] of Object.entries(winners)) {
-            if (criterionOrLabel === BEST_PERFORMER_LABEL) continue; // Handled separately
+        for (const [criteriaOrLabel, winnerIdOrIds] of Object.entries(winners)) {
+            if (criteriaOrLabel === BEST_PERFORMER_LABEL) continue; // Handled separately
 
-            const criterionConfig = criteriaMap.get(criterionOrLabel);
-            const xpValue = criterionConfig?.xpValue || 0;
-            const roleKey = criterionConfig?.roleKey || 'problemSolver'; // Default role
+            const criteriaConfig = criteriaMap.get(criteriaOrLabel);
+            const xpValue = criteriaConfig?.xpValue || 0;
+            const roleKey = criteriaConfig?.roleKey || 'problemSolver'; // Default role
 
             if (xpValue > 0) {
                 if (Array.isArray(winnerIdOrIds)) {

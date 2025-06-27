@@ -8,7 +8,7 @@
           {{ titleText }}
         </h5>
         <span class="badge bg-primary-subtle text-primary-emphasis ms-auto">
-          {{ criteria.length }} {{ criteria.length === 1 ? (isIndividualCompetitionAward ? 'award' : 'criterion') : (isIndividualCompetitionAward ? 'awards' : 'criteria') }}
+          {{ criteria.length }} {{ criteria.length === 1 ? (isIndividualCompetitionAward ? 'award' : 'criteria') : (isIndividualCompetitionAward ? 'awards' : 'criteria') }}
         </span>
       </div>
     </div>
@@ -18,28 +18,28 @@
         <p class="text-muted mb-0">No {{ isIndividualCompetitionAward ? 'awards' : 'rating criteria' }} defined for this event.</p>
       </div>
       <div v-else class="criteria-list">
-        <div v-for="(criterion, idx) in criteria" :key="criterion.constraintIndex ?? idx" class="criterion-item">
-          <div class="criterion-content">
-            <div class="criterion-header">
-              <div class="criterion-icon">
+        <div v-for="(criteria, idx) in criteria" :key="criteria.constraintIndex ?? idx" class="criteria-item">
+          <div class="criteria-content">
+            <div class="criteria-header">
+              <div class="criteria-icon">
                 <i class="fas text-warning" :class="isIndividualCompetitionAward ? 'fa-medal' : 'fa-star'"></i>
               </div>
-              <div class="criterion-details">
-                <h6 class="criterion-title mb-1">{{ criterion.title || (isIndividualCompetitionAward ? 'Unnamed Award' : 'Unnamed Criterion') }}</h6>
-                <div class="criterion-meta">
+              <div class="criteria-details">
+                <h6 class="criteria-title mb-1">{{ criteria.title || (isIndividualCompetitionAward ? 'Unnamed Award' : 'Unnamed criteria') }}</h6>
+                <div class="criteria-meta">
                   <span class="xp-badge">
                     <i class="fas fa-trophy me-1"></i>
-                    {{ criterion.points }} XP
+                    {{ criteria.points }} XP
                   </span>
                   <span v-if="!isIndividualCompetitionAward" class="role-badge">
                     <i class="fas fa-user-tag me-1"></i>
-                    {{ formatRoleName(criterion.role || '') }}
+                    {{ formatRoleName(criteria.role || '') }}
                   </span>
                 </div>
               </div>
             </div>
-            <div v-if="criterion.description" class="criterion-description">
-              <p class="text-muted small mb-0">{{ criterion.description }}</p>
+            <div v-if="criteria.description" class="criteria-description">
+              <p class="text-muted small mb-0">{{ criteria.description }}</p>
             </div>
           </div>
         </div>
@@ -97,30 +97,30 @@ const titleText = computed(() => {
   padding: 0;
 }
 
-.criterion-item {
+.criteria-item {
   border-bottom: 1px solid var(--bs-border-color-translucent);
   transition: background-color 0.15s ease;
 }
 
-.criterion-item:last-child {
+.criteria-item:last-child {
   border-bottom: none;
 }
 
-.criterion-item:hover {
+.criteria-item:hover {
   background-color: var(--bs-light);
 }
 
-.criterion-content {
+.criteria-content {
   padding: 1.25rem;
 }
 
-.criterion-header {
+.criteria-header {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
 }
 
-.criterion-icon {
+.criteria-icon {
   flex-shrink: 0;
   width: 2rem;
   height: 2rem;
@@ -132,19 +132,19 @@ const titleText = computed(() => {
   margin-top: 0.125rem;
 }
 
-.criterion-details {
+.criteria-details {
   flex-grow: 1;
   min-width: 0;
 }
 
-.criterion-title {
+.criteria-title {
   font-weight: 600;
   color: var(--bs-dark);
   margin-bottom: 0.5rem;
   line-height: 1.3;
 }
 
-.criterion-meta {
+.criteria-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -173,7 +173,7 @@ const titleText = computed(() => {
   border: 1px solid rgba(var(--bs-info-rgb), 0.2);
 }
 
-.criterion-description {
+.criteria-description {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--bs-border-color-translucent);

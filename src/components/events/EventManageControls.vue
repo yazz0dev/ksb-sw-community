@@ -188,7 +188,7 @@
         
         <div v-if="showManualSelectWinnerButton" class="info-card">
           <i class="fas fa-info-circle text-info me-2"></i>
-          <span class="text-secondary">Manually set or override the winners for each criterion. Useful if vote-based calculation needs adjustment.</span>
+          <span class="text-secondary">Manually set or override the winners for each criteria. Useful if vote-based calculation needs adjustment.</span>
         </div>
         
         <div v-if="showCloseEventButton" class="info-card">
@@ -407,7 +407,7 @@ const manualSelectButtonText = computed(() => {
 
 const manualSelectButtonTitle = computed(() => {
     if (props.event?.details.format === 'Individual' && !props.event?.details.isCompetition) {
-        return 'Award points to participants for each criterion';
+        return 'Award points to participants for each criteria';
     }
     return 'Manually set or override winners';
 });

@@ -12,4 +12,4 @@ Disallow: /profile/
 Disallow: /edit-event/
 Disallow: /selection/
 
-Sitemap: https://www.ksbtechs.web.app/sitemap.xml
+Sitemap: https://ksbtech.netlify.app/sitemap.xml

@@ -3,10 +3,10 @@
     <div class="card-header bg-light py-2 px-3">
       <h6 class="mb-0 fw-medium text-dark d-flex align-items-center">
         <span class="text-primary me-2">Phase {{ phaseNumber }}:</span>
-        {{ phase.type || 'Unnamed Phase Type' }}
+        {{ phase.phaseName }}
         <span class="badge ms-2" :class="phaseFormatBadgeClass">{{ phase.format }}</span>
       </h6>
-      <!-- Removed the redundant phase.type display here as it's now part of the main title -->
+      <small v-if="phase.type" class="text-muted d-block mt-1">Type: {{ phase.type }}</small>
     </div>
     <div class="card-body p-3 p-md-4">
       <div v-if="phase.description" class="mb-3">

@@ -479,10 +479,10 @@ const fetchEventDetails = async (): Promise<void> => {
         const winners = eventData.winners;
         const selections: Record<string, string> = {};
         
-        sortedCriteria.value.forEach(criterion => {
-          if (typeof criterion.constraintIndex === 'number') {
-            const key = `constraint${criterion.constraintIndex}`;
-            const winnerArray = winners[String(criterion.constraintIndex)];
+        sortedCriteria.value.forEach(criteria => {
+          if (typeof criteria.constraintIndex === 'number') {
+            const key = `constraint${criteria.constraintIndex}`;
+            const winnerArray = winners[String(criteria.constraintIndex)];
             if (winnerArray && winnerArray.length > 0 && winnerArray[0]) {
               selections[key] = winnerArray[0];
             }

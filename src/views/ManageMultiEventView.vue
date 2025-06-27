@@ -304,11 +304,11 @@ async function handleSubmitForm() {
 
   // Validate phases again server-side style
   for (const [index, phase] of (submissionData.details.phases || []).entries()) {
-    // if (!phase.phaseName?.trim()) throw new Error(`Phase ${index + 1} is missing a name.`); // Removed phaseName check
-    if (!phase.type?.trim()) throw new Error(`Phase ${index + 1} is missing a Type/Title.`); // Type is now the name/title
+    if (!phase.phaseName?.trim()) throw new Error(`Phase ${index + 1} is missing a name.`);
+    if (!phase.type?.trim()) throw new Error(`Phase ${index + 1} is missing a type.`);
     if (!phase.description?.trim()) throw new Error(`Phase ${index + 1} is missing a description.`);
     if (!phase.participants || phase.participants.length === 0) throw new Error(`Phase ${index + 1} requires at least one participant.`);
-    if (!phase.criteria || phase.criteria.length === 0) throw new Error(`Phase ${index + 1} requires at least one rating criterion.`);
+    if (!phase.criteria || phase.criteria.length === 0) throw new Error(`Phase ${index + 1} requires at least one rating criteria.`);
     if (phase.format === EventFormat.Team && (!phase.teams || phase.teams.length === 0)) {
       throw new Error(`Phase ${index + 1} (Team format) requires at least one team.`);
     }

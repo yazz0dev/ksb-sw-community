@@ -7,7 +7,7 @@
             <i class="fas fa-grip-vertical"></i>
           </span>
           <h6 class="mb-0 fw-medium text-dark">
-            Phase {{ phaseNumber }}: {{ localPhase.type || 'Untitled Phase Type' }}
+            Phase {{ phaseNumber }}: {{ localPhase.phaseName || 'Untitled Phase' }}
           </h6>
           <span v-if="isPhaseInternallyValid" class="ms-2 badge bg-success-subtle text-success-emphasis rounded-pill small">
             <i class="fas fa-check me-1"></i>Valid
@@ -30,21 +30,11 @@
 
     <div class="card-body p-3 p-md-4">
         <div class="row g-3">
-            <!-- Phase Type (replaces Phase Name) -->
+            <!-- Phase Name -->
             <div class="col-md-6">
-                <label :for="`phaseType-${phase.id}`" class="form-label fw-medium">Phase Type / Title <span class="text-danger">*</span></label>
-                <input
-                  type="text"
-                  class="form-control form-control-sm"
-                  :id="`phaseType-${phase.id}`"
-                  v-model.trim="localPhase.type"
-                  placeholder="e.g., Coding Challenge, Presentation Round"
-                  :disabled="isSubmitting"
-                  required
-                  @blur="touched.type = true"
-                  :class="{ 'is-invalid': !localPhase.type && touched.type }"
-                >
-                <div class="invalid-feedback">Phase Type/Title is required.</div>
+                <label :for="`phaseName-${phase.id}`" class="form-label fw-medium">Phase Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm" :id="`phaseName-${phase.id}`" v-model.trim="localPhase.phaseName" :disabled="isSubmitting" required>
+                <div class="invalid-feedback">Phase name is required.</div>
             </div>
 
             <!-- Phase Format -->
@@ -60,6 +50,14 @@
                         <label class="form-check-label" :for="`formatTeam-${phase.id}`">Team</label>
                     </div>
                 </div>
+            </div>
+
+            <!-- Phase Type -->
+            <div class="col-md-6">
+                <label :for="`phaseType-${phase.id}`" class="form-label fw-medium">Phase Type <span class="text-danger">*</span></label>
+                <!-- This should ideally be a select dropdown populated from a predefined list based on format -->
+                <input type="text" class="form-control form-control-sm" :id="`phaseType-${phase.id}`" v-model.trim="localPhase.type" placeholder="e.g., Coding Challenge, Presentation" :disabled="isSubmitting" required>
+                 <div class="invalid-feedback">Phase type is required.</div>
             </div>
 
             <!-- Allow Project Submission -->
@@ -201,9 +199,9 @@ const isTeamsValid = ref(true); // Default true, only becomes false if format is
 const isCriteriaValid = ref(false);
 
 const isPhaseInternallyValid = computed(() => {
-  // Phase Name is removed, Type is now the primary identifier and is checked here.
-  const basicDetailsValid = localPhase.value.type?.trim() &&
-                            localPhase.value.description?.trim();
+  const basicDetailsValid = localPhase.value.phaseName?.trim() &&
+                            localPhase.value.description?.trim() &&
+                            localPhase.value.type?.trim();
 
   let formatSpecificValid = true;
   if (localPhase.value.format === EventFormat.Team) {
@@ -265,22 +263,11 @@ function showValidationErrors() {
 }
 defineExpose({ showValidationErrors });
 
-const touched = ref({ // Add touched state for new validation display
-    type: false,
-    // description will be handled by its 'required' attribute for now
-});
 
 onMounted(() => {
-  // Ensure phase.type is initialized if not present (e.g. when a new phase is added)
-  if (!localPhase.value.type) {
-    localPhase.value.type = '';
-  }
-  // Ensure touched object is initialized for all relevant fields
-  if (!localPhase.value.touched) {
-      localPhase.value.touched = { type: false } as any; // Cast for simplicity, or type properly
-  }
-
-
+  // Initial validity emit
+  // Child forms will emit their own validity, this captures the initial state based on them.
+  // A short delay might be needed for children to mount and emit.
   nextTick(() => {
      emit('validity-change', isPhaseInternallyValid.value);
   });

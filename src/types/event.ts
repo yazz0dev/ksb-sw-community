@@ -40,7 +40,7 @@ export interface EventPhase {
   allowProjectSubmission: boolean; // Ensure this is always boolean, not nullable
   
   // Phase-specific winner tracking
-  winners?: Record<string, string[]> | null; // Key: criterionKey/title from phase.criteria, Value: array of user UIDs
+  winners?: Record<string, string[]> | null; // Key: criteriaKey/title from phase.criteria, Value: array of user UIDs
   // Optional: For more detailed phase-level voting, if implemented in future
   // criteriaVotes?: Record<string, Record<string, string>> | null;
   // bestPerformerSelections?: Record<string, string> | null;

@@ -13,7 +13,6 @@
           <input class="form-check-input" type="radio" name="eventFormat" id="formatTeam" :value="EventFormat.Team" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatTeam">Team</label>
         </div>
-        <!-- The hideMultiEventOption prop is used by RequestEventView to hide this specifically -->
         <div v-if="!hideMultiEventOption" class="form-check form-check-custom">
           <input class="form-check-input" type="radio" name="eventFormat" id="formatMultiEvent" :value="EventFormat.MultiEvent" v-model="localDetails.format" :disabled="isSubmitting || isEditing">
           <label class="form-check-label" for="formatMultiEvent">Multiple Events</label>
@@ -38,7 +37,7 @@
       <div class="invalid-feedback">{{ nameLabel }} is required.</div>
     </div>
 
-    <!-- Event Type (Hidden if overall MultiEvent form) -->
+    <!-- Event Type (Hidden if MultiEvent AND not a phase form) -->
     <div v-if="showTypeField" class="mb-3">
       <label for="eventType" class="form-label fw-medium">{{ typeLabel }} <span class="text-danger">*</span></label>
       <div class="input-group">
@@ -62,8 +61,8 @@
       </div>
     </div>
 
-    <!-- Is Competition Checkbox (Only for MultiEvent overall OR Individual Event overall) - Hide in phase form -->
-    <div v-if="showOverallCompetitionToggle" class="mb-3">
+    <!-- Is Competition Checkbox (Only for MultiEvent overall) - Hide in phase form -->
+    <div v-if="showMultiEventCompetitionToggle && !isPhaseForm && !hideMultiEventOption" class="mb-3">
       <div class="form-check form-switch form-switch-custom">
         <input
           class="form-check-input"
@@ -73,16 +72,33 @@
           v-model="localDetails.isCompetition"
           :disabled="isSubmitting"
         />
-        <label class="form-check-label fw-medium" :for="isActuallyMultiEventOverall ? 'isCompetitionSeries' : 'isIndividualCompetition'">
-          {{ isActuallyMultiEventOverall ? 'Is this a Competition series?' : 'Is this an Individual Competition?' }}
-          <span v-if="isActuallyMultiEventOverall" class="text-muted small ms-1 fw-normal">(Allows overall prize & phases can be competitive)</span>
-          <span v-else class="text-muted small ms-1 fw-normal">(Points per criterion awarded to one core participant)</span>
+        <label class="form-check-label fw-medium" for="isCompetitionSeries">
+          Is this a Competition series?
+          <span class="text-muted small ms-1 fw-normal">(Enables prizes per phase for Multiple Events)</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Is Competition Checkbox (Only for Individual Event) - Hide in phase form -->
+    <div v-if="showIndividualCompetitionToggle && !isPhaseForm" class="mb-3">
+      <div class="form-check form-switch form-switch-custom">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          id="isIndividualCompetition"
+          v-model="localDetails.isCompetition"
+          :disabled="isSubmitting"
+        />
+        <label class="form-check-label fw-medium" for="isIndividualCompetition">
+          Is this an Individual Competition?
+          <span class="text-muted small ms-1 fw-normal">(Points per criteria awarded to one core participant)</span>
         </label>
       </div>
     </div>
     
-    <!-- Overall Event Prize (shown if !isPhaseForm and isCompetition is true for Individual or overall MultiEvent) -->
-    <div v-if="!isPhaseForm && localDetails.isCompetition && (isIndividualEvent || isActuallyMultiEventOverall)" class="mb-3">
+    <!-- Overall Event Prize (shown if !isPhaseForm and isCompetition is true for Individual or MultiEvent (if MultiEvent not hidden)) -->
+    <div v-if="!isPhaseForm && localDetails.isCompetition && (isIndividualEvent || (isMultiEvent && !hideMultiEventOption))" class="mb-3">
       <label for="eventOverallPrize" class="form-label fw-medium">Overall Event Prize</label>
       <input
         id="eventOverallPrize"
@@ -92,8 +108,8 @@
         :placeholder="isActuallyMultiEventOverall ? 'e.g., Grand Prize for the entire series' : 'e.g., Prize for the winner'"
         :disabled="isSubmitting"
       />
-      <small v-if="isActuallyMultiEventOverall" class="form-text text-muted">
-        Optional overall prize for the MultiEvent competition. Phase-specific prizes can also be set per phase.
+      <small v-if="isMultiEvent && !hideMultiEventOption" class="form-text text-muted">
+        Optional overall prize for the MultiEvent competition. Phase-specific prizes can be set in the phases section.
       </small>
       <small v-else-if="isIndividualEvent" class="form-text text-muted">
         Prize for the winner of this Individual competition.
@@ -117,8 +133,8 @@
        <div class="invalid-feedback">Description is required.</div>
     </div>
 
-    <!-- Overall Event Rules (Only for Overall Team Events or Overall Individual Non-Competition) -->
-    <div v-if="showRulesField" class="mb-3">
+    <!-- Overall Event Rules (Hidden if MultiEvent (and not hidden), or Individual, or if phase form) -->
+    <div v-if="showRulesField && !isPhaseForm" class="mb-3">
       <label for="eventRules" class="form-label fw-medium">Overall Event Rules (Optional)</label>
       <textarea
         id="eventRules"
@@ -129,11 +145,11 @@
         :disabled="isSubmitting"
         placeholder="Enter specific overall event rules."
       ></textarea>
-      <small class="form-text text-muted">Use Markdown for formatting.</small>
+      <small class="form-text text-muted">Use Markdown for formatting. These are general rules; for 'Multiple Events' (if available), rules are set per phase.</small>
     </div>
 
-    <!-- Overall Allow Project Submission Toggle (Only for Overall Team Events) -->
-    <div v-if="showSubmissionToggle" class="mb-3">
+    <!-- Overall Allow Project Submission Toggle (Hidden if MultiEvent (and not hidden), or Individual, or if phase form) -->
+    <div v-if="showSubmissionToggle && !isPhaseForm" class="mb-3">
       <div class="form-check form-switch form-switch-custom">
         <input
           class="form-check-input"
@@ -145,6 +161,7 @@
         />
         <label class="form-check-label fw-medium" for="allowProjectSubmission">
           Allow Project Submissions (Overall)
+          <span class="text-muted small ms-1 fw-normal">(For 'Multiple Events' (if available), this is set per phase)</span>
         </label>
       </div>
     </div>
@@ -161,18 +178,16 @@ interface Props {
   isSubmitting: boolean;
   isEditing: boolean;
   isPhaseForm?: boolean;
-  hideMultiEventOption?: boolean;
-  isMultiEventOverall?: boolean; // New prop
+  hideMultiEventOption?: boolean; // New prop
 }
 
 const emit = defineEmits(['update:details', 'validity-change']);
 const props = withDefaults(defineProps<Props>(), {
   isPhaseForm: false,
-  hideMultiEventOption: false,
-  isMultiEventOverall: false, // Default to false
+  hideMultiEventOption: false, // Default to false
 });
 
-const { details, isSubmitting, isEditing, isPhaseForm, hideMultiEventOption, isMultiEventOverall } = toRefs(props);
+const { details, isSubmitting, isEditing, isPhaseForm, hideMultiEventOption } = toRefs(props);
 
 const localDetails = ref<EventFormData['details']>({ ...details.value });
 
@@ -182,43 +197,29 @@ const touched = ref({
   description: false,
 });
 
-// --- Computed properties for UI logic ---
-const nameLabel = computed(() => (isPhaseForm.value ? 'Phase Name' : 'Event Name'));
-const namePlaceholder = computed(() => (isPhaseForm.value ? 'Enter a clear phase name' : 'Enter a clear and concise event name'));
-const typeLabel = computed(() => (isPhaseForm.value ? 'Phase Type' : 'Event Type'));
-const descriptionPlaceholder = computed(() => (isPhaseForm.value ? 'Provide details about this phase' : 'Provide a detailed description of the event... Markdown is supported.'));
-
-// Is this form instance for an overall MultiEvent (not a phase, and not a generic form where MultiEvent is just an option)
-const isActuallyMultiEventOverall = computed(() => !isPhaseForm.value && isMultiEventOverall.value);
-
-// Is the currently selected format MultiEvent (and not hidden, and not overridden by isMultiEventOverall)
-const isSelectedFormatMultiEvent = computed(() => localDetails.value.format === EventFormat.MultiEvent && !hideMultiEventOption.value && !isActuallyMultiEventOverall.value);
-
+const isMultiEvent = computed(() => localDetails.value.format === EventFormat.MultiEvent && !hideMultiEventOption.value);
 const isIndividualEvent = computed(() => localDetails.value.format === EventFormat.Individual);
 const isTeamEvent = computed(() => localDetails.value.format === EventFormat.Team);
 
-const showFormatSelection = computed(() => !isPhaseForm.value && !isActuallyMultiEventOverall.value);
 
 const showTypeField = computed(() => {
   if (isPhaseForm.value) return true; // Always show for phases
-  return !isActuallyMultiEventOverall.value; // Hide for overall MultiEvent, show for Individual/Team
+  return !isMultiEvent.value; // Show for Individual/Team overall, hide for MultiEvent overall
 });
 
 const showRulesField = computed(() => {
-  if (isPhaseForm.value || isActuallyMultiEventOverall.value) return false;
-  // Show for Team events. For Individual, only if NOT a competition (as competition rules are simpler or covered by criteria)
-  return isTeamEvent.value || (isIndividualEvent.value && !localDetails.value.isCompetition);
+  if (isPhaseForm.value) return false;
+  return isTeamEvent.value; // Only for Team events at the overall level now
 });
 
 const showSubmissionToggle = computed(() => {
-  if (isPhaseForm.value || isActuallyMultiEventOverall.value) return false;
-  return isTeamEvent.value; // Only for Team events overall
+  if (isPhaseForm.value) return false;
+  return isTeamEvent.value; // Only for Team events at the overall level now
 });
 
-const showOverallCompetitionToggle = computed(() => {
-  if (isPhaseForm.value) return false;
-  return isActuallyMultiEventOverall.value || isIndividualEvent.value; // Show for Overall MultiEvent or Overall Individual
-});
+const showMultiEventCompetitionToggle = computed(() => !isPhaseForm.value && isMultiEvent.value);
+const showIndividualCompetitionToggle = computed(() => !isPhaseForm.value && isIndividualEvent.value);
+
 
 const eventTypesForFormat = computed(() => {
   // For overall MultiEvent, there's no "type". For phases, type depends on phase.format.
@@ -227,7 +228,8 @@ const eventTypesForFormat = computed(() => {
   switch (localDetails.value.format) {
     case EventFormat.Team: return teamEventTypes;
     case EventFormat.Individual: return individualEventTypes;
-    default: return individualEventTypes;
+    // For MultiEvent (overall), type is not directly set here. For phases, it depends on phase.format.
+    default: return individualEventTypes; // Default for safety, though format should be set
   }
 });
 
@@ -236,10 +238,11 @@ const isBasicDetailsValid = computed(() => {
   const hasDescription = !!(localDetails.value.description?.trim());
   const hasFormat = !!(localDetails.value.format);
   
-  let hasType = true;
-  if (showTypeField.value) { // Only validate type if the field is shown
+  let hasType = true; // Assume true, then check if needed
+  if (isPhaseForm.value || !isMultiEvent.value) { // Type is required for phases, and for non-MultiEvent overall
     hasType = !!(localDetails.value.type?.trim());
   }
+  
   return hasEventName && hasDescription && hasFormat && hasType;
 });
 
@@ -251,42 +254,26 @@ let isUpdatingFromProp = false;
 watch(details, (newVal) => {
   if (!isUpdatingFromProp) {
     localDetails.value = { ...newVal };
-    // Ensure correct format if isMultiEventOverall is true
-    if (isMultiEventOverall.value) {
-      localDetails.value.format = EventFormat.MultiEvent;
-    } else if (hideMultiEventOption.value && localDetails.value.format === EventFormat.MultiEvent) {
-      localDetails.value.format = EventFormat.Individual;
+    if (hideMultiEventOption.value && localDetails.value.format === EventFormat.MultiEvent) {
+      localDetails.value.format = EventFormat.Individual; // Default to Individual if MultiEvent is hidden
     }
+    // Apply format-specific defaults upon receiving new details
     applyFormatDefaults(localDetails.value.format);
   }
 }, { deep: true });
 
-function applyFormatDefaults(format: EventFormat) {
-  // Defaults for overall MultiEvent (when isMultiEventOverall is true)
-  if (isActuallyMultiEventOverall.value) { // This implies format is MultiEvent
-    localDetails.value.type = '';
-    localDetails.value.rules = null;
-    localDetails.value.allowProjectSubmission = false; // Submissions are per-phase
-    if (localDetails.value.isCompetition === undefined) localDetails.value.isCompetition = false;
-    return; // Exit early for overall MultiEvent
-  }
 
-  // Defaults for phases or non-MultiEvent overall forms
+function applyFormatDefaults(format: EventFormat) {
   if (format === EventFormat.Individual) {
     localDetails.value.rules = null;
     localDetails.value.allowProjectSubmission = false;
-    // For phases, isCompetition is not set at this level. For overall Individual, default to false if undefined.
-    if (!isPhaseForm.value && localDetails.value.isCompetition === undefined) localDetails.value.isCompetition = false;
-    else if (isPhaseForm.value) localDetails.value.isCompetition = undefined;
-
+    if (isPhaseForm.value) localDetails.value.isCompetition = undefined; // Competition is per-phase for phases
+    else if(localDetails.value.isCompetition === undefined) localDetails.value.isCompetition = false;
   } else if (format === EventFormat.Team) {
-    localDetails.value.isCompetition = false; // Team events (overall or phase) are not 'competitions' in the same sense
+    localDetails.value.isCompetition = false; // Team events are not marked as competition overall/phase
     if (!isPhaseForm.value) localDetails.value.allowProjectSubmission = true; // Default for overall team event
-    // Rules can exist for Team events, don't nullify unless intended by specific logic elsewhere
-
   } else if (format === EventFormat.MultiEvent && !hideMultiEventOption.value) {
-    // This case is for a generic form where MultiEvent might be selected (but not isMultiEventOverall)
-    // This should rarely be hit if hideMultiEventOption is true for RequestEventView
+    // Overall MultiEvent settings
     localDetails.value.type = '';
     localDetails.value.rules = null;
     localDetails.value.allowProjectSubmission = false;
@@ -294,26 +281,22 @@ function applyFormatDefaults(format: EventFormat) {
   }
 }
 
+
 watch(() => localDetails.value.format, (newFormat, oldFormat) => {
   if (newFormat !== oldFormat) {
-    if (isActuallyMultiEventOverall.value && newFormat !== EventFormat.MultiEvent) {
-      localDetails.value.format = EventFormat.MultiEvent; // Force back if changed
-      return;
-    }
-    if (hideMultiEventOption.value && newFormat === EventFormat.MultiEvent && !isMultiEventOverall.value) {
+    if (hideMultiEventOption.value && newFormat === EventFormat.MultiEvent) {
       localDetails.value.format = oldFormat || EventFormat.Individual; // Revert or default
       return;
     }
-
     applyFormatDefaults(newFormat);
-
-    if (showTypeField.value) { // Only reset type if it's visible and relevant
+    // Reset type if it's not valid for the new format (excluding overall MultiEvent)
+    if (newFormat !== EventFormat.MultiEvent || isPhaseForm.value) {
         const availableTypes = eventTypesForFormat.value;
         if (!availableTypes.includes(localDetails.value.type ?? '')) {
-            localDetails.value.type = '';
+            localDetails.value.type = ''; // Reset to empty, user must select
         }
-    } else {
-        localDetails.value.type = ''; // Clear type if field is hidden
+    } else if (newFormat === EventFormat.MultiEvent && !isPhaseForm.value) {
+        localDetails.value.type = ''; // Overall MultiEvent has no type
     }
   }
 });
@@ -325,11 +308,11 @@ watch(localDetails, (newVal) => {
 }, { deep: true });
 
 onMounted(() => {
-  if (isMultiEventOverall.value) {
-    localDetails.value.format = EventFormat.MultiEvent;
-  } else if (hideMultiEventOption.value && localDetails.value.format === EventFormat.MultiEvent) {
+  // If hideMultiEventOption is true and current format is MultiEvent, reset to Individual
+  if (hideMultiEventOption.value && localDetails.value.format === EventFormat.MultiEvent) {
     localDetails.value.format = EventFormat.Individual;
   }
+  // Apply initial defaults based on the format
   applyFormatDefaults(localDetails.value.format);
 });
 

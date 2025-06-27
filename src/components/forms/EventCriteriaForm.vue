@@ -3,55 +3,55 @@
   <div>
     <!-- Display existing criteria -->
     <div v-if="localCriteria.length > 0">
-      <div v-for="(criterion, idx) in localCriteria" :key="getCriterionKey(criterion, idx)" class="mb-4 border-bottom pb-3 criterion-item">
+      <div v-for="(criteria, idx) in localCriteria" :key="getcriteriaKey(criteria, idx)" class="mb-4 border-bottom pb-3 criteria-item">
         <div class="row g-3 align-items-center">
-          <!-- Criterion Label -->
+          <!-- criteria Label -->
           <div class="col-md-4">
-            <label :for="`criterion-label-${idx}`" class="form-label small visually-hidden">Criterion Label</label>
+            <label :for="`criteria-label-${idx}`" class="form-label small visually-hidden">criteria Label</label>
             <input
-              :id="`criterion-label-${idx}`"
+              :id="`criteria-label-${idx}`"
               class="form-control form-control-sm"
-              :class="{ 'is-invalid': !criterion.title && criterion.touched?.title }"
+              :class="{ 'is-invalid': !criteria.title && criteria.touched?.title }"
               type="text"
-              v-model.trim="criterion.title"
-              placeholder="Enter criterion name (e.g., Code Quality, Creativity)"
-              :disabled="isSubmitting || isBestPerformerCriterion(criterion)"
-              @blur="criterion.touched && (criterion.touched.title = true)"
+              v-model.trim="criteria.title"
+              placeholder="Enter criteria name (e.g., Code Quality, Creativity)"
+              :disabled="isSubmitting || isBestPerformercriteria(criteria)"
+              @blur="criteria.touched && (criteria.touched.title = true)"
             />
           </div>
 
           <!-- Points Slider/Display -->
           <div class="col-md-3">
-            <label :for="`criterion-points-${idx}`" class="form-label small visually-hidden">Points</label>
-            <div v-if="isBestPerformerCriterion(criterion)" class="d-flex align-items-center justify-content-center">
+            <label :for="`criteria-points-${idx}`" class="form-label small visually-hidden">Points</label>
+            <div v-if="isBestPerformercriteria(criteria)" class="d-flex align-items-center justify-content-center">
               <span class="badge bg-info-subtle text-info-emphasis rounded-pill">Fixed: {{ BEST_PERFORMER_POINTS }} XP</span>
             </div>
             <div v-else class="d-flex align-items-center">
               <input
-                :id="`criterion-points-${idx}`"
+                :id="`criteria-points-${idx}`"
                 type="range"
                 class="form-range me-2 flex-grow-1"
                 min="1"
-                :max="getCriterionMaxPoints(idx)"
+                :max="getcriteriaMaxPoints(idx)"
                 step="1"
-                v-model.number="criterion.points"
+                v-model.number="criteria.points"
                 :disabled="isSubmitting"
                 @input="handlePointsInput(idx)"
               />
-              <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill xp-badge">{{ criterion.points }} XP</span>
+              <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill xp-badge">{{ criteria.points }} XP</span>
             </div>
           </div>
 
           <!-- Target Role Selection -->
           <div class="col-md-3">
-             <label :for="`criterion-role-${idx}`" class="form-label small visually-hidden">Target Role</label>
+             <label :for="`criteria-role-${idx}`" class="form-label small visually-hidden">Target Role</label>
             <select
-              :id="`criterion-role-${idx}`"
+              :id="`criteria-role-${idx}`"
               class="form-select form-select-sm"
-              :class="{ 'is-invalid': !criterion.role && criterion.touched?.role }"
-              v-model="criterion.role"
-              :disabled="isSubmitting || isBestPerformerCriterion(criterion)"
-              @blur="criterion.touched && (criterion.touched.role = true)"
+              :class="{ 'is-invalid': !criteria.role && criteria.touched?.role }"
+              v-model="criteria.role"
+              :disabled="isSubmitting || isBestPerformercriteria(criteria)"
+              @blur="criteria.touched && (criteria.touched.role = true)"
             >
               <option value="" disabled>Select Role...</option>
               <option v-for="role in props.assignableXpRoles" :key="role" :value="role">{{ formatRoleName(role) }}</option>
@@ -61,38 +61,38 @@
           <!-- Remove Button -->
           <div class="col-md-2 text-md-end text-center mt-2 mt-md-0">
             <button
-              v-if="!isBestPerformerCriterion(criterion) && userAddedCriteriaCount > 1"
+              v-if="!isBestPerformercriteria(criteria) && userAddedCriteriaCount > 1"
               type="button"
               class="btn btn-sm btn-outline-danger"
               :disabled="isSubmitting"
-              @click.prevent="removeCriterion(idx)"
-              title="Remove Criterion"
+              @click.prevent="removecriteria(idx)"
+              title="Remove criteria"
             >
               <i class="fas fa-trash"></i>
             </button>
-             <span v-else-if="!isBestPerformerCriterion(criterion)" class="text-muted small fst-italic">(Default)</span>
+             <span v-else-if="!isBestPerformercriteria(criteria)" class="text-muted small fst-italic">(Default)</span>
           </div>
         </div>
         <!-- Validation message for label -->
-        <small v-if="!criterion.title && !isBestPerformerCriterion(criterion) && criterion.touched?.title" class="text-danger d-block mt-1">
-            Criterion name is required.
+        <small v-if="!criteria.title && !isBestPerformercriteria(criteria) && criteria.touched?.title" class="text-danger d-block mt-1">
+            criteria name is required.
         </small>
          <!-- Validation message for role -->
-         <small v-if="!criterion.role && !isBestPerformerCriterion(criterion) && criterion.touched?.role" class="text-danger d-block mt-1">
+         <small v-if="!criteria.role && !isBestPerformercriteria(criteria) && criteria.touched?.role" class="text-danger d-block mt-1">
              Target role selection is required.
          </small>
       </div>
     </div>
      <p v-else class="text-muted small fst-italic">No rating criteria added yet.</p>
 
-    <!-- Add Criterion Button -->
+    <!-- Add criteria Button -->
     <button
         type="button"
         class="btn btn-outline-primary btn-sm mt-3"
         :disabled="isSubmitting || !canAddMoreCriteria"
-        @click="addCriterion"
+        @click="addcriteria"
     >
-      <i class="fas fa-plus me-1"></i> Add Criterion
+      <i class="fas fa-plus me-1"></i> Add criteria
     </button>
     <p v-if="!canAddMoreCriteria && props.eventFormat !== EventFormat.MultiEvent" class="form-text text-warning mt-2">
         Maximum number of rating criteria reached ({{ MAX_USER_CRITERIA_CONST }} user-defined + default/best performer).
@@ -111,7 +111,7 @@ import {
   MAX_TOTAL_XP
 } from '@/utils/constants';
 
-interface CriterionWithState extends EventCriteria {
+interface criteriaWithState extends EventCriteria {
   touched?: {
     title: boolean;
     role: boolean;
@@ -119,8 +119,8 @@ interface CriterionWithState extends EventCriteria {
 }
 
 // --- Constants ---
-const DEFAULT_CRITERION_LABEL = 'Overall Performance';
-const DEFAULT_CRITERION_POINTS = 10;
+const DEFAULT_criteria_LABEL = 'Overall Performance';
+const DEFAULT_criteria_POINTS = 10;
 const MAX_USER_CRITERIA_CONST = MAX_USER_CRITERIA; // Expose to template
 
 // --- Props & Emits ---
@@ -135,15 +135,15 @@ const props = defineProps<Props>();
 const emit = defineEmits(['update:criteria', 'validity-change']);
 
 // --- State ---
-const localCriteria = ref<CriterionWithState[]>([]); // Use EventCriteria
+const localCriteria = ref<criteriaWithState[]>([]); // Use EventCriteria
 
 // --- Helper Functions ---
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const isBestPerformerCriterion = (criterion: EventCriteria): boolean => { // Use EventCriteria
-  return criterion.title === BEST_PERFORMER_LABEL;
+const isBestPerformercriteria = (criteria: EventCriteria): boolean => { // Use EventCriteria
+  return criteria.title === BEST_PERFORMER_LABEL;
 };
 
-const createBestPerformerCriterion = (): CriterionWithState => ({ // Return EventCriteria
+const createBestPerformercriteria = (): criteriaWithState => ({ // Return EventCriteria
   constraintIndex: -1,
   title: BEST_PERFORMER_LABEL,
   points: BEST_PERFORMER_POINTS,
@@ -151,12 +151,12 @@ const createBestPerformerCriterion = (): CriterionWithState => ({ // Return Even
   touched: { title: false, role: false },
 });
 
-function createDefaultCriterion(): CriterionWithState { // Return EventCriteria
+function createDefaultcriteria(): criteriaWithState { // Return EventCriteria
   const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
   return {
     constraintIndex: uniqueId,
-    title: DEFAULT_CRITERION_LABEL,
-    points: DEFAULT_CRITERION_POINTS,
+    title: DEFAULT_criteria_LABEL,
+    points: DEFAULT_criteria_POINTS,
     role: props.assignableXpRoles[0] || '',
     touched: { title: false, role: false },
   };
@@ -164,7 +164,7 @@ function createDefaultCriterion(): CriterionWithState { // Return EventCriteria
 
 // --- Computed Properties ---
 const userAddedCriteria = computed(() => {
-  return localCriteria.value.filter(c => !isBestPerformerCriterion(c));
+  return localCriteria.value.filter(c => !isBestPerformercriteria(c));
 });
 const userAddedCriteriaCount = computed(() => {
   return userAddedCriteria.value.length;
@@ -183,13 +183,13 @@ const isCriteriaValid = computed(() => {
   
   if (localCriteria.value.length === 0) return false;
   
-  return localCriteria.value.every(criterion => {
-    const hasTitle = !!(criterion.title?.trim());
-    const hasRole = !!(criterion.role?.trim());
-    const hasValidPoints = typeof criterion.points === 'number' && criterion.points > 0;
+  return localCriteria.value.every(criteria => {
+    const hasTitle = !!(criteria.title?.trim());
+    const hasRole = !!(criteria.role?.trim());
+    const hasValidPoints = typeof criteria.points === 'number' && criteria.points > 0;
     
     // Best performer criteria are always valid if they exist
-    if (isBestPerformerCriterion(criterion)) return true;
+    if (isBestPerformercriteria(criteria)) return true;
     
     return hasTitle && hasRole && hasValidPoints;
   });
@@ -203,16 +203,16 @@ watch(
   ([newCriteria, newFormat, isIndividualComp], [, oldFormat]) => {
     if (isUpdatingFromProp) return;
     
-    let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as CriterionWithState[];
+    let workingCriteria = JSON.parse(JSON.stringify(newCriteria || [])) as criteriaWithState[];
 
     // Handle Individual Non-Competition case
     if (newFormat === EventFormat.Individual && !isIndividualComp) {
-      const roleBasedCriteria: CriterionWithState[] = props.assignableXpRoles.map((role, index) => {
+      const roleBasedCriteria: criteriaWithState[] = props.assignableXpRoles.map((role, index) => {
         const existing = workingCriteria.find(c => c.role === role);
         return existing || {
           constraintIndex: -(index + 1), // Use negative indices to signify fixed criteria
           title: formatRoleName(role),
-          points: DEFAULT_CRITERION_POINTS,
+          points: DEFAULT_criteria_POINTS,
           role: role,
           touched: { title: false, role: false }
         };
@@ -223,24 +223,24 @@ watch(
         workingCriteria = [];
       } else {
         if (oldFormat === EventFormat.Team) {
-          workingCriteria = workingCriteria.filter(c => !isBestPerformerCriterion(c));
+          workingCriteria = workingCriteria.filter(c => !isBestPerformercriteria(c));
         }
-        if (newFormat === EventFormat.Team && !workingCriteria.some(c => isBestPerformerCriterion(c))) {
-          workingCriteria.push(createBestPerformerCriterion());
+        if (newFormat === EventFormat.Team && !workingCriteria.some(c => isBestPerformercriteria(c))) {
+          workingCriteria.push(createBestPerformercriteria());
         }
       }
     } else {
-      const hasBestPerf = workingCriteria.some(c => isBestPerformerCriterion(c));
+      const hasBestPerf = workingCriteria.some(c => isBestPerformercriteria(c));
       if (newFormat === EventFormat.Team && !hasBestPerf) {
-        workingCriteria.push(createBestPerformerCriterion());
+        workingCriteria.push(createBestPerformercriteria());
       } else if (newFormat !== EventFormat.Team && hasBestPerf) {
-        workingCriteria = workingCriteria.filter(c => !isBestPerformerCriterion(c));
+        workingCriteria = workingCriteria.filter(c => !isBestPerformercriteria(c));
       }
     }
 
-    const nonBestPerfCriteria = workingCriteria.filter(c => !isBestPerformerCriterion(c));
+    const nonBestPerfCriteria = workingCriteria.filter(c => !isBestPerformercriteria(c));
     if (newFormat !== EventFormat.MultiEvent && nonBestPerfCriteria.length === 0) {
-      workingCriteria.unshift(createDefaultCriterion());
+      workingCriteria.unshift(createDefaultcriteria());
     }
 
     workingCriteria.forEach(c => {
@@ -271,62 +271,62 @@ watch(isCriteriaValid, (newValid) => {
 }, { immediate: true });
 
 // --- Methods ---
-function getCriterionKey(criterion: EventCriteria, index: number): string | number { // Use EventCriteria
-  if (typeof criterion.constraintIndex === 'number' && criterion.constraintIndex !== 0) {
-    return criterion.constraintIndex;
+function getcriteriaKey(criteria: EventCriteria, index: number): string | number { // Use EventCriteria
+  if (typeof criteria.constraintIndex === 'number' && criteria.constraintIndex !== 0) {
+    return criteria.constraintIndex;
   }
-  return criterion.title || `temp-${index}`;
+  return criteria.title || `temp-${index}`;
 }
 
-function addCriterion() {
+function addcriteria() {
   if (!canAddMoreCriteria.value) return;
-  const newCriterion = createDefaultCriterion();
-  newCriterion.title = '';
-  newCriterion.points = 1;
-  const bestPerformerIndex = localCriteria.value.findIndex(isBestPerformerCriterion);
+  const newcriteria = createDefaultcriteria();
+  newcriteria.title = '';
+  newcriteria.points = 1;
+  const bestPerformerIndex = localCriteria.value.findIndex(isBestPerformercriteria);
   const insertIndex = bestPerformerIndex !== -1 ? bestPerformerIndex : localCriteria.value.length;
-  localCriteria.value.splice(insertIndex, 0, newCriterion);
+  localCriteria.value.splice(insertIndex, 0, newcriteria);
 }
 
-function removeCriterion(idx: number) {
+function removecriteria(idx: number) {
   if (props.eventFormat === EventFormat.Individual && !props.isIndividualCompetition) {
     return; // Cannot remove criteria for non-competition individual events
   }
-  const criterion = localCriteria.value[idx];
-  if (userAddedCriteriaCount.value <= 1 && criterion && !isBestPerformerCriterion(criterion)) {
-    console.warn("Cannot remove the last criterion.");
+  const criteria = localCriteria.value[idx];
+  if (userAddedCriteriaCount.value <= 1 && criteria && !isBestPerformercriteria(criteria)) {
+    console.warn("Cannot remove the last criteria.");
     return;
   }
   localCriteria.value.splice(idx, 1);
 }
 
-function getCriterionMaxPoints(idx: number): number {
-  const currentCriterion = localCriteria.value[idx];
-  if (!currentCriterion || isBestPerformerCriterion(currentCriterion)) return BEST_PERFORMER_POINTS;
+function getcriteriaMaxPoints(idx: number): number {
+  const currentcriteria = localCriteria.value[idx];
+  if (!currentcriteria || isBestPerformercriteria(currentcriteria)) return BEST_PERFORMER_POINTS;
 
   const sumOtherPoints = localCriteria.value.reduce((sum, c, i) => {
-    if (i === idx || isBestPerformerCriterion(c)) {
+    if (i === idx || isBestPerformercriteria(c)) {
       return sum;
     }
     return sum + (Number(c.points) || 0);
   }, 0);
 
-  const bestPerformerPoints = localCriteria.value.some(c => isBestPerformerCriterion(c)) ? BEST_PERFORMER_POINTS : 0;
+  const bestPerformerPoints = localCriteria.value.some(c => isBestPerformercriteria(c)) ? BEST_PERFORMER_POINTS : 0;
   const remainingXP = MAX_TOTAL_XP - bestPerformerPoints - sumOtherPoints;
   return Math.max(1, remainingXP);
 }
 
 function handlePointsInput(idx: number) {
-  const criterion = localCriteria.value[idx];
-  if (!criterion || isBestPerformerCriterion(criterion)) return;
-  const maxPoints = getCriterionMaxPoints(idx);
-  criterion.points = Math.max(1, Math.min(Number(criterion.points) || 1, maxPoints));
+  const criteria = localCriteria.value[idx];
+  if (!criteria || isBestPerformercriteria(criteria)) return;
+  const maxPoints = getcriteriaMaxPoints(idx);
+  criteria.points = Math.max(1, Math.min(Number(criteria.points) || 1, maxPoints));
 }
 
 </script>
 
 <style scoped>
-.criterion-item {
+.criteria-item {
   background-color: var(--bs-light-bg-subtle);
   padding: 1rem;
   border-radius: var(--bs-border-radius-sm);
