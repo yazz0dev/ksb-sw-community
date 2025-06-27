@@ -220,13 +220,27 @@ export const closeEventAndAwardXP = async (
       message: `Event "${eventData.details.eventName}" closed successfully. XP awarded to ${studentIdsWithXP.length} participants.`,
       xpAwarded: aggregatedXpChanges,
     };
-  } catch (error: unknown) { // Changed from implicit any
-    const message = error instanceof Error ? error.message : 'Unknown error during event closure.';
-    console.error(`Error closing event ${eventId}:`, message, error);
-    if (error && typeof (error as any).code === 'string') { // Check if it's a FirebaseError
-        throw new Error(`Failed to close event: ${message} (Code: ${(error as any).code})`);
+  } catch (error: unknown) {
+    let operationPhase = "general processing";
+    if (error instanceof Error) {
+        if (error.message.includes("Event name is missing")) operationPhase = "data validation";
+        else if (error.message.includes("permission denied")) operationPhase = "permission check";
+        else if (error.message.includes("Event is already closed")) operationPhase = "status check (already closed)";
+        else if (error.message.includes("must be in 'Completed' status")) operationPhase = "status check (not completed)";
+        else if (error.message.includes("Voting must be closed")) operationPhase = "voting status check";
+        else if (error.message.includes("Winners must be determined")) operationPhase = "winner determination check";
+        else if (error.message.includes("Cannot create valid XP history")) operationPhase = "XP batch preparation (missing eventId/name)";
     }
-    throw new Error(`Failed to close event ${eventId}: ${message}`);
+
+    const baseMessage = `Error during ${operationPhase} for closing event ${eventId} by user ${closingUser.uid}.`;
+    const finalMessage = error instanceof Error ? `${baseMessage} Details: ${error.message}` : `${baseMessage} An unknown error occurred.`;
+
+    console.error(finalMessage, error); // Log the full error object for more details in console
+
+    if (error instanceof Error && typeof (error as any).code === 'string') { // Check if it's a FirebaseError-like object
+        throw new Error(`Failed to close event (${operationPhase}): ${error.message} (Code: ${(error as any).code})`);
+    }
+    throw new Error(`Failed to close event ${eventId} during ${operationPhase}: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
 
