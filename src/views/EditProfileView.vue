@@ -2,10 +2,10 @@
 <template>
   <div class="section-spacing profile-section bg-body min-vh-100-subtract-nav">
     <div class="container-lg">
-      <!-- Back Button - Styled like ProfileView -->
+      <!-- Back Button - Updated with new styling -->
       <div class="mb-4">
         <button
-          class="btn btn-outline-secondary btn-sm btn-icon"
+          class="btn btn-back btn-sm btn-icon"
           @click="router.back()"
         >
           <i class="fas fa-arrow-left me-1"></i>
@@ -46,7 +46,7 @@
                 <!-- Profile Image with Enhanced Cloudinary Integration -->
                 <div class="mb-4 text-center">
                   <ProfileImageUploader
-                    :current-image-url="form.photoURL"
+                    :current-image-url="form.photoURL || null"
                     :optimized-image-url="getOptimizedImageUrl(form.photoURL)"
                     :disabled="pageLoading || isImageUploading || isSavingOnline || isSyncingDraft"
                     :upload-progress="imageUploadProgress"
@@ -157,11 +157,11 @@ import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAppStore } from '@/stores/appStore';
-import type { StudentProfileData, EnrichedStudentData } from '@/types/student';
+import type { EnrichedStudentData } from '@/types/student';
 import ProfileImageUploader from '@/components/ui/ProfileImageUploader.vue';
 import { serverTimestamp } from 'firebase/firestore';
 import { UploadStatus } from '@/types/student';
-import { saveProfileDraft, loadProfileDraft, clearProfileDraft, type ProfileDraftData, type ProfileDraft } from '@/utils/localDrafts';
+import { saveProfileDraft, loadProfileDraft, clearProfileDraft, type ProfileDraftData } from '@/utils/localDrafts';
 import { debounce } from 'lodash-es';
 
 const router = useRouter();
@@ -218,19 +218,23 @@ async function handleImageSelected(file: File) {
     });
     form.value.photoURL = downloadURL;
     notificationStore.showNotification({ message: 'Image uploaded successfully!', type: 'success' });
-    // If offline after successful upload but before profile save, draft will pick up new photoURL
-    if(!appStore.isOnline) await debouncedSaveDraft();
-
+    // Save draft if offline after successful upload
+    if (!appStore.isOnline && formInitialized) {
+      await debouncedSaveDraft();
+    }
   } catch (err: any) {
     imageUploadError.value = err.message || 'Upload failed';
     notificationStore.showNotification({ message: `Image upload failed: ${err.message}`, type: 'error' });
   }
 }
 
-function handleImageUploaded(imageUrl: string) { // This might be redundant if handleImageSelected covers all
+function handleImageUploaded(imageUrl: string) {
   form.value.photoURL = imageUrl;
   imageUploadError.value = null;
-   if(!appStore.isOnline) debouncedSaveDraft();
+  // Save draft if offline and form is initialized
+  if (!appStore.isOnline && formInitialized) {
+    debouncedSaveDraft();
+  }
 }
 
 function handleUploadError(err: string) {
@@ -240,10 +244,15 @@ function handleUploadError(err: string) {
 
 watch(() => studentStore.imageUploadState, (newState) => {
   imageUploadProgress.value = newState.progress;
-  if (newState.status === UploadStatus.Error) imageUploadError.value = newState.error;
-  else if (newState.status === UploadStatus.Success && newState.downloadURL) {
+  if (newState.status === UploadStatus.Error) {
+    imageUploadError.value = newState.error;
+  } else if (newState.status === UploadStatus.Success && newState.downloadURL) {
     form.value.photoURL = newState.downloadURL;
     imageUploadError.value = null;
+    // Save draft if offline and form is initialized
+    if (!appStore.isOnline && formInitialized) {
+      debouncedSaveDraft();
+    }
   }
 }, { deep: true });
 
@@ -279,7 +288,7 @@ async function loadUserData() {
       }
 
       if (userProfile) {
-        const serverTimestamp = userProfile.lastUpdatedAt?.toMillis();
+        const serverTimestamp = (userProfile as any).lastUpdatedAt?.toMillis();
 
         if (!profileDataToLoad || (serverTimestamp && draftTimestamp && serverTimestamp > draftTimestamp)) {
           profileDataToLoad = {
@@ -385,14 +394,16 @@ async function saveProfileEdits(isAutoSync: boolean) {
       portfolio: form.value.portfolio?.trim() || '',
     };
 
-    const payloadForUpdate: Partial<StudentProfileData> = {
-      name: form.value.name.trim(), photoURL: photoURLForFirestore,
-      bio: form.value.bio?.trim() || '', skills: skillsArray,
-      hasLaptop: form.value.hasLaptop || false, socialLinks: newSocialLinks,
+    const updates = {
+      name: form.value.name?.trim() || '',
+      bio: form.value.bio?.trim() || '',
+      skills: skillsArray,
+      hasLaptop: form.value.hasLaptop || false,
+      socialLinks: newSocialLinks,
       lastUpdatedAt: serverTimestamp() as any,
     };
 
-    const success = await studentStore.updateMyProfile(payloadForUpdate);
+    const success = await studentStore.updateMyProfile(updates);
 
     if (success) {
       studentStore.resetImageUploadState();

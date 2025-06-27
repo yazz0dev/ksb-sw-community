@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue';
-import { useEventStore } from '@/stores/eventStore';
+import { checkDateConflictForRequest } from '@/services/eventService/eventValidation';
 import { DateTime } from 'luxon';
 
 interface FormDateRange {
@@ -141,8 +141,6 @@ const checkAvailability = async () => {
     return;
   }
   
-  const eventStore = useEventStore() as any;
-  
   try {
     // Convert ISO strings to DateTime objects for validation
     const startDateTime = DateTime.fromISO(localDates.value.start);
@@ -152,11 +150,11 @@ const checkAvailability = async () => {
       throw new Error('Invalid date format selected.');
     }
 
-    const result = await eventStore.checkDateConflict({
-      startDate: localDates.value.start, // Pass ISO strings directly
-      endDate: localDates.value.end,     // Pass ISO strings directly
-      excludeEventId: props.eventId
-    });
+    const result = await checkDateConflictForRequest(
+      localDates.value.start,
+      localDates.value.end,
+      props.eventId
+    );
 
     if (result.hasConflict) {
       dateConflictError.value = `Selected dates conflict with: ${result.conflictingEventName || 'an existing event'}.`;

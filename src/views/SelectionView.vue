@@ -470,9 +470,7 @@ const fetchEventDetails = async (): Promise<void> => {
       }
 
       // Load best performer selection for team events
-      if (isTeamEvent.value && eventData.bestPerformerSelections?.[currentUserId]) {
-        teamVoting.value['bestPerformer'] = eventData.bestPerformerSelections[currentUserId];
-      }
+      teamVoting.value['bestPerformer'] = eventData.bestPerformerSelections?.[currentUserId] || '';
 
       // Load existing manual selections if in manual mode
       if (isManualModeActive.value && eventData.winners) {

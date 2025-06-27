@@ -6,54 +6,27 @@
     </div>
 
     <div class="phases-list">
-      <div
+      <PhaseEditorCard
         v-for="(phase, index) in localPhases"
         :key="phase.id"
-        class="phase-card card mb-3 shadow-sm"
-      >
-        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-          <div class="d-flex align-items-center">
-            <div class="phase-drag-handle me-2" title="Drag to reorder">
-              <i class="fas fa-grip-vertical text-muted"></i>
-            </div>
-            <h6 class="mb-0 text-dark me-2">Phase {{ index + 1 }}: {{ phase.phaseName || 'New Phase' }}</h6>
-            <span v-if="validatePhase(index)" class="badge bg-success-subtle text-success-emphasis rounded-pill">
-              <i class="fas fa-check me-1"></i>Valid
-            </span>
-            <span v-else class="badge bg-warning-subtle text-warning-emphasis rounded-pill">
-              <i class="fas fa-exclamation-triangle me-1"></i>Incomplete
-            </span>
-          </div>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-danger py-1 px-2"
-            @click="removePhase(index)"
-            :disabled="isSubmitting"
-            title="Remove Phase"
-          >
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
-        <div class="card-body p-3 p-md-4">
-          <!-- Use MultiEventForm for each phase -->
-          <MultiEventForm
-            :model-value="[phase]"
-            @update:model-value="(phases) => updatePhase(index, phases[0])"
-            :is-submitting="isSubmitting"
-            :is-overall-competition="overallEventIsCompetition"
-            :all-users="allUsers"
-            :name-cache="nameCache"
-            @validity-change="(isValid) => handlePhaseValidityChange(index, isValid)"
-            @error="handleError"
-          />
-        </div>
-      </div>
+        class="mb-3"
+        :phase="phase"
+        :phase-number="index + 1"
+        :is-submitting="isSubmitting"
+        :overall-event-is-competition="overallEventIsCompetition"
+        :all-users="allUsers"
+        :name-cache="nameCache"
+        @update:phase="(updatedPhase: EventPhase) => updatePhase(index, updatedPhase)"
+        @remove-phase="() => removePhase(index)"
+        @validity-change="(isValid: boolean) => handlePhaseValidityChange(index, isValid)"
+        @error="handleError"
+      />
     </div>
 
     <div class="mt-4 text-end">
       <button
         type="button"
-        class="btn btn-success btn-sm btn-icon"
+        class="btn btn-success btn-sm"
         @click="addPhase"
         :disabled="isSubmitting"
       >
@@ -68,9 +41,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, nextTick } from 'vue';
 import type { PropType } from 'vue';
-import MultiEventForm from './MultiEventForm.vue';
+import PhaseEditorCard from './PhaseEditorCard.vue';
 import { EventFormat, type EventPhase } from '@/types/event';
 import type { UserData } from '@/types/student';
 
@@ -105,114 +78,106 @@ const emit = defineEmits<{
 
 const localPhases = ref<EventPhase[]>([]);
 const phaseValidityStates = ref<boolean[]>([]);
+const isInitializing = ref(true);
 
-// Initialize localPhases from modelValue
-watch(() => props.modelValue, (newVal) => {
-  localPhases.value = newVal ? JSON.parse(JSON.stringify(newVal)) : [];
-  // Initialize validity states based on current phases
-  phaseValidityStates.value = localPhases.value.map(() => false); // Default to false, PhaseEditorCard will report actual validity
-}, { immediate: true, deep: true });
+// Initialize phases with proper defaults
+const createDefaultPhase = (index: number): EventPhase => ({
+  id: crypto.randomUUID(),
+  phaseName: `Phase ${index + 1}`,
+  description: '',
+  format: EventFormat.Individual,
+  type: '',
+  participants: [],
+  coreParticipants: [],
+  criteria: [],
+  teams: [],
+  rules: null,
+  prize: null,
+  allowProjectSubmission: false,
+});
 
+const initializePhases = () => {
+  const phases = props.modelValue.length > 0 
+    ? props.modelValue.map(phase => ({
+        ...phase,
+        participants: phase.participants || [],
+        coreParticipants: phase.coreParticipants || [],
+        criteria: phase.criteria || [],
+        teams: phase.teams || [],
+      }))
+    : [];
+  
+  localPhases.value = phases;
+  phaseValidityStates.value = phases.map(() => false);
+};
 
 const areAllPhasesValid = computed(() => {
-  if (localPhases.value.length === 0) return false; // Requires at least one phase for the manager to be "valid" in context of an event
+  if (localPhases.value.length === 0) return false;
   return phaseValidityStates.value.every(isValid => isValid);
 });
 
-// Emit overall validity change
-watch(areAllPhasesValid, (newVal) => {
-  emit('validity-change', newVal);
-}, { immediate: true });
-
-watch(localPhases, (newPhases) => {
-    // If a phase is removed, ensure its validity state is also removed.
-    if (newPhases.length < phaseValidityStates.value.length) {
-        phaseValidityStates.value = newPhases.map((_, i) => phaseValidityStates.value[i] ?? false);
-    }
-}, {deep: true});
-
-
 function addPhase() {
-  const newPhase: EventPhase = {
-    id: crypto.randomUUID(),
-    phaseName: `New Phase ${localPhases.value.length + 1}`,
-    description: '',
-    format: EventFormat.Individual, // Default format
-    type: '',
-    participants: [],
-    coreParticipants: [],
-    criteria: [],
-    teams: [],
-    rules: null,
-    prize: null,
-    allowProjectSubmission: false,
-  };
+  const newPhase = createDefaultPhase(localPhases.value.length);
   localPhases.value.push(newPhase);
-  phaseValidityStates.value.push(false); // New phase starts as invalid until configured
-  emit('update:modelValue', localPhases.value);
+  phaseValidityStates.value.push(false);
+  emit('update:modelValue', [...localPhases.value]);
 }
 
 function removePhase(index: number) {
+  if (localPhases.value.length <= 1) {
+    emit('error', 'Cannot remove the last phase. At least one phase is required.');
+    return;
+  }
+  
   localPhases.value.splice(index, 1);
   phaseValidityStates.value.splice(index, 1);
-  emit('update:modelValue', localPhases.value);
+  emit('update:modelValue', [...localPhases.value]);
 }
 
 function updatePhase(index: number, updatedPhase: EventPhase) {
   if (localPhases.value[index]) {
-    localPhases.value[index] = { ...localPhases.value[index], ...updatedPhase };
-    emit('update:modelValue', localPhases.value);
+    localPhases.value[index] = { ...updatedPhase };
+    emit('update:modelValue', [...localPhases.value]);
   }
 }
 
 function handlePhaseValidityChange(index: number, isValid: boolean) {
-  if (phaseValidityStates.value[index] !== undefined) {
-    phaseValidityStates.value[index] = isValid;
-  }
+  phaseValidityStates.value[index] = isValid;
 }
 
 function handleError(message: string) {
   emit('error', message);
 }
 
-function onDragEnd() {
-  // Emit updated modelValue after drag
-  emit('update:modelValue', localPhases.value);
-}
+watch(
+  () => props.modelValue,
+  () => {
+    if (!isInitializing.value) {
+      initializePhases();
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  areAllPhasesValid,
+  (newValue) => {
+    if (!isInitializing.value) {
+      emit('validity-change', newValue);
+    }
+  }
+);
 
 onMounted(() => {
-  // Ensure initial validity check if modelValue has initial phases
-  if (props.modelValue && props.modelValue.length > 0) {
-    // PhaseEditorCard instances will emit their validity on their mount
-    // but we need to ensure phaseValidityStates array is correctly sized.
-     phaseValidityStates.value = props.modelValue.map(() => false); // Will be updated by children
+  initializePhases();
+  if (localPhases.value.length === 0) {
+    addPhase(); // Add first phase by default
   }
-   emit('validity-change', areAllPhasesValid.value);
+  nextTick(() => {
+    isInitializing.value = false;
+    emit('validity-change', areAllPhasesValid.value);
+  });
 });
-
-function validatePhase(index: number): boolean {
-  const phase = localPhases.value[index];
-  if (!phase) return false;
-  
-  const hasBasicDetails = !!(phase.phaseName?.trim() && phase.description?.trim() && phase.type?.trim());
-  const hasValidParticipants = phase.participants && phase.participants.length > 0;
-  const hasValidCriteria = phase.criteria && phase.criteria.length > 0 && 
-    phase.criteria.every(c => c.title?.trim() && c.role?.trim() && c.points > 0);
-  
-  if (phase.format === EventFormat.Individual) {
-    const hasValidCoreParticipants = phase.coreParticipants && phase.coreParticipants.length > 0;
-    return hasBasicDetails && hasValidParticipants && hasValidCriteria && hasValidCoreParticipants;
-  }
-  
-  if (phase.format === EventFormat.Team) {
-    const hasValidTeams = phase.teams && phase.teams.length > 0 &&
-      phase.teams.every(team => team.teamName?.trim() && team.members?.length >= 2);
-    return hasBasicDetails && hasValidParticipants && hasValidCriteria && hasValidTeams;
-  }
-  
-  return hasBasicDetails && hasValidParticipants && hasValidCriteria;
-}
-
 </script>
 
 <style scoped>

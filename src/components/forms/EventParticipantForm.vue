@@ -319,12 +319,9 @@ watch(() => props.nameCache, (newNameCache) => {
   localNameCache.value = { ...newNameCache };
 }, { deep: true });
 
-const getUserName = (uid: string): string => {
-  if (localNameCache.value[uid]) {
-    return localNameCache.value[uid];
-  }
-  const user = props.allUsers.find(u => u.uid === uid);
-  return user?.name || user?.email || `UID: ${uid.substring(0, 6)}...`;
+const getUserName = (uid: string): string | undefined => {
+  if (!uid) return undefined;
+  return localNameCache.value[uid] || undefined;
 };
 
 const availableGeneralParticipants = computed(() => {

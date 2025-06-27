@@ -55,8 +55,10 @@
             <!-- Phase Type -->
             <div class="col-md-6">
                 <label :for="`phaseType-${phase.id}`" class="form-label fw-medium">Phase Type <span class="text-danger">*</span></label>
-                <!-- This should ideally be a select dropdown populated from a predefined list based on format -->
-                <input type="text" class="form-control form-control-sm" :id="`phaseType-${phase.id}`" v-model.trim="localPhase.type" placeholder="e.g., Coding Challenge, Presentation" :disabled="isSubmitting" required>
+                <select class="form-select form-select-sm" :id="`phaseType-${phase.id}`" v-model="localPhase.type" :disabled="isSubmitting" required>
+                    <option value="" disabled>Select a type...</option>
+                    <option v-for="type in eventTypesForFormat" :key="type" :value="type">{{ type }}</option>
+                </select>
                  <div class="invalid-feedback">Phase type is required.</div>
             </div>
 
@@ -92,13 +94,13 @@
 
         <!-- Participants Section -->
         <hr class="my-3 my-md-4">
-        <div class="phase-section">
+        <div v-if="localPhase.format !== EventFormat.Team" class="phase-section">
             <h6 class="text-muted small mb-2"><i class="fas fa-users me-1"></i>Participants for this Phase <span class="text-danger">*</span></h6>
             <EventParticipantForm
                 :participants="localPhase.participants || []"
                 :coreParticipants="localPhase.coreParticipants || []"
-                @update:participants="val => localPhase.participants = val"
-                @update:coreParticipants="val => localPhase.coreParticipants = val"
+                @update:participants="(val: string[]) => localPhase.participants = val"
+                @update:coreParticipants="(val: string[]) => localPhase.coreParticipants = val"
                 :allUsers="allUsers"
                 :eventFormat="localPhase.format"
                 :isSubmitting="isSubmitting"
@@ -116,11 +118,11 @@
             <h6 class="text-muted small mb-2"><i class="fas fa-users-cog me-1"></i>Teams for this Phase <span class="text-danger">*</span></h6>
             <ManageTeamsComponent
                 :initial-teams="localPhase.teams || []"
-                :students="allUsers.filter(u => localPhase.participants?.includes(u.uid))"
+                :students="allUsers"
                 :is-submitting="isSubmitting"
                 :can-auto-generate="true"
                 :event-id="phase.id"
-                @update:teams="val => localPhase.teams = val"
+                @update:teams="(val: Team[]) => localPhase.teams = val"
                 @error="handleError"
                 @validity-change="isTeamsValid = $event"
             />
@@ -133,7 +135,7 @@
             <h6 class="text-muted small mb-2"><i class="fas fa-star me-1"></i>Rating Criteria for this Phase <span class="text-danger">*</span></h6>
             <EventCriteriaForm
                 :criteria="localPhase.criteria || []"
-                @update:criteria="val => localPhase.criteria = val"
+                @update:criteria="(val: EventCriteria[]) => localPhase.criteria = val"
                 :isSubmitting="isSubmitting"
                 :eventFormat="localPhase.format"
                 :isIndividualCompetition="localPhase.format === EventFormat.Individual && overallEventIsCompetition"
@@ -148,8 +150,9 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, type PropType, onMounted, nextTick } from 'vue';
-import { EventFormat, type EventPhase } from '@/types/event';
+import { EventFormat, type EventPhase, type Team, type EventCriteria } from '@/types/event';
 import type { UserData } from '@/types/student';
+import { individualEventTypes, teamEventTypes } from '@/utils/eventTypes';
 
 // Import child form components (assuming they exist and are compatible)
 import EventParticipantForm from '@/components/forms/EventParticipantForm.vue';
@@ -198,6 +201,13 @@ const isParticipantsValid = ref(false);
 const isTeamsValid = ref(true); // Default true, only becomes false if format is Team and teams invalid
 const isCriteriaValid = ref(false);
 
+const eventTypesForFormat = computed(() => {
+  if (localPhase.value.format === EventFormat.Team) {
+    return teamEventTypes;
+  }
+  return individualEventTypes;
+});
+
 const isPhaseInternallyValid = computed(() => {
   const basicDetailsValid = localPhase.value.phaseName?.trim() &&
                             localPhase.value.description?.trim() &&
@@ -207,15 +217,15 @@ const isPhaseInternallyValid = computed(() => {
   if (localPhase.value.format === EventFormat.Team) {
     formatSpecificValid = isTeamsValid.value && (localPhase.value.teams?.length || 0) > 0;
   } else if (localPhase.value.format === EventFormat.Individual) {
-    formatSpecificValid = (localPhase.value.coreParticipants?.length || 0) > 0;
+    formatSpecificValid = (localPhase.value.coreParticipants?.length || 0) > 0 && isParticipantsValid.value && (localPhase.value.participants?.length || 0) > 0;
   }
 
-  return basicDetailsValid &&
+  return !!(basicDetailsValid &&
          isParticipantsValid.value &&
          (localPhase.value.participants?.length || 0) > 0 &&
          isCriteriaValid.value &&
          (localPhase.value.criteria?.length || 0) > 0 &&
-         formatSpecificValid;
+         formatSpecificValid);
 });
 
 // Watch for changes in localPhase and emit update
@@ -228,10 +238,21 @@ watch(() => props.phase, (newVal) => {
   localPhase.value = { ...newVal };
 }, { deep: true });
 
+// Watch for team changes to update participant list in team-based phases
+watch(() => localPhase.value.teams, (teams) => {
+  if (localPhase.value.format === EventFormat.Team) {
+    if (teams && teams.length > 0) {
+      const teamMembers = teams.flatMap(team => team.members);
+      localPhase.value.participants = [...new Set(teamMembers)];
+    } else {
+      localPhase.value.participants = [];
+    }
+  }
+}, { deep: true });
 
 // Watch for internal validity changes and emit overall validity
 watch(isPhaseInternallyValid, (newVal) => {
-  emit('validity-change', newVal);
+  emit('validity-change', Boolean(newVal));
 });
 
 // Watch for format changes to reset specific fields
@@ -242,9 +263,12 @@ watch(() => localPhase.value.format, (newFormat, oldFormat) => {
       isTeamsValid.value = true; // Reset team validity
     } else if (newFormat === EventFormat.Team) {
       localPhase.value.coreParticipants = []; // Clear core participants if switching to Team
+      isParticipantsValid.value = true; // No form, so it's valid by default
     }
-    // Re-validate participants as rules might change
-    // This might need a more sophisticated way to trigger re-validation in EventParticipantForm
+    // Reset type if it is no longer valid for the new format
+    if (!eventTypesForFormat.value.includes(localPhase.value.type)) {
+      localPhase.value.type = '';
+    }
   }
 });
 
@@ -269,7 +293,7 @@ onMounted(() => {
   // Child forms will emit their own validity, this captures the initial state based on them.
   // A short delay might be needed for children to mount and emit.
   nextTick(() => {
-     emit('validity-change', isPhaseInternallyValid.value);
+     emit('validity-change', Boolean(isPhaseInternallyValid.value));
   });
 });
 

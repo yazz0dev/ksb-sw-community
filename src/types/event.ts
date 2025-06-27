@@ -24,30 +24,23 @@ export enum EventFormat {
 // New interface for individual phases within a MultiEvenet
 export interface EventPhase {
   id: string; // Unique ID for the phase within the event
-  // phaseName: string; // REMOVED - phase 'type' will now serve as its name/identifier
+  phaseName: string; // Phase name/identifier
   description: string;
   format: EventFormat.Individual | EventFormat.Team; // A phase itself is either Individual or Team based
-  type: string; // Specific type for this phase, e.g., "Coding Submission", "Presentation". This now also serves as the display name.
+  type: string; // Specific type for this phase, e.g., "Coding Submission", "Presentation"
   
-  participants?: string[] | null; // Participants specific to this phase (can be subset of main event)
-  coreParticipants?: string[] | null; // If phase format is Individual
+  participants: string[]; // Participants specific to this phase (required, not optional)
+  coreParticipants: string[]; // If phase format is Individual (required array, not optional)
   
-  criteria?: EventCriteria[] | null; // Rating criteria specific to this phase
-  teams?: Team[] | null; // Teams specific to this phase (if phase format is Team)
+  criteria: EventCriteria[]; // Rating criteria specific to this phase (required array)
+  teams: Team[]; // Teams specific to this phase (required array)
   
-  rules?: string | null; // Make sure this is string | null and not undefined
-  prize?: string | null; // Prize for this specific phase
-  allowProjectSubmission: boolean; // Ensure this is always boolean, not nullable
+  rules: string | null; // Rules for this phase
+  prize: string | null; // Prize for this specific phase
+  allowProjectSubmission: boolean; // Project submission flag
   
   // Phase-specific winner tracking
   winners?: Record<string, string[]> | null; // Key: criteriaKey/title from phase.criteria, Value: array of user UIDs
-  // Optional: For more detailed phase-level voting, if implemented in future
-  // criteriaVotes?: Record<string, Record<string, string>> | null;
-  // bestPerformerSelections?: Record<string, string> | null;
-
-  // Dates for phases are typically relative to parent or sequential, not absolute standalone dates.
-  // For simplicity, not adding separate start/end here; they'd be managed by parent event's timeline.
-  // Voting for a phase would also be managed in context of the phase.
 }
 
 export interface EventDate {
@@ -182,7 +175,7 @@ export interface EventFormData {
     };
     allowProjectSubmission: boolean;
     prize?: string | null | undefined; // Allow undefined for form data compatibility
-    phases?: EventPhase[] | null; // For creating/editing MultiEvenets
+    phases: EventPhase[]; // For creating/editing MultiEvenets
   };
   participants?: string[]; // Added participants to the root
   // childEventIds is removed

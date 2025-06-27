@@ -2,7 +2,7 @@ import { type Event, EventStatus, type EventLifecycleTimestamps, type EventDetai
 import { Timestamp } from 'firebase/firestore';
 import { convertToISTDateTime } from '@/utils/dateTime';
 import { type EventCriteria, EventFormat } from '@/types/event'; // Add EventCriteria, EventFormat
-import { type XPData, mapCalcRoleToFirestoreKey, type XpCalculationRoleKey } from '@/types/xp';
+import { type XpCalculationRoleKey } from '@/types/xp';
 import { BEST_PERFORMER_LABEL, BEST_PERFORMER_POINTS } from '@/utils/constants';
 
 // ------------------------------------------------
@@ -211,27 +211,6 @@ export function convertEventDetailsDateFormat(details: Record<string, any>): Eve
   return convertedDetails as EventDetails; // Cast to EventDetails
 }
 
-/**
- * Create a new XPData object with default values for all required properties.
- * @param userId - The user ID to associate with this XP data
- * @returns A properly initialized XPData object
- */
-function createDefaultXpData(userId?: string): XPData {
-  return {
-    uid: userId || '',
-    totalCalculatedXp: 0,
-    xp_developer: 0,
-    xp_presenter: 0,
-    xp_designer: 0,
-    xp_organizer: 0,
-    xp_problemSolver: 0,
-    xp_bestPerformer: 0,
-    xp_participation: 0,
-    count_wins: 0,
-    lastUpdatedAt: Timestamp.now(),
-    pointHistory: []
-};
-}
 
 // Extended interface for EventCriteria with the additional properties we need
 interface EventCriteriaWithXP extends EventCriteria {
@@ -248,8 +227,8 @@ export interface EventXPAward {
     userId: string;
     eventId: string;
     eventName: string;
-    phaseId?: string; // Optional: for MultiEvent phases
-    phaseName?: string; // Optional: for MultiEvent phases
+    phaseId?: string | undefined; // Make explicitly optional with undefined
+    phaseName?: string | undefined; // Make explicitly optional with undefined
     role: XpCalculationRoleKey;
     points: number;
     isWinner: boolean; // To help xpService update count_wins
@@ -272,8 +251,8 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
         role: XpCalculationRoleKey,
         points: number,
         isWinner: boolean = false,
-        phaseId?: string,
-        phaseName?: string
+        phaseId?: string | undefined,
+        phaseName?: string | undefined
     ) => {
         if (!userId || points <= 0) return;
         xpAwards.push({
@@ -302,12 +281,12 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
             if (phase.format === EventFormat.Team && Array.isArray(phase.teams)) {
                 phase.teams.forEach(team => {
                     (team.members || []).filter(Boolean).forEach((uid: string) => {
-                        addAward(uid, 'participation', baseParticipationXP, false, phase.id, phase.phaseName);
+                        addAward(uid, 'participation', baseParticipationXP, false, phase.id, phase.type); // Use phase.type instead of phase.phaseName
                     });
                 });
             } else if (Array.isArray(phase.participants)) { // Individual format for phase or fallback
                 phase.participants.filter(Boolean).forEach((uid: string) => {
-                    addAward(uid, 'participation', baseParticipationXP, false, phase.id, phase.phaseName);
+                    addAward(uid, 'participation', baseParticipationXP, false, phase.id, phase.type); // Use phase.type instead of phase.phaseName
                 });
             }
             // --- Phase Winner XP Calculation ---
@@ -319,16 +298,6 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
                     phaseCriteriaDetails.set(key, { points: c.points, role: c.role as XpCalculationRoleKey });
                 });
 
-<<<<<<< HEAD
-                for (const [criterionKeyOrTitle, winnerUids] of Object.entries(phase.winners)) {
-                    const criterionDetail = phaseCriteriaDetails.get(String(criterionKeyOrTitle));
-                    if (criterionDetail && Array.isArray(winnerUids)) {
-                        winnerUids.filter(Boolean).forEach(winnerUid => {
-                            addAward(
-                                winnerUid,
-                                criterionDetail.role,
-                                criterionDetail.points,
-=======
                 for (const [criteriaKeyOrTitle, winnerUids] of Object.entries(phase.winners)) {
                     const criteriaDetail = phaseCriteriaDetails.get(String(criteriaKeyOrTitle));
                     if (criteriaDetail && Array.isArray(winnerUids)) {
@@ -337,10 +306,9 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
                                 winnerUid,
                                 criteriaDetail.role,
                                 criteriaDetail.points,
->>>>>>> main
                                 true, // isWinner
                                 phase.id,
-                                phase.phaseName
+                                phase.type // Use phase.type instead of phase.phaseName
                             );
                         });
                     }

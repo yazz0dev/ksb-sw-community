@@ -98,7 +98,7 @@ export async function submitTeamCriteriaVoteInFirestore(
                 };
             }
 
-            transaction.update(eventRef, updateData);
+            transaction.update(eventRef, updateData as any);
         });
     } catch (error: unknown) { // Changed from any
         const message = error instanceof Error ? error.message : `Failed to submit team criteria vote for event ${eventId}.`;
@@ -179,7 +179,7 @@ export async function submitIndividualWinnerVoteInFirestore(
                 },
                 lastUpdatedAt: serverTimestamp()
             };
-            transaction.update(eventRef, updatePayload);
+            transaction.update(eventRef, updatePayload as any);
         });
     } catch (error: unknown) { // Changed from any
         const message = error instanceof Error ? error.message : `Failed to submit individual winner vote for event ${eventId}.`;
@@ -226,7 +226,7 @@ export async function submitOrganizationRatingInFirestore(payload: {
             const newRating: OrganizerRating = {
                 userId: userId,
                 rating: score,
-                ratedAt: serverTimestamp(), // Removed 'as any'
+                ratedAt: serverTimestamp() as any,
             };
             if (feedback && feedback.trim()) {
                 newRating.feedback = feedback.trim();
@@ -277,7 +277,7 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
                 votingOpen: open,
                 lastUpdatedAt: serverTimestamp()
             };
-            transaction.update(eventRef, updatePayload);
+            transaction.update(eventRef, updatePayload as any);
         });
     } catch (error: unknown) { // Changed from any
         throw new Error((error instanceof Error ? error.message : 'Unknown error') || `Failed to toggle voting status for event ${eventId}.`);
@@ -311,10 +311,10 @@ export async function calculateWinnersFromVotes(eventId: string): Promise<Record
                 if (!criteriaVoteCounts[constraintKey]) {
                     criteriaVoteCounts[constraintKey] = {};
                 }
-                if (!criteriaVoteCounts[constraintKey][selectedEntityId]) {
-                    criteriaVoteCounts[constraintKey][selectedEntityId] = 0;
+                if (!criteriaVoteCounts[constraintKey]![selectedEntityId]) {
+                    criteriaVoteCounts[constraintKey]![selectedEntityId] = 0;
                 }
-                criteriaVoteCounts[constraintKey][selectedEntityId] += 1;
+                criteriaVoteCounts[constraintKey]![selectedEntityId] += 1;
             });
         });
 
@@ -412,7 +412,7 @@ export async function submitManualWinnerSelectionInFirestore(
                 manuallySelectedBy: userId,
                 lastUpdatedAt: serverTimestamp()
             };
-            transaction.update(eventRef, updatePayload);
+            transaction.update(eventRef, updatePayload as any);
         });
     } catch (error: unknown) { // Changed from any
         const message = error instanceof Error ? error.message : `Failed to submit manual winner selection for event ${eventId}.`;

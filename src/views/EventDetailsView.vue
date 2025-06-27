@@ -19,10 +19,10 @@
       <!-- Event Content (Render only if event data is loaded successfully) -->
       <template v-if="event && !initialFetchError">
         <div class="container-lg">
-          <!-- Mobile Back Button - Only visible on mobile -->
+          <!-- Mobile Back Button - Updated with new styling -->
           <div class="mobile-back-button d-block d-md-none mb-3">
             <button 
-              class="btn btn-outline-secondary btn-sm d-flex align-items-center"
+              class="btn btn-back btn-sm d-flex align-items-center"
               @click="goBack"
               aria-label="Go back"
             >
@@ -33,7 +33,7 @@
 
           <!-- Event Header -->
           <EventDetailsHeader
-            :event="mapEventToHeaderProps(event)"
+            :event="event"
             :canJoin="canJoin"
             :canLeave="canLeave"
             :isJoining="isJoining"
@@ -219,7 +219,6 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore';
-import { Timestamp } from 'firebase/firestore';
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
@@ -238,7 +237,6 @@ import PhaseDisplayCard from '@/components/events/PhaseDisplayCard.vue'; // Impo
 // Type Imports
 import { EventStatus, type Event, type Team, EventFormat } from '@/types/event';
 import { type EnrichedStudentData } from '@/types/student';
-import type { EventHeaderProps } from '@/components/events/EventDetailsHeader.vue';
 
 interface EventWithId extends Event {
   id: string;
@@ -509,43 +507,6 @@ const handleLeave = async (): Promise<void> => {
         isLeaving.value = false;
         actionInProgress.value = false;
     }
-};
-
-const mapEventToHeaderProps = (evt: EventWithId): EventHeaderProps => {
-  const convertToTimestamp = (dateVal: any): Timestamp | null => {
-    if (!dateVal) return null;
-    if (dateVal instanceof Timestamp) return dateVal;
-    if (typeof dateVal === 'object' && dateVal !== null &&
-        typeof dateVal.seconds === 'number' && typeof dateVal.nanoseconds === 'number') {
-      return new Timestamp(dateVal.seconds, dateVal.nanoseconds);
-    }
-    return null;
-  };
-
-  return {
-    id: evt.id,
-    status: evt.status,
-    title: evt.details.eventName || 'Event',
-    closed: evt.status === EventStatus.Completed || evt.status === EventStatus.Cancelled || evt.status === EventStatus.Closed,
-    teams: evt.teams || undefined,
-    participants: evt.details.format === EventFormat.Individual ? (evt.details.coreParticipants || undefined) : undefined,
-    votingOpen: evt.votingOpen || false,
-    details: {
-        format: evt.details.format,
-        date: {
-            start: convertToTimestamp(evt.details.date?.start),
-            end: convertToTimestamp(evt.details.date?.end)
-        },
-        description: evt.details.description,
-        eventName: evt.details.eventName || undefined,
-        type: evt.details.type || undefined,
-        organizers: evt.details.organizers || undefined,
-        prize: evt.details.prize || undefined,
-        rules: evt.details.rules || undefined,
-        isCompetition: evt.details.isCompetition || false,
-        phases: evt.details.phases || undefined // Pass phases data
-    }
-  };
 };
 
 onMounted(() => {
@@ -819,25 +780,7 @@ function goBack() {
   z-index: 3;
   
   .btn {
-    background: rgba(var(--bs-white-rgb), 0.95);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(var(--bs-border-color-rgb), 0.2);
-    border-radius: var(--bs-border-radius-lg);
-    box-shadow: 0 2px 8px rgba(var(--bs-dark-rgb), 0.08);
-    transition: all 0.2s ease;
-    font-size: 0.875rem;
-    padding: 0.5rem 1rem;
-    
-    &:hover {
-      background: rgba(var(--bs-secondary-rgb), 0.1);
-      border-color: var(--bs-secondary);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(var(--bs-dark-rgb), 0.12);
-    }
-    
-    &:active {
-      transform: translateY(0);
-    }
+    font-weight: 500;
   }
 }
 

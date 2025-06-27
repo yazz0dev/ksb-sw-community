@@ -318,6 +318,45 @@
   }
 }
 
+// Back Button Styles
+.btn-back {
+  background: rgba(var(--bs-white-rgb), 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(var(--bs-border-color-rgb), 0.2);
+  border-radius: var(--bs-border-radius-lg);
+  box-shadow: 0 2px 8px rgba(var(--bs-dark-rgb), 0.08);
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  position: relative;
+  z-index: 3;
+  
+  &:hover {
+    background: rgba(var(--bs-secondary-rgb), 0.1);
+    border-color: var(--bs-secondary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(var(--bs-dark-rgb), 0.12);
+    color: var(--bs-secondary);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
+  &:focus {
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-secondary-rgb), 0.25);
+  }
+}
+
+.mobile-back-button {
+  position: relative;
+  z-index: 3;
+  
+  .btn {
+    font-weight: 500;
+  }
+}
+
 // Button Sizes
 .btn-sm {
   padding: 0.5rem 1.25rem;
@@ -445,6 +484,11 @@
     padding: 1rem 2rem;
     font-size: 1rem;
   }
+  
+  .mobile-back-button .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
 }
 
 @media (max-width: 576px) {
@@ -460,6 +504,10 @@
       border-radius: var(--bs-border-radius-lg);
       margin-bottom: 0.5rem;
     }
+  }
+  
+  .mobile-back-button {
+    margin-bottom: 1rem;
   }
 }
 
@@ -481,6 +529,15 @@
   
   .btn-loading::after {
     animation: none;
+  }
+  
+  .btn-back {
+    transition: none;
+    
+    &:hover,
+    &:active {
+      transform: none;
+    }
   }
 }
 

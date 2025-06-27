@@ -1,212 +1,188 @@
 <template>
-  <div class="multi-event-form">
-    <!-- Validation Summary -->
-    <div v-if="localPhases.length > 0" class="alert alert-sm py-2 mb-3" :class="{
-      'alert-success': isFormValid,
-      'alert-warning': !isFormValid && localPhases.length > 0,
-      'alert-info': localPhases.length === 0
-    }">
-      <i class="fas me-1" :class="{
-        'fa-check-circle': isFormValid,
-        'fa-exclamation-triangle': !isFormValid && localPhases.length > 0,
-        'fa-info-circle': localPhases.length === 0
-      }"></i>
-      {{ validationSummary }}
+  <div class="phase-form">
+    <div v-if="!localPhase" class="alert alert-danger">
+      No phase data provided.
     </div>
 
-    <div v-if="localPhases.length === 0" class="alert alert-info">
-      Click "Add Phase" to define the stages or sub-events for this multi-event.
-    </div>
-
-    <div v-for="(phase, index) in localPhases" :key="phase.id" class="phase-card card mb-4 shadow-sm">
-      <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-        <div class="d-flex align-items-center">
-          <h6 class="mb-0 text-dark me-2">Phase {{ index + 1 }}: {{ phase.phaseName || 'New Phase' }}</h6>
-          <!-- Phase Validation Indicator -->
-          <span v-if="validatePhase(index)" class="badge bg-success-subtle text-success-emphasis rounded-pill">
-            <i class="fas fa-check me-1"></i>Valid
-          </span>
-          <span v-else class="badge bg-warning-subtle text-warning-emphasis rounded-pill">
-            <i class="fas fa-exclamation-triangle me-1"></i>Incomplete
-          </span>
-        </div>
-        <button
-          type="button"
-          class="btn btn-sm btn-outline-danger py-1 px-2"
-          @click="removePhase(index)"
-          :disabled="isSubmitting"
-          title="Remove Phase"
-        >
-          <i class="fas fa-trash"></i>
-        </button>
-      </div>
-      <div class="card-body p-3 p-md-4">
-        <!-- Phase Validation Errors -->
-        <div v-if="validationState.phases[index] && !validationState.phases[index].isValid" class="alert alert-warning alert-sm py-2 mb-3">
-          <small>
-            <i class="fas fa-exclamation-triangle me-1"></i>
-            <strong>Issues to fix:</strong>
-            <ul class="mb-0 mt-1 ps-3">
-              <li v-for="error in validationState.phases[index].errors" :key="error" class="small">{{ error }}</li>
-            </ul>
-          </small>
-        </div>
-
-        <div class="row g-3">
-          <!-- Phase Format Selection -->
-          <div class="col-12">
-            <label class="form-label fw-medium">Phase Format <span class="text-danger">*</span></label>
-            <div class="d-flex flex-wrap gap-3">
-              <div class="form-check">
-                <input 
-                  class="form-check-input" 
-                  type="radio" 
-                  :name="`phaseFormat-${phase.id}`" 
-                  :id="`formatIndividual-${phase.id}`" 
-                  :value="EventFormat.Individual" 
-                  v-model="phase.format" 
-                  :disabled="isSubmitting"
-                >
-                <label class="form-check-label" :for="`formatIndividual-${phase.id}`">Individual</label>
-              </div>
-              <div class="form-check">
-                <input 
-                  class="form-check-input" 
-                  type="radio" 
-                  :name="`phaseFormat-${phase.id}`" 
-                  :id="`formatTeam-${phase.id}`" 
-                  :value="EventFormat.Team" 
-                  v-model="phase.format" 
-                  :disabled="isSubmitting"
-                >
-                <label class="form-check-label" :for="`formatTeam-${phase.id}`">Team</label>
-              </div>
-            </div>
-          </div>
-
-          <!-- Using EventBasicDetailsForm for consistency -->
-          <div class="col-12">
-            <EventBasicDetailsForm
-              :details="getPhaseAsEventDetails(phase)"
-              @update:details="updatePhaseFromEventDetails(index, $event)"
-              :isSubmitting="isSubmitting"
-              :isEditing="false"
-              :isPhaseForm="true"
-            />
-          </div>
-
-          <!-- Phase Prize (Optional, shown if overall event is a competition) -->
-          <div v-if="props.isOverallCompetition" class="col-md-6">
-            <label :for="`phasePrize-${phase.id}`" class="form-label fw-medium">Phase Prize (Optional)</label>
-            <input
-              :id="`phasePrize-${phase.id}`"
-              type="text"
-              class="form-control form-control-sm"
-              v-model.trim="phase.prize"
-              placeholder="e.g., Vouchers for phase winner"
+    <div v-else>
+      <!-- Phase Format Selection -->
+      <div class="mb-3">
+        <label class="form-label fw-medium">Phase Format <span class="text-danger">*</span></label>
+        <div class="d-flex flex-wrap gap-3">
+          <div class="form-check">
+            <input 
+              class="form-check-input" 
+              type="radio" 
+              :name="`phaseFormat-${localPhase.id}`" 
+              :id="`formatIndividual-${localPhase.id}`" 
+              :value="EventFormat.Individual" 
+              v-model="localPhase.format" 
               :disabled="isSubmitting"
-            />
+            >
+            <label class="form-check-label" :for="`formatIndividual-${localPhase.id}`">Individual</label>
           </div>
-          
-          <!-- Allow Project Submission for Phase -->
-          <div class="col-12">
-            <div class="form-check form-switch">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                role="switch"
-                :id="`phaseAllowSubmission-${phase.id}`"
-                v-model="phase.allowProjectSubmission"
-                :disabled="isSubmitting || props.isOverallCompetition"
-              />
-              <label class="form-check-label fw-medium" :for="`phaseAllowSubmission-${phase.id}`">
-                Allow Project Submissions for this Phase
-                <span v-if="props.isOverallCompetition" class="text-muted small ms-1">(Disabled: Project submissions are not allowed for individual phases when the overall MultiEvent is a competition.)</span>
-              </label>
-            </div>
+          <div class="form-check">
+            <input 
+              class="form-check-input" 
+              type="radio" 
+              :name="`phaseFormat-${localPhase.id}`" 
+              :id="`formatTeam-${localPhase.id}`" 
+              :value="EventFormat.Team" 
+              v-model="localPhase.format" 
+              :disabled="isSubmitting"
+            >
+            <label class="form-check-label" :for="`formatTeam-${localPhase.id}`">Team</label>
           </div>
-
-          <!-- Phase Specific Configurations -->
-          <div class="col-12 mt-3 border-top pt-3">
-            <h6 class="text-muted small mb-2">Phase Specific Details:</h6>
-            <!-- Phase Participants -->
-            <div class="mb-2">
-              <label class="form-label form-label-sm">Participants for this Phase:</label>
-              <EventParticipantForm
-                :participants="getPhaseParticipants(phase)"
-                :coreParticipants="getPhaseCoreParticipants(phase)"
-                @update:participants="updatePhaseParticipants(index, $event)"
-                @update:coreParticipants="updatePhaseCoreParticipants(index, $event)"
-                :allUsers="props.allUsers"
-                :eventFormat="phase.format"
-                :isSubmitting="isSubmitting"
-                :nameCache="props.nameCache"
-                :is-editing="false"
-                :max-participants="MAX_PARTICIPANTS_PER_PHASE"
-              />
-            </div>
-
-            <!-- Phase Teams (if phase format is Team) -->
-            <div v-if="phase.format === EventFormat.Team" class="mb-2">
-              <label class="form-label form-label-sm">Teams for this Phase:</label>
-              <ManageTeamsComponent
-                :initial-teams="phase.teams || []"
-                :students="props.allUsers.filter(u => phase.participants?.includes(u.uid))"
-                :is-submitting="isSubmitting"
-                :can-auto-generate="true"
-                :event-id="''"
-                @update:teams="(teams: Team[]) => updatePhaseTeams(index, teams)"
-                @error="(msg: string) => handleError(msg)"
-              />
-            </div>
-            
-            <!-- Phase Criteria -->
-            <div>
-              <label class="form-label form-label-sm">Rating Criteria for this Phase:</label>
-              <EventCriteriaForm
-                :criteria="getPhaseCriteria(phase)"
-                @update:criteria="updatePhaseCriteria(index, $event)"
-                :isSubmitting="isSubmitting"
-                :eventFormat="phase.format"
-                :isIndividualCompetition="phase.format === EventFormat.Individual && props.isOverallCompetition"
-                :assignableXpRoles="assignableXpRoles"
-                :totalXP="calculateTotalXP(phase.criteria)"
-              />
-            </div>
-          </div>
-
         </div>
       </div>
-    </div>
 
-    <button
-      type="button"
-      class="btn btn-primary btn-sm mt-3"
-      @click="addPhase"
-      :disabled="isSubmitting"
-    >
-      <i class="fas fa-plus me-1"></i> Add Phase
-    </button>
+      <!-- Phase Name -->
+      <div class="mb-3">
+        <label :for="`phaseName-${localPhase.id}`" class="form-label fw-medium">Phase Name <span class="text-danger">*</span></label>
+        <input
+          :id="`phaseName-${localPhase.id}`"
+          class="form-control"
+          type="text"
+          v-model.trim="localPhase.phaseName"
+          :disabled="isSubmitting"
+          placeholder="Enter phase name"
+          maxlength="100"
+        />
+      </div>
+
+      <!-- Phase Type -->
+      <div class="mb-3">
+        <label :for="`phaseType-${localPhase.id}`" class="form-label fw-medium">Phase Type <span class="text-danger">*</span></label>
+        <select
+          :id="`phaseType-${localPhase.id}`"
+          class="form-select"
+          v-model="localPhase.type"
+          :disabled="isSubmitting"
+        >
+          <option value="" disabled>Select type...</option>
+          <option v-for="typeOpt in eventTypesForFormat" :key="typeOpt" :value="typeOpt">{{ typeOpt }}</option>
+        </select>
+      </div>
+
+      <!-- Description -->
+      <div class="mb-3">
+        <label :for="`phaseDescription-${localPhase.id}`" class="form-label fw-medium">Description <span class="text-danger">*</span></label>
+        <textarea
+          :id="`phaseDescription-${localPhase.id}`"
+          class="form-control"
+          rows="4"
+          v-model="localPhase.description"
+          :disabled="isSubmitting"
+          placeholder="Describe this phase..."
+        ></textarea>
+      </div>
+
+      <!-- Rules -->
+      <div class="mb-3">
+        <label :for="`phaseRules-${localPhase.id}`" class="form-label fw-medium">Rules (Optional)</label>
+        <textarea
+          :id="`phaseRules-${localPhase.id}`"
+          class="form-control"
+          rows="3"
+          v-model="localPhase.rules"
+          :disabled="isSubmitting"
+          placeholder="Enter specific rules for this phase"
+        ></textarea>
+      </div>
+
+      <!-- Prize (if overall event is competition) -->
+      <div v-if="isOverallCompetition" class="mb-3">
+        <label :for="`phasePrize-${localPhase.id}`" class="form-label fw-medium">Phase Prize (Optional)</label>
+        <input
+          :id="`phasePrize-${localPhase.id}`"
+          type="text"
+          class="form-control"
+          v-model.trim="localPhase.prize"
+          placeholder="e.g., Vouchers for phase winner"
+          :disabled="isSubmitting"
+        />
+      </div>
+
+      <!-- Allow Project Submission -->
+      <div class="mb-3">
+        <div class="form-check form-switch">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            role="switch"
+            :id="`phaseAllowSubmission-${localPhase.id}`"
+            v-model="localPhase.allowProjectSubmission"
+            :disabled="isSubmitting || isOverallCompetition"
+          />
+          <label class="form-check-label fw-medium" :for="`phaseAllowSubmission-${localPhase.id}`">
+            Allow Project Submissions for this Phase
+            <span v-if="isOverallCompetition" class="text-muted small ms-1">(Disabled for competition phases)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Participants -->
+      <div class="mb-4">
+        <h6 class="text-muted mb-2">Participants for this Phase <span class="text-danger">*</span></h6>
+        <EventParticipantForm
+          :participants="localPhase.participants"
+          :coreParticipants="localPhase.coreParticipants"
+          @update:participants="localPhase.participants = $event"
+          @update:coreParticipants="localPhase.coreParticipants = $event"
+          :allUsers="allUsers"
+          :eventFormat="localPhase.format"
+          :isSubmitting="isSubmitting"
+          :nameCache="nameCache"
+          :is-editing="false"
+          :max-participants="50"
+          @validity-change="participantsValid = $event"
+        />
+      </div>
+
+      <!-- Teams (if Team format) -->
+      <div v-if="localPhase.format === EventFormat.Team" class="mb-4">
+        <h6 class="text-muted mb-2">Teams for this Phase <span class="text-danger">*</span></h6>
+        <ManageTeamsComponent
+          :initial-teams="localPhase.teams"
+          :students="allUsers.filter(u => localPhase?.participants?.includes(u.uid) || false)"
+          :is-submitting="isSubmitting"
+          :can-auto-generate="true"
+          :event-id="localPhase.id"
+          @update:teams="localPhase.teams = $event"
+          @error="handleError"
+          @validity-change="teamsValid = $event"
+        />
+      </div>
+
+      <!-- Criteria -->
+      <div class="mb-4">
+        <h6 class="text-muted mb-2">Rating Criteria for this Phase <span class="text-danger">*</span></h6>
+        <EventCriteriaForm
+          :criteria="localPhase.criteria"
+          @update:criteria="localPhase.criteria = $event"
+          :isSubmitting="isSubmitting"
+          :eventFormat="localPhase.format"
+          :isIndividualCompetition="localPhase.format === EventFormat.Individual && isOverallCompetition"
+          :assignableXpRoles="['developer', 'designer', 'presenter', 'problemSolver']"
+          :totalXP="totalXP"
+          @validity-change="criteriaValid = $event"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onUnmounted, type PropType } from 'vue';
-import { EventFormat, type EventPhase, type Team, type EventCriteria, type EventFormData } from '@/types/event';
+import { ref, watch, computed, type PropType } from 'vue';
+import { EventFormat, type EventPhase } from '@/types/event';
 import type { UserData } from '@/types/student';
 import EventParticipantForm from '@/components/forms/EventParticipantForm.vue';
 import ManageTeamsComponent from '@/components/forms/ManageTeamsComponent.vue';
 import EventCriteriaForm from '@/components/forms/EventCriteriaForm.vue';
-import EventBasicDetailsForm from '@/components/forms/EventBasicDetailsForm.vue';
-
-// Constants
-const MAX_PARTICIPANTS_PER_PHASE = 50;
-const assignableXpRoles = ['developer', 'designer', 'presenter', 'problemSolver'];
 
 const props = defineProps({
   modelValue: {
     type: Array as PropType<EventPhase[]>,
-    default: () => [],
     required: true,
   },
   isSubmitting: {
@@ -219,360 +195,91 @@ const props = defineProps({
   },
   allUsers: {
     type: Array as PropType<UserData[]>,
-    default: () => [],
     required: true,
   },
   nameCache: {
     type: Object as PropType<Record<string, string>>,
-    default: () => ({}),
+    required: true,
   },
 });
 
 const emit = defineEmits<{
   'update:modelValue': [value: EventPhase[]];
-  'submit': [];
-  'error': [message: string];
   'validity-change': [isValid: boolean];
+  'error': [message: string];
 }>();
 
-const localPhases = ref<EventPhase[]>([]);
-const validityTimeout = ref<number | null>(null);
+const localPhase = computed(() => props.modelValue[0] || null);
+const participantsValid = ref(false);
+const teamsValid = ref(true);
+const criteriaValid = ref(false);
 
-// Initialize localPhases properly
-const initializeLocalPhases = () => {
-  localPhases.value = (props.modelValue || []).map(phase => ({ 
-    ...phase,
-    id: phase.id || crypto.randomUUID(),
-    participants: phase.participants || [],
-    coreParticipants: phase.coreParticipants || [],
-    criteria: phase.criteria || [],
-    teams: phase.teams || [],
-    type: phase.type || '',
-    rules: phase.rules ?? null,
-    prize: phase.prize ?? null,
-    allowProjectSubmission: Boolean(phase.allowProjectSubmission)
-  }));
-};
-
-// Initialize on mount
-initializeLocalPhases();
-
-// Helper function to get event types based on phase format
-const getEventTypesForFormat = (format: EventFormat): string[] => {
-  // You'll need to import these from your event types utility
-  // For now, returning basic arrays - replace with actual imports
-  switch (format) {
+const eventTypesForFormat = computed(() => {
+  if (!localPhase.value) return [];
+  
+  switch (localPhase.value.format) {
     case EventFormat.Team: 
       return ['Hackathon', 'Project Competition', 'Case Study', 'Design Challenge'];
     case EventFormat.Individual:
     default: 
       return ['Quiz', 'Presentation', 'Code Challenge', 'Interview'];
   }
-};
+});
 
-// Helper function to convert EventPhase to EventFormData['details'] for EventBasicDetailsForm
-const getPhaseAsEventDetails = (phase: EventPhase): EventFormData['details'] => {
-  return {
-    eventName: phase.phaseName,
-    description: phase.description,
-    format: phase.format,
-    type: phase.type,
-    organizers: [], // Not used for phases
-    coreParticipants: phase.coreParticipants || [],
-    allowProjectSubmission: Boolean(phase.allowProjectSubmission),
-    date: { start: null, end: null }, // Dates managed at parent level
-    rules: phase.rules,
-    prize: phase.prize,
-    isCompetition: false // Default for phases
-  };
-};
+const totalXP = computed(() => {
+  if (!localPhase.value?.criteria) return 0;
+  return localPhase.value.criteria.reduce((sum, criteria) => sum + (criteria.points || 0), 0);
+});
 
-// Helper function to update phase from EventBasicDetailsForm output
-const updatePhaseFromEventDetails = (phaseIndex: number, details: EventFormData['details']) => {
-  if (localPhases.value[phaseIndex]) {
-    const phase = localPhases.value[phaseIndex];
-    phase.phaseName = details.eventName;
-    phase.description = details.description;
-    // Don't update format from EventBasicDetailsForm since we handle it separately
-    phase.type = details.type || '';
-    phase.rules = details.rules ?? null;
-    
-    // Update teams array if format changed
-    if (phase.format === EventFormat.Individual && phase.teams && phase.teams.length > 0) {
-      phase.teams = []; // Clear teams if format changed to Individual
-    }
-    
-    emit('update:modelValue', localPhases.value);
+const isValid = computed(() => {
+  if (!localPhase.value) return false;
+  
+  const hasBasicInfo = !!(
+    localPhase.value.phaseName?.trim() &&
+    localPhase.value.description?.trim() &&
+    localPhase.value.type?.trim()
+  );
+  
+  const hasValidParticipants = participantsValid.value;
+  const hasValidCriteria = criteriaValid.value;
+  
+  let formatSpecificValid = true;
+  if (localPhase.value.format === EventFormat.Team) {
+    formatSpecificValid = teamsValid.value && localPhase.value.teams.length > 0;
+  } else if (localPhase.value.format === EventFormat.Individual) {
+    formatSpecificValid = localPhase.value.coreParticipants.length > 0;
   }
-};
+  
+  return hasBasicInfo && hasValidParticipants && hasValidCriteria && formatSpecificValid;
+});
 
-// Helper functions to handle participants, coreParticipants, and criteria
-const getPhaseParticipants = (phase: EventPhase): string[] => {
-  return phase.participants || [];
-};
-
-const getPhaseCoreParticipants = (phase: EventPhase): string[] => {
-  return phase.coreParticipants || [];
-};
-
-const getPhaseCriteria = (phase: EventPhase): EventCriteria[] => {
-  return phase.criteria || [];
-};
-
-const updatePhaseParticipants = (phaseIndex: number, participants: string[]) => {
-  if (localPhases.value[phaseIndex]) {
-    localPhases.value[phaseIndex].participants = participants;
-    emit('update:modelValue', localPhases.value);
-  }
-};
-
-const updatePhaseCoreParticipants = (phaseIndex: number, coreParticipants: string[]) => {
-  if (localPhases.value[phaseIndex]) {
-    localPhases.value[phaseIndex].coreParticipants = coreParticipants;
-    emit('update:modelValue', localPhases.value);
-  }
-};
-
-const updatePhaseCriteria = (phaseIndex: number, criteria: EventCriteria[]) => {
-  if (localPhases.value[phaseIndex]) {
-    localPhases.value[phaseIndex].criteria = criteria;
-    emit('update:modelValue', localPhases.value);
-  }
-};
-
-const calculateTotalXP = (criteria: EventCriteria[] | null | undefined) => {
-  if (!criteria) return 0;
-  return criteria.reduce((sum, criteria) => sum + (criteria.points || 0), 0);
-};
-
-const updatePhaseTeams = (phaseIndex: number, teams: Team[]) => {
-  if (localPhases.value[phaseIndex]) {
-    localPhases.value[phaseIndex].teams = teams;
-    emit('update:modelValue', localPhases.value);
-  }
-};
-
-const handleError = (message: string) => {
+function handleError(message: string) {
   emit('error', message);
-};
+}
 
-// Watch for external changes to modelValue prop
-watch(() => props.modelValue, (newVal) => {
-  if (newVal && Array.isArray(newVal)) {
-    initializeLocalPhases();
-  }
-}, { deep: true });
-
-// Watch for isOverallCompetition changes to update phase submissions
-watch(() => props.isOverallCompetition, (isCompetition) => {
-  if (isCompetition) {
-    localPhases.value.forEach(phase => {
-      phase.allowProjectSubmission = false;
-    });
-  }
-  // If isCompetition becomes false, phase.allowProjectSubmission remains as is, user can enable it.
-  // The UI toggle will become enabled.
-}, { immediate: true }); // Immediate to run on component load
-
-// Enhanced validation with detailed error tracking
-const validationState = ref<{
-  phases: Array<{
-    isValid: boolean;
-    errors: string[];
-  }>
-}>({
-  phases: []
-});
-
-// Add validation computed property with detailed phase validation
-const isFormValid = computed(() => {
-  if (localPhases.value.length === 0) {
-    return false;
-  }
-  
-  // Update validation state for each phase
-  validationState.value.phases = localPhases.value.map((phase: EventPhase) => {
-    const errors: string[] = [];
-    
-    // Basic details validation
-    if (!phase.phaseName?.trim()) {
-      errors.push('Phase name is required');
-    }
-    if (!phase.description?.trim()) {
-      errors.push('Phase description is required');
-    }
-    if (!phase.type?.trim()) {
-      errors.push('Phase type is required');
-    }
-    
-    // Participants validation
-    if (!phase.participants || phase.participants.length === 0) {
-      errors.push('At least one participant is required');
-    }
-    
-    // Core participants validation for Individual format
-    if (phase.format === EventFormat.Individual && (!phase.coreParticipants || phase.coreParticipants.length === 0)) {
-      errors.push('At least one core participant is required for Individual format');
-    }
-    
-    // Criteria validation
-    if (!phase.criteria || phase.criteria.length === 0) {
-      errors.push('At least one rating criteria is required');
-    } else {
-      const invalidCriteria = phase.criteria.filter(c => 
-        !c.title?.trim() || !c.role?.trim() || !c.points || c.points <= 0
-      );
-      if (invalidCriteria.length > 0) {
-        errors.push(`${invalidCriteria.length} rating criteria are incomplete`);
-      }
-    }
-    
-    // Teams validation for Team format
-    if (phase.format === EventFormat.Team) {
-      if (!phase.teams || phase.teams.length === 0) {
-        errors.push('At least one team is required for Team format');
-      } else {
-        const invalidTeams = phase.teams.filter(team => 
-          !team.teamName?.trim() || !team.members || team.members.length < 2
-        );
-        if (invalidTeams.length > 0) {
-          errors.push(`${invalidTeams.length} teams are invalid (need name and 2+ members)`);
-        }
-      }
-    }
-    
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  });
-  
-  return validationState.value.phases.every(phase => phase.isValid);
-});
-
-// Add computed property for validation summary
-const validationSummary = computed(() => {
-  if (localPhases.value.length === 0) {
-    return 'No phases defined. Add at least one phase to continue.';
-  }
-  
-  const invalidPhases = validationState.value.phases.filter(p => !p.isValid);
-  if (invalidPhases.length === 0) {
-    return `All ${localPhases.value.length} phases are valid.`;
-  }
-  
-  return `${invalidPhases.length} of ${localPhases.value.length} phases have validation errors.`;
-});
-
-// Enhanced phase validation handlers
-const validatePhase = (phaseIndex: number): boolean => {
-  const phase = localPhases.value[phaseIndex];
-  if (!phase) return false;
-  
-  const hasBasicDetails = !!(phase.phaseName?.trim() && phase.description?.trim() && phase.type?.trim());
-  const hasValidParticipants = phase.participants && phase.participants.length > 0;
-  const hasValidCriteria = phase.criteria && phase.criteria.length > 0 && 
-    phase.criteria.every(c => c.title?.trim() && c.role?.trim() && c.points > 0);
-  
-  // For Individual format, check core participants
-  if (phase.format === EventFormat.Individual) {
-    const hasValidCoreParticipants = phase.coreParticipants && phase.coreParticipants.length > 0;
-    return hasBasicDetails && hasValidParticipants && hasValidCriteria && hasValidCoreParticipants;
-  }
-  
-  // For team format, also check teams
-  if (phase.format === EventFormat.Team) {
-    const hasValidTeams = phase.teams && phase.teams.length > 0 &&
-      phase.teams.every(team => team.teamName?.trim() && team.members?.length >= 2);
-    return hasBasicDetails && hasValidParticipants && hasValidCriteria && hasValidTeams;
-  }
-  
-  return hasBasicDetails && hasValidParticipants && hasValidCriteria;
-};
-
-// Watch form validity and emit changes with debouncing
-watch(isFormValid, (newValid) => {
-  if (validityTimeout.value) {
-    clearTimeout(validityTimeout.value);
-  }
-  
-  validityTimeout.value = window.setTimeout(() => {
-    emit('validity-change', newValid);
-  }, 100);
+// Watch for validity changes
+watch(isValid, (newValid) => {
+  emit('validity-change', newValid);
 }, { immediate: true });
 
-// Enhanced phase management
-const addPhase = () => {
-  const newPhase: EventPhase = {
-    id: crypto.randomUUID(),
-    phaseName: `Phase ${localPhases.value.length + 1}`,
-    format: EventFormat.Individual,
-    type: '',
-    description: '', 
-    participants: [],
-    coreParticipants: [],
-    criteria: [],
-    teams: [],
-    rules: null,
-    prize: null,
-    allowProjectSubmission: false
-  };
-
-  localPhases.value.push(newPhase);
-  emit('update:modelValue', localPhases.value);
-};
-
-const removePhase = (index: number) => {
-  if (localPhases.value.length <= 1) {
-    emit('error', 'Cannot remove the last phase. At least one phase is required.');
-    return;
+// Watch for changes and emit updates
+watch(() => localPhase.value, (newPhase) => {
+  if (newPhase) {
+    emit('update:modelValue', [newPhase]);
   }
-  
-  localPhases.value.splice(index, 1);
-  emit('update:modelValue', localPhases.value);
-};
-
-// Enhanced phase format change handler
-watch(localPhases, (phases) => {
-  if (!Array.isArray(phases)) return;
-  
-  phases.forEach((phase: EventPhase) => {
-    // Ensure phase has required properties
-    if (!phase.id) {
-      phase.id = crypto.randomUUID();
-    }
-    
-    // Reset type if it's not valid for the current format
-    const validTypes = getEventTypesForFormat(phase.format);
-    if (phase.type && !validTypes.includes(phase.type)) {
-      phase.type = '';
-    }
-    
-    // Clear format-specific data when format changes
-    if (phase.format === EventFormat.Individual && phase.teams && phase.teams.length > 0) {
-      phase.teams = [];
-    }
-    
-    // Ensure core participants are cleared for Team format
-    if (phase.format === EventFormat.Team) {
-      phase.coreParticipants = [];
-    }
-
-    // Ensure boolean properties are correctly typed
-    phase.allowProjectSubmission = Boolean(phase.allowProjectSubmission);
-  });
-  
-  // Emit updated phases
-  emit('update:modelValue', phases);
 }, { deep: true });
 
-// Add cleanup on unmount
-onUnmounted(() => {
-  if (validityTimeout.value) {
-    clearTimeout(validityTimeout.value);
+// Watch for format changes to reset incompatible data
+watch(() => localPhase.value?.format, (newFormat, oldFormat) => {
+  if (!localPhase.value || newFormat === oldFormat) return;
+  
+  if (newFormat === EventFormat.Individual) {
+    localPhase.value.teams = [];
+    teamsValid.value = true;
+  } else if (newFormat === EventFormat.Team) {
+    localPhase.value.coreParticipants = [];
   }
 });
-
 </script>
 
 <style scoped>

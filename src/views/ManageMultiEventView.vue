@@ -6,8 +6,18 @@
           <h1 class="h2 text-gradient-primary mb-1">{{ pageTitle }}</h1>
           <p class="text-subtitle mb-0">{{ pageSubtitle }}</p>
         </div>
+        <div class="mobile-back-button d-block d-md-none">
+          <button
+            class="btn btn-back btn-sm d-flex align-items-center"
+            @click="goBack"
+            aria-label="Go back"
+          >
+            <i class="fas fa-arrow-left me-2"></i>
+            <span>Back</span>
+          </button>
+        </div>
         <button
-          class="btn btn-outline-secondary btn-sm btn-icon"
+          class="btn btn-back btn-sm btn-icon d-none d-md-inline-flex"
           @click="goBack"
           aria-label="Go back"
         >
@@ -71,11 +81,12 @@
             <h5 class="mb-0 fw-medium"><i class="fas fa-layer-group me-2"></i>2. Event Phases Configuration</h5>
           </div>
           <div class="card-body p-4">
-            <MultiEventPhaseManager
-              v-if="formData.details"
-              v-model="formData.details.phases"
-              :isSubmitting="isSubmitting"
-              :overallEventIsCompetition="formData.details.isCompetition || false"
+                          <MultiEventPhaseManager
+                v-if="formData.details"
+                :model-value="formData.details.phases || []"
+                @update:model-value="formData.details.phases = $event"
+                :isSubmitting="isSubmitting"
+                :overallEventIsCompetition="formData.details.isCompetition || false"
               :allUsers="allUsers"
               :nameCache="nameCache"
               @validity-change="handlePhasesValidityChange"
@@ -109,7 +120,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useEventStore } from '@/stores/eventStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { EventFormat, EventStatus, type EventFormData, type EventPhase } from '@/types/event';
+import { EventFormat, EventStatus, type EventFormData } from '@/types/event';
 import type { UserData } from '@/types/student';
 import { DateTime } from 'luxon';
 
@@ -210,9 +221,11 @@ function handlePhasesValidityChange(isValid: boolean) {
 
 async function populateFormForEdit(id: string) {
   try {
-    let event = eventStore.getEventById(id);
+    let event = eventStore.events.find(e => e.id === id);
     if (!event) {
-      event = await eventStore.fetchEventDetails(id);
+      const fetchedEvent = await eventStore.fetchEventDetails(id);
+      if (!fetchedEvent) throw new Error("Event not found or access denied.");
+      event = fetchedEvent;
     }
 
     if (!event || event.details.format !== EventFormat.MultiEvent) {
@@ -222,7 +235,7 @@ async function populateFormForEdit(id: string) {
     // Basic permission check (can be expanded)
     const isOwner = event.requestedBy === profileStore.studentId;
     const isOrganizer = event.details.organizers.includes(profileStore.studentId || '');
-     if (!isOwner && !isOrganizer && !(profileStore.isAdmin || profileStore.isFaculty)) {
+     if (!isOwner && !isOrganizer && !((profileStore as any).isAdmin || (profileStore as any).isFaculty)) {
        throw new Error("You do not have permission to edit this event.");
      }
 
@@ -246,7 +259,7 @@ async function populateFormForEdit(id: string) {
     formData.value.details.phases = (eventData.details?.phases || []).map((phase: any) => ({
         ...phase,
         id: phase.id || crypto.randomUUID(), // Ensure phases have IDs
-        // Ensure all required fields for a phase are present, even if null/empty
+        // Ensure all required arrays are present
         participants: phase.participants || [],
         coreParticipants: phase.coreParticipants || [],
         criteria: phase.criteria || [],
@@ -255,6 +268,7 @@ async function populateFormForEdit(id: string) {
         prize: phase.prize ?? null,
         allowProjectSubmission: phase.allowProjectSubmission ?? false,
         type: phase.type || '',
+        phaseName: phase.phaseName || '', // Ensure phaseName exists
     }));
 
     formData.value.status = eventData.status || EventStatus.Pending;
@@ -274,7 +288,7 @@ async function populateFormForEdit(id: string) {
 
 async function handleSubmitForm() {
   if (!isFormCompletelyValid.value) {
-    formRef.value?.classList.add('was-validated'); // Trigger browser validation styles
+    formRef.value?.classList.add('was-validated');
     let errorMessages = [];
     if (!isBasicDetailsValid.value) errorMessages.push("Overall event details are incomplete.");
     if (!isOrganizersValid.value) errorMessages.push("Organizer information is incomplete.");
@@ -293,7 +307,6 @@ async function handleSubmitForm() {
   isSubmitting.value = true;
 
   const submissionData: EventFormData = JSON.parse(JSON.stringify(formData.value));
-  // Ensure MultiEvent specific data cleanup (already handled by design but good to double check)
   submissionData.details.format = EventFormat.MultiEvent;
   submissionData.details.coreParticipants = [];
   submissionData.details.type = '';
@@ -302,48 +315,31 @@ async function handleSubmitForm() {
   submissionData.criteria = [];
   submissionData.teams = [];
 
-  // Validate phases again server-side style
+  // Validate phases
   for (const [index, phase] of (submissionData.details.phases || []).entries()) {
     if (!phase.phaseName?.trim()) throw new Error(`Phase ${index + 1} is missing a name.`);
     if (!phase.type?.trim()) throw new Error(`Phase ${index + 1} is missing a type.`);
-    if (!phase.description?.trim()) throw new Error(`Phase ${index + 1} is missing a description.`);
-    if (!phase.participants || phase.participants.length === 0) throw new Error(`Phase ${index + 1} requires at least one participant.`);
-    if (!phase.criteria || phase.criteria.length === 0) throw new Error(`Phase ${index + 1} requires at least one rating criteria.`);
-    if (phase.format === EventFormat.Team && (!phase.teams || phase.teams.length === 0)) {
-      throw new Error(`Phase ${index + 1} (Team format) requires at least one team.`);
-    }
-    if (phase.format === EventFormat.Individual && (!phase.coreParticipants || phase.coreParticipants.length === 0)) {
-       throw new Error(`Phase ${index + 1} (Individual format) requires at least one core participant.`);
-    }
   }
 
-  // Prize validation for overall competition
-   if (submissionData.details.isCompetition && !submissionData.details.prize?.trim()) {
-        const hasPhasePrizes = submissionData.details.phases?.some(p => !!p.prize?.trim());
-        if (!hasPhasePrizes) {
-            isSubmitting.value = false;
-            return handleFormError("If the overall event is a competition, either an overall prize or at least one phase prize must be specified.");
-        }
-    }
-
-
+  // Proceed with submission
   try {
     let successMessage = '';
-    let newEventId = '';
+    let newEventId: string | null = '';
 
     if (isEditing.value) {
-      await eventStore.editMyEventRequest(eventId.value, submissionData); // Assuming this method can handle MultiEvent updates
+      await eventStore.editMyEventRequest(eventId.value, submissionData);
       successMessage = 'Multi-Stage Event updated successfully!';
       newEventId = eventId.value;
     } else {
-      const createdEventId = await eventStore.requestNewEvent(submissionData); // Assuming this method can handle MultiEvent creation
-      if (!createdEventId) throw new Error("Failed to create event ID.");
+      newEventId = await eventStore.requestNewEvent(submissionData);
+      if (!newEventId) throw new Error("Failed to create event ID.");
       successMessage = 'Multi-Stage Event request submitted successfully!';
-      newEventId = createdEventId;
     }
 
-    notificationStore.showNotification({ message: successMessage, type: 'success' });
-    router.push({ name: 'EventDetails', params: { id: newEventId } });
+    if (newEventId) {
+      notificationStore.showNotification({ message: successMessage, type: 'success' });
+      router.push({ name: 'EventDetails', params: { id: newEventId } });
+    }
 
   } catch (error: any) {
     handleFormError(error.message || 'An unknown error occurred while submitting the event.');
@@ -372,10 +368,9 @@ onMounted(async () => {
       await populateFormForEdit(eventId.value);
     }
     // Trigger validity checks after form is potentially populated
-    // This might require a tick or slight delay if child components need to initialize
     await new Promise(resolve => setTimeout(resolve, 0));
-    handleBasicDetailsValidityChange(formRef.value?.checkValidity() || false); // A bit simplistic
-    handlePhasesValidityChange(formData.value.details.phases ? formData.value.details.phases.length > 0 : false);
+    handleBasicDetailsValidityChange(formRef.value?.checkValidity() || false); 
+    handlePhasesValidityChange(!!formData.value.details.phases && formData.value.details.phases.length > 0);
 
 
   } catch (error: any) {
@@ -392,28 +387,4 @@ watch(() => formData.value.details.isCompetition, (isOverallComp) => {
     formData.value.details.prize = null; // Clear overall prize if not a competition
   }
 });
-
 </script>
-
-<style scoped>
-.manage-multi-event-section {
-  min-height: 100vh;
-}
-.card-header {
-  border-bottom: 2px solid rgba(var(--bs-primary-rgb), 0.2);
-}
-.btn-loading .btn-text {
-  display: none;
-}
-.btn-loading::after {
-  content: "";
-  display: inline-block;
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spinner-border .75s linear infinite;
-  vertical-align: middle;
-}
-</style>

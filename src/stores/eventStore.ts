@@ -26,7 +26,12 @@ import {
 import { fetchMyEventRequests as fetchMyEventRequestsService, fetchSingleEventForStudent, fetchPubliclyViewableEvents, hasPendingRequest } from '@/services/eventService/eventQueries';
 import { joinEventByStudentInFirestore, leaveEventByStudentInFirestore, submitProject as submitProjectService } from '@/services/eventService/eventParticipation';
 import { autoGenerateEventTeamsInFirestore } from '@/services/eventService/eventTeams';
-import { submitOrganizationRatingInFirestore } from '@/services/eventService/eventVoting';
+import { 
+  submitOrganizationRatingInFirestore,
+  submitTeamCriteriaVoteInFirestore,
+  submitIndividualWinnerVoteInFirestore,
+  submitManualWinnerSelectionInFirestore
+} from '@/services/eventService/eventVoting';
 
 
 // Placeholder for the actual service function to toggle voting status
@@ -324,6 +329,39 @@ export const useEventStore = defineStore('studentEvents', () => {
     );
   }
 
+  async function submitTeamCriteriaVote(payload: { eventId: string; votes: { criteria: Record<string, string>; bestPerformer?: string } }) {
+    await _queueAction('_submitTeamCriteriaVote', payload);
+  }
+  async function _submitTeamCriteriaVote(payload: { eventId: string; studentId: string; votes: { criteria: Record<string, string>; bestPerformer?: string } }) {
+    await _executeAndRefresh(
+      () => submitTeamCriteriaVoteInFirestore(payload.eventId, payload.studentId, payload.votes),
+      payload.eventId,
+      "Team criteria vote submitted!"
+    );
+  }
+
+  async function submitIndividualWinnerVote(payload: { eventId: string; votes: { criteria: Record<string, string> } }) {
+    await _queueAction('_submitIndividualWinnerVote', payload);
+  }
+  async function _submitIndividualWinnerVote(payload: { eventId: string; studentId: string; votes: { criteria: Record<string, string> } }) {
+    await _executeAndRefresh(
+      () => submitIndividualWinnerVoteInFirestore(payload.eventId, payload.studentId, payload.votes),
+      payload.eventId,
+      "Individual winner vote submitted!"
+    );
+  }
+
+  async function submitManualWinnerSelection(payload: { eventId: string; winnerSelections: Record<string, string | string[]> }) {
+    await _queueAction('_submitManualWinnerSelection', payload);
+  }
+  async function _submitManualWinnerSelection(payload: { eventId: string; studentId: string; winnerSelections: Record<string, string | string[]> }) {
+    await _executeAndRefresh(
+      () => submitManualWinnerSelectionInFirestore(payload.eventId, payload.studentId, payload.winnerSelections),
+      payload.eventId,
+      "Manual winner selection submitted!"
+    );
+  }
+
   async function autoGenerateTeams(payload: { eventId: string; studentUids: string[]; minMembers: number; maxMembers: number }) {
     isLoading.value = true;
     try {
@@ -390,12 +428,18 @@ export const useEventStore = defineStore('studentEvents', () => {
     clearError,
     toggleVotingOpen, // Expose new action
     closeEventPermanently, // Expose new action
+    submitTeamCriteriaVote,
+    submitIndividualWinnerVote,
+    submitManualWinnerSelection,
 
     // Internals exposed for offline queue processing
     _joinEvent,
     _leaveEvent,
     _submitProject,
     _submitOrganizationRating,
+    _submitTeamCriteriaVote,
+    _submitIndividualWinnerVote,
+    _submitManualWinnerSelection,
     // Add other actions here as needed, wrapping them in _queueAction if they can be offline
   };
 });

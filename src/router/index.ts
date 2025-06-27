@@ -29,6 +29,7 @@ const routes: Array<RouteRecordRaw> = [
     // Routes for Multi-Stage Events
     { path: '/create-multi-event', name: 'CreateMultiEvent', component: () => import('@/views/ManageMultiEventView.vue'), meta: { requiresAuth: true, roles: ['Student'], title: 'Create Multi-Stage Event', description: 'Create a new multi-stage event with multiple phases.' } as RouteMeta },
     { path: '/edit-multi-event/:eventId', name: 'EditMultiEvent', component: () => import('@/views/ManageMultiEventView.vue'), meta: { requiresAuth: true, roles: ['Student'], title: 'Edit Multi-Stage Event', description: 'Edit an existing multi-stage event.' } as RouteMeta, props: true },
+    { path: '/edit-multi-event/pending/:eventId', name: 'EditPendingMultiEvent', component: () => import('@/views/ManageMultiEventView.vue'), meta: { requiresAuth: true, roles: ['Student'], title: 'Edit Pending Multi-Stage Event', description: 'Edit an existing multi-stage event that is pending approval.' } as RouteMeta, props: true },
 
     { path: '/profile', name: 'Profile', component: () => import('@/views/ProfileView.vue'), meta: { requiresAuth: true, title: 'My Profile', description: 'View and manage your KSB Tech Community profile.' } as RouteMeta },
     { path: '/profile/edit', name: 'EditProfile', component: () => import('@/views/EditProfileView.vue'), meta: { requiresAuth: true, title: 'Edit Profile', description: 'Edit your KSB Tech Community profile information.' } as RouteMeta, props: true },

@@ -3,11 +3,11 @@ import {
   getDoc, 
   updateDoc,
   arrayUnion,
-  serverTimestamp
+  serverTimestamp,
+  arrayRemove
 } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { 
-  type Event, 
   EventStatus, 
   type Submission,
   EventFormat
@@ -56,9 +56,9 @@ export const submitProject = async (
     const newSubmission: Submission = {
       projectName: submissionData.projectName.trim(),
       link: submissionData.link.trim(),
-      description: submissionData.description?.trim() || undefined,
+      description: submissionData.description || null,
       submittedBy: studentId,
-      submittedAt: serverTimestamp(), // Removed 'as any'
+      submittedAt: serverTimestamp() as any,
     };
 
     if (eventData.details.format === EventFormat.Team) {
@@ -170,7 +170,7 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
         // Assuming it would modify 'updates' if user is found in participants or teams.
         // For example, if user is in participants:
         if (eventData.participants?.includes(studentId)) {
-            updates.participants = arrayRemove(studentId);
+            updates.participants = arrayRemove(studentId) as any;
             userFoundAndRemoved = true;
         }
         // Add similar logic for team removal if applicable for this function
@@ -179,7 +179,7 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
             throw new Error('You are not currently registered as a participant or team member in this event.');
         }
 
-        await updateDoc(eventRef, updates); // Removed 'as any'
+        await updateDoc(eventRef, updates as any); // Need cast for Firestore type compatibility
     } catch (error: unknown) { // Changed from any
         const message = error instanceof Error ? error.message : `Failed to leave event ${eventId}.`;
         throw new Error(message);

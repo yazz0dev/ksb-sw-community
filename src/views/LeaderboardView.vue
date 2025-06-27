@@ -79,58 +79,28 @@
 
             <!-- Top 3 Podium (Desktop) -->
             <div v-if="topThreeUsers.length > 0" class="top-three-container d-none d-md-block mb-5">
-              <div class="row justify-content-center">
-                <div class="col-12">
-                  <div class="podium-row d-flex justify-content-center align-items-end gap-4">
-                    <!-- 2nd Place -->
-                    <div v-if="topThreeUsers[1]" class="podium-item podium-second">
-                      <div class="podium-rank-badge rank-2">2</div>
-                      <StudentCard 
-                        :userId="topThreeUsers[1].uid"
-                        :photoURL="topThreeUsers[1].photoURL || null"
-                        :variant="'ranked'"
-                        :rank="2"
-                        :displayValue="topThreeUsers[1].displayValue"
-                        :showXp="true"
-                        :showAvatar="true"
-                        :linkToProfile="true"
-                        class="podium-student-card"
-                      />
-                    </div>
-                    
-                    <!-- 1st Place (Center, Tallest) -->
-                    <div v-if="topThreeUsers[0]" class="podium-item podium-first">
-                      <div class="podium-rank-badge rank-1">
-                        <i class="fas fa-crown"></i>
-                      </div>
-                      <StudentCard 
-                        :userId="topThreeUsers[0].uid"
-                        :photoURL="topThreeUsers[0].photoURL || null"
-                        :variant="'ranked'"
-                        :rank="1"
-                        :displayValue="topThreeUsers[0].displayValue"
-                        :showXp="true"
-                        :showAvatar="true"
-                        :linkToProfile="true"
-                        class="podium-student-card"
-                      />
-                    </div>
-                    
-                    <!-- 3rd Place -->
-                    <div v-if="topThreeUsers[2]" class="podium-item podium-third">
-                      <div class="podium-rank-badge rank-3">3</div>
-                      <StudentCard 
-                        :userId="topThreeUsers[2].uid"
-                        :photoURL="topThreeUsers[2].photoURL || null"
-                        :variant="'ranked'"
-                        :rank="3"
-                        :displayValue="topThreeUsers[2].displayValue"
-                        :showXp="true"
-                        :showAvatar="true"
-                        :linkToProfile="true"
-                        class="podium-student-card"
-                      />
-                    </div>
+              <h4 class="h5 text-muted mb-3 text-center">
+                <i class="fas fa-trophy text-warning me-2"></i>
+                Top 3
+              </h4>
+              <div class="row g-3">
+                <div 
+                  v-for="(user, index) in topThreeUsers" 
+                  :key="`desktop-top-${user.uid}`" 
+                  class="col-md-4"
+                >
+                  <div class="top-desktop-card">
+                    <StudentCard 
+                      :userId="user.uid"
+                      :photoURL="user.photoURL || null"
+                      :variant="'ranked'"
+                      :rank="index + 1"
+                      :displayValue="user.displayValue"
+                      :showXp="true"
+                      :showAvatar="true"
+                      :linkToProfile="true"
+                      class="unified-student-card"
+                    />
                   </div>
                 </div>
               </div>
@@ -209,7 +179,7 @@
 import { ref, computed, onMounted, defineAsyncComponent } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import { formatRoleNameForDisplay } from '@/types/xp';
-import type { XPData, XpFirestoreFieldKey } from '@/types/xp';
+import type { XpFirestoreFieldKey } from '@/types/xp';
 import type { EnrichedStudentData } from '@/types/student';
 import StudentCard from '@/components/shared/StudentCard.vue';
 import SkeletonProvider from '@/skeletons/SkeletonProvider.vue';
@@ -424,6 +394,42 @@ const remainingUsers = computed(() => {
   margin-bottom: 3rem;
 }
 
+/* Desktop Top 3 Cards */
+.top-desktop-card {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), rgba(255, 255, 255, 0.95));
+  border: 2px solid rgba(255, 215, 0, 0.2);
+  border-radius: var(--bs-border-radius-lg);
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.top-desktop-card:nth-child(1) { border-color: rgba(255, 215, 0, 0.4); }
+.top-desktop-card:nth-child(2) { border-color: rgba(192, 192, 192, 0.4); }
+.top-desktop-card:nth-child(3) { border-color: rgba(205, 127, 50, 0.4); }
+
+.top-desktop-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Mobile Podium View */
+.top-mobile-card {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), rgba(255, 255, 255, 0.95));
+  border: 2px solid rgba(255, 215, 0, 0.2);
+  border-radius: var(--bs-border-radius-lg);
+  transition: all 0.3s ease;
+}
+
+.top-mobile-card:nth-child(1) { border-color: rgba(255, 215, 0, 0.4); }
+.top-mobile-card:nth-child(2) { border-color: rgba(192, 192, 192, 0.4); }
+.top-mobile-card:nth-child(3) { border-color: rgba(205, 127, 50, 0.4); }
+
+.top-mobile-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Remove old podium styles */
 .podium-row {
   margin-top: 1.5rem;
 }

@@ -18,28 +18,28 @@
         <p class="text-muted mb-0">No {{ isIndividualCompetitionAward ? 'awards' : 'rating criteria' }} defined for this event.</p>
       </div>
       <div v-else class="criteria-list">
-        <div v-for="(criteria, idx) in criteria" :key="criteria.constraintIndex ?? idx" class="criteria-item">
+        <div v-for="(criterion, idx) in criteria" :key="criterion.constraintIndex ?? idx" class="criteria-item">
           <div class="criteria-content">
             <div class="criteria-header">
               <div class="criteria-icon">
                 <i class="fas text-warning" :class="isIndividualCompetitionAward ? 'fa-medal' : 'fa-star'"></i>
               </div>
               <div class="criteria-details">
-                <h6 class="criteria-title mb-1">{{ criteria.title || (isIndividualCompetitionAward ? 'Unnamed Award' : 'Unnamed criteria') }}</h6>
+                <h6 class="criteria-title mb-1">{{ criterion.title || (isIndividualCompetitionAward ? 'Unnamed Award' : 'Unnamed criteria') }}</h6>
                 <div class="criteria-meta">
                   <span class="xp-badge">
                     <i class="fas fa-trophy me-1"></i>
-                    {{ criteria.points }} XP
+                    {{ criterion.points }} XP
                   </span>
                   <span v-if="!isIndividualCompetitionAward" class="role-badge">
                     <i class="fas fa-user-tag me-1"></i>
-                    {{ formatRoleName(criteria.role || '') }}
+                    {{ formatRoleName(criterion.role || '') }}
                   </span>
                 </div>
               </div>
             </div>
-            <div v-if="criteria.description" class="criteria-description">
-              <p class="text-muted small mb-0">{{ criteria.description }}</p>
+            <div v-if="criterion.description" class="criteria-description">
+              <p class="text-muted small mb-0">{{ criterion.description }}</p>
             </div>
           </div>
         </div>

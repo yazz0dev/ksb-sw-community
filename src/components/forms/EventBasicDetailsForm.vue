@@ -178,16 +178,18 @@ interface Props {
   isSubmitting: boolean;
   isEditing: boolean;
   isPhaseForm?: boolean;
-  hideMultiEventOption?: boolean; // New prop
+  hideMultiEventOption?: boolean;
+  isMultiEventOverall?: boolean; // New prop
 }
 
 const emit = defineEmits(['update:details', 'validity-change']);
 const props = withDefaults(defineProps<Props>(), {
   isPhaseForm: false,
-  hideMultiEventOption: false, // Default to false
+  hideMultiEventOption: false,
+  isMultiEventOverall: false, // Default to false
 });
 
-const { details, isSubmitting, isEditing, isPhaseForm, hideMultiEventOption } = toRefs(props);
+const { details, isSubmitting, isEditing, isPhaseForm, hideMultiEventOption, isMultiEventOverall } = toRefs(props);
 
 const localDetails = ref<EventFormData['details']>({ ...details.value });
 
@@ -200,6 +202,10 @@ const touched = ref({
 const isMultiEvent = computed(() => localDetails.value.format === EventFormat.MultiEvent && !hideMultiEventOption.value);
 const isIndividualEvent = computed(() => localDetails.value.format === EventFormat.Individual);
 const isTeamEvent = computed(() => localDetails.value.format === EventFormat.Team);
+
+
+// Add the missing computed property
+const isActuallyMultiEventOverall = computed(() => isMultiEvent.value && !isPhaseForm.value);
 
 
 const showTypeField = computed(() => {
@@ -267,7 +273,7 @@ function applyFormatDefaults(format: EventFormat) {
   if (format === EventFormat.Individual) {
     localDetails.value.rules = null;
     localDetails.value.allowProjectSubmission = false;
-    if (isPhaseForm.value) localDetails.value.isCompetition = undefined; // Competition is per-phase for phases
+    if (isPhaseForm.value) localDetails.value.isCompetition = false; // Competition is per-phase for phases
     else if(localDetails.value.isCompetition === undefined) localDetails.value.isCompetition = false;
   } else if (format === EventFormat.Team) {
     localDetails.value.isCompetition = false; // Team events are not marked as competition overall/phase
@@ -315,6 +321,12 @@ onMounted(() => {
   // Apply initial defaults based on the format
   applyFormatDefaults(localDetails.value.format);
 });
+
+// Add computed properties for labels that may use isActuallyMultiEventOverall
+const nameLabel = computed(() => isPhaseForm.value ? 'Phase Name' : 'Event Name');
+const namePlaceholder = computed(() => isPhaseForm.value ? 'Enter phase name' : 'Enter event name');
+const typeLabel = computed(() => isPhaseForm.value ? 'Phase Type' : 'Event Type');
+const descriptionPlaceholder = computed(() => isPhaseForm.value ? 'Describe this phase...' : 'Describe your event...');
 
 </script>
 

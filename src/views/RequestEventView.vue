@@ -9,9 +9,20 @@
           <h1 class="h2 text-gradient-primary mb-1">{{ pageTitle }}</h1>
           <p class="text-subtitle mb-0">{{ pageSubtitle }}</p>
         </div>
+        <!-- Mobile Back Button -->
+        <div class="mobile-back-button d-block d-md-none">
+          <button
+            class="btn btn-back btn-sm d-flex align-items-center"
+            @click="goBack"
+            aria-label="Go back"
+          >
+            <i class="fas fa-arrow-left me-2"></i>
+            <span>Back</span>
+          </button>
+        </div>
+        <!-- Desktop Back Button -->
         <button
-          class="btn btn-outline-secondary btn-sm btn-icon"
-          :class="{ 'd-none d-md-inline-flex': !isEditing }"
+          class="btn btn-back btn-sm btn-icon d-none d-md-inline-flex"
           @click="goBack"
           aria-label="Go back"
         >
@@ -428,20 +439,15 @@ async function initializeFormForEdit(id: string) {
   loading.value = true;
   editError.value = '';
   try {
-    let event = eventStore.getEventById(id);
+    let event = eventStore.events.find(e => e.id === id);
     if (!event) {
-      event = await eventStore.fetchEventDetails(id);
+      const fetchedEvent = await eventStore.fetchEventDetails(id);
+      if (!fetchedEvent) throw new Error("Event not found or access denied.");
+      event = fetchedEvent;
     }
     
-    if (!event) {
-      throw new Error("Event not found or you don't have permission to edit it.");
-    }
-
     if (event.details.format === EventFormat.MultiEvent) {
-      loading.value = false;
-      editError.value = "This form is for Individual or Team events. To edit a Multi-Stage event, please use the dedicated editor.";
-      // Optionally, navigate to the new editor:
-      // router.replace({ name: 'ManageMultiEventView', params: { eventId: id } });
+      router.replace({ name: 'EditMultiEvent', params: { eventId: id } });
       return;
     }
     
@@ -519,7 +525,9 @@ async function handleSubmitForm() {
       success = await eventStore.editMyEventRequest(eventId.value, payload);
       newEventId = eventId.value;
     } else {
-      newEventId = await eventStore.requestNewEvent(submissionData);
+      const eventId = await eventStore.requestNewEvent(submissionData);
+      if (!eventId) throw new Error("Failed to create event");
+      newEventId = eventId;
       success = !!newEventId;
     }
 
@@ -555,7 +563,7 @@ onMounted(async () => {
       formData.value = {
         details: {
           eventName: '', description: '', isCompetition: false,
-          format: defaultInitialFormat, type: '', allowProjectSubmission: defaultInitialFormat === EventFormat.Team,
+          format: defaultInitialFormat, type: '', allowProjectSubmission: defaultInitialFormat === EventFormat.Individual,
           organizers: profileStore.studentId ? [profileStore.studentId] : [],
           coreParticipants: [], date: { start: null, end: null },
           rules: null, prize: null, phases: [],
