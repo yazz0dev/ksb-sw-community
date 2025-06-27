@@ -39,6 +39,12 @@ export interface EventPhase {
   prize?: string | null; // Prize for this specific phase
   allowProjectSubmission: boolean; // Ensure this is always boolean, not nullable
   
+  // Phase-specific winner tracking
+  winners?: Record<string, string[]> | null; // Key: criterionKey/title from phase.criteria, Value: array of user UIDs
+  // Optional: For more detailed phase-level voting, if implemented in future
+  // criteriaVotes?: Record<string, Record<string, string>> | null;
+  // bestPerformerSelections?: Record<string, string> | null;
+
   // Dates for phases are typically relative to parent or sequential, not absolute standalone dates.
   // For simplicity, not adding separate start/end here; they'd be managed by parent event's timeline.
   // Voting for a phase would also be managed in context of the phase.

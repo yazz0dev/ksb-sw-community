@@ -310,49 +310,33 @@ export function calculateEventXP(eventData: Event): EventXPAward[] {
                     addAward(uid, 'participation', baseParticipationXP, false, phase.id, phase.phaseName);
                 });
             }
-            // TODO: Implement winner XP calculation for phases
-            // This requires clarity on how phase winners are stored in eventData.winners
-            // Assuming winners are keyed like `phaseId_criterionKey` or phase criteria have unique keys.
-            // For now, this part is a placeholder.
-            const phaseCriteriaMap = new Map<string, EventCriteriaWithXP>();
-            if (Array.isArray(phase.criteria)) {
-                phase.criteria.forEach((c: EventCriteria) => {
-                    const criterionWithXP = c as EventCriteriaWithXP;
-                    // Ensure unique key for map, perhaps prefix with phaseId if constraintKeys are not unique across phases
-                    const mapKey = `${phase.id}_${criterionWithXP.constraintKey || criterionWithXP.title}`;
-                    if (criterionWithXP.xpValue) { // xpValue is from EventCriteriaWithXP, ensure it's populated
-                       phaseCriteriaMap.set(mapKey, { ...criterionWithXP, roleKey: c.role as XpCalculationRoleKey, xpValue: c.points });
-                    } else if (criterionWithXP.points) { // Fallback to points if xpValue isn't directly there
-                       phaseCriteriaMap.set(mapKey, { ...criterionWithXP, roleKey: c.role as XpCalculationRoleKey, xpValue: c.points });
-                    }
+            // --- Phase Winner XP Calculation ---
+            if (phase.winners && Array.isArray(phase.criteria)) {
+                const phaseCriteriaDetails = new Map<string, { points: number, role: XpCalculationRoleKey }>();
+                phase.criteria.forEach(c => {
+                    // Use constraintKey if available, otherwise title. Ensure it's a string.
+                    const key = String(c.constraintKey || c.title);
+                    phaseCriteriaDetails.set(key, { points: c.points, role: c.role as XpCalculationRoleKey });
                 });
-            }
 
-            const winners = eventData.winners || {};
-            for (const [criterionOrLabel, winnerIdOrIds] of Object.entries(winners)) {
-                // Attempt to match criterionOrLabel with phase-specific criteria
-                // This is a simplified matching. A more robust solution might be needed.
-                const phaseSpecificKey = `${phase.id}_${criterionOrLabel}`;
-                const criterionConfig = phaseCriteriaMap.get(phaseSpecificKey) || phaseCriteriaMap.get(criterionOrLabel); // Fallback to non-prefixed
-
-                if (criterionConfig && criterionConfig.xpValue) {
-                    const xpValue = criterionConfig.xpValue;
-                    const roleKey = criterionConfig.roleKey || 'problemSolver';
-
-                    if (Array.isArray(winnerIdOrIds)) {
-                        winnerIdOrIds.filter(Boolean).forEach(winnerId => {
-                            addAward(winnerId, roleKey, xpValue, true, phase.id, phase.phaseName);
+                for (const [criterionKeyOrTitle, winnerUids] of Object.entries(phase.winners)) {
+                    const criterionDetail = phaseCriteriaDetails.get(String(criterionKeyOrTitle));
+                    if (criterionDetail && Array.isArray(winnerUids)) {
+                        winnerUids.filter(Boolean).forEach(winnerUid => {
+                            addAward(
+                                winnerUid,
+                                criterionDetail.role,
+                                criterionDetail.points,
+                                true, // isWinner
+                                phase.id,
+                                phase.phaseName
+                            );
                         });
-                    } else if (typeof winnerIdOrIds === 'string' && winnerIdOrIds) {
-                         // Check if this winner entry is specifically for this phase,
-                         // This check might need refinement based on how winners are structured.
-                         // For now, if criterionConfig was found via phaseSpecificKey, assume it's for this phase.
-                        if (phaseCriteriaMap.has(phaseSpecificKey) || (criterionConfig.targetRole && criterionConfig.targetRole === phase.id)){ // crude way to check if criterion was phase specific
-                            addAward(winnerIdOrIds, roleKey, xpValue, true, phase.id, phase.phaseName);
-                        }
                     }
                 }
             }
+            // Note: Phase-level "Best Performer" XP is not handled here yet.
+            // Would require phase.bestPerformerSelections and a defined BEST_PERFORMER_POINTS_PHASE.
         });
 
     } else {
