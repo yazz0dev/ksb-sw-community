@@ -540,8 +540,12 @@ const goToEditEvent = (): void => {
     });
     return;
   }
-  
-  router.push({ name: 'EditEvent', params: { eventId: props.event.id } });
+
+  if (props.event.details.format === EventFormat.MultiEvent) {
+    router.push({ name: 'EditMultiEvent', params: { eventId: props.event.id } });
+  } else {
+    router.push({ name: 'EditEvent', params: { eventId: props.event.id } });
+  }
 };
 
 const goToManualSelectWinner = (): void => {
