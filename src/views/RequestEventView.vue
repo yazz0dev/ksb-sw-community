@@ -59,6 +59,17 @@
         </div>
 
         <div v-else :key="'event-form-content'">
+          <!-- Link to Multi-Stage Event Creation -->
+          <div class="mb-4 p-3 bg-info-subtle border border-info-subtle rounded-3 text-center">
+            <p class="mb-2 fs-small text-info-emphasis">
+              <i class="fas fa-info-circle me-1"></i>
+              Looking to create an event with multiple stages or sub-events (e.g., a competition with several rounds)?
+            </p>
+            <router-link :to="{ name: 'CreateMultiEvent' }" class="btn btn-info btn-sm btn-icon">
+              <i class="fas fa-layer-group me-1"></i> Create Multi-Stage Event
+            </router-link>
+          </div>
+
           <form @submit.prevent="handleSubmitForm" class="needs-validation" novalidate ref="formRef">
             <!-- Event Basic Details Card -->
             <div class="card shadow-sm mb-4 rounded-3 overflow-hidden">

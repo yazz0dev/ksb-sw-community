@@ -1,12 +1,8 @@
 // src/components/shared/OfflineStateHandler.vue
 <template>
-  <!-- Top Offline Banner -->
-  <div v-if="!isOnline" class="offline-banner alert alert-warning" role="alert">
-    <i class="fas fa-wifi-slash me-2"></i>
-    You're offline. Some features may be limited.
-  </div>
+  <!-- Top Offline Banner Removed -->
 
-  <!-- Bottom Status Bar -->
+  <!-- Bottom Status Bar - Now the primary indicator -->
   <div 
     v-if="!isOnline || hasQueuedActions"
     class="offline-status-bar animate-slide-in-from-bottom"
@@ -153,22 +149,22 @@ const checkConnection = async (): Promise<void> => {
   left: 0;
   right: 0;
   z-index: 1050;
-  padding: 0.75rem 0;
-  backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  padding: 1rem 0; /* Increased padding for more prominence */
+  backdrop-filter: blur(15px); /* Slightly increased blur */
+  border-top: 1px solid rgba(255, 255, 255, 0.15); /* Slightly more visible border */
+  box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.15); /* Slightly stronger shadow */
   transition: all 0.3s ease-in-out;
 }
 
-/* Status Variants */
+/* Status Variants with RGBA for better blur effect */
 .status-offline {
-  background: linear-gradient(135deg, var(--bs-danger), var(--bs-danger-emphasis));
+  background: rgba(var(--bs-danger-rgb), 0.85); /* Using RGBA for transparency */
   color: var(--bs-white);
 }
 
 .status-queued {
-  background: linear-gradient(135deg, var(--bs-warning), var(--bs-warning-emphasis));
-  color: var(--bs-dark);
+  background: rgba(var(--bs-warning-rgb), 0.85); /* Using RGBA for transparency */
+  color: var(--bs-dark); /* Ensure good contrast with warning background */
 }
 
 /* Status Content */
