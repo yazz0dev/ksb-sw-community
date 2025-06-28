@@ -88,7 +88,7 @@
 
                 <div class="mb-3">
                   <label class="form-label">Bio</label>
-                  <textarea v-model="form.bio" class="form-control" rows="3" maxlength="200" placeholder="Tell us about yourself" :disabled="pageLoading || isSavingOnline || isSyncingDraft"/>
+                  <textarea v-model="bioComputed" class="form-control" rows="3" maxlength="200" placeholder="Tell us about yourself" :disabled="pageLoading || isSavingOnline || isSyncingDraft"/>
                 </div>
 
                 <div class="mb-3">
@@ -192,6 +192,11 @@ const isOfflineDraftLoaded = ref(false);
 const isSyncingDraft = ref(false);
 let formInitialized = false;
 
+
+const bioComputed = computed({
+  get: () => form.value.bio || '',
+  set: (val: string) => form.value.bio = val
+});
 
 const isFormValid = computed(() => {
   formErrors.value.name = form.value.name.trim().length === 0;
@@ -320,7 +325,10 @@ async function loadUserData() {
   }
 
   if (profileDataToLoad) {
-    form.value = { ...profileDataToLoad };
+    form.value = { 
+      ...profileDataToLoad,
+      bio: profileDataToLoad.bio || ''
+    };
   }
   pageLoading.value = false;
   await nextTick(); // Ensure form is populated before setting formInitialized

@@ -71,7 +71,7 @@
 
         <div v-else :key="'event-form-content'">
           <!-- Link to Multi-Stage Event Creation -->
-          <div class="mb-4 p-3 bg-info-subtle border border-info-subtle rounded-3 text-center">
+          <div v-if="!isEditing" class="mb-4 p-3 bg-info-subtle border border-info-subtle rounded-3 text-center">
             <p class="mb-2 fs-small text-info-emphasis">
               <i class="fas fa-info-circle me-1"></i>
               Looking to create an event with multiple stages or sub-events (e.g., a competition with several rounds)?

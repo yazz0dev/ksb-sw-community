@@ -6,6 +6,18 @@
           <transition name="fade-pop">
             <div class="card signup-card shadow-lg border-0 animate-pop">
               <div class="card-body p-4 p-md-5">
+                <!-- Back Button - Integrated into card header -->
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                  <button
+                    class="btn btn-back btn-sm btn-icon"
+                    @click="goBack"
+                    aria-label="Back to Login"
+                  >
+                    <i class="fas fa-arrow-left me-1"></i>
+                    <span>Back to Login</span>
+                  </button>
+                </div>
+
                 <div class="text-center mb-4">
                   <div class="signup-icon mb-2">
                     <i class="fas fa-user-plus fa-3x text-primary"></i>
@@ -76,40 +88,19 @@
                   </div>
 
                   <div class="mb-3">
-                    <label for="studentId" class="form-label">Student ID <span class="text-danger">*</span></label>
+                    <label for="rollNo" class="form-label">Roll No <span class="text-danger">*</span></label>
                     <div class="input-group">
                       <span class="input-group-text"><i class="fas fa-id-card"></i></span>
                       <input
-                        id="studentId"
+                        id="rollNo"
                         class="form-control"
                         type="text"
-                        v-model="formData.studentId"
-                        placeholder="Enter your student ID"
+                        v-model="formData.rollNo"
+                        placeholder="Enter your roll number"
                         required
                         :disabled="isLoading"
                         autocomplete="off"
                       />
-                    </div>
-                  </div>
-
-                  <div class="mb-3">
-                    <label for="batchYearConfirm" class="form-label">Batch Year Confirmation <span class="text-danger">*</span></label>
-                    <div class="input-group">
-                      <span class="input-group-text"><i class="fas fa-calendar"></i></span>
-                      <input
-                        id="batchYearConfirm"
-                        class="form-control"
-                        type="number"
-                        v-model.number="formData.batchYearConfirm"
-                        :placeholder="`Confirm batch year: ${batchYear || 'YYYY'}`"
-                        required
-                        :disabled="isLoading"
-                        min="2020"
-                        max="2030"
-                      />
-                    </div>
-                    <div class="form-text small">
-                      Please confirm your batch year: {{ batchYear || 'Not specified' }}
                     </div>
                   </div>
 
@@ -246,8 +237,7 @@ const route = useRoute();
 const formData = ref<RegistrationFormData>({
   fullName: '',
   email: '',
-  studentId: '',
-  batchYearConfirm: null,
+  rollNo: '',
   hasLaptop: null,
   bio: '',
   agreeTerms: false
@@ -266,8 +256,7 @@ const isFormValid = computed(() => {
   return (
     formData.value.fullName.trim() &&
     formData.value.email.trim() &&
-    formData.value.studentId.trim() &&
-    formData.value.batchYearConfirm === batchYear.value &&
+    formData.value.rollNo.trim() &&
     formData.value.hasLaptop !== null &&
     formData.value.agreeTerms
   );
@@ -320,7 +309,7 @@ const validateSignupLink = async (): Promise<boolean> => {
 };
 
 // Check if email or student ID already exists
-const checkExistingRegistration = async (email: string, studentId: string): Promise<boolean> => {
+const checkExistingRegistration = async (email: string, rollNo: string): Promise<boolean> => {
   try {
     if (!batchYear.value) {
       errorMessage.value = 'Batch year not determined. Please try again.';
@@ -346,19 +335,19 @@ const checkExistingRegistration = async (email: string, studentId: string): Prom
       return false;
     }
 
-    // Check student ID across all student registrations (non-batch config docs)
-    const studentIdQuery = query(
+    // Check roll number across all student registrations (non-batch config docs)
+    const rollNoQuery = query(
       signupRef,
-      where('studentId', '==', studentId.toUpperCase()),
+      where('rollNo', '==', rollNo.toUpperCase()),
       where('batchYear', '==', batchYear.value)
     );
-    const studentIdSnapshot = await getDocs(studentIdQuery);
+    const rollNoSnapshot = await getDocs(rollNoQuery);
     
     // Filter out batch config documents
-    const studentIdRegistrations = studentIdSnapshot.docs.filter(doc => !doc.id.match(/^[0-9]{4}$/));
+    const rollNoRegistrations = rollNoSnapshot.docs.filter(doc => !doc.id.match(/^[0-9]{4}$/));
     
-    if (studentIdRegistrations.length > 0) {
-      errorMessage.value = 'An account with this student ID has already been registered for this batch.';
+    if (rollNoRegistrations.length > 0) {
+      errorMessage.value = 'An account with this roll number has already been registered for this batch.';
       return false;
     }
 
@@ -385,7 +374,7 @@ const submitRegistration = async () => {
     // Check for existing registration
     const canProceed = await checkExistingRegistration(
       formData.value.email.trim(),
-      formData.value.studentId.trim()
+      formData.value.rollNo.trim()
     );
 
     if (!canProceed) {
@@ -401,7 +390,7 @@ const submitRegistration = async () => {
     const registrationData: Omit<signup, 'id'> = {
       fullName: formData.value.fullName.trim(),
       email: formData.value.email.toLowerCase().trim(),
-      studentId: formData.value.studentId.toUpperCase().trim(),
+      rollNo: formData.value.rollNo.toUpperCase().trim(),
       batchYear: batchYear.value!,
       hasLaptop: formData.value.hasLaptop!,
       bio: formData.value.bio?.trim() || '',
@@ -437,6 +426,11 @@ onMounted(async () => {
     invalidLink.value = true;
   }
 });
+
+// Go back function
+function goBack() {
+  window.location.href = '/login';
+}
 </script>
 
 <style scoped>
@@ -482,10 +476,6 @@ onMounted(async () => {
 .fade-pop-leave-to {
   opacity: 0;
   transform: scale(0.95) translateY(10px);
-}
-
-.animate-pop {
-  /* This class is now global and uses the popIn keyframes from _animations.scss */
 }
 
 /* Local @keyframes popIn removed. */

@@ -133,12 +133,8 @@ const signIn = async (): Promise<void> => {
             // Profile store handled the auth change but encountered an issue (e.g., profile not found)
             errorMessage.value = studentStore.error;
             appStore.setIsProcessingLogin(false); // Explicitly set false as processLoginSuccess is skipped
-        } else if (!studentStore.currentStudent) {
-            // Fallback: auth change processed, no error set from store, but student data still missing
-            errorMessage.value = "Login successful, but critical user data could not be loaded. Please contact support.";
-            appStore.setIsProcessingLogin(false); // Explicitly set false
         } else {
-            // All good, student profile loaded, proceed to redirect logic
+            // All good, proceed to redirect logic
             await processLoginSuccess(userCredential.user);
             // processLoginSuccess will call appStore.setIsProcessingLogin(false) in its finally block
         }

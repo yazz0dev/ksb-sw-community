@@ -7,7 +7,7 @@ export interface signup {
   id?: string; // Document ID (optional for new registrations)
   fullName: string;
   email: string;
-  studentId: string;
+  rollNo: string;
   batchYear: number;
   hasLaptop: boolean;
   photoURL?: string;
@@ -61,8 +61,7 @@ export type RegistrationStatus = 'pending_approval' | 'approved' | 'rejected';
 export interface RegistrationFormData {
   fullName: string;
   email: string;
-  studentId: string;
-  batchYearConfirm: number | null;
+  rollNo: string;
   hasLaptop: boolean | null;
   bio: string;
   agreeTerms: boolean;
