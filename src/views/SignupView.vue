@@ -88,20 +88,22 @@
                   </div>
 
                   <div class="mb-3">
-                    <label for="rollNo" class="form-label">Roll No <span class="text-danger">*</span></label>
+                    <label for="studentId" class="form-label">Student ID <span class="text-danger">*</span></label>
                     <div class="input-group">
                       <span class="input-group-text"><i class="fas fa-id-card"></i></span>
                       <input
-                        id="rollNo"
+                        id="studentId"
                         class="form-control"
                         type="text"
-                        v-model="formData.rollNo"
-                        placeholder="Enter your roll number"
+                        v-model="formData.studentId"
+                        placeholder="Enter your student ID"
                         required
                         :disabled="isLoading"
                         autocomplete="off"
+                        @blur="validateField('studentId')"
                       />
                     </div>
+                    <div v-if="validationErrors.studentId" class="invalid-feedback">{{ validationErrors.studentId }}</div>
                   </div>
 
                   <div class="mb-3">
@@ -224,7 +226,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, reactive } from 'vue';
 import { useRoute } from 'vue-router';
 import { collection, addDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase';
@@ -234,31 +236,33 @@ import { validateSignupToken, isValidBatchYear, isBatchSignupActive } from '@/ut
 const route = useRoute();
 
 // Form data
-const formData = ref<RegistrationFormData>({
+const formData = reactive<RegistrationFormData>({
   fullName: '',
   email: '',
-  rollNo: '',
+  studentId: '',
   hasLaptop: null,
   bio: '',
-  agreeTerms: false
+  agreeTerms: false,
 });
 
 const skillsInput = ref('');
-const errorMessage = ref('');
+const errorMessage = ref<string | null>(null);
 const isLoading = ref(false);
 const submissionSuccess = ref(false);
 const invalidLink = ref(false);
 const batchYear = ref<number | null>(null);
 const signupToken = ref<string | null>(null);
 
+const validationErrors = reactive<Partial<Record<keyof RegistrationFormData, string>>>({});
+
 // Computed properties
 const isFormValid = computed(() => {
   return (
-    formData.value.fullName.trim() &&
-    formData.value.email.trim() &&
-    formData.value.rollNo.trim() &&
-    formData.value.hasLaptop !== null &&
-    formData.value.agreeTerms
+    formData.fullName.trim() &&
+    formData.email.trim() &&
+    formData.studentId.trim() &&
+    formData.hasLaptop !== null &&
+    formData.agreeTerms
   );
 });
 
@@ -309,7 +313,7 @@ const validateSignupLink = async (): Promise<boolean> => {
 };
 
 // Check if email or student ID already exists
-const checkExistingRegistration = async (email: string, rollNo: string): Promise<boolean> => {
+const checkExistingRegistration = async (email: string, studentId: string): Promise<boolean> => {
   try {
     if (!batchYear.value) {
       errorMessage.value = 'Batch year not determined. Please try again.';
@@ -335,19 +339,19 @@ const checkExistingRegistration = async (email: string, rollNo: string): Promise
       return false;
     }
 
-    // Check roll number across all student registrations (non-batch config docs)
-    const rollNoQuery = query(
+    // Check student ID across all student registrations (non-batch config docs)
+    const studentIdQuery = query(
       signupRef,
-      where('rollNo', '==', rollNo.toUpperCase()),
+      where('studentId', '==', studentId.toUpperCase()),
       where('batchYear', '==', batchYear.value)
     );
-    const rollNoSnapshot = await getDocs(rollNoQuery);
+    const studentIdSnapshot = await getDocs(studentIdQuery);
     
     // Filter out batch config documents
-    const rollNoRegistrations = rollNoSnapshot.docs.filter(doc => !doc.id.match(/^[0-9]{4}$/));
+    const studentIdRegistrations = studentIdSnapshot.docs.filter(doc => !doc.id.match(/^[0-9]{4}$/));
     
-    if (rollNoRegistrations.length > 0) {
-      errorMessage.value = 'An account with this roll number has already been registered for this batch.';
+    if (studentIdRegistrations.length > 0) {
+      errorMessage.value = 'An account with this student ID has already been registered for this batch.';
       return false;
     }
 
@@ -373,8 +377,8 @@ const submitRegistration = async () => {
 
     // Check for existing registration
     const canProceed = await checkExistingRegistration(
-      formData.value.email.trim(),
-      formData.value.rollNo.trim()
+      formData.email.trim(),
+      formData.studentId.trim()
     );
 
     if (!canProceed) {
@@ -388,12 +392,12 @@ const submitRegistration = async () => {
 
     // Prepare registration data
     const registrationData: Omit<signup, 'id'> = {
-      fullName: formData.value.fullName.trim(),
-      email: formData.value.email.toLowerCase().trim(),
-      rollNo: formData.value.rollNo.toUpperCase().trim(),
+      fullName: formData.fullName.trim(),
+      email: formData.email.toLowerCase().trim(),
+      studentId: formData.studentId.toUpperCase().trim(),
       batchYear: batchYear.value!,
-      hasLaptop: formData.value.hasLaptop!,
-      bio: formData.value.bio?.trim() || '',
+      hasLaptop: formData.hasLaptop!,
+      bio: formData.bio?.trim() || '',
       skills: skills,
       status: 'pending_approval',
       submittedAt: Timestamp.now(),
@@ -431,6 +435,25 @@ onMounted(async () => {
 function goBack() {
   window.location.href = '/login';
 }
+
+const validateField = (field: keyof RegistrationFormData) => {
+  switch (field) {
+    case 'email':
+      if (!formData.email) validationErrors.email = 'Email is required.';
+      else if (!/^\S+@\S+\.\S+$/.test(formData.email)) validationErrors.email = 'Email is invalid.';
+      else if (!formData.email.endsWith('@ksb.ac.in')) validationErrors.email = 'Only @ksb.ac.in emails are allowed.';
+      break;
+    case 'studentId':
+      if (!formData.studentId) validationErrors.studentId = 'Student ID is required.';
+      else if (!/^\d{5}$/.test(formData.studentId)) validationErrors.studentId = 'Student ID must be 5 digits.';
+      break;
+    case 'hasLaptop':
+      if (formData.hasLaptop === null) validationErrors.hasLaptop = 'Please select an option.';
+      break;
+    default:
+      break;
+  }
+};
 </script>
 
 <style scoped>

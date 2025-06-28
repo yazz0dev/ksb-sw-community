@@ -7,7 +7,7 @@ export interface signup {
   id?: string; // Document ID (optional for new registrations)
   fullName: string;
   email: string;
-  rollNo: string;
+  studentId: string;
   batchYear: number;
   hasLaptop: boolean;
   photoURL?: string;
@@ -33,11 +33,11 @@ export interface BatchSignupConfig {
   active: boolean; // Whether signup is currently active for this batch
   createdAt: Timestamp;
   createdBy: string; // Admin user ID who created/activated this batch
-  updatedAt?: Timestamp; // When this config was last updated
-  updatedBy?: string; // Admin user ID who last updated this
+  updatedAt: Timestamp; // When this config was last updated
+  updatedBy: string; // Admin user ID who last updated this
   activatedAt?: Timestamp; // When this batch was last activated
   deactivatedAt?: Timestamp; // When this batch was last deactivated
-  maxRegistrations?: number; // Optional limit on registrations for this batch
+  maxRegistrations?: number | undefined; // Optional limit on registrations for this batch
   currentRegistrations: number; // Current count of registrations for this batch year
   description?: string; // Optional description for this batch
   notes?: string; // Admin notes about this batch
@@ -61,7 +61,7 @@ export type RegistrationStatus = 'pending_approval' | 'approved' | 'rejected';
 export interface RegistrationFormData {
   fullName: string;
   email: string;
-  rollNo: string;
+  studentId: string;
   hasLaptop: boolean | null;
   bio: string;
   agreeTerms: boolean;

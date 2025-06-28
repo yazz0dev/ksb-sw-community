@@ -1,19 +1,8 @@
 import { doc, getDoc, serverTimestamp, Timestamp, updateDoc, increment as firebaseIncrement } from 'firebase/firestore'; // Removed unused collection, query, where, getDocs. Added Timestamp, updateDoc, firebaseIncrement
 import { db } from '@/firebase';
-import { SIGNUP_LINKS_COLLECTION, SIGNUP_COLLECTION } from './constants';
-
-// Define BatchSignupConfig interface
-interface BatchSignupConfig {
-  batchYear: number;
-  active: boolean;
-  createdAt: Timestamp;
-  createdBy: string;
-  updatedAt: Timestamp;
-  updatedBy: string;
-  activatedAt?: Timestamp | null;
-  deactivatedAt?: Timestamp | null;
-  currentRegistrations: number;
-}
+import { SIGNUP_LINKS_COLLECTION, SIGNUP_COLLECTION, STUDENTS_COLLECTION } from './constants';
+import type { RegistrationFormData, BatchSignupConfig, signup } from '@/types/signup';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 
 /**
  * Validate batch year
@@ -201,4 +190,47 @@ export async function incrementBatchRegistrationCount(batchYear: number): Promis
     // Potentially re-throw or handle more gracefully
     throw error;
   }
+}
+
+export async function checkExistingRegistration(email: string): Promise<{ registered: boolean; studentId?: string }> {
+  try {
+    const studentsCollection = collection(db, STUDENTS_COLLECTION);
+    const q = query(studentsCollection, where('email', '==', email));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const studentDoc = querySnapshot.docs[0]!;
+      return { registered: true, studentId: studentDoc.data().studentId || '' };
+    }
+    return { registered: false };
+  } catch (error) {
+    console.error("Error checking for existing registration:", error);
+    return { registered: false };
+  }
+}
+
+export async function submitRegistration(
+  formData: Omit<RegistrationFormData, 'agreeTerms'>,
+  activeConfig: BatchSignupConfig
+): Promise<string> {
+  const newRegistration: Omit<signup, 'id' | 'status' | 'submittedAt'> = {
+    fullName: formData.fullName,
+    email: formData.email,
+    studentId: formData.studentId,
+    batchYear: activeConfig.batchYear,
+    hasLaptop: formData.hasLaptop ?? false,
+    bio: formData.bio,
+    signupSource: {
+      batch: activeConfig.batchYear,
+      userAgent: navigator.userAgent,
+    },
+  };
+
+  const docRef = await addDoc(collection(db, SIGNUP_COLLECTION, String(activeConfig.batchYear), 'signup'), {
+    ...newRegistration,
+    status: 'pending_approval',
+    submittedAt: Timestamp.now(),
+  });
+
+  return docRef.id;
 }
