@@ -1,6 +1,8 @@
 // src/stores/eventStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed, type Ref } from 'vue';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'; // Added imports
+import { db } from '@/firebase'; // Added import
 import type { Event, EventFormData, Submission } from '@/types/event';
 import { EventStatus } from '@/types/event';
 import { useProfileStore } from './profileStore';
@@ -14,7 +16,8 @@ import { createEventRequest, updateEventRequestInService } from '@/services/even
 import {
   updateEventStatusInFirestore,
   deleteEventRequestInFirestore,
-  closeEventAndAwardXP, // Import closeEventAndAwardXP
+  processAndAwardEventXP, // New service for XP awarding
+  finalizeEventClosure, // Renamed service for closing event
   // Assuming a service like toggleVotingStatusInFirestore exists or will be created
   // For now, let's define a placeholder if not found, or use updateEventStatusInFirestore if it can handle votingOpen
 } from '@/services/eventService/eventManagement';
@@ -239,17 +242,43 @@ export const useEventStore = defineStore('studentEvents', () => {
     if (!profileStore.currentStudent) {
       return _handleOpError("closing event", new Error("User not authenticated."));
     }
-    isLoading.value = true; // Use general isLoading or a specific one like isClosingEvent
+    isLoading.value = true;
     try {
-      const result = await closeEventAndAwardXP(payload.eventId, profileStore.currentStudent);
-      await fetchEventDetails(payload.eventId); // Refresh event details
-      // Potentially refresh user's own XP data if displayed directly
-      // await profileStore.fetchCurrentStudentData(); // Example if XP is part of profileStore
-      notificationStore.showNotification({ message: result.message, type: 'success', duration: 7000 });
+      // This now only finalizes the closure, XP awarding is separate
+      const result = await finalizeEventClosure(payload.eventId, profileStore.currentStudent);
+      await fetchEventDetails(payload.eventId);
+      notificationStore.showNotification({ message: result.message, type: 'success', duration: 5000 });
     } catch (err) {
-      await _handleOpError('closing event and awarding XP', err);
+      await _handleOpError('finalizing event closure', err);
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  async function triggerXpAwarding(eventId: string) {
+    if (!profileStore.currentStudent?.uid) {
+      return _handleOpError("triggering XP awarding", new Error("User not authenticated."));
+    }
+    // Optionally, set a specific loading state for XP awarding if you want finer-grained UI control
+    // For now, we can use the general isLoading or rely on the UI in EventManageControls disabling the button.
+    // Update event status to 'in_progress' immediately for quick UI feedback
+    try {
+        // Directly update Firestore for immediate feedback on status change
+        // This small update is less critical if the main XP awarding fails,
+        // as the service function will set 'failed' status.
+        const eventRef = doc(db, 'events', eventId); // 'db' needs to be imported from '@/firebase' if not already available
+        await updateDoc(eventRef, { xpAwardingStatus: 'in_progress', lastUpdatedAt: serverTimestamp() });
+        _updateLocalEvent({ id: eventId, xpAwardingStatus: 'in_progress' } as Partial<Event> as Event); // Update local state optimistically
+
+        const result = await processAndAwardEventXP(eventId, profileStore.currentStudent.uid);
+        notificationStore.showNotification({ message: result.message, type: 'success', duration: 7000 });
+    } catch (err: any) {
+        notificationStore.showNotification({ message: err.message || 'XP awarding failed.', type: 'error', duration: 7000 });
+        // The service processAndAwardEventXP should set the event's xpAwardingStatus to 'failed' and log xpAwardError
+    } finally {
+        // Refresh event details to get the final XP awarding status and any errors
+        await fetchEventDetails(eventId);
+        // Clear specific loading state if used
     }
   }
 
@@ -431,6 +460,7 @@ export const useEventStore = defineStore('studentEvents', () => {
     submitTeamCriteriaVote,
     submitIndividualWinnerVote,
     submitManualWinnerSelection,
+    triggerXpAwarding, // Expose new action
 
     // Internals exposed for offline queue processing
     _joinEvent,

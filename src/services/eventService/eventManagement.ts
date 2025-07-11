@@ -116,12 +116,12 @@ export async function updateEventStatusInFirestore(
  * Closes an event, updates its status, and awards XP to participants in a single atomic transaction.
  * @param eventId The ID of the event to close.
  * @param closingUser The user profile performing the close operation.
- * @returns Promise resolving to an object with success status and XP changes map.
+ * @returns Promise resolving to an object with success status.
  */
-export const closeEventAndAwardXP = async (
+export const finalizeEventClosure = async (
   eventId: string,
   closingUser: EnrichedStudentData | UserData
-): Promise<{ success: boolean; message: string; xpAwarded?: Record<string, Partial<XPData>> }> => { // Typed xpAwarded
+): Promise<{ success: boolean; message: string }> => {
   if (!eventId) throw new Error('Event ID is required.');
   if (!closingUser?.uid) throw new Error('Closing user and their UID are required.');
 
@@ -137,32 +137,130 @@ export const closeEventAndAwardXP = async (
     if (!eventData) {
       throw new Error('Failed to map event data for closing.');
     }
-    if (!eventData.details.eventName) {
-        throw new Error('Event name is missing and required for XP history.');
-    }
 
+    // Permission check
     const isOrganizerOrRequester = eventData.details.organizers?.includes(closingUser.uid) || eventData.requestedBy === closingUser.uid;
     if (!isOrganizerOrRequester) {
       throw new Error('User does not have permission to close this event.');
     }
 
+    // Status and condition checks
     if (eventData.status === EventStatus.Closed) {
-      throw new Error('Event is already closed.');
-    }
-    if (eventData.status !== EventStatus.Completed) {
+      // Allow re-running if somehow event is closed but lifecycle timestamps not set.
+      // Or, simply return success if already closed and correctly marked.
+      if (eventData.lifecycleTimestamps?.closedAt && eventData.lifecycleTimestamps?.closedBy) {
+        return { success: true, message: 'Event is already closed and finalized.'};
+      }
+      // If closed but missing lifecycle, proceed to update lifecycle.
+    } else if (eventData.status !== EventStatus.Completed) {
       throw new Error("Event must be in 'Completed' status to be closed.");
     }
+
+    if (eventData.xpAwardingStatus !== 'completed') {
+      throw new Error("XP must be successfully awarded before closing the event.");
+    }
+    // Voting closed and winners selected checks are implicitly covered by conditions for awarding XP.
+
+    // Update event status to Closed and set lifecycle timestamps
+    const updatePayload: Record<string, any> = {
+      status: EventStatus.Closed,
+      lastUpdatedAt: serverTimestamp(),
+      lifecycleTimestamps: {
+        ...(eventData.lifecycleTimestamps || {}),
+        closedAt: serverTimestamp(),
+        closedBy: closingUser.uid,
+      },
+    };
+
+    await updateDoc(eventRef, updatePayload);
+
+    return {
+      success: true,
+      message: `Event "${eventData.details.eventName}" has been successfully closed.`,
+    };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred while closing the event.';
+    console.error(`Error finalizing event closure for ${eventId}:`, error);
+    throw new Error(`Failed to finalize event closure: ${errorMessage}`);
+  }
+};
+
+
+/**
+ * Processes and awards XP for a given event.
+ * Updates the event document with XP awarding status.
+ * Does NOT change the event's main status (e.g., to Closed).
+ */
+export const processAndAwardEventXP = async (
+  eventId: string,
+  awardingUserId: string
+): Promise<{ success: boolean; message: string; awardedUserCount: number }> => {
+  if (!eventId) throw new Error('Event ID is required for XP awarding.');
+  if (!awardingUserId) throw new Error('Awarding user ID is required.');
+
+  const eventRef = doc(db, EVENTS_COLLECTION, eventId);
+  let awardedUserCount = 0;
+
+  try {
+    const eventSnap = await getDoc(eventRef);
+    if (!eventSnap.exists()) {
+      throw new Error('Event not found for XP awarding.');
+    }
+
+    const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data()) as Event;
+    if (!eventData) {
+      throw new Error('Failed to map event data for XP awarding.');
+    }
+    if (!eventData.details.eventName) {
+      throw new Error('Event name is missing and required for XP history.');
+    }
+
+    // Permission check: Ensure awardingUser is an organizer
+    // (Assuming isEventOrganizer utility exists or similar logic)
+    if (!eventData.details.organizers?.includes(awardingUserId)) {
+      // A more robust check might involve fetching the user role if there's a specific admin/organizer role system
+      // For now, direct check on organizers array.
+      // This check might also live in the store action before calling the service.
+      // Consider if eventData.requestedBy should also be allowed.
+      // For now, strict to listed organizers.
+      throw new Error('User does not have permission to award XP for this event.');
+    }
+
+    if (eventData.status !== EventStatus.Completed) {
+      await updateDoc(eventRef, { xpAwardingStatus: 'failed', xpAwardError: 'Event not in Completed status.', lastUpdatedAt: serverTimestamp() });
+      throw new Error("XP can only be awarded for events in 'Completed' status.");
+    }
     if (eventData.votingOpen) {
-      throw new Error("Voting must be closed before closing the event.");
+      await updateDoc(eventRef, { xpAwardingStatus: 'failed', xpAwardError: 'Voting must be closed.', lastUpdatedAt: serverTimestamp() });
+      throw new Error("Voting must be closed before awarding XP.");
     }
     if (!eventData.winners || Object.keys(eventData.winners).length === 0) {
-      throw new Error("Winners must be determined and saved before closing the event.");
+      await updateDoc(eventRef, { xpAwardingStatus: 'failed', xpAwardError: 'Winners not determined.', lastUpdatedAt: serverTimestamp() });
+      throw new Error("Winners must be determined before awarding XP.");
+    }
+    if (eventData.xpAwardingStatus === 'completed') {
+      return { success: true, message: 'XP has already been awarded for this event.', awardedUserCount: 0 }; // Or fetch count from event if stored
+    }
+    if (eventData.xpAwardingStatus === 'in_progress') {
+      throw new Error('XP awarding is already in progress for this event.');
     }
 
-    const xpAwards = calculateEventXP(eventData);
-    const studentIdsWithXP = Object.keys(xpAwards);
+    // Mark as in_progress
+    await updateDoc(eventRef, { xpAwardingStatus: 'in_progress', xpAwardError: null, lastUpdatedAt: serverTimestamp() });
 
-    // Convert EventXPAward[] to Record<string, XpFieldUpdates> for applyXpAwardsBatch
+    const xpAwards = calculateEventXP(eventData); // from eventUtils
+    awardedUserCount = new Set(xpAwards.map(award => award.userId)).size;
+
+    if (xpAwards.length === 0) {
+      await updateDoc(eventRef, {
+        xpAwardingStatus: 'completed',
+        xpAwardedAt: serverTimestamp(),
+        xpAwardError: null, // Clear any previous error
+        lastUpdatedAt: serverTimestamp()
+      });
+      return { success: true, message: 'No XP awards to process for this event.', awardedUserCount: 0 };
+    }
+
     const xpChangesMap: Record<string, XpFieldUpdates> = {};
     for (const award of xpAwards) {
       if (!xpChangesMap[award.userId]) {
@@ -172,77 +270,41 @@ export const closeEventAndAwardXP = async (
       const userUpdates = xpChangesMap[award.userId];
       if (userUpdates) {
         userUpdates[firestoreKey] = (userUpdates[firestoreKey] || 0) + award.points;
-        
         if (award.isWinner) {
           userUpdates.count_wins = (userUpdates.count_wins || 0) + 1;
         }
       }
     }
 
-    // Get the batch with all XP updates, but don't commit it yet.
-    const batch = applyXpAwardsBatch(xpChangesMap, eventId, eventData.details.eventName);
+    const xpBatch = applyXpAwardsBatch(xpChangesMap, eventId, eventData.details.eventName); // from xpService
+    await xpBatch.commit();
 
-    // Add the event status update to the same batch.
-    const updatePayload: Record<string, any> = {
-      status: EventStatus.Closed,
-      lastUpdatedAt: serverTimestamp(),
-      lifecycleTimestamps: {
-        ...(eventData.lifecycleTimestamps || {}),
-        closedAt: serverTimestamp(),
-        closedBy: closingUser.uid // Added closedBy based on previous logic review
-      },
-    };
-    batch.update(eventRef, updatePayload);
-
-    // Atomically commit all XP awards and the event status update.
-    await batch.commit();
-
-    // Aggregate xpAwards (EventXPAward[]) into Record<string, Partial<XPData>> for the return
-    const aggregatedXpChanges: Record<string, Partial<XPData>> = {};
-    for (const award of xpAwards) {
-      if (!aggregatedXpChanges[award.userId]) {
-        aggregatedXpChanges[award.userId] = { totalCalculatedXp: 0, count_wins: 0 };
-      }
-      const firestoreKey = mapCalcRoleToFirestoreKey(award.role);
-      const userChanges = aggregatedXpChanges[award.userId];
-      if (userChanges) {
-        (userChanges as any)[firestoreKey] = ((userChanges as any)[firestoreKey] || 0) + award.points;
-        userChanges.totalCalculatedXp = (userChanges.totalCalculatedXp || 0) + award.points;
-
-        if (award.isWinner) {
-          userChanges.count_wins = (userChanges.count_wins || 0) + 1;
-        }
-      }
-    }
+    // Mark as completed
+    await updateDoc(eventRef, {
+      xpAwardingStatus: 'completed',
+      xpAwardedAt: serverTimestamp(),
+      xpAwardError: null, // Clear any previous error
+      lastUpdatedAt: serverTimestamp()
+    });
 
     return {
       success: true,
-      message: `Event "${eventData.details.eventName}" closed successfully. XP awarded to ${studentIdsWithXP.length} participants.`,
-      xpAwarded: aggregatedXpChanges,
+      message: `XP successfully awarded to ${awardedUserCount} participants.`,
+      awardedUserCount,
     };
+
   } catch (error: unknown) {
-    let operationPhase = "general processing";
-    if (error instanceof Error) {
-        if (error.message.includes("Event name is missing")) operationPhase = "data validation";
-        else if (error.message.includes("permission denied")) operationPhase = "permission check";
-        else if (error.message.includes("Event is already closed")) operationPhase = "status check (already closed)";
-        else if (error.message.includes("must be in 'Completed' status")) operationPhase = "status check (not completed)";
-        else if (error.message.includes("Voting must be closed")) operationPhase = "voting status check";
-        else if (error.message.includes("Winners must be determined")) operationPhase = "winner determination check";
-        else if (error.message.includes("Cannot create valid XP history")) operationPhase = "XP batch preparation (missing eventId/name)";
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during XP awarding.';
+    try {
+      await updateDoc(eventRef, { xpAwardingStatus: 'failed', xpAwardError: errorMessage, lastUpdatedAt: serverTimestamp() });
+    } catch (updateError) {
+      console.error("Failed to update event with XP award error state:", updateError);
     }
-
-    const baseMessage = `Error during ${operationPhase} for closing event ${eventId} by user ${closingUser.uid}.`;
-    const finalMessage = error instanceof Error ? `${baseMessage} Details: ${error.message}` : `${baseMessage} An unknown error occurred.`;
-
-    console.error(finalMessage, error); // Log the full error object for more details in console
-
-    if (error instanceof Error && typeof (error as any).code === 'string') { // Check if it's a FirebaseError-like object
-        throw new Error(`Failed to close event (${operationPhase}): ${error.message} (Code: ${(error as any).code})`);
-    }
-    throw new Error(`Failed to close event ${eventId} during ${operationPhase}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error(`Error awarding XP for event ${eventId}:`, error);
+    throw new Error(`Failed to award XP: ${errorMessage}`);
   }
 };
+
 
 /**
  * Deletes a pending event request from Firestore.

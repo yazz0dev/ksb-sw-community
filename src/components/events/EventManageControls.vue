@@ -87,13 +87,20 @@
         <div class="d-flex justify-content-between align-items-start align-items-md-center flex-column flex-md-row gap-2">
           <h3 class="h5 h4-md text-dark mb-0">
             <i class="fas fa-vote-yea text-primary me-2"></i>
-            Voting & Closing
+          Voting, XP & Closing
           </h3>
-                      <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill small" 
-                :class="event.votingOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
-            <i :class="event.votingOpen ? 'fas fa-lock-open' : 'fas fa-lock'" class="me-1"></i>
-            Voting: {{ event.votingOpen ? 'Open' : 'Closed' }}
-          </span>
+        <div class="d-flex flex-column flex-md-row align-items-md-center gap-1 gap-md-2">
+            <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill small"
+                  :class="event.votingOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
+              <i :class="event.votingOpen ? 'fas fa-lock-open' : 'fas fa-lock'" class="me-1"></i>
+              Voting: {{ event.votingOpen ? 'Open' : 'Closed' }}
+            </span>
+            <span v-if="event.status === EventStatus.Completed && event.xpAwardingStatus" class="badge rounded-pill small" :class="xpStatusBadgeClass">
+                <i :class="xpStatusIconClass" class="me-1"></i>
+                XP: {{ event.xpAwardingStatus }}
+            </span>
+        </div>
+
         </div>
       </div>
       
@@ -163,6 +170,20 @@
           <span v-if="isClosingEvent || isActionLoading('closeEvent')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
           <i v-else class="fas fa-archive me-2"></i>
           <span>{{ isClosingEvent ? 'Closing...' : 'Close Permanently' }}</span>
+        </button>
+
+        <!-- Award XP Button -->
+        <button
+          v-if="showAwardXpButton"
+          type="button"
+          class="btn btn-info action-btn"
+          :disabled="isActionLoading('awardXP')"
+          @click="awardXpAction"
+          title="Calculate and award XP to participants"
+        >
+          <span v-if="isActionLoading('awardXP')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i v-else class="fas fa-star-half-alt me-2"></i>
+          <span>Award XP</span>
         </button>
       </div>
       
@@ -256,8 +277,8 @@ const router = useRouter();
 const studentStore = useProfileStore();
 const eventStore = useEventStore();
 const notificationStore = useNotificationStore();
-const loadingAction = ref<EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner' | null>(null);
-const isClosingEvent = ref(false);
+const loadingAction = ref<EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner' | 'awardXP' | null>(null); // Added 'awardXP'
+const isClosingEvent = ref(false); // This might be redundant if loadingAction covers 'closeEvent'
 
 // --- User Role & Permissions ---
 const currentUserId = computed<string | null>(() => studentStore.currentStudent?.uid ?? null);
@@ -374,6 +395,16 @@ const showCloseEventButton = computed(() =>
   props.event?.status === EventStatus.Completed &&
   votingIsClosed.value &&
   hasWinners.value &&
+  props.event.xpAwardingStatus === 'completed' && // Added XP awarded check
+  !props.event?.lifecycleTimestamps?.closedAt
+);
+
+const showAwardXpButton = computed(() =>
+  localIsOrganizer.value &&
+  props.event?.status === EventStatus.Completed &&
+  votingIsClosed.value &&
+  hasWinners.value &&
+  (props.event.xpAwardingStatus !== 'completed' && props.event.xpAwardingStatus !== 'in_progress') &&
   !props.event?.lifecycleTimestamps?.closedAt
 );
 
@@ -412,8 +443,28 @@ const manualSelectButtonTitle = computed(() => {
     return 'Manually set or override winners';
 });
 
+const xpStatusBadgeClass = computed(() => {
+  switch (props.event?.xpAwardingStatus) {
+    case 'completed': return 'bg-success-subtle text-success-emphasis';
+    case 'in_progress': return 'bg-info-subtle text-info-emphasis';
+    case 'failed': return 'bg-danger-subtle text-danger-emphasis';
+    case 'pending':
+    default: return 'bg-secondary-subtle text-secondary-emphasis';
+  }
+});
+
+const xpStatusIconClass = computed(() => {
+  switch (props.event?.xpAwardingStatus) {
+    case 'completed': return 'fas fa-check-circle';
+    case 'in_progress': return 'fas fa-spinner fa-spin';
+    case 'failed': return 'fas fa-exclamation-triangle';
+    case 'pending':
+    default: return 'fas fa-hourglass-start';
+  }
+});
+
 // --- Actions ---
-const isActionLoading = (action: EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner'): boolean => 
+const isActionLoading = (action: EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner' | 'awardXP'): boolean =>
   loadingAction.value === action;
 
 const updateStatus = async (newStatus: EventStatus): Promise<void> => {
@@ -550,6 +601,26 @@ const goToEditEvent = (): void => {
 
 const goToManualSelectWinner = (): void => {
   router.push({ name: 'SelectionForm', params: { eventId: props.event.id }, query: { manualMode: 'true' } });
+};
+
+const awardXpAction = async (): Promise<void> => {
+  if (loadingAction.value) return;
+  loadingAction.value = 'awardXP';
+  try {
+    // This action will be created in eventStore.ts in a later step
+    await eventStore.triggerXpAwarding(props.event.id);
+    // Notification will be handled within the store action based on outcome
+    emit('update'); // To refresh event data which will include xpAwardingStatus
+  } catch (error: any) {
+    // Errors should ideally be caught and notified within the store action.
+    // If not, a generic notification here might be needed.
+    notificationStore.showNotification({
+      message: error?.message || 'Failed to start XP awarding process.',
+      type: 'error'
+    });
+  } finally {
+    loadingAction.value = null;
+  }
 };
 </script>
 

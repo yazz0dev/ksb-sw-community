@@ -155,6 +155,11 @@ export interface Event {
   gallery?: EventGalleryItem[] | null | undefined; // For event photos/videos
   lifecycleTimestamps?: EventLifecycleTimestamps | null | undefined;
   teamMemberFlatList?: string[] | null | undefined; // Denormalized list of all UIDs in all teams for easier querying
+
+  // Fields for XP Awarding Process
+  xpAwardingStatus?: 'pending' | 'in_progress' | 'completed' | 'failed' | null | undefined;
+  xpAwardedAt?: Timestamp | null | undefined;
+  xpAwardError?: string | null | undefined;
 }
 
 // --- EventFormData Interface (For event creation/editing forms) ---
