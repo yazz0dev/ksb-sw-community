@@ -45,30 +45,23 @@
               <form @submit.prevent="handleFormSubmit" class="needs-validation" novalidate>
                 <!-- Profile Image with Enhanced Cloudinary Integration -->
                 <div class="mb-4 text-center">
-                  <ProfileImageUploader
-                    :current-image-url="form.photoURL || null"
-                    :optimized-image-url="getOptimizedImageUrl(form.photoURL)"
-                    :disabled="pageLoading || isImageUploading || isSavingOnline || isSyncingDraft"
-                    :upload-progress="imageUploadProgress"
-                    :upload-error="imageUploadError"
-                    @image-selected="handleImageSelected"
-                    @image-uploaded="handleImageUploaded"
-                    @upload-error="handleUploadError"
-                  />
-                  
-                  <div v-if="isImageUploading" class="mt-2">
-                    <div class="progress" style="height: 4px;">
-                      <div 
-                        class="progress-bar progress-bar-striped progress-bar-animated" 
-                        :style="{ width: imageUploadProgress + '%' }"
-                      ></div>
-                    </div>
-                    <small class="text-muted">Uploading... {{ imageUploadProgress }}%</small>
+                  <!-- ProfileImageUploader removed -->
+                  <!-- Display current profile image (read-only) -->
+                  <div class="mb-3 text-center">
+                    <img
+                      :src="form.photoURL || '/default-avatar.png'"
+                      alt="Profile Preview"
+                      class="rounded-circle"
+                      style="width: 120px; height: 120px; object-fit: cover; border: 3px solid var(--bs-light); box-shadow: var(--bs-box-shadow-sm);"
+                      @error="($event.target as HTMLImageElement).src = '/default-avatar.png'"
+                    >
+                    <p v-if="!form.photoURL" class="text-muted small mt-2">No profile image. Will use default or GitHub avatar if available.</p>
                   </div>
-                  <div v-if="imageUploadError" class="mt-2 text-danger small">
-                    <i class="fas fa-exclamation-triangle me-1"></i>
-                    {{ imageUploadError }}
-                  </div>
+                  <p class="text-center text-muted small mb-4">
+                    Profile pictures are now managed via your GitHub profile. <br/>
+                    Please ensure your GitHub username is set in your profile to display your avatar.
+                    If no GitHub username is provided, a default letter-based avatar will be shown.
+                  </p>
                 </div>
 
                 <div class="mb-4">
@@ -128,7 +121,7 @@
                     type="button"
                     class="btn btn-light"
                     @click="router.back()"
-                    :disabled="pageLoading || isImageUploading || isSavingOnline || isSyncingDraft"
+                    :disabled="pageLoading || isSavingOnline || isSyncingDraft"
                   >
                     Cancel
                   </button>
@@ -136,7 +129,7 @@
                     type="submit"
                     class="btn btn-primary"
                     :class="{ 'btn-loading': isSavingOnline || isSyncingDraft }"
-                    :disabled="pageLoading || !isFormValid || isImageUploading || isSavingOnline || isSyncingDraft"
+                    :disabled="pageLoading || !isFormValid || isSavingOnline || isSyncingDraft"
                   >
                     <span v-if="isSavingOnline || isSyncingDraft" class="spinner-border spinner-border-sm me-2"></span>
                     <span class="btn-text">{{ (isSavingOnline || isSyncingDraft) ? 'Saving...' : 'Save Changes' }}</span>
@@ -158,9 +151,9 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAppStore } from '@/stores/appStore';
 import type { EnrichedStudentData } from '@/types/student';
-import ProfileImageUploader from '@/components/ui/ProfileImageUploader.vue';
+// import ProfileImageUploader from '@/components/ui/ProfileImageUploader.vue'; // Removed
 import { serverTimestamp } from 'firebase/firestore';
-import { UploadStatus } from '@/types/student';
+// import { UploadStatus } from '@/types/student'; // Removed
 import { saveProfileDraft, loadProfileDraft, clearProfileDraft, type ProfileDraftData } from '@/utils/localDrafts';
 import { debounce } from 'lodash-es';
 
@@ -203,63 +196,20 @@ const isFormValid = computed(() => {
   return !formErrors.value.name;
 });
 
-const imageUploadProgress = ref(0);
-const imageUploadError = ref<string | null>(null);
-const isImageUploading = computed(() => studentStore.imageUploadState.status === UploadStatus.Uploading);
+// const imageUploadProgress = ref(0); // Removed
+// const imageUploadError = ref<string | null>(null); // Removed
+// const isImageUploading = computed(() => studentStore.imageUploadState.status === UploadStatus.Uploading); // Removed
 
-function getOptimizedImageUrl(imageUrl?: string): string {
-  if (!imageUrl) return '';
-  return studentStore.getOptimizedProfileImageUrl(imageUrl, 400, 85);
-}
+// function getOptimizedImageUrl(imageUrl?: string): string { // Removed
+//   if (!imageUrl) return '';
+//   return studentStore.getOptimizedProfileImageUrl(imageUrl, 400, 85);
+// }
 
-async function handleImageSelected(file: File) {
-  imageUploadError.value = null;
-  imageUploadProgress.value = 0;
-  try {
-    const downloadURL = await studentStore.uploadProfileImage(file, {
-      maxSizeMB: 2,
-      maxWidthOrHeight: 1200,
-      quality: 0.85
-    });
-    form.value.photoURL = downloadURL;
-    notificationStore.showNotification({ message: 'Image uploaded successfully!', type: 'success' });
-    // Save draft if offline after successful upload
-    if (!appStore.isOnline && formInitialized) {
-      await debouncedSaveDraft();
-    }
-  } catch (err: any) {
-    imageUploadError.value = err.message || 'Upload failed';
-    notificationStore.showNotification({ message: `Image upload failed: ${err.message}`, type: 'error' });
-  }
-}
+// async function handleImageSelected(file: File) { ... } // Removed
+// function handleImageUploaded(imageUrl: string) { ... } // Removed
+// function handleUploadError(err: string) { ... } // Removed
 
-function handleImageUploaded(imageUrl: string) {
-  form.value.photoURL = imageUrl;
-  imageUploadError.value = null;
-  // Save draft if offline and form is initialized
-  if (!appStore.isOnline && formInitialized) {
-    debouncedSaveDraft();
-  }
-}
-
-function handleUploadError(err: string) {
-  imageUploadError.value = err;
-  notificationStore.showNotification({ message: `Image upload failed: ${err}`, type: 'error' });
-}
-
-watch(() => studentStore.imageUploadState, (newState) => {
-  imageUploadProgress.value = newState.progress;
-  if (newState.status === UploadStatus.Error) {
-    imageUploadError.value = newState.error;
-  } else if (newState.status === UploadStatus.Success && newState.downloadURL) {
-    form.value.photoURL = newState.downloadURL;
-    imageUploadError.value = null;
-    // Save draft if offline and form is initialized
-    if (!appStore.isOnline && formInitialized) {
-      debouncedSaveDraft();
-    }
-  }
-}, { deep: true });
+// watch(() => studentStore.imageUploadState, (newState) => { ... }, { deep: true }); // Removed
 
 
 async function loadUserData() {
@@ -370,10 +320,7 @@ async function saveProfileEdits(isAutoSync: boolean) {
     if (!isAutoSync) notificationStore.showNotification({ message: "Please correct the form errors.", type: "warning" });
     return;
   }
-  if (isImageUploading.value) {
-    if (!isAutoSync) notificationStore.showNotification({ message: "Please wait for image upload to complete.", type: "warning" });
-    return;
-  }
+  // Removed isImageUploading check
 
   isSavingOnline.value = true;
   error.value = '';
@@ -414,8 +361,8 @@ async function saveProfileEdits(isAutoSync: boolean) {
     const success = await studentStore.updateMyProfile(updates);
 
     if (success) {
-      studentStore.resetImageUploadState();
-      imageUploadError.value = null; imageUploadProgress.value = 0;
+      // studentStore.resetImageUploadState(); // Removed
+      // imageUploadError.value = null; imageUploadProgress.value = 0; // Removed
       await clearProfileDraft();
       hasOfflineDraft.value = false; isOfflineDraftLoaded.value = false;
       notificationStore.showNotification({ message: 'Profile updated successfully!', type: 'success' });
@@ -452,9 +399,9 @@ onMounted(() => {
   loadUserData().finally(() => {
       // formInitialized = true; // Moved to end of loadUserData after nextTick
   });
-  studentStore.resetImageUploadState();
-  imageUploadError.value = null;
-  imageUploadProgress.value = 0;
+  // studentStore.resetImageUploadState(); // Removed
+  // imageUploadError.value = null; // Removed
+  // imageUploadProgress.value = 0; // Removed
 });
 </script>
 

@@ -12,12 +12,6 @@ importers:
 
   .:
     dependencies:
-      '@cloudinary/url-gen':
-        specifier: ^1.21.0
-        version: 1.21.0
-      '@cloudinary/vue':
-        specifier: ^1.13.3
-        version: 1.13.3
       '@fortawesome/fontawesome-free':
         specifier: ^6.7.2
         version: 6.7.2
@@ -645,18 +639,6 @@ packages:
   '@babel/types@7.27.3':
     resolution: {integrity: sha512-Y1GkI4ktrtvmawoSq+4FCVHNryea6uR+qUQy0AGxLSsjCX0nVmkYQMBLHDkXZuo5hGx7eYdnIaslsdBFm7zbUw==}
     engines: {node: '>=6.9.0'}
-
-  '@cloudinary/html@1.13.4':
-    resolution: {integrity: sha512-noBk9D2VZgZkQIs5/y29OsJDmwp0FtgAlKrrp1+0Jp2HMu+68sdDJ3zi4/ZuLCnbdqthGuxP83trowG+Zsa68Q==}
-
-  '@cloudinary/transformation-builder-sdk@1.17.0':
-    resolution: {integrity: sha512-zPHNtEpLkil+1obvLK7zHDMWAs9ZwUGI0GUKnMMkEC3pOLtKETswPBdLAjJTMH512lGc18vgdzogWdItPRN3Kg==}
-
-  '@cloudinary/url-gen@1.21.0':
-    resolution: {integrity: sha512-ctYcCzX3G3vcgnESTU2ET3K1XsBiXcEnBddCGV0QbR3fJhLLrIShjSMEwZoepgh4LAFOHJu9DzvLFr+E8R7c7g==}
-
-  '@cloudinary/vue@1.13.3':
-    resolution: {integrity: sha512-/KWn9Ohf6peQQ0iZEnpFCCUhr6Opa6X1pKxET4uJlgFRtkThJQrCj+17m3fKcwaw9dfwcZ8pfv/EJ5T+rK/W0A==}
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -1318,12 +1300,6 @@ packages:
   '@types/lodash-es@4.17.12':
     resolution: {integrity: sha512-0NgftHUcV4v34VhXm8QBSftKVXtbkBG3ViCjs6+eJ5a6y6Mi/jiFGPc1sC7QK+9BFhWrURE3EOggmWaSxL9OzQ==}
 
-  '@types/lodash.clonedeep@4.5.9':
-    resolution: {integrity: sha512-19429mWC+FyaAhOLzsS8kZUsI+/GmBAQ0HFiCPsKGU+7pBXOQWhyrY6xNNDwUSX8SMZMJvuFVMF9O5dQOlQK9Q==}
-
-  '@types/lodash.debounce@4.0.9':
-    resolution: {integrity: sha512-Ma5JcgTREwpLRwMM+XwBR7DaWe96nC38uCBDFKZWbNKD+osjVzdpnUSwBcqCptrp16sSOLBAUb50Car5I0TCsQ==}
-
   '@types/lodash@4.17.17':
     resolution: {integrity: sha512-RRVJ+J3J+WmyOTqnz3PiBLA501eKwXl2noseKOrNo/6+XEHjTAxO4xHvxQB6QuNm+s4WRbn6rSiap8+EA+ykFQ==}
 
@@ -1335,9 +1311,6 @@ packages:
 
   '@types/minimatch@5.1.2':
     resolution: {integrity: sha512-K0VQKziLUWkVKiRVrx4a40iPaxTUefQmjtkQofBkYRcoaaL/8rhwDWww9qWbrgicNOgnpIsMxyNIUM4+n6dUIA==}
-
-  '@types/node@14.18.63':
-    resolution: {integrity: sha512-fAtCfv4jJg+ExtXhvCkCqUKZ+4ok/JQk01qDKhL5BDDoS3AxKXhV5/MAVUZyQnSEd2GT92fkgZl0pz0Q0AzcIQ==}
 
   '@types/node@20.17.57':
     resolution: {integrity: sha512-f3T4y6VU4fVQDKVqJV4Uppy8c1p/sVvS3peyqxyWnzkqXFJLRU7Y1Bl7rMS1Qe9z0v4M6McY0Fp9yBsgHJUsWQ==}
@@ -2840,9 +2813,6 @@ packages:
   lodash.camelcase@4.3.0:
     resolution: {integrity: sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA==}
 
-  lodash.clonedeep@4.5.0:
-    resolution: {integrity: sha512-H5ZhCF25riFd9uB5UCkVKo61m3S/xZk1x4wA6yp/L3RFP6Z/eHH1ymQcGLo7J3GMPfm0V/7m1tryHuGVxpqEBQ==}
-
   lodash.debounce@4.0.8:
     resolution: {integrity: sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==}
 
@@ -3798,11 +3768,6 @@ packages:
     resolution: {integrity: sha512-3KS2b+kL7fsuk/eJZ7EQdnEmQoaho/r6KUef7hxvltNA5DR8NAUM+8wJMbJyZ4G9/7i3v5zPBIMN5aybAh2/Jg==}
     engines: {node: '>= 0.4'}
 
-  typescript@4.9.5:
-    resolution: {integrity: sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==}
-    engines: {node: '>=4.2.0'}
-    hasBin: true
-
   typescript@5.3.3:
     resolution: {integrity: sha512-pXWcraxM0uxAS+tN0AG/BF2TyqmHO014Z070UsJ+pFvYuRSq8KH8DmWpnbXe0pEPDHXZV3FcAbJkijJ5oNEnWw==}
     engines: {node: '>=14.17'}
@@ -4756,27 +4721,6 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
 
-  '@cloudinary/html@1.13.4':
-    dependencies:
-      '@types/lodash.clonedeep': 4.5.9
-      '@types/lodash.debounce': 4.0.9
-      '@types/node': 14.18.63
-      lodash.clonedeep: 4.5.0
-      lodash.debounce: 4.0.8
-      typescript: 4.9.5
-
-  '@cloudinary/transformation-builder-sdk@1.17.0':
-    dependencies:
-      '@cloudinary/url-gen': 1.21.0
-
-  '@cloudinary/url-gen@1.21.0':
-    dependencies:
-      '@cloudinary/transformation-builder-sdk': 1.17.0
-
-  '@cloudinary/vue@1.13.3':
-    dependencies:
-      '@cloudinary/html': 1.13.4
-
   '@esbuild/aix-ppc64@0.21.5':
     optional: true
 
@@ -5494,14 +5438,6 @@ snapshots:
     dependencies:
       '@types/lodash': 4.17.17
 
-  '@types/lodash.clonedeep@4.5.9':
-    dependencies:
-      '@types/lodash': 4.17.17
-
-  '@types/lodash.debounce@4.0.9':
-    dependencies:
-      '@types/lodash': 4.17.17
-
   '@types/lodash@4.17.17': {}
 
   '@types/luxon@3.6.2': {}
@@ -5509,8 +5445,6 @@ snapshots:
   '@types/marked@5.0.2': {}
 
   '@types/minimatch@5.1.2': {}
-
-  '@types/node@14.18.63': {}
 
   '@types/node@20.17.57':
     dependencies:
@@ -7270,8 +7204,6 @@ snapshots:
 
   lodash.camelcase@4.3.0: {}
 
-  lodash.clonedeep@4.5.0: {}
-
   lodash.debounce@4.0.8: {}
 
   lodash.sortby@4.7.0: {}
@@ -8293,8 +8225,6 @@ snapshots:
       is-typed-array: 1.1.15
       possible-typed-array-names: 1.1.0
       reflect.getprototypeof: 1.0.10
-
-  typescript@4.9.5: {}
 
   typescript@5.3.3: {}
 
