@@ -86,7 +86,7 @@
 import { computed, type PropType, ref, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import { formatISTDate } from '@/utils/dateTime';
-import { EventStatus, type Event, EventFormat } from '@/types/event';
+import { type Event, EventFormat } from '@/types/event';
 import { getEventStatusBadgeClass } from '@/utils/eventUtils';
 import { useMarkdownRenderer } from '@/composables/useMarkdownRenderer';
 
@@ -109,7 +109,7 @@ const studentStore = useProfileStore();
 const { renderMarkdown } = useMarkdownRenderer();
 
 const isCancelledOrRejected = computed(() =>
-  props.event.status === EventStatus.Rejected
+  false
 );
 
 const renderedDescriptionHtml = ref('');

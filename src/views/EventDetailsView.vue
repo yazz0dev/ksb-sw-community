@@ -247,6 +247,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore';
 import { DateTime } from 'luxon';

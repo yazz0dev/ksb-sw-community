@@ -61,85 +61,19 @@
       </div>
       
       <div class="action-buttons-grid">
-        <!-- Open Voting Button -->
-        <button
-          v-if="showOpenVotingButton"
-          type="button"
-          class="btn btn-success action-btn"
-          :disabled="isActionLoading('openVoting')"
-          @click="toggleVoting(true)"
-        >
-          <span v-if="isActionLoading('openVoting')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-lock-open me-2"></i>
-          <span>Open Voting</span>
-        </button>
         
-        <!-- Close Voting Button -->
+        <!-- Close & Award XP Button -->
         <button
-          v-if="showCloseVotingButton"
-          type="button"
-          class="btn btn-warning action-btn"
-          :disabled="isActionLoading('closeVoting')"
-          @click="toggleVoting(false)"
-        >
-          <span v-if="isActionLoading('closeVoting')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-lock me-2"></i>
-          <span>Close Voting</span>
-        </button>
-        
-        <!-- Find Winner Button -->
-        <button
-          v-if="showFindWinnerButton"
+          v-if="showCloseAndAwardXpButton"
           type="button"
           class="btn btn-primary action-btn"
-          :disabled="submissionCount < 10 || isActionLoading('findWinner')"
-          @click="findWinnerAction"
-        >
-          <span v-if="isActionLoading('findWinner')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-trophy me-2"></i>
-          <span>Find Winner</span>
-        </button>
-        
-        <!-- Manually Select Winners Button -->
-        <button
-          v-if="showManualSelectWinnerButton"
-          type="button"
-          class="btn btn-info action-btn"
-          :disabled="isActionLoading('manualSelectWinner')"
-          @click="goToManualSelectWinner"
-          :title="manualSelectButtonTitle"
-        >
-          <span v-if="isActionLoading('manualSelectWinner')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-edit me-2"></i>
-          <span>{{ manualSelectButtonText }}</span>
-        </button>
-        
-        <!-- Close Event Button -->
-        <button
-          v-if="showCloseEventButton"
-          type="button"
-          class="btn btn-outline-danger action-btn"
           :disabled="isClosingEvent || isActionLoading('closeEvent')"
           @click="showCloseEventModal"
           title="Permanently close event and award XP"
         >
           <span v-if="isClosingEvent || isActionLoading('closeEvent')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
           <i v-else class="fas fa-archive me-2"></i>
-          <span>{{ isClosingEvent ? 'Closing...' : 'Close Permanently' }}</span>
-        </button>
-
-        <!-- Award XP Button -->
-        <button
-          v-if="showAwardXpButton"
-          type="button"
-          class="btn btn-info action-btn"
-          :disabled="isActionLoading('awardXP')"
-          @click="awardXpAction"
-          title="Calculate and award XP to participants"
-        >
-          <span v-if="isActionLoading('awardXP')" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-          <i v-else class="fas fa-star-half-alt me-2"></i>
-          <span>Award XP</span>
+          <span>{{ isClosingEvent ? 'Closing...' : 'Close & Award XP' }}</span>
         </button>
       </div>
       
@@ -175,17 +109,6 @@
       </div>
     </div>
 
-    <!-- Cancel Event Confirmation Modal -->
-    <ConfirmationModal
-      ref="cancelModalRef"
-      modal-id="cancelEventModal"
-      title="Cancel Event"
-      message="Are you sure you want to cancel this event? This action cannot be undone and all participants will be notified."
-      confirm-text="Cancel Event"
-      cancel-text="Keep Event"
-      variant="danger"
-      @confirm="confirmCancel"
-    />
 
     <!-- Close Event Confirmation Modal -->
     <ConfirmationModal
@@ -219,7 +142,6 @@ const props = defineProps<{
 const router = useRouter();
 const studentStore = useProfileStore();
 const eventStore = useEventStore();
-const notificationStore = useNotificationStore();
 const loadingAction = ref<EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner' | 'awardXP' | null>(null); // Added 'awardXP'
 const isClosingEvent = ref(false); // This might be redundant if loadingAction covers 'closeEvent'
 
@@ -238,72 +160,11 @@ const showAwardPointsButton = computed(() =>
   !props.event?.lifecycleTimestamps?.closedAt
 );
 
-const showMarkCompleteButton = computed(() =>
+
+
+const showCloseAndAwardXpButton = computed(() =>
   localIsOrganizer.value &&
   props.event?.status === EventStatus.Approved &&
-  !props.event?.lifecycleTimestamps?.closedAt
-);
-
-const showOpenVotingButton = computed(() => {
-  if (props.event?.details.format === 'Individual' && !props.event.details.isCompetition) {
-    return false;
-  }
-  return localIsOrganizer.value &&
-    props.event?.status === EventStatus.Approved &&
-    votingIsClosed.value &&
-    !props.event?.lifecycleTimestamps?.closedAt
-});
-
-const showCloseVotingButton = computed(() => {
-    if (props.event?.details.format === 'Individual' && !props.event.details.isCompetition) {
-      return false;
-    }
-    return localIsOrganizer.value &&
-      props.event?.status === EventStatus.Approved &&
-      props.event?.votingOpen === true &&
-      !props.event?.lifecycleTimestamps?.closedAt
-});
-
-const canFindWinner = computed(() => {
-  if (props.event?.details.format === 'Individual' && !props.event.details.isCompetition) {
-    return false;
-  }
-  return localIsOrganizer.value &&
-    props.event?.status === EventStatus.Approved &&
-    votingIsClosed.value &&
-    !props.event?.lifecycleTimestamps?.closedAt
-});
-
-const showFindWinnerButton = canFindWinner;
-
-const showManualSelectWinnerButton = computed(() =>
-  localIsOrganizer.value &&
-  props.event?.status === EventStatus.Approved &&
-  votingIsClosed.value &&
-  !props.event?.lifecycleTimestamps?.closedAt
-);
-
-const showCloseEventButton = computed(() =>
-  localIsOrganizer.value &&
-  props.event?.status === EventStatus.Approved &&
-  votingIsClosed.value &&
-  hasWinners.value &&
-  props.event.xpAwardingStatus === 'completed' && // Added XP awarded check
-  !props.event?.lifecycleTimestamps?.closedAt
-);
-
-const showAwardXpButton = computed(() =>
-  localIsOrganizer.value &&
-  props.event?.status === EventStatus.Approved &&
-  votingIsClosed.value &&
-  hasWinners.value &&
-  (props.event.xpAwardingStatus !== 'completed' && props.event.xpAwardingStatus !== 'in_progress') &&
-  !props.event?.lifecycleTimestamps?.closedAt
-);
-
-const showCancelButton = computed(() =>
-  localIsOrganizer.value &&
-  [EventStatus.Approved, EventStatus.Approved].includes(props.event?.status as EventStatus) &&
   !props.event?.lifecycleTimestamps?.closedAt
 );
 
@@ -312,23 +173,13 @@ const showEditButton = computed(() =>
   isEventEditable(props.event?.status)
 );
 
+import { useEventStore } from '@/stores/eventStore';
+import { ref } from 'vue';
 const showVotingClosingSection = computed(() =>
     showAwardPointsButton.value || showEditButton.value
 );
 
-const manualSelectButtonText = computed(() => {
-    if (props.event?.details.format === 'Individual' && !props.event?.details.isCompetition) {
-        return 'Award Points';
-    }
-    return 'Manual Selection';
-});
-
-const manualSelectButtonTitle = computed(() => {
-    if (props.event?.details.format === 'Individual' && !props.event?.details.isCompetition) {
-        return 'Award points to participants for each criteria';
-    }
-    return 'Manually set or override winners';
-});
+const isWithinEventDates = computed(() => true);
 
 const xpStatusBadgeClass = computed(() => {
   switch (props.event?.xpAwardingStatus) {
@@ -354,68 +205,21 @@ const xpStatusIconClass = computed(() => {
 const isActionLoading = (action: EventStatus | 'openVoting' | 'closeVoting' | 'findWinner' | 'closeEvent' | 'manualSelectWinner' | 'awardXP'): boolean =>
   loadingAction.value === action;
 
-const updateStatus = async (newStatus: EventStatus): Promise<void> => {
-  if (loadingAction.value) return;
-  loadingAction.value = newStatus;
-  try {
-    // Use Pinia action
-    await eventStore.updateEventStatus({
-      eventId: props.event.id,
-      newStatus: newStatus
-    });
-    notificationStore.showNotification({
-      message: `Event status updated to ${newStatus}.`,
-      type: 'success'
-    });
-    emit('update');
-  } catch (error: any) {
-    notificationStore.showNotification({
-      message: error?.message || `Failed to update status to ${newStatus}.`,
-      type: 'error'
-    });
-  } finally {
-    loadingAction.value = null;
-  }
-};
 
-const toggleVoting = async (openState: boolean): Promise<void> => {
-    if (loadingAction.value) return;
-    loadingAction.value = openState ? 'openVoting' : 'closeVoting';
-    try {
-        // Double-check permissions before even trying
-        if (!isEventOrganizer(props.event, currentUser.value?.uid)) {
-            throw new Error('Only event organizers can modify voting status.');
-        }
-        
-        // Add detailed debugging for troubleshooting
-        
-        // Check if event status meets requirements from Firestore rules
-        const validStatus = [EventStatus.Approved, EventStatus.Approved].includes(props.event?.status as EventStatus);
-        if (!validStatus) {
-            throw new Error('Voting can only be modified for events with status Completed or InProgress.');
-        }
-        
-        // Also check that the voting state is actually changing
-        if (props.event.votingOpen === openState) {
-            throw new Error(`Voting is already ${openState ? 'open' : 'closed'}.`);
-        }
-        
-        await eventStore.toggleVotingOpen({
-            eventId: props.event.id,
-            open: openState
-        });
-        emit('update');
-    } catch (error: any) {
-         notificationStore.showNotification({
-             message: error?.message || 'Failed to toggle voting status.',
-             type: 'error'
-         });
-    } finally {
-        loadingAction.value = null;
-    }
-};
 
-const closeEventModalRef = ref<InstanceType<typeof ConfirmationModal> | null>(null);
+const closeEventModalRef = ref<any>(null);
+
+const submissionCount = computed(() => 0);
+
+const showFindWinnerButton = computed(() => false);
+
+const showOpenVotingButton = computed(() => false);
+
+const showCloseVotingButton = computed(() => false);
+
+const showManualSelectWinnerButton = computed(() => false);
+
+const showCloseEventButton = computed(() => false);
 
 const showCloseEventModal = (): void => {
   closeEventModalRef.value?.show();
@@ -425,12 +229,14 @@ const confirmCloseEvent = (): void => {
   closeEventAction();
 };
 
+const emit = defineEmits(['update']);
+
 const closeEventAction = async (): Promise<void> => {
     if (loadingAction.value || isClosingEvent.value) return;
     loadingAction.value = 'closeEvent';
     isClosingEvent.value = true;
     try {
-        await eventStore.closeEventPermanently({
+        await eventStore.closeEvent({
             eventId: props.event.id
         });
         emit('update');
@@ -439,23 +245,6 @@ const closeEventAction = async (): Promise<void> => {
     } finally {
         loadingAction.value = null;
         isClosingEvent.value = false;
-    }
-};
-
-const findWinnerAction = async (): Promise<void> => {
-    if (loadingAction.value) return;
-    loadingAction.value = 'findWinner';
-    try {
-        // Instead of calling non-existent findWinner, use finalizeWinners via manual selection
-        await eventStore.submitManualWinnerSelection({ 
-          eventId: props.event.id, 
-          winnerSelections: {} // Empty object triggers server-side calculation
-        });
-        emit('update');
-    } catch (error: any) {
-        // Error notification handled within Pinia action
-    } finally {
-        loadingAction.value = null;
     }
 };
 
@@ -471,25 +260,6 @@ const goToAwardPoints = (): void => {
   router.push({ name: 'AwardPoints', params: { id: props.event.id } });
 };
 
-const awardXpAction = async (): Promise<void> => {
-  if (loadingAction.value) return;
-  loadingAction.value = 'awardXP';
-  try {
-    // This action will be created in eventStore.ts in a later step
-    await eventStore.triggerXpAwarding(props.event.id);
-    // Notification will be handled within the store action based on outcome
-    emit('update'); // To refresh event data which will include xpAwardingStatus
-  } catch (error: any) {
-    // Errors should ideally be caught and notified within the store action.
-    // If not, a generic notification here might be needed.
-    notificationStore.showNotification({
-      message: error?.message || 'Failed to start XP awarding process.',
-      type: 'error'
-    });
-  } finally {
-    loadingAction.value = null;
-  }
-};
 </script>
 
 <style scoped>

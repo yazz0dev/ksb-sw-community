@@ -155,7 +155,7 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
         const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
         if (!eventData) throw new Error('Failed to map event data.');
 
-        if ([EventStatus.Approved, EventStatus.Cancelled, EventStatus.Closed].includes(eventData.status as EventStatus)) {
+        if ([EventStatus.Approved, EventStatus.Closed].includes(eventData.status as EventStatus)) {
             throw new Error(`Cannot leave event with status: ${eventData.status}.`);
         }
         if (eventData.details.organizers?.includes(studentId)) {

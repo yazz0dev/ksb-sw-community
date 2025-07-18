@@ -157,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { type EnrichedUserData } from '@/types/student';
 // import { getOptimizedImageUrl } from '@/services/storageService'; // Removed
 import LetterAvatar from '@/components/ui/LetterAvatar.vue'; // Added
@@ -177,8 +177,6 @@ const emit = defineEmits<{
   (e: 'edit-profile'): void;
 }>();
 
-const defaultAvatarUrl = '/default-avatar.png';
-const profileImageRef = ref<HTMLImageElement | null>(null);
 
 const hasSocialLinks = computed(() => {
   return !!(props.user.socialLinks?.portfolio || 

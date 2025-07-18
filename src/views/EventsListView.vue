@@ -184,19 +184,11 @@ const upcomingEvents = computed<Event[]>(() => {
 });
 
 const activeEvents = computed<Event[]>(() => {
-    // No change needed here if eventStore.events is correctly filtered by Firestore rules for unauthenticated users
-    // (i.e., it won't contain 'InProgress' events for them).
-    // This computed will then correctly show 'InProgress' for authenticated users
-    // and 'Approved' (current) for both authenticated and unauthenticated users.
     if (!eventStore.events) return [];
     const currentTime = DateTime.now();
     
     return eventStore.events.filter((event: Event) => {
         if (!event) return false;
-        
-        // Event is explicitly marked as InProgress 
-        // (only possible if authenticated and Firestore rules allowed fetching it)
-        if (event.status === EventStatus.Approved) return true;
         
         // Event is approved and within date range
         if (event.status === EventStatus.Approved) {
@@ -215,22 +207,12 @@ const activeEvents = computed<Event[]>(() => {
 });
 
 const completedEvents = computed<Event[]>(() => {
-    if (!eventStore.events) return []; // Changed from events.value to eventStore.events
-    const currentTime = DateTime.now();
+    if (!eventStore.events) return [];
     
-    return eventStore.events.filter((event: Event) => { // Changed from events.value to eventStore.events
+    return eventStore.events.filter((event: Event) => {
         if (!event) return false;
         
-        // Event is explicitly marked as Completed
-        if (event.status === EventStatus.Approved) return true;
-        
-        // Event is approved but past its end date
-        if (event.status === EventStatus.Approved) {
-            const end = convertToISTDateTime(event.details?.date?.end);
-            return end && end < currentTime;
-        }
-        
-        return false;
+        return event.status === EventStatus.Closed;
     }).sort((a: Event, b: Event) => {
         const dateA = convertToISTDateTime(a.details?.date?.end || a.details?.date?.start);
         const dateB = convertToISTDateTime(b.details?.date?.end || b.details?.date?.start);

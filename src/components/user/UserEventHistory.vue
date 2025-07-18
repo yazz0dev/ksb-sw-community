@@ -174,13 +174,12 @@ const showAll = ref(false);
 // Separate active and cancelled events
 const activeEvents = computed(() => {
   return props.events.filter(event => 
-    event.eventStatus !== EventStatus.Pending && 
-    event.eventStatus !== EventStatus.Cancelled
+    event.eventStatus !== EventStatus.Pending
   );
 });
 
-const cancelledEvents = computed(() => {
-  return props.events.filter(event => event.eventStatus === EventStatus.Cancelled);
+const cancelledEvents = computed<StudentEventHistoryItem[]>(() => {
+  return [];
 });
 
 const sortedActiveEvents = computed(() => {

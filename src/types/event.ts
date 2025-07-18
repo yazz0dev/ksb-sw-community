@@ -6,7 +6,6 @@ import type { XpCalculationRoleKey } from './xp';
 export enum EventStatus {
   Pending = 'Pending',
   Approved = 'Approved',
-  Rejected = 'Rejected',
   Closed = 'Closed'
 }
 

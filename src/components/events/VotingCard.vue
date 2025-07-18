@@ -117,7 +117,7 @@ import { useRouter } from 'vue-router';
 import { type Event } from '@/types/event';
 import { type EnrichedStudentData } from '@/types/student';
 import { hasUserSubmittedVotes } from '@/utils/eventDataUtils';
-import { canUserVoteInEvent } from '@/utils/permissionHelpers';
+import { isEventParticipant } from '@/utils/permissionHelpers';
 
 interface Props {
   event: Event;
@@ -139,7 +139,7 @@ const canEditSubmission = computed(() => {
 });
 
 const canVoteInThisEvent = computed(() =>
-  props.event && props.currentUser ? canUserVoteInEvent(props.event, props.currentUser) : false
+  props.event && props.currentUser ? isEventParticipant(props.event, props.currentUser.uid) : false
 );
 
 // Methods

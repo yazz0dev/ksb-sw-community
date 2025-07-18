@@ -75,8 +75,6 @@ export function getEventStatusBadgeClass(status: EventStatus | string | undefine
       return 'bg-success-subtle text-success-emphasis';
     case EventStatus.Pending:
       return 'bg-warning-subtle text-warning-emphasis';
-    case EventStatus.Rejected:
-      return 'bg-danger-subtle text-danger-emphasis';
     case EventStatus.Closed:
       return 'bg-dark text-white';
     default:
@@ -95,7 +93,6 @@ export function compareEventsForSort(a: Event, b: Event): number {
         [EventStatus.Approved]: 1,
         [EventStatus.Pending]: 2,
         [EventStatus.Closed]: 3,
-        [EventStatus.Rejected]: 4,
     };
     const orderA = statusOrder[a.status] ?? 99;
     const orderB = statusOrder[b.status] ?? 99;
@@ -122,12 +119,10 @@ export function compareEventsForSort(a: Event, b: Event): number {
         // For completed/closed/etc. statuses, sort descending by a relevant end/completion/update date
         let timeA = 0;
         if (a.status === EventStatus.Closed) timeA = getDateValue(a.lifecycleTimestamps?.closedAt, a.lastUpdatedAt, 'desc');
-        else if (a.status === EventStatus.Rejected) timeA = getDateValue(a.lifecycleTimestamps?.rejectedAt, a.lastUpdatedAt, 'desc');
         else timeA = getDateValue(a.details?.date?.end, a.lastUpdatedAt, 'desc');
 
         let timeB = 0;
         if (b.status === EventStatus.Closed) timeB = getDateValue(b.lifecycleTimestamps?.closedAt, b.lastUpdatedAt, 'desc');
-        else if (b.status === EventStatus.Rejected) timeB = getDateValue(b.lifecycleTimestamps?.rejectedAt, b.lastUpdatedAt, 'desc');
         else timeB = getDateValue(b.details?.date?.end, b.lastUpdatedAt, 'desc');
         
         return timeB - timeA; // Note: timeB - timeA for descending

@@ -102,13 +102,6 @@
           </div>
         </div>
         
-        <!-- Find Winner Button -->
-        <div v-else-if="!isManualModeActive && canFindWinner && event.status" class="text-center mt-4">
-          <button class="btn btn-success" :class="{ 'btn-loading': isFindingWinner }" @click="findWinner" :disabled="isFindingWinner">
-            <span class="btn-text">Find Winner</span>
-          </button>
-          <p class="small text-secondary mt-2">Calculate and save winners based on submitted votes.</p>
-        </div>
         
         <!-- Status Message -->
         <div v-else class="alert alert-info text-center" role="alert">
@@ -129,7 +122,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { type Event, EventFormat, type Team, type EventCriteria } from '@/types/event';
 import { BEST_PERFORMER_LABEL } from '@/utils/constants';
 import { getValidCriteria } from '@/utils/eventDataUtils';
-import { isEventOrganizer, canCalculateWinners } from '@/utils/permissionHelpers';
+import { isEventOrganizer } from '@/utils/permissionHelpers';
 
 // Import form components
 import TeamForm from '@/components/voting/TeamForm.vue';
@@ -172,7 +165,6 @@ const route = useRoute();
 const loading = ref<boolean>(true);
 const errorMessage = ref<string>('');
 const isSubmitting = ref<boolean>(false);
-const isFindingWinner = ref<boolean>(false);
 const event = ref<EventWithId | null>(null);
 
 // Team-related state
@@ -299,11 +291,6 @@ const canShowForm = computed(() => {
          hasValidVotingCriteria.value;
 });
 
-const canFindWinner = computed(() => {
-  if (isManualModeActive.value) return false;
-  return event.value && currentUser.value ? 
-    canCalculateWinners(event.value as EventWithId, currentUser.value.uid) : false;
-});
 
 const isFormValid = computed(() => {
   if (!sortedCriteria.value.length) return false;
@@ -428,11 +415,13 @@ const fetchEventDetails = async (): Promise<void> => {
       const memberIds = new Set<string>();
       const tempMemberMap: Record<string, string> = {};
 
-      eventData.teams.forEach(team => {
-        (team.members || []).forEach(memberId => {
+      eventData.teams.forEach((team: Team) => {
+        (team.members || []).forEach((memberId: string) => {
           if (memberId) {
             memberIds.add(memberId);
-            tempMemberMap[memberId] = team.teamName;
+            if (team.teamName) {
+              tempMemberMap[memberId] = team.teamName;
+            }
           }
         });
       });
@@ -603,43 +592,6 @@ const submitManualSelection = async (): Promise<void> => {
   }
 };
 
-const findWinner = async (): Promise<void> => {
-  if (!event.value || !currentUser.value?.uid) {
-    errorMessage.value = 'Event not loaded or user not authenticated.';
-    return;
-  }
-  
-  if (!canCalculateWinners(event.value as EventWithId, currentUser.value.uid)) {
-    errorMessage.value = 'You are not authorized to find the winner.';
-    return;
-  }
-
-  isFindingWinner.value = true;
-  errorMessage.value = '';
-  
-  try {
-    await eventStore.submitManualWinnerSelection({ 
-      eventId: event.value.id, 
-      winnerSelections: {} as Record<string, string> 
-    });
-    
-    notificationStore.showNotification({
-      message: 'Winner calculation initiated. Check event details for results.',
-      type: 'success'
-    });
-    
-    router.push({ name: 'EventDetails', params: { id: event.value.id } });
-  } catch (error: any) {
-    // console.error('Error finding winner:', error);
-    errorMessage.value = error.message || 'Failed to find winner.';
-    notificationStore.showNotification({
-      message: `Failed to find winner: ${error.message || 'Unknown error'}`,
-      type: 'error'
-    });
-  } finally {
-    isFindingWinner.value = false;
-  }
-};
 
 const goBack = () => {
   if (isManualModeActive.value) {

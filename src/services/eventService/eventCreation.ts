@@ -3,7 +3,6 @@ import {
   doc,
   getDoc,
   updateDoc,
-  deleteField,
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
@@ -121,7 +120,7 @@ export const updateEventRequestInService = async (
     if (currentEvent.requestedBy !== studentId && !isOrganizer) {
       throw new Error("Permission denied: You can only edit your own event requests or events you organize.");
     }
-    if (![EventStatus.Pending, EventStatus.Rejected].includes(currentEvent.status as EventStatus) && !isOrganizer) {
+    if (currentEvent.status !== EventStatus.Pending && !isOrganizer) {
       throw new Error(`Cannot edit request with status: ${currentEvent.status}.`);
     }
 
@@ -154,11 +153,6 @@ export const updateEventRequestInService = async (
     delete updatesToApply.winners;
     delete updatesToApply.manuallySelectedBy;
 
-    // If the event was rejected, resubmitting moves it back to Pending.
-    if (currentEvent.status === EventStatus.Rejected) {
-      updatesToApply.status = EventStatus.Pending;
-      updatesToApply.rejectionReason = deleteField();
-    }
 
     // Ensure organizers array always includes the editor.
     const organizers = new Set((updatesToApply.details as EventDetails).organizers || []);

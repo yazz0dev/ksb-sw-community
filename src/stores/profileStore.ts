@@ -18,8 +18,6 @@ import {
     fetchUserNamesBatch as fetchUserNamesBatchService,
     fetchAllStudentProfiles as fetchAllStudentProfilesService,
     fetchLeaderboardData as fetchLeaderboardDataService,
-    deleteAvatar as deleteAvatarService,
-    updateAvatarUrl as updateAvatarUrlService
 } from '@/services/profileService';
 import {
     fetchStudentPortfolioProjects as fetchStudentPortfolioProjectsService,
@@ -566,7 +564,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
   }
 
   async function fetchAllStudentProfiles(): Promise<UserData[]> { 
-    if (allUsers.value.length > 0 && !studentAppStore.forceRefetchAllUsers) {
+    if (allUsers.value.length > 0) {
       return allUsers.value;
     }
     isLoading.value = true;
@@ -578,7 +576,6 @@ export const useProfileStore = defineStore('studentProfile', () => {
       fetchedUsers.forEach(user => {
         _updateNameCache(user.uid, user.name ?? null); 
       });
-      studentAppStore.clearForceProfileRefetch();
       return fetchedUsers;
     } catch (err) {
       await _handleFetchError("fetching all student profiles", err);

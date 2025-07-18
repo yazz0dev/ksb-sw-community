@@ -360,8 +360,12 @@ function handleTeamUpdate(newTeams: Team[]) {
   formData.value.teams = newTeams;
 }
 
-function handleFormError(msg: string) {
-  notificationStore.showNotification({ message: msg, type: 'error', duration: 5000 });
+function handleFormError(e: any) {
+  notificationStore.showNotification({
+    message: e,
+    type: 'error',
+    duration: 5000
+  });
 }
 
 function handleAvailabilityChange(isAvailable: boolean) {
@@ -453,7 +457,7 @@ async function initializeFormForEdit(id: string) {
     
     const { isEventOrganizer, isEventEditable } = await import('@/utils/permissionHelpers');
     const isOrganizer = isEventOrganizer(event, profileStore.studentId);
-    const isOwnRequest = event.requestedBy === profileStore.studentId && [EventStatus.Pending, EventStatus.Rejected].includes(event.status);
+    const isOwnRequest = event.requestedBy === profileStore.studentId && event.status === EventStatus.Pending;
     const canEdit = (isOrganizer && isEventEditable(event.status)) || isOwnRequest;
     
     if (!canEdit) {
@@ -519,9 +523,6 @@ async function handleSubmitForm() {
 
     if (isEditing.value) {
       const payload = { ...submissionData };
-      if (originalStatus.value === EventStatus.Rejected) {
-        payload.status = EventStatus.Pending;
-      }
       success = await eventStore.editMyEventRequest(eventId.value, payload);
       newEventId = eventId.value;
     } else {
