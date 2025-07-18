@@ -36,24 +36,6 @@
         </div>
       </template>
 
-      <!-- Event Not Completed -->
-      <template v-else-if="event.status !== EventStatus.Completed">
-        <div class="state-container waiting-state">
-          <div class="state-icon">
-            <i class="fas fa-clock text-info"></i>
-          </div>
-          <div class="state-content">
-            <h6 class="state-title">Voting Not Available</h6>
-            <p class="state-text">Voting will be available once the event is completed.</p>
-            <div class="status-badge">
-              <span class="badge bg-info-subtle text-info-emphasis">
-                Current Status: {{ event.status }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </template>
-
       <!-- Voting Not Open -->
       <template v-else-if="!event.votingOpen">
         <div class="state-container closed-state">
@@ -132,7 +114,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { EventStatus, type Event } from '@/types/event';
+import { type Event } from '@/types/event';
 import { type EnrichedStudentData } from '@/types/student';
 import { hasUserSubmittedVotes } from '@/utils/eventDataUtils';
 import { canUserVoteInEvent } from '@/utils/permissionHelpers';

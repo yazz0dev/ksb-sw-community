@@ -46,12 +46,12 @@
           Voting, XP & Closing
           </h3>
         <div class="d-flex flex-column flex-md-row align-items-md-center gap-1 gap-md-2">
-            <span v-if="event.status === EventStatus.Completed" class="badge rounded-pill small"
+            <span v-if="event.status === EventStatus.Approved" class="badge rounded-pill small"
                   :class="event.votingOpen ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'">
               <i :class="event.votingOpen ? 'fas fa-lock-open' : 'fas fa-lock'" class="me-1"></i>
               Voting: {{ event.votingOpen ? 'Open' : 'Closed' }}
             </span>
-            <span v-if="event.status === EventStatus.Completed && event.xpAwardingStatus" class="badge rounded-pill small" :class="xpStatusBadgeClass">
+            <span v-if="event.status === EventStatus.Approved && event.xpAwardingStatus" class="badge rounded-pill small" :class="xpStatusBadgeClass">
                 <i :class="xpStatusIconClass" class="me-1"></i>
                 XP: {{ event.xpAwardingStatus }}
             </span>
@@ -240,7 +240,7 @@ const showAwardPointsButton = computed(() =>
 
 const showMarkCompleteButton = computed(() =>
   localIsOrganizer.value &&
-  props.event?.status === EventStatus.InProgress &&
+  props.event?.status === EventStatus.Approved &&
   !props.event?.lifecycleTimestamps?.closedAt
 );
 
@@ -249,7 +249,7 @@ const showOpenVotingButton = computed(() => {
     return false;
   }
   return localIsOrganizer.value &&
-    props.event?.status === EventStatus.Completed &&
+    props.event?.status === EventStatus.Approved &&
     votingIsClosed.value &&
     !props.event?.lifecycleTimestamps?.closedAt
 });
@@ -259,7 +259,7 @@ const showCloseVotingButton = computed(() => {
       return false;
     }
     return localIsOrganizer.value &&
-      props.event?.status === EventStatus.Completed &&
+      props.event?.status === EventStatus.Approved &&
       props.event?.votingOpen === true &&
       !props.event?.lifecycleTimestamps?.closedAt
 });
@@ -269,7 +269,7 @@ const canFindWinner = computed(() => {
     return false;
   }
   return localIsOrganizer.value &&
-    props.event?.status === EventStatus.Completed &&
+    props.event?.status === EventStatus.Approved &&
     votingIsClosed.value &&
     !props.event?.lifecycleTimestamps?.closedAt
 });
@@ -278,14 +278,14 @@ const showFindWinnerButton = canFindWinner;
 
 const showManualSelectWinnerButton = computed(() =>
   localIsOrganizer.value &&
-  props.event?.status === EventStatus.Completed &&
+  props.event?.status === EventStatus.Approved &&
   votingIsClosed.value &&
   !props.event?.lifecycleTimestamps?.closedAt
 );
 
 const showCloseEventButton = computed(() =>
   localIsOrganizer.value &&
-  props.event?.status === EventStatus.Completed &&
+  props.event?.status === EventStatus.Approved &&
   votingIsClosed.value &&
   hasWinners.value &&
   props.event.xpAwardingStatus === 'completed' && // Added XP awarded check
@@ -294,7 +294,7 @@ const showCloseEventButton = computed(() =>
 
 const showAwardXpButton = computed(() =>
   localIsOrganizer.value &&
-  props.event?.status === EventStatus.Completed &&
+  props.event?.status === EventStatus.Approved &&
   votingIsClosed.value &&
   hasWinners.value &&
   (props.event.xpAwardingStatus !== 'completed' && props.event.xpAwardingStatus !== 'in_progress') &&
@@ -303,7 +303,7 @@ const showAwardXpButton = computed(() =>
 
 const showCancelButton = computed(() =>
   localIsOrganizer.value &&
-  [EventStatus.Approved, EventStatus.InProgress].includes(props.event?.status as EventStatus) &&
+  [EventStatus.Approved, EventStatus.Approved].includes(props.event?.status as EventStatus) &&
   !props.event?.lifecycleTimestamps?.closedAt
 );
 
@@ -390,7 +390,7 @@ const toggleVoting = async (openState: boolean): Promise<void> => {
         // Add detailed debugging for troubleshooting
         
         // Check if event status meets requirements from Firestore rules
-        const validStatus = [EventStatus.Completed, EventStatus.InProgress].includes(props.event?.status as EventStatus);
+        const validStatus = [EventStatus.Approved, EventStatus.Approved].includes(props.event?.status as EventStatus);
         if (!validStatus) {
             throw new Error('Voting can only be modified for events with status Completed or InProgress.');
         }
@@ -415,16 +415,7 @@ const toggleVoting = async (openState: boolean): Promise<void> => {
     }
 };
 
-const cancelModalRef = ref<InstanceType<typeof ConfirmationModal> | null>(null);
 const closeEventModalRef = ref<InstanceType<typeof ConfirmationModal> | null>(null);
-
-const showCancelModal = (): void => {
-  cancelModalRef.value?.show();
-};
-
-const confirmCancel = async (): Promise<void> => {
-  await updateStatus(EventStatus.Cancelled);
-};
 
 const showCloseEventModal = (): void => {
   closeEventModalRef.value?.show();

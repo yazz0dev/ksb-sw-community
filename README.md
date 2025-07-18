@@ -138,7 +138,7 @@ Events support multiple formats:
 - **Competition**: Competitive events with winners
 
 Event lifecycle includes:
-- **Pending** → **Approved** → **In Progress** → **Completed** → **Closed**
+- **Pending** → **Approved** → **Closed**
 
 ### User Roles
 - **Students**: Can join events, submit projects, and earn XP

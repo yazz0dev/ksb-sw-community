@@ -300,7 +300,7 @@ export const mapFirestoreToEventData = (id: string, data: DocumentData | Record<
  */
 export function isVotingOpen(event: EventBaseData | null): boolean { // Changed EventWithId to EventBaseData
   if (!event) return false;
-  return event.status === EventStatus.Completed && event.votingOpen === true;
+  return event.status === EventStatus.Approved && event.votingOpen === true;
 }
 
 /**

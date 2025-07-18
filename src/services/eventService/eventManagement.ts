@@ -139,7 +139,7 @@ export const finalizeEventClosure = async (
         return { success: true, message: 'Event is already closed and finalized.'};
       }
       // If closed but missing lifecycle, proceed to update lifecycle.
-    } else if (eventData.status !== EventStatus.Completed) {
+    } else if (eventData.status !== EventStatus.Approved) {
       throw new Error("Event must be in 'Completed' status to be closed.");
     }
 
@@ -213,7 +213,7 @@ export const processAndAwardEventXP = async (
       throw new Error('User does not have permission to award XP for this event.');
     }
 
-    if (eventData.status !== EventStatus.Completed) {
+    if (eventData.status !== EventStatus.Approved) {
       await updateDoc(eventRef, { xpAwardingStatus: 'failed', xpAwardError: 'Event not in Completed status.', lastUpdatedAt: serverTimestamp() });
       throw new Error("XP can only be awarded for events in 'Completed' status.");
     }

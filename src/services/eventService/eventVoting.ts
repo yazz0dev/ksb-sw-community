@@ -41,7 +41,7 @@ export async function submitTeamCriteriaVoteInFirestore(
             if (!currentEventData) throw new Error('Failed to map event data in transaction.');
 
             // Validation checks
-            if (currentEventData.status !== EventStatus.Completed) {
+            if (currentEventData.status !== EventStatus.Approved) {
                 throw new Error("Voting is only allowed for 'Completed' events.");
             }
             if (!currentEventData.votingOpen) throw new Error("Voting is currently closed for this event.");
@@ -129,7 +129,7 @@ export async function submitIndividualWinnerVoteInFirestore(
             if (!currentEventData) throw new Error('Failed to map event data in transaction.');
 
             // Validation checks
-            if (currentEventData.status !== EventStatus.Completed) {
+            if (currentEventData.status !== EventStatus.Approved) {
                 throw new Error("Voting is only allowed for 'Completed' events.");
             }
             if (!currentEventData.votingOpen) throw new Error("Voting is currently closed for this event.");
@@ -269,7 +269,7 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
                 throw new Error(`Cannot open voting for an event that is already ${eventData.status}.`);
             }
 
-            if (eventData.status !== EventStatus.InProgress && eventData.status !== EventStatus.Completed) {
+            if (eventData.status !== EventStatus.Approved && eventData.status !== EventStatus.Approved) {
                 throw new Error(`Voting can only be toggled for 'In Progress' or 'Completed' events. Current status: ${eventData.status}`);
             }
 
@@ -386,7 +386,7 @@ export async function submitManualWinnerSelectionInFirestore(
             const isOrganizer = eventData.details.organizers.includes(userId);
             if (!isOrganizer) throw new Error("Permission denied. Only event organizers can manually select winners.");
 
-            if (eventData.status !== EventStatus.Completed) {
+            if (eventData.status !== EventStatus.Approved) {
                 throw new Error("Manual winner selection is only allowed for completed events.");
             }
 
@@ -445,7 +445,7 @@ export async function finalizeWinnersInFirestore(
                 throw new Error("Permission denied. Only event organizers can finalize winners.");
             }
 
-            if (eventData.status !== EventStatus.Completed) {
+            if (eventData.status !== EventStatus.Approved) {
                 throw new Error("Winners can only be finalized for 'Completed' events.");
             }
             if (eventData.votingOpen === true) {

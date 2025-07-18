@@ -103,7 +103,7 @@
         </div>
         
         <!-- Find Winner Button -->
-        <div v-else-if="!isManualModeActive && canFindWinner && event.status === EventStatus.Completed" class="text-center mt-4">
+        <div v-else-if="!isManualModeActive && canFindWinner && event.status" class="text-center mt-4">
           <button class="btn btn-success" :class="{ 'btn-loading': isFindingWinner }" @click="findWinner" :disabled="isFindingWinner">
             <span class="btn-text">Find Winner</span>
           </button>
@@ -126,7 +126,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { type Event, EventFormat, EventStatus, type Team, type EventCriteria } from '@/types/event';
+import { type Event, EventFormat, type Team, type EventCriteria } from '@/types/event';
 import { BEST_PERFORMER_LABEL } from '@/utils/constants';
 import { getValidCriteria } from '@/utils/eventDataUtils';
 import { isEventOrganizer, canCalculateWinners } from '@/utils/permissionHelpers';
@@ -244,7 +244,7 @@ const hasValidVotingCriteria = computed<boolean>(() => {
   }
 
   // For non-manual mode (voting)
-  if (event.value.status !== EventStatus.Completed || event.value.votingOpen !== true) {
+  if (event.value.status || event.value.votingOpen !== true) {
     return false;
   }
 
@@ -284,7 +284,7 @@ const localIsParticipant = computed(() => {
 const canShowForm = computed(() => {
   if (isManualModeActive.value) {
     return localIsOrganizer.value && 
-           event.value?.status === EventStatus.Completed &&
+           event.value?.status &&
            hasValidVotingCriteria.value; 
   }
 
@@ -294,7 +294,7 @@ const canShowForm = computed(() => {
   }
 
   return localIsParticipant.value && 
-         event.value?.status === EventStatus.Completed &&
+         event.value?.status   &&
          event.value?.votingOpen === true &&
          hasValidVotingCriteria.value;
 });
@@ -354,7 +354,7 @@ const getUserDisplayName = (userId: string): string => {
 const getStatusMessage = (): string => {
   if (isManualModeActive.value) {
     if (!localIsOrganizer.value) return "You are not authorized to manually select winners.";
-    if (event.value?.status !== EventStatus.Completed) return "Manual winner selection is only available for completed events.";
+    if (event.value?.status) return "Manual winner selection is only available for completed events.";
     if (!hasValidVotingCriteria.value) {
       const criteriaType = isIndividualEventCompetition.value ? "awards" : "criteria";
       return `Manual winner selection requires valid ${criteriaType} to be defined for the event. Please contact an administrator.`;
@@ -370,7 +370,7 @@ const getStatusMessage = (): string => {
   if (!localIsParticipant.value) {
     return "Only event participants can submit votes.";
   }
-  if (event.value?.status !== EventStatus.Completed) {
+  if (event.value?.status) {
     return "Votes can only be submitted after the event is marked as 'Completed'.";
   }
   if (event.value?.votingOpen !== true) {

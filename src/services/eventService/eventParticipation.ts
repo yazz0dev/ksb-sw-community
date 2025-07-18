@@ -45,7 +45,7 @@ export const submitProject = async (
     const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
     if (!eventData) throw new Error('Failed to map event data.');
 
-    if (eventData.status !== EventStatus.InProgress) {
+    if (eventData.status !== EventStatus.Approved) {
       throw new Error("Submissions only allowed for 'In Progress' events.");
     }
     
@@ -114,7 +114,7 @@ export async function joinEventByStudentInFirestore(eventId: string, studentId: 
         const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
         if (!eventData) throw new Error('Failed to map event data.');
 
-        if (![EventStatus.Approved, EventStatus.InProgress].includes(eventData.status as EventStatus)) {
+        if (![EventStatus.Approved, EventStatus.Approved].includes(eventData.status as EventStatus)) {
             throw new Error(`Cannot join event with status: ${eventData.status}`);
         }
         if (eventData.details.format === EventFormat.Team) {
@@ -155,7 +155,7 @@ export async function leaveEventByStudentInFirestore(eventId: string, studentId:
         const eventData = mapFirestoreToEventData(eventSnap.id, eventSnap.data());
         if (!eventData) throw new Error('Failed to map event data.');
 
-        if ([EventStatus.Completed, EventStatus.Cancelled, EventStatus.Closed].includes(eventData.status as EventStatus)) {
+        if ([EventStatus.Approved, EventStatus.Cancelled, EventStatus.Closed].includes(eventData.status as EventStatus)) {
             throw new Error(`Cannot leave event with status: ${eventData.status}.`);
         }
         if (eventData.details.organizers?.includes(studentId)) {

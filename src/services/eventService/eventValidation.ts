@@ -81,7 +81,7 @@ export async function checkDateConflictForRequest(
 
     const q = query(
         collection(db, EVENTS_COLLECTION),
-        where('status', 'in', [EventStatus.Approved, EventStatus.InProgress, EventStatus.Completed])
+        where('status', 'in', [EventStatus.Approved, EventStatus.Approved, EventStatus.Approved])
     );
 
     try {

@@ -190,7 +190,7 @@ const activeEvents = computed<Event[]>(() => {
       if (!e) return false;
       
       // Event is explicitly marked as InProgress
-      if (e.status === EventStatus.InProgress) return true;
+      if (e.status === EventStatus.Approved) return true;
       
       // Event is approved and within date range
       if (e.status === EventStatus.Approved) {
@@ -219,7 +219,7 @@ const completedEvents = computed<Event[]>(() => {
       if (!e) return false;
       
       // Event is explicitly marked as Completed
-      if (e.status === EventStatus.Completed) return true;
+      if (e.status === EventStatus.Approved) return true;
       
       // Event is approved but past its end date
       if (e.status === EventStatus.Approved) {
@@ -267,7 +267,7 @@ const totalActiveCount = computed<number>(() => {
     const currentTime = DateTime.now();
     return allEvents.value.filter(e => {
       if (!e) return false;
-      if (e.status === EventStatus.InProgress) return true;
+      if (e.status === EventStatus.Approved) return true;
       if (e.status === EventStatus.Approved) {
         const start = convertToISTDateTime(e.details?.date?.start);
         const end = convertToISTDateTime(e.details?.date?.end);
@@ -282,7 +282,7 @@ const totalCompletedCount = computed<number>(() => {
     const currentTime = DateTime.now();
     return allEvents.value.filter(e => {
       if (!e) return false;
-      if (e.status === EventStatus.Completed) return true;
+      if (e.status === EventStatus.Approved) return true;
       if (e.status === EventStatus.Approved) {
         const end = convertToISTDateTime(e.details?.date?.end);
         return end && end < currentTime;

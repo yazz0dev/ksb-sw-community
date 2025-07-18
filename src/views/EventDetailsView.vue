@@ -71,7 +71,7 @@
               </div>
 
               <!-- XP Awarding Progress Section -->
-              <div v-if="localIsCurrentUserOrganizer && event.status === EventStatus.Completed && (event.xpAwardingStatus || event.xpAwardedAt)"
+              <div v-if="localIsCurrentUserOrganizer && event.status === EventStatus.Approved && (event.xpAwardingStatus || event.xpAwardedAt)"
                    class="xp-awarding-progress-section section-card shadow-sm rounded-4 p-3 p-md-4 mb-3 mb-md-4 animate-fade-in">
                 <h4 class="h5 mb-3 text-dark">
                   <i class="fas fa-award text-primary me-2"></i>XP Awarding Status
@@ -394,13 +394,13 @@ const allAssociatedUserIds = computed<string[]>(() => {
 const canJoin = computed(() => {
   if (!event.value || !currentUser.value) return false;
   if (localIsCurrentUserOrganizer.value || localIsCurrentUserParticipant.value) return false;
-  return [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
+  return [EventStatus.Approved, EventStatus.Approved].includes(event.value.status as EventStatus);
 });
 
 const canLeave = computed(() => {
   if (!event.value || !currentUser.value) return false;
   if (localIsCurrentUserOrganizer.value) return false;
-  return localIsCurrentUserParticipant.value && [EventStatus.Approved, EventStatus.InProgress].includes(event.value.status as EventStatus);
+  return localIsCurrentUserParticipant.value && [EventStatus.Approved, EventStatus.Approved].includes(event.value.status as EventStatus);
 });
 
 const canSubmitProject = computed(() =>
@@ -411,7 +411,7 @@ const canRateOrganizer = computed(() => {
   if (!event.value || !currentUser.value) return false;
   return localIsCurrentUserParticipant.value &&
          !localIsCurrentUserOrganizer.value &&
-         (event.value.status === EventStatus.Completed || event.value.status === EventStatus.Closed);
+         (event.value.status === EventStatus.Approved || event.value.status === EventStatus.Closed);
 });
 
 const organizerRatingsAsArray = computed(() => {

@@ -196,7 +196,7 @@ const activeEvents = computed<Event[]>(() => {
         
         // Event is explicitly marked as InProgress 
         // (only possible if authenticated and Firestore rules allowed fetching it)
-        if (event.status === EventStatus.InProgress) return true;
+        if (event.status === EventStatus.Approved) return true;
         
         // Event is approved and within date range
         if (event.status === EventStatus.Approved) {
@@ -222,7 +222,7 @@ const completedEvents = computed<Event[]>(() => {
         if (!event) return false;
         
         // Event is explicitly marked as Completed
-        if (event.status === EventStatus.Completed) return true;
+        if (event.status === EventStatus.Approved) return true;
         
         // Event is approved but past its end date
         if (event.status === EventStatus.Approved) {
