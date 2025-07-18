@@ -43,17 +43,6 @@
           </div>
      </p>
 
-     <!-- Rejection Reason -->
-     <div
-       v-if="showStatus && event.status === 'Rejected' && event.rejectionReason"
-       class="alert alert-danger alert-sm mt-2"
-       role="alert"
-     >
-       <i class="fas fa-exclamation-triangle fa-fw me-2"></i>
-       <div>
-         <strong class="fw-medium">Rejection Reason:</strong> {{ event.rejectionReason }}
-       </div>
-     </div>
 
      <!-- Description -->
      <div class="pt-2 mt-2 border-top">

@@ -25,13 +25,13 @@
                 <strong>{{ participant.name }}</strong>
                 <small class="text-muted d-block">{{ participant.email }}</small>
               </div>
-              <div class="ms-3" v-for="criterion in event.criteria" :key="criterion.constraintKey">
-                <label :for="`points-${participant.uid}-${criterion.constraintKey}`" class="form-label">{{ criterion.title }}</label>
+              <div class="ms-3" v-for="(criterion, index) in event.criteria" :key="index">
+                <label :for="`points-${participant.uid}-${index}`" class="form-label">{{ criterion.title }}</label>
                 <input
                   type="number"
                   class="form-control"
-                  :id="`points-${participant.uid}-${criterion.constraintKey}`"
-                  v-model.number="awards[participant.uid][criterion.constraintKey]"
+                  :id="`points-${participant.uid}-${index}`"
+                  v-model.number="awards[participant.uid][index]"
                   min="0"
                   :max="criterion.points"
                 />
@@ -101,9 +101,11 @@ export default defineComponent({
           if (event.value.criteria) {
             participants.value.forEach(p => {
               awards.value[p.uid] = {};
-              event.value?.criteria?.forEach(c => {
-                awards.value[p.uid][c.constraintKey as string] = 0;
-              });
+              if (event.value?.criteria) {
+                event.value.criteria.forEach((_, index) => {
+                  awards.value[p.uid][index] = 0;
+                });
+              }
             });
           }
         }
@@ -119,12 +121,7 @@ export default defineComponent({
       if (!event.value) return;
       isSubmitting.value = true;
       try {
-        // This is a placeholder for the actual implementation
-        // of awarding points and closing the event.
-        // You will need to create a new action in the event store
-        // that takes the eventId and the awards object as arguments.
-        console.log('Submitting awards:', awards.value);
-        await eventStore.closeEventPermanently({ eventId: eventId.value });
+        await eventStore.closeEvent({ eventId: eventId.value });
         // Redirect to the event details page or a success page
         // after successful submission.
       } catch (e) {

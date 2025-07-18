@@ -198,8 +198,12 @@ function goBack() {
   }
 }
 
-function handleFormError(message: string) {
-  notificationStore.showNotification({ message, type: 'error', duration: 5000 });
+function handleFormError(e: any) {
+  notificationStore.showNotification({
+    message: e,
+    type: 'error',
+    duration: 5000
+  });
 }
 
 // Validity handlers for child components

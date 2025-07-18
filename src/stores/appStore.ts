@@ -1,6 +1,6 @@
 // src/stores/appStore.ts
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { db } from '@/firebase';
 import { enableNetwork, disableNetwork } from 'firebase/firestore';
 import { useNotificationStore } from './notificationStore';
@@ -35,8 +35,8 @@ export const useAppStore = defineStore('studentApp', () => {
 
   const notificationStore = useNotificationStore();
 
-  const hasPendingOfflineActions = computed(() => offlineQueue.value.actions.length > 0);
-  const pendingActionCount = computed(() => offlineQueue.value.actions.length);
+  const hasPendingOfflineActions = ref(offlineQueue.value.actions.length > 0);
+  const pendingActionCount = ref(offlineQueue.value.actions.length);
 
   function setTheme(theme: 'light' | 'dark') {
     currentTheme.value = theme;
@@ -122,7 +122,7 @@ export const useAppStore = defineStore('studentApp', () => {
       const [storeName, actionName] = action.type.split('/');
       
       if (storeName === 'studentEvents') {
-        const storeAction = (eventStore as Record<string, unknown>)[actionName as keyof typeof eventStore];
+        const storeAction = (eventStore as any)[actionName as keyof typeof eventStore];
         if (typeof storeAction === 'function') {
           await storeAction(action.payload);
         } else {
@@ -163,7 +163,7 @@ export const useAppStore = defineStore('studentApp', () => {
         const [storeName, actionName] = action.type.split('/');
         
         if (storeName === 'studentEvents') {
-          const storeAction = (eventStore as Record<string, unknown>)[actionName as keyof typeof eventStore];
+        const storeAction = (eventStore as any)[actionName as keyof typeof eventStore];
           if (typeof storeAction === 'function') {
             await storeAction(action.payload);
           } else {

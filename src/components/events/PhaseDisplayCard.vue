@@ -39,7 +39,7 @@
         <EventCriteriaDisplay
             :criteria="phase.criteria"
             :event-format="phase.format"
-            :is-competition="overallEventStatus !== EventStatus.Pending && overallEventStatus !== EventStatus.Rejected"
+            :is-competition="overallEventStatus !== EventStatus.Pending"
         />
       </div>
 

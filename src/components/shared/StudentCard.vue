@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'; // Added computed
+import { ref, onMounted } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import LetterAvatar from '@/components/ui/LetterAvatar.vue'; // Import LetterAvatar
 

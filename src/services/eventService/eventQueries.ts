@@ -28,7 +28,7 @@ export async function fetchMyEventRequests(studentId: string): Promise<EventData
         const q = query(
             collection(db, EVENTS_COLLECTION),
             where('requestedBy', '==', studentId),
-            where('status', 'in', [EventStatus.Pending, EventStatus.Rejected])
+            where('status', '==', EventStatus.Pending)
         );
         const snapshot = await getDocs(q);
         
@@ -74,7 +74,7 @@ export async function fetchSingleEventForStudent(eventId: string, currentStudent
         const publiclyViewableStatuses = [EventStatus.Approved, EventStatus.Closed];
         const isPublic = publiclyViewableStatuses.includes(eventData.status);
         const isMyRequest = currentStudentId && eventData.requestedBy === currentStudentId && 
-                            [EventStatus.Pending, EventStatus.Rejected].includes(eventData.status);
+                            eventData.status === EventStatus.Pending;
 
         if (isPublic || isMyRequest) {
             return eventData;

@@ -189,9 +189,6 @@ const activeEvents = computed<Event[]>(() => {
     .filter(e => {
       if (!e) return false;
       
-      // Event is explicitly marked as InProgress
-      if (e.status === EventStatus.Approved) return true;
-      
       // Event is approved and within date range
       if (e.status === EventStatus.Approved) {
         const start = convertToISTDateTime(e.details?.date?.start);
@@ -205,29 +202,19 @@ const activeEvents = computed<Event[]>(() => {
       const dateA = convertToISTDateTime(a.details?.date?.start);
       const dateB = convertToISTDateTime(b.details?.date?.start);
       if (!dateA || !dateB) return 0;
-      return dateA.toMillis() - dateB.toMillis(); // Fixed: was dateA.toMillis() - dateA.toMillis()
+      return dateA.toMillis() - dateB.toMillis();
     })
     .slice(0, maxEventsPerSection);
 });
 
 const completedEvents = computed<Event[]>(() => {
   if (!allEvents.value || allEvents.value.length === 0) return [];
-  const currentTime = DateTime.now();
   
   return allEvents.value
     .filter(e => {
       if (!e) return false;
       
-      // Event is explicitly marked as Completed
-      if (e.status === EventStatus.Approved) return true;
-      
-      // Event is approved but past its end date
-      if (e.status === EventStatus.Approved) {
-        const end = convertToISTDateTime(e.details?.date?.end);
-        return end && end < currentTime;
-      }
-      
-      return false;
+      return e.status === EventStatus.Closed;
     })
     .sort((a, b) => {
       const dateA = convertToISTDateTime(a.details?.date?.end || a.details?.date?.start);
@@ -239,16 +226,7 @@ const completedEvents = computed<Event[]>(() => {
 });
 
 const cancelledEvents = computed<Event[]>(() => {
-  if (!allEvents.value || allEvents.value.length === 0) return [];
-  
-  return allEvents.value
-    .filter(e => e && e.status === EventStatus.Cancelled)
-    .sort((a, b) => {
-      const dateA = convertToISTDateTime(a.details?.date?.start);
-      const dateB = convertToISTDateTime(b.details?.date?.start);
-      if (!dateA || !dateB) return 0;
-      return dateB.toMillis() - dateA.toMillis();
-    });
+  return [];
 });
 
 // Calculate total counts *before* slicing for "View All" links
@@ -267,7 +245,6 @@ const totalActiveCount = computed<number>(() => {
     const currentTime = DateTime.now();
     return allEvents.value.filter(e => {
       if (!e) return false;
-      if (e.status === EventStatus.Approved) return true;
       if (e.status === EventStatus.Approved) {
         const start = convertToISTDateTime(e.details?.date?.start);
         const end = convertToISTDateTime(e.details?.date?.end);
@@ -282,7 +259,6 @@ const totalCompletedCount = computed<number>(() => {
     const currentTime = DateTime.now();
     return allEvents.value.filter(e => {
       if (!e) return false;
-      if (e.status === EventStatus.Approved) return true;
       if (e.status === EventStatus.Approved) {
         const end = convertToISTDateTime(e.details?.date?.end);
         return end && end < currentTime;

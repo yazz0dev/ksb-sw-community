@@ -265,12 +265,12 @@ export async function toggleVotingStatusInFirestore(eventId: string, open: boole
                 throw new Error("Permission denied. Only event organizers can toggle voting status.");
             }
 
-            if (open === true && (eventData.status === EventStatus.Closed || eventData.status === EventStatus.Cancelled)) {
+            if (open === true && eventData.status === EventStatus.Closed) {
                 throw new Error(`Cannot open voting for an event that is already ${eventData.status}.`);
             }
 
-            if (eventData.status !== EventStatus.Approved && eventData.status !== EventStatus.Approved) {
-                throw new Error(`Voting can only be toggled for 'In Progress' or 'Completed' events. Current status: ${eventData.status}`);
+            if (eventData.status !== EventStatus.Approved) {
+                throw new Error(`Voting can only be toggled for 'Approved' events. Current status: ${eventData.status}`);
             }
 
             const updatePayload: Record<string, unknown> = { // Added type

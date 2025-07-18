@@ -143,7 +143,7 @@ const avatarStyle = computed(() => ({
 }));
 
 const initialsStyle = computed(() => ({
-  fontSize: Math.max(12, props.size * (getInitials(props.username).length > 1 ? 0.35 : 0.45)) + 'px', // Adjust for 1 or 2 initials
+  fontSize: Math.max(12, props.size * (getInitials(props.username || '').length > 1 ? 0.35 : 0.45)) + 'px', // Adjust for 1 or 2 initials
   lineHeight: props.size + 'px', // Center text vertically
   textAlign: 'center' as const,
   color: '#ffffff',

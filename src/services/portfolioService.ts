@@ -112,7 +112,7 @@ export const fetchStudentEventHistory = async (
         eventSnapshot.forEach(eventDoc => {
             const event = { id: eventDoc.id, ...eventDoc.data() } as Event;
             // Include event if it's not in a preliminary/rejected state, OR if the student requested it (even if pending/rejected)
-            if (![EventStatus.Pending, EventStatus.Rejected, EventStatus.Cancelled].includes(event.status as EventStatus) || 
+            if (![EventStatus.Pending].includes(event.status as EventStatus) ||
                 event.requestedBy === targetStudentId
             ) {
                 let roleInEvent: StudentEventHistoryItem['roleInEvent'] = 'participant'; // Default role
@@ -175,7 +175,7 @@ export const fetchStudentEventParticipationCount = async (
       eventSnapshot.forEach(eventDoc => {
         const event = { id: eventDoc.id, ...eventDoc.data() } as Event; // Assuming Event type includes 'status'
         // Count as valid if the event status is not Cancelled, Rejected, or Pending
-        if (![EventStatus.Cancelled, EventStatus.Rejected, EventStatus.Pending].includes(event.status as EventStatus)) {
+        if (event.status !== EventStatus.Pending) {
           validParticipationCount++;
         }
       });
@@ -345,7 +345,7 @@ export const fetchEnhancedStudentEventHistory = async (
       eventSnapshot.forEach(eventDoc => {
         const event = { id: eventDoc.id, ...eventDoc.data() } as Event;
         
-        if (![EventStatus.Pending, EventStatus.Rejected, EventStatus.Cancelled].includes(event.status as EventStatus) || 
+        if (event.status !== EventStatus.Pending ||
             event.requestedBy === targetStudentId) {
           
           let roleInEvent: StudentEventHistoryItem['roleInEvent'] = 'participant';
