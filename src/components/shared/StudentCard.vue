@@ -43,14 +43,12 @@
         <div class="user-content d-flex align-items-center flex-grow-1">
           <!-- Avatar -->
           <div v-if="showAvatar" class="avatar-container me-3">
-            <img
-              :src="photoURL || defaultAvatarUrl"
-              :alt="name || 'User'"
-              @error="handleImageError"
-              class="user-avatar"
-              loading="lazy"
+            <LetterAvatar
+              :username="name || `User ${userId.substring(0,5)}`"
+              :photo-url="photoURL || ''"
+              :size="44"
             />
-            <div class="avatar-status"></div>
+            <!-- <div class="avatar-status"></div> TODO: Decide if status dot is needed with LetterAvatar -->
           </div>
           
           <!-- User Details -->
@@ -80,8 +78,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue'; // Added computed
 import { useProfileStore } from '@/stores/profileStore';
+import LetterAvatar from '@/components/ui/LetterAvatar.vue'; // Import LetterAvatar
 
 interface Props {
   userId: string;
@@ -106,8 +105,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const studentStore = useProfileStore();
 const name = ref<string | null>(null);
-const defaultAvatarUrl: string = '/default-avatar.png';
-const imgError = ref<boolean>(false);
+// const defaultAvatarUrl: string = '/default-avatar.png'; // No longer needed here
+// const imgError = ref<boolean>(false); // No longer needed here
 
 const fetchUserData = async (): Promise<void> => {
   // Fetch name from cache or store
@@ -115,13 +114,16 @@ const fetchUserData = async (): Promise<void> => {
   if (cachedName) {
     name.value = cachedName;
   } else {
-    name.value = `User (${props.userId.substring(0, 5)}...)`; // Fallback if not fetching here
+    // If name is not in cache, try to fetch it minimally if not already provided
+    // For now, using a placeholder to avoid making StudentCard too heavy.
+    // Parent component should ideally provide the name if available.
+    name.value = `User (${props.userId.substring(0, 5)}...)`;
   }
 };
 
-const handleImageError = () => {
-  imgError.value = true;
-};
+// const handleImageError = () => { // No longer needed here
+//   imgError.value = true;
+// };
 
 // Add XP formatting function
 const formatXP = (value: number | null | undefined): string => {

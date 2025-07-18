@@ -192,25 +192,7 @@ export interface UserForPortfolio {
   socialLinks?: SocialLinks;
 }
 
-// --- Image Upload Types ---
-export enum UploadStatus {
-  Idle = 'idle',
-  Uploading = 'uploading',
-  Success = 'success',
-  Error = 'error'
-}
-
-export interface ImageUploadState {
-  status: UploadStatus;
-  progress: number;
-  error: string | null;
-  fileName: string | null;
-  downloadURL: string | null;
-}
-
-export interface ImageUploadOptions {
-  maxSizeMB?: number;
-  maxWidthOrHeight?: number;
-  quality?: number;
-  path?: string; // Storage path
-}
+// --- Image Upload Types (Removed as Cloudinary/direct uploads are being replaced) ---
+// export enum UploadStatus { ... }
+// export interface ImageUploadState { ... }
+// export interface ImageUploadOptions { ... }

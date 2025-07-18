@@ -39,15 +39,12 @@
         active-class="active"
         aria-label="Profile"
       >
-        <div class="nav-icon mb-1 h5">
-          <img
-            v-if="userProfilePicUrl && !imgError"
-            class="profile-pic rounded-circle"
-            :src="userProfilePicUrl"
-            :alt="userName || 'Profile'"
-            @error="handleImageError"
+        <div class="nav-icon mb-1 h5 profile-icon-container">
+          <LetterAvatar
+            :username="userName"
+            :photo-url="userProfilePicUrl || ''"
+            :size="26"
           />
-          <i v-else class="fas fa-user-circle"></i>
         </div>
         <span class="nav-text text-caption">Profile</span>
       </router-link>
@@ -56,18 +53,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue'; // Removed ref
 import { useAuth } from '@/composables/useAuth'; // Use the centralized auth composable
+import LetterAvatar from '@/components/ui/LetterAvatar.vue'; // Import LetterAvatar
 
 const { isAuthenticated, authUser } = useAuth();
-const imgError = ref(false);
+// const imgError = ref(false); // Removed
 
 const userProfilePicUrl = computed(() => authUser.value?.photoURL ?? null);
-const userName = computed(() => authUser.value?.name ?? null);
+const userName = computed(() => authUser.value?.name ?? 'User'); // Provide default for username
 
-const handleImageError = () => {
-  imgError.value = true;
-};
+// const handleImageError = () => { // Removed
+//   imgError.value = true;
+// };
 </script>
 
 <style scoped>
@@ -126,15 +124,13 @@ const handleImageError = () => {
   font-weight: 500;
 }
 
-.profile-pic {
-  width: 26px;
-  height: 26px;
-  object-fit: cover;
+/* Styles for LetterAvatar integration if needed, .profile-pic removed */
+.profile-icon-container :deep(.letter-avatar) {
   border: 2px solid var(--bs-border-color);
   transition: border-color 0.2s ease;
 }
-
-.nav-link.active .profile-pic {
+.nav-link.active .profile-icon-container :deep(.letter-avatar) {
   border-color: var(--bs-primary);
 }
+
 </style>

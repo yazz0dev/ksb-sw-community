@@ -6,11 +6,11 @@ import { signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '@/firebase';
 import { deepClone, isEmpty } from '@/utils/eventUtils';
 import { useNotificationStore } from './notificationStore';
-import { useAppStore } from './appStore';
-import type { EnrichedStudentData, StudentEventHistoryItem, UserData, StudentPortfolioGenerationData, AvatarUploadState } from '@/types/student';
-import { type Event } from '@/types/event';
-import type { NameCacheEntry, StudentPortfolioProject, ImageUploadOptions } from '@/types/student';
-import { UploadStatus } from '@/types/student';
+import { useAppStore } from './appStore'; // Renamed to studentAppStore for clarity in this file
+import type { EnrichedStudentData, StudentEventHistoryItem, UserData, StudentPortfolioGenerationData } from '@/types/student'; // Adjusted imports: Removed StudentData, Changed StudentPortfolioData
+import { type Event } from '@/types/event'; // Added Event and EventStatus, EventFormat
+import type { NameCacheEntry, StudentPortfolioProject } from '@/types/student'; // Removed ImageUploadOptions, ImageUploadState, UploadStatusValue
+// import { UploadStatus } from '@/types/student'; // Removed UploadStatus enum - Not needed anymore
 import { handleAuthError as formatAuthErrorUtil, handleFirestoreError as formatFirestoreErrorUtil } from '@/utils/errorHandlers';
 import { 
     fetchStudentData as fetchStudentDataService,
@@ -27,8 +27,14 @@ import {
     fetchComprehensivePortfolioData as fetchComprehensivePortfolioDataService
 } from '@/services/portfolioService';
 import { fetchMyEventRequests as fetchStudentEventRequestsService } from '@/services/eventService/eventQueries';
-import { fetchStudentEventsWithFallback } from '@/services/eventService/eventQueries';
-import { uploadAvatarService } from '@/services/storageService';
+import { fetchStudentEventsWithFallback } from '@/services/eventService/eventQueries'; // Updated import
+import { constructGitHubAvatarUrl } from '@/services/avatarService'; // Updated avatar service import
+// import { uploadFileService, deleteFileByUrlService, getOptimizedImageUrl } from '@/services/storageService'; // Removed storage service imports
+
+// const STUDENT_COLLECTION_PATH = 'students';
+// const XP_COLLECTION_PATH = 'xp';
+
+// Get storage reference from the existing Firebase app
 
 const NAME_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
@@ -58,14 +64,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
   const isLoadingUserRequests = ref<boolean>(false);
   const hasFetched = ref<boolean>(false);
 
-  const avatarUploadState = ref<AvatarUploadState>({
-    status: UploadStatus.Idle,
-    progress: 0,
-    error: null,
-    fileName: null,
-    downloadURL: null
-  });
-
+  // --- Getters ---
   const studentId = computed(() => currentStudent.value?.uid || null);
   const studentName = computed(() => currentStudent.value?.name || 'Student');
   const studentBatchYear = computed(() => currentStudent.value?.batchYear || null);
@@ -158,6 +157,25 @@ export const useProfileStore = defineStore('studentProfile', () => {
         const enrichedData = await fetchStudentDataService(firebaseUser.uid);
         
         if (enrichedData) {
+          // Attempt to fetch and update GitHub avatar
+          const githubUsername = enrichedData.socialLinks?.github;
+          if (githubUsername) {
+            const constructedAvatarUrl = constructGitHubAvatarUrl(githubUsername);
+            if (constructedAvatarUrl && constructedAvatarUrl !== enrichedData.photoURL) {
+              try {
+                // Update Firestore and local state
+                await updateStudentProfileService(firebaseUser.uid, { photoURL: constructedAvatarUrl });
+                enrichedData.photoURL = constructedAvatarUrl;
+                notificationStore.showNotification({ message: 'GitHub avatar updated.', type: 'info', duration: 2000 });
+              } catch (dbError) {
+                console.warn('Failed to update GitHub avatar in Firestore on auth state change:', dbError);
+                // Proceed with locally fetched (but not saved) URL or let letter avatar handle it
+                // enrichedData.photoURL will still be updated locally for this session if db write fails.
+              }
+            } else if (constructedAvatarUrl) {
+                enrichedData.photoURL = constructedAvatarUrl; // Ensure local data has it even if same or not updated in DB
+            }
+          }
           currentStudent.value = enrichedData;
           _updateNameCache(enrichedData.uid, enrichedData.name ?? null);
           await fetchCurrentUserPortfolioData();
@@ -214,8 +232,30 @@ export const useProfileStore = defineStore('studentProfile', () => {
     try {
       const enrichedData = await fetchStudentDataService(studentId.value);
       if (enrichedData) {
-        currentStudent.value = deepClone(enrichedData);
-        _updateNameCache(enrichedData.uid, enrichedData.name ?? null);
+        const githubUsername = enrichedData.socialLinks?.github;
+        let updatedPhotoURL = enrichedData.photoURL; // Start with existing photoURL
+
+        if (githubUsername) {
+          const constructedAvatarUrl = constructGitHubAvatarUrl(githubUsername);
+          if (constructedAvatarUrl && constructedAvatarUrl !== enrichedData.photoURL) {
+            try {
+              // Update Firestore and prepare to update local state
+              await updateStudentProfileService(studentId.value, { photoURL: constructedAvatarUrl });
+              updatedPhotoURL = constructedAvatarUrl; // Mark for local update
+              notificationStore.showNotification({ message: 'GitHub avatar updated.', type: 'info', duration: 2000 });
+            } catch (dbError) {
+               console.warn('Failed to update GitHub avatar in Firestore on fetchMyProfile:', dbError);
+               updatedPhotoURL = constructedAvatarUrl; // Still use it locally for this session
+            }
+          } else if (constructedAvatarUrl) {
+            updatedPhotoURL = constructedAvatarUrl; // Ensure local state has it even if same as DB
+          }
+        }
+
+        // Apply updated photoURL to the local copy before cloning
+        const profileDataForStore = { ...enrichedData, photoURL: updatedPhotoURL };
+        currentStudent.value = deepClone(profileDataForStore);
+        _updateNameCache(currentStudent.value.uid, currentStudent.value.name ?? null);
         hasFetched.value = true;
         return currentStudent.value;
       } else {
@@ -286,20 +326,48 @@ export const useProfileStore = defineStore('studentProfile', () => {
       return false;
     }
     isLoading.value = true; actionError.value = null;
+
+    const updatesToPersist = { ...updates };
+
     try {
-      await updateStudentProfileService(studentId.value, updates);
+      const currentGithubUsername = currentStudent.value?.socialLinks?.github;
+      const newGithubUsername = updates.socialLinks?.github;
+
+      // Check if GitHub username is present in the updates and has changed or is newly added
+      if (newGithubUsername !== undefined && newGithubUsername !== currentGithubUsername) {
+        if (newGithubUsername && newGithubUsername.trim() !== '') {
+          const constructedAvatarUrl = constructGitHubAvatarUrl(newGithubUsername.trim());
+          // constructedAvatarUrl will be non-null if newGithubUsername is non-empty
+          updatesToPersist.photoURL = constructedAvatarUrl;
+          notificationStore.showNotification({ message: 'GitHub avatar updated based on new username.', type: 'info', duration: 2500 });
+        } else {
+          // GitHub username is being explicitly cleared
+          updatesToPersist.photoURL = null;
+          notificationStore.showNotification({ message: 'GitHub username removed. Profile image cleared.', type: 'info', duration: 2500 });
+        }
+      }
+      // Note: If newGithubUsername is undefined (i.e., socialLinks.github was not in `updates`),
+      // photoURL is not changed by this block, preserving existing photoURL unless explicitly cleared above.
+
+      // Call the service function to update the backend
+      await updateStudentProfileService(studentId.value, updatesToPersist);
 
       if (currentStudent.value) {
+        // Create a new object for currentStudent to ensure reactivity
+        // Ensure updatesToPersist is used here as it may contain the new photoURL
         const updatedStudentData = { ...currentStudent.value };
 
-        for (const key in updates) {
-          if (Object.prototype.hasOwnProperty.call(updates, key)) {
-            (updatedStudentData as Record<string, unknown>)[key] = (updates as Record<string, unknown>)[key];
+        // Apply updates to the local copy
+        for (const key in updatesToPersist) {
+          if (Object.prototype.hasOwnProperty.call(updatesToPersist, key)) {
+            // Type assertion as updatesToPersist can have various keys from UserData
+            (updatedStudentData as any)[key] = (updatesToPersist as any)[key];
           }
         }
         
         currentStudent.value = deepClone(updatedStudentData);
 
+        // Check if name was part of the original updates, not updatesToPersist specifically for name cache
         if (updates.name !== undefined) {
           _updateNameCache(studentId.value, updates.name ?? null);
         }
@@ -323,8 +391,20 @@ export const useProfileStore = defineStore('studentProfile', () => {
     try {
       const enrichedData = await fetchStudentDataService(targetStudentId);
       if (enrichedData) {
-        viewedStudentProfile.value = enrichedData;
-        _updateNameCache(enrichedData.uid, enrichedData.name ?? null);
+        let profileDataForView = { ...enrichedData };
+        const githubUsername = profileDataForView.socialLinks?.github;
+
+        if (githubUsername) {
+          const constructedAvatarUrl = constructGitHubAvatarUrl(githubUsername);
+          if (constructedAvatarUrl) {
+            // Only update the local view model, DO NOT save to other user's Firestore record
+            profileDataForView.photoURL = constructedAvatarUrl;
+          }
+          // No catch needed here as constructGitHubAvatarUrl is synchronous and doesn't throw for this usage
+        }
+
+        viewedStudentProfile.value = profileDataForView;
+        _updateNameCache(profileDataForView.uid, profileDataForView.name ?? null);
 
         const projects = await fetchStudentPortfolioProjectsService(targetStudentId);
         viewedStudentProjects.value = projects;
@@ -511,119 +591,11 @@ export const useProfileStore = defineStore('studentProfile', () => {
   const unsubscribeProfileAuthListener = () => {
   };
 
-  async function uploadAvatar(file: File, options: ImageUploadOptions = {}): Promise<string> {
-    if (!studentId.value) {
-      throw new Error("You must be logged in to upload a profile image.");
-    }
-
-    avatarUploadState.value = {
-      status: UploadStatus.Uploading,
-      progress: 0,
-      error: null,
-      fileName: file.name,
-      downloadURL: null
-    };
-
-    try {
-      if (!file.type.startsWith('image/')) {
-        throw new Error("Only image files are allowed.");
-      }
-      const maxSizeMB = options.maxSizeMB || 2;
-      if (file.size > maxSizeMB * 1024 * 1024) {
-        throw new Error(`File size exceeds ${maxSizeMB}MB limit.`);
-      }
-
-      let fileToUpload = file;
-      
-      if (options.maxWidthOrHeight && options.maxWidthOrHeight < 1200) {
-        try {
-          const imageCompression = (await import('browser-image-compression')).default;
-          fileToUpload = await imageCompression(file, {
-            maxSizeMB: options.maxSizeMB || 2,
-            maxWidthOrHeight: options.maxWidthOrHeight,
-            useWebWorker: true,
-            fileType: 'image/jpeg',
-            initialQuality: options.quality || 0.85
-          });
-          avatarUploadState.value.fileName = fileToUpload.name;
-        } catch (compressionError) {
-          console.warn("Image compression failed, using storage service conversion:", compressionError);
-        }
-      }
-
-      if (currentStudent.value?.photoURL) {
-        try {
-          await deleteAvatarService(currentStudent.value.photoURL);
-        } catch (deleteError) {
-          console.warn("Failed to delete old profile image:", deleteError);
-        }
-      }
-
-      const downloadURL = await uploadAvatarService(
-        studentId.value,
-        fileToUpload,
-        (progress: number) => {
-          avatarUploadState.value.progress = progress;
-        }
-      );
-
-      avatarUploadState.value = {
-        status: UploadStatus.Success,
-        progress: 100,
-        error: null,
-        fileName: fileToUpload.name,
-        downloadURL
-      };
-
-      await updateAvatarUrlService(studentId.value, downloadURL);
-      if(currentStudent.value) {
-        currentStudent.value.photoURL = downloadURL;
-      }
-
-      return downloadURL;
-
-    } catch (err: any) {
-      avatarUploadState.value = {
-        status: UploadStatus.Error,
-        progress: avatarUploadState.value.progress,
-        error: err?.message || "Upload failed due to an unexpected error.",
-        fileName: file.name,
-        downloadURL: null
-      };
-      throw err;
-    }
-  }
-
-  async function updateAvatar(file: File, options: ImageUploadOptions = {}): Promise<boolean> {
-    if (!studentId.value) {
-      notificationStore.showNotification({ message: "You must be logged in to update your profile image.", type: 'error'});
-      return false;
-    }
-    
-    actionError.value = null;
-    isLoading.value = true;
-    
-    try {
-      await uploadAvatar(file, options);
-      notificationStore.showNotification({ message: "Profile image updated successfully!", type: 'success' });
-      return true;
-    } catch (err: unknown) {
-      await _handleOpError("updating profile image", err, studentId.value);
-      return false;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  function resetAvatarUploadState(): void {
-    avatarUploadState.value = {
-      status: UploadStatus.Idle,
-      progress: 0,
-      error: null,
-      fileName: null,
-      downloadURL: null
-    };
-  }
+  // --- Image Upload Functions (Removed as Cloudinary is being replaced) ---
+  // async function uploadProfileImage(...) { ... }
+  // async function updateProfileImage(...) { ... }
+  // function getOptimizedProfileImageUrl(...) { ... }
+  // function resetImageUploadState() { ... }
 
   function clearError(): void {
     error.value = null;
@@ -667,10 +639,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     allUsers,
     fetchAllStudentProfiles,
     unsubscribeProfileAuthListener,
-    avatarUploadState,
-    uploadAvatar,
-    updateAvatar,
-    resetAvatarUploadState,
+    // Expose user requests related state and actions
     userRequests,
     fetchUserRequests,
     removeUserRequestById,

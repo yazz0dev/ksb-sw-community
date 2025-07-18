@@ -4,16 +4,15 @@
       <!-- Profile Photo Section -->
       <div class="text-center mb-3">
         <div class="profile-photo-container position-relative d-inline-block">
-          <img
-            :src="optimizedProfilePhotoUrl"
-            :alt="user.name || 'Profile Photo'"
-            class="profile-photo img-fluid border border-3 shadow-sm"
-            :class="{'border-primary': user.photoURL, 'border-secondary': !user.photoURL}"
-            loading="lazy"
-            @error="handleImageError"
-            ref="profileImageRef"
+          <LetterAvatar
+            :username="user.name || 'User'"
+            :photo-url="user.photoURL || ''"
+            :size="100"
+            class="profile-letter-avatar shadow-sm"
+            :class="{'has-photo': user.photoURL}"
           />
-          <div class="photo-overlay rounded-circle"></div>
+          <!-- The photo-overlay might need adjustment or removal depending on LetterAvatar's final look -->
+          <!-- <div class="photo-overlay rounded-circle"></div> -->
           
           <!-- Edit button for current user -->
           <button
@@ -160,7 +159,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { type EnrichedUserData } from '@/types/student';
-import { getOptimizedImageUrl } from '@/services/storageService';
+// import { getOptimizedImageUrl } from '@/services/storageService'; // Removed
+import LetterAvatar from '@/components/ui/LetterAvatar.vue'; // Added
 
 interface Props {
   user: EnrichedUserData;
@@ -207,37 +207,24 @@ const instagramUrl = computed(() => {
   return `https://instagram.com/${username}`;
 });
 
-const handleImageError = (e: Event) => {
-  const target = e.target as HTMLImageElement | null;
-  if (target) {
-    console.warn('Profile image failed to load, using default avatar');
-    target.src = defaultAvatarUrl;
-    target.onerror = null; // Prevent infinite loop
-    
-    // Add a class to indicate fallback image is being used
-    target.classList.add('fallback-avatar');
-  }
-};
+// const handleImageError = (e: Event) => { ... }; // Removed
 
 const emitEditProfile = () => {
   emit('edit-profile');
 };
 
-const optimizedProfilePhotoUrl = computed(() => {
-  if (!props.user.photoURL) {
-    return defaultAvatarUrl;
-  }
-  
-  // Use Cloudinary optimization for profile photos
-  return getOptimizedImageUrl(props.user.photoURL, {
-    width: 240,
-    height: 240,
-    quality: 85
-  });
-});
+// const optimizedProfilePhotoUrl = computed(() => { ... }); // Removed
 
 onMounted(() => {
-  if (props.user && !props.user.photoURL && profileImageRef.value) {
+  // The ref profileImageRef was for the old img tag, no longer directly needed for LetterAvatar's src.
+  // LetterAvatar handles its own internal src and fallbacks.
+  // If direct manipulation of the img inside LetterAvatar was needed, it would be more complex.
+  // For now, this onMounted logic related to setting src directly can be removed.
+  // if (props.user && !props.user.photoURL && profileImageRef.value) {
+  //   profileImageRef.value.src = defaultAvatarUrl;
+  // }
+});
+</script>
     profileImageRef.value.src = defaultAvatarUrl;
   }
 });
@@ -254,24 +241,27 @@ onMounted(() => {
   transform: scale(1.02);
 }
 
-.profile-photo {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  object-fit: cover;
-  transition: all 0.3s ease;
+/* Styles for LetterAvatar integration */
+.profile-letter-avatar {
+  /* LetterAvatar itself is display:flex, so it behaves like a block */
+  /* It handles its own width, height, and border-radius via its size prop and internal styles */
+  /* We can apply additional border styling here if needed */
+  border: 3px solid var(--bs-secondary); /* Default border color */
+  transition: border-color 0.3s ease;
 }
 
-.profile-photo:hover {
-  box-shadow: var(--bs-box-shadow-lg);
+.profile-letter-avatar.has-photo {
+  border-color: var(--bs-primary); /* Border color if photoURL exists */
 }
 
-/* Style for the fallback avatar */
-.fallback-avatar {
-  background-color: var(--bs-light);
-  border-color: var(--bs-secondary) !important;
+.profile-letter-avatar:hover {
+   box-shadow: var(--bs-box-shadow-lg); /* Replicate hover shadow */
 }
 
+
+/* The .photo-overlay might not be needed or might need different styling */
+/* For now, it's commented out in the template. If re-added, styles here: */
+/*
 .photo-overlay {
   position: absolute;
   top: 0;

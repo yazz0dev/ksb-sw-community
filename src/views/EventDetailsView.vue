@@ -60,6 +60,45 @@
           <div class="row g-3 g-md-4 mt-0">
             <!-- Main Content Column -->
             <div class="col-12 col-lg-8">
+              <!-- Event Management Controls -->
+              <div v-if="localIsCurrentUserOrganizer" class="mb-3 mb-md-4">
+                <EventManageControls
+                  :event="event"
+                  class="mb-0 animate-fade-in"
+                  @update="fetchData"
+                  :key="`manage-controls-${event.id}-${event.status}-${String(event.votingOpen)}-${event.xpAwardingStatus}`"
+                />
+              </div>
+
+              <!-- XP Awarding Progress Section -->
+              <div v-if="localIsCurrentUserOrganizer && event.status === EventStatus.Completed && (event.xpAwardingStatus || event.xpAwardedAt)"
+                   class="xp-awarding-progress-section section-card shadow-sm rounded-4 p-3 p-md-4 mb-3 mb-md-4 animate-fade-in">
+                <h4 class="h5 mb-3 text-dark">
+                  <i class="fas fa-award text-primary me-2"></i>XP Awarding Status
+                </h4>
+                <div v-if="event.xpAwardingStatus === 'in_progress'" class="alert alert-info d-flex align-items-center">
+                  <div class="spinner-border spinner-border-sm me-2" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                  <span>XP awarding is currently in progress...</span>
+                </div>
+                <div v-else-if="event.xpAwardingStatus === 'completed' && event.xpAwardedAt" class="alert alert-success">
+                  <i class="fas fa-check-circle me-2"></i>
+                  XP successfully awarded on {{ formatTimestamp(event.xpAwardedAt) }}.
+                </div>
+                <div v-else-if="event.xpAwardingStatus === 'failed' && event.xpAwardError" class="alert alert-danger">
+                  <i class="fas fa-exclamation-triangle me-2"></i>
+                  XP awarding failed: {{ event.xpAwardError }}
+                </div>
+                <div v-else-if="event.xpAwardingStatus === 'pending' || !event.xpAwardingStatus" class="alert alert-secondary">
+                   <i class="fas fa-hourglass-half me-2"></i>
+                  XP awarding is pending. Click "Award XP" in Manage Controls.
+                </div>
+                 <div v-else class="alert alert-secondary">
+                   <i class="fas fa-info-circle me-2"></i>
+                  XP Awarding Status: {{ event.xpAwardingStatus || 'Not yet started' }}.
+                </div>
+              </div>
 
               <!-- XP/Criteria Section (Only for non-MultiEvent) -->
               <EventCriteriaDisplay 
@@ -210,7 +249,8 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore';
-import { useRouter } from 'vue-router';
+import { DateTime } from 'luxon';
+import type { Timestamp } from 'firebase/firestore';
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
@@ -247,6 +287,20 @@ interface Props {
   id: string;
 }
 const props = defineProps<Props>();
+
+const formatTimestamp = (timestamp: Timestamp | null | undefined): string => {
+  if (!timestamp) return 'N/A';
+  // Ensure timestamp has toDate method before calling it
+  if (timestamp && typeof (timestamp as any).toDate === 'function') {
+    return DateTime.fromJSDate((timestamp as Timestamp).toDate()).toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS);
+  }
+  // If it's already a Date object or a string, try to parse directly
+  const dt = DateTime.fromJSDate(timestamp as any); // Or DateTime.fromISO if it could be string
+  if (dt.isValid) {
+    return dt.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS);
+  }
+  return 'Invalid Date';
+};
 
 const studentStore = useProfileStore();
 const eventStore = useEventStore();
