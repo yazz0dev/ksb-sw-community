@@ -59,18 +59,6 @@ export async function updateEventStatusInFirestore(
             case EventStatus.Approved:
                 (updatedLifecycleTimestamps as any).approvedAt = serverTimestamp();
                 break;
-            case EventStatus.InProgress:
-                updatesToApply.votingOpen = true; 
-                (updatedLifecycleTimestamps as any).startedAt = serverTimestamp();
-                break;
-            case EventStatus.Completed:
-                updatesToApply.votingOpen = true; 
-                (updatedLifecycleTimestamps as any).completedAt = serverTimestamp();
-                break;
-            case EventStatus.Cancelled:
-                updatesToApply.votingOpen = false; 
-                (updatedLifecycleTimestamps as any).cancelledAt = serverTimestamp();
-                break;
             case EventStatus.Rejected:
                 updatesToApply.votingOpen = false;
                 (updatedLifecycleTimestamps as any).rejectedAt = serverTimestamp();
@@ -149,8 +137,8 @@ export const closeEventAndAwardXP = async (
     if (eventData.status === EventStatus.Closed) {
       throw new Error('Event is already closed.');
     }
-    if (eventData.status !== EventStatus.Completed) {
-      throw new Error("Event must be in 'Completed' status to be closed.");
+    if (eventData.status !== EventStatus.Approved) {
+      throw new Error("Event must be in 'Approved' status to be closed.");
     }
     if (eventData.votingOpen) {
       throw new Error("Voting must be closed before closing the event.");

@@ -69,7 +69,6 @@ export function useEvents() {
 
   // --- Computed properties (can re-expose from store or create UI-specific ones) ---
   const upcomingEvents = computed(() => eventStore.upcomingEvents);
-  const activeEvents = computed(() => eventStore.activeEvents);
   const pastEvents = computed(() => eventStore.pastEvents);
 
   return {
@@ -79,7 +78,6 @@ export function useEvents() {
     isLoading,
     error,
     upcomingEvents,
-    activeEvents,
     pastEvents,
     fetchPublicEvents,
     fetchUserRequests,

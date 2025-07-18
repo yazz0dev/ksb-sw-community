@@ -109,7 +109,6 @@ const studentStore = useProfileStore();
 const { renderMarkdown } = useMarkdownRenderer();
 
 const isCancelledOrRejected = computed(() =>
-  props.event.status === EventStatus.Cancelled ||
   props.event.status === EventStatus.Rejected
 );
 

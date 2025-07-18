@@ -75,14 +75,8 @@ export function getEventStatusBadgeClass(status: EventStatus | string | undefine
       return 'bg-success-subtle text-success-emphasis';
     case EventStatus.Pending:
       return 'bg-warning-subtle text-warning-emphasis';
-    case EventStatus.InProgress:
-      return 'bg-info-subtle text-info-emphasis';
     case EventStatus.Rejected:
       return 'bg-danger-subtle text-danger-emphasis';
-    case EventStatus.Completed:
-      return 'bg-dark text-white';
-    case EventStatus.Cancelled:
-      return 'bg-secondary-subtle text-secondary-emphasis';
     case EventStatus.Closed:
       return 'bg-dark text-white';
     default:
@@ -98,13 +92,10 @@ export function getEventStatusBadgeClass(status: EventStatus | string | undefine
  */
 export function compareEventsForSort(a: Event, b: Event): number {
     const statusOrder: Record<string, number> = {
-        [EventStatus.InProgress]: 1,
-        [EventStatus.Approved]: 2,
-        [EventStatus.Pending]: 3,
-        [EventStatus.Completed]: 4,
-        [EventStatus.Closed]: 5, // Moved Closed before Rejected/Cancelled for typical display
-        [EventStatus.Rejected]: 6,
-        [EventStatus.Cancelled]: 7,
+        [EventStatus.Approved]: 1,
+        [EventStatus.Pending]: 2,
+        [EventStatus.Closed]: 3,
+        [EventStatus.Rejected]: 4,
     };
     const orderA = statusOrder[a.status] ?? 99;
     const orderB = statusOrder[b.status] ?? 99;
@@ -123,7 +114,7 @@ export function compareEventsForSort(a: Event, b: Event): number {
     };
 
     // For active-like statuses, sort ascending by start date (or creation date)
-    if ([EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress].includes(a.status as EventStatus)) {
+    if ([EventStatus.Pending, EventStatus.Approved].includes(a.status as EventStatus)) {
         const dateA = getDateValue(a.details?.date?.start, a.lifecycleTimestamps?.createdAt, 'asc');
         const dateB = getDateValue(b.details?.date?.start, b.lifecycleTimestamps?.createdAt, 'asc');
         return dateA - dateB;
@@ -131,16 +122,12 @@ export function compareEventsForSort(a: Event, b: Event): number {
         // For completed/closed/etc. statuses, sort descending by a relevant end/completion/update date
         let timeA = 0;
         if (a.status === EventStatus.Closed) timeA = getDateValue(a.lifecycleTimestamps?.closedAt, a.lastUpdatedAt, 'desc');
-        else if (a.status === EventStatus.Completed) timeA = getDateValue(a.lifecycleTimestamps?.completedAt, a.lastUpdatedAt, 'desc');
         else if (a.status === EventStatus.Rejected) timeA = getDateValue(a.lifecycleTimestamps?.rejectedAt, a.lastUpdatedAt, 'desc');
-        else if (a.status === EventStatus.Cancelled) timeA = getDateValue(a.lastUpdatedAt, a.lifecycleTimestamps?.createdAt, 'desc'); // Use createdAt as fallback for cancelled if lastUpdatedAt is not set
         else timeA = getDateValue(a.details?.date?.end, a.lastUpdatedAt, 'desc');
 
         let timeB = 0;
         if (b.status === EventStatus.Closed) timeB = getDateValue(b.lifecycleTimestamps?.closedAt, b.lastUpdatedAt, 'desc');
-        else if (b.status === EventStatus.Completed) timeB = getDateValue(b.lifecycleTimestamps?.completedAt, b.lastUpdatedAt, 'desc');
         else if (b.status === EventStatus.Rejected) timeB = getDateValue(b.lifecycleTimestamps?.rejectedAt, b.lastUpdatedAt, 'desc');
-        else if (b.status === EventStatus.Cancelled) timeB = getDateValue(b.lastUpdatedAt, b.lifecycleTimestamps?.createdAt, 'desc');
         else timeB = getDateValue(b.details?.date?.end, b.lastUpdatedAt, 'desc');
         
         return timeB - timeA; // Note: timeB - timeA for descending

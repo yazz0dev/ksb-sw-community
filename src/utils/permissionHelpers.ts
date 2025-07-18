@@ -55,7 +55,7 @@ export function isEventParticipant(event: Event | null, userId?: string | null):
  */
 export function isEventEditable(eventStatus?: EventStatus | null): boolean {
   if (!eventStatus) return false;
-  const editableStatuses = [EventStatus.Pending, EventStatus.Approved, EventStatus.InProgress];
+  const editableStatuses = [EventStatus.Pending, EventStatus.Approved];
   return editableStatuses.includes(eventStatus);
 }
 
@@ -83,56 +83,6 @@ export function canModifyEvent(event: Event | null, user: UserData | null): bool
  * @param userId The user's ID (optional, but required for actual validation)
  * @returns boolean indicating if the user can vote
  */
-export function canVoteInEvent(event: Event | null, userId?: string | null): boolean {
-  if (!event || !userId) return false;
-  
-  // Event must be completed and voting must be open
-  if (event.status !== EventStatus.Completed || event.votingOpen !== true) {
-    return false;
-  }
-  
-  // Use existing helper to check participant status
-  return isEventParticipant(event, userId);
-}
-
-/**
- * Check if user can manually select winners (organizers only)
- * @param event The event object
- * @param userId The user's ID
- * @returns boolean
- */
-export function canManuallySelectWinners(event: Event | null, userId?: string | null): boolean {
-  if (!event || !userId) return false;
-  
-  // Only completed events
-  if (event.status !== EventStatus.Completed) return false;
-  
-  // Only organizers
-  return isEventOrganizer(event, userId);
-}
-
-/**
- * Check if voting results can be calculated for an event
- * 
- * @param event The event to check
- * @param userId The user ID of the potential calculator (organizer)
- * @returns boolean indicating if winners can be calculated
- */
-export function canCalculateWinners(event: Event | null, userId: string | null): boolean {
-  if (!event || !userId) return false;
-  
-  // Event must be completed with voting closed
-  if (event.status !== EventStatus.Completed || event.votingOpen === true) {
-    return false;
-  }
-  
-  // User must be an organizer
-  const isOrganizer = 
-    (Array.isArray(event.details?.organizers) && event.details.organizers.includes(userId)) ||
-    event.requestedBy === userId;
-    
-  return isOrganizer;
-}
 
 /**
  * Checks if a user is an organizer of an event.
@@ -158,16 +108,6 @@ export function canUserEditEvent(event: Event | null, user: UserData | null): bo
 /**
  * Checks if the current user can vote in a specific event.
  */
-export function canUserVoteInEvent(event: Event | null, user: UserData | null): boolean {
-  if (!event || !user || !user.uid) return false;
-
-  // Voting is only allowed if the event is Completed and voting is open.
-  if (event.status !== EventStatus.Completed || event.votingOpen !== true) {
-    return false;
-  }
-  // User must be a participant to vote.
-  return isEventParticipant(event, user.uid);
-}
 
 /**
  * Checks if the current user can submit a project to a specific event.
@@ -175,8 +115,8 @@ export function canUserVoteInEvent(event: Event | null, user: UserData | null): 
 export function canUserSubmitToEvent(event: Event | null, user: UserData | null): boolean {
   if (!event || !user || !user.uid) return false;
 
-  // Submissions are typically allowed when the event is InProgress.
-  if (event.status !== EventStatus.InProgress) return false;
+  // Submissions are typically allowed when the event is Approved.
+  if (event.status !== EventStatus.Approved) return false;
   // Check if project submissions are allowed for this event.
   if (event.details.allowProjectSubmission === false) return false;
   // Organizers typically cannot submit projects to their own events.
