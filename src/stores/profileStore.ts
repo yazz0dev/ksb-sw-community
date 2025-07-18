@@ -124,7 +124,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     let finalMessage: string;
 
     // Check if err has a 'code' property, suggesting it's a Firebase-related error (Firestore, Storage, etc.)
-    if (err && typeof (err as any).code === 'string') {
+    if (err && typeof err === 'object' && 'code' in err && typeof (err as { code: unknown }).code === 'string') {
         // Using formatFirestoreErrorUtil as a general formatter for Firebase errors with a 'code'
         const formattedMessage = formatFirestoreErrorUtil(err); 
         // Check if the message is one of the generic ones from the formatter
@@ -146,7 +146,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
   async function _handleFetchError(operation: string, err: unknown): Promise<void> {
     let finalMessage: string;
 
-    if (err && typeof (err as any).code === 'string') {
+    if (err && typeof err === 'object' && 'code' in err && typeof (err as { code: unknown }).code === 'string') {
         const formattedMessage = formatFirestoreErrorUtil(err);
         if (formattedMessage === 'An unknown error occurred.' || formattedMessage === 'The service is currently unavailable. Please try again later.') {
             finalMessage = err instanceof Error ? `${operation}: ${err.message}` : `An error occurred during ${operation}. Details: ${formattedMessage}`;
@@ -292,7 +292,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
     if (performFirebaseSignOut && auth.currentUser) {
         try {
             await firebaseSignOut(auth);
-        } catch (e) {
+        } catch (e: unknown) {
         }
     }
     currentStudent.value = null;
@@ -314,7 +314,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
       // If this is called standalone, a generic logout message might be missed.
       // However, for consistency, notifications should be managed at the primary action point (useAuth).
       // No explicit notificationStore call here to avoid duplicates if useAuth().logout() also shows one.
-    } catch (err: any) {
+    } catch (err: unknown) {
       await _handleAuthError("clearing student session on sign out", err);
     } finally {
       isLoading.value = false;
@@ -340,7 +340,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
         for (const key in updates) {
           if (Object.prototype.hasOwnProperty.call(updates, key)) {
             // Type assertion as updates can have various keys from UserData
-            (updatedStudentData as any)[key] = (updates as any)[key];
+            (updatedStudentData as Record<string, unknown>)[key] = (updates as Record<string, unknown>)[key];
           }
         }
         // lastUpdatedAt is handled by the service, but if we want to reflect it immediately:
@@ -552,7 +552,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
   }
 
   async function fetchAllStudentProfiles(): Promise<UserData[]> { 
-    if (allUsers.value.length > 0 && !(studentAppStore as any).forceRefetchAllUsers) { // Added forceRefetch check
+    if (allUsers.value.length > 0 && !studentAppStore.forceRefetchAllUsers) { // Added forceRefetch check
       return allUsers.value;
     }
     isLoading.value = true;
@@ -668,7 +668,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
       };
       return downloadURL;
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       imageUploadState.value = {
         status: UploadStatus.Error,
         progress: imageUploadState.value.progress,
@@ -706,7 +706,7 @@ export const useProfileStore = defineStore('studentProfile', () => {
       } else {
         throw new Error(actionError.value || "Failed to update profile with new image URL.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       await _handleOpError("updating profile image", err, studentId.value);
       return false;
     } finally {
