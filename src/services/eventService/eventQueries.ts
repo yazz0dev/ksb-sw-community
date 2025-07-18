@@ -71,18 +71,14 @@ export async function fetchSingleEventForStudent(eventId: string, currentStudent
             return null;
         }
 
-        const publiclyViewableStatuses = [EventStatus.Approved, EventStatus.Completed, EventStatus.Closed];
+        const publiclyViewableStatuses = [EventStatus.Approved, EventStatus.Closed];
         const isPublic = publiclyViewableStatuses.includes(eventData.status);
-        const isInProgressAndAuthenticated = currentStudentId && eventData.status === EventStatus.InProgress;
         const isMyRequest = currentStudentId && eventData.requestedBy === currentStudentId && 
-                            [EventStatus.Pending, EventStatus.Rejected, EventStatus.Cancelled].includes(eventData.status);
+                            [EventStatus.Pending, EventStatus.Rejected].includes(eventData.status);
 
-        if (isPublic || isInProgressAndAuthenticated || isMyRequest) {
+        if (isPublic || isMyRequest) {
             return eventData;
         } else {
-            if (!currentStudentId && eventData.status === EventStatus.InProgress) {
-                 return null;
-            }
             return null; 
         }
     } catch (error: unknown) { // Changed from any
@@ -101,7 +97,6 @@ export async function fetchPubliclyViewableEvents(): Promise<EventData[]> {
       collection(db, EVENTS_COLLECTION),
       where('status', 'in', [
         EventStatus.Approved,
-        EventStatus.Completed,
         EventStatus.Closed,
       ]),
       orderBy('details.date.start', 'desc')

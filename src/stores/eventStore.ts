@@ -66,9 +66,8 @@ export const useEventStore = defineStore('studentEvents', () => {
   // --- Getters (Computed) ---
   const allPubliclyViewableEvents = computed(() => events.value);
   const currentEventDetails = computed(() => viewedEventDetails.value);
-  const upcomingEvents = computed(() => events.value.filter(e => e.status === EventStatus.Approved && new Date((e.details.date.start as any)?.toDate() || e.details.date.start) > new Date()));
-  const activeEvents = computed(() => events.value.filter(e => e.status === EventStatus.InProgress));
-  const pastEvents = computed(() => events.value.filter(e => [EventStatus.Completed, EventStatus.Closed].includes(e.status as EventStatus)));
+  const upcomingEvents = computed(() => events.value.filter(e => new Date((e.details.date.start as any)?.toDate() || e.details.date.start) > new Date()));
+  const pastEvents = computed(() => events.value.filter(e => e.status === EventStatus.Closed));
 
   // --- Internal Helpers ---
   function _updateLocalEvent(eventData: Event) {
@@ -82,7 +81,7 @@ export const useEventStore = defineStore('studentEvents', () => {
       list.value.sort(compareEventsForSort);
     };
 
-    if ([EventStatus.Approved, EventStatus.InProgress, EventStatus.Completed, EventStatus.Closed].includes(eventData.status as EventStatus)) {
+    if ([EventStatus.Approved, EventStatus.Closed].includes(eventData.status as EventStatus)) {
       updateList(events);
     } else {
       events.value = events.value.filter(e => e.id !== eventData.id);
@@ -408,7 +407,6 @@ export const useEventStore = defineStore('studentEvents', () => {
     allPubliclyViewableEvents,
     currentEventDetails,
     upcomingEvents,
-    activeEvents,
     pastEvents,
     
     // Actions

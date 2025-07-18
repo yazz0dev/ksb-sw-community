@@ -60,15 +60,6 @@
           <div class="row g-3 g-md-4 mt-0">
             <!-- Main Content Column -->
             <div class="col-12 col-lg-8">
-              <!-- Event Management Controls -->
-              <div v-if="localIsCurrentUserOrganizer" class="mb-3 mb-md-4">
-                <EventManageControls
-                  :event="event"
-                  class="mb-0 animate-fade-in"
-                  @update="fetchData"
-                  :key="`manage-controls-${event.id}-${event.status}-${String(event.votingOpen)}`"
-                />
-              </div>
 
               <!-- XP/Criteria Section (Only for non-MultiEvent) -->
               <EventCriteriaDisplay 
@@ -226,7 +217,6 @@ import EventParticipantList from '@/components/events/ParticipantList.vue';
 import EventSubmissionsSection from '@/components/events/EventSubmissionsSection.vue';
 import OrganizerRatingForm from '@/components/events/OrganizerRatingForm.vue';
 import TeamList from '@/components/events/TeamList.vue';
-import EventManageControls from '@/components/events/EventManageControls.vue';
 import EventDetailsSkeleton from '@/skeletons/EventDetailsSkeleton.vue';
 import SkeletonProvider from '@/skeletons/SkeletonProvider.vue';
 import EventDetailsHeader from '@/components/events/EventDetailsHeader.vue';
@@ -282,9 +272,6 @@ const isTeamEvent = computed<boolean>(() => {
   return event.value?.details.format === EventFormat.Team;
 });
 
-const localIsCurrentUserOrganizer = computed<boolean>(() =>
-  event.value && currentUser.value ? isEventOrganizer(event.value, currentUser.value.uid) : false
-);
 
 const localIsCurrentUserParticipant = computed<boolean>(() => {
   if (!event.value || !currentUser.value) return false;
