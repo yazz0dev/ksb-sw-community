@@ -115,14 +115,14 @@ export const useAppStore = defineStore('studentApp', () => {
     forceProfileRefetch.value = false;
   }
 
-  async function tryQueueAction(action: { type: string; payload: any }): Promise<void> {
+  async function tryQueueAction(action: { type: string; payload: unknown }): Promise<void> {
     if (isOnline.value) {
       // If online, execute immediately
       const eventStore = useEventStore();
       const [storeName, actionName] = action.type.split('/');
       
       if (storeName === 'studentEvents') {
-        const storeAction = (eventStore as any)[actionName as keyof typeof eventStore];
+        const storeAction = (eventStore as Record<string, unknown>)[actionName as keyof typeof eventStore];
         if (typeof storeAction === 'function') {
           await storeAction(action.payload);
         } else {
@@ -163,7 +163,7 @@ export const useAppStore = defineStore('studentApp', () => {
         const [storeName, actionName] = action.type.split('/');
         
         if (storeName === 'studentEvents') {
-          const storeAction = (eventStore as any)[actionName as keyof typeof eventStore];
+          const storeAction = (eventStore as Record<string, unknown>)[actionName as keyof typeof eventStore];
           if (typeof storeAction === 'function') {
             await storeAction(action.payload);
           } else {
@@ -172,8 +172,9 @@ export const useAppStore = defineStore('studentApp', () => {
         } else {
           throw new Error(`Store name ${storeName} not supported for sync.`);
         }
-      } catch (err: any) {
-        action.error = err.message || "Unknown sync error";
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Unknown sync error";
+        action.error = errorMessage;
         offlineQueue.value.actions.push(action); // Re-queue failed action
         notificationStore.showNotification({ message: `Failed to sync action: ${action.type}. It has been re-queued.`, type: 'error' });
       }
