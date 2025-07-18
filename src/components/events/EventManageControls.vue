@@ -40,7 +40,6 @@
 </template>
 
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProfileStore } from '@/stores/profileStore';
@@ -51,16 +50,13 @@ import {
   isEventEditable,
 } from '@/utils/permissionHelpers';
 
-// Define props and emits
 const props = defineProps<{
   event: Event;
 }>();
 
-// Setup state
 const router = useRouter();
 const studentStore = useProfileStore();
 
-// --- User Role & Permissions ---
 const currentUserId = computed<string | null>(() => studentStore.currentStudent?.uid ?? null);
 
 const localIsOrganizer = computed(() => {
@@ -69,7 +65,6 @@ const localIsOrganizer = computed(() => {
 
 const statusBadgeClass = computed(() => getEventStatusBadgeClass(props.event?.status));
 
-// --- Button Visibility Logic ---
 const showAwardPointsButton = computed(() =>
   localIsOrganizer.value &&
   props.event?.status === EventStatus.Approved
@@ -80,12 +75,10 @@ const showEditButton = computed(() =>
   isEventEditable(props.event?.status)
 );
 
-// --- Section Visibility ---
 const showVotingClosingSection = computed(() =>
     showAwardPointsButton.value || showEditButton.value
 );
 
-// --- Actions ---
 const goToEditEvent = (): void => {
   if (props.event.details.format === EventFormat.MultiEvent) {
     router.push({ name: 'EditMultiEvent', params: { eventId: props.event.id } });

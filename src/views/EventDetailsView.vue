@@ -34,10 +34,10 @@
           <!-- Event Header -->
           <EventDetailsHeader
             :event="event"
-            :canJoin="canJoin"
-            :canLeave="canLeave"
-            :isJoining="isJoining"
-            :isLeaving="isLeaving"
+            :can-join="canJoin"
+            :can-leave="canLeave"
+            :is-joining="isJoining"
+            :is-leaving="isLeaving"
             :name-cache="nameCacheRecord"
             @join="handleJoin"
             @leave="showLeaveModal"
@@ -83,10 +83,10 @@
                       <TeamList
                         :teams="teams.slice(0, Math.ceil(teams.length / 2))"
                         :event-id="props.id"
-                        :votingOpen="event.votingOpen"
-                        :organizerNamesLoading="organizerNamesLoading"
-                        :currentUserUid="currentUserId"
-                        :getName="getUserNameFromCache"
+                        :voting-open="event.votingOpen"
+                        :organizer-names-loading="organizerNamesLoading"
+                        :current-user-uid="currentUserId"
+                        :get-name="getUserNameFromCache"
                         class="team-list-box p-0 animate-scale-in card-hover-lift"
                       />
                     </div>
@@ -94,10 +94,10 @@
                       <TeamList
                         :teams="teams.slice(Math.ceil(teams.length / 2))"
                         :event-id="props.id"
-                        :votingOpen="event.votingOpen"
-                        :organizerNamesLoading="organizerNamesLoading"
-                        :currentUserUid="currentUserId"
-                        :getName="getUserNameFromCache"
+                        :voting-open="event.votingOpen"
+                        :organizer-names-loading="organizerNamesLoading"
+                        :current-user-uid="currentUserId"
+                        :get-name="getUserNameFromCache"
                         class="team-list-box p-0 animate-scale-in card-hover-lift"
                         style="animation-delay: 0.1s;"
                       />
@@ -115,9 +115,9 @@
                       <EventParticipantList
                         :core-participants="allParticipantsForDisplay.length > 8 ? participantsFirstHalf : allParticipantsForDisplay"
                         :loading="loading"
-                        :currentUserId="currentUserId"
+                        :current-user-id="currentUserId"
                         :show-header="false"
-                        :getName="getUserNameFromCache"
+                        :get-name="getUserNameFromCache"
                         class="animate-scale-in card-hover-lift"
                       />
                     </div>
@@ -125,9 +125,9 @@
                       <EventParticipantList
                         :core-participants="participantsSecondHalf"
                         :loading="loading"
-                        :currentUserId="currentUserId"
+                        :current-user-id="currentUserId"
                         :show-header="false"
-                        :getName="getUserNameFromCache"
+                        :get-name="getUserNameFromCache"
                         class="animate-scale-in card-hover-lift"
                         style="animation-delay: 0.1s;"
                       />
@@ -145,8 +145,8 @@
                 <div v-for="(phase, index) in event.details.phases" :key="phase.id || index" class="mb-3">
                   <PhaseDisplayCard
                     :phase="phase"
-                    :phaseNumber="index + 1"
-                    :nameCache="nameCacheRecord"
+                    :phase-number="index + 1"
+                    :name-cache="nameCacheRecord"
                     :event-id="event.id"
                     :overall-event-status="event.status"
                   />
@@ -163,8 +163,8 @@
                   :event="event"
                   :teams="teams"
                   :loading="loading"
-                  :getUserName="getUserNameFromCache"
-                  :canSubmitProject="canSubmitProject"
+                  :get-user-name="getUserNameFromCache"
+                  :can-submit-project="canSubmitProject"
                   @submission-success="handleSubmissionSuccess"
                   class="mb-4"
                 />
@@ -172,7 +172,7 @@
                 <!-- Voting/Winner Selection Section  -->
                 <VotingCard
                   :event="event"
-                  :currentUser="currentUser"
+                  :current-user="currentUser"
                   :loading="loading"
                   class="mb-4"
                 />
@@ -210,6 +210,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEventStore } from '@/stores/eventStore';
+import { useRouter } from 'vue-router';
 
 // Component Imports
 import EventCriteriaDisplay from '@/components/events/EventCriteriaDisplay.vue';
@@ -249,6 +250,7 @@ const props = defineProps<Props>();
 
 const studentStore = useProfileStore();
 const eventStore = useEventStore();
+const router = useRouter();
 
 const loading = ref<boolean>(true);
 const event = ref<EventWithId | null>(null);
@@ -272,6 +274,9 @@ const isTeamEvent = computed<boolean>(() => {
   return event.value?.details.format === EventFormat.Team;
 });
 
+const localIsCurrentUserOrganizer = computed<boolean>(() =>
+  event.value && currentUser.value ? isEventOrganizer(event.value, currentUser.value.uid) : false
+);
 
 const localIsCurrentUserParticipant = computed<boolean>(() => {
   if (!event.value || !currentUser.value) return false;
@@ -513,9 +518,9 @@ defineExpose({ handleJoin, handleLeave });
 
 function goBack() {
   if (window.history.length > 1) {
-    window.history.back();
+    router.back();
   } else {
-    window.location.href = '/';
+    router.push('/');
   }
 }
 </script>

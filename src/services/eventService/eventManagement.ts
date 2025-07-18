@@ -28,7 +28,7 @@ import { type XPData, mapCalcRoleToFirestoreKey } from '@/types/xp';
 export async function updateEventStatusInFirestore(
     eventId: string,
     newStatus: EventStatus,
-    currentUser: UserData | null, 
+    currentUser: UserData,
     rejectionReason?: string
 ): Promise<Partial<Event>> {
     const validStatuses = Object.values(EventStatus);
@@ -77,10 +77,9 @@ export async function updateEventStatusInFirestore(
         }
 
         await updateDoc(eventRef, updatesToApply);
-        // Ensure returnedUpdates matches Partial<Event>
-        const { lastUpdatedAt, ...otherUpdates } = updatesToApply; // lastUpdatedAt is FieldValue, not in Partial<Event>
+        const { lastUpdatedAt, ...otherUpdates } = updatesToApply;
         const returnedUpdates: Partial<Event> = { ...otherUpdates };
-        if (updatesToApply.lifecycleTimestamps) { // Ensure lifecycleTimestamps is correctly typed or cast
+        if (updatesToApply.lifecycleTimestamps) {
             returnedUpdates.lifecycleTimestamps = updatesToApply.lifecycleTimestamps as Partial<EventLifecycleTimestamps>;
         }
         if (updatesToApply.rejectionReason) {
@@ -94,7 +93,7 @@ export async function updateEventStatusInFirestore(
         }
         return returnedUpdates; 
 
-    } catch (error: unknown) { // Changed from any
+    } catch (error: unknown) {
         const message = error instanceof Error ? error.message : `Failed to update event status to ${newStatus}.`;
         throw new Error(message);
     }
@@ -109,7 +108,7 @@ export async function updateEventStatusInFirestore(
 export const closeEventAndAwardXP = async (
   eventId: string,
   closingUser: EnrichedStudentData | UserData
-): Promise<{ success: boolean; message: string; xpAwarded?: Record<string, Partial<XPData>> }> => { // Typed xpAwarded
+): Promise<{ success: boolean; message: string; xpAwarded?: Record<string, Partial<XPData>> }> => {
   if (!eventId) throw new Error('Event ID is required.');
   if (!closingUser?.uid) throw new Error('Closing user and their UID are required.');
 
@@ -150,7 +149,6 @@ export const closeEventAndAwardXP = async (
     const xpAwards = calculateEventXP(eventData);
     const studentIdsWithXP = Object.keys(xpAwards);
 
-    // Convert EventXPAward[] to Record<string, XpFieldUpdates> for applyXpAwardsBatch
     const xpChangesMap: Record<string, XpFieldUpdates> = {};
     for (const award of xpAwards) {
       if (!xpChangesMap[award.userId]) {
@@ -167,25 +165,21 @@ export const closeEventAndAwardXP = async (
       }
     }
 
-    // Get the batch with all XP updates, but don't commit it yet.
     const batch = applyXpAwardsBatch(xpChangesMap, eventId, eventData.details.eventName);
 
-    // Add the event status update to the same batch.
     const updatePayload: Record<string, any> = {
       status: EventStatus.Closed,
       lastUpdatedAt: serverTimestamp(),
       lifecycleTimestamps: {
         ...(eventData.lifecycleTimestamps || {}),
         closedAt: serverTimestamp(),
-        closedBy: closingUser.uid // Added closedBy based on previous logic review
+        closedBy: closingUser.uid
       },
     };
     batch.update(eventRef, updatePayload);
 
-    // Atomically commit all XP awards and the event status update.
     await batch.commit();
 
-    // Aggregate xpAwards (EventXPAward[]) into Record<string, Partial<XPData>> for the return
     const aggregatedXpChanges: Record<string, Partial<XPData>> = {};
     for (const award of xpAwards) {
       if (!aggregatedXpChanges[award.userId]) {
@@ -223,9 +217,9 @@ export const closeEventAndAwardXP = async (
     const baseMessage = `Error during ${operationPhase} for closing event ${eventId} by user ${closingUser.uid}.`;
     const finalMessage = error instanceof Error ? `${baseMessage} Details: ${error.message}` : `${baseMessage} An unknown error occurred.`;
 
-    console.error(finalMessage, error); // Log the full error object for more details in console
+    console.error(finalMessage, error);
 
-    if (error instanceof Error && typeof (error as any).code === 'string') { // Check if it's a FirebaseError-like object
+    if (error instanceof Error && typeof (error as any).code === 'string') {
         throw new Error(`Failed to close event (${operationPhase}): ${error.message} (Code: ${(error as any).code})`);
     }
     throw new Error(`Failed to close event ${eventId} during ${operationPhase}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -260,7 +254,7 @@ export async function deleteEventRequestInFirestore(eventId: string, userId: str
 
         await deleteDoc(eventRef);
 
-    } catch (error: unknown) { // Changed from any
+    } catch (error: unknown) {
         const message = error instanceof Error ? error.message : `Failed to delete event request ${eventId}.`;
         throw new Error(message);
     }
